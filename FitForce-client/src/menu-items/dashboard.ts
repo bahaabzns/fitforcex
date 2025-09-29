@@ -1,0 +1,117 @@
+// assets
+import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add } from '@wandersonalwes/iconsax-react';
+
+// types
+import { NavItemType } from 'types/menu';
+
+const icons = {
+  home: Home,
+  clients: People,
+  finance: Money,
+  forms: Document,
+  nutrition: Apple,
+  workout: Bubble,
+  team: People,
+  settings: Setting2,
+  workspace: Global,
+  workspaces: Add
+};
+
+// Main domain menu (shows workspace management)
+const mainDomainMenu: NavItemType = {
+  id: 'group-dashboard',
+  title: 'Dashboard',
+  type: 'group',
+  icon: icons.home,
+  children: [
+    {
+      id: 'dashboard-root',
+      title: 'Overview',
+      type: 'item',
+      url: '/dashboard',
+      icon: icons.home
+    },
+    {
+      id: 'workspaces',
+      title: 'Workspaces',
+      type: 'item',
+      url: '/dashboard/workspaces',
+      icon: icons.workspaces
+    }
+  ]
+};
+
+// Workspace subdomain menu (shows workspace-specific features)
+const workspaceMenu: NavItemType = {
+  id: 'group-dashboard',
+  title: 'Dashboard',
+  type: 'group',
+  icon: icons.home,
+  children: [
+    {
+      id: 'dashboard-root',
+      title: 'Overview',
+      type: 'item',
+      url: '/dashboard',
+      icon: icons.home
+    },
+    {
+      id: 'clients',
+      title: 'Clients',
+      type: 'item',
+      url: '/dashboard/clients',
+      icon: icons.clients
+    },
+    {
+      id: 'finance',
+      title: 'Finance',
+      type: 'item',
+      url: '/dashboard/finance',
+      icon: icons.finance
+    },
+    {
+      id: 'forms',
+      title: 'Forms',
+      type: 'item',
+      url: '/dashboard/forms',
+      icon: icons.forms
+    },
+    {
+      id: 'nutrition',
+      title: 'Nutrition',
+      type: 'item',
+      url: '/dashboard/nutrition',
+      icon: icons.nutrition
+    },
+    {
+      id: 'workout',
+      title: 'Workouts',
+      type: 'item',
+      url: '/dashboard/workout',
+      icon: icons.workout
+    },
+    {
+      id: 'team',
+      title: 'Team',
+      type: 'item',
+      url: '/dashboard/team',
+      icon: icons.team
+    },
+    {
+      id: 'workspace',
+      title: 'Workspace',
+      type: 'item',
+      url: '/dashboard/workspace',
+      icon: icons.workspace
+    }
+  ]
+};
+
+// Function to get menu based on context
+export function getDashboardMenu(isWorkspaceSubdomain: boolean = false): NavItemType {
+  return isWorkspaceSubdomain ? workspaceMenu : mainDomainMenu;
+}
+
+// Default export for backward compatibility
+const dashboard = mainDomainMenu;
+export default dashboard;

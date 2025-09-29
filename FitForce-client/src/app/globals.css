@@ -1,0 +1,10 @@
+/* scroll bar */
+@import 'simplebar-react/dist/simplebar.min.css';
+
+.css-13ddxbb > * + * {
+  margin: 0 !important;
+}
+
+input[type='number']::-webkit-inner-spin-button {
+  margin-left: 5px;
+}
