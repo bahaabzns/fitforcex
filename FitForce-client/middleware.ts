@@ -4,7 +4,9 @@ import { APP_CONFIG } from './src/lib/config';
 
 export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
-  const host = req.headers.get('host') || '';
+  const hostname = nextUrl.hostname || '';
+  const headerHost = req.headers.get('host') || '';
+  const host = hostname || headerHost;
   const pathname = nextUrl.pathname;
   
   // Debug logging
@@ -42,6 +44,24 @@ export async function middleware(req: NextRequest) {
     : null;
     
   console.log(`🔍 Debug: host=${host}, parts=${JSON.stringify(parts)}, hasSubdomain=${hasSubdomain}, isMainDomain=${isMainDomain}, subdomain=${subdomain}`);
+
+  // Management subdomain handling (robust: match explicit subdomain or any host starting with `${admin}.`)
+  const isManagementHost =
+    (subdomain && subdomain.toLowerCase() === APP_CONFIG.managementSubdomain.toLowerCase()) ||
+    host.toLowerCase().startsWith(`${APP_CONFIG.managementSubdomain.toLowerCase()}.`);
+  if (isManagementHost) {
+    // Allow admin pages to pass through to avoid loops
+    if (pathname.startsWith('/admin')) {
+      const res = NextResponse.next();
+      res.headers.set('x-ff-domain-type', 'management');
+      return res;
+    }
+    // Force redirect to admin login for any other path
+    const url = new URL('/admin/login', req.url);
+    const res = NextResponse.redirect(url);
+    res.headers.set('x-ff-domain-type', 'management');
+    return res;
+  }
 
   if (isMainDomain) {
     if (pathname.startsWith('/landing/workspace')) {

@@ -1,5 +1,5 @@
 // assets
-import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add } from '@wandersonalwes/iconsax-react';
+import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add, TimerStart } from '@wandersonalwes/iconsax-react';
 
 // types
 import { NavItemType } from 'types/menu';
@@ -14,7 +14,8 @@ const icons = {
   team: People,
   settings: Setting2,
   workspace: Global,
-  workspaces: Add
+  workspaces: Add,
+  queue: TimerStart
 };
 
 // Main domain menu (shows workspace management)
@@ -77,6 +78,13 @@ const workspaceMenu: NavItemType = {
       icon: icons.forms
     },
     {
+      id: 'queue',
+      title: 'Queue',
+      type: 'item',
+      url: '/dashboard/queue',
+      icon: icons.queue
+    },
+    {
       id: 'nutrition',
       title: 'Nutrition',
       type: 'item',
@@ -103,6 +111,20 @@ const workspaceMenu: NavItemType = {
       type: 'item',
       url: '/dashboard/workspace',
       icon: icons.workspace
+    },
+    {
+      id: 'workspace-subscription',
+      title: 'Workspace Subscription',
+      type: 'item',
+      url: '/dashboard/workspaces/subscription',
+      icon: icons.finance
+    },
+    {
+      id: 'workspace-client-packages',
+      title: 'Client Packages',
+      type: 'item',
+      url: '/dashboard/workspaces/client-packages',
+      icon: icons.forms
     }
   ]
 };

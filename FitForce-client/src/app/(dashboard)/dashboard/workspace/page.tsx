@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setWorkspace } from '@/store/slices/workspaceSlice';
@@ -20,11 +20,21 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
 import InputAdornment from '@mui/material/InputAdornment';
+import Grid from '@mui/material/Grid';
+import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
 
 // project-imports
 import MainCard from 'components/MainCard';
 import FileUpload from 'components/FileUpload';
 import LandingPageEditor from 'components/LandingPageEditor';
+import TemplateBuilder from '@/components/TemplateBuilder';
 
 // Icons
 import { Settings, Warning2 } from '@wandersonalwes/iconsax-react';
@@ -72,6 +82,15 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+type PdfTemplate = {
+  id: string;
+  name: string;
+  kind: 'workout' | 'nutrition' | string;
+  schema: any;
+  previewUrl?: string | null;
+  updatedAt: string;
+};
+
 export default function WorkspacePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -92,6 +111,53 @@ export default function WorkspacePage() {
   // Loading states
   const [saving, setSaving] = useState(false);
   const [brandingLoading, setBrandingLoading] = useState(false);
+  // Templates state
+  const [tplKind, setTplKind] = useState<'workout' | 'nutrition'>('workout');
+  const [tplsLoading, setTplsLoading] = useState(false);
+  const [tplsError, setTplsError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<PdfTemplate[]>([]);
+  const [tplName, setTplName] = useState('');
+  const [builderSchema, setBuilderSchema] = useState<any | null>(null);
+  const [tplCreating, setTplCreating] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  // Schema vs Fixed-config toggle and config state
+  const [tplUseConfig, setTplUseConfig] = useState(true);
+  const [cfgOrientation, setCfgOrientation] = useState<'phone' | 'tablet'>('phone');
+  const [cfgCover, setCfgCover] = useState('');
+  const [cfgCycle, setCfgCycle] = useState('');
+  const [cfgCycles, setCfgCycles] = useState<string[]>([]);
+  const [cfgMealsBg, setCfgMealsBg] = useState('');
+  const [cfgExtraPages, setCfgExtraPages] = useState<Array<{ src: string; placement: 'top' | 'bottom' }>>([]);
+  const [cfgMealsMode, setCfgMealsMode] = useState<'one_per_page' | 'multi_per_page'>('multi_per_page');
+  const [cfgImageHalf, setCfgImageHalf] = useState(true);
+  const [cfgTableStyle, setCfgTableStyle] = useState<'simple' | 'zebra' | 'boxed' | 'compact' | 'striped_dark' | 'boxed_bold'>('simple');
+  const [cfgTableColor, setCfgTableColor] = useState<string>('#1976d2');
+  const [cfgItemsPerPage, setCfgItemsPerPage] = useState(12);
+
+  const canCreateTpl = useMemo(
+    () => tplName.trim().length > 0 && !!builderSchema && !tplCreating,
+    [tplName, builderSchema, tplCreating]
+  );
+
+  async function fetchTemplates(kindParam?: 'workout' | 'nutrition') {
+    if (!workspaceId) return;
+    setTplsLoading(true);
+    setTplsError(null);
+    try {
+      const res = await api.get('/api/templates', { params: { kind: kindParam || tplKind } });
+      setTemplates(res.data?.templates || []);
+    } catch (e: any) {
+      setTplsError(e?.message || 'Failed to load templates');
+    } finally {
+      setTplsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tplKind, workspaceId]);
+
 
   // Success/Error states
   const [brandingSuccess, setBrandingSuccess] = useState(false);
@@ -264,6 +330,7 @@ export default function WorkspacePage() {
             <Tab label="General" />
             <Tab label="Branding" />
             <Tab label="Landing Page" />
+            <Tab label="PDF Templates" />
           </Tabs>
         </Box>
 
@@ -377,17 +444,28 @@ export default function WorkspacePage() {
                     </Typography>
                   </Box>
                   
-                  <TextField
-                    fullWidth
-                    label="Primary Color"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    placeholder="#3B82F6"
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">#</InputAdornment>
-                    }}
-                    helperText="Enter a hex color code (e.g., #3B82F6)"
-                  />
+                  <Grid container spacing={2}>
+                    <Grid item xs={8} sm={9} md={10}>
+                      <TextField
+                        fullWidth
+                        label="Primary Color"
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        placeholder="#3B82F6"
+                        helperText="Enter a hex color code (e.g., #3B82F6)"
+                      />
+                    </Grid>
+                    <Grid item xs={4} sm={3} md={2}>
+                      <TextField
+                        fullWidth
+                        type="color"
+                        label="Pick"
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        inputProps={{ style: { padding: 0, height: 48 } }}
+                      />
+                    </Grid>
+                  </Grid>
                   
                   {/* Preview */}
                   {(workspace?.brandingLogoUrl || workspace?.brandingPrimaryHex) && (
@@ -452,6 +530,365 @@ export default function WorkspacePage() {
             </Box>
           )}
         </TabPanel>
+
+        {/* PDF Templates Tab */}
+        <TabPanel value={activeTab} index={3}>
+          <Stack spacing={3}>
+            <Card>
+              <CardHeader>
+                <Typography variant="h6" component="h2">
+                  Create Template
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Define a template schema for workout or nutrition PDFs
+                </Typography>
+              </CardHeader>
+              <CardContent>
+                <Stack spacing={2}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Name"
+                        value={tplName}
+                        onChange={(e) => setTplName(e.target.value)}
+                        placeholder="Workout Simple v1"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth>
+                        <InputLabel id="tpl-kind-label">Kind</InputLabel>
+                        <Select
+                          labelId="tpl-kind-label"
+                          value={tplKind}
+                          label="Kind"
+                          onChange={(e) => setTplKind(e.target.value as any)}
+                        >
+                          <MenuItem value="workout">workout</MenuItem>
+                          <MenuItem value="nutrition">nutrition</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      {tplUseConfig && (
+                        <Button
+                          variant="outlined"
+                          onClick={async () => {
+                            try {
+                              const backgrounds: any = {};
+                              if (cfgCover.trim()) backgrounds.cover = cfgCover.trim();
+                              if (tplKind === 'nutrition') {
+                                if (cfgCycles.length > 0) backgrounds.cycle = cfgCycles; else if (cfgCycle.trim()) backgrounds.cycle = cfgCycle.trim();
+                              }
+                              if (cfgMealsBg.trim()) backgrounds.meals = cfgMealsBg.trim();
+                              const res = await api.post('/api/templates/preview', {
+                                kind: tplKind,
+                                config: {
+                                  orientation: cfgOrientation,
+                                  backgrounds,
+                                  mealsLayout: {
+                                    mode: cfgMealsMode,
+                                    imageHalf: cfgImageHalf,
+                                    itemsPerPage: Math.max(1, Number(cfgItemsPerPage) || 1),
+                                    tableStyle: cfgTableStyle,
+                                    tableColor: cfgTableColor
+                                  }
+                                }
+                              });
+                              const url = res.data?.pdfUrl; if (url) window.open(url, '_blank');
+                            } catch (e) {}
+                          }}
+                        >
+                          Live Preview
+                        </Button>
+                      )}
+                    <Button
+                      variant="contained"
+                      disabled={tplUseConfig ? !(tplName.trim().length > 0) || tplCreating : !canCreateTpl}
+                      onClick={async () => {
+                        if (!tplName.trim()) return;
+                        setTplCreating(true);
+                        setTplsError(null);
+                        try {
+                          if (!tplUseConfig) {
+                            if (!builderSchema) return;
+                            await api.post('/api/templates', { name: tplName.trim(), kind: tplKind, schema: builderSchema });
+                          } else {
+                            const backgrounds: any = {};
+                            if (cfgCover.trim()) backgrounds.cover = cfgCover.trim();
+                            if (tplKind === 'nutrition') {
+                              if (cfgCycles.length > 0) backgrounds.cycle = cfgCycles;
+                              else if (cfgCycle.trim()) backgrounds.cycle = cfgCycle.trim();
+                            }
+                            if (cfgMealsBg.trim()) backgrounds.meals = cfgMealsBg.trim();
+                            if (cfgExtraPages.length > 0) backgrounds.extra = cfgExtraPages;
+                            await api.post('/api/templates', {
+                              name: tplName.trim(),
+                              kind: tplKind,
+                              config: {
+                                orientation: cfgOrientation,
+                                backgrounds,
+                                mealsLayout: {
+                                  mode: cfgMealsMode,
+                                  imageHalf: cfgImageHalf,
+                                  itemsPerPage: Math.max(1, Number(cfgItemsPerPage) || 1),
+                                  tableStyle: cfgTableStyle,
+                                  tableColor: cfgTableColor
+                                }
+                              }
+                            });
+                          }
+                          setTplName('');
+                          setBuilderSchema(null);
+                          setTplUseConfig(false);
+                          await fetchTemplates();
+                        } catch (e: any) {
+                          setTplsError(e?.message || 'Failed to create template');
+                        } finally {
+                          setTplCreating(false);
+                        }
+                      }}
+                    >
+                      {tplCreating ? 'Saving...' : 'Save Template'}
+                    </Button>
+                    {tplsError && <Typography color="error" variant="body2">{tplsError}</Typography>}
+                  </Stack>
+
+                  {tplUseConfig ? (
+                    <Stack spacing={2} sx={{ mt: 2 }}>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={4}>
+                          <FormControl fullWidth>
+                            <InputLabel id="cfg-orientation-label">Orientation</InputLabel>
+                            <Select labelId="cfg-orientation-label" label="Orientation" value={cfgOrientation} onChange={(e) => setCfgOrientation(e.target.value as any)}>
+                              <MenuItem value="phone">phone (A4 portrait)</MenuItem>
+                              <MenuItem value="tablet">tablet (A4 landscape)</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                          <TextField fullWidth type="number" label="Items per page" value={cfgItemsPerPage} onChange={(e) => setCfgItemsPerPage(Math.max(1, Number(e.target.value) || 1))} />
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                          <FormControl fullWidth>
+                            <InputLabel id="cfg-meals-mode-label">{tplKind === 'workout' ? 'Exercises mode' : 'Meals mode'}</InputLabel>
+                            <Select labelId="cfg-meals-mode-label" label={tplKind === 'workout' ? 'Exercises mode' : 'Meals mode'} value={cfgMealsMode} onChange={(e) => setCfgMealsMode(e.target.value as any)}>
+                              <MenuItem value="multi_per_page">multi_per_page</MenuItem>
+                              <MenuItem value="one_per_page">one_per_page</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                      </Grid>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 1 }} />
+                          <Stack spacing={1}>
+                            <Typography variant="subtitle2">Extra background pages</Typography>
+                            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                              <Button variant="outlined" size="small" onClick={() => { if (cfgExtraPages.length < 10) setCfgExtraPages((arr) => [...arr, { src: '', placement: 'bottom' }]); }}>Add Extra Page</Button>
+                              {cfgExtraPages.map((p, idx) => (
+                                <Stack key={idx} direction="row" spacing={1} alignItems="center">
+                                  <Chip label={`Page ${idx + 1}`} />
+                                  <FileUpload
+                                    workspaceId={workspace?.id || ''}
+                                    uploadType="landing"
+                                    maxSize={5}
+                                    onUploadComplete={(url) => setCfgExtraPages((arr) => arr.map((it, i) => i === idx ? { ...it, src: url } : it))}
+                                  />
+                                  <FormControl size="small">
+                                    <Select value={p.placement} onChange={(e) => setCfgExtraPages((arr) => arr.map((it, i) => i === idx ? { ...it, placement: e.target.value as 'top' | 'bottom' } : it))}>
+                                      <MenuItem value="top">top</MenuItem>
+                                      <MenuItem value="bottom">bottom</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                  <Button size="small" onClick={() => idx>0 && setCfgExtraPages((arr) => { const copy=[...arr]; const t=copy[idx-1]; copy[idx-1]=copy[idx]; copy[idx]=t; return copy; })} disabled={idx===0}>↑</Button>
+                                  <Button size="small" onClick={() => idx<cfgExtraPages.length-1 && setCfgExtraPages((arr) => { const copy=[...arr]; const t=copy[idx+1]; copy[idx+1]=copy[idx]; copy[idx]=t; return copy; })} disabled={idx===cfgExtraPages.length-1}>↓</Button>
+                                  <Button size="small" color="error" onClick={() => setCfgExtraPages((arr) => arr.filter((_, i) => i !== idx))}>✕</Button>
+                                </Stack>
+                              ))}
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary">Upload one or more images; each will become a full extra page.</Typography>
+                          </Stack>
+                        </Grid>
+                      </Grid>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={4}>
+                          <Stack spacing={1}>
+                            <Typography variant="subtitle2">Cover background</Typography>
+                            <FileUpload
+                              workspaceId={workspace?.id || ''}
+                              uploadType="landing"
+                              maxSize={5}
+                              onUploadComplete={(url) => setCfgCover(url)}
+                            />
+                            {cfgCover && <Typography variant="caption" color="text.secondary">Uploaded</Typography>}
+                          </Stack>
+                        </Grid>
+                        {tplKind === 'nutrition' && (
+                          <Grid item xs={12} md={4}>
+                            <Stack spacing={1}>
+                              <Typography variant="subtitle2">Cycle background(s)</Typography>
+                              <FileUpload
+                                workspaceId={workspace?.id || ''}
+                                uploadType="landing"
+                                maxSize={5}
+                                onUploadComplete={(url) => setCfgCycles((arr) => [...arr, url])}
+                              />
+                              <Stack direction="row" spacing={1} flexWrap="wrap">
+                                {cfgCycles.map((u, i) => (
+                                  <Chip key={i} label={`Cycle ${i + 1}`} onDelete={() => setCfgCycles((arr) => arr.filter((_, idx) => idx !== i))} />
+                                ))}
+                              </Stack>
+                              {!cfgCycles.length && (
+                                <>
+                                  <Typography variant="caption" color="text.secondary">Or upload a single cycle background</Typography>
+                                  <FileUpload
+                                    workspaceId={workspace?.id || ''}
+                                    uploadType="landing"
+                                    maxSize={5}
+                                    onUploadComplete={(url) => setCfgCycle(url)}
+                                  />
+                                  {cfgCycle && <Typography variant="caption" color="text.secondary">Single cycle uploaded</Typography>}
+                                </>
+                              )}
+                            </Stack>
+                          </Grid>
+                        )}
+                        <Grid item xs={12} md={4}>
+                          <Stack spacing={1}>
+                            <Typography variant="subtitle2">{tplKind === 'workout' ? 'Exercises background' : 'Meals background'}</Typography>
+                            <FileUpload
+                              workspaceId={workspace?.id || ''}
+                              uploadType="landing"
+                              maxSize={5}
+                              onUploadComplete={(url) => setCfgMealsBg(url)}
+                            />
+                            {cfgMealsBg && <Typography variant="caption" color="text.secondary">Uploaded</Typography>}
+                          </Stack>
+                        </Grid>
+                      </Grid>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                          <Typography variant="subtitle2" sx={{ mb: 1 }}>Table style</Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            {(['simple','zebra','boxed','compact','striped_dark','boxed_bold'] as const).map((style) => (
+                              <Box key={style}
+                                onClick={() => setCfgTableStyle(style)}
+                                sx={{
+                                  width: 120,
+                                  borderRadius: 1,
+                                  border: '2px solid',
+                                  borderColor: cfgTableStyle === style ? 'primary.main' : 'divider',
+                                  cursor: 'pointer',
+                                  overflow: 'hidden',
+                                  mr: 1,
+                                  mb: 1,
+                                  bgcolor: 'background.paper'
+                                }}
+                                title={style}
+                              >
+                                <Box sx={{ height: 16, bgcolor: style==='boxed_bold' ? 'grey.400' : style==='boxed' ? 'grey.300' : 'grey.200' }} />
+                                <Box sx={{ p: 1 }}>
+                                  {[0,1,2].map((i) => (
+                                    <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '64px 24px 24px', gap: 0.5, alignItems: 'center',
+                                      bgcolor: (style==='zebra' || style==='striped_dark') && i%2===0 ? (style==='striped_dark' ? 'grey.200' : 'grey.100') : 'transparent',
+                                      borderBottom: (style==='boxed' || style==='boxed_bold') ? '1px solid #e5e7eb' : 'none' }}>
+                                      <Box sx={{ height: 8, bgcolor: 'grey.300', borderRadius: 0.5 }} />
+                                      <Box sx={{ height: 8, bgcolor: 'grey.300', borderRadius: 0.5 }} />
+                                      <Box sx={{ height: 8, bgcolor: 'grey.300', borderRadius: 0.5 }} />
+                                    </Box>
+                                  ))}
+                                </Box>
+                                <Box sx={{ px: 1, pb: 1 }}>
+                                  <Typography variant="caption" color="text.secondary">{style}</Typography>
+                                </Box>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Grid>
+                        {tplKind === 'workout' && (
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth type="color" label="Table color" value={cfgTableColor} onChange={(e) => setCfgTableColor(e.target.value)} helperText="Header background color (workout only)" />
+                          </Grid>
+                        )}
+                        {cfgMealsMode === 'one_per_page' && (
+                          <Grid item xs={12} md={6}>
+                            <FormControl fullWidth>
+                              <InputLabel id="cfg-image-half-label">Image half height</InputLabel>
+                              <Select labelId="cfg-image-half-label" label="Image half height" value={cfgImageHalf ? 'true' : 'false'} onChange={(e) => setCfgImageHalf(e.target.value === 'true')}>
+                                <MenuItem value="true">true (50%)</MenuItem>
+                                <MenuItem value="false">false (35%)</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Stack>
+                  ) : null}
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                  <Typography variant="h6" component="h2">Templates</Typography>
+                  <Button variant="outlined" onClick={() => fetchTemplates()}>{tplsLoading ? 'Loading...' : 'Refresh'}</Button>
+                </Stack>
+              </CardHeader>
+              <CardContent>
+                <Grid container spacing={2}>
+                  {templates.map((t) => (
+                    <Grid key={t.id} item xs={12} md={6}>
+                      <Card variant="outlined">
+                        <CardHeader
+                          title={<Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="subtitle1" sx={{ mr: 1 }}>{t.name}</Typography>
+                            <Chip size="small" label={t.kind} variant="outlined" />
+                          </Stack>}
+                          subheader={<Typography variant="caption" color="text.secondary">Updated {new Date(t.updatedAt).toLocaleString()}</Typography>}
+                        />
+                        <CardContent>
+                          <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                            <Button size="small" variant="outlined" onClick={async () => {
+                              try {
+                                const res = await api.get(`/api/templates/${t.id}/preview`);
+                                const url = res.data?.pdfUrl;
+                                if (url) window.open(url, '_blank');
+                              } catch {}
+                            }}>Preview PDF</Button>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                  {templates.length === 0 && !tplsLoading && (
+                    <Grid item xs={12}>
+                      <Alert severity="info">No templates for this kind yet.</Alert>
+                    </Grid>
+                  )}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Stack>
+        </TabPanel>
+        <Dialog fullScreen open={builderOpen} onClose={() => setBuilderOpen(false)}>
+          <DialogContent sx={{ p: 2 }}>
+            <TemplateBuilder
+              open={builderOpen}
+              onClose={() => setBuilderOpen(false)}
+              value={builderSchema}
+              workspaceId={workspace?.id}
+              kind={tplKind}
+              onSave={(schema) => {
+                setBuilderSchema(schema);
+                setBuilderOpen(false);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </MainCard>
     </Box>
   );

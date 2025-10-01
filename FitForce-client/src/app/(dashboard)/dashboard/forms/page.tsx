@@ -26,6 +26,7 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import { openSnackbar } from '@/api/snackbar';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
@@ -37,6 +38,7 @@ import { Trash } from '@wandersonalwes/iconsax-react';
 type FormTemplate = {
   id: string;
   title: string;
+  type?: 'nutrition' | 'workout' | string;
   questions: Array<{ id?: string; label: string; type: string; required?: boolean }>;
   createdAt?: string;
 };
@@ -58,12 +60,19 @@ export default function FormsPage() {
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [viewTemplate, setViewTemplate] = useState<FormTemplate | null>(null);
+  // Separate selection for assignment so selecting in the assign UI does not open the view dialog
+  const [assignTemplateId, setAssignTemplateId] = useState<string>('');
+  const [assignClientId, setAssignClientId] = useState<string>('');
+  const [assigning, setAssigning] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState<string>('');
+  const [clients, setClients] = useState<Array<{ id: string; fullName: string; email?: string }>>([]);
   const [defaultQuestions, setDefaultQuestions] = useState<
     Array<{ id: string; label: string; type: string; required?: boolean; options?: string[] }>
   >([]);
 
   // Create form
   const [showCreate, setShowCreate] = useState(false);
+  const [formType, setFormType] = useState<'nutrition' | 'workout'>('nutrition');
   const [title, setTitle] = useState('');
   const [newQuestions, setNewQuestions] = useState<
     Array<{ id: string; label: string; type: string; required?: boolean; options?: string[] }>
@@ -112,6 +121,17 @@ export default function FormsPage() {
     fetchTemplates();
   }, [effectiveWorkspaceId]);
 
+  // Load clients for dropdown
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const res = await api.get('/api/clients');
+        setClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
+      } catch {}
+    };
+    fetchClients();
+  }, [effectiveWorkspaceId]);
+
   const createTemplate = async () => {
     console.log('createTemplate called - workspaceId:', workspaceId);
     console.log('createTemplate called - effectiveWorkspaceId:', effectiveWorkspaceId);
@@ -126,11 +146,12 @@ export default function FormsPage() {
     setError(null);
     try {
       const questions = newQuestions.map(({ id, label, type, required, options }) => ({ id, question: label, type, required, options }));
-      console.log('createTemplate - sending request with:', { title: title.trim(), questions });
-      await api.post('/api/forms/templates', { title: title.trim(), questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
+      console.log('createTemplate - sending request with:', { title: title.trim(), type: formType, questions });
+      await api.post('/api/forms/templates', { title: title.trim(), type: formType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       console.log('createTemplate - request successful');
       setShowCreate(false);
       setTitle('');
+      setFormType('nutrition');
       setNewQuestions([]);
       setCustomType('text');
       setCustomLabel('');
@@ -190,6 +211,13 @@ export default function FormsPage() {
         <DialogContent dividers>
           <Stack spacing={3}>
             <TextField fullWidth label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <FormControl fullWidth>
+              <InputLabel id="form-type-label">Type</InputLabel>
+              <Select labelId="form-type-label" label="Type" value={formType} onChange={(e) => setFormType(e.target.value as any)}>
+                <MenuItem value="nutrition">nutrition</MenuItem>
+                <MenuItem value="workout">workout</MenuItem>
+              </Select>
+            </FormControl>
 
             {/* Fixed (default) questions list */}
             {defaultQuestions.length > 0 && (
@@ -349,7 +377,7 @@ export default function FormsPage() {
           {templates.map((t) => (
             <Grid key={t.id} size={{ xs: 12, md: 6, lg: 4 }}>
               <Card sx={{ height: '100%' }}>
-                <CardHeader title={t.title} subheader={t.createdAt ? new Date(t.createdAt).toLocaleString() : undefined} />
+                <CardHeader title={t.title} subheader={[t.type ? `Type: ${t.type}` : null, t.createdAt ? new Date(t.createdAt).toLocaleString() : null].filter(Boolean).join(' • ')} />
                 <CardContent>
                   <Typography variant="body2" color="text.secondary">
                     Questions: {Array.isArray(t.questions) ? t.questions.length : 0}
@@ -402,6 +430,74 @@ export default function FormsPage() {
           <Button onClick={() => setViewTemplate(null)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Simple send-to-client UI */}
+      <Card>
+        <CardHeader title="Send Form to Client" />
+        <CardContent>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'flex-end' }}>
+            <FormControl fullWidth>
+              <InputLabel id="send-form-label">Template</InputLabel>
+              <Select labelId="send-form-label" label="Template" value={assignTemplateId} onChange={(e) => setAssignTemplateId(String(e.target.value))}>
+                {templates.map((t) => (
+                  <MenuItem key={t.id} value={t.id}>{t.title}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="send-form-client-label">Client</InputLabel>
+              <Select labelId="send-form-client-label" label="Client" value={assignClientId} onChange={(e) => setAssignClientId(String(e.target.value))}>
+                {clients.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>{c.fullName}{c.email ? ` • ${c.email}` : ''}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Schedule at (optional)"
+              type="datetime-local"
+              value={scheduleAt}
+              onChange={(e) => setScheduleAt(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              helperText="If set in the future, the form will be pending until this time"
+            />
+            <Button variant="contained" disabled={!assignTemplateId || !assignClientId || assigning} onClick={async () => {
+              if (!assignTemplateId || !assignClientId) return;
+              setAssigning(true);
+              try {
+                const payload: any = { formId: assignTemplateId, clientId: assignClientId };
+                if (scheduleAt && !Number.isNaN(new Date(scheduleAt).getTime())) payload.scheduleAt = new Date(scheduleAt).toISOString();
+                await api.post('/api/forms/send', payload);
+                openSnackbar({ open: true, message: scheduleAt ? 'Form scheduled' : 'Form sent to client', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+                setAssignClientId('');
+                setAssignTemplateId('');
+                setScheduleAt('');
+              } catch (e) {
+                openSnackbar({ open: true, message: 'Failed to send form', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+              } finally {
+                setAssigning(false);
+              }
+            }}>{assigning ? 'Sending…' : 'Send'}</Button>
+
+            <Button variant="outlined" disabled={!assignTemplateId || !assignClientId || assigning} onClick={async () => {
+              if (!assignTemplateId || !assignClientId) return;
+              setAssigning(true);
+              try {
+                // Explicit immediate todo (ignore scheduleAt)
+                await api.post('/api/forms/send', { formId: assignTemplateId, clientId: assignClientId });
+                openSnackbar({ open: true, message: 'Form sent as To do', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+                setAssignClientId('');
+                setAssignTemplateId('');
+                setScheduleAt('');
+              } catch (e) {
+                openSnackbar({ open: true, message: 'Failed to send form', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+              } finally {
+                setAssigning(false);
+              }
+            }}>Send as To do</Button>
+          </Stack>
+        </CardContent>
+      </Card>
     </Box>
   );
 }

@@ -34,6 +34,13 @@ export default function HomePage() {
           return;
         }
 
+        // If management subdomain → do nothing here (middleware rewrites to /admin/login)
+        const sub = isLocalhost ? (host.includes('localhost:3000') && parts.length >= 2 ? parts[0] : null) : parts.length > 2 ? parts[0] : null;
+        if (sub && sub.toLowerCase() === APP_CONFIG.managementSubdomain.toLowerCase()) {
+          setChecked(true);
+          return;
+        }
+
         // If subdomain → resolve workspace
         if (hasSubdomain) {
           // Try cookie first (set by middleware), then resolve API

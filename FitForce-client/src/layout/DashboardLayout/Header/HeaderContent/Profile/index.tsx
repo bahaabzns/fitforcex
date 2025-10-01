@@ -166,9 +166,9 @@ export default function ProfilePage() {
                           <Avatar alt="profile user" src={avatar1} />
                           <Stack>
                             <Typography variant="subtitle1">{user ? user?.name : ''}</Typography>
-                            <Typography variant="body2" color="secondary">
-                              UI/UX Designer
-                            </Typography>
+                            {user?.role ? (
+                              <Typography variant="body2" color="secondary">{user.role}</Typography>
+                            ) : null}
                           </Stack>
                         </Stack>
                       </Grid>

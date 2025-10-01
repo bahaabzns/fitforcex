@@ -1,0 +1,409 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Alert,
+  Card,
+  CardContent,
+  Grid,
+  Chip,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+} from '@mui/material';
+import CancelIcon from '@mui/icons-material/Cancel';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import PaymentIcon from '@mui/icons-material/Payment';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import PendingIcon from '@mui/icons-material/Pending';
+import { PaymentModal } from './PaymentModal';
+import api from '@/utils/axios';
+import { PaymentIframe } from './PaymentIframe';
+
+interface SubscriptionData {
+  id: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+  package: {
+    id: string;
+    name: string;
+    description?: string;
+    durationMonths: number;
+    priceCents: number;
+    currency: string;
+    features?: any;
+  };
+  payments: Array<{
+    id: string;
+    amountCents: number;
+    currency: string;
+    status: string;
+    providerRef?: string;
+    createdAt: string;
+  }>;
+}
+
+interface SubscriptionManagerProps {
+  workspaceId: string;
+  type: 'workspace' | 'client';
+  clientId?: string;
+}
+
+export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
+  workspaceId,
+  type,
+  clientId,
+}) => {
+  const getPersistedWorkspaceId = () => {
+    try {
+      if (typeof window === 'undefined') return '';
+      const raw = localStorage.getItem('workspace');
+      if (!raw) return '';
+      const parsed = JSON.parse(raw);
+      return parsed?.id || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const effectiveWorkspaceId = workspaceId || getPersistedWorkspaceId();
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<any>(null);
+  const [paymentIframeData, setPaymentIframeData] = useState<any>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+
+  useEffect(() => {
+    fetchSubscription();
+    fetchPackages();
+  }, [workspaceId, type, clientId]);
+
+  const fetchSubscription = async () => {
+    try {
+      const endpoint = type === 'workspace'
+        ? `/api/workspaces/${effectiveWorkspaceId}/subscription`
+        : `/api/clients/${workspaceId}/subscriptions${clientId ? `?clientId=${clientId}` : ''}`;
+      const { data } = await api.get(endpoint);
+
+      if (type === 'workspace') {
+        setSubscription(data.subscription || null);
+      } else {
+        const activeSubscription = data.subscriptions?.find((sub: any) => sub.status === 'active');
+        setSubscription(activeSubscription || null);
+      }
+    } catch (err: any) {
+      // Treat 404/402 as no subscription instead of hard error
+      const status = err?.response?.status;
+      if (status === 404 || status === 402) {
+        setSubscription(null);
+        return;
+      }
+      setError('Failed to fetch subscription');
+    }
+  };
+
+  const fetchPackages = async () => {
+    try {
+      const endpoint = type === 'workspace'
+        ? '/api/admin/workspace-packages'
+        : `/api/workspaces/${effectiveWorkspaceId}/client-packages`;
+      const { data } = await api.get(endpoint);
+      setPackages(data.packages || []);
+    } catch (err) {
+      setError('Failed to fetch packages');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubscribe = (packageData: any) => {
+    setSelectedPackage(packageData);
+    setPaymentModalOpen(true);
+  };
+
+  const handlePaymentSuccess = (paymentData: any) => {
+    setPaymentModalOpen(false);
+    setPaymentIframeData(paymentData);
+  };
+
+  const handlePaymentComplete = (result: any) => {
+    setPaymentIframeData(null);
+    fetchSubscription(); // Refresh subscription data
+  };
+
+  const handlePaymentError = (error: string) => {
+    setPaymentIframeData(null);
+    setError(error);
+  };
+
+  const handlePaymentCancel = () => {
+    setPaymentIframeData(null);
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!subscription) return;
+
+    try {
+      const endpoint = type === 'workspace'
+        ? `/api/workspaces/${effectiveWorkspaceId}/subscription/cancel`
+        : `/api/clients/${effectiveWorkspaceId}/subscriptions/${subscription.id}/cancel`;
+      await api.post(endpoint, {});
+      setCancelDialogOpen(false);
+      fetchSubscription(); // Refresh subscription data
+    } catch (err) {
+      setError('Failed to cancel subscription');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'success';
+      case 'expired':
+        return 'error';
+      case 'cancelled':
+        return 'warning';
+      case 'pending':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <CheckCircleIcon />;
+      case 'expired':
+        return <ErrorIcon />;
+      case 'cancelled':
+        return <CancelIcon />;
+      case 'pending':
+        return <PendingIcon />;
+      default:
+        return null;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatPrice = (cents: number, currency: string) => {
+    return `${(cents / 100).toFixed(2)} ${currency}`;
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {subscription ? (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h5">
+                Current Subscription
+              </Typography>
+              <Chip
+                icon={getStatusIcon(subscription.status)}
+                label={subscription.status.toUpperCase()}
+                color={getStatusColor(subscription.status) as any}
+                variant="outlined"
+              />
+            </Box>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom>
+                  {subscription.package?.name || 'Current Package'}
+                </Typography>
+                {!!subscription.package?.description && (
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {subscription.package.description}
+                  </Typography>
+                )}
+                {!!subscription.package && (
+                  <Typography variant="h6" color="primary">
+                    {formatPrice(subscription.package.priceCents, subscription.package.currency)}
+                  </Typography>
+                )}
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <List dense>
+                  <ListItem>
+                    <ListItemText
+                      primary="Start Date"
+                      secondary={formatDate(subscription.startDate)}
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText
+                      primary="End Date"
+                      secondary={formatDate(subscription.endDate)}
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText
+                      primary="Auto Renew"
+                      secondary={subscription.autoRenew ? 'Yes' : 'No'}
+                    />
+                  </ListItem>
+                </List>
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="h6" gutterBottom>
+              Payment History
+            </Typography>
+            <List>
+              {(subscription.payments || []).map((payment) => (
+                <ListItem key={payment.id}>
+                  <ListItemText
+                    primary={formatPrice(payment.amountCents, payment.currency)}
+                    secondary={`${formatDate(payment.createdAt)} - ${payment.status}`}
+                  />
+                  <ListItemSecondaryAction>
+                    <Chip
+                      label={payment.status}
+                      color={payment.status === 'succeeded' ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+
+            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={fetchSubscription}
+              >
+                Refresh
+              </Button>
+              {subscription.status === 'active' && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<CancelIcon />}
+                  onClick={() => setCancelDialogOpen(true)}
+                >
+                  Cancel Subscription
+                </Button>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      ) : (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          No active subscription found. Choose a package below to get started.
+        </Alert>
+      )}
+
+      <Typography variant="h5" gutterBottom>
+        Available Packages
+      </Typography>
+
+      <Grid container spacing={3}>
+        {packages.map((packageData) => (
+          <Grid item xs={12} md={6} lg={4} key={packageData.id}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  {packageData.name}
+                </Typography>
+                <Typography variant="h4" color="primary" gutterBottom>
+                  {formatPrice(packageData.priceCents, packageData.currency)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {packageData.durationMonths} month{packageData.durationMonths > 1 ? 's' : ''}
+                </Typography>
+                {packageData.description && (
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    {packageData.description}
+                  </Typography>
+                )}
+              </CardContent>
+              <Box sx={{ p: 2, pt: 0 }}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<PaymentIcon />}
+                  onClick={() => handleSubscribe(packageData)}
+                  disabled={!packageData.isActive}
+                >
+                  Subscribe
+                </Button>
+              </Box>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      <PaymentModal
+        open={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        onSuccess={handlePaymentSuccess}
+        packageData={selectedPackage}
+        type={type}
+        workspaceId={effectiveWorkspaceId}
+        clientId={clientId}
+      />
+
+      {paymentIframeData && (
+        <PaymentIframe
+          iframeUrl={paymentIframeData.iframeUrl}
+          onSuccess={handlePaymentComplete}
+          onError={handlePaymentError}
+          onCancel={handlePaymentCancel}
+          amount={paymentIframeData.amount}
+          currency={paymentIframeData.currency}
+        />
+      )}
+
+      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)}>
+        <DialogTitle>Cancel Subscription</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to cancel your subscription? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)}>Keep Subscription</Button>
+          <Button onClick={handleCancelSubscription} color="error" variant="contained">
+            Cancel Subscription
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};

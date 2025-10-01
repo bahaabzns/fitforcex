@@ -202,5 +202,19 @@
   "view": "View",
   "virtualized": "Virtualized",
   "widgets": "Widgets",
-  "more-items": "More Items"
+  "more-items": "More Items",
+  
+  "Dashboard": "Dashboard",
+  "Overview": "Overview",
+  "Clients": "Clients",
+  "Finance": "Finance",
+  "Forms": "Forms",
+  "Nutrition": "Nutrition",
+  "Workouts": "Workouts",
+  "Team": "Team",
+  "Workspace": "Workspace",
+  "Client": "Client",
+  "Plans": "Plans",
+  "Subscription": "Subscription",
+  "Support": "Support"
 }

@@ -25,6 +25,7 @@ import Box from '@mui/material/Box';
 // project-imports
 import AnimateButton from 'components/@extended/AnimateButton';
 import IconButton from 'components/@extended/IconButton';
+import Notification from 'layout/DashboardLayout/Header/HeaderContent/Notification';
 import { handlerComponentDrawer, useGetMenuMaster } from 'api/menu';
 import Logo from 'components/logo';
 import { ThemeDirection } from 'config';
@@ -111,6 +112,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                 '& .header-link': { fontWeight: 500, '&:hover': { color: 'primary.main' } }
               }}
             >
+              <Notification />
               <Links
                 className="header-link"
                 sx={(theme) => ({ ml: theme.direction === ThemeDirection.RTL ? 3 : 0 })}

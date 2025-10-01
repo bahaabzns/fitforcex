@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // material-ui
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -26,6 +26,7 @@ import SimpleBar from 'components/third-party/SimpleBar';
 
 // assets
 import { Gift, MessageText1, Notification, Setting2 } from '@wandersonalwes/iconsax-react';
+import api from 'utils/axios';
 
 const actionSX = {
   mt: '6px',
@@ -42,7 +43,8 @@ export default function NotificationPage() {
   const downMD = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
   const anchorRef = useRef<any>(null);
-  const [read] = useState(2);
+  const [unread, setUnread] = useState(0);
+  const [items, setItems] = useState<Array<{ id: string; title: string; message: string; createdAt: string; type: string }>>([]);
   const [open, setOpen] = useState(false);
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
@@ -53,6 +55,44 @@ export default function NotificationPage() {
       return;
     }
     setOpen(false);
+  };
+
+  // Fetcher
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get('/api/notifications/my');
+      setItems(res.data.notifications || []);
+      setUnread(res.data.unread || 0);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      (async () => {
+        try { await fetchNotifications(); } catch {}
+      })();
+    }
+  }, [open]);
+
+  // Lightweight polling every 30s
+  useEffect(() => {
+    const id = setInterval(() => { fetchNotifications(); }, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const markAllRead = async () => {
+    try {
+      await api.post('/api/notifications/mark-all-read');
+      setUnread(0);
+      setItems((prev) => prev.map((it) => ({ ...it, readAt: new Date().toISOString() } as any)));
+    } catch {}
   };
 
   return (
@@ -73,7 +113,7 @@ export default function NotificationPage() {
           ...theme.applyStyles('dark', { bgcolor: open ? 'background.paper' : 'background.default' })
         })}
       >
-        <Badge badgeContent={read} color="success" slotProps={{ badge: { sx: { top: 2, right: 4 } } }}>
+        <Badge badgeContent={unread} color="success" slotProps={{ badge: { sx: { top: 2, right: 4 } } }}>
           <Notification variant="Bold" />
         </Badge>
       </IconButton>
@@ -94,7 +134,7 @@ export default function NotificationPage() {
                   <CardContent>
                     <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="h5">Notifications</Typography>
-                      <Link href="#" variant="h6" color="primary">
+                      <Link component="button" onClick={markAllRead} variant="h6" color="primary">
                         Mark all read
                       </Link>
                     </Stack>
@@ -112,111 +152,20 @@ export default function NotificationPage() {
                           }
                         })}
                       >
-                        <ListItem
-                          component={ListItemButton}
-                          secondaryAction={
+                        {items.map((n) => (
+                          <ListItem key={n.id} component={ListItemButton} secondaryAction={
                             <Typography variant="caption" noWrap>
-                              3:00 AM
+                              {new Date(n.createdAt).toLocaleString()}
                             </Typography>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar type="filled">
-                              <Gift size={20} variant="Bold" />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="h6">
-                                It&apos;s{' '}
-                                <Typography component="span" variant="subtitle1">
-                                  Cristina danny&apos;s
-                                </Typography>{' '}
-                                birthday today.
-                              </Typography>
-                            }
-                            secondary="2 min ago"
-                          />
-                        </ListItem>
-
-                        <ListItem
-                          component={ListItemButton}
-                          secondaryAction={
-                            <Typography variant="caption" noWrap>
-                              6:00 PM
-                            </Typography>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar type="outlined">
-                              <MessageText1 size={20} variant="Bold" />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="h6">
-                                <Typography component="span" variant="subtitle1">
-                                  Aida Burg
-                                </Typography>{' '}
-                                commented your post.
-                              </Typography>
-                            }
-                            secondary="5 August"
-                          />
-                        </ListItem>
-
-                        <ListItem
-                          component={ListItemButton}
-                          secondaryAction={
-                            <Typography variant="caption" noWrap>
-                              2:45 PM
-                            </Typography>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar>
-                              <Setting2 size={20} variant="Bold" />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="h6">
-                                Your Profile is Complete &nbsp;
-                                <Typography component="span" variant="subtitle1">
-                                  60%
-                                </Typography>{' '}
-                              </Typography>
-                            }
-                            secondary="7 hours ago"
-                          />
-                        </ListItem>
-
-                        <ListItem
-                          component={ListItemButton}
-                          secondaryAction={
-                            <Typography variant="caption" noWrap>
-                              9:10 PM
-                            </Typography>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar type="combined">C</Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="h6">
-                                <Typography component="span" variant="subtitle1">
-                                  Cristina Danny
-                                </Typography>{' '}
-                                invited to join{' '}
-                                <Typography component="span" variant="subtitle1">
-                                  Meeting.
-                                </Typography>
-                              </Typography>
-                            }
-                            secondary="Daily scrum meeting time"
-                          />
-                        </ListItem>
+                          }>
+                            <ListItemAvatar>
+                              <Avatar type={n.type.includes('form') ? 'outlined' : 'filled'}>
+                                {n.type.includes('form') ? <MessageText1 size={20} variant="Bold" /> : <Gift size={20} variant="Bold" />}
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText primary={<Typography variant="h6">{n.title}</Typography>} secondary={n.message} />
+                          </ListItem>
+                        ))}
                       </List>
                     </SimpleBar>
                     <Stack direction="row" sx={{ justifyContent: 'center', mt: 1.5 }}>

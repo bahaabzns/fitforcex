@@ -21,9 +21,15 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const workspace = getPersisted<PersistedWorkspace>('workspace');
+    // Prefer explicit workspaceId from URL query (e.g., subscription pages)
+    const urlParams = new URLSearchParams(window.location.search || '');
+    const urlWorkspaceId = urlParams.get('workspaceId');
     if (workspace?.id) {
       config.headers = config.headers || {};
       (config.headers as Record<string, string>)['x-workspace-id'] = workspace.id;
+    } else if (urlWorkspaceId) {
+      config.headers = config.headers || {};
+      (config.headers as Record<string, string>)['x-workspace-id'] = urlWorkspaceId;
     }
   }
   return config;

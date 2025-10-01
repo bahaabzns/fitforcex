@@ -55,6 +55,7 @@ interface Plan {
   title: string;
   createdBy?: string;
   createdAt?: string;
+  status?: string;
 }
 
 interface Cycle {
@@ -88,12 +89,12 @@ export default function ClientNutritionPage() {
   const [planQuery, setPlanQuery] = useState('');
   const [loadingPlans, setLoadingPlans] = useState(false);
   
-  // State for cycles
+  // State for cycles (in-memory)
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [currentCycleIndex, setCurrentCycleIndex] = useState<number>(0);
   
-  // State for meals (nested under cycles)
+  // State for meals (in-memory, keyed by cycle)
   const [meals, setMeals] = useState<Meal[]>([]);
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   
@@ -158,7 +159,7 @@ export default function ClientNutritionPage() {
     loadPlans();
   }, [clientId]);
 
-  // Load cycles when plan is selected
+  // Load cycles when plan is selected (initial seed from API)
   useEffect(() => {
     if (!selectedPlanId) {
       setCycles([]);
@@ -191,7 +192,7 @@ export default function ClientNutritionPage() {
     loadCycles();
   }, [selectedPlanId, clientId]);
 
-  // Load meals when cycle is selected
+  // Load meals when cycle is selected (initial seed from API)
   useEffect(() => {
     if (!selectedCycleId) {
       setMeals([]);
@@ -221,111 +222,56 @@ export default function ClientNutritionPage() {
 
   const handleCreatePlan = async () => {
     if (!newPlanTitle.trim()) return;
-    
-    try {
-      setSaving(true);
-      const response = await api.post(`/api/clients/${clientId}/nutrition/plans`, {
-        title: newPlanTitle
-      });
-      
-      setPlans(prev => [...prev, response.data.plan]);
-      setNewPlanTitle('');
-      setIsCreatePlanDialogOpen(false);
-      setIsPlanDirty(true);
-      
-      openSnackbar({
-        open: true,
-        message: 'Nutrition plan created successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
-    } catch (err: any) {
-      openSnackbar({
-        open: true,
-        message: 'Failed to create nutrition plan',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-    } finally {
-      setSaving(false);
-    }
+    // In-memory create plan (draft)
+    const tempId = `tmp-${Date.now()}`;
+    const draftPlan: Plan = { id: tempId, title: newPlanTitle };
+    setPlans((prev) => [...prev, draftPlan]);
+    setSelectedPlanId(tempId);
+    // Create initial cycle for the new plan
+    const firstCycleId = `tmpc-${Date.now()}`;
+    const firstCycle: Cycle = { id: firstCycleId, title: 'Cycle 1', label: 'Cycle 1', dayIndex: 1 };
+    setCycles([firstCycle]);
+    setSelectedCycleId(firstCycleId);
+    setCurrentCycleIndex(0);
+    setMeals([]);
+    setNewPlanTitle('');
+    setIsCreatePlanDialogOpen(false);
+    setIsPlanDirty(true);
   };
 
 
-  const handleCreateMeal = async () => {
+  const handleCreateMeal = () => {
     if (!newMealTitle.trim() || !selectedCycleId) return;
-    
-    try {
-      setSaving(true);
-      const response = await api.post(`/api/clients/${clientId}/nutrition/cycles/${selectedCycleId}/meals`, {
-        title: newMealTitle
-      });
-      
-      // Reload meals to get updated data
-      const mealsResponse = await api.get(`/api/clients/${clientId}/nutrition/cycles/${selectedCycleId}/meals`);
-      setMeals(mealsResponse.data.meals || []);
-      
-      setNewMealTitle('');
-      setIsCreateMealDialogOpen(false);
-      setIsPlanDirty(true);
-      
-      openSnackbar({
-        open: true,
-        message: 'Meal created successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
-    } catch (err: any) {
-      openSnackbar({
-        open: true,
-        message: 'Failed to create meal',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-    } finally {
-      setSaving(false);
-    }
+    const tempId = `tmpm-${Date.now()}`;
+    const newMeal: Meal = { id: tempId, dayId: selectedCycleId, meal: newMealTitle, foodItems: [] };
+    setMeals((prev) => [...prev, newMeal]);
+    setSelectedMealId(tempId);
+    setNewMealTitle('');
+    setIsCreateMealDialogOpen(false);
+    setIsPlanDirty(true);
   };
 
-  const handleAddFoodToMeal = async () => {
+  const handleAddFoodToMeal = () => {
     if (!selectedFoodItems.length || !selectedMealId) return;
-    
-    try {
-      setSaving(true);
-      
-      // Add each selected food item
-      for (const foodItemId of selectedFoodItems) {
-        const food = workspaceFood.find(f => f.id === foodItemId);
-      await api.post(`/api/clients/${clientId}/nutrition/meals/${selectedMealId}/food-items`, {
-          foodItemId: foodItemId,
-          quantity: food?.servingSize || 100
-      });
-      }
-      
-      // Reload meals to get updated data
-      const response = await api.get(`/api/clients/${clientId}/nutrition/cycles/${selectedCycleId}/meals`);
-      setMeals(response.data.meals || []);
-      
-      setSelectedFoodItems([]);
-      setIsAddFoodDialogOpen(false);
-      setIsPlanDirty(true);
-      
-      openSnackbar({
-        open: true,
-        message: 'Food items added to meal successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
-    } catch (err: any) {
-      openSnackbar({
-        open: true,
-        message: 'Failed to add food items to meal',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-    } finally {
-      setSaving(false);
-    }
+    const baseMeal = meals.find((m) => m.id === selectedMealId);
+    if (!baseMeal) return;
+    const added: MealFoodItem[] = selectedFoodItems
+      .map((foodItemId) => {
+        const food = workspaceFood.find((f) => f.id === foodItemId);
+        if (!food) return null;
+        return {
+          id: `tmpfi-${baseMeal.id}-${foodItemId}-${Date.now()}`,
+          mealId: baseMeal.id,
+          foodItemId,
+          quantity: food.servingSize || 100,
+          foodItem: food
+        } as MealFoodItem;
+      })
+      .filter(Boolean) as MealFoodItem[];
+    setMeals((prev) => prev.map((m) => (m.id === baseMeal.id ? { ...m, foodItems: [...(m.foodItems || []), ...added] } : m)));
+    setSelectedFoodItems([]);
+    setIsAddFoodDialogOpen(false);
+    setIsPlanDirty(true);
   };
 
   const showSection2 = !!selectedPlanId;
@@ -336,8 +282,66 @@ export default function ClientNutritionPage() {
     
     try {
       setSaving(true);
-      // Here we would save the plan and activate it
-      // For now, just mark as not dirty
+      // Persist plan, cycles, meals, and food items
+      // 1) Ensure plan exists on server
+      let serverPlanId = selectedPlanId;
+      if (selectedPlanId.startsWith('tmp-')) {
+        const planTitle = plans.find((p) => p.id === selectedPlanId)?.title || 'Untitled';
+        const createPlanRes = await api.post(`/api/clients/${clientId}/nutrition/plans`, { title: planTitle });
+        serverPlanId = createPlanRes.data.plan.id;
+        // replace temp id
+        setPlans((prev) => prev.map((p) => (p.id === selectedPlanId ? { ...p, id: serverPlanId } : p)));
+      }
+
+      // 2) Sync cycles
+      const currentCycles = cycles;
+      const createdCycleIdMap: Record<string, string> = {};
+      for (const c of currentCycles) {
+        let serverCycleId = c.id;
+        if (c.id.startsWith('tmpc-')) {
+          const res = await api.post(`/api/clients/${clientId}/nutrition/plans/${serverPlanId}/cycles`, {
+            title: c.title,
+            label: c.label,
+            dayIndex: c.dayIndex
+          });
+          serverCycleId = res.data.cycle.id;
+          createdCycleIdMap[c.id] = serverCycleId;
+        }
+      }
+
+      // 3) Sync meals
+      const currentMeals = meals;
+      const createdMealIdMap: Record<string, string> = {};
+      for (const m of currentMeals) {
+        const effectiveCycleId = createdCycleIdMap[m.dayId] || m.dayId;
+        let serverMealId = m.id;
+        if (m.id.startsWith('tmpm-')) {
+          const res = await api.post(`/api/clients/${clientId}/nutrition/cycles/${effectiveCycleId}/meals`, {
+            title: m.meal
+          });
+          serverMealId = res.data.meal.id;
+          createdMealIdMap[m.id] = serverMealId;
+        }
+      }
+
+      // 4) Sync food items for each meal
+      for (const m of currentMeals) {
+        const effectiveMealId = createdMealIdMap[m.id] || m.id;
+        for (const item of m.foodItems || []) {
+          if (item.id.startsWith('tmpfi-')) {
+            await api.post(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}/food-items`, {
+              foodItemId: item.foodItemId,
+              quantity: item.quantity
+            });
+          } else {
+            // existing item: update quantity if needed
+            await api.put(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}/food-items/${item.id}`, {
+              quantity: item.quantity
+            });
+          }
+        }
+      }
+
       setIsPlanDirty(false);
       
       openSnackbar({
@@ -385,33 +389,32 @@ export default function ClientNutritionPage() {
   
   const handleCopyCycle = async () => {
     if (!selectedCycleId) return;
-    
-    try {
-      setSaving(true);
-      const response = await api.post(`/api/clients/${clientId}/nutrition/cycles/${selectedCycleId}/copy`, {
-        title: `Copy of ${currentCycle?.label}`
-      });
-      
-      // Reload cycles
-      const cyclesResponse = await api.get(`/api/clients/${clientId}/nutrition/plans/${selectedPlanId}/cycles`);
-      setCycles(cyclesResponse.data.cycles || []);
-      
-      openSnackbar({
-        open: true,
-        message: 'Cycle copied successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
-    } catch (err: any) {
-      openSnackbar({
-        open: true,
-        message: 'Failed to copy cycle',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
-    } finally {
-      setSaving(false);
-    }
+    const base = cycles[currentCycleIndex];
+    if (!base) return;
+    const newId = `tmpc-${Date.now()}`;
+    const copy: Cycle = {
+      id: newId,
+      title: `${base.title} (Copy)`,
+      label: `${base.label} (Copy)`,
+      dayIndex: cycles.length + 1
+    };
+    setCycles((prev) => [...prev, copy]);
+    setCurrentCycleIndex(cycles.length);
+    setSelectedCycleId(newId);
+    setIsPlanDirty(true);
+  };
+
+  const handleDeleteCycle = () => {
+    if (cycles.length <= 1 || !selectedCycleId) return; // cannot delete last cycle
+    const newCycles = cycles.filter((c, idx) => idx !== currentCycleIndex);
+    setCycles(newCycles.map((c, i) => ({ ...c, dayIndex: i + 1 })));
+    const newIndex = Math.max(0, currentCycleIndex - 1);
+    setCurrentCycleIndex(newIndex);
+    setSelectedCycleId(newCycles[newIndex]?.id || null);
+    // Remove meals belonging to deleted cycle
+    setMeals((prev) => prev.filter((m) => m.dayId !== cycles[currentCycleIndex].id));
+    setSelectedMealId(null);
+    setIsPlanDirty(true);
   };
 
   return (
@@ -455,27 +458,46 @@ export default function ClientNutritionPage() {
                 <CircularProgress />
               </Box>
             ) : (
-              <List>
-                {filteredPlans.map((plan) => (
-                  <ListItem
-                    key={plan.id}
-                    button
-                    selected={selectedPlanId === plan.id}
-                    onClick={() => {
-                      setSelectedPlanId(plan.id);
-                      setSelectedCycleId(null);
-                      setSelectedMealId(null);
-                      setCycles([]);
-                      setMeals([]);
-                    }}
-                  >
-                    <ListItemText
-                      primary={plan.title}
-                      secondary={plan.createdBy ? `Created by ${plan.createdBy}` : undefined}
-                    />
-                  </ListItem>
-                ))}
-              </List>
+              <Grid container spacing={2} direction="column">
+                {filteredPlans.map((plan) => {
+                  const isSelected = selectedPlanId === plan.id;
+                  const createdDate = plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : undefined;
+                  return (
+                    <Grid item xs={12} key={plan.id}>
+                      <Card
+                        onClick={() => {
+                          setSelectedPlanId(plan.id);
+                          setSelectedCycleId(null);
+                          setSelectedMealId(null);
+                          setCycles([]);
+                          setMeals([]);
+                        }}
+                        sx={{
+                          cursor: 'pointer',
+                          border: isSelected ? 2 : 1,
+                          borderColor: isSelected ? 'primary.main' : 'divider',
+                          bgcolor: isSelected ? 'primary.lighter' : 'background.paper'
+                        }}
+                      >
+                        <CardHeader
+                          title={plan.title}
+                          subheader={createdDate ? `Created ${createdDate}` : undefined}
+                        />
+                        <CardContent>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                            {plan.status && (
+                              <Chip size="small" label={plan.status} variant="outlined" />
+                            )}
+                            {plan.createdBy && (
+                              <Chip size="small" label={`By ${plan.createdBy}`} variant="light" />
+                            )}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
             )}
           </CardContent>
         </Card>
@@ -500,7 +522,7 @@ export default function ClientNutritionPage() {
                         {currentCycleIndex + 1} of {cycles.length}
                       </Typography>
                       <IconButton
-                  size="small"
+                        size="small"
                         onClick={handleNextCycle}
                         disabled={!canGoNext}
                       >
@@ -523,6 +545,16 @@ export default function ClientNutritionPage() {
                       Copy
                     </Button>
                   )}
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<Trash size={16} />}
+                    onClick={handleDeleteCycle}
+                    disabled={saving || cycles.length <= 1}
+                  >
+                    Delete Cycle
+                  </Button>
                 <Button
                   variant="contained"
                   size="small"
@@ -550,33 +582,42 @@ export default function ClientNutritionPage() {
                     <Typography variant="body2">Day {currentCycle.dayIndex}</Typography>
                   </Box>
                   
-                  {/* Meals under current cycle */}
-              <List>
-                {meals.map((meal) => (
-                  <ListItem
-                    key={meal.id}
-                    button
-                    selected={selectedMealId === meal.id}
-                    onClick={() => setSelectedMealId(meal.id)}
+                  {/* Meals under current cycle stacked vertically */}
+                  <Grid container spacing={2} direction="column">
+                    {meals.filter((m) => m.dayId === currentCycle.id).map((meal) => (
+                      <Grid item xs={12} key={meal.id}>
+                        <Card
+                          sx={{
+                            border: selectedMealId === meal.id ? 2 : 1,
+                            borderColor: selectedMealId === meal.id ? 'secondary.main' : 'divider',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setSelectedMealId(meal.id)}
+                        >
+                          <CardHeader title={meal.meal} />
+                          <CardContent>
+                            <Typography variant="body2" color="text.secondary">
+                              {meal.foodItems?.length || 0} food item(s)
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))}
+                    <Grid item xs={12}>
+                      <Card
                         sx={{
-                          borderRadius: 1,
-                          mb: 0.5,
-                          '&.Mui-selected': {
-                            backgroundColor: 'secondary.main',
-                            color: 'secondary.contrastText',
-                            '&:hover': {
-                              backgroundColor: 'secondary.dark'
-                            }
-                          }
+                          border: '1px dashed',
+                          borderColor: 'divider',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
                         }}
-                  >
-                    <ListItemText
-                          primary={meal.meal}
-                          secondary={`${meal.servings} serving(s)`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
+                        onClick={() => setIsCreateMealDialogOpen(true)}
+                      >
+                        <Button startIcon={<Add size={16} />}>Add Meal</Button>
+                      </Card>
+                    </Grid>
+                  </Grid>
                 </Box>
               ) : (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -616,173 +657,54 @@ export default function ClientNutritionPage() {
                         <Typography variant="subtitle2">
                           {meals.find(m => m.id === selectedMealId)?.foodItems.length} food item(s)
                         </Typography>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            const currentMeal = meals.find(m => m.id === selectedMealId);
-                            if (currentMeal) {
-                              const quantities: {[key: string]: number} = {};
-                              currentMeal.foodItems.forEach(item => {
-                                quantities[item.id] = item.quantity;
-                              });
-                              setEditingQuantities(quantities);
-                              setIsEditingQuantities(true);
-                            }
-                          }}
-                        >
-                          Edit Quantities
-                        </Button>
                       </Box>
                 <List>
                         {meals.find(m => m.id === selectedMealId)?.foodItems.map((item) => (
                           <ListItem key={item.id}>
                       <ListItemText
                         primary={item.foodItem.name}
-                              secondary={
-                                isEditingQuantities ? (
-                                  <TextField
-                                    size="small"
-                                    type="number"
-                                    value={editingQuantities[item.id] || item.quantity}
-                                    onChange={(e) => {
-                                      setEditingQuantities(prev => ({
-                                        ...prev,
-                                        [item.id]: Number(e.target.value)
-                                      }));
-                                    }}
-                                    sx={{ width: 100, mt: 1 }}
-                                  />
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              cursor: 'pointer', 
-                              textDecoration: 'underline',
-                              color: 'primary.main',
-                              '&:hover': { color: 'primary.dark' }
-                            }}
-                            onClick={() => {
-                              setEditingQuantities(prev => ({
-                                ...prev,
-                                [item.id]: item.quantity
-                              }));
-                              setIsEditingQuantities(true);
-                            }}
-                          >
-                            {item.quantity}{item.foodItem.unit}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            - {Math.round((item.foodItem.calories * item.quantity) / item.foodItem.servingSize)} cal
-                          </Typography>
-                        </Box>
-                      )
-                              }
+                              secondary={(() => {
+                                const quantity = editingQuantities[item.id] ?? item.quantity;
+                                const factor = quantity / (item.foodItem.servingSize || 100);
+                                const calories = Math.round(item.foodItem.calories * factor);
+                                const protein = Math.round(item.foodItem.protein * factor);
+                                const carbs = Math.round(item.foodItem.carbs * factor);
+                                const fat = Math.round(item.foodItem.fat * factor);
+                                return (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {calories} cal • {protein}g P • {carbs}g C • {fat}g F
+                                    </Typography>
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      value={editingQuantities[item.id] ?? item.quantity}
+                                      onChange={(e) => {
+                                        const val = Number(e.target.value);
+                                        setEditingQuantities(prev => ({ ...prev, [item.id]: val }));
+                                        // Update live in-memory state on change
+                                        setMeals((prev) => prev.map((m) => m.id !== (selectedMealId as string) ? m : {
+                                          ...m,
+                                          foodItems: m.foodItems.map((fi) => fi.id === item.id ? { ...fi, quantity: val } : fi)
+                                        }));
+                                        setIsPlanDirty(true);
+                                      }}
+                                      sx={{ width: 110 }}
+                                      InputProps={{ endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
+                                    />
+                                  </Box>
+                                );
+                              })()}
                       />
                       <ListItemSecondaryAction>
-                              {isEditingQuantities ? (
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  onClick={async () => {
-                                    try {
-                                      setSaving(true);
-                                      await api.put(`/api/clients/${clientId}/nutrition/meals/${selectedMealId}/food-items/${item.id}`, {
-                                        quantity: editingQuantities[item.id] || item.quantity
-                                      });
-                                      
-                                      // Reload meals
-                                      const response = await api.get(`/api/clients/${clientId}/nutrition/cycles/${selectedCycleId}/meals`);
-                                      setMeals(response.data.meals || []);
-                                      
-                                      openSnackbar({
-                                        open: true,
-                                        message: 'Quantity updated successfully',
-                                        variant: 'alert',
-                                        alert: { color: 'success' }
-                                      });
-                                    } catch (error) {
-                                      openSnackbar({
-                                        open: true,
-                                        message: 'Failed to update quantity',
-                                        variant: 'alert',
-                                        alert: { color: 'error' }
-                                      });
-                                    } finally {
-                                      setSaving(false);
-                                    }
-                                  }}
-                                  disabled={saving}
-                                >
-                                  Save
-                                </Button>
-                              ) : (
                         <IconButton size="small" color="error">
                           <Trash size={16} />
                         </IconButton>
-                              )}
                       </ListItemSecondaryAction>
                     </ListItem>
                   ))}
                 </List>
-                      {isEditingQuantities && (
-                        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                          <Button
-                            variant="contained"
-                            onClick={async () => {
-                              try {
-                                setSaving(true);
-                                const currentMeal = meals.find(m => m.id === selectedMealId);
-                                if (currentMeal) {
-                                  for (const item of currentMeal.foodItems) {
-                                    if (editingQuantities[item.id] !== undefined && editingQuantities[item.id] !== item.quantity) {
-                                      await api.put(`/api/clients/${clientId}/nutrition/meals/${selectedMealId}/food-items/${item.id}`, {
-                                        quantity: editingQuantities[item.id]
-                                      });
-                                    }
-                                  }
-                                  
-                                  // Reload meals
-                                  const response = await api.get(`/api/clients/${clientId}/nutrition/cycles/${selectedCycleId}/meals`);
-                                  setMeals(response.data.meals || []);
-                                  
-                                  setIsEditingQuantities(false);
-                                  setEditingQuantities({});
-                                  
-                                  openSnackbar({
-                                    open: true,
-                                    message: 'All quantities updated successfully',
-                                    variant: 'alert',
-                                    alert: { color: 'success' }
-                                  });
-                                }
-                              } catch (error) {
-                                openSnackbar({
-                                  open: true,
-                                  message: 'Failed to update quantities',
-                                  variant: 'alert',
-                                  alert: { color: 'error' }
-                                });
-                              } finally {
-                                setSaving(false);
-                              }
-                            }}
-                            disabled={saving}
-                          >
-                            {saving ? <CircularProgress size={20} /> : 'Save All'}
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            onClick={() => {
-                              setIsEditingQuantities(false);
-                              setEditingQuantities({});
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </Box>
-                      )}
+                      {/* Inline editing saves in-memory on change; no bulk actions needed */}
                     </Box>
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 4 }}>

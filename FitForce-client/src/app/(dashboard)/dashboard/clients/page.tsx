@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, Fragment, MouseEvent } from 'react';
+import Link from 'next/link';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
 
@@ -30,6 +31,10 @@ import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 
 // Third-party
 import { LabelKeyObject } from 'react-csv/lib/core';
@@ -98,6 +103,10 @@ export default function ClientsPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [inviting, setInviting] = useState(false);
+
+  // View dialog
+  const [viewOpen, setViewOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   useEffect(() => {
     if (!workspaceId) {
@@ -208,15 +217,20 @@ export default function ClientsPage() {
       {
         header: 'Client Name',
         accessorKey: 'name',
-        cell: ({ row, getValue }) => (
-          <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
-            <Avatar alt="Avatar" size="sm" src={`/assets/images/users/avatar-1.png`} />
-            <Stack>
-              <Typography variant="subtitle1">{(getValue() as string) || row.original.fullName || 'Unnamed'}</Typography>
-              <Typography sx={{ color: 'text.secondary' }}>{row.original.email || 'No email'}</Typography>
+        cell: ({ row, getValue }) => {
+          const name = (getValue() as string) || row.original.fullName || 'Unnamed';
+          return (
+            <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
+              <Avatar alt="Avatar" size="sm" src={`/assets/images/users/avatar-1.png`} />
+              <Stack>
+                <Link href={`/dashboard/clients/${row.original.id}/overview`} style={{ textDecoration: 'none' }}>
+                  <Typography variant="subtitle1" sx={{ cursor: 'pointer' }}>{name}</Typography>
+                </Link>
+                <Typography sx={{ color: 'text.secondary' }}>{row.original.email || 'No email'}</Typography>
+              </Stack>
             </Stack>
-          </Stack>
-        )
+          );
+        }
       },
       {
         header: 'Contact',
@@ -244,19 +258,18 @@ export default function ClientsPage() {
         meta: { align: 'center' },
         disableSortBy: true,
         cell: ({ row }) => {
-          const collapseIcon =
-            row.getCanExpand() && row.getIsExpanded() ? (
-              <Box component="span" sx={{ color: 'error.main' }}>
-                <Add style={{ transform: 'rotate(45deg)' }} />
-              </Box>
-            ) : (
-              <Eye />
-            );
           return (
             <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'center' }}>
               <Tooltip title="View">
-                <IconButton color="secondary" onClick={row.getToggleExpandedHandler()}>
-                  {collapseIcon}
+                <IconButton
+                  color="secondary"
+                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    setSelectedClient(row.original);
+                    setViewOpen(true);
+                  }}
+                >
+                  <Eye />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Edit">
@@ -559,6 +572,46 @@ export default function ClientsPage() {
       ) : (
         renderCardsView()
       )}
+
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Client Details</DialogTitle>
+        <DialogContent dividers>
+          {selectedClient ? (
+            <Stack spacing={2}>
+              <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
+                <Avatar alt="Avatar" size="sm" src={`/assets/images/users/avatar-1.png`} />
+                <Stack>
+                  <Typography variant="h6">{selectedClient.fullName || selectedClient.name || 'Unnamed'}</Typography>
+                  {selectedClient.email && (
+                    <Typography sx={{ color: 'text.secondary' }}>{selectedClient.email}</Typography>
+                  )}
+                  {selectedClient.phone && (
+                    <Typography sx={{ color: 'text.secondary' }}>{selectedClient.phone}</Typography>
+                  )}
+                </Stack>
+              </Stack>
+              <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>Status:</Typography>
+                <Chip size="small" color={getStatusColor(selectedClient.status || null) as any} label={getStatusLabel(selectedClient.status || null)} variant="light" />
+              </Stack>
+              <Stack>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>Created</Typography>
+                <Typography>{selectedClient.createdAt ? new Date(selectedClient.createdAt).toLocaleString() : 'Unknown'}</Typography>
+              </Stack>
+            </Stack>
+          ) : (
+            <Typography color="text.secondary">No client selected</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {selectedClient && (
+            <Button variant="contained" component={Link} href={`/dashboard/clients/${selectedClient.id}/overview`} onClick={() => setViewOpen(false)}>
+              Go to Overview
+            </Button>
+          )}
+          <Button onClick={() => setViewOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

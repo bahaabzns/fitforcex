@@ -194,6 +194,22 @@ export default function LandingPageEditor({
         <Stack direction="row" spacing={2}>
           <Button
             variant="outlined"
+            size="small"
+            startIcon={<Add size={16} />}
+            onClick={addFeature}
+          >
+            Add Feature
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Add size={16} />}
+            onClick={addTestimonial}
+          >
+            Add Testimonial
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={<Eye size={20} />}
             onClick={() => setShowPreview(!showPreview)}
           >
@@ -302,6 +318,12 @@ export default function LandingPageEditor({
               </CardHeader>
               <CardContent>
                 <Stack spacing={2}>
+                  {config.features && config.features.length === 0 && (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                      <Typography color="text.secondary" sx={{ mb: 1 }}>No features yet</Typography>
+                      <Button variant="outlined" startIcon={<Add size={16} />} onClick={addFeature}>Add your first feature</Button>
+                    </Box>
+                  )}
                   {config.features?.map((feature, index) => (
                     <Card key={index} variant="outlined">
                       <CardContent>
@@ -357,6 +379,12 @@ export default function LandingPageEditor({
               </CardHeader>
               <CardContent>
                 <Stack spacing={2}>
+                  {config.testimonials && config.testimonials.length === 0 && (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                      <Typography color="text.secondary" sx={{ mb: 1 }}>No testimonials yet</Typography>
+                      <Button variant="outlined" startIcon={<Add size={16} />} onClick={addTestimonial}>Add your first testimonial</Button>
+                    </Box>
+                  )}
                   {config.testimonials?.map((testimonial, index) => (
                     <Card key={index} variant="outlined">
                       <CardContent>

@@ -135,6 +135,10 @@ export default function ClientWorkoutPage() {
   const [saving, setSaving] = useState(false);
   const [planQuery, setPlanQuery] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfTemplates, setPdfTemplates] = useState<Array<{ id: string; name: string }>>([]);
+  const [pdfTemplateId, setPdfTemplateId] = useState<string>('');
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // Load workspace exercises
   useEffect(() => {
@@ -261,14 +265,12 @@ export default function ClientWorkoutPage() {
     try {
       setSaving(true);
       
-      // Create the workout plan with days and exercises
-      const planData = {
-        title: localWorkoutPlan.title,
+      const daysPayload = {
         cycleLengthDays: localWorkoutPlan.days.length,
-        days: localWorkoutPlan.days.map(day => ({
-          dayIndex: localWorkoutPlan.days.findIndex(d => d.id === day.id) + 1,
+        days: localWorkoutPlan.days.map((day, idx) => ({
+          dayIndex: idx + 1,
           label: day.title,
-          items: day.exercises.map(exercise => ({
+          items: day.exercises.map((exercise) => ({
             exerciseId: exercise.exercise.id,
             sets: exercise.sets,
             reps: exercise.reps,
@@ -276,31 +278,55 @@ export default function ClientWorkoutPage() {
           }))
         }))
       };
-      
-      const response = await api.post(`/api/clients/${clientId}/workout/plans`, planData);
-      
-      if (response.data.plan?.id) {
-        // Add the new plan to saved plans list
-        const newSavedPlan = {
-          id: response.data.plan.id,
-          title: response.data.plan.title,
-          createdAt: response.data.plan.createdAt
-        };
-        
-        setSavedPlans(prev => [newSavedPlan, ...prev]);
-        
-        // Reset local state
-        setLocalWorkoutPlan(null);
-        setSelectedPlanId(null);
+
+      const isNewLocal = localWorkoutPlan.id.startsWith('local_');
+
+      if (isNewLocal) {
+        // Create new plan first, then upsert days to that plan
+        const createRes = await api.post(`/api/clients/${clientId}/workout/plans`, {
+          title: localWorkoutPlan.title,
+          cycleLengthDays: daysPayload.cycleLengthDays,
+          days: daysPayload.days
+        });
+        const newPlanId = createRes.data?.plan?.id;
+        if (newPlanId) {
+          // reflect in saved plans
+          setSavedPlans((prev) => [
+            {
+              id: newPlanId,
+              title: createRes.data.plan.title,
+              createdAt: createRes.data.plan.createdAt,
+              days: createRes.data.plan.days || []
+            },
+            ...prev
+          ]);
+          // clear local state
+          setLocalWorkoutPlan(null);
+          setSelectedPlanId(null);
+          setIsPlanDirty(false);
+          setSelectedDayIndex(0);
+          openSnackbar({
+            open: true,
+            message: 'Workout plan created successfully!',
+            variant: 'alert',
+            alert: { color: 'success' }
+          });
+        }
+      } else {
+        // Update existing plan days instead of creating a new plan
+        await api.put(`/api/workout/plans/${localWorkoutPlan.id}/days`, daysPayload);
+        // Refresh the saved plans list to reflect updates
+        try {
+          const refreshed = await api.get(`/api/clients/${clientId}/workout/plans`);
+          setSavedPlans(refreshed.data.plans || []);
+        } catch {}
         setIsPlanDirty(false);
-        setSelectedDayIndex(0);
-      
-      openSnackbar({
-        open: true,
-          message: 'Workout plan saved successfully!',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
+        openSnackbar({
+          open: true,
+          message: 'Workout plan updated successfully!',
+          variant: 'alert',
+          alert: { color: 'success' }
+        });
       }
     } catch (err: any) {
       console.error('Failed to save workout plan:', err);
@@ -321,6 +347,30 @@ export default function ClientWorkoutPage() {
     setSelectedPlanId(null);
     setIsPlanDirty(false);
     setSelectedDayIndex(0);
+  };
+
+  const openPdfDialog = async () => {
+    try {
+      const res = await api.get('/api/templates', { params: { kind: 'workout' } });
+      setPdfTemplates((res.data?.templates || []).map((t: any) => ({ id: t.id, name: t.name })));
+      setPdfTemplateId('');
+      setPdfDialogOpen(true);
+    } catch {}
+  };
+
+  const generatePdf = async () => {
+    if (!selectedPlanId || !pdfTemplateId) return;
+    setGeneratingPdf(true);
+    try {
+      const res = await api.post(`/api/workout/plans/${selectedPlanId}/generate-pdf`, { templateId: pdfTemplateId });
+      const url: string | undefined = res.data?.pdfUrl;
+      if (url) window.open(url, '_blank');
+      setPdfDialogOpen(false);
+    } catch (e) {
+      // noop
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   // Update exercise set values
@@ -532,6 +582,17 @@ export default function ClientWorkoutPage() {
               {saving ? 'Saving...' : 'Save Plan'}
             </Button>
           )}
+          {/* Send PDF for selected saved plan */}
+          {selectedPlanId && !String(selectedPlanId).startsWith('local_') && (
+            <Button
+              sx={{ ml: 1, mt: 1 }}
+              variant="outlined"
+              size="small"
+              onClick={openPdfDialog}
+            >
+              Send PDF
+            </Button>
+          )}
         </Box>
         <Chip label={`Client: ${clientId}`} variant="outlined" />
       </Box>
@@ -559,6 +620,9 @@ export default function ClientWorkoutPage() {
                 >
                   Create Plan
                 </Button>
+                {selectedPlanId && (
+                  <Button variant="outlined" size="small" onClick={openPdfDialog}>Send PDF</Button>
+                )}
               </Stack>
             }
           />
@@ -973,6 +1037,25 @@ export default function ClientWorkoutPage() {
           <Button variant="contained" onClick={saveExerciseChanges}>
             Save Changes
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Generate PDF Dialog */}
+      <Dialog open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Select PDF Template</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="tpl-label">Template</InputLabel>
+            <Select labelId="tpl-label" label="Template" value={pdfTemplateId} onChange={(e) => setPdfTemplateId(e.target.value as string)}>
+              {pdfTemplates.map((t) => (
+                <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPdfDialogOpen(false)}>Cancel</Button>
+          <Button onClick={generatePdf} variant="contained" disabled={!pdfTemplateId || generatingPdf}>{generatingPdf ? 'Generating...' : 'Generate'}</Button>
         </DialogActions>
       </Dialog>
     </Stack>

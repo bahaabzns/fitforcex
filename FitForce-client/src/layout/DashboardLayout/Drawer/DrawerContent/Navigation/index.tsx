@@ -15,6 +15,7 @@ import useConfig from 'hooks/useConfig';
 import menuItems from 'menu-items';
 import { getDashboardMenu } from 'menu-items/dashboard';
 import { useAppSelector } from '@/store';
+import { usePathname } from 'next/navigation';
 
 // types
 import { NavItemType } from 'types/menu';
@@ -27,6 +28,8 @@ export default function Navigation() {
   const { menuOrientation } = useConfig();
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
+  const pathname = usePathname();
+  const isClientArea = Boolean(pathname && pathname.startsWith('/client'));
 
   // Check if we're on a workspace subdomain
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
@@ -34,11 +37,26 @@ export default function Navigation() {
 
   // Get dynamic menu items based on context
   const dynamicMenuItems = useMemo(() => {
+    if (isClientArea) {
+      const clientMenu = {
+        id: 'group-client',
+        title: 'Client',
+        type: 'group',
+        children: [
+          { id: 'client-overview', title: 'Overview', type: 'item', url: '/client/dashboard' },
+          { id: 'client-forms', title: 'Forms', type: 'item', url: '/client/forms' },
+          { id: 'client-plans', title: 'Plans', type: 'item', url: '/client/plans' },
+          { id: 'client-subscription', title: 'Subscription', type: 'item', url: '/client/subscription' },
+          { id: 'client-support', title: 'Support', type: 'item', url: '/client/support' }
+        ]
+      } as unknown as NavItemType;
+      return { items: [clientMenu] };
+    }
     const dashboardMenu = getDashboardMenu(isWorkspaceSubdomain);
     return {
       items: [dashboardMenu, ...menuItems.items.slice(1)] // Replace first item (dashboard) with dynamic one
     };
-  }, [isWorkspaceSubdomain]);
+  }, [isWorkspaceSubdomain, isClientArea]);
 
   const [selectedID, setSelectedID] = useState<string | null>(menuMaster.openedHorizontalItem);
   const [selectedItems, setSelectedItems] = useState<string | undefined>('');

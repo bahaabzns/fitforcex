@@ -257,12 +257,12 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
                 </Button>
               )}
               {userRole === 'guest' && allowNewSubscriptions && (
-                <Button variant="contained" size="large" href="/signup">
+                <Button variant="contained" size="large" href="/client/signup">
                   Subscribe
                 </Button>
               )}
               {userRole === 'guest' && (
-                <Button variant="outlined" size="large" href="/login">
+                <Button variant="outlined" size="large" href="/client-login">
                   Client Sign In
                 </Button>
               )}
