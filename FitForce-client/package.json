@@ -46,7 +46,7 @@
     "react-syntax-highlighter": "^5.8.0",
     "react-timer-hook": "4.0.5",
     "simplebar-react": "3.3.2",
-    "stylis": "4.2.0",
+    "stylis": "4.3.6",
     "stylis-plugin-rtl": "2.1.1",
     "swr": "2.3.6",
     "yup": "1.7.0"
