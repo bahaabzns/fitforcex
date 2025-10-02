@@ -67,6 +67,7 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'member' | 'guest' | null>(null);
+  const [apiLoggedIn, setApiLoggedIn] = useState(false);
   const dispatch = useAppDispatch();
 
   useEffect(() => {
@@ -130,6 +131,21 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
     };
 
     fetchWorkspaceData();
+
+    // Verify global auth via API (handles cross-domain session). Treat 200/304 as logged-in
+    const verifyLogin = async () => {
+      try {
+        const res = await fetch(`${APP_CONFIG.apiUrl}/api/auth/me`, {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store'
+        });
+        if (res.status === 200 || res.status === 304) {
+          setApiLoggedIn(true);
+        }
+      } catch {}
+    };
+    void verifyLogin();
 
     // Check user role if logged in (this will be called after workspace data is loaded)
     const checkUserRole = async (workspaceSubdomain: string) => {
@@ -216,20 +232,28 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {userRole === 'owner' && (
-                <Button variant="outlined" size="small" href="/dashboard/workspace">
-                  Dashboard
-                </Button>
-              )}
-              {userRole === 'member' && (
+              {apiLoggedIn ? (
                 <Button variant="outlined" size="small" href="/dashboard">
-                  Go to Workspace
+                  Go to Dashboard
                 </Button>
-              )}
-              {userRole === 'guest' && (
-                <Button variant="outlined" size="small" href="/login">
-                  Sign In
-                </Button>
+              ) : (
+                <>
+                  {userRole === 'owner' && (
+                    <Button variant="outlined" size="small" href="/dashboard/workspace">
+                      Dashboard
+                    </Button>
+                  )}
+                  {userRole === 'member' && (
+                    <Button variant="outlined" size="small" href="/dashboard">
+                      Go to Workspace
+                    </Button>
+                  )}
+                  {userRole === 'guest' && (
+                    <Button variant="outlined" size="small" href="/login">
+                      Sign In
+                    </Button>
+                  )}
+                </>
               )}
             </Box>
           </Box>
@@ -246,22 +270,17 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
           heroImage={config.heroImage}
           roleButtons={
             <>
-              {userRole === 'owner' && (
-                <Button variant="contained" size="large" href="/dashboard/workspace">
+              {(userRole === 'owner' || userRole === 'member' || apiLoggedIn) && (
+                <Button variant="contained" size="large" href="/dashboard">
                   Go to Dashboard
                 </Button>
               )}
-              {userRole === 'member' && (
-                <Button variant="contained" size="large" href="/dashboard">
-                  Access Your Workspace
-                </Button>
-              )}
-              {userRole === 'guest' && allowNewSubscriptions && (
+              {userRole === 'guest' && !apiLoggedIn && allowNewSubscriptions && (
                 <Button variant="contained" size="large" href="/client/signup">
                   Subscribe
                 </Button>
               )}
-              {userRole === 'guest' && (
+              {userRole === 'guest' && !apiLoggedIn && (
                 <Button variant="outlined" size="large" href="/client-login">
                   Client Sign In
                 </Button>

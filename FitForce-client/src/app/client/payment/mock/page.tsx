@@ -18,7 +18,7 @@ export default function SeedClientMockPaymentPage() {
     setLoading(true);
     try {
       await api.post('/api/clients/subscription/mock', {});
-      router.push('/client/dashboard');
+      router.push('/client/subscription');
     } finally {
       setLoading(false);
     }

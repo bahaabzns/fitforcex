@@ -9,6 +9,7 @@ import { APP_CONFIG } from '@/lib/config';
 export default function HomePage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const detectAndResolve = async () => {
@@ -30,6 +31,16 @@ export default function HomePage() {
 
         // If main domain → show app landing
         if (isMainDomain) {
+          // Surface query errors like ?error=workspace_not_found&workspace=xxx
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            const workspace = params.get('workspace');
+            if (error === 'workspace_not_found') {
+              const ws = workspace ? ` "${workspace}"` : '';
+              setErrorMsg(`Workspace${ws} was not found. You can create a new workspace from here.`);
+            }
+          } catch {}
           setChecked(true);
           return;
         }
@@ -59,6 +70,26 @@ export default function HomePage() {
           if (res.ok) {
             const data = await res.json();
             setWorkspaceId(data.workspace.id);
+            setChecked(true);
+            return;
+          }
+
+          // Not found or error → hard redirect to main domain
+          try {
+            const configured = (APP_CONFIG.mainDomain || '').trim();
+            const hasProtocol = configured.startsWith('http://') || configured.startsWith('https://');
+            const absolute = hasProtocol ? configured : `https://${configured}`;
+            const main = new URL(absolute);
+            const useFrontend = (!main.hostname.includes('.') || main.hostname.includes('localhost')) && APP_CONFIG.frontendDomain;
+            const origin = useFrontend ? `https://${APP_CONFIG.frontendDomain}` : main.origin;
+            const redirect = new URL(origin);
+            redirect.searchParams.set('error', 'workspace_not_found');
+            const sub = isLocalhost ? (host.includes('localhost:3000') && parts.length >= 2 ? parts[0] : null) : parts.length > 2 ? parts[0] : null;
+            if (sub) redirect.searchParams.set('workspace', sub);
+            window.location.replace(redirect.toString());
+            return;
+          } catch {
+            // If URL building fails, just fall through to landing on current domain
           }
         }
       } catch {
@@ -79,5 +110,20 @@ export default function HomePage() {
     return <WorkspaceLanding params={{ id: workspaceId }} />;
   }
 
-  return <Landing />;
+  return (
+    <>
+      {errorMsg ? (
+        <div style={{
+          background: '#FEF3C7',
+          color: '#92400E',
+          padding: '12px 16px',
+          borderBottom: '1px solidrgb(31, 74, 153)',
+          fontSize: 14
+        }}>
+          {errorMsg}
+        </div>
+      ) : null}
+      <Landing />
+    </>
+  );
 }

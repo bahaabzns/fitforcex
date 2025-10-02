@@ -190,6 +190,7 @@ export default function WorkoutPage() {
   // Form states
   const [newExercise, setNewExercise] = useState({
     name: '',
+    nameArabic: '',
     muscleGroup: ''
   });
 
@@ -237,7 +238,7 @@ export default function WorkoutPage() {
     try {
       await api.post('/api/workout/exercises', newExercise);
       setIsCreateDialogOpen(false);
-      setNewExercise({ name: '', muscleGroup: '' });
+      setNewExercise({ name: '', nameArabic: '', muscleGroup: '' });
       // Refresh the list
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
@@ -592,6 +593,13 @@ export default function WorkoutPage() {
               onChange={(e) => setNewExercise((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="e.g., Push-ups"
             />
+            <TextField
+              fullWidth
+              label="Exercise Name (Arabic)"
+              value={newExercise.nameArabic}
+              onChange={(e) => setNewExercise((prev) => ({ ...prev, nameArabic: e.target.value }))}
+              placeholder="مثال: تمرين الضغط"
+            />
             <FormControl fullWidth>
               <InputLabel>Muscle Group</InputLabel>
               <Select
@@ -636,6 +644,13 @@ export default function WorkoutPage() {
                 value={selectedExercise.name}
                 onChange={(e) => setSelectedExercise((prev) => (prev ? { ...prev, name: e.target.value } : null))}
                 placeholder="e.g., Push-ups"
+              />
+              <TextField
+                fullWidth
+                label="Exercise Name (Arabic)"
+                value={(selectedExercise as any).nameArabic || ''}
+                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, nameArabic: e.target.value } as any) : null))}
+                placeholder="مثال: تمرين الضغط"
               />
               <FormControl fullWidth>
                 <InputLabel>Muscle Group</InputLabel>

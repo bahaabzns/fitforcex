@@ -449,6 +449,25 @@ export default function ClientNutritionPage() {
                 >
                   Create Plan
                 </Button>
+                {selectedPlanId && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        await api.post(`/api/nutrition/plans/${selectedPlanId}/activate`);
+                        // Refresh plans list to reflect status change
+                        const response = await api.get(`/api/clients/${clientId}/nutrition/plans`);
+                        setPlans(response.data.plans || []);
+                        openSnackbar({ open: true, message: 'Plan activated', variant: 'alert', alert: { color: 'success' } });
+                      } catch (e) {
+                        openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error' } });
+                      }
+                    }}
+                  >
+                    Activate
+                  </Button>
+                )}
               </Stack>
             }
           />
@@ -486,7 +505,7 @@ export default function ClientNutritionPage() {
                         <CardContent>
                           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
                             {plan.status && (
-                              <Chip size="small" label={plan.status} variant="outlined" />
+                              <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : plan.status === 'draft' ? 'default' : 'warning'} variant={plan.status === 'active' ? 'filled' : 'outlined'} />
                             )}
                             {plan.createdBy && (
                               <Chip size="small" label={`By ${plan.createdBy}`} variant="light" />

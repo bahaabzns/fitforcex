@@ -45,6 +45,29 @@ export async function middleware(req: NextRequest) {
     
   console.log(`🔍 Debug: host=${host}, parts=${JSON.stringify(parts)}, hasSubdomain=${hasSubdomain}, isMainDomain=${isMainDomain}, subdomain=${subdomain}`);
 
+  // Always compute a normalized absolute main-domain origin for cross-domain redirects
+  const getMainDomainOrigin = () => {
+    try {
+      const configured = APP_CONFIG.mainDomain.trim();
+      const hasProtocol = configured.startsWith('http://') || configured.startsWith('https://');
+      const absolute = hasProtocol ? configured : `https://${configured}`;
+      const u = new URL(absolute);
+      const hostHasPublicSuffix = u.hostname.includes('.') && !u.hostname.includes('localhost');
+      if (hostHasPublicSuffix) return u.origin;
+      // Fallback to frontendDomain if mainDomain is local/internal
+      const fallback = `https://${APP_CONFIG.frontendDomain}`;
+      const fu = new URL(fallback);
+      return fu.origin;
+    } catch {
+      // Fallback to current request protocol with configured host (best effort)
+      const proto = nextUrl.protocol || 'https:';
+      const configuredHost = APP_CONFIG.mainDomain.replace(/^https?:\/\//, '');
+      const isInternal = configuredHost === 'localhost:3000' || !configuredHost.includes('.');
+      const host = isInternal ? APP_CONFIG.frontendDomain : configuredHost;
+      return `${proto}//${host}`;
+    }
+  };
+
   // Management subdomain handling (robust: match explicit subdomain or any host starting with `${admin}.`)
   const isManagementHost =
     (subdomain && subdomain.toLowerCase() === APP_CONFIG.managementSubdomain.toLowerCase()) ||
@@ -72,15 +95,23 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
+  // Ensure landing pages are ONLY served on the main domain
   if (hasSubdomain || subdomain) {
-    console.log(`🏢 Workspace domain detected: ${host}, subdomain: ${subdomain}`);
-    
-    if (pathname !== '/') {
-      console.log(`🔄 Allowing non-root path to pass through: ${pathname}`);
-      const res = NextResponse.next();
+    const isMainOnlyRoute =
+      pathname === '/' ||
+      pathname.startsWith('/landing') ||
+      pathname.startsWith('/pricing');
+    if (isMainOnlyRoute) {
+      const mainOrigin = getMainDomainOrigin();
+      const redirectUrl = new URL(pathname + nextUrl.search, mainOrigin);
+      const res = NextResponse.redirect(redirectUrl, 308);
       res.headers.set('x-ff-domain-type', 'workspace');
       return res;
     }
+  }
+
+  if (hasSubdomain || subdomain) {
+    console.log(`🏢 Workspace domain detected: ${host}, subdomain: ${subdomain}`);
 
     try {
       const resolveUrl = new URL('/api/workspaces/resolve', APP_CONFIG.apiUrl);
@@ -108,16 +139,29 @@ export async function middleware(req: NextRequest) {
         next.cookies.set('ff_workspace_subdomain', workspace.subdomain || '', { path: '/', sameSite: 'lax' });
         return next;
       } else {
-        console.log(`❌ Workspace not found, status: ${resolveResponse.status} — falling back to client-side handling.`);
-        const next = NextResponse.next();
-        next.headers.set('x-ff-domain-type', 'workspace');
-        return next;
+        console.log(`❌ Workspace not found, status: ${resolveResponse.status} — redirecting to main domain.`);
+        const mainOrigin = getMainDomainOrigin();
+        const redirectUrl = new URL(mainOrigin);
+        redirectUrl.searchParams.set('error', 'workspace_not_found');
+        if (subdomain) redirectUrl.searchParams.set('workspace', subdomain);
+        const res = NextResponse.redirect(redirectUrl, 308);
+        res.headers.set('x-ff-domain-type', 'workspace');
+        // Clear any workspace cookies to avoid stale state on main domain
+        res.cookies.set('ff_workspace_id', '', { path: '/', maxAge: 0 });
+        res.cookies.set('ff_workspace_subdomain', '', { path: '/', maxAge: 0 });
+        return res;
       }
     } catch (error) {
-      console.error('Error resolving workspace (non-fatal, continuing):', error);
-      const next = NextResponse.next();
-      next.headers.set('x-ff-domain-type', 'workspace');
-      return next;
+      console.error('Error resolving workspace, redirecting to main domain:', error);
+      const mainOrigin = getMainDomainOrigin();
+      const redirectUrl = new URL(mainOrigin);
+      redirectUrl.searchParams.set('error', 'workspace_not_found');
+      if (subdomain) redirectUrl.searchParams.set('workspace', subdomain);
+      const res = NextResponse.redirect(redirectUrl, 308);
+      res.headers.set('x-ff-domain-type', 'workspace');
+      res.cookies.set('ff_workspace_id', '', { path: '/', maxAge: 0 });
+      res.cookies.set('ff_workspace_subdomain', '', { path: '/', maxAge: 0 });
+      return res;
     }
   }
 

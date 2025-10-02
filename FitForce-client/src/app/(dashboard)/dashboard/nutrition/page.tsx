@@ -28,6 +28,11 @@ import TablePagination from '@mui/material/TablePagination';
 import TableSortLabel from '@mui/material/TableSortLabel';
 import TableRow from '@mui/material/TableRow';
 import { visuallyHidden } from '@mui/utils';
+import Grid from '@mui/material/Grid';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 
 // project-imports
 import MainCard from 'components/MainCard';
@@ -196,10 +201,44 @@ export default function NutritionPage() {
   // Form states
   const [newFoodItem, setNewFoodItem] = useState({
     name: '',
+    nameArabic: '',
+    category: '',
+    categoryArabic: '',
+    unit: '',
+    unitArabic: '',
+    servingSize: undefined as number | undefined,
     calories: 0,
     protein: 0,
     carbs: 0,
-    fat: 0
+    fat: 0,
+    water: undefined as number | undefined,
+    ash: undefined as number | undefined,
+    fiber: undefined as number | undefined,
+    sodium: undefined as number | undefined,
+    potassium: undefined as number | undefined,
+    calcium: undefined as number | undefined,
+    phosphorous: undefined as number | undefined,
+    magnesium: undefined as number | undefined,
+    iron: undefined as number | undefined,
+    zinc: undefined as number | undefined,
+    copper: undefined as number | undefined,
+    manganese: undefined as number | undefined,
+    fluoride: undefined as number | undefined,
+    selenium: undefined as number | undefined,
+    vitamin_a: undefined as number | undefined,
+    vitamin_c: undefined as number | undefined,
+    vitamin_b1: undefined as number | undefined,
+    vitamin_b2: undefined as number | undefined,
+    vitamin_b5: undefined as number | undefined,
+    vitamin_b6: undefined as number | undefined,
+    vitamin_b12: undefined as number | undefined,
+    vitamin_d: undefined as number | undefined,
+    vitamin_e: undefined as number | undefined,
+    vitamin_k: undefined as number | undefined,
+    niacin: undefined as number | undefined,
+    folic_acid: undefined as number | undefined,
+    choline: undefined as number | undefined,
+    betaine: undefined as number | undefined,
   });
 
   const [creating, setCreating] = useState(false);
@@ -599,6 +638,61 @@ export default function NutritionPage() {
               onChange={(e) => setNewFoodItem((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="e.g., Chicken Breast"
             />
+            <TextField
+              fullWidth
+              label="Food Name (Arabic)"
+              value={newFoodItem.nameArabic}
+              onChange={(e) => setNewFoodItem((prev) => ({ ...prev, nameArabic: e.target.value }))}
+              placeholder="مثال: صدور الدجاج"
+            />
+            <FormControl fullWidth>
+              <InputLabel id="category-label">Category</InputLabel>
+              <Select
+                labelId="category-label"
+                label="Category"
+                value={newFoodItem.category}
+                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, category: e.target.value as string }))}
+              >
+                <MenuItem value="">None</MenuItem>
+                <MenuItem value="Protein">Protein</MenuItem>
+                <MenuItem value="Carb">Carb</MenuItem>
+                <MenuItem value="Fat">Fat</MenuItem>
+                <MenuItem value="Vegetable">Vegetable</MenuItem>
+                <MenuItem value="Fruit">Fruit</MenuItem>
+                <MenuItem value="Dairy">Dairy</MenuItem>
+                <MenuItem value="Beverage">Beverage</MenuItem>
+                <MenuItem value="Other">Other</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Category (Arabic)"
+              value={newFoodItem.categoryArabic}
+              onChange={(e) => setNewFoodItem((prev) => ({ ...prev, categoryArabic: e.target.value }))}
+            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                fullWidth
+                label="Serving Size"
+                type="number"
+                value={newFoodItem.servingSize ?? ''}
+                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, servingSize: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                placeholder="100"
+              />
+              <TextField
+                fullWidth
+                label="Unit"
+                value={newFoodItem.unit}
+                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unit: e.target.value }))}
+                placeholder="g, ml, etc."
+              />
+            </Stack>
+            <TextField
+              fullWidth
+              label="Unit (Arabic)"
+              value={newFoodItem.unitArabic}
+              onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unitArabic: e.target.value }))}
+            />
             <Stack direction="row" spacing={2}>
               <TextField
                 fullWidth
@@ -635,6 +729,29 @@ export default function NutritionPage() {
                 placeholder="3.6"
               />
             </Stack>
+
+            {/* Optional micronutrients */}
+            <Grid container spacing={2}>
+              {[
+                ['water','Water (g)'],['ash','Ash (g)'],['fiber','Fiber (g)'],['sodium','Sodium (mg)'],['potassium','Potassium (mg)'],
+                ['calcium','Calcium (mg)'],['phosphorous','Phosphorous (mg)'],['magnesium','Magnesium (mg)'],['iron','Iron (mg)'],['zinc','Zinc (mg)'],
+                ['copper','Copper (mg)'],['manganese','Manganese (mg)'],['fluoride','Fluoride (mcg)'],['selenium','Selenium (mcg)'],
+                ['vitamin_a','Vitamin A (mcg)'],['vitamin_c','Vitamin C (mg)'],['vitamin_b1','Vitamin B1 (mg)'],['vitamin_b2','Vitamin B2 (mg)'],
+                ['vitamin_b5','Vitamin B5 (mg)'],['vitamin_b6','Vitamin B6 (mg)'],['vitamin_b12','Vitamin B12 (mcg)'],
+                ['vitamin_d','Vitamin D (mcg)'],['vitamin_e','Vitamin E (mg)'],['vitamin_k','Vitamin K (mcg)'],
+                ['niacin','Niacin (mg)'],['folic_acid','Folic Acid (mcg)'],['choline','Choline (mg)'],['betaine','Betaine (mg)']
+              ].map(([key,label]) => (
+                <Grid item xs={12} sm={6} key={key}>
+                  <TextField
+                    fullWidth
+                    label={label as string}
+                    type="number"
+                    value={(newFoodItem as any)[key] ?? ''}
+                    onChange={(e) => setNewFoodItem((prev) => ({ ...prev, [key]: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                  />
+                </Grid>
+              ))}
+            </Grid>
           </Stack>
         </DialogContent>
         <DialogActions>

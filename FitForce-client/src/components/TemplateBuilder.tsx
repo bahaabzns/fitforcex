@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import * as Fabric from 'fabric';
+import fabric from 'fabric';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -31,7 +31,7 @@ type BuilderProps = {
  */
 export default function TemplateBuilder({ open, onClose, value, onSave, pageWidth = 595, pageHeight = 842, workspaceId, kind = 'workout' }: BuilderProps) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const fabricNS = (Fabric as any).fabric ?? (Fabric as any);
+    const fabricNS = fabric as any;
     const fabricRef = useRef<any | null>(null);
     const [selected, setSelected] = useState<any | null>(null);
 	const [imageUrl, setImageUrl] = useState('');

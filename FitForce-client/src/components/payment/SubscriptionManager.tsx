@@ -200,8 +200,11 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString();
   };
 
   const formatPrice = (cents: number, currency: string) => {
@@ -242,31 +245,54 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>
-                  {subscription.package?.name || 'Current Package'}
+                  {subscription.package?.name || (() => {
+                    // derive current package name by matching last succeeded payment to a known package
+                    const lastPayment = (subscription.payments || []).find((p) => p.status === 'succeeded');
+                    if (lastPayment) {
+                      const matched = packages.find((p) => p.priceCents === lastPayment.amountCents);
+                      return matched?.name || 'Current Package';
+                    }
+                    return 'Current Package';
+                  })()}
                 </Typography>
                 {!!subscription.package?.description && (
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     {subscription.package.description}
                   </Typography>
                 )}
-                {!!subscription.package && (
-                  <Typography variant="h6" color="primary">
-                    {formatPrice(subscription.package.priceCents, subscription.package.currency)}
-                  </Typography>
-                )}
+                {(() => {
+                  const pkg = subscription.package;
+                  if (pkg) {
+                    return (
+                      <Typography variant="h6" color="primary">
+                        {formatPrice(pkg.priceCents, pkg.currency)}
+                      </Typography>
+                    );
+                  }
+                  // derive price from last succeeded payment if package missing
+                  const lastPayment = (subscription.payments || []).find((p) => p.status === 'succeeded');
+                  if (lastPayment) {
+                    return (
+                      <Typography variant="h6" color="primary">
+                        {formatPrice(lastPayment.amountCents, lastPayment.currency)}
+                      </Typography>
+                    );
+                  }
+                  return null;
+                })()}
               </Grid>
               <Grid item xs={12} md={6}>
                 <List dense>
                   <ListItem>
                     <ListItemText
                       primary="Start Date"
-                      secondary={formatDate(subscription.startDate)}
+                      secondary={formatDate(subscription.startDate || subscription.createdAt)}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="End Date"
-                      secondary={formatDate(subscription.endDate)}
+                      secondary={formatDate((subscription as any).endDate || subscription.renewalDate)}
                     />
                   </ListItem>
                   <ListItem>

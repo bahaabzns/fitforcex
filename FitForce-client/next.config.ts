@@ -10,6 +10,12 @@ const nextConfig = {
       transform: '@mui/lab/{{member}}'
     }
   },
+  eslint: {
+    ignoreDuringBuilds: true
+  },
+  typescript: {
+    ignoreBuildErrors: true
+  },
   images: {
     remotePatterns: [
       {

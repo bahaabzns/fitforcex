@@ -3,6 +3,8 @@ export const APP_CONFIG = {
   frontendDomain: process.env.NEXT_PUBLIC_FRONTEND_DOMAIN || 'fitforceapp.com',
   mainDomain: process.env.NEXT_PUBLIC_MAIN_DOMAIN || 'http://localhost:3000',
   managementSubdomain: process.env.NEXT_PUBLIC_MANAGEMENT_SUBDOMAIN || 'admin',
+  // Optional: workspace whose public packages should be showcased on main landing
+  featuredWorkspaceId: process.env.NEXT_PUBLIC_FEATURED_WORKSPACE_ID || '',
   defaultTheme: (process.env.NEXT_PUBLIC_DEFAULT_THEME as 'light' | 'dark') || 'light',
   defaultLang: (process.env.NEXT_PUBLIC_DEFAULT_LANG as 'en' | 'ar') || 'en'
 } as const;

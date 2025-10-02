@@ -74,13 +74,15 @@ export default function FormsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [formType, setFormType] = useState<'nutrition' | 'workout'>('nutrition');
   const [title, setTitle] = useState('');
+  const [titleArabic, setTitleArabic] = useState('');
   const [newQuestions, setNewQuestions] = useState<
-    Array<{ id: string; label: string; type: string; required?: boolean; options?: string[] }>
+    Array<{ id: string; originalId?: string; label: string; labelArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>
   >([]);
   const [creating, setCreating] = useState(false);
   // custom question builder
   const [customType, setCustomType] = useState<string>('text');
   const [customLabel, setCustomLabel] = useState<string>('');
+  const [customLabelArabic, setCustomLabelArabic] = useState<string>('');
   const [customRequired, setCustomRequired] = useState<boolean>(false);
   const [customOptions, setCustomOptions] = useState<string>('');
   const [customError, setCustomError] = useState<string>('');
@@ -106,9 +108,11 @@ export default function FormsPage() {
             qs.map((q: any, idx: number) => ({
               id: q.id || `dq_${idx}`,
               label: q.question || q.title || q.label || q.text || `Question ${idx + 1}`,
+              labelArabic: q.questionArabic,
               type: q.type || 'text',
               required: !!q.required,
-              options: q.options
+              options: q.options,
+              optionsArabic: q.optionsArabic
             }))
           );
         } catch {}
@@ -145,16 +149,18 @@ export default function FormsPage() {
     setCreating(true);
     setError(null);
     try {
-      const questions = newQuestions.map(({ id, label, type, required, options }) => ({ id, question: label, type, required, options }));
-      console.log('createTemplate - sending request with:', { title: title.trim(), type: formType, questions });
-      await api.post('/api/forms/templates', { title: title.trim(), type: formType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
+      const questions = newQuestions.map(({ id, label, labelArabic, type, required, options, optionsArabic }) => ({ id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, type, required, options, optionsArabic }));
+      console.log('createTemplate - sending request with:', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions });
+      await api.post('/api/forms/templates', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       console.log('createTemplate - request successful');
       setShowCreate(false);
       setTitle('');
+      setTitleArabic('');
       setFormType('nutrition');
       setNewQuestions([]);
       setCustomType('text');
       setCustomLabel('');
+      setCustomLabelArabic('');
       setCustomRequired(false);
       setCustomOptions('');
       const res = await api.get('/api/forms/templates', { headers: { 'x-workspace-id': effectiveWorkspaceId } });
@@ -211,6 +217,7 @@ export default function FormsPage() {
         <DialogContent dividers>
           <Stack spacing={3}>
             <TextField fullWidth label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <TextField fullWidth label="Title (Arabic)" value={titleArabic} onChange={(e) => setTitleArabic(e.target.value)} />
             <FormControl fullWidth>
               <InputLabel id="form-type-label">Type</InputLabel>
               <Select labelId="form-type-label" label="Type" value={formType} onChange={(e) => setFormType(e.target.value as any)}>
@@ -230,7 +237,16 @@ export default function FormsPage() {
                     <Chip
                       key={q.id}
                       label={q.label}
-                      onClick={() => setNewQuestions((prev) => [...prev, { ...q, id: `${q.id}_${Date.now()}` }])}
+                      onClick={() =>
+                        setNewQuestions((prev) => {
+                          // prevent duplicate of the same default question
+                          if (prev.some((p) => p.originalId === q.id)) return prev;
+                          return [
+                            ...prev,
+                            { ...q, id: `${q.id}_${Date.now()}`, originalId: q.id },
+                          ];
+                        })
+                      }
                       sx={{ cursor: 'pointer' }}
                     />
                   ))}
@@ -248,7 +264,7 @@ export default function FormsPage() {
                   {newQuestions.map((q, idx) => (
                     <ListItem key={q.id} divider>
                       <ListItemText
-                        primary={`${q.label}`}
+                        primary={`${q.label}${q.labelArabic ? ` / ${q.labelArabic}` : ''}`}
                         secondary={`${q.type}${q.required ? ' • required' : ''}${q.options?.length ? ` • options: ${q.options.join(', ')}` : ''}`}
                       />
                       <ListItemSecondaryAction>
@@ -272,86 +288,66 @@ export default function FormsPage() {
                 Add custom question
               </Typography>
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid item xs={12} sm={3}>
                   <FormControl fullWidth>
-                    <InputLabel id="q-type-label">Type</InputLabel>
-                    <Select labelId="q-type-label" label="Type" value={customType} onChange={(e) => setCustomType(e.target.value)}>
-                      <MenuItem value="text">Text</MenuItem>
-                      <MenuItem value="textarea">Textarea</MenuItem>
-                      <MenuItem value="number">Number</MenuItem>
-                      <MenuItem value="select">Select</MenuItem>
-                      <MenuItem value="checkbox">Checkbox</MenuItem>
-                      <MenuItem value="radio">Radio</MenuItem>
+                    <InputLabel id="custom-type-label">Type</InputLabel>
+                    <Select labelId="custom-type-label" label="Type" value={customType} onChange={(e) => setCustomType(e.target.value)}>
+                      <MenuItem value="text">text</MenuItem>
+                      <MenuItem value="textarea">textarea</MenuItem>
+                      <MenuItem value="number">number</MenuItem>
+                      <MenuItem value="select">select</MenuItem>
+                      <MenuItem value="checkbox">checkbox</MenuItem>
+                      <MenuItem value="radio">radio</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 12, md: 8 }}>
+                <Grid item xs={12} sm={5}>
                   <TextField fullWidth label="Question label" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} />
                 </Grid>
-                {(customType === 'select' || customType === 'radio' || customType === 'checkbox') && (
-                  <Grid size={12}>
-                    <TextField
-                      fullWidth
-                      label="Options (comma separated)"
-                      value={customOptions}
-                      onChange={(e) => setCustomOptions(e.target.value)}
-                    />
-                  </Grid>
-                )}
-                <Grid size={12}>
-                  <Stack direction="row" spacing={1}>
-                    <FormControlLabel
-                      control={<Switch checked={customRequired} onChange={(e) => setCustomRequired(e.target.checked)} />}
-                      label="Required"
-                    />
-                    <Button
-                      variant="outlined"
-                      onClick={() => {
-                        setCustomError('');
-                        if (!customLabel.trim()) {
-                          setCustomError('Question label is required');
-                          return;
-                        }
-                        if (customType === 'select' || customType === 'radio' || customType === 'checkbox') {
-                          const count = customOptions
-                            .split(',')
-                            .map((s) => s.trim())
-                            .filter(Boolean).length;
-                          if (count < 2) {
-                            setCustomError('Provide at least two options, separated by commas');
-                            return;
-                          }
-                        }
-                        const options = customOptions
-                          .split(',')
-                          .map((s) => s.trim())
-                          .filter(Boolean);
-                        setNewQuestions((prev) => [
-                          ...prev,
-                          {
-                            id: `cq_${Date.now()}`,
-                            label: customLabel.trim(),
-                            type: customType,
-                            required: customRequired,
-                            options: options.length ? options : undefined
-                          }
-                        ]);
-                        setCustomLabel('');
-                        setCustomOptions('');
-                        setCustomType('text');
-                        setCustomRequired(false);
-                      }}
-                    >
-                      Add Question
-                    </Button>
-                  </Stack>
-                  {customError && (
-                    <Typography color="error" sx={{ mt: 1 }}>
-                      {customError}
-                    </Typography>
-                  )}
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth label="Question label (Arabic)" value={customLabelArabic} onChange={(e) => setCustomLabelArabic(e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <FormControlLabel control={<Switch checked={customRequired} onChange={(e) => setCustomRequired(e.target.checked)} />} label="Required" />
+                </Grid>
+                <Grid item xs={12} sm={9}>
+                  <TextField fullWidth label="Options (comma separated)" value={customOptions} onChange={(e) => setCustomOptions(e.target.value)} disabled={!['select', 'checkbox', 'radio'].includes(customType)} />
                 </Grid>
               </Grid>
+              {customError && <Alert severity="error" sx={{ mt: 1 }}>{customError}</Alert>}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setCustomError('');
+                    if (!customLabel.trim()) {
+                      setCustomError('Question label is required');
+                      return;
+                    }
+                    const opts = customOptions
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    setNewQuestions((prev) => [
+                      ...prev,
+                      {
+                        id: `q_${Date.now()}`,
+                        label: customLabel.trim(),
+                        labelArabic: customLabelArabic.trim() || undefined,
+                        type: customType,
+                        required: customRequired,
+                        options: opts.length ? opts : undefined,
+                      },
+                    ]);
+                    setCustomLabel('');
+                    setCustomLabelArabic('');
+                    setCustomRequired(false);
+                    setCustomOptions('');
+                  }}
+                >
+                  Add
+                </Button>
+              </Box>
             </Box>
           </Stack>
         </DialogContent>

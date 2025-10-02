@@ -55,6 +55,7 @@ interface Plan {
   title: string;
   createdBy?: string;
   createdAt?: string;
+  status?: string;
   days?: any[];
 }
 
@@ -623,6 +624,24 @@ export default function ClientWorkoutPage() {
                 {selectedPlanId && (
                   <Button variant="outlined" size="small" onClick={openPdfDialog}>Send PDF</Button>
                 )}
+                {selectedPlanId && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        await api.post(`/api/workout/plans/${selectedPlanId}/activate`);
+                        // refresh saved plans
+                        await loadSavedPlans();
+                        openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success' } });
+                      } catch (e) {
+                        openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error' } });
+                      }
+                    }}
+                  >
+                    Activate
+                  </Button>
+                )}
               </Stack>
             }
           />
@@ -672,10 +691,12 @@ export default function ClientWorkoutPage() {
                         setSelectedDayIndex(0);
                     }}
                   >
-                    <ListItemText
+                  <ListItemText
                       primary={plan.title}
-                        secondary={`Created: ${plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'Unknown'} • ${plan.days?.length || 0} days`}
-                      />
+                      secondary={
+                        `${plan.status ? `Status: ${plan.status} • ` : ''}Created: ${plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'Unknown'} • ${plan.days?.length || 0} days`
+                      }
+                    />
                     </ListItem>
                   ))}
                 
