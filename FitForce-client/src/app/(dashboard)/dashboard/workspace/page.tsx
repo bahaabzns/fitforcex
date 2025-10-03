@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setWorkspace } from '@/store/slices/workspaceSlice';
 import api from '@/utils/axios';
+import { APP_CONFIG } from '@/lib/config';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -362,7 +363,7 @@ export default function WorkspacePage() {
                     disabled
                     InputProps={{
                       startAdornment: <InputAdornment position="start">https://</InputAdornment>,
-                      endAdornment: <InputAdornment position="end">.fitforceapp.com</InputAdornment>
+                      endAdornment: <InputAdornment position="end">.{APP_CONFIG.frontendDomain}</InputAdornment>
                     }}
                   />
                   <Stack direction="row" spacing={2}>
