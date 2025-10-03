@@ -362,7 +362,7 @@ export default function WorkspacePage() {
                     disabled
                     InputProps={{
                       startAdornment: <InputAdornment position="start">https://</InputAdornment>,
-                      endAdornment: <InputAdornment position="end">.nano.com</InputAdornment>
+                      endAdornment: <InputAdornment position="end">.fitforceapp.com</InputAdornment>
                     }}
                   />
                   <Stack direction="row" spacing={2}>

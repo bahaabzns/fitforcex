@@ -27,7 +27,8 @@ export default function HomePage() {
             host === APP_CONFIG.frontendDomain ||
             host === `app.${APP_CONFIG.frontendDomain}` ||
             host === 'nano.com' ||
-            host === 'app.nano.com');
+            host === 'app.nano.com' ||
+            host === 'fitforceapp.com');
 
         // If main domain → show app landing
         if (isMainDomain) {
