@@ -2,7 +2,7 @@ FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 RUN npm ci
 
@@ -16,7 +16,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Copy runtime assets
-COPY --from=deps /app/package*.json ./
+COPY --from=deps /app/package.json /app/package-lock.json ./
 COPY --from=deps /app/.next ./.next
 COPY --from=deps /app/public ./public
 COPY --from=deps /app/node_modules ./node_modules
