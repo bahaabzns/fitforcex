@@ -32,9 +32,7 @@ export async function middleware(req: NextRequest) {
     (
       host === 'localhost:3000' ||
       host === 'fitforceapp.com' ||
-      host === 'app.fitforceapp.com' ||
-      host === 'nano.com' ||
-      host === 'app.nano.com'
+      host === 'app.fitforceapp.com'
     );
 
   const subdomain = isLocalhost
