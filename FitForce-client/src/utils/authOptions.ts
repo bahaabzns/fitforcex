@@ -8,9 +8,9 @@ import axios from 'utils/axios';
 const users = [
   {
     id: 1,
-    name: 'Jone Doe',
-    email: 'info@codedthemes.com',
-    password: '123456'
+    name: ' ',
+    email: ' ',
+    password: ' '
   }
 ];
 
