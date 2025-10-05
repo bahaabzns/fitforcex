@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Box,
   Typography,
@@ -66,6 +67,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   type,
   clientId,
 }) => {
+  const intl = useIntl();
   const getPersistedWorkspaceId = () => {
     try {
       if (typeof window === 'undefined') return '';
@@ -103,8 +105,12 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
       if (type === 'workspace') {
         setSubscription(data.subscription || null);
       } else {
-        const activeSubscription = data.subscriptions?.find((sub: any) => sub.status === 'active');
-        setSubscription(activeSubscription || null);
+        // For client subscriptions, consider both 'active' and 'pre_start' as valid subscriptions
+        // 'pre_start' means payment succeeded but waiting for first plan delivery
+        const validSubscription = data.subscriptions?.find((sub: any) => 
+          sub.status === 'active' || sub.status === 'pre_start'
+        );
+        setSubscription(validSubscription || null);
       }
     } catch (err: any) {
       // Treat 404/402 as no subscription instead of hard error
@@ -120,7 +126,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   const fetchPackages = async () => {
     try {
       const endpoint = type === 'workspace'
-        ? '/api/admin/workspace-packages'
+        ? '/api/workspace-packages'
         : `/api/workspaces/${effectiveWorkspaceId}/client-packages`;
       const { data } = await api.get(endpoint);
       setPackages(data.packages || []);
@@ -174,6 +180,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     switch (status) {
       case 'active':
         return 'success';
+      case 'pre_start':
+        return 'info';
       case 'expired':
         return 'error';
       case 'cancelled':
@@ -189,6 +197,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     switch (status) {
       case 'active':
         return <CheckCircleIcon />;
+      case 'pre_start':
+        return <PendingIcon />;
       case 'expired':
         return <ErrorIcon />;
       case 'cancelled':
@@ -285,13 +295,13 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                 <List dense>
                   <ListItem>
                     <ListItemText
-                      primary="Start Date"
+                      primary={intl.formatMessage({ id: 'start-date' })}
                       secondary={formatDate(subscription.startDate || subscription.createdAt)}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
-                      primary="End Date"
+                      primary={intl.formatMessage({ id: 'end-date' })}
                       secondary={formatDate((subscription as any).endDate || subscription.renewalDate)}
                     />
                   </ListItem>
@@ -336,7 +346,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
               >
                 Refresh
               </Button>
-              {subscription.status === 'active' && (
+              {(subscription.status === 'active' || subscription.status === 'pre_start') && (
                 <Button
                   variant="outlined"
                   color="error"

@@ -14,8 +14,9 @@ export default function ClientNutritionPlanDetail() {
     // Fetch workspace id from local storage set by app axios interceptor
     const wsRes = await api.get('/api/clients/profile');
     const workspaceId = wsRes.data?.workspace?.id;
-    const res = await api.get(`/api/nutrition/plans/${id}/days`, { headers: workspaceId ? { 'x-workspace-id': workspaceId } : {} });
-    return res.data as { plan: { id: string; title: string; days: Array<{ dayIndex: number; label?: string; items: Array<{ meal?: string; servings: number; foodItem?: any }> }> } };
+    const res = await api.get(`/api/clients/nutrition-plans/${id}`, { headers: workspaceId ? { 'x-workspace-id': workspaceId } : {} });
+    const nutritionPlan = (res.data as any)?.nutritionPlan;
+    return { plan: nutritionPlan } as { plan: { id: string; title: string; days: Array<{ dayIndex: number; label?: string; items: Array<{ meal?: string; servings: number; foodItem?: any }> }> } };
   });
 
   if (isLoading) {

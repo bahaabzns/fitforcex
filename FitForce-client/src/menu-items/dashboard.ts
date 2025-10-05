@@ -1,5 +1,5 @@
 // assets
-import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add, TimerStart } from '@wandersonalwes/iconsax-react';
+import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add, TimerStart, Messages2 } from '@wandersonalwes/iconsax-react';
 
 // types
 import { NavItemType } from 'types/menu';
@@ -15,7 +15,8 @@ const icons = {
   settings: Setting2,
   workspace: Global,
   workspaces: Add,
-  queue: TimerStart
+  queue: TimerStart,
+  messenger: Messages2
 };
 
 // Main domain menu (shows workspace management)
@@ -34,7 +35,7 @@ const mainDomainMenu: NavItemType = {
     },
     {
       id: 'workspaces',
-      title: 'Workspaces',
+      title: 'Workspace',
       type: 'item',
       url: '/dashboard/workspaces',
       icon: icons.workspaces
@@ -98,6 +99,20 @@ const workspaceMenu: NavItemType = {
       url: '/dashboard/workout',
       icon: icons.workout
     },
+    {
+      id: 'workout-logs',
+      title: 'Workout Logs',
+      type: 'item',
+      url: '/dashboard/workout-logs',
+      icon: icons.workout
+    },
+  {
+    id: 'messenger',
+    title: 'Messenger',
+    type: 'item',
+    url: '/dashboard/messenger',
+    icon: icons.messenger
+  },
     {
       id: 'team',
       title: 'Team',

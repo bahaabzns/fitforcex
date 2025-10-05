@@ -152,6 +152,18 @@ export default function LanguageSwitcher() {
                         }
                       />
                     </ListItemButton>
+                    <ListItemButton selected={i18n === 'ar'} onClick={() => handleListItemClick('ar')}>
+                      <ListItemText
+                        primary={
+                          <Grid container>
+                            <Typography sx={{ color: 'text.primary' }}>العربية</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', ml: '8px' }}>
+                              (Arabic)
+                            </Typography>
+                          </Grid>
+                        }
+                      />
+                    </ListItemButton>
                   </List>
                 </MainCard>
               </ClickAwayListener>

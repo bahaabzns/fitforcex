@@ -31,8 +31,8 @@ export async function middleware(req: NextRequest) {
     !hasSubdomain &&
     (
       host === 'localhost:3000' ||
-      host === 'fitforceapp.com' ||
-      host === 'app.fitforceapp.com'
+      host === APP_CONFIG.frontendDomain ||
+      host === `app.${APP_CONFIG.frontendDomain}` 
     );
 
   const subdomain = isLocalhost
@@ -71,7 +71,7 @@ export async function middleware(req: NextRequest) {
     (subdomain && subdomain.toLowerCase() === APP_CONFIG.managementSubdomain.toLowerCase()) ||
     host.toLowerCase().startsWith(`${APP_CONFIG.managementSubdomain.toLowerCase()}.`);
   if (isManagementHost) {
-    // Allow admin pages to pass through to avoid loops
+    // Allow admin pages to pass through - authentication will be handled client-side
     if (pathname.startsWith('/admin')) {
       const res = NextResponse.next();
       res.headers.set('x-ff-domain-type', 'management');
@@ -93,10 +93,9 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  // Ensure landing pages are ONLY served on the main domain
+  // Ensure specific landing pages are ONLY served on the main domain
   if (hasSubdomain || subdomain) {
     const isMainOnlyRoute =
-      pathname === '/' ||
       pathname.startsWith('/landing') ||
       pathname.startsWith('/pricing');
     if (isMainOnlyRoute) {

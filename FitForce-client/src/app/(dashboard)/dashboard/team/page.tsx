@@ -37,9 +37,15 @@ import Avatar from '@mui/material/Avatar';
 import Menu from '@mui/material/Menu';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Grid from '@mui/material/Grid';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 // project-imports
 import MainCard from 'components/MainCard';
+import ResponsiveTable from '@/components/ResponsiveTable';
 import { CSVExport, RowSelection } from 'components/third-party/react-table';
 
 // Icons
@@ -202,6 +208,8 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
 
 export default function TeamPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -534,89 +542,185 @@ export default function TeamPage() {
           <RowSelection selected={selected.length} />
 
           {/* table */}
-          <TableContainer>
-            <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
-              <EnhancedTableHead
-                numSelected={selected.length}
-                order={order}
-                orderBy={orderBy}
-                onSelectAllClick={handleSelectAllClick}
-                onRequestSort={handleRequestSort}
-                rowCount={members.length}
-              />
-              <TableBody>
-                {stableSort(members, getComparator(order, orderBy))
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row, index) => {
-                    if (typeof row === 'number') return null;
-                    const isItemSelected = isSelected(row.id);
-                    const labelId = `enhanced-table-checkbox-${index}`;
+          {isMobile ? (
+            // Mobile Cards View
+            <Grid container spacing={2}>
+              {stableSort(members, getComparator(order, orderBy))
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((row, index) => {
+                  if (typeof row === 'number') return null;
+                  const isItemSelected = isSelected(row.id);
 
-                    return (
-                      <TableRow
-                        hover
+                  return (
+                    <Grid item xs={12} key={row.id}>
+                      <Card 
+                        sx={{ 
+                          transition: 'all 0.2s',
+                          border: isItemSelected ? '2px solid' : '1px solid',
+                          borderColor: isItemSelected ? 'primary.main' : 'divider',
+                          '&:hover': {
+                            boxShadow: 4,
+                            transform: 'translateY(-2px)'
+                          }
+                        }}
                         onClick={(event) => handleClick(event, row.id)}
-                        role="checkbox"
-                        aria-checked={isItemSelected}
-                        tabIndex={-1}
-                        key={row.id}
-                        selected={isItemSelected}
                       >
-                        <TableCell sx={{ pl: 3 }} padding="checkbox">
-                          <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
-                        </TableCell>
-                        <TableCell component="th" id={labelId} scope="row" padding="none">
-                          <Stack direction="row" spacing={2} alignItems="center">
-                            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                              {row.user.fullName.charAt(0).toUpperCase()}
-                            </Avatar>
+                        <CardContent>
+                          <Stack spacing={2}>
+                            {/* Header with Checkbox and Avatar */}
+                            <Stack direction="row" spacing={2} alignItems="center">
+                              <Checkbox 
+                                color="primary" 
+                                checked={isItemSelected} 
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}>
+                                {row.user.fullName.charAt(0).toUpperCase()}
+                              </Avatar>
+                              <Box sx={{ flexGrow: 1 }}>
+                                <Typography variant="h6">
+                                  {row.user.fullName}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {row.user.email}
+                                </Typography>
+                              </Box>
+                            </Stack>
+
+                            <Divider />
+
+                            {/* Role Information */}
                             <Box>
-                              <Typography variant="subtitle2" fontWeight={600}>
-                                {row.user.fullName}
+                              <Typography variant="caption" color="text.secondary">
+                                Role
+                              </Typography>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                                {getRoleIcon(row.role.name)}
+                                <Chip 
+                                  label={row.role.name} 
+                                  variant="outlined" 
+                                  size="small" 
+                                  color={getRoleColor(row.role.name) as any}
+                                />
+                              </Stack>
+                            </Box>
+
+                            <Divider />
+
+                            {/* Join Date */}
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Joined
+                              </Typography>
+                              <Typography variant="body2">
+                                {formatDate(row.createdAt)}
                               </Typography>
                             </Box>
+
+                            <Divider />
+
+                            {/* Actions */}
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => { e.stopPropagation(); handleMenuOpen(e, row); }}
+                              >
+                                <MenuIcon size={16} />
+                              </IconButton>
+                            </Stack>
                           </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {row.user.email}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            {getRoleIcon(row.role.name)}
-                            <Chip 
-                              label={row.role.name} 
-                              variant="outlined" 
-                              size="small" 
-                              color={getRoleColor(row.role.name) as any}
-                            />
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {formatDate(row.createdAt)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); handleMenuOpen(e, row); }}
-                          >
-                            <MenuIcon size={16} />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                {emptyRows > 0 && (
-                  <TableRow sx={{ height: 53 * emptyRows }}>
-                    <TableCell colSpan={6} />
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+            </Grid>
+          ) : (
+            // Desktop Table View
+            <ResponsiveTable>
+              <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
+                <EnhancedTableHead
+                  numSelected={selected.length}
+                  order={order}
+                  orderBy={orderBy}
+                  onSelectAllClick={handleSelectAllClick}
+                  onRequestSort={handleRequestSort}
+                  rowCount={members.length}
+                />
+                <TableBody>
+                  {stableSort(members, getComparator(order, orderBy))
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((row, index) => {
+                      if (typeof row === 'number') return null;
+                      const isItemSelected = isSelected(row.id);
+                      const labelId = `enhanced-table-checkbox-${index}`;
+
+                      return (
+                        <TableRow
+                          hover
+                          onClick={(event) => handleClick(event, row.id)}
+                          role="checkbox"
+                          aria-checked={isItemSelected}
+                          tabIndex={-1}
+                          key={row.id}
+                          selected={isItemSelected}
+                        >
+                          <TableCell sx={{ pl: 3 }} padding="checkbox">
+                            <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
+                          </TableCell>
+                          <TableCell component="th" id={labelId} scope="row" padding="none">
+                            <Stack direction="row" spacing={2} alignItems="center">
+                              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                                {row.user.fullName.charAt(0).toUpperCase()}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="subtitle2" fontWeight={600}>
+                                  {row.user.fullName}
+                                </Typography>
+                              </Box>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {row.user.email}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              {getRoleIcon(row.role.name)}
+                              <Chip 
+                                label={row.role.name} 
+                                variant="outlined" 
+                                size="small" 
+                                color={getRoleColor(row.role.name) as any}
+                              />
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {formatDate(row.createdAt)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => { e.stopPropagation(); handleMenuOpen(e, row); }}
+                            >
+                              <MenuIcon size={16} />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  {emptyRows > 0 && (
+                    <TableRow sx={{ height: 53 * emptyRows }}>
+                      <TableCell colSpan={6} />
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ResponsiveTable>
+          )}
           <Divider />
           {/* table pagination */}
           <TablePagination

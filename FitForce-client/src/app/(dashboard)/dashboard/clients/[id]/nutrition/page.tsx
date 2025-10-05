@@ -36,8 +36,11 @@ import {
   ArrowRight2,
   Copy
 } from '@wandersonalwes/iconsax-react';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
+import MobileSwipeableSections from '@/components/MobileSwipeableSections';
 
 interface FoodItem {
   id: string;
@@ -56,6 +59,8 @@ interface Plan {
   createdBy?: string;
   createdAt?: string;
   status?: string;
+  clientId?: string;
+  cycles?: Cycle[];
 }
 
 interface Cycle {
@@ -63,6 +68,7 @@ interface Cycle {
   title: string;
   label: string;
   dayIndex: number;
+  meals?: Meal[];
 }
 
 interface MealFoodItem {
@@ -82,20 +88,23 @@ interface Meal {
 
 export default function ClientNutritionPage() {
   const { id: clientId } = useParams() as { id: string };
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileSection, setMobileSection] = useState(0);
   
-  // State for plans
+  // State for plans with all data loaded
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [planQuery, setPlanQuery] = useState('');
   const [loadingPlans, setLoadingPlans] = useState(false);
   
-  // State for cycles (in-memory)
-  const [cycles, setCycles] = useState<Cycle[]>([]);
+  // Current working data (derived from selected plan)
+  const [currentCycles, setCurrentCycles] = useState<Cycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [currentCycleIndex, setCurrentCycleIndex] = useState<number>(0);
   
-  // State for meals (in-memory, keyed by cycle)
-  const [meals, setMeals] = useState<Meal[]>([]);
+  // Current meals (derived from selected cycle)
+  const [currentMeals, setCurrentMeals] = useState<Meal[]>([]);
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   
   // State for food items
@@ -139,82 +148,124 @@ export default function ClientNutritionPage() {
   }, []);
 
   // Load plans
+  // Load all nutrition plans with their cycles and meals
+  const loadAllPlansData = async () => {
+    try {
+      setLoadingPlans(true);
+      const response = await api.get(`/api/nutrition/plans`);
+      const plansData = response.data.plans || [];
+      
+      // Filter plans for the current client
+      const clientPlans = plansData.filter((plan: Plan) => plan.clientId === clientId);
+      
+      // Load cycles and meals for each plan
+      const plansWithData = await Promise.all(
+        clientPlans.map(async (plan: Plan) => {
+          try {
+            // Load cycles for this plan
+            const cyclesResponse = await api.get(`/api/clients/${clientId}/nutrition/plans/${plan.id}/cycles`);
+            const cycles = cyclesResponse.data.cycles || [];
+            
+            // Load meals for each cycle
+            const cyclesWithMeals = await Promise.all(
+              cycles.map(async (cycle: Cycle) => {
+                try {
+                  const mealsResponse = await api.get(`/api/clients/${clientId}/nutrition/cycles/${cycle.id}/meals`);
+                  return {
+                    ...cycle,
+                    meals: mealsResponse.data.meals || []
+                  };
+                } catch (err) {
+                  console.warn(`Failed to load meals for cycle ${cycle.id}:`, err);
+                  return {
+                    ...cycle,
+                    meals: []
+                  };
+                }
+              })
+            );
+            
+            return {
+              ...plan,
+              cycles: cyclesWithMeals
+            };
+          } catch (err) {
+            console.warn(`Failed to load cycles for plan ${plan.id}:`, err);
+            return {
+              ...plan,
+              cycles: []
+            };
+          }
+        })
+      );
+      
+      setPlans(plansWithData);
+    } catch (err: any) {
+      openSnackbar({
+        open: true,
+        message: 'Failed to load nutrition plans',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
   useEffect(() => {
-    const loadPlans = async () => {
-      try {
-        setLoadingPlans(true);
-        const response = await api.get(`/api/clients/${clientId}/nutrition/plans`);
-        setPlans(response.data.plans || []);
-      } catch (err: any) {
-        openSnackbar({
-          open: true,
-          message: 'Failed to load nutrition plans',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
-      } finally {
-        setLoadingPlans(false);
-      }
-    };
-    loadPlans();
+    if (clientId) loadAllPlansData();
   }, [clientId]);
 
-  // Load cycles when plan is selected (initial seed from API)
+  // Update current working data when plan is selected
   useEffect(() => {
     if (!selectedPlanId) {
-      setCycles([]);
+      setCurrentCycles([]);
       setSelectedCycleId(null);
       setCurrentCycleIndex(0);
-      setMeals([]);
-      return;
-    }
-
-    const loadCycles = async () => {
-      try {
-        const response = await api.get(`/api/clients/${clientId}/nutrition/plans/${selectedPlanId}/cycles`);
-        const cyclesData = response.data.cycles || [];
-        setCycles(cyclesData);
-        
-        // Select first cycle by default
-        if (cyclesData.length > 0) {
-          setSelectedCycleId(cyclesData[0].id);
-          setCurrentCycleIndex(0);
-        }
-      } catch (err: any) {
-        openSnackbar({
-          open: true,
-          message: 'Failed to load cycles',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
-      }
-    };
-    loadCycles();
-  }, [selectedPlanId, clientId]);
-
-  // Load meals when cycle is selected (initial seed from API)
-  useEffect(() => {
-    if (!selectedCycleId) {
-      setMeals([]);
+      setCurrentMeals([]);
       setSelectedMealId(null);
       return;
     }
 
-    const loadMeals = async () => {
-      try {
-        const response = await api.get(`/api/clients/${clientId}/nutrition/cycles/${selectedCycleId}/meals`);
-        setMeals(response.data.meals || []);
-      } catch (err: any) {
-        openSnackbar({
-          open: true,
-          message: 'Failed to load meals',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
+    const selectedPlan = plans.find(p => p.id === selectedPlanId);
+    if (selectedPlan && selectedPlan.cycles) {
+      setCurrentCycles(selectedPlan.cycles);
+      
+      // Select first cycle by default
+      if (selectedPlan.cycles.length > 0) {
+        setSelectedCycleId(selectedPlan.cycles[0].id);
+        setCurrentCycleIndex(0);
+        setCurrentMeals(selectedPlan.cycles[0].meals || []);
+      } else {
+        setSelectedCycleId(null);
+        setCurrentCycleIndex(0);
+        setCurrentMeals([]);
       }
-    };
-    loadMeals();
-  }, [selectedCycleId, clientId]);
+    } else {
+      setCurrentCycles([]);
+      setSelectedCycleId(null);
+      setCurrentCycleIndex(0);
+      setCurrentMeals([]);
+    }
+    setSelectedMealId(null);
+  }, [selectedPlanId, plans]);
+
+  // Update current meals when cycle is selected
+  useEffect(() => {
+    if (!selectedCycleId || !currentCycles.length) {
+      setCurrentMeals([]);
+      setSelectedMealId(null);
+      return;
+    }
+
+    const selectedCycle = currentCycles.find(c => c.id === selectedCycleId);
+    if (selectedCycle && selectedCycle.meals) {
+      setCurrentMeals(selectedCycle.meals);
+    } else {
+      setCurrentMeals([]);
+    }
+    setSelectedMealId(null);
+  }, [selectedCycleId, currentCycles]);
 
   const filteredPlans = plans.filter(plan =>
     plan.title.toLowerCase().includes(planQuery.toLowerCase())
@@ -224,16 +275,28 @@ export default function ClientNutritionPage() {
     if (!newPlanTitle.trim()) return;
     // In-memory create plan (draft)
     const tempId = `tmp-${Date.now()}`;
-    const draftPlan: Plan = { id: tempId, title: newPlanTitle };
+    const draftPlan: Plan = { 
+      id: tempId, 
+      title: newPlanTitle,
+      cycles: []
+    };
     setPlans((prev) => [...prev, draftPlan]);
     setSelectedPlanId(tempId);
     // Create initial cycle for the new plan
     const firstCycleId = `tmpc-${Date.now()}`;
-    const firstCycle: Cycle = { id: firstCycleId, title: 'Cycle 1', label: 'Cycle 1', dayIndex: 1 };
-    setCycles([firstCycle]);
-    setSelectedCycleId(firstCycleId);
-    setCurrentCycleIndex(0);
-    setMeals([]);
+    const firstCycle: Cycle = { 
+      id: firstCycleId, 
+      title: 'Cycle 1', 
+      label: 'Cycle 1', 
+      dayIndex: 1,
+      meals: []
+    };
+    // Update the plan with the new cycle
+    setPlans((prev) => prev.map(p => 
+      p.id === tempId 
+        ? { ...p, cycles: [firstCycle] }
+        : p
+    ));
     setNewPlanTitle('');
     setIsCreatePlanDialogOpen(false);
     setIsPlanDirty(true);
@@ -241,10 +304,27 @@ export default function ClientNutritionPage() {
 
 
   const handleCreateMeal = () => {
-    if (!newMealTitle.trim() || !selectedCycleId) return;
+    if (!newMealTitle.trim() || !selectedCycleId || !selectedPlanId) return;
     const tempId = `tmpm-${Date.now()}`;
     const newMeal: Meal = { id: tempId, dayId: selectedCycleId, meal: newMealTitle, foodItems: [] };
-    setMeals((prev) => [...prev, newMeal]);
+    
+    // Update the plan's cycle with the new meal
+    setPlans((prev) => prev.map(plan => 
+      plan.id === selectedPlanId 
+        ? {
+            ...plan,
+            cycles: plan.cycles?.map(cycle =>
+              cycle.id === selectedCycleId
+                ? {
+                    ...cycle,
+                    meals: [...(cycle.meals || []), newMeal]
+                  }
+                : cycle
+            ) || []
+          }
+        : plan
+    ));
+    
     setSelectedMealId(tempId);
     setNewMealTitle('');
     setIsCreateMealDialogOpen(false);
@@ -253,7 +333,7 @@ export default function ClientNutritionPage() {
 
   const handleAddFoodToMeal = () => {
     if (!selectedFoodItems.length || !selectedMealId) return;
-    const baseMeal = meals.find((m) => m.id === selectedMealId);
+    const baseMeal = currentMeals.find((m) => m.id === selectedMealId);
     if (!baseMeal) return;
     const added: MealFoodItem[] = selectedFoodItems
       .map((foodItemId) => {
@@ -268,7 +348,28 @@ export default function ClientNutritionPage() {
         } as MealFoodItem;
       })
       .filter(Boolean) as MealFoodItem[];
-    setMeals((prev) => prev.map((m) => (m.id === baseMeal.id ? { ...m, foodItems: [...(m.foodItems || []), ...added] } : m)));
+    
+    // Update the plan's meal with the new food items
+    setPlans((prev) => prev.map(plan => 
+      plan.id === selectedPlanId 
+        ? {
+            ...plan,
+            cycles: plan.cycles?.map(cycle =>
+              cycle.id === baseMeal.dayId
+                ? {
+                    ...cycle,
+                    meals: cycle.meals?.map(meal =>
+                      meal.id === baseMeal.id
+                        ? { ...meal, foodItems: [...(meal.foodItems || []), ...added] }
+                        : meal
+                    ) || []
+                  }
+                : cycle
+            ) || []
+          }
+        : plan
+    ));
+    
     setSelectedFoodItems([]);
     setIsAddFoodDialogOpen(false);
     setIsPlanDirty(true);
@@ -282,21 +383,23 @@ export default function ClientNutritionPage() {
     
     try {
       setSaving(true);
+      const selectedPlan = plans.find(p => p.id === selectedPlanId);
+      if (!selectedPlan) return;
+      
       // Persist plan, cycles, meals, and food items
       // 1) Ensure plan exists on server
       let serverPlanId = selectedPlanId;
       if (selectedPlanId.startsWith('tmp-')) {
-        const planTitle = plans.find((p) => p.id === selectedPlanId)?.title || 'Untitled';
-        const createPlanRes = await api.post(`/api/clients/${clientId}/nutrition/plans`, { title: planTitle });
+        const createPlanRes = await api.post(`/api/clients/${clientId}/nutrition/plans`, { title: selectedPlan.title });
         serverPlanId = createPlanRes.data.plan.id;
         // replace temp id
         setPlans((prev) => prev.map((p) => (p.id === selectedPlanId ? { ...p, id: serverPlanId } : p)));
       }
 
       // 2) Sync cycles
-      const currentCycles = cycles;
+      const cyclesToSync = selectedPlan.cycles || [];
       const createdCycleIdMap: Record<string, string> = {};
-      for (const c of currentCycles) {
+      for (const c of cyclesToSync) {
         let serverCycleId = c.id;
         if (c.id.startsWith('tmpc-')) {
           const res = await api.post(`/api/clients/${clientId}/nutrition/plans/${serverPlanId}/cycles`, {
@@ -310,39 +413,52 @@ export default function ClientNutritionPage() {
       }
 
       // 3) Sync meals
-      const currentMeals = meals;
       const createdMealIdMap: Record<string, string> = {};
-      for (const m of currentMeals) {
-        const effectiveCycleId = createdCycleIdMap[m.dayId] || m.dayId;
-        let serverMealId = m.id;
-        if (m.id.startsWith('tmpm-')) {
-          const res = await api.post(`/api/clients/${clientId}/nutrition/cycles/${effectiveCycleId}/meals`, {
-            title: m.meal
-          });
-          serverMealId = res.data.meal.id;
-          createdMealIdMap[m.id] = serverMealId;
+      for (const cycle of cyclesToSync) {
+        const effectiveCycleId = createdCycleIdMap[cycle.id] || cycle.id;
+        for (const meal of cycle.meals || []) {
+          let serverMealId = meal.id;
+          if (meal.id.startsWith('tmpm-')) {
+            const res = await api.post(`/api/clients/${clientId}/nutrition/cycles/${effectiveCycleId}/meals`, {
+              title: meal.meal
+            });
+            serverMealId = res.data.meal.id;
+            createdMealIdMap[meal.id] = serverMealId;
+          }
         }
       }
 
       // 4) Sync food items for each meal
-      for (const m of currentMeals) {
-        const effectiveMealId = createdMealIdMap[m.id] || m.id;
-        for (const item of m.foodItems || []) {
-          if (item.id.startsWith('tmpfi-')) {
-            await api.post(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}/food-items`, {
-              foodItemId: item.foodItemId,
-              quantity: item.quantity
-            });
-          } else {
-            // existing item: update quantity if needed
-            await api.put(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}/food-items/${item.id}`, {
-              quantity: item.quantity
-            });
+      for (const cycle of cyclesToSync) {
+        const effectiveCycleId = createdCycleIdMap[cycle.id] || cycle.id;
+        for (const meal of cycle.meals || []) {
+          const effectiveMealId = createdMealIdMap[meal.id] || meal.id;
+          for (const item of meal.foodItems || []) {
+            if (item.id.startsWith('tmpfi-')) {
+              await api.post(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}/food-items`, {
+                foodItemId: item.foodItemId,
+                quantity: item.quantity
+              });
+            } else {
+              // existing item: update quantity if needed
+              await api.put(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}/food-items/${item.id}`, {
+                quantity: item.quantity
+              });
+            }
           }
         }
       }
 
       setIsPlanDirty(false);
+      
+      // Preserve the selected plan ID before reloading
+      const preservedPlanId = serverPlanId;
+      
+      // Reload all plans data to get fresh server data
+      await loadAllPlansData();
+      
+      // Ensure the saved plan remains selected
+      setSelectedPlanId(preservedPlanId);
       
       openSnackbar({
         open: true,
@@ -363,17 +479,16 @@ export default function ClientNutritionPage() {
   };
   
   // Get current cycle for navigation
-  const currentCycle = cycles[currentCycleIndex];
+  const currentCycle = currentCycles[currentCycleIndex];
   const canGoPrevious = currentCycleIndex > 0;
-  const canGoNext = currentCycleIndex < cycles.length - 1;
+  const canGoNext = currentCycleIndex < currentCycles.length - 1;
   
   const handlePreviousCycle = () => {
     if (canGoPrevious) {
       const newIndex = currentCycleIndex - 1;
       setCurrentCycleIndex(newIndex);
-      setSelectedCycleId(cycles[newIndex].id);
+      setSelectedCycleId(currentCycles[newIndex].id);
       setSelectedMealId(null); // Reset meal selection
-      setMeals([]); // Clear meals
     }
   };
   
@@ -381,38 +496,56 @@ export default function ClientNutritionPage() {
     if (canGoNext) {
       const newIndex = currentCycleIndex + 1;
       setCurrentCycleIndex(newIndex);
-      setSelectedCycleId(cycles[newIndex].id);
+      setSelectedCycleId(currentCycles[newIndex].id);
       setSelectedMealId(null); // Reset meal selection
-      setMeals([]); // Clear meals
     }
   };
   
   const handleCopyCycle = async () => {
-    if (!selectedCycleId) return;
-    const base = cycles[currentCycleIndex];
+    if (!selectedCycleId || !selectedPlanId) return;
+    const base = currentCycles[currentCycleIndex];
     if (!base) return;
     const newId = `tmpc-${Date.now()}`;
     const copy: Cycle = {
       id: newId,
       title: `${base.title} (Copy)`,
       label: `${base.label} (Copy)`,
-      dayIndex: cycles.length + 1
+      dayIndex: currentCycles.length + 1,
+      meals: base.meals?.map(meal => ({
+        ...meal,
+        id: `tmpm-${Date.now()}-${Math.random()}`,
+        dayId: newId
+      })) || []
     };
-    setCycles((prev) => [...prev, copy]);
-    setCurrentCycleIndex(cycles.length);
+    
+    // Update the plan with the new cycle
+    setPlans((prev) => prev.map(plan => 
+      plan.id === selectedPlanId 
+        ? { ...plan, cycles: [...(plan.cycles || []), copy] }
+        : plan
+    ));
+    
+    setCurrentCycleIndex(currentCycles.length);
     setSelectedCycleId(newId);
     setIsPlanDirty(true);
   };
 
   const handleDeleteCycle = () => {
-    if (cycles.length <= 1 || !selectedCycleId) return; // cannot delete last cycle
-    const newCycles = cycles.filter((c, idx) => idx !== currentCycleIndex);
-    setCycles(newCycles.map((c, i) => ({ ...c, dayIndex: i + 1 })));
+    if (currentCycles.length <= 1 || !selectedCycleId || !selectedPlanId) return; // cannot delete last cycle
+    
+    // Update the plan by removing the cycle
+    setPlans((prev) => prev.map(plan => 
+      plan.id === selectedPlanId 
+        ? {
+            ...plan,
+            cycles: plan.cycles?.filter((_, idx) => idx !== currentCycleIndex)
+              .map((c, i) => ({ ...c, dayIndex: i + 1 })) || []
+          }
+        : plan
+    ));
+    
     const newIndex = Math.max(0, currentCycleIndex - 1);
     setCurrentCycleIndex(newIndex);
-    setSelectedCycleId(newCycles[newIndex]?.id || null);
-    // Remove meals belonging to deleted cycle
-    setMeals((prev) => prev.filter((m) => m.dayId !== cycles[currentCycleIndex].id));
     setSelectedMealId(null);
     setIsPlanDirty(true);
   };
@@ -421,14 +554,35 @@ export default function ClientNutritionPage() {
     <Stack spacing={3}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4">Nutrition Maker</Typography>
+        <Box>
+          <Typography variant="h4" sx={{ mb: 1 }}>Nutrition Maker</Typography>
+          {selectedPlanId && isPlanDirty && (
+            <Button
+              variant="contained"
+              size="large"
+              onClick={handleSavePlan}
+              disabled={saving}
+              startIcon={saving ? <CircularProgress size={20} /> : null}
+              sx={{ 
+                boxShadow: 2,
+                '&:hover': {
+                  boxShadow: 4
+                }
+              }}
+            >
+              {saving ? 'Saving...' : 'Save Plan'}
+            </Button>
+          )}
+        </Box>
         <Chip label={`Client: ${clientId}`} variant="outlined" />
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto' }}>
-        {/* Section 1: Plans */}
-        <Card sx={{ flex: showSection2 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection2 ? '50%' : '100%' }}>
+      {isMobile ? (
+        <MobileSwipeableSections
+          sections={[
+            // Section 1: Plans
+            <Card key="plans" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <CardHeader
             title="Plans"
             action={
@@ -457,8 +611,7 @@ export default function ClientNutritionPage() {
                       try {
                         await api.post(`/api/nutrition/plans/${selectedPlanId}/activate`);
                         // Refresh plans list to reflect status change
-                        const response = await api.get(`/api/clients/${clientId}/nutrition/plans`);
-                        setPlans(response.data.plans || []);
+                        await loadAllPlansData();
                         openSnackbar({ open: true, message: 'Plan activated', variant: 'alert', alert: { color: 'success' } });
                       } catch (e) {
                         openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error' } });
@@ -485,11 +638,14 @@ export default function ClientNutritionPage() {
                     <Grid item xs={12} key={plan.id}>
                       <Card
                         onClick={() => {
-                          setSelectedPlanId(plan.id);
-                          setSelectedCycleId(null);
-                          setSelectedMealId(null);
-                          setCycles([]);
-                          setMeals([]);
+                          // Only clear data if switching to a different plan
+                          if (selectedPlanId !== plan.id) {
+                            setSelectedPlanId(plan.id);
+                            // On mobile, automatically move to section 2 (cycles) when plan is selected
+                            if (isMobile) {
+                              setMobileSection(1);
+                            }
+                          }
                         }}
                         sx={{
                           cursor: 'pointer',
@@ -519,16 +675,15 @@ export default function ClientNutritionPage() {
               </Grid>
             )}
           </CardContent>
-        </Card>
-
-        {/* Section 2: Current Cycle & Meals */}
-        {showSection2 && (
-          <Card sx={{ flex: showSection3 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection3 ? '50%' : '100%' }}>
+        </Card>,
+            
+            // Section 2: Current Cycle & Meals
+            <Card key="cycles" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
               title={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Typography variant="h6">Current Cycle & Meals</Typography>
-                  {cycles.length > 1 && (
+                  {currentCycles.length > 1 && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <IconButton
                         size="small"
@@ -538,7 +693,7 @@ export default function ClientNutritionPage() {
                         <ArrowLeft2 size={16} />
                       </IconButton>
                       <Typography variant="body2" color="text.secondary">
-                        {currentCycleIndex + 1} of {cycles.length}
+                        {currentCycleIndex + 1} of {currentCycles.length}
                       </Typography>
                       <IconButton
                         size="small"
@@ -570,7 +725,7 @@ export default function ClientNutritionPage() {
                     size="small"
                     startIcon={<Trash size={16} />}
                     onClick={handleDeleteCycle}
-                    disabled={saving || cycles.length <= 1}
+                    disabled={saving || currentCycles.length <= 1}
                   >
                     Delete Cycle
                   </Button>
@@ -603,7 +758,7 @@ export default function ClientNutritionPage() {
                   
                   {/* Meals under current cycle stacked vertically */}
                   <Grid container spacing={2} direction="column">
-                    {meals.filter((m) => m.dayId === currentCycle.id).map((meal) => (
+                    {currentMeals.map((meal) => (
                       <Grid item xs={12} key={meal.id}>
                         <Card
                           sx={{
@@ -611,7 +766,13 @@ export default function ClientNutritionPage() {
                             borderColor: selectedMealId === meal.id ? 'secondary.main' : 'divider',
                             cursor: 'pointer'
                           }}
-                          onClick={() => setSelectedMealId(meal.id)}
+                          onClick={() => {
+                            setSelectedMealId(meal.id);
+                            // On mobile, automatically move to section 3 (meal details) when meal is selected
+                            if (isMobile) {
+                              setMobileSection(2);
+                            }
+                          }}
                         >
                           <CardHeader title={meal.meal} />
                           <CardContent>
@@ -644,13 +805,10 @@ export default function ClientNutritionPage() {
                 </Box>
               )}
             </CardContent>
-          </Card>
-        )}
-
-
-        {/* Section 3: Food Items */}
-        {showSection3 && (
-          <Card sx={{ flex: '1 1 0', minWidth: 0, width: '50%' }}>
+          </Card>,
+            
+            // Section 3: Food Items
+            <Card key="food-items" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
               title="Food Items"
               action={
@@ -665,20 +823,20 @@ export default function ClientNutritionPage() {
               }
             />
             <CardContent>
-              {selectedMealId && meals.find(m => m.id === selectedMealId) ? (
+              {selectedMealId && currentMeals.find(m => m.id === selectedMealId) ? (
                 <Box>
                   <Typography variant="h6" sx={{ mb: 2 }}>
-                    {meals.find(m => m.id === selectedMealId)?.meal}
+                    {currentMeals.find(m => m.id === selectedMealId)?.meal}
                   </Typography>
-                  {meals.find(m => m.id === selectedMealId)?.foodItems && meals.find(m => m.id === selectedMealId)?.foodItems.length > 0 ? (
+                  {currentMeals.find(m => m.id === selectedMealId)?.foodItems && currentMeals.find(m => m.id === selectedMealId)?.foodItems.length > 0 ? (
                     <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Typography variant="subtitle2">
-                          {meals.find(m => m.id === selectedMealId)?.foodItems.length} food item(s)
+                          {currentMeals.find(m => m.id === selectedMealId)?.foodItems.length} food item(s)
                         </Typography>
                       </Box>
                 <List>
-                        {meals.find(m => m.id === selectedMealId)?.foodItems.map((item) => (
+                        {currentMeals.find(m => m.id === selectedMealId)?.foodItems.map((item) => (
                           <ListItem key={item.id}>
                       <ListItemText
                         primary={item.foodItem.name}
@@ -702,9 +860,9 @@ export default function ClientNutritionPage() {
                                         const val = Number(e.target.value);
                                         setEditingQuantities(prev => ({ ...prev, [item.id]: val }));
                                         // Update live in-memory state on change
-                                        setMeals((prev) => prev.map((m) => m.id !== (selectedMealId as string) ? m : {
+                                        setCurrentMeals((prev: Meal[]) => prev.map((m: Meal) => m.id !== (selectedMealId as string) ? m : {
                                           ...m,
-                                          foodItems: m.foodItems.map((fi) => fi.id === item.id ? { ...fi, quantity: val } : fi)
+                                          foodItems: m.foodItems.map((fi: MealFoodItem) => fi.id === item.id ? { ...fi, quantity: val } : fi)
                                         }));
                                         setIsPlanDirty(true);
                                       }}
@@ -738,8 +896,317 @@ export default function ClientNutritionPage() {
               )}
             </CardContent>
           </Card>
-        )}
-      </Box>
+          ]}
+          activeSection={mobileSection}
+          onSectionChange={setMobileSection}
+        />
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto' }}>
+          {/* Section 1: Plans */}
+          <Card sx={{ flex: showSection2 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection2 ? '50%' : '100%' }}>
+            <CardHeader
+              title="Plans"
+              action={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TextField
+                    size="small"
+                    placeholder="Search plans..."
+                    value={planQuery}
+                    onChange={(e) => setPlanQuery(e.target.value)}
+                    InputProps={{}}
+                    sx={{ width: 200 }}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<Add size={16} />}
+                    onClick={() => setIsCreatePlanDialogOpen(true)}
+                  >
+                    Create Plan
+                  </Button>
+                  {selectedPlanId && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={async () => {
+                        try {
+                          await api.post(`/api/nutrition/plans/${selectedPlanId}/activate`);
+                          await loadAllPlansData();
+                          openSnackbar({ open: true, message: 'Plan activated', variant: 'alert', alert: { color: 'success' } });
+                        } catch (e) {
+                          openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error' } });
+                        }
+                      }}
+                    >
+                      Activate
+                    </Button>
+                  )}
+                </Stack>
+              }
+            />
+            <CardContent>
+              {loadingPlans ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Grid container spacing={2} direction="column">
+                  {filteredPlans.map((plan) => {
+                    const isSelected = selectedPlanId === plan.id;
+                    const createdDate = plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : undefined;
+                    return (
+                      <Grid item xs={12} key={plan.id}>
+                        <Card
+                          onClick={() => {
+                            if (selectedPlanId !== plan.id) {
+                              setSelectedPlanId(plan.id);
+                            }
+                          }}
+                          sx={{
+                            cursor: 'pointer',
+                            border: isSelected ? 2 : 1,
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            bgcolor: isSelected ? 'primary.lighter' : 'background.paper'
+                          }}
+                        >
+                          <CardHeader
+                            title={plan.title}
+                            subheader={createdDate ? `Created: ${createdDate}` : undefined}
+                            action={
+                              plan.status && (
+                                <Chip
+                                  label={plan.status}
+                                  color={plan.status === 'active' ? 'success' : 'default'}
+                                  size="small"
+                                />
+                              )
+                            }
+                          />
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Section 2: Current Cycle & Meals */}
+          {showSection2 && (
+            <Card sx={{ flex: showSection3 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection3 ? '50%' : '100%' }}>
+              <CardHeader
+                title={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="h6">Current Cycle & Meals</Typography>
+                    {currentCycles.length > 1 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          onClick={handlePreviousCycle}
+                          disabled={!canGoPrevious}
+                        >
+                          <ArrowLeft2 size={16} />
+                        </IconButton>
+                        <Typography variant="body2" color="text.secondary">
+                          {currentCycleIndex + 1} / {currentCycles.length}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={handleNextCycle}
+                          disabled={!canGoNext}
+                        >
+                          <ArrowRight2 size={16} />
+                        </IconButton>
+                      </Box>
+                    )}
+                  </Box>
+                }
+                action={
+                  <Stack direction="row" spacing={1}>
+                    {selectedCycleId && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Copy size={16} />}
+                        onClick={handleCopyCycle}
+                        disabled={saving}
+                      >
+                        Copy
+                      </Button>
+                    )}
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<Trash size={16} />}
+                      onClick={handleDeleteCycle}
+                      disabled={saving || currentCycles.length <= 1}
+                    >
+                      Delete Cycle
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Add size={16} />}
+                      onClick={() => setIsCreateMealDialogOpen(true)}
+                    >
+                      Create Meal
+                    </Button>
+                  </Stack>
+                }
+              />
+              <CardContent>
+                {currentCycle ? (
+                  <Box>
+                    <Box sx={{ 
+                      p: 2, 
+                      mb: 2, 
+                      backgroundColor: 'primary.main', 
+                      color: 'primary.contrastText',
+                      borderRadius: 1,
+                      textAlign: 'center'
+                    }}>
+                      <Typography variant="h6">{currentCycle.label}</Typography>
+                      <Typography variant="body2">Day {currentCycle.dayIndex}</Typography>
+                    </Box>
+                    
+                    <Grid container spacing={2} direction="column">
+                      {currentMeals.map((meal) => (
+                        <Grid item xs={12} key={meal.id}>
+                          <Card
+                            sx={{
+                              border: selectedMealId === meal.id ? 2 : 1,
+                              borderColor: selectedMealId === meal.id ? 'secondary.main' : 'divider',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => setSelectedMealId(meal.id)}
+                          >
+                            <CardHeader title={meal.meal} />
+                            <CardContent>
+                              <Typography variant="body2" color="text.secondary">
+                                {meal.foodItems?.length || 0} food item(s)
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                      <Grid item xs={12}>
+                        <Card
+                          sx={{
+                            border: '1px dashed',
+                            borderColor: 'divider',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          onClick={() => setIsCreateMealDialogOpen(true)}
+                        >
+                          <Button startIcon={<Add size={16} />}>Add Meal</Button>
+                        </Card>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography color="text.secondary">No cycle selected</Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 3: Food Items */}
+          {showSection3 && (
+            <Card sx={{ flex: '1 1 0', minWidth: 0, width: '50%' }}>
+              <CardHeader
+                title="Food Items"
+                action={
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<Add size={16} />}
+                    onClick={() => setIsAddFoodDialogOpen(true)}
+                  >
+                    Add Food
+                  </Button>
+                }
+              />
+              <CardContent>
+                {selectedMealId && currentMeals.find(m => m.id === selectedMealId) ? (
+                  <Box>
+                    <Typography variant="h6" sx={{ mb: 2 }}>
+                      {currentMeals.find(m => m.id === selectedMealId)?.meal}
+                    </Typography>
+                    {currentMeals.find(m => m.id === selectedMealId)?.foodItems && currentMeals.find(m => m.id === selectedMealId)?.foodItems.length! > 0 ? (
+                      <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="subtitle2">
+                            {currentMeals.find(m => m.id === selectedMealId)?.foodItems.length} food item(s)
+                          </Typography>
+                        </Box>
+                        <List>
+                          {currentMeals.find(m => m.id === selectedMealId)?.foodItems.map((item) => (
+                            <ListItem key={item.id}>
+                              <ListItemText
+                                primary={item.foodItem.name}
+                                secondary={(() => {
+                                  const quantity = editingQuantities[item.id] ?? item.quantity;
+                                  const factor = quantity / (item.foodItem.servingSize || 100);
+                                  const calories = Math.round(item.foodItem.calories * factor);
+                                  const protein = Math.round(item.foodItem.protein * factor);
+                                  const carbs = Math.round(item.foodItem.carbs * factor);
+                                  const fat = Math.round(item.foodItem.fat * factor);
+                                  return (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
+                                      <Typography variant="body2" color="text.secondary">
+                                        {calories} cal • {protein}g P • {carbs}g C • {fat}g F
+                                      </Typography>
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        value={editingQuantities[item.id] ?? item.quantity}
+                                        onChange={(e) => {
+                                          const val = Number(e.target.value);
+                                          setEditingQuantities(prev => ({ ...prev, [item.id]: val }));
+                                          // Update live in-memory state on change
+                                          setCurrentMeals((prev) => prev.map((m) => m.id !== (selectedMealId as string) ? m : {
+                                            ...m,
+                                            foodItems: m.foodItems.map((fi) => fi.id === item.id ? { ...fi, quantity: val } : fi)
+                                          }));
+                                          setIsPlanDirty(true);
+                                        }}
+                                        sx={{ width: 110 }}
+                                        InputProps={{ endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
+                                      />
+                                    </Box>
+                                  );
+                                })()}
+                              />
+                              <ListItemSecondaryAction>
+                                <IconButton size="small" color="error">
+                                  <Trash size={16} />
+                                </IconButton>
+                              </ListItemSecondaryAction>
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Box>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <Typography color="text.secondary">No food items added yet</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography color="text.secondary">Select a meal to view food items</Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </Box>
+      )}
 
       {/* Create Plan Dialog */}
       <Dialog open={isCreatePlanDialogOpen} onClose={() => setIsCreatePlanDialogOpen(false)}>
@@ -833,25 +1300,6 @@ export default function ClientNutritionPage() {
           </Button>
         </DialogActions>
       </Dialog>
-      {/* Save Plan Button */}
-      {selectedPlanId && isPlanDirty && (
-        <Box sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={handleSavePlan}
-            disabled={saving}
-            sx={{ 
-              boxShadow: 3,
-              '&:hover': {
-                boxShadow: 6
-              }
-            }}
-          >
-            {saving ? <CircularProgress size={24} /> : 'Save Plan'}
-          </Button>
-        </Box>
-      )}
     </Stack>
   );
 }

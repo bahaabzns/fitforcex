@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
   Card,
@@ -54,6 +55,7 @@ export default function LandingPageEditor({
   initialConfig = {},
   onSave
 }: LandingPageEditorProps) {
+  const intl = useIntl();
   const [config, setConfig] = useState<LandingConfig>(initialConfig);
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -246,7 +248,7 @@ export default function LandingPageEditor({
                     label="Title"
                     value={config.title || ""}
                     onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Welcome to Our Fitness Community"
+                    placeholder={intl.formatMessage({ id: 'welcome-to-our-fitness-community' })}
                   />
 
                   <TextField
@@ -256,7 +258,7 @@ export default function LandingPageEditor({
                     label="Subtitle"
                     value={config.subtitle || ""}
                     onChange={(e) => setConfig(prev => ({ ...prev, subtitle: e.target.value }))}
-                    placeholder="Transform your fitness journey with personalized training and nutrition plans"
+                    placeholder={intl.formatMessage({ id: 'transform-your-fitness-journey' })}
                   />
 
                   <Box>
@@ -284,7 +286,7 @@ export default function LandingPageEditor({
                         label="CTA Button Text"
                         value={config.ctaText || ""}
                         onChange={(e) => setConfig(prev => ({ ...prev, ctaText: e.target.value }))}
-                        placeholder="Get Started Today"
+                        placeholder={intl.formatMessage({ id: 'get-started-today' })}
                       />
                     </Grid>
                     <Grid item xs={6}>

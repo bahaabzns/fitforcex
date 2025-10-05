@@ -68,6 +68,8 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'member' | 'guest' | null>(null);
   const [apiLoggedIn, setApiLoggedIn] = useState(false);
+  const [clientLoggedIn, setClientLoggedIn] = useState(false);
+  const [userType, setUserType] = useState<'team_member' | 'client' | null>(null);
   const dispatch = useAppDispatch();
 
   useEffect(() => {
@@ -141,7 +143,20 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
           cache: 'no-store'
         });
         if (res.status === 200 || res.status === 304) {
+          const data = await res.json();
           setApiLoggedIn(true);
+          
+          // Set user type from API response
+          if (data.user?.userType) {
+            setUserType(data.user.userType);
+            console.log('🔍 User type from API:', data.user.userType);
+            
+            // Set client logged in status based on user type
+            if (data.user.userType === 'client') {
+              setClientLoggedIn(true);
+              console.log('✅ Client authentication confirmed via API');
+            }
+          }
         }
       } catch {}
     };
@@ -270,16 +285,35 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
           heroImage={config.heroImage}
           roleButtons={
             <>
-              {(userRole === 'owner' || userRole === 'member' || apiLoggedIn) && (
+              {/* Debug info */}
+              {console.log('🔍 Button render state:', { 
+                userRole, 
+                apiLoggedIn, 
+                clientLoggedIn,
+                userType,
+                isAuthenticated,
+                user: !!user
+              })}
+              
+              {/* Client Dashboard Button - Show if user is a client */}
+              {userType === 'client' && (
+                <Button variant="contained" size="large" href="/client/dashboard">
+                  Go to Client Dashboard
+                </Button>
+              )}
+              {/* Workspace Dashboard Button - Show if user is a team member */}
+              {userType === 'team_member' && (userRole === 'owner' || userRole === 'member' || apiLoggedIn) && (
                 <Button variant="contained" size="large" href="/dashboard">
                   Go to Dashboard
                 </Button>
               )}
+              {/* Subscribe Button - Show if guest and subscriptions allowed */}
               {userRole === 'guest' && !apiLoggedIn && allowNewSubscriptions && (
                 <Button variant="contained" size="large" href="/client/signup">
                   Subscribe
                 </Button>
               )}
+              {/* Client Login Button - Show if guest and not logged in */}
               {userRole === 'guest' && !apiLoggedIn && (
                 <Button variant="outlined" size="large" href="/client-login">
                   Client Sign In

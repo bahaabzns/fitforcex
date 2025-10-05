@@ -13,7 +13,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   CircularProgress,
@@ -29,8 +28,11 @@ import {
   DialogActions,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  Divider
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   TrendUp,
   User,
@@ -41,6 +43,7 @@ import {
 } from '@wandersonalwes/iconsax-react';
 import api from '@/utils/axios';
 import MainCard from '@/components/MainCard';
+import ResponsiveTable from '@/components/ResponsiveTable';
 
 interface FinanceMetrics {
   totalSubscriptions: number;
@@ -81,6 +84,8 @@ export default function FinancePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const fetchFinanceData = async () => {
     try {
@@ -289,80 +294,183 @@ export default function FinancePage() {
       {/* Subscriptions Table */}
       <MainCard title="All Subscriptions">
         <CardContent>
-          <TableContainer component={Paper} variant="outlined">
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Client</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Payment Method</TableCell>
-                  <TableCell>Revenue</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Renewal Date</TableCell>
-                  <TableCell align="center">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.subscriptions.map((subscription) => (
-                  <TableRow key={subscription.id}>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="subtitle2">{subscription.clientName}</Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {subscription.clientEmail}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={subscription.status} 
-                        color={getStatusColor(subscription.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        {getPaymentMethodIcon(subscription.paymentMethod)}
-                        <Typography variant="body2">{subscription.paymentMethod}</Typography>
+          {isMobile ? (
+            // Mobile Cards View
+            <Grid container spacing={2}>
+              {data.subscriptions.map((subscription) => (
+                <Grid item xs={12} key={subscription.id}>
+                  <Card 
+                    sx={{ 
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        boxShadow: 4,
+                        transform: 'translateY(-2px)'
+                      }
+                    }}
+                  >
+                    <CardContent>
+                      <Stack spacing={2}>
+                        {/* Header with Avatar and Status */}
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            {subscription.clientName.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Typography variant="h6">
+                              {subscription.clientName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {subscription.clientEmail}
+                            </Typography>
+                          </Box>
+                          <Chip 
+                            label={subscription.status} 
+                            color={getStatusColor(subscription.status) as any}
+                            size="small"
+                          />
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Subscription Details */}
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Payment Method
+                            </Typography>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              {getPaymentMethodIcon(subscription.paymentMethod)}
+                              <Typography variant="body2">{subscription.paymentMethod}</Typography>
+                            </Stack>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Revenue
+                            </Typography>
+                            <Typography variant="body2">
+                              {subscription.payments.length > 0 
+                                ? formatCurrency(subscription.payments.reduce((sum, p) => sum + (p.status === 'succeeded' ? p.amountCents : 0), 0))
+                                : 'No Payment'
+                              }
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Created
+                            </Typography>
+                            <Typography variant="body2">
+                              {new Date(subscription.createdAt).toLocaleDateString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Renewal Date
+                            </Typography>
+                            <Typography variant="body2">
+                              {subscription.renewalDate 
+                                ? new Date(subscription.renewalDate).toLocaleDateString()
+                                : 'N/A'
+                              }
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        <Divider />
+
+                        {/* Actions */}
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<Eye size={16} />}
+                            onClick={() => handleViewSubscriptionDetails(subscription)}
+                          >
+                            View Details
+                          </Button>
+                        </Stack>
                       </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {subscription.payments.length > 0 
-                          ? formatCurrency(subscription.payments.reduce((sum, p) => sum + (p.status === 'succeeded' ? p.amountCents : 0), 0))
-                          : 'No Payment'
-                        }
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {new Date(subscription.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {subscription.renewalDate 
-                          ? new Date(subscription.renewalDate).toLocaleDateString()
-                          : 'N/A'
-                        }
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="View Details">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleViewSubscriptionDetails(subscription)}
-                          color="primary"
-                        >
-                          <Eye size={16} />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            // Desktop Table View
+            <ResponsiveTable>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Client</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Payment Method</TableCell>
+                    <TableCell>Revenue</TableCell>
+                    <TableCell>Created</TableCell>
+                    <TableCell>Renewal Date</TableCell>
+                    <TableCell align="center">Actions</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {data.subscriptions.map((subscription) => (
+                    <TableRow key={subscription.id}>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="subtitle2">{subscription.clientName}</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            {subscription.clientEmail}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={subscription.status} 
+                          color={getStatusColor(subscription.status) as any}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {getPaymentMethodIcon(subscription.paymentMethod)}
+                          <Typography variant="body2">{subscription.paymentMethod}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {subscription.payments.length > 0 
+                            ? formatCurrency(subscription.payments.reduce((sum, p) => sum + (p.status === 'succeeded' ? p.amountCents : 0), 0))
+                            : 'No Payment'
+                          }
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {new Date(subscription.createdAt).toLocaleDateString()}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {subscription.renewalDate 
+                            ? new Date(subscription.renewalDate).toLocaleDateString()
+                            : 'N/A'
+                          }
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="View Details">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleViewSubscriptionDetails(subscription)}
+                            color="primary"
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ResponsiveTable>
+          )}
 
           {data.subscriptions.length === 0 && (
             <Typography align="center" color="textSecondary" sx={{ py: 4 }}>

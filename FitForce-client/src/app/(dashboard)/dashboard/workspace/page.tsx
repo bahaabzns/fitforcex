@@ -33,6 +33,7 @@ import DialogContent from '@mui/material/DialogContent';
 
 // project-imports
 import MainCard from 'components/MainCard';
+import ResponsiveTable from '@/components/ResponsiveTable';
 import FileUpload from 'components/FileUpload';
 import LandingPageEditor from 'components/LandingPageEditor';
 import TemplateBuilder from '@/components/TemplateBuilder';

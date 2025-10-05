@@ -18,6 +18,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import Checkbox from '@mui/material/Checkbox';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import Divider from '@mui/material/Divider';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -33,9 +35,13 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Avatar from '@mui/material/Avatar';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 // project-imports
 import MainCard from 'components/MainCard';
+import ResponsiveTable from '@/components/ResponsiveTable';
 import { CSVExport, RowSelection } from 'components/third-party/react-table';
 
 // Icons
@@ -180,10 +186,13 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
 
 export default function NutritionPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Table states
   const [order, setOrder] = useState<ArrangementOrder>('asc');
@@ -401,6 +410,12 @@ export default function NutritionPage() {
 
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
 
+  // Search filtering
+  const filteredFoodItems = foodItems.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.nameArabic?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   // Import handlers
   const handleOpenImport = async () => {
     setIsImportDialogOpen(true);
@@ -544,77 +559,199 @@ export default function NutritionPage() {
         >
           <RowSelection selected={selected.length} />
 
-          {/* table */}
-          <TableContainer>
-            <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
-              <EnhancedTableHead
-                numSelected={selected.length}
-                order={order}
-                orderBy={orderBy}
-                onSelectAllClick={handleSelectAllClick}
-                onRequestSort={handleRequestSort}
-                rowCount={foodItems.length}
-              />
-              <TableBody>
-                {stableSort(foodItems, getComparator(order, orderBy))
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row, index) => {
-                    if (typeof row === 'number') return null;
-                    const isItemSelected = isSelected(row.id);
-                    const labelId = `enhanced-table-checkbox-${index}`;
+          {/* Search Input */}
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Search food items by name or Arabic name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              sx={{ maxWidth: 400 }}
+            />
+          </Box>
 
-                    return (
-                      <TableRow
-                        hover
+          {/* table */}
+          {isMobile ? (
+            // Mobile Cards View
+            <Grid container spacing={2}>
+              {stableSort(filteredFoodItems, getComparator(order, orderBy))
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((row, index) => {
+                  if (typeof row === 'number') return null;
+                  const isItemSelected = isSelected(row.id);
+
+                  return (
+                    <Grid item xs={12} key={row.id}>
+                      <Card 
+                        sx={{ 
+                          transition: 'all 0.2s',
+                          border: isItemSelected ? '2px solid' : '1px solid',
+                          borderColor: isItemSelected ? 'primary.main' : 'divider',
+                          '&:hover': {
+                            boxShadow: 4,
+                            transform: 'translateY(-2px)'
+                          }
+                        }}
                         onClick={(event) => handleClick(event, row.id)}
-                        role="checkbox"
-                        aria-checked={isItemSelected}
-                        tabIndex={-1}
-                        key={row.id}
-                        selected={isItemSelected}
                       >
-                        <TableCell sx={{ pl: 3 }} padding="checkbox">
-                          <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
-                        </TableCell>
-                        <TableCell component="th" id={labelId} scope="row" padding="none">
-                          {row.name}
-                        </TableCell>
-                        <TableCell align="right">{row.calories}</TableCell>
-                        <TableCell align="right">{row.protein}</TableCell>
-                        <TableCell align="right">{row.carbs}</TableCell>
-                        <TableCell align="right">{row.fat}</TableCell>
-                        <TableCell align="right">
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleEdit(row); }}>
-                              <Edit size={16} />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}
-                              disabled={deleting === row.id}
-                            >
-                              {deleting === row.id ? <CircularProgress size={16} /> : <Trash size={16} />}
-                            </IconButton>
+                        <CardContent>
+                          <Stack spacing={2}>
+                            {/* Header with Checkbox and Name */}
+                            <Stack direction="row" spacing={2} alignItems="center">
+                              <Checkbox 
+                                color="primary" 
+                                checked={isItemSelected} 
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <Box sx={{ flexGrow: 1 }}>
+                                <Typography variant="h6">
+                                  {row.name}
+                                </Typography>
+                              </Box>
+                            </Stack>
+
+                            <Divider />
+
+                            {/* Nutritional Information */}
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Calories
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {row.calories} kcal
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Protein
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {row.protein}g
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Carbs
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {row.carbs}g
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Fat
+                                </Typography>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {row.fat}g
+                                </Typography>
+                              </Grid>
+                            </Grid>
+
+                            <Divider />
+
+                            {/* Actions */}
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<Edit size={16} />}
+                                onClick={(e) => { e.stopPropagation(); handleEdit(row); }}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                startIcon={deleting === row.id ? <CircularProgress size={16} /> : <Trash size={16} />}
+                                onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}
+                                disabled={deleting === row.id}
+                              >
+                                Delete
+                              </Button>
+                            </Stack>
                           </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                {emptyRows > 0 && (
-                  <TableRow sx={{ height: 53 * emptyRows }}>
-                    <TableCell colSpan={7} />
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+            </Grid>
+          ) : (
+            // Desktop Table View
+            <ResponsiveTable>
+              <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
+                <EnhancedTableHead
+                  numSelected={selected.length}
+                  order={order}
+                  orderBy={orderBy}
+                  onSelectAllClick={handleSelectAllClick}
+                  onRequestSort={handleRequestSort}
+                  rowCount={filteredFoodItems.length}
+                />
+                <TableBody>
+                  {stableSort(filteredFoodItems, getComparator(order, orderBy))
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((row, index) => {
+                      if (typeof row === 'number') return null;
+                      const isItemSelected = isSelected(row.id);
+                      const labelId = `enhanced-table-checkbox-${index}`;
+
+                      return (
+                        <TableRow
+                          hover
+                          onClick={(event) => handleClick(event, row.id)}
+                          role="checkbox"
+                          aria-checked={isItemSelected}
+                          tabIndex={-1}
+                          key={row.id}
+                          selected={isItemSelected}
+                        >
+                          <TableCell sx={{ pl: 3 }} padding="checkbox">
+                            <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
+                          </TableCell>
+                          <TableCell component="th" id={labelId} scope="row" padding="none">
+                            {row.name}
+                          </TableCell>
+                          <TableCell align="right">{row.calories}</TableCell>
+                          <TableCell align="right">{row.protein}</TableCell>
+                          <TableCell align="right">{row.carbs}</TableCell>
+                          <TableCell align="right">{row.fat}</TableCell>
+                          <TableCell align="right">
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleEdit(row); }}>
+                                <Edit size={16} />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}
+                                disabled={deleting === row.id}
+                              >
+                                {deleting === row.id ? <CircularProgress size={16} /> : <Trash size={16} />}
+                              </IconButton>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  {emptyRows > 0 && (
+                    <TableRow sx={{ height: 53 * emptyRows }}>
+                      <TableCell colSpan={7} />
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ResponsiveTable>
+          )}
           <Divider />
           {/* table pagination */}
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={foodItems.length}
+            count={filteredFoodItems.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}

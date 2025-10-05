@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { APP_CONFIG } from '@/lib/config';
 import api from '@/utils/axios';
 
 export default function AdminLoginPage() {
@@ -20,10 +19,19 @@ export default function AdminLoginPage() {
       if (!email || !password) {
         throw new Error('Email and password are required');
       }
-      await api.post('/api/auth/login', { email, password });
-      router.replace('/admin');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Login failed';
+      
+      // Use the admin login endpoint
+      const response = await api.post('/api/auth/admin-login', { email, password });
+      
+      // Store the admin token in sessionStorage (not localStorage for security)
+      if (response.data.token) {
+        sessionStorage.setItem('adminToken', response.data.token);
+        router.replace('/admin');
+      } else {
+        throw new Error('No token received from server');
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Login failed';
       setError(msg);
     } finally {
       setLoading(false);
@@ -31,58 +39,127 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div style={{ width: 420, maxWidth: '92vw' }}>
+    <div style={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      padding: 24,
+      backgroundColor: '#f9fafb'
+    }}>
+      <div style={{ 
+        width: 420, 
+        maxWidth: '92vw',
+        backgroundColor: 'white',
+        padding: 32,
+        borderRadius: 12,
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+      }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Welcome to FitForce</div>
-          <div style={{ color: '#6b7280' }}>
-            Build your fitness business with client management, workouts, nutrition, and more.
+          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 6, color: '#111827' }}>
+            FitForce Admin
+          </div>
+          <div style={{ color: '#6b7280', fontSize: 14 }}>
+            Management Panel Login
           </div>
         </div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Management Login</h2>
-        <p style={{ color: '#6b7280', marginBottom: 24 }}>
-          Sign in to manage workspaces, subscriptions, and packages.
+        
+        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#111827' }}>
+          Sign In
+        </h2>
+        <p style={{ color: '#6b7280', marginBottom: 24, fontSize: 14 }}>
+          Enter your admin credentials to access the management panel.
         </p>
-        <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12 }}>Email</span>
+        
+        <form onSubmit={onSubmit} style={{ display: 'grid', gap: 16 }}>
+          <div style={{ display: 'grid', gap: 6 }}>
+            <label style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
+              Email Address
+            </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder={`admin@${APP_CONFIG.frontendDomain}`}
-              style={{ padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8 }}
+              placeholder="admin@fitforceapp.com"
+              required
+              style={{ 
+                padding: '12px 16px', 
+                border: '1px solid #d1d5db', 
+                borderRadius: 8,
+                fontSize: 14,
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 12 }}>Password</span>
+          </div>
+          
+          <div style={{ display: 'grid', gap: 6 }}>
+            <label style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>
+              Password
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              style={{ padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8 }}
+              placeholder="Enter your password"
+              required
+              style={{ 
+                padding: '12px 16px', 
+                border: '1px solid #d1d5db', 
+                borderRadius: 8,
+                fontSize: 14,
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
-          </label>
+          </div>
+          
           {error && (
-            <div style={{ color: '#b91c1c', fontSize: 13 }}>{error}</div>
+            <div style={{ 
+              color: '#dc2626', 
+              fontSize: 14, 
+              padding: '8px 12px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: 6
+            }}>
+              {error}
+            </div>
           )}
+          
           <button
             type="submit"
             disabled={loading}
             style={{
-              padding: '10px 12px',
+              padding: '12px 16px',
               borderRadius: 8,
-              background: '#111827',
+              background: loading ? '#9ca3af' : '#111827',
               color: 'white',
               border: 0,
-              cursor: 'pointer',
-              opacity: loading ? 0.7 : 1
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: 14,
+              fontWeight: 500,
+              transition: 'background-color 0.2s'
             }}
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+        
+        <div style={{ 
+          marginTop: 24, 
+          padding: 16, 
+          backgroundColor: '#f3f4f6', 
+          borderRadius: 8,
+          fontSize: 12,
+          color: '#6b7280'
+        }}>
+          <strong>Note:</strong> This is a session-based login. You will need to sign in again after closing your browser.
+        </div>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import api from '@/utils/axios';
+import ResponsiveTable from '@/components/ResponsiveTable';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -26,6 +27,11 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import Grid from '@mui/material/Grid';
+import Avatar from '@mui/material/Avatar';
+import Divider from '@mui/material/Divider';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 type QueueStatus = 'pending' | 'sent' | 'completed' | 'done';
 
@@ -82,6 +88,8 @@ export default function QueuePage() {
   const [viewLoading, setViewLoading] = useState(false);
   const [viewError, setViewError] = useState<string | null>(null);
   const [viewSubmission, setViewSubmission] = useState<any | null>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
     const load = async () => {
@@ -180,65 +188,194 @@ export default function QueuePage() {
             <Tab label={`Done (${counts.done})`} />
           </Tabs>
 
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Client</TableCell>
-                  <TableCell>Form</TableCell>
-                  <TableCell>Scheduled</TableCell>
-                  <TableCell>Sent</TableCell>
-                  <TableCell>Completed</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{row.clientName}</TableCell>
-                    <TableCell>
-                      {row.formTitle}
-                      {row.formType ? <Chip size="small" label={row.formType} sx={{ ml: 1 }} /> : null}
-                    </TableCell>
-                    <TableCell>{row.scheduledAt ? new Date(row.scheduledAt).toLocaleString() : '-'}</TableCell>
-                    <TableCell>{row.sentAt ? new Date(row.sentAt).toLocaleString() : '-'}</TableCell>
-                    <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleString() : '-'}</TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip size="small" color={statusColor(row.status) as any} label={statusLabel(row.status)} variant="outlined" />
-                        {row.status === 'completed' && (
-                          <Button size="small" variant="outlined" onClick={() => openView(row.id)}>View</Button>
+          {isMobile ? (
+            // Mobile Cards View
+            <Grid container spacing={2}>
+              {filtered.map((row) => (
+                <Grid item xs={12} key={row.id}>
+                  <Card 
+                    sx={{ 
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        boxShadow: 4,
+                        transform: 'translateY(-2px)'
+                      }
+                    }}
+                  >
+                    <CardContent>
+                      <Stack spacing={2}>
+                        {/* Header with Avatar and Status */}
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            {row.clientName.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Typography variant="h6">
+                              {row.clientName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {row.formTitle}
+                            </Typography>
+                          </Box>
+                          <Chip 
+                            size="small" 
+                            color={statusColor(row.status) as any} 
+                            label={statusLabel(row.status)} 
+                            variant="outlined" 
+                          />
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Form Type */}
+                        {row.formType && (
+                          <Box>
+                            <Chip 
+                              size="small" 
+                              label={row.formType} 
+                              variant="outlined"
+                              color="primary"
+                            />
+                          </Box>
                         )}
-                        {row.status === 'completed' && row.clientId && row.formType && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => {
-                              const path = row.formType === 'nutrition'
-                                ? `/dashboard/clients/${row.clientId}/nutrition`
-                                : `/dashboard/clients/${row.clientId}/workout`;
-                              window.location.href = path;
-                            }}
-                          >
-                            {row.formType === 'nutrition' ? 'Create Nutrition Plan' : 'Create Workout Plan'}
-                          </Button>
-                        )}
+
+                        <Divider />
+
+                        {/* Timeline Details */}
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Scheduled
+                            </Typography>
+                            <Typography variant="body2">
+                              {row.scheduledAt ? new Date(row.scheduledAt).toLocaleDateString() : '-'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Sent
+                            </Typography>
+                            <Typography variant="body2">
+                              {row.sentAt ? new Date(row.sentAt).toLocaleDateString() : '-'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography variant="caption" color="text.secondary">
+                              Completed
+                            </Typography>
+                            <Typography variant="body2">
+                              {row.completedAt ? new Date(row.completedAt).toLocaleDateString() : '-'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        <Divider />
+
+                        {/* Actions */}
+                        <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
+                          {row.status === 'completed' && (
+                            <Button 
+                              size="small" 
+                              variant="outlined" 
+                              onClick={() => openView(row.id)}
+                            >
+                              View Submission
+                            </Button>
+                          )}
+                          {row.status === 'completed' && row.clientId && row.formType && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              onClick={() => {
+                                const path = row.formType === 'nutrition'
+                                  ? `/dashboard/clients/${row.clientId}/nutrition`
+                                  : `/dashboard/clients/${row.clientId}/workout`;
+                                window.location.href = path;
+                              }}
+                            >
+                              {row.formType === 'nutrition' ? 'Create Nutrition Plan' : 'Create Workout Plan'}
+                            </Button>
+                          )}
+                        </Stack>
                       </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6}>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+              {filtered.length === 0 && (
+                <Grid item xs={12}>
+                  <Card>
+                    <CardContent>
                       <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
                         No queue items match your filters
                       </Typography>
-                    </TableCell>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+            </Grid>
+          ) : (
+            // Desktop Table View
+            <ResponsiveTable>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Client</TableCell>
+                    <TableCell>Form</TableCell>
+                    <TableCell>Scheduled</TableCell>
+                    <TableCell>Sent</TableCell>
+                    <TableCell>Completed</TableCell>
+                    <TableCell>Status</TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {filtered.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.clientName}</TableCell>
+                      <TableCell>
+                        {row.formTitle}
+                        {row.formType ? <Chip size="small" label={row.formType} sx={{ ml: 1 }} /> : null}
+                      </TableCell>
+                      <TableCell>{row.scheduledAt ? new Date(row.scheduledAt).toLocaleString() : '-'}</TableCell>
+                      <TableCell>{row.sentAt ? new Date(row.sentAt).toLocaleString() : '-'}</TableCell>
+                      <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleString() : '-'}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip size="small" color={statusColor(row.status) as any} label={statusLabel(row.status)} variant="outlined" />
+                          {row.status === 'completed' && (
+                            <Button size="small" variant="outlined" onClick={() => openView(row.id)}>View</Button>
+                          )}
+                          {row.status === 'completed' && row.clientId && row.formType && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              onClick={() => {
+                                const path = row.formType === 'nutrition'
+                                  ? `/dashboard/clients/${row.clientId}/nutrition`
+                                  : `/dashboard/clients/${row.clientId}/workout`;
+                                window.location.href = path;
+                              }}
+                            >
+                              {row.formType === 'nutrition' ? 'Create Nutrition Plan' : 'Create Workout Plan'}
+                            </Button>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
+                          No queue items match your filters
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ResponsiveTable>
+          )}
         </CardContent>
       </Card>
 

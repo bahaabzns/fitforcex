@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { useAppSelector } from '@/store';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Box,
   Card,
@@ -27,8 +29,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField
+  TextField,
+  Divider,
+  Avatar
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   Add,
   Trash
@@ -59,6 +65,9 @@ interface SubscriptionPlan {
 
 export default function ClientSubscriptionPage() {
   const { id: clientId } = useParams() as { id: string };
+  const workspaceId = useAppSelector((s) => s.workspace.id);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // State for subscriptions
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -80,9 +89,11 @@ export default function ClientSubscriptionPage() {
   // Load subscriptions
   useEffect(() => {
     const loadSubscriptions = async () => {
+      if (!workspaceId) return;
+      
       try {
         setLoadingSubscriptions(true);
-        const response = await api.get(`/api/clients/${clientId}/subscriptions`);
+        const response = await api.get(`/api/clients/${workspaceId}/subscriptions?clientId=${clientId}`);
         setSubscriptions(response.data.subscriptions || []);
       } catch (err: any) {
         openSnackbar({
@@ -96,7 +107,7 @@ export default function ClientSubscriptionPage() {
       }
     };
     loadSubscriptions();
-  }, [clientId]);
+  }, [clientId, workspaceId]);
 
   // Load subscription plans
   useEffect(() => {
@@ -123,6 +134,8 @@ export default function ClientSubscriptionPage() {
     switch (status) {
       case 'active':
         return 'success';
+      case 'pre_start':
+        return 'info';
       case 'pending':
         return 'warning';
       case 'expired':
@@ -206,7 +219,7 @@ export default function ClientSubscriptionPage() {
       {/* Current Subscriptions */}
       <Card>
         <CardHeader
-          title="Current Subscriptions"
+          title={intl.formatMessage({ id: 'current-subscriptions' })}
           action={
             <Button
               variant="contained"
@@ -223,50 +236,140 @@ export default function ClientSubscriptionPage() {
               <CircularProgress />
             </Box>
           ) : subscriptions.length > 0 ? (
-            <List>
-              {subscriptions.map((subscription) => (
-                <ListItem key={subscription.id}>
-                  <ListItemText
-                    primary={subscription.planName}
-                    secondary={
-                      <Stack spacing={1}>
-                        <Typography variant="body2">
-                          Status: {subscription.status}
-                        </Typography>
-                        <Typography variant="body2">
-                          Start Date: {new Date(subscription.startDate).toLocaleDateString()}
-                        </Typography>
-                        {subscription.endDate && (
+            isMobile ? (
+              // Mobile Cards View
+              <Grid container spacing={2}>
+                {subscriptions.map((subscription) => (
+                  <Grid item xs={12} key={subscription.id}>
+                    <Card 
+                      sx={{ 
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          boxShadow: 4,
+                          transform: 'translateY(-2px)'
+                        }
+                      }}
+                    >
+                      <CardContent>
+                        <Stack spacing={2}>
+                          {/* Header with Avatar and Status */}
+                          <Stack direction="row" spacing={2} alignItems="center">
+                            <Avatar sx={{ bgcolor: 'primary.main' }}>
+                              📋
+                            </Avatar>
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="h6">
+                                {subscription.planName}
+                              </Typography>
+                              <Chip
+                                label={subscription.status}
+                                color={getStatusColor(subscription.status) as any}
+                                size="small"
+                              />
+                            </Box>
+                          </Stack>
+
+                          <Divider />
+
+                          {/* Subscription Details */}
+                          <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="text.secondary">
+                                Start Date
+                              </Typography>
+                              <Typography variant="body2">
+                                {new Date(subscription.startDate).toLocaleDateString()}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="text.secondary">
+                                Price
+                              </Typography>
+                              <Typography variant="body2">
+                                {subscription.currency} {subscription.price}
+                              </Typography>
+                            </Grid>
+                            {subscription.endDate && (
+                              <Grid item xs={12}>
+                                <Typography variant="caption" color="text.secondary">
+                                  End Date
+                                </Typography>
+                                <Typography variant="body2">
+                                  {new Date(subscription.endDate).toLocaleDateString()}
+                                </Typography>
+                              </Grid>
+                            )}
+                          </Grid>
+
+                          <Divider />
+
+                          {/* Actions */}
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            {(subscription.status === 'active' || subscription.status === 'pre_start') && (
+                              <Button
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                startIcon={<Trash size={16} />}
+                                onClick={() => handleCancelSubscription(subscription.id)}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </Stack>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              // Desktop List View
+              <List>
+                {subscriptions.map((subscription) => (
+                  <ListItem key={subscription.id}>
+                    <ListItemText
+                      primary={subscription.planName}
+                      secondary={
+                        <Stack spacing={1}>
                           <Typography variant="body2">
-                            End Date: {new Date(subscription.endDate).toLocaleDateString()}
+                            Status: {subscription.status}
                           </Typography>
-                        )}
-                        <Typography variant="body2">
-                          Price: {subscription.currency} {subscription.price}
-                        </Typography>
-                      </Stack>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <Chip
-                      label={subscription.status}
-                      color={getStatusColor(subscription.status) as any}
-                      size="small"
-                      sx={{ mr: 1 }}
+                          <Typography variant="body2">
+                            Start Date: {new Date(subscription.startDate).toLocaleDateString()}
+                          </Typography>
+                          {subscription.endDate && (
+                            <Typography variant="body2">
+                              End Date: {new Date(subscription.endDate).toLocaleDateString()}
+                            </Typography>
+                          )}
+                          <Typography variant="body2">
+                            Price: {subscription.currency} {subscription.price}
+                          </Typography>
+                        </Stack>
+                      }
                     />
-                    {subscription.status === 'active' && (
-                      <IconButton
+                    <ListItemSecondaryAction>
+                      <Chip
+                        label={subscription.status}
+                        color={getStatusColor(subscription.status) as any}
                         size="small"
-                        color="error"
-                        onClick={() => handleCancelSubscription(subscription.id)}
-                      >
-                        <Trash size={16} />
-                      </IconButton>
-                    )}
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
-            </List>
+                        sx={{ mr: 1 }}
+                      />
+                      {(subscription.status === 'active' || subscription.status === 'pre_start') && (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleCancelSubscription(subscription.id)}
+                        >
+                          <Trash size={16} />
+                        </IconButton>
+                      )}
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                ))}
+              </List>
+            )
           ) : (
             <Typography color="text.secondary" textAlign="center" py={4}>
               No subscriptions found
@@ -277,7 +380,7 @@ export default function ClientSubscriptionPage() {
 
       {/* Available Plans */}
       <Card>
-        <CardHeader title="Available Subscription Plans" />
+        <CardHeader title={intl.formatMessage({ id: 'available-subscription-plans' })} />
         <CardContent>
           {loadingPlans ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -335,7 +438,7 @@ export default function ClientSubscriptionPage() {
           </FormControl>
           <TextField
             fullWidth
-            label="Start Date"
+            label={intl.formatMessage({ id: 'start-date' })}
             type="date"
             value={subscriptionStartDate}
             onChange={(e) => setSubscriptionStartDate(e.target.value)}

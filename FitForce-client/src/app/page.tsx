@@ -25,8 +25,7 @@ export default function HomePage() {
           !hasSubdomain &&
           (host === 'localhost:3000' ||
             host === APP_CONFIG.frontendDomain ||
-            host === `app.${APP_CONFIG.frontendDomain}` ||
-            host === 'fitforceapp.com');
+            host === `app.${APP_CONFIG.frontendDomain}`);
 
         // If main domain → show app landing
         if (isMainDomain) {

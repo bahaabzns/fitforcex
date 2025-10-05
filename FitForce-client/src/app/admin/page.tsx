@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Box, Grid, Card, CardActionArea, CardContent, Typography, Chip } from '@mui/material';
-import { Inventory2, Restaurant, FitnessCenter, ShoppingCart, AutoAwesome, Insights, People } from '@mui/icons-material';
+import { Box, Grid, Card, CardActionArea, CardContent, Typography, Chip, Button } from '@mui/material';
+import { Inventory2, Restaurant, FitnessCenter, ShoppingCart, AutoAwesome, Insights, People, Logout } from '@mui/icons-material';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 export default function AdminHome() {
+  const { adminUser, logout } = useAdminAuth();
+
   const items = [
     {
       href: '/admin/workspaces',
@@ -60,8 +63,24 @@ export default function AdminHome() {
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 6 }, maxWidth: 1200, mx: 'auto' }}>
       <Box sx={{ mb: 4, textAlign: 'center' }}>
-        <Typography variant="h4" fontWeight={800}>App Management</Typography>
-        <Typography color="text.secondary">Manage workspaces, subscriptions, packages, and global content.</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <div />
+          <Typography variant="h4" fontWeight={800}>App Management</Typography>
+          <Button
+            variant="outlined"
+            startIcon={<Logout />}
+            onClick={logout}
+            size="small"
+          >
+            Logout
+          </Button>
+        </Box>
+        <Typography color="text.secondary">
+          Welcome, {adminUser?.fullName} ({adminUser?.email})
+        </Typography>
+        <Typography color="text.secondary" sx={{ mt: 1 }}>
+          Manage workspaces, subscriptions, packages, and global content.
+        </Typography>
       </Box>
       <Grid container spacing={3}>
         {items.map((item) => (

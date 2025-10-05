@@ -1,4 +1,5 @@
 import React from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Card,
   CardContent,
@@ -55,7 +56,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
 
   const isCurrentPackage = currentSubscription && 
     new Date(currentSubscription.endDate) > new Date() &&
-    currentSubscription.status === 'active';
+    (currentSubscription.status === 'active' || currentSubscription.status === 'pre_start');
 
   const getFeatures = () => {
     if (!packageData.features) return [];
@@ -87,7 +88,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
     >
       {isCurrentPackage && (
         <Chip
-          label="Current Plan"
+          label={intl.formatMessage({ id: 'current-plan' })}
           color="primary"
           size="small"
           sx={{

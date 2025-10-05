@@ -20,6 +20,13 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
+    // Add admin token if available (for admin routes)
+    const adminToken = sessionStorage.getItem('adminToken');
+    if (adminToken) {
+      config.headers = config.headers || {};
+      (config.headers as Record<string, string>)['Authorization'] = `Bearer ${adminToken}`;
+    }
+
     const workspace = getPersisted<PersistedWorkspace>('workspace');
     // Prefer explicit workspaceId from URL query (e.g., subscription pages)
     const urlParams = new URLSearchParams(window.location.search || '');

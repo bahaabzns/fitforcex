@@ -27,6 +27,7 @@ import Box from '@mui/material/Box';
 // third-party
 import * as Yup from 'yup';
 import { Formik } from 'formik';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 // project-imports
 import IconButton from 'components/@extended/IconButton';
@@ -46,6 +47,7 @@ const Google = '/assets/images/icons/google.svg';
 
 export default function AuthLogin({ providers, csrfToken }: any) {
   const downSM = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
+  const intl = useIntl();
 
   const [checked, setChecked] = useState(false);
   const router = useRouter();
@@ -67,12 +69,12 @@ export default function AuthLogin({ providers, csrfToken }: any) {
           submit: null
         }}
         validationSchema={Yup.object().shape({
-          email: Yup.string().email('Must be a valid email').max(255).required('Email is required'),
+          email: Yup.string().email(intl.formatMessage({ id: 'must-be-a-valid-email' })).max(255).required(intl.formatMessage({ id: 'email-is-required' })),
           password: Yup.string()
-            .required('Password is required')
-            .test('no-leading-trailing-whitespace', 'Password can not start or end with spaces', (value) => value === value.trim())
-            .min(6, 'Password must be at least 6 characters')
-            .max(128, 'Password must be at most 128 characters')
+            .required(intl.formatMessage({ id: 'password-is-required' }))
+            .test('no-leading-trailing-whitespace', intl.formatMessage({ id: 'password-can-not-start-or-end-with-spaces' }), (value) => value === value.trim())
+            .min(6, intl.formatMessage({ id: 'password-must-be-at-least-6-characters' }))
+            .max(128, intl.formatMessage({ id: 'password-must-be-at-most-128-characters' }))
         })}
         onSubmit={async (values, { setErrors, setStatus, setSubmitting }) => {
           try {
@@ -80,7 +82,7 @@ export default function AuthLogin({ providers, csrfToken }: any) {
             const ok = await loginUser(trimmedEmail, values.password);
             if (!ok) {
               setStatus({ success: false });
-              setErrors({ submit: 'Invalid email or password' });
+              setErrors({ submit: intl.formatMessage({ id: 'invalid-email-or-password' }) });
             } else {
               setStatus({ success: true });
               setSubmitting(false);
@@ -99,7 +101,9 @@ export default function AuthLogin({ providers, csrfToken }: any) {
             <Grid container spacing={3}>
               <Grid size={12}>
                 <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="email-login">Email Address</InputLabel>
+                  <InputLabel htmlFor="email-login">
+                    <FormattedMessage id="email-address" />
+                  </InputLabel>
                   <OutlinedInput
                     id="email-login"
                     type="email"
@@ -107,7 +111,7 @@ export default function AuthLogin({ providers, csrfToken }: any) {
                     name="email"
                     onBlur={handleBlur}
                     onChange={handleChange}
-                    placeholder="Enter email address"
+                    placeholder={intl.formatMessage({ id: 'enter-email-address' })}
                     fullWidth
                     error={Boolean(touched.email && errors.email)}
                   />
@@ -120,7 +124,9 @@ export default function AuthLogin({ providers, csrfToken }: any) {
               </Grid>
               <Grid size={12}>
                 <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="password-login">Password</InputLabel>
+                  <InputLabel htmlFor="password-login">
+                    <FormattedMessage id="password" />
+                  </InputLabel>
                   <OutlinedInput
                     fullWidth
                     error={Boolean(touched.password && errors.password)}
@@ -143,7 +149,7 @@ export default function AuthLogin({ providers, csrfToken }: any) {
                         </IconButton>
                       </InputAdornment>
                     }
-                    placeholder="Enter password"
+                    placeholder={intl.formatMessage({ id: 'enter-password' })}
                   />
                 </Stack>
                 {touched.password && errors.password && (
@@ -165,10 +171,10 @@ export default function AuthLogin({ providers, csrfToken }: any) {
                         size="small"
                       />
                     }
-                    label={<Typography variant="h6">Keep me sign in</Typography>}
+                    label={<Typography variant="h6"><FormattedMessage id="keep-me-sign-in" /></Typography>}
                   />
                   <Links variant="h6" component={Link} href={'/forgot-password'} color="text.primary">
-                    Forgot Password?
+                    <FormattedMessage id="forgot-password" />
                   </Links>
                 </Stack>
               </Grid>
@@ -180,7 +186,7 @@ export default function AuthLogin({ providers, csrfToken }: any) {
               <Grid size={12}>
                 <AnimateButton>
                   <Button disableElevation disabled={isSubmitting} fullWidth size="large" type="submit" variant="contained" color="primary">
-                    Login
+                    <FormattedMessage id="login" />
                   </Button>
                 </AnimateButton>
               </Grid>

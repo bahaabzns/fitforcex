@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -45,6 +46,7 @@ type FormTemplate = {
 
 export default function FormsPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
+  const intl = useIntl();
 
   // Debug logging
   console.log('FormsPage - workspaceId:', workspaceId);
@@ -213,14 +215,14 @@ export default function FormsPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       <Dialog open={showCreate} onClose={() => setShowCreate(false)} fullWidth maxWidth="md">
-        <DialogTitle>New Form Template</DialogTitle>
+        <DialogTitle><FormattedMessage id="new-form-template" /></DialogTitle>
         <DialogContent dividers>
           <Stack spacing={3}>
-            <TextField fullWidth label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <TextField fullWidth label="Title (Arabic)" value={titleArabic} onChange={(e) => setTitleArabic(e.target.value)} />
+            <TextField fullWidth label={intl.formatMessage({ id: 'title' })} value={title} onChange={(e) => setTitle(e.target.value)} />
+            <TextField fullWidth label={intl.formatMessage({ id: 'title-arabic' })} value={titleArabic} onChange={(e) => setTitleArabic(e.target.value)} />
             <FormControl fullWidth>
-              <InputLabel id="form-type-label">Type</InputLabel>
-              <Select labelId="form-type-label" label="Type" value={formType} onChange={(e) => setFormType(e.target.value as any)}>
+              <InputLabel id="form-type-label"><FormattedMessage id="type" /></InputLabel>
+              <Select labelId="form-type-label" label={intl.formatMessage({ id: 'type' })} value={formType} onChange={(e) => setFormType(e.target.value as any)}>
                 <MenuItem value="nutrition">nutrition</MenuItem>
                 <MenuItem value="workout">workout</MenuItem>
               </Select>
@@ -230,7 +232,7 @@ export default function FormsPage() {
             {defaultQuestions.length > 0 && (
               <Box>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Fixed questions
+                  <FormattedMessage id="fixed-questions" />
                 </Typography>
                 <Stack direction="row" flexWrap="wrap" gap={1}>
                   {defaultQuestions.map((q) => (

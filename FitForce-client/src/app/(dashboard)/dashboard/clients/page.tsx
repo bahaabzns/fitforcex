@@ -25,7 +25,6 @@ import Select from '@mui/material/Select';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
@@ -54,6 +53,9 @@ import {
 import Avatar from 'components/@extended/Avatar';
 import IconButton from 'components/@extended/IconButton';
 import MainCard from 'components/MainCard';
+import ResponsiveTable from 'components/ResponsiveTable';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import {
   CSVExport,
@@ -83,6 +85,8 @@ type TableDensity = 'comfortable' | 'standard' | 'compact';
 
 export default function ClientsPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +94,13 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [tableDensity, setTableDensity] = useState<TableDensity>('comfortable');
+
+  // Auto-switch to cards view on mobile
+  useEffect(() => {
+    if (isMobile && viewMode === 'table') {
+      setViewMode('cards');
+    }
+  }, [isMobile]);
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
@@ -404,7 +415,7 @@ export default function ClientsPage() {
       </Stack>
       <Stack>
         <RowSelection selected={Object.keys(rowSelection).length} />
-        <TableContainer>
+        <ResponsiveTable>
           <Table size={tableDensity === 'compact' ? 'small' : tableDensity === 'comfortable' ? 'medium' : 'small'}>
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -461,7 +472,7 @@ export default function ClientsPage() {
               ))}
             </TableBody>
           </Table>
-        </TableContainer>
+        </ResponsiveTable>
         <>
           <Divider />
           <Box sx={{ p: 2 }}>
@@ -483,17 +494,100 @@ export default function ClientsPage() {
   const renderCardsView = () => (
     <Grid container spacing={2}>
       {filtered.map((c) => (
-        <Grid key={c.id} size={{ xs: 12, md: 6, lg: 4 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardHeader title={c.fullName || c.name || 'Unnamed'} subheader={c.email || c.phone || ''} />
+        <Grid key={c.id} size={{ xs: 12, sm: 6, lg: 4 }}>
+          <Card 
+            sx={{ 
+              height: '100%',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              '&:hover': {
+                boxShadow: 4,
+                transform: 'translateY(-4px)'
+              }
+            }}
+            onClick={() => {
+              setSelectedClient(c);
+              setViewOpen(true);
+            }}
+          >
+            <CardHeader 
+              avatar={
+                <Avatar alt={c.fullName || c.name} size="md">
+                  {(c.fullName || c.name || 'U')[0].toUpperCase()}
+                </Avatar>
+              }
+              title={
+                <Typography variant="h6">
+                  {c.fullName || c.name || 'Unnamed'}
+                </Typography>
+              }
+              subheader={
+                <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                  {c.email && (
+                    <Typography variant="body2" color="text.secondary">
+                      📧 {c.email}
+                    </Typography>
+                  )}
+                  {c.phone && (
+                    <Typography variant="body2" color="text.secondary">
+                      📱 {c.phone}
+                    </Typography>
+                  )}
+                </Stack>
+              }
+            />
             <CardContent>
-              <Stack direction="row" spacing={1}>
-                <Button size="small" variant="outlined" href={`/dashboard/clients/${c.id}`}>
-                  View Details
-                </Button>
-                <Button size="small" variant="outlined" href={`/dashboard/clients/${c.id}?tab=workout`}>
-                  Workouts
-                </Button>
+              <Stack spacing={2}>
+                {c.status && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Status
+                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      <Chip 
+                        label={c.status} 
+                        size="small"
+                        color={
+                          c.status === 'active' ? 'success' :
+                          c.status === 'pending' ? 'warning' :
+                          'default'
+                        }
+                      />
+                    </Box>
+                  </Box>
+                )}
+                {c.createdAt && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Joined
+                    </Typography>
+                    <Typography variant="body2">
+                      {new Date(c.createdAt).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                )}
+                <Divider />
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  <Button 
+                    size="small" 
+                    variant="outlined" 
+                    href={`/dashboard/clients/${c.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    fullWidth={isMobile}
+                  >
+                    <Eye style={{ marginRight: 4 }} />
+                    Details
+                  </Button>
+                  <Button 
+                    size="small" 
+                    variant="outlined" 
+                    href={`/dashboard/clients/${c.id}?tab=workout`}
+                    onClick={(e) => e.stopPropagation()}
+                    fullWidth={isMobile}
+                  >
+                    Workouts
+                  </Button>
+                </Stack>
               </Stack>
             </CardContent>
           </Card>

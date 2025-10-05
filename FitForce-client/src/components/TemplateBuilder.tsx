@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import fabric from 'fabric';
+import { Canvas, IText, Rect, Circle, FabricImage, Group } from 'fabric';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -31,8 +31,7 @@ type BuilderProps = {
  */
 export default function TemplateBuilder({ open, onClose, value, onSave, pageWidth = 595, pageHeight = 842, workspaceId, kind = 'workout' }: BuilderProps) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const fabricNS = fabric as any;
-    const fabricRef = useRef<any | null>(null);
+    const fabricRef = useRef<Canvas | null>(null);
     const [selected, setSelected] = useState<any | null>(null);
 	const [imageUrl, setImageUrl] = useState('');
 	const [uploadKey, setUploadKey] = useState(0);
@@ -54,7 +53,7 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
 	useEffect(() => {
 		if (!open) return;
 		if (!canvasRef.current) return;
-        const c = new fabricNS.Canvas(canvasRef.current, {
+        const c = new Canvas(canvasRef.current, {
 			selection: true,
 			preserveObjectStacking: true
 		});
@@ -109,10 +108,10 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
                 c.setHeight(rpt.page.height || pageHeight);
                 for (const el of (rpt.elements as any[]) || []) {
                     if (el.type === 'text') {
-                        const t = new fabricNS.IText(el.text || '', { left: el.x, top: el.y, fontSize: el.fontSize || 12, fill: 'black' });
+                        const t = new IText(el.text || '', { left: el.x, top: el.y, fontSize: el.fontSize || 12, fill: 'black' });
                         c.add(t);
                     } else if (el.type === 'image' && el.src) {
-                        fabricNS.Image.fromURL(el.src, (img: any) => { img.set({ left: el.x, top: el.y }); if (el.width && img.width) img.set({ scaleX: el.width / img.width }); if (el.height && img.height) img.set({ scaleY: el.height / img.height }); c.add(img); });
+                        FabricImage.fromURL(el.src, (img: any) => { img.set({ left: el.x, top: el.y }); if (el.width && img.width) img.set({ scaleX: el.width / img.width }); if (el.height && img.height) img.set({ scaleY: el.height / img.height }); c.add(img); });
                     }
                 }
                 c.renderAll();
@@ -128,7 +127,7 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
 				c.setHeight(first.page.height || pageHeight);
 				for (const el of first.elements as any[]) {
 					if (el.type === 'text') {
-						const t = new fabricNS.IText(el.text || '', {
+						const t = new IText(el.text || '', {
 							left: el.x,
 							top: el.y,
 							fontSize: el.fontSize || 12,
@@ -136,7 +135,7 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
 						});
 						c.add(t);
 					} else if (el.type === 'image' && el.src) {
-						fabricNS.Image.fromURL(el.src, (img: any) => {
+						FabricImage.fromURL(el.src, (img: any) => {
 							img.set({ left: el.x, top: el.y });
 							if (el.width && img.width) img.set({ scaleX: el.width / img.width });
 							if (el.height && img.height) img.set({ scaleY: el.height / img.height });
@@ -156,7 +155,7 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
                 setActivePage(0);
                 for (const el of value.elements as any[]) {
 					if (el.type === 'text') {
-						const t = new fabricNS.IText(el.text || '', {
+						const t = new IText(el.text || '', {
 							left: el.x,
 							top: el.y,
 							fontSize: el.fontSize || 12,
@@ -164,7 +163,7 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
 						});
 						c.add(t);
                     } else if (el.type === 'image' && el.src) {
-                        fabricNS.Image.fromURL(
+                        FabricImage.fromURL(
                             el.src,
                             (img: any) => {
                                 // if schema has width/height, apply via scale to preserve aspect ratio
@@ -199,14 +198,14 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
 
     function addText() {
 		const c = fabricRef.current; if (!c) return;
-        const t = new fabricNS.IText('New Text {{placeholder}}', { left: 40, top: 40, fontSize: 16, fill: 'black' });
+        const t = new IText('New Text {{placeholder}}', { left: 40, top: 40, fontSize: 16, fill: 'black' });
 		c.add(t).setActiveObject(t);
 		c.renderAll();
 	}
 
     function insertPlaceholder(text: string, options?: { x?: number; y?: number; fontSize?: number }) {
         const c = fabricRef.current; if (!c) return;
-        const t = new fabricNS.IText(text, { left: options?.x ?? 40, top: options?.y ?? 40, fontSize: options?.fontSize ?? 16, fill: 'black' });
+        const t = new IText(text, { left: options?.x ?? 40, top: options?.y ?? 40, fontSize: options?.fontSize ?? 16, fill: 'black' });
         c.add(t).setActiveObject(t);
         c.requestRenderAll();
     }
@@ -218,12 +217,12 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
         c.setHeight(def.page.height);
         for (const el of def.elements || []) {
             if (el.type === 'text') {
-                const t = new fabricNS.IText(el.text || '', { left: el.x, top: el.y, fontSize: el.fontSize || 12, fill: 'black' });
+                const t = new IText(el.text || '', { left: el.x, top: el.y, fontSize: el.fontSize || 12, fill: 'black' });
                 c.add(t);
             } else if (el.type === 'image' && el.src) {
                 await addImageFromUrl(el.src);
             } else if (el.type === 'rect') {
-                const r = new fabricNS.Rect({ left: el.x, top: el.y, width: el.width, height: el.height, fill: el.fill ? `#${toHex(el.fill)}` : 'transparent', stroke: el.stroke ? `#${toHex(el.stroke)}` : undefined, strokeWidth: el.strokeWidth ?? 1 });
+                const r = new Rect({ left: el.x, top: el.y, width: el.width, height: el.height, fill: el.fill ? `#${toHex(el.fill)}` : 'transparent', stroke: el.stroke ? `#${toHex(el.stroke)}` : undefined, strokeWidth: el.strokeWidth ?? 1 });
                 c.add(r);
             }
         }
@@ -239,12 +238,12 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
 
     function addExerciseTable() {
         const c = fabricRef.current; if (!c) return;
-        const rect = new fabricNS.Rect({ left: 40, top: 120, width: 400, height: 120, fill: 'rgba(0,0,0,0.03)', stroke: '#666', strokeDashArray: [4, 4] });
-        const label = new fabricNS.IText('Exercise Table', { left: 48, top: 128, fontSize: 14, fill: '#333' });
+        const rect = new Rect({ left: 40, top: 120, width: 400, height: 120, fill: 'rgba(0,0,0,0.03)', stroke: '#666', strokeDashArray: [4, 4] });
+        const label = new IText('Exercise Table', { left: 48, top: 128, fontSize: 14, fill: '#333' });
         // make children non-selectable so the group gets focus
         (rect as any).selectable = false; (rect as any).evented = false;
         (label as any).selectable = false; (label as any).evented = false;
-        const group = new fabricNS.Group([rect, label], { left: 40, top: 120, selectable: true, evented: true, subTargetCheck: false } as any);
+        const group = new Group([rect, label], { left: 40, top: 120, selectable: true, evented: true, subTargetCheck: false } as any);
         (group as any).data = {
             elementType: 'exercise_table',
             config: {
@@ -266,7 +265,7 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
 
     function addRectangle() {
         const c = fabricRef.current; if (!c) return;
-        const rect = new fabricNS.Rect({ left: 40, top: 260, width: 200, height: 80, fill: 'rgba(59,130,246,0.2)', stroke: '#3B82F6', strokeWidth: 2 });
+        const rect = new Rect({ left: 40, top: 260, width: 200, height: 80, fill: 'rgba(59,130,246,0.2)', stroke: '#3B82F6', strokeWidth: 2 });
         c.add(rect).setActiveObject(rect);
         c.requestRenderAll();
     }
@@ -291,7 +290,7 @@ export default function TemplateBuilder({ open, onClose, value, onSave, pageWidt
             } catch {
                 imgEl = await preload(false);
             }
-            const img = new fabricNS.Image(imgEl);
+            const img = new FabricImage(imgEl);
             img.set({ left: 40, top: 80, selectable: true, evented: true });
             const maxW = (c.getWidth?.() || 595) * 0.8;
             const maxH = (c.getHeight?.() || 842) * 0.5;

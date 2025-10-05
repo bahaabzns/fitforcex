@@ -50,7 +50,7 @@ export default function CreateWorkspacePage() {
   useEffect(() => {
     const loadPackages = async () => {
       try {
-        const { data } = await api.get('/api/admin/workspace-packages');
+        const { data } = await api.get('/api/workspace-packages');
         const list: WorkspacePkg[] = data?.packages || [];
         setPackages(list);
         const trial = list.find((p) => p.name?.toLowerCase() === 'free trial' && p.durationMonths === 0 && p.priceCents === 0);

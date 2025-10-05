@@ -35,12 +35,14 @@ export default function Landing() {
   const user = useUser();
   const reduxIsAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [apiLoggedIn, setApiLoggedIn] = useState(false);
+  const [clientLoggedIn, setClientLoggedIn] = useState(false);
+  const [userType, setUserType] = useState<'team_member' | 'client' | null>(null);
 
   useEffect(() => {
     const loadPackages = async () => {
       try {
         setLoadingPackages(true);
-        const url = `${APP_CONFIG.apiUrl}/api/admin/workspace-packages`;
+        const url = `${APP_CONFIG.apiUrl}/api/workspace-packages`;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
@@ -65,7 +67,20 @@ export default function Landing() {
           cache: 'no-store'
         });
         if (res.status === 200 || res.status === 304) {
+          const data = await res.json();
           setApiLoggedIn(true);
+          
+          // Set user type from API response
+          if (data.user?.userType) {
+            setUserType(data.user.userType);
+            console.log('🔍 Main landing - User type from API:', data.user.userType);
+            
+            // Set client logged in status based on user type
+            if (data.user.userType === 'client') {
+              setClientLoggedIn(true);
+              console.log('✅ Main landing - Client authentication confirmed via API');
+            }
+          }
         }
       } catch {
         // ignore
@@ -73,6 +88,7 @@ export default function Landing() {
     };
     verifyLogin();
   }, []);
+
   return (
     <>
       {/* Hero */}
@@ -90,20 +106,27 @@ export default function Landing() {
                 Manage clients, programs, workouts and nutrition in one modern, customizable workspace.
         </Typography>
               <Stack direction="row" spacing={2} sx={{ pt: 1 }}>
-              {user || reduxIsAuthenticated || apiLoggedIn ? (
-                  <Button component={Link} href="/dashboard" size="large" variant="contained">
-                    Go to Dashboard
-          </Button>
-                ) : (
-                  <>
-                    <Button component={Link} href="/signup" size="large" variant="contained">
-            Get Started
-          </Button>
-                    <Button component={Link} href="/login" size="large" variant="outlined">
-                      Sign In
-                    </Button>
-                  </>
-                )}
+              {/* Client Dashboard Button - Show if user is a client */}
+              {userType === 'client' ? (
+                <Button component={Link} href="/client/dashboard" size="large" variant="contained">
+                  Go to Client Dashboard
+                </Button>
+              ) : /* Workspace Dashboard Button - Show if user is a team member */
+              (user || reduxIsAuthenticated || apiLoggedIn) ? (
+                <Button component={Link} href="/dashboard" size="large" variant="contained">
+                  Go to Dashboard
+                </Button>
+              ) : /* Sign up/Login buttons - Show if not logged in */
+              (
+                <>
+                  <Button component={Link} href="/signup" size="large" variant="contained">
+                    Get Started
+                  </Button>
+                  <Button component={Link} href="/login" size="large" variant="outlined">
+                    Sign In
+                  </Button>
+                </>
+              )}
               </Stack>
               <Stack direction="row" spacing={2} sx={{ pt: 2, color: 'text.secondary' }}>
                 <Stack direction="row" spacing={1} alignItems="center">

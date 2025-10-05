@@ -33,9 +33,16 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Chip from '@mui/material/Chip';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Grid from '@mui/material/Grid';
+import Avatar from '@mui/material/Avatar';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 // project-imports
 import MainCard from 'components/MainCard';
+import ResponsiveTable from '@/components/ResponsiveTable';
 import { CSVExport, RowSelection } from 'components/third-party/react-table';
 
 // Icons
@@ -169,10 +176,13 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
 
 export default function WorkoutPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Table states
   const [order, setOrder] = useState<ArrangementOrder>('asc');
@@ -354,6 +364,13 @@ export default function WorkoutPage() {
 
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
 
+  // Search filtering
+  const filteredExercises = exercises.filter((exercise) =>
+    exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    exercise.nameArabic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    exercise.muscleGroup.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   // Import handlers
   const handleOpenImport = async () => {
     setIsImportDialogOpen(true);
@@ -497,79 +514,190 @@ export default function WorkoutPage() {
         >
           <RowSelection selected={selected.length} />
 
-          {/* table */}
-          <TableContainer>
-            <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
-              <EnhancedTableHead
-                numSelected={selected.length}
-                order={order}
-                orderBy={orderBy}
-                onSelectAllClick={handleSelectAllClick}
-                onRequestSort={handleRequestSort}
-                rowCount={exercises.length}
-              />
-              <TableBody>
-                {stableSort(exercises, getComparator(order, orderBy))
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row, index) => {
-                    if (typeof row === 'number') return null;
-                    const isItemSelected = isSelected(row.id);
-                    const labelId = `enhanced-table-checkbox-${index}`;
+          {/* Search Input */}
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Search exercises by name, Arabic name, or muscle group..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              sx={{ maxWidth: 400 }}
+            />
+          </Box>
 
-                    return (
-                      <TableRow
-                        hover
+          {/* table */}
+          {isMobile ? (
+            // Mobile Cards View
+            <Grid container spacing={2}>
+              {stableSort(filteredExercises, getComparator(order, orderBy))
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((row, index) => {
+                  if (typeof row === 'number') return null;
+                  const isItemSelected = isSelected(row.id);
+
+                  return (
+                    <Grid item xs={12} key={row.id}>
+                      <Card 
+                        sx={{ 
+                          transition: 'all 0.2s',
+                          border: isItemSelected ? '2px solid' : '1px solid',
+                          borderColor: isItemSelected ? 'primary.main' : 'divider',
+                          '&:hover': {
+                            boxShadow: 4,
+                            transform: 'translateY(-2px)'
+                          }
+                        }}
                         onClick={(event) => handleClick(event, row.id)}
-                        role="checkbox"
-                        aria-checked={isItemSelected}
-                        tabIndex={-1}
-                        key={row.id}
-                        selected={isItemSelected}
                       >
-                        <TableCell sx={{ pl: 3 }} padding="checkbox">
-                          <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
-                        </TableCell>
-                        <TableCell component="th" id={labelId} scope="row" padding="none">
-                          {row.name}
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={row.muscleGroup} variant="outlined" size="small" />
-                        </TableCell>
-                        <TableCell>
-                          {new Date(row.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleEdit(row); }}>
-                              <Edit size={16} />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}
-                              disabled={deleting === row.id}
-                            >
-                              {deleting === row.id ? <CircularProgress size={16} /> : <Trash size={16} />}
-                            </IconButton>
+                        <CardContent>
+                          <Stack spacing={2}>
+                            {/* Header with Checkbox and Name */}
+                            <Stack direction="row" spacing={2} alignItems="center">
+                              <Checkbox 
+                                color="primary" 
+                                checked={isItemSelected} 
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <Box sx={{ flexGrow: 1 }}>
+                                <Typography variant="h6">
+                                  {row.name}
+                                </Typography>
+                                {row.nameArabic && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    {row.nameArabic}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Stack>
+
+                            <Divider />
+
+                            {/* Exercise Details */}
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Muscle Group
+                                </Typography>
+                                <Box sx={{ mt: 0.5 }}>
+                                  <Chip label={row.muscleGroup} variant="outlined" size="small" />
+                                </Box>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">
+                                  Created
+                                </Typography>
+                                <Typography variant="body2">
+                                  {new Date(row.createdAt).toLocaleDateString()}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+
+                            <Divider />
+
+                            {/* Actions */}
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<Edit size={16} />}
+                                onClick={(e) => { e.stopPropagation(); handleEdit(row); }}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                startIcon={deleting === row.id ? <CircularProgress size={16} /> : <Trash size={16} />}
+                                onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}
+                                disabled={deleting === row.id}
+                              >
+                                Delete
+                              </Button>
+                            </Stack>
                           </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                {emptyRows > 0 && (
-                  <TableRow sx={{ height: 53 * emptyRows }}>
-                    <TableCell colSpan={5} />
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+            </Grid>
+          ) : (
+            // Desktop Table View
+            <ResponsiveTable>
+              <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle" size="medium">
+                <EnhancedTableHead
+                  numSelected={selected.length}
+                  order={order}
+                  orderBy={orderBy}
+                  onSelectAllClick={handleSelectAllClick}
+                  onRequestSort={handleRequestSort}
+                  rowCount={filteredExercises.length}
+                />
+                <TableBody>
+                  {stableSort(filteredExercises, getComparator(order, orderBy))
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((row, index) => {
+                      if (typeof row === 'number') return null;
+                      const isItemSelected = isSelected(row.id);
+                      const labelId = `enhanced-table-checkbox-${index}`;
+
+                      return (
+                        <TableRow
+                          hover
+                          onClick={(event) => handleClick(event, row.id)}
+                          role="checkbox"
+                          aria-checked={isItemSelected}
+                          tabIndex={-1}
+                          key={row.id}
+                          selected={isItemSelected}
+                        >
+                          <TableCell sx={{ pl: 3 }} padding="checkbox">
+                            <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
+                          </TableCell>
+                          <TableCell component="th" id={labelId} scope="row" padding="none">
+                            {row.name}
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={row.muscleGroup} variant="outlined" size="small" />
+                          </TableCell>
+                          <TableCell>
+                            {new Date(row.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleEdit(row); }}>
+                                <Edit size={16} />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}
+                                disabled={deleting === row.id}
+                              >
+                                {deleting === row.id ? <CircularProgress size={16} /> : <Trash size={16} />}
+                              </IconButton>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  {emptyRows > 0 && (
+                    <TableRow sx={{ height: 53 * emptyRows }}>
+                      <TableCell colSpan={5} />
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ResponsiveTable>
+          )}
           <Divider />
           {/* table pagination */}
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={exercises.length}
+            count={filteredExercises.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}
