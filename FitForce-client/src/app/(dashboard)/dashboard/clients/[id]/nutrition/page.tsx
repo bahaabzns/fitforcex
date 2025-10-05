@@ -41,6 +41,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
 import MobileSwipeableSections from '@/components/MobileSwipeableSections';
+import LoadPlanDialog from '@/components/LoadPlanDialog';
 
 interface FoodItem {
   id: string;
@@ -125,6 +126,7 @@ export default function ClientNutritionPage() {
   const [isPlanDirty, setIsPlanDirty] = useState(false);
   
   const [saving, setSaving] = useState(false);
+  const [loadPlanDialogOpen, setLoadPlanDialogOpen] = useState(false);
 
   // Load workspace food items
   useEffect(() => {
@@ -585,43 +587,55 @@ export default function ClientNutritionPage() {
             <Card key="plans" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <CardHeader
             title="Plans"
-            action={
-              <Stack direction="row" spacing={1} alignItems="center">
+            subheader={
+              <Box sx={{ mt: 2 }}>
+                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<Add size={16} />}
+                    onClick={() => setIsCreatePlanDialogOpen(true)}
+                    sx={{ flex: 1 }}
+                  >
+                    Create
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Copy size={16} />}
+                    onClick={() => setLoadPlanDialogOpen(true)}
+                    sx={{ flex: 1 }}
+                  >
+                    Load
+                  </Button>
+                </Stack>
                 <TextField
+                  fullWidth
                   size="small"
                   placeholder="Search plans..."
                   value={planQuery}
                   onChange={(e) => setPlanQuery(e.target.value)}
-                  InputProps={{}}
-                  sx={{ width: 200 }}
                 />
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<Add size={16} />}
-                  onClick={() => setIsCreatePlanDialogOpen(true)}
-                >
-                  Create Plan
-                </Button>
                 {selectedPlanId && (
                   <Button
+                    fullWidth
                     variant="outlined"
                     size="small"
                     onClick={async () => {
                       try {
                         await api.post(`/api/nutrition/plans/${selectedPlanId}/activate`);
-                        // Refresh plans list to reflect status change
                         await loadAllPlansData();
-                        openSnackbar({ open: true, message: 'Plan activated', variant: 'alert', alert: { color: 'success' } });
+                        openSnackbar({ open: true, message: 'Plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
                       } catch (e) {
-                        openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error' } });
+                        openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
                       }
                     }}
+                    sx={{ mt: 1 }}
                   >
                     Activate
                   </Button>
                 )}
-              </Stack>
+              </Box>
             }
           />
           <CardContent>
@@ -906,42 +920,55 @@ export default function ClientNutritionPage() {
           <Card sx={{ flex: showSection2 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection2 ? '50%' : '100%' }}>
             <CardHeader
               title="Plans"
-              action={
-                <Stack direction="row" spacing={1} alignItems="center">
+              subheader={
+                <Box sx={{ mt: 2 }}>
+                  <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Add size={16} />}
+                      onClick={() => setIsCreatePlanDialogOpen(true)}
+                      sx={{ flex: 1 }}
+                    >
+                      Create
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Copy size={16} />}
+                      onClick={() => setLoadPlanDialogOpen(true)}
+                      sx={{ flex: 1 }}
+                    >
+                      Load
+                    </Button>
+                  </Stack>
                   <TextField
+                    fullWidth
                     size="small"
                     placeholder="Search plans..."
                     value={planQuery}
                     onChange={(e) => setPlanQuery(e.target.value)}
-                    InputProps={{}}
-                    sx={{ width: 200 }}
                   />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<Add size={16} />}
-                    onClick={() => setIsCreatePlanDialogOpen(true)}
-                  >
-                    Create Plan
-                  </Button>
                   {selectedPlanId && (
                     <Button
+                      fullWidth
                       variant="outlined"
                       size="small"
                       onClick={async () => {
                         try {
                           await api.post(`/api/nutrition/plans/${selectedPlanId}/activate`);
                           await loadAllPlansData();
-                          openSnackbar({ open: true, message: 'Plan activated', variant: 'alert', alert: { color: 'success' } });
+                          openSnackbar({ open: true, message: 'Plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
                         } catch (e) {
-                          openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error' } });
+                          openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
                         }
                       }}
+                      sx={{ mt: 1 }}
                     >
                       Activate
                     </Button>
                   )}
-                </Stack>
+                </Box>
               }
             />
             <CardContent>
@@ -1300,6 +1327,23 @@ export default function ClientNutritionPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Load Plan Dialog */}
+      <LoadPlanDialog
+        open={loadPlanDialogOpen}
+        onClose={() => setLoadPlanDialogOpen(false)}
+        planType="nutrition"
+        currentClientId={clientId}
+        onPlanLoaded={() => {
+          loadAllPlansData();
+          openSnackbar({
+            open: true,
+            message: 'Nutrition plan copied successfully!',
+            variant: 'alert',
+            alert: { color: 'success', variant: 'filled' }
+          } as any);
+        }}
+      />
     </Stack>
   );
 }
