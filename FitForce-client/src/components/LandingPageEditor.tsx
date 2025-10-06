@@ -233,8 +233,104 @@ export default function LandingPageEditor({
       {success && <Alert severity="success">Landing page saved successfully!</Alert>}
 
       <Grid container spacing={3}>
+        {/* Preview on the right (top-right on desktop) */}
+        {showPreview && (
+          <Grid item xs={12} md={6} sx={{ order: { xs: 2, md: 2 } }}>
+            <Card>
+              <CardHeader>
+                <Typography variant="h6">Preview</Typography>
+              </CardHeader>
+              <CardContent>
+                <Box sx={{ border: '1px solid', borderColor: 'grey.300', borderRadius: 2, overflow: 'hidden' }}>
+                  {/* Hero Section Preview (closer to landing) */}
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      bgcolor: 'background.default',
+                      backgroundImage: config.heroImage ? `url(${config.heroImage})` : 'none',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      minHeight: 260,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      px: { xs: 2, md: 6 },
+                      py: { xs: 6, md: 8 }
+                    }}
+                  >
+                    <Box sx={{ maxWidth: 640, textAlign: 'center', bgcolor: config.heroImage ? 'rgba(0,0,0,0.35)' : 'transparent', p: config.heroImage ? 2 : 0, borderRadius: 1 }}>
+                      <Typography variant="h3" gutterBottom sx={{ color: config.heroImage ? 'common.white' : 'text.primary', fontWeight: 700 }}>
+                        {config.title || "Welcome to Our Fitness Community"}
+                      </Typography>
+                      <Typography variant="h6" sx={{ color: config.heroImage ? 'grey.100' : 'text.secondary', mb: 2 }}>
+                        {config.subtitle || "Transform your fitness journey with personalized training and nutrition plans"}
+                      </Typography>
+                      {config.ctaText && (
+                        <Button variant="contained" size="large">
+                          {config.ctaText}
+                        </Button>
+                      )}
+                    </Box>
+                  </Box>
+
+                  {/* Features Preview */}
+                  {config.features && config.features.length > 0 && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h5" gutterBottom>
+                        Features
+                      </Typography>
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        {config.features.map((feature, index) => (
+                          <Grid item xs={12} sm={6} key={index}>
+                            <Card variant="outlined" sx={{ height: '100%' }}>
+                              <CardContent>
+                                <Typography variant="h6" gutterBottom>
+                                  {feature.title || `Feature ${index + 1}`}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {feature.description || "Feature description"}
+                                </Typography>
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </Box>
+                  )}
+
+                  {/* Testimonials Preview */}
+                  {config.testimonials && config.testimonials.length > 0 && (
+                    <Box>
+                      <Typography variant="h5" gutterBottom>
+                        Testimonials
+                      </Typography>
+                      <Stack spacing={2} sx={{ mt: 1 }}>
+                        {config.testimonials.map((testimonial, index) => (
+                          <Card key={index} variant="outlined">
+                            <CardContent>
+                              <Typography variant="body1" paragraph>
+                                "{testimonial.quote || "Customer testimonial"}"
+                              </Typography>
+                              <Typography variant="subtitle2">
+                                {testimonial.author || "Customer Name"}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {testimonial.role || "Client"}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
         {/* Editor */}
-        <Grid item xs={12} md={showPreview ? 6 : 12}>
+        <Grid item xs={12} md={showPreview ? 6 : 12} sx={{ order: { xs: 1, md: 1 } }}>
           <Stack spacing={3}>
             {/* Hero Section */}
             <Card>
@@ -440,99 +536,7 @@ export default function LandingPageEditor({
           </Stack>
         </Grid>
 
-        {/* Preview */}
-        {showPreview && (
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardHeader>
-                <Typography variant="h6">Preview</Typography>
-              </CardHeader>
-              <CardContent>
-                <Box sx={{ border: '1px solid', borderColor: 'grey.300', borderRadius: 1, p: 2 }}>
-                  {/* Hero Section Preview */}
-                  <Box sx={{ textAlign: 'center', mb: 4 }}>
-                    {config.heroImage && (
-                      <Box
-                        component="img"
-                        src={config.heroImage}
-                        alt="Hero"
-                        sx={{
-                          width: '100%',
-                          maxHeight: 200,
-                          objectFit: 'cover',
-                          borderRadius: 1,
-                          mb: 2
-                        }}
-                      />
-                    )}
-                    <Typography variant="h4" gutterBottom>
-                      {config.title || "Welcome to Our Fitness Community"}
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" paragraph>
-                      {config.subtitle || "Transform your fitness journey with personalized training and nutrition plans"}
-                    </Typography>
-                    {config.ctaText && (
-                      <Button variant="contained" size="large">
-                        {config.ctaText}
-                      </Button>
-                    )}
-                  </Box>
-
-                  {/* Features Preview */}
-                  {config.features && config.features.length > 0 && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h5" gutterBottom>
-                        Features
-                      </Typography>
-                      <Grid container spacing={2}>
-                        {config.features.map((feature, index) => (
-                          <Grid item xs={12} sm={6} key={index}>
-                            <Card variant="outlined">
-                              <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                  {feature.title || `Feature ${index + 1}`}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {feature.description || "Feature description"}
-                                </Typography>
-                              </CardContent>
-                            </Card>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </Box>
-                  )}
-
-                  {/* Testimonials Preview */}
-                  {config.testimonials && config.testimonials.length > 0 && (
-                    <Box>
-                      <Typography variant="h5" gutterBottom>
-                        Testimonials
-                      </Typography>
-                      <Stack spacing={2}>
-                        {config.testimonials.map((testimonial, index) => (
-                          <Card key={index} variant="outlined">
-                            <CardContent>
-                              <Typography variant="body1" paragraph>
-                                "{testimonial.quote || "Customer testimonial"}"
-                              </Typography>
-                              <Typography variant="subtitle2">
-                                {testimonial.author || "Customer Name"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {testimonial.role || "Client"}
-                              </Typography>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </Stack>
-                    </Box>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
+        
       </Grid>
     </Stack>
   );

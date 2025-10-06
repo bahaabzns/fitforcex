@@ -42,6 +42,7 @@ import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
 import MobileSwipeableSections from '@/components/MobileSwipeableSections';
 import LoadPlanDialog from '@/components/LoadPlanDialog';
+import { Dialog as MuiDialog } from '@mui/material';
 
 interface FoodItem {
   id: string;
@@ -69,6 +70,7 @@ interface Cycle {
   title: string;
   label: string;
   dayIndex: number;
+  notes?: string;
   meals?: Meal[];
 }
 
@@ -84,6 +86,7 @@ interface Meal {
   id: string;
   dayId: string;
   meal: string;
+  notes?: string;
   foodItems: MealFoodItem[];
 }
 
@@ -124,9 +127,17 @@ export default function ClientNutritionPage() {
   const [editingQuantities, setEditingQuantities] = useState<{[key: string]: number}>({});
   const [isEditingQuantities, setIsEditingQuantities] = useState(false);
   const [isPlanDirty, setIsPlanDirty] = useState(false);
+  const [foodSearchTerm, setFoodSearchTerm] = useState('');
   
   const [saving, setSaving] = useState(false);
   const [loadPlanDialogOpen, setLoadPlanDialogOpen] = useState(false);
+  const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [cycleNotesDialogOpen, setCycleNotesDialogOpen] = useState(false);
+  const [cycleNotesDraft, setCycleNotesDraft] = useState('');
+  const [mealNotesDialogOpen, setMealNotesDialogOpen] = useState(false);
+  const [mealNotesDraft, setMealNotesDraft] = useState('');
+  const [mealNotesMealId, setMealNotesMealId] = useState<string | null>(null);
 
   // Load workspace food items
   useEffect(() => {
@@ -148,6 +159,54 @@ export default function ClientNutritionPage() {
     };
     loadFood();
   }, []);
+
+  // Helpers: totals
+  const computeMealTotals = (meal: Meal) => {
+    const totals = (meal.foodItems || []).reduce(
+      (acc, item) => {
+        const qty = Number(item.quantity) || 0;
+        const base = item.foodItem?.servingSize || 100;
+        const factor = base ? qty / base : 0;
+        acc.calories += Math.round((item.foodItem?.calories || 0) * factor);
+        acc.protein += Math.round((item.foodItem?.protein || 0) * factor);
+        acc.carbs += Math.round((item.foodItem?.carbs || 0) * factor);
+        acc.fat += Math.round((item.foodItem?.fat || 0) * factor);
+        return acc;
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+    return totals;
+  };
+
+  const computeCycleTotals = (cycle: Cycle) => {
+    const totals = (cycle.meals || []).reduce(
+      (acc, m) => {
+        const t = computeMealTotals(m);
+        acc.calories += t.calories;
+        acc.protein += t.protein;
+        acc.carbs += t.carbs;
+        acc.fat += t.fat;
+        return acc;
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+    return totals;
+  };
+
+  const computePlanTotals = (plan: Plan) => {
+    const totals = (plan.cycles || []).reduce(
+      (acc, c) => {
+        const t = computeCycleTotals(c);
+        acc.calories += t.calories;
+        acc.protein += t.protein;
+        acc.carbs += t.carbs;
+        acc.fat += t.fat;
+        return acc;
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+    return totals;
+  };
 
   // Load plans
   // Load all nutrition plans with their cycles and meals
@@ -218,7 +277,7 @@ export default function ClientNutritionPage() {
     if (clientId) loadAllPlansData();
   }, [clientId]);
 
-  // Update current working data when plan is selected
+  // Update current working data when plan data changes; preserve selected cycle if possible
   useEffect(() => {
     if (!selectedPlanId) {
       setCurrentCycles([]);
@@ -229,27 +288,41 @@ export default function ClientNutritionPage() {
       return;
     }
 
-    const selectedPlan = plans.find(p => p.id === selectedPlanId);
-    if (selectedPlan && selectedPlan.cycles) {
-      setCurrentCycles(selectedPlan.cycles);
-      
-      // Select first cycle by default
-      if (selectedPlan.cycles.length > 0) {
-        setSelectedCycleId(selectedPlan.cycles[0].id);
-        setCurrentCycleIndex(0);
-        setCurrentMeals(selectedPlan.cycles[0].meals || []);
-      } else {
-        setSelectedCycleId(null);
-        setCurrentCycleIndex(0);
-        setCurrentMeals([]);
-      }
-    } else {
+    const selectedPlan = plans.find((p) => p.id === selectedPlanId);
+    if (!selectedPlan) {
       setCurrentCycles([]);
       setSelectedCycleId(null);
       setCurrentCycleIndex(0);
       setCurrentMeals([]);
+      return;
     }
-    setSelectedMealId(null);
+
+    const cycles = selectedPlan.cycles || [];
+    setCurrentCycles(cycles);
+
+    if (cycles.length === 0) {
+      setSelectedCycleId(null);
+      setCurrentCycleIndex(0);
+      setCurrentMeals([]);
+      return;
+    }
+
+    // Try to keep the previously selected cycle
+    const existingCycleId = selectedCycleId;
+    const existingIndex = cycles.findIndex((c) => c.id === existingCycleId);
+
+    if (existingCycleId && existingIndex !== -1) {
+      setSelectedCycleId(existingCycleId);
+      setCurrentCycleIndex(existingIndex);
+      setCurrentMeals(cycles[existingIndex].meals || []);
+    } else {
+      // Fallback: keep current index if in range; else default to first
+      const safeIndex = Math.min(currentCycleIndex, Math.max(0, cycles.length - 1));
+      setCurrentCycleIndex(safeIndex);
+      setSelectedCycleId(cycles[safeIndex].id);
+      setCurrentMeals(cycles[safeIndex].meals || []);
+    }
+    // Do not clear selected meal here; the cycle effect below will validate it
   }, [selectedPlanId, plans]);
 
   // Update current meals when cycle is selected
@@ -266,12 +339,53 @@ export default function ClientNutritionPage() {
     } else {
       setCurrentMeals([]);
     }
-    setSelectedMealId(null);
+    // Preserve selected meal if it still exists in this cycle; otherwise clear it
+    if (selectedMealId) {
+      const stillExists = !!selectedCycle?.meals?.some((m) => m.id === selectedMealId);
+      if (!stillExists) setSelectedMealId(null);
+    }
   }, [selectedCycleId, currentCycles]);
+
+  // When switching to a different plan explicitly, clear selected meal
+  useEffect(() => {
+    // If plan changes, the meal context is no longer valid
+    setSelectedMealId(null);
+  }, [selectedPlanId]);
 
   const filteredPlans = plans.filter(plan =>
     plan.title.toLowerCase().includes(planQuery.toLowerCase())
   );
+
+  const handleCopyPlanCard = async (planId: string) => {
+    if (!clientId) return;
+    try {
+      setCopyingPlanId(planId);
+      await api.post(`/api/nutrition/plans/${planId}/copy`, { targetClientId: clientId });
+      await loadAllPlansData();
+      openSnackbar({ open: true, message: 'Plan copied', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+    } catch {
+      openSnackbar({ open: true, message: 'Failed to copy plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+    } finally {
+      setCopyingPlanId(null);
+    }
+  };
+
+  const handleDeletePlanCard = async (planId: string) => {
+    if (!confirm('Delete this plan? This cannot be undone.')) return;
+    try {
+      setDeletingPlanId(planId);
+      await api.delete(`/api/nutrition/plans/${planId}`);
+      await loadAllPlansData();
+      if (selectedPlanId === planId) {
+        setSelectedPlanId(null);
+      }
+      openSnackbar({ open: true, message: 'Plan deleted', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+    } catch {
+      openSnackbar({ open: true, message: 'Failed to delete plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+    } finally {
+      setDeletingPlanId(null);
+    }
+  };
 
   const handleCreatePlan = async () => {
     if (!newPlanTitle.trim()) return;
@@ -308,7 +422,7 @@ export default function ClientNutritionPage() {
   const handleCreateMeal = () => {
     if (!newMealTitle.trim() || !selectedCycleId || !selectedPlanId) return;
     const tempId = `tmpm-${Date.now()}`;
-    const newMeal: Meal = { id: tempId, dayId: selectedCycleId, meal: newMealTitle, foodItems: [] };
+    const newMeal: Meal = { id: tempId, dayId: selectedCycleId, meal: newMealTitle, notes: '', foodItems: [] };
     
     // Update the plan's cycle with the new meal
     setPlans((prev) => prev.map(plan => 
@@ -401,13 +515,30 @@ export default function ClientNutritionPage() {
       // 2) Sync cycles
       const cyclesToSync = selectedPlan.cycles || [];
       const createdCycleIdMap: Record<string, string> = {};
+
+      // If the plan was just created, the backend may have already created initial cycles.
+      // Fetch existing server cycles and map local temporary cycles to server ones by dayIndex to avoid duplicates.
+      let existingServerCycles: Cycle[] = [] as any;
+      try {
+        const existingCyclesRes = await api.get(`/api/clients/${clientId}/nutrition/plans/${serverPlanId}/cycles`);
+        existingServerCycles = (existingCyclesRes.data.cycles || []) as any;
+      } catch {}
+
       for (const c of cyclesToSync) {
         let serverCycleId = c.id;
         if (c.id.startsWith('tmpc-')) {
+          // Try to match an existing server cycle by dayIndex to prevent creating a duplicate
+          const matched = existingServerCycles.find((sc: any) => Number(sc.dayIndex) === Number(c.dayIndex));
+          if (matched) {
+            createdCycleIdMap[c.id] = matched.id;
+            continue;
+          }
+
           const res = await api.post(`/api/clients/${clientId}/nutrition/plans/${serverPlanId}/cycles`, {
             title: c.title,
             label: c.label,
-            dayIndex: c.dayIndex
+            dayIndex: c.dayIndex,
+            notes: c.notes
           });
           serverCycleId = res.data.cycle.id;
           createdCycleIdMap[c.id] = serverCycleId;
@@ -421,11 +552,19 @@ export default function ClientNutritionPage() {
         for (const meal of cycle.meals || []) {
           let serverMealId = meal.id;
           if (meal.id.startsWith('tmpm-')) {
-            const res = await api.post(`/api/clients/${clientId}/nutrition/cycles/${effectiveCycleId}/meals`, {
-              title: meal.meal
+          const res = await api.post(`/api/clients/${clientId}/nutrition/cycles/${effectiveCycleId}/meals`, {
+              title: meal.meal,
+              notes: meal.notes
             });
             serverMealId = res.data.meal.id;
             createdMealIdMap[meal.id] = serverMealId;
+          }
+          else {
+            // Update existing meal metadata (e.g., notes)
+            await api.put(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}`, {
+              title: meal.meal,
+              notes: meal.notes
+            });
           }
         }
       }
@@ -670,7 +809,19 @@ export default function ClientNutritionPage() {
                       >
                         <CardHeader
                           title={plan.title}
-                          subheader={createdDate ? `Created ${createdDate}` : undefined}
+                          subheader={(
+                            <Box>
+                              {createdDate ? <Typography variant="caption">Created ${createdDate}</Typography> : null}
+                              {(() => {
+                                const t = computePlanTotals(plan);
+                                return (
+                                  <Typography variant="body2">
+                                    {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
+                                  </Typography>
+                                );
+                              })()}
+                            </Box>
+                          )}
                         />
                         <CardContent>
                           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
@@ -680,6 +831,13 @@ export default function ClientNutritionPage() {
                             {plan.createdBy && (
                               <Chip size="small" label={`By ${plan.createdBy}`} variant="light" />
                             )}
+                            <Box sx={{ flexGrow: 1 }} />
+                            <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); handleCopyPlanCard(plan.id); }} disabled={copyingPlanId === plan.id}>
+                              {copyingPlanId === plan.id ? 'Copying…' : 'Copy'}
+                            </Button>
+                            <Button size="small" variant="outlined" color="error" onClick={(e) => { e.stopPropagation(); handleDeletePlanCard(plan.id); }} disabled={deletingPlanId === plan.id}>
+                              {deletingPlanId === plan.id ? 'Deleting…' : 'Delete'}
+                            </Button>
                           </Stack>
                         </CardContent>
                       </Card>
@@ -793,6 +951,14 @@ export default function ClientNutritionPage() {
                             <Typography variant="body2" color="text.secondary">
                               {meal.foodItems?.length || 0} food item(s)
                             </Typography>
+                            {(() => {
+                              const t = computeMealTotals(meal);
+                              return (
+                                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                  {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
+                                </Typography>
+                              );
+                            })()}
                           </CardContent>
                         </Card>
                       </Grid>
@@ -844,16 +1010,40 @@ export default function ClientNutritionPage() {
                   </Typography>
                   {currentMeals.find(m => m.id === selectedMealId)?.foodItems && currentMeals.find(m => m.id === selectedMealId)?.foodItems.length > 0 ? (
                     <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant="subtitle2">
                           {currentMeals.find(m => m.id === selectedMealId)?.foodItems.length} food item(s)
                         </Typography>
+                        {selectedFoodItems.length > 0 && (
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            startIcon={<Trash size={16} />}
+                            onClick={() => {
+                              const ids = new Set(selectedFoodItems);
+                              setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
+                                ...m,
+                                foodItems: m.foodItems.filter(fi => !ids.has(fi.foodItem.id))
+                              }));
+                              setSelectedFoodItems([]);
+                              setIsPlanDirty(true);
+                            }}
+                          >
+                            Delete Selected ({selectedFoodItems.length})
+                          </Button>
+                        )}
                       </Box>
                 <List>
-                        {currentMeals.find(m => m.id === selectedMealId)?.foodItems.map((item) => (
-                          <ListItem key={item.id}>
+                        {currentMeals.find(m => m.id === selectedMealId)?.foodItems.map((item) => {
+                          const isSelected = selectedFoodItems.includes(item.foodItem.id);
+                          return (
+                          <ListItem key={item.id} sx={{ bgcolor: isSelected ? 'action.hover' : 'transparent' }} onClick={() => {
+                            setSelectedFoodItems(prev => isSelected ? prev.filter(id => id !== item.foodItem.id) : [...prev, item.foodItem.id]);
+                          }}>
                       <ListItemText
                         primary={item.foodItem.name}
+                        secondaryTypographyProps={{ component: 'span' }}
                               secondary={(() => {
                                 const quantity = editingQuantities[item.id] ?? item.quantity;
                                 const factor = quantity / (item.foodItem.servingSize || 100);
@@ -862,8 +1052,8 @@ export default function ClientNutritionPage() {
                                 const carbs = Math.round(item.foodItem.carbs * factor);
                                 const fat = Math.round(item.foodItem.fat * factor);
                                 return (
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
-                                    <Typography variant="body2" color="text.secondary">
+                                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
+                                    <Typography component="span" variant="body2" color="text.secondary">
                                       {calories} cal • {protein}g P • {carbs}g C • {fat}g F
                                     </Typography>
                                     <TextField
@@ -881,19 +1071,26 @@ export default function ClientNutritionPage() {
                                         setIsPlanDirty(true);
                                       }}
                                       sx={{ width: 110 }}
-                                      InputProps={{ endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
+                                      InputProps={{ endAdornment: <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
                                     />
                                   </Box>
                                 );
                               })()}
                       />
                       <ListItemSecondaryAction>
-                        <IconButton size="small" color="error">
+                        <IconButton size="small" color="error" onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
+                            ...m,
+                            foodItems: m.foodItems.filter(fi => fi.id !== item.id)
+                          }));
+                          setIsPlanDirty(true);
+                        }}>
                           <Trash size={16} />
                         </IconButton>
                       </ListItemSecondaryAction>
                     </ListItem>
-                  ))}
+                  );})}
                 </List>
                       {/* Inline editing saves in-memory on change; no bulk actions needed */}
                     </Box>
@@ -998,15 +1195,35 @@ export default function ClientNutritionPage() {
                         >
                           <CardHeader
                             title={plan.title}
-                            subheader={createdDate ? `Created: ${createdDate}` : undefined}
+                            subheader={(
+                              <Box>
+                                {createdDate ? <Typography variant="caption">Created: {createdDate}</Typography> : null}
+                                {(() => {
+                                  const t = computePlanTotals(plan);
+                                  return (
+                                    <Typography variant="body2">
+                                      {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
+                                    </Typography>
+                                  );
+                                })()}
+                              </Box>
+                            )}
                             action={
-                              plan.status && (
-                                <Chip
-                                  label={plan.status}
-                                  color={plan.status === 'active' ? 'success' : 'default'}
-                                  size="small"
-                                />
-                              )
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                {plan.status && (
+                                  <Chip
+                                    label={plan.status}
+                                    color={plan.status === 'active' ? 'success' : 'default'}
+                                    size="small"
+                                  />
+                                )}
+                                <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); handleCopyPlanCard(plan.id); }} disabled={copyingPlanId === plan.id}>
+                                  {copyingPlanId === plan.id ? 'Copying…' : 'Copy'}
+                                </Button>
+                                <Button size="small" variant="outlined" color="error" onClick={(e) => { e.stopPropagation(); handleDeletePlanCard(plan.id); }} disabled={deletingPlanId === plan.id}>
+                                  {deletingPlanId === plan.id ? 'Deleting…' : 'Delete'}
+                                </Button>
+                              </Stack>
                             }
                           />
                         </Card>
@@ -1091,10 +1308,31 @@ export default function ClientNutritionPage() {
                       backgroundColor: 'primary.main', 
                       color: 'primary.contrastText',
                       borderRadius: 1,
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      position: 'relative'
                     }}>
                       <Typography variant="h6">{currentCycle.label}</Typography>
                       <Typography variant="body2">Day {currentCycle.dayIndex}</Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setCycleNotesDraft(currentCycle.notes || '');
+                          setCycleNotesDialogOpen(true);
+                        }}
+                        sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'primary.light', '&:hover': { bgcolor: 'primary.lighter' } }}
+                        title="Edit notes"
+                      >
+                        {/* simple pencil icon via emoji if no icon available */}
+                        <span role="img" aria-label="notes">📝</span>
+                      </IconButton>
+                      {(() => {
+                        const t = computeCycleTotals(currentCycle);
+                        return (
+                          <Typography variant="body2" sx={{ mt: 0.5 }}>
+                            {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
+                          </Typography>
+                        );
+                      })()}
                     </Box>
                     
                     <Grid container spacing={2} direction="column">
@@ -1108,11 +1346,41 @@ export default function ClientNutritionPage() {
                             }}
                             onClick={() => setSelectedMealId(meal.id)}
                           >
-                            <CardHeader title={meal.meal} />
+                          <CardHeader title={meal.meal} />
                             <CardContent>
                               <Typography variant="body2" color="text.secondary">
                                 {meal.foodItems?.length || 0} food item(s)
                               </Typography>
+                            {/* Meal notes editor button in Food Items section when this meal is selected */}
+                            {selectedMealId === meal.id && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    setMealNotesMealId(meal.id);
+                                    setMealNotesDraft(meal.notes || '');
+                                    setMealNotesDialogOpen(true);
+                                  }}
+                                  title="Edit meal notes"
+                                  sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}
+                                >
+                                  <span role="img" aria-label="notes">📝</span>
+                                </IconButton>
+                                {meal.notes && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+                                    {meal.notes}
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+                            {(() => {
+                              const t = computeMealTotals(meal);
+                              return (
+                                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                  {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
+                                </Typography>
+                              );
+                            })()}
                             </CardContent>
                           </Card>
                         </Grid>
@@ -1174,9 +1442,10 @@ export default function ClientNutritionPage() {
                         <List>
                           {currentMeals.find(m => m.id === selectedMealId)?.foodItems.map((item) => (
                             <ListItem key={item.id}>
-                              <ListItemText
-                                primary={item.foodItem.name}
-                                secondary={(() => {
+                        <ListItemText
+                          primary={item.foodItem.name}
+                          secondaryTypographyProps={{ component: 'span' }}
+                              secondary={(() => {
                                   const quantity = editingQuantities[item.id] ?? item.quantity;
                                   const factor = quantity / (item.foodItem.servingSize || 100);
                                   const calories = Math.round(item.foodItem.calories * factor);
@@ -1184,8 +1453,8 @@ export default function ClientNutritionPage() {
                                   const carbs = Math.round(item.foodItem.carbs * factor);
                                   const fat = Math.round(item.foodItem.fat * factor);
                                   return (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
-                                      <Typography variant="body2" color="text.secondary">
+                                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
+                                    <Typography component="span" variant="body2" color="text.secondary">
                                         {calories} cal • {protein}g P • {carbs}g C • {fat}g F
                                       </Typography>
                                       <TextField
@@ -1203,9 +1472,9 @@ export default function ClientNutritionPage() {
                                           setIsPlanDirty(true);
                                         }}
                                         sx={{ width: 110 }}
-                                        InputProps={{ endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
+                                      InputProps={{ endAdornment: <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
                                       />
-                                    </Box>
+                                  </Box>
                                   );
                                 })()}
                               />
@@ -1255,6 +1524,75 @@ export default function ClientNutritionPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Cycle Notes Dialog */}
+      <Dialog open={cycleNotesDialogOpen} onClose={() => setCycleNotesDialogOpen(false)}>
+        <DialogTitle>Edit Cycle Notes</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            multiline
+            minRows={4}
+            value={cycleNotesDraft}
+            onChange={(e) => setCycleNotesDraft(e.target.value)}
+            placeholder="Add notes about this cycle..."
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCycleNotesDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              // persist notes in current selected cycle
+              if (!selectedCycleId || !selectedPlanId) { setCycleNotesDialogOpen(false); return; }
+              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                ...p,
+                cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({ ...c, notes: cycleNotesDraft }))
+              })));
+              setCycleNotesDialogOpen(false);
+              setIsPlanDirty(true);
+            }}
+            variant="contained"
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Meal Notes Dialog */}
+      <Dialog open={mealNotesDialogOpen} onClose={() => setMealNotesDialogOpen(false)}>
+        <DialogTitle>Edit Meal Notes</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            value={mealNotesDraft}
+            onChange={(e) => setMealNotesDraft(e.target.value)}
+            placeholder="Add notes about this meal..."
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMealNotesDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              if (!mealNotesMealId || !selectedPlanId) { setMealNotesDialogOpen(false); return; }
+              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                ...p,
+                cycles: (p.cycles || []).map((c) => ({
+                  ...c,
+                  meals: (c.meals || []).map((m) => m.id !== mealNotesMealId ? m : ({ ...m, notes: mealNotesDraft }))
+                }))
+              })));
+              setIsPlanDirty(true);
+              setMealNotesDialogOpen(false);
+            }}
+            variant="contained"
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Create Meal Dialog */}
       <Dialog open={isCreateMealDialogOpen} onClose={() => setIsCreateMealDialogOpen(false)}>
@@ -1277,12 +1615,32 @@ export default function ClientNutritionPage() {
       </Dialog>
 
       {/* Add Food Dialog */}
-      <Dialog open={isAddFoodDialogOpen} onClose={() => setIsAddFoodDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={isAddFoodDialogOpen} onClose={() => {
+        setIsAddFoodDialogOpen(false);
+        setFoodSearchTerm('');
+      }} maxWidth="md" fullWidth>
         <DialogTitle>Add Food Items to Meal</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Search food items..."
+              value={foodSearchTerm}
+              onChange={(e) => setFoodSearchTerm(e.target.value)}
+              sx={{ mb: 2 }}
+              autoFocus
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {workspaceFood.filter((food) => 
+                food.name.toLowerCase().includes(foodSearchTerm.toLowerCase())
+              ).length} item(s) found
+            </Typography>
             <List>
-              {workspaceFood.map((food) => {
+              {workspaceFood
+                .filter((food) => 
+                  food.name.toLowerCase().includes(foodSearchTerm.toLowerCase())
+                )
+                .map((food) => {
                 const isSelected = selectedFoodItems.includes(food.id);
                 
                 return (

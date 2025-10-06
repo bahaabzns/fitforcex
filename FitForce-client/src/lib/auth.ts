@@ -22,9 +22,9 @@ export async function loginUser(email: string, password: string): Promise<boolea
   }
 }
 
-export async function signupUser(fullName: string, email: string, password: string): Promise<boolean> {
+export async function signupUser(fullName: string, email: string, password: string, lastName?: string, phoneNumber?: string): Promise<boolean> {
   try {
-    await api.post('/api/auth/signup', { fullName, email, password });
+    await api.post('/api/auth/signup', { fullName, email, password, lastName, phoneNumber });
     // Optionally auto-login after signup; for now, require explicit login
     return true;
   } catch {

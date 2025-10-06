@@ -331,5 +331,10 @@
   "view-details": "View Details",
   "workout-details": "Workout Details",
   "workout-information": "Workout Information",
-  "date": "Date"
+  "date": "Date",
+  "Queue": "Queue",
+  "Workout Logs": "Workout Logs",
+  "Messenger": "Messenger",
+  "Workspace Subscription": "Workspace Subscription",
+  "Client Packages": "Client Packages"
 }

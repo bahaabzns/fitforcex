@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent } from 'react';
+import useSWR from 'swr';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
 
@@ -214,6 +215,16 @@ export default function WorkoutPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
+  const [activeTab, setActiveTab] = useState<'builder' | 'logs'>('builder');
+
+  // Workspace-wide workout logs for Logs tab
+  const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
+    activeTab === 'logs' ? 'workspace-workout-logs' : null,
+    async () => {
+      const res = await api.get(`/api/workout/logs`);
+      return res.data as { workoutLogs: any[] };
+    }
+  );
 
   useEffect(() => {
     if (!workspaceId) {
@@ -293,22 +304,23 @@ export default function WorkoutPage() {
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
     } catch {
-      setError('Failed to delete exercise');
+      setError('Cannot delete exercise because it is used in workout plans. Remove it from plans first.');
     } finally {
       setDeleting(null);
     }
   };
 
-  const handleClearAll = async () => {
-    if (!confirm('Are you sure you want to clear all exercises?')) return;
-
+  const handleDeleteSelected = async () => {
+    if (selected.length === 0) return;
+    if (!confirm(`Delete ${selected.length} selected exercise(s)?`)) return;
     try {
-      await api.delete('/api/workout/exercises/clear-all');
-      // Refresh the list
+      await Promise.all(selected.map((id) => api.delete(`/api/workout/exercises/${id}`)));
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
+      setSelected([]);
+      setSelectedValue([]);
     } catch {
-      setError('Failed to clear exercises');
+      setError('Some exercises could not be deleted because they are used in workout plans. Remove them from plans first.');
     }
   };
 
@@ -473,9 +485,9 @@ export default function WorkoutPage() {
           <Button variant="outlined" startIcon={<DocumentUpload />} onClick={handleOpenImport}>
             Import Exercises
           </Button>
-          {exercises.length > 0 && (
-            <Button variant="outlined" color="error" startIcon={<Warning2 />} onClick={handleClearAll}>
-              Clear All
+          {selected.length > 0 && (
+            <Button variant="outlined" color="error" startIcon={<Trash />} onClick={handleDeleteSelected}>
+              Delete Selected ({selected.length})
             </Button>
           )}
           <Button variant="contained" startIcon={<Add />} onClick={() => setIsCreateDialogOpen(true)}>
@@ -486,8 +498,14 @@ export default function WorkoutPage() {
 
       {error && <Alert severity="error">{error}</Alert>}
 
+      {/* Tabs */}
+      <Stack direction="row" spacing={1}>
+        <Button variant={activeTab === 'builder' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('builder')}>Builder</Button>
+        <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button>
+      </Stack>
+
       {/* Exercises Table */}
-      {exercises.length === 0 ? (
+      {activeTab === 'builder' && (exercises.length === 0 ? (
         <MainCard>
           <Box sx={{ textAlign: 'center', py: 12 }}>
             <Typography variant="h6" gutterBottom>
@@ -703,6 +721,46 @@ export default function WorkoutPage() {
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
+        </MainCard>
+      ))}
+
+      {activeTab === 'logs' && (
+        <MainCard title="Workout Logs" secondary={<Button variant="outlined" size="small" onClick={() => refreshLogs()}>Refresh</Button>}>
+          {logsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
+                <Stack spacing={1.5}>
+                  {logsData!.workoutLogs.map((log: any) => (
+                    <Card key={log.id} variant="outlined">
+                      <CardContent>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{log.workoutPlan?.title || 'Workout'}</Typography>
+                            <Typography variant="caption" color="text.secondary">Day {Number(log.dayIndex) + 1}</Typography>
+                          </Box>
+                          <Chip label={log.completed ? 'Completed' : 'In Progress'} color={log.completed ? 'success' : 'warning'} size="small" />
+                        </Stack>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ color: 'text.secondary' }}>
+                          <Typography variant="body2">{new Date(log.date).toLocaleDateString()}</Typography>
+                          <Typography variant="body2">{log.startTime && log.endTime ? `${log.startTime} - ${log.endTime}` : 'Not completed'}</Typography>
+                          <Typography variant="body2">{Array.isArray(log.exercises) ? `${log.exercises.length} exercises` : '-'}</Typography>
+                        </Stack>
+                        {log.notes && (
+                          <Typography variant="body2" sx={{ mt: 1 }}>{log.notes}</Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No workout logs found</Typography>
+              )}
+            </>
+          )}
         </MainCard>
       )}
 

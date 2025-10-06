@@ -65,13 +65,13 @@ function statusColor(s: QueueStatus) {
 function statusLabel(s: QueueStatus) {
   switch (s) {
     case 'pending':
-      return 'Pending (scheduled)';
+      return 'Scheduless';
     case 'sent':
-      return 'Sent (awaiting)';
+      return 'Form Requests';
     case 'completed':
-      return 'Completed (submission)';
+      return 'Form Submissions';
     case 'done':
-      return 'Done (plan created)';
+      return 'Done';
     default:
       return s;
   }
@@ -182,9 +182,9 @@ export default function QueuePage() {
             sx={{ mb: 2 }}
           >
             <Tab label={`All (${counts.all})`} />
-            <Tab label={`Pending (${counts.pending})`} />
-            <Tab label={`Sent (${counts.sent})`} />
-            <Tab label={`Completed (${counts.completed})`} />
+            <Tab label={`Schedules (${counts.pending})`} />
+            <Tab label={`Form Requests (${counts.sent})`} />
+            <Tab label={`Form Submissions (${counts.completed})`} />
             <Tab label={`Done (${counts.done})`} />
           </Tabs>
 

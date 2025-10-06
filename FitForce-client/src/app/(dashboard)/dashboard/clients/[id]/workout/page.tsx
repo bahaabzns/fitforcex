@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { useParams } from 'next/navigation';
 import {
   Box,
@@ -46,6 +47,8 @@ interface Exercise {
   name: string;
   muscleGroup: string;
   description?: string;
+  thumbnailUrl?: string;
+  videoUrl?: string; // YouTube link
   createdAt: string;
   updatedAt: string;
 }
@@ -99,11 +102,13 @@ export default function ClientWorkoutPage() {
   const [isAddExerciseDialogOpen, setIsAddExerciseDialogOpen] = useState(false);
   const [isEditExerciseDialogOpen, setIsEditExerciseDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any>(null);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
   
   // Form states
   const [newPlanTitle, setNewPlanTitle] = useState('');
   const [newDayTitle, setNewDayTitle] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
+  const [exerciseSearchTerm, setExerciseSearchTerm] = useState('');
   
   // UI states
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
@@ -116,6 +121,19 @@ export default function ClientWorkoutPage() {
   const [pdfTemplateId, setPdfTemplateId] = useState<string>('');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loadPlanDialogOpen, setLoadPlanDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'builder' | 'logs'>('builder');
+  const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null);
+
+  // Load workout logs for this client (for Logs tab)
+  const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
+    activeTab === 'logs' ? `client-${clientId}-workout-logs` : null,
+    async () => {
+      const params = new URLSearchParams();
+      params.append('clientId', clientId);
+      const res = await api.get(`/api/workout/logs?${params.toString()}`);
+      return res.data as { workoutLogs: any[] };
+    }
+  );
 
   // Load workspace exercises
   useEffect(() => {
@@ -207,6 +225,8 @@ export default function ClientWorkoutPage() {
                       tempo: "",
                       rir: 0,
                       notes: "",
+          videoUrl: "",
+          thumbnailUrl: "",
                       individualSets: [
                         { id: 'set_1', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
                         { id: 'set_2', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
@@ -570,8 +590,14 @@ export default function ClientWorkoutPage() {
         <Chip label={`Client: ${clientId}`} variant="outlined" />
       </Box>
 
+      {/* Tabs */}
+      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+        <Button variant={activeTab === 'builder' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('builder')}>Builder</Button>
+        <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button>
+      </Stack>
+
       {/* Main Content */}
-      {isMobile ? (
+      {activeTab === 'builder' && (isMobile ? (
         <MobileSwipeableSections
           sections={[
             // Section 1: Plans
@@ -1163,17 +1189,55 @@ export default function ClientWorkoutPage() {
                       secondary={`${plan.days?.length || 0} days`}
                     />
                     <ListItemSecondaryAction>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm('Delete this plan?')) {
-                            handleDeletePlan(plan.id);
-                          }
-                        }}
-                      >
-                        <Trash size={16} />
-                      </IconButton>
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setCopyingPlanId(plan.id);
+                              await api.post(`/api/workout/plans/${plan.id}/copy`, { targetClientId: clientId });
+                              await loadSavedPlans();
+                              openSnackbar({ open: true, message: 'Workout plan copied', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+                            } catch (e) {
+                              openSnackbar({ open: true, message: 'Failed to copy plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+                            } finally {
+                              setCopyingPlanId(null);
+                            }
+                          }}
+                          disabled={copyingPlanId === plan.id}
+                        >
+                          {copyingPlanId === plan.id ? 'Copying…' : 'Copy'}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await api.post(`/api/workout/plans/${plan.id}/activate`);
+                              await loadSavedPlans();
+                              openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+                            } catch (e) {
+                              openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+                            }
+                          }}
+                        >
+                          Activate
+                        </Button>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Delete this plan?')) {
+                              handleDeletePlan(plan.id);
+                            }
+                          }}
+                        >
+                          <Trash size={16} />
+                        </IconButton>
+                      </Stack>
                     </ListItemSecondaryAction>
                   </ListItem>
                   ))}
@@ -1452,6 +1516,52 @@ export default function ClientWorkoutPage() {
             </Card>
           )}
         </Box>
+      ))}
+
+      {activeTab === 'logs' && (
+        <Card>
+          <CardHeader
+            title={`Workout Logs (${logsData?.workoutLogs?.length || 0})`}
+            action={<Button variant="outlined" size="small" onClick={() => refreshLogs()}>Refresh</Button>}
+          />
+          <CardContent>
+            {logsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <>
+                {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
+                  <Stack spacing={1.5}>
+                    {logsData!.workoutLogs.map((log: any) => (
+                      <Card key={log.id} variant="outlined">
+                        <CardContent>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{log.workoutPlan?.title || 'Workout'}</Typography>
+                              <Typography variant="caption" color="text.secondary">Day {Number(log.dayIndex) + 1}</Typography>
+                            </Box>
+                            <Chip label={log.completed ? 'Completed' : 'In Progress'} color={log.completed ? 'success' : 'warning'} size="small" />
+                          </Stack>
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ color: 'text.secondary' }}>
+                            <Typography variant="body2">{new Date(log.date).toLocaleDateString()}</Typography>
+                            <Typography variant="body2">{log.startTime && log.endTime ? `${log.startTime} - ${log.endTime}` : 'Not completed'}</Typography>
+                            <Typography variant="body2">{Array.isArray(log.exercises) ? `${log.exercises.length} exercises` : '-'}</Typography>
+                          </Stack>
+                          {log.notes && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>{log.notes}</Typography>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No workout logs found</Typography>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Create Plan Dialog */}
@@ -1495,11 +1605,37 @@ export default function ClientWorkoutPage() {
       </Dialog>
 
       {/* Add Exercise Dialog */}
-      <Dialog open={isAddExerciseDialogOpen} onClose={() => setIsAddExerciseDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={isAddExerciseDialogOpen} onClose={() => {
+        setIsAddExerciseDialogOpen(false);
+        setExerciseSearchTerm('');
+      }} maxWidth="md" fullWidth>
         <DialogTitle>Add Exercises to Workout Day</DialogTitle>
         <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Search exercises by name, muscle group, or category..."
+              value={exerciseSearchTerm}
+              onChange={(e) => setExerciseSearchTerm(e.target.value)}
+              sx={{ mb: 2 }}
+              autoFocus
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {workspaceExercises.filter((exercise) =>
+                exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                (exercise.description && exercise.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()))
+              ).length} exercise(s) found
+            </Typography>
+          </Box>
           <List>
-            {workspaceExercises.map((exercise) => {
+            {workspaceExercises
+              .filter((exercise) =>
+                exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                (exercise.description && exercise.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()))
+              )
+              .map((exercise) => {
               const isSelected = selectedExercises.includes(exercise.id);
               
               return (
@@ -1542,6 +1678,75 @@ export default function ClientWorkoutPage() {
         <DialogContent>
           {editingExercise && (
             <Stack spacing={3} sx={{ mt: 1 }}>
+              {/* Media */}
+              <Box>
+                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                  Media
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  {/* Thumbnail uploader */}
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>Thumbnail</Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        disabled={uploadingThumb}
+                        component="label"
+                      >
+                        {uploadingThumb ? <CircularProgress size={18} /> : 'Upload'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              setUploadingThumb(true);
+                              // Get presigned URL (reuse 'landing' type)
+                              const presign = await api.post(`/api/upload/landing/presigned`, {
+                                filename: file.name,
+                                contentType: file.type || 'image/jpeg'
+                              });
+                              const { uploadUrl, publicUrl } = presign.data;
+                              await fetch(uploadUrl, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': file.type || 'image/jpeg' },
+                                body: file
+                              });
+                              setEditingExercise((prev: any) => ({ ...prev, thumbnailUrl: publicUrl }));
+                              setIsPlanDirty(true);
+                            } catch (err) {
+                              openSnackbar({ open: true, message: 'Thumbnail upload failed', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+                            } finally {
+                              setUploadingThumb(false);
+                              e.currentTarget.value = '';
+                            }
+                          }}
+                        />
+                      </Button>
+                      {editingExercise.thumbnailUrl && (
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={editingExercise.thumbnailUrl} alt="thumb" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 4 }} />
+                          <Button size="small" onClick={() => setEditingExercise((prev: any) => ({ ...prev, thumbnailUrl: '' }))}>Remove</Button>
+                        </Box>
+                      )}
+                    </Stack>
+                  </Box>
+                  {/* YouTube link */}
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>YouTube Link</Typography>
+                    <TextField
+                      fullWidth
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      value={editingExercise.videoUrl || ''}
+                      onChange={(e) => setEditingExercise((prev: any) => ({ ...prev, videoUrl: e.target.value }))}
+                    />
+                  </Box>
+                </Stack>
+              </Box>
               {/* Exercise Notes */}
               <Box>
                 <TextField

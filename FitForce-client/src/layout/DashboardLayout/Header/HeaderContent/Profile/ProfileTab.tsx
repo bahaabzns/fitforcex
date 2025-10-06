@@ -28,18 +28,7 @@ export default function ProfileTab({ handleLogout }: Props) {
         </ListItemIcon>
         <ListItemText primary="View Profile" />
       </ListItemButton>
-      <ListItemButton>
-        <ListItemIcon>
-          <Profile2User variant="Bulk" size={18} />
-        </ListItemIcon>
-        <ListItemText primary="Social Profile" />
-      </ListItemButton>
-      <ListItemButton>
-        <ListItemIcon>
-          <Card variant="Bulk" size={18} />
-        </ListItemIcon>
-        <ListItemText primary="Billing" />
-      </ListItemButton>
+      
       <ListItemButton onClick={handleLogout}>
         <ListItemIcon>
           <Logout variant="Bulk" size={18} />

@@ -126,7 +126,7 @@ export default function WorkspacesPage() {
                       <Button
                         variant="outlined"
                         size="small"
-                        href={`https://${workspace.subdomain}.${APP_CONFIG.frontendDomain}`}
+                        href={`https://${workspace.subdomain}.${APP_CONFIG.frontendDomain}/dashboard`}
                         target="_blank"
                         sx={{ flex: 1 }}
                       >

@@ -99,13 +99,6 @@ const workspaceMenu: NavItemType = {
       url: '/dashboard/workout',
       icon: icons.workout
     },
-    {
-      id: 'workout-logs',
-      title: 'Workout Logs',
-      type: 'item',
-      url: '/dashboard/workout-logs',
-      icon: icons.workout
-    },
   {
     id: 'messenger',
     title: 'Messenger',

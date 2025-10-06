@@ -48,6 +48,8 @@ import {
 } from '@wandersonalwes/iconsax-react';
 import api from '@/utils/axios';
 import MainCard from '@/components/MainCard';
+import OnboardingWizard from '@/components/OnboardingWizard';
+import { useAppSelector } from '@/store';
 
 interface WorkspaceInfo {
   id: string;
@@ -284,6 +286,7 @@ function ActivityCard({ activity }: { activity: ActivityItem }) {
             </Typography>
           </Stack>
         }
+        secondaryTypographyProps={{ component: 'div' }}
       />
     </ListItem>
   );
@@ -331,10 +334,27 @@ function QuickActionCard({
 }
 
 export default function DashboardEnhanced() {
+  const workspaceId = useAppSelector((s) => s.workspace.id);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'overview' | 'detailed'>('overview');
+  const [onboardingStatus, setOnboardingStatus] = useState<{ isOnboarded: boolean } | null>(null);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+
+  const checkOnboarding = async () => {
+    try {
+      setCheckingOnboarding(true);
+      const response = await api.get('/api/workspaces/onboarding/status');
+      setOnboardingStatus(response.data);
+    } catch (err) {
+      console.error('Error checking onboarding status:', err);
+      // If there's an error, assume onboarded to not block access
+      setOnboardingStatus({ isOnboarded: true });
+    } finally {
+      setCheckingOnboarding(false);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -350,13 +370,34 @@ export default function DashboardEnhanced() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    checkOnboarding();
   }, []);
+
+  useEffect(() => {
+    if (onboardingStatus?.isOnboarded) {
+      fetchDashboardData();
+    }
+  }, [onboardingStatus]);
 
   const handleQuickAction = (actionType: string) => {
     // Implement quick actions
     console.log('Quick action:', actionType);
   };
+
+  // Check onboarding status first
+  if (checkingOnboarding) {
+    return (
+      <Container sx={{ py: 4 }}>
+        <Typography variant="h4" gutterBottom>Dashboard</Typography>
+        <LinearProgress />
+      </Container>
+    );
+  }
+
+  // Show onboarding wizard if not onboarded
+  if (onboardingStatus && !onboardingStatus.isOnboarded) {
+    return <OnboardingWizard workspaceId={workspaceId} />;
+  }
 
   if (loading) {
     return (
@@ -427,7 +468,7 @@ export default function DashboardEnhanced() {
           🔑 Key Performance Indicators
         </Typography>
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} lg={3}>
+          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
             <MetricCard
               title="Active Clients"
               value={data.metrics.clients.active}
@@ -445,7 +486,7 @@ export default function DashboardEnhanced() {
             </Tooltip>
           </Grid>
           
-          <Grid item xs={12} sm={6} lg={3}>
+          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
             <MetricCard
               title="Monthly Revenue"
               value={data.metrics.revenue.monthlyCents}
@@ -463,7 +504,7 @@ export default function DashboardEnhanced() {
             </Tooltip>
           </Grid>
           
-          <Grid item xs={12} sm={6} lg={3}>
+          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
             <MetricCard
               title="Active Subscriptions"
               value={data.metrics.subscriptions.active}
@@ -483,7 +524,7 @@ export default function DashboardEnhanced() {
             </Tooltip>
           </Grid>
           
-          <Grid item xs={12} sm={6} lg={3}>
+          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
             <MetricCard
               title="Team Capacity"
               value={`${data.metrics.team.members} members`}
@@ -507,7 +548,7 @@ export default function DashboardEnhanced() {
           📊 Business Intelligence
         </Typography>
         <Grid container spacing={3}>
-          <Grid item xs={12} lg={6}>
+          <Grid size={{ xs: 12, lg: 6 }}>
             <ChartCard title="Revenue Trends">
               <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 1 }}>
                 <Stack alignItems="center" spacing={2}>
@@ -527,7 +568,7 @@ export default function DashboardEnhanced() {
             </ChartCard>
           </Grid>
           
-          <Grid item xs={12} lg={6}>
+          <Grid size={{ xs: 12, lg: 6 }}>
             <ChartCard title="Client Growth">
               <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 1 }}>
                 <Stack alignItems="center" spacing={2}>
@@ -552,7 +593,7 @@ export default function DashboardEnhanced() {
       {/* Quick Actions & Recent Activity */}
       <Grid container spacing={3}>
         {/* Quick Actions */}
-        <Grid item xs={12} lg={4}>
+        <Grid size={{ xs: 12, lg: 4 }}>
           <MainCard title="Quick Actions">
             <CardContent>
               <Stack spacing={2}>
@@ -583,7 +624,7 @@ export default function DashboardEnhanced() {
         </Grid>
 
         {/* Enhanced Performance Indicators */}
-        <Grid item xs={12} lg={4}>
+        <Grid size={{ xs: 12, lg: 4 }}>
           <MainCard title="Performance Indicators">
             <CardContent>
               <Stack spacing={3}>
@@ -664,12 +705,15 @@ export default function DashboardEnhanced() {
         </Grid>
 
         {/* Enhanced Recent Activity */}
-        <Grid item xs={12} lg={4}>
-          <MainCard title="Recent Activity" action={
-            <Button size="small" color="primary">
-              View All
-            </Button>
-          }>
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <MainCard 
+            title="Recent Activity" 
+            secondary={
+              <Button size="small" color="primary">
+                View All
+              </Button>
+            }
+          >
             <CardContent>
               {data.activities.length > 0 ? (
                 <List sx={{ p: 0 }}>

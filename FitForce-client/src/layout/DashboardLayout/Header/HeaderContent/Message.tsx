@@ -44,23 +44,7 @@ export default function Customization() {
 
   return (
     <>
-      <Box sx={{ flexShrink: 0, ml: 0.75 }}>
-        <IconButton
-          color="secondary"
-          variant="light"
-          onClick={handleToggle}
-          aria-label="settings toggler"
-          size="large"
-          sx={(theme) => ({
-            p: 1,
-            color: 'secondary.main',
-            bgcolor: open ? 'secondary.200' : 'secondary.100',
-            ...theme.applyStyles('dark', { bgcolor: open ? 'background.paper' : 'background.default' })
-          })}
-        >
-          <NotificationStatus variant="Bulk" />
-        </IconButton>
-      </Box>
+      <Box sx={{ display: 'none' }} />
       <Drawer
         sx={{ zIndex: 2001 }}
         anchor="right"

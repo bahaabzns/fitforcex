@@ -36,6 +36,8 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Avatar from '@mui/material/Avatar';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -45,7 +47,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { CSVExport, RowSelection } from 'components/third-party/react-table';
 
 // Icons
-import { Add, Edit, Trash, DocumentUpload, Warning2 } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, DocumentUpload } from '@wandersonalwes/iconsax-react';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -64,10 +66,45 @@ interface EnhancedTableHeadProps {
 interface FoodItem {
   id: string;
   name: string;
+  nameArabic?: string;
+  category?: string;
+  categoryArabic?: string;
+  unit?: string;
+  unitArabic?: string;
+  servingSize?: number;
   calories: number;
   protein: number;
   carbs: number;
   fat: number;
+  // Micronutrients (optional)
+  water?: number;
+  ash?: number;
+  fiber?: number;
+  sodium?: number;
+  potassium?: number;
+  calcium?: number;
+  phosphorous?: number;
+  magnesium?: number;
+  iron?: number;
+  zinc?: number;
+  copper?: number;
+  manganese?: number;
+  fluoride?: number;
+  selenium?: number;
+  vitamin_a?: number;
+  vitamin_c?: number;
+  vitamin_b1?: number;
+  vitamin_b2?: number;
+  vitamin_b5?: number;
+  vitamin_b6?: number;
+  vitamin_b12?: number;
+  vitamin_d?: number;
+  vitamin_e?: number;
+  vitamin_k?: number;
+  niacin?: number;
+  folic_acid?: number;
+  choline?: number;
+  betaine?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -206,6 +243,8 @@ export default function NutritionPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedFoodItem, setSelectedFoodItem] = useState<FoodItem | null>(null);
+  const [createTab, setCreateTab] = useState(0);
+  const [editTab, setEditTab] = useState(0);
 
   // Form states
   const [newFoodItem, setNewFoodItem] = useState({
@@ -315,7 +354,8 @@ export default function NutritionPage() {
     setUpdating(true);
     setError(null);
     try {
-      await api.put(`/api/nutrition/food-items/${selectedFoodItem.id}`, selectedFoodItem);
+      const { id, createdAt, updatedAt, workspaceId: _ws, ...payload } = selectedFoodItem as any;
+      await api.put(`/api/nutrition/food-items/${selectedFoodItem.id}`, payload);
       setIsEditDialogOpen(false);
       setSelectedFoodItem(null);
       // Refresh the list
@@ -361,6 +401,7 @@ export default function NutritionPage() {
   const handleEdit = (foodItem: FoodItem) => {
     setSelectedFoodItem({ ...foodItem });
     setIsEditDialogOpen(true);
+    setEditTab(0);
   };
 
   // Table handlers
@@ -518,9 +559,19 @@ export default function NutritionPage() {
           <Button variant="outlined" startIcon={<DocumentUpload />} onClick={handleOpenImport}>
             Import Items
           </Button>
-          {foodItems.length > 0 && (
-            <Button variant="outlined" color="error" startIcon={<Warning2 />} onClick={handleClearAll}>
-              Clear All
+          {selected.length > 0 && (
+            <Button variant="outlined" color="error" startIcon={<Trash />} onClick={() => {
+              if (!confirm(`Delete ${selected.length} selected item(s)?`)) return;
+              Promise.all(selected.map((id) => api.delete(`/api/nutrition/food-items/${id}`)))
+                .then(async () => {
+                  const response = await api.get('/api/nutrition/food-items');
+                  setFoodItems(response.data.foodItems || []);
+                  setSelected([]);
+                  setSelectedValue([]);
+                })
+                .catch(() => setError('Failed to delete selected items'));
+            }}>
+              Delete Selected ({selected.length})
             </Button>
           )}
           <Button variant="contained" startIcon={<Add />} onClick={() => setIsCreateDialogOpen(true)}>
@@ -767,107 +818,115 @@ export default function NutritionPage() {
           <Typography color="text.secondary" sx={{ mb: 3 }}>
             Create a new food item with nutritional information
           </Typography>
-          <Stack spacing={3}>
-            <TextField
-              fullWidth
-              label="Food Name"
-              value={newFoodItem.name}
-              onChange={(e) => setNewFoodItem((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="e.g., Chicken Breast"
-            />
-            <TextField
-              fullWidth
-              label="Food Name (Arabic)"
-              value={newFoodItem.nameArabic}
-              onChange={(e) => setNewFoodItem((prev) => ({ ...prev, nameArabic: e.target.value }))}
-              placeholder="مثال: صدور الدجاج"
-            />
-            <FormControl fullWidth>
-              <InputLabel id="category-label">Category</InputLabel>
-              <Select
-                labelId="category-label"
-                label="Category"
-                value={newFoodItem.category}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, category: e.target.value as string }))}
-              >
-                <MenuItem value="">None</MenuItem>
-                <MenuItem value="Protein">Protein</MenuItem>
-                <MenuItem value="Carb">Carb</MenuItem>
-                <MenuItem value="Fat">Fat</MenuItem>
-                <MenuItem value="Vegetable">Vegetable</MenuItem>
-                <MenuItem value="Fruit">Fruit</MenuItem>
-                <MenuItem value="Dairy">Dairy</MenuItem>
-                <MenuItem value="Beverage">Beverage</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              label="Category (Arabic)"
-              value={newFoodItem.categoryArabic}
-              onChange={(e) => setNewFoodItem((prev) => ({ ...prev, categoryArabic: e.target.value }))}
-            />
-            <Stack direction="row" spacing={2}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+            <Tabs value={createTab} onChange={(_, v) => setCreateTab(v)}>
+              <Tab label="Main Details" />
+              <Tab label="Micronutrients" />
+            </Tabs>
+          </Box>
+          {createTab === 0 && (
+            <Stack spacing={3}>
               <TextField
                 fullWidth
-                label="Serving Size"
-                type="number"
-                value={newFoodItem.servingSize ?? ''}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, servingSize: e.target.value === '' ? undefined : Number(e.target.value) }))}
-                placeholder="100"
+                label="Food Name"
+                value={newFoodItem.name}
+                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Chicken Breast"
               />
               <TextField
                 fullWidth
-                label="Unit"
-                value={newFoodItem.unit}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unit: e.target.value }))}
-                placeholder="g, ml, etc."
+                label="Food Name (Arabic)"
+                value={newFoodItem.nameArabic}
+                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, nameArabic: e.target.value }))}
+                placeholder="مثال: صدور الدجاج"
               />
+              <FormControl fullWidth>
+                <InputLabel id="category-label">Category</InputLabel>
+                <Select
+                  labelId="category-label"
+                  label="Category"
+                  value={newFoodItem.category}
+                  onChange={(e) => setNewFoodItem((prev) => ({ ...prev, category: e.target.value as string }))}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="Protein">Protein</MenuItem>
+                  <MenuItem value="Carb">Carb</MenuItem>
+                  <MenuItem value="Fat">Fat</MenuItem>
+                  <MenuItem value="Vegetable">Vegetable</MenuItem>
+                  <MenuItem value="Fruit">Fruit</MenuItem>
+                  <MenuItem value="Dairy">Dairy</MenuItem>
+                  <MenuItem value="Beverage">Beverage</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Category (Arabic)"
+                value={newFoodItem.categoryArabic}
+                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, categoryArabic: e.target.value }))}
+              />
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Serving Size"
+                  type="number"
+                  value={newFoodItem.servingSize ?? ''}
+                  onChange={(e) => setNewFoodItem((prev) => ({ ...prev, servingSize: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                  placeholder="100"
+                />
+                <TextField
+                  fullWidth
+                  label="Unit"
+                  value={newFoodItem.unit}
+                  onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unit: e.target.value }))}
+                  placeholder="g, ml, etc."
+                />
+              </Stack>
+              <TextField
+                fullWidth
+                label="Unit (Arabic)"
+                value={newFoodItem.unitArabic}
+                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unitArabic: e.target.value }))}
+              />
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Calories (per 100g)"
+                  type="number"
+                  value={newFoodItem.calories}
+                  onChange={(e) => setNewFoodItem((prev) => ({ ...prev, calories: parseInt(e.target.value) || 0 }))}
+                  placeholder="165"
+                />
+                <TextField
+                  fullWidth
+                  label="Protein (g)"
+                  type="number"
+                  value={newFoodItem.protein}
+                  onChange={(e) => setNewFoodItem((prev) => ({ ...prev, protein: parseFloat(e.target.value) || 0 }))}
+                  placeholder="31"
+                />
+              </Stack>
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Carbs (g)"
+                  type="number"
+                  value={newFoodItem.carbs}
+                  onChange={(e) => setNewFoodItem((prev) => ({ ...prev, carbs: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0"
+                />
+                <TextField
+                  fullWidth
+                  label="Fat (g)"
+                  type="number"
+                  value={newFoodItem.fat}
+                  onChange={(e) => setNewFoodItem((prev) => ({ ...prev, fat: parseFloat(e.target.value) || 0 }))}
+                  placeholder="3.6"
+                />
+              </Stack>
             </Stack>
-            <TextField
-              fullWidth
-              label="Unit (Arabic)"
-              value={newFoodItem.unitArabic}
-              onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unitArabic: e.target.value }))}
-            />
-            <Stack direction="row" spacing={2}>
-              <TextField
-                fullWidth
-                label="Calories (per 100g)"
-                type="number"
-                value={newFoodItem.calories}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, calories: parseInt(e.target.value) || 0 }))}
-                placeholder="165"
-              />
-              <TextField
-                fullWidth
-                label="Protein (g)"
-                type="number"
-                value={newFoodItem.protein}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, protein: parseFloat(e.target.value) || 0 }))}
-                placeholder="31"
-              />
-            </Stack>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                fullWidth
-                label="Carbs (g)"
-                type="number"
-                value={newFoodItem.carbs}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, carbs: parseFloat(e.target.value) || 0 }))}
-                placeholder="0"
-              />
-              <TextField
-                fullWidth
-                label="Fat (g)"
-                type="number"
-                value={newFoodItem.fat}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, fat: parseFloat(e.target.value) || 0 }))}
-                placeholder="3.6"
-              />
-            </Stack>
-
-            {/* Optional micronutrients */}
+          )}
+          {createTab === 1 && (
             <Grid container spacing={2}>
               {[
                 ['water','Water (g)'],['ash','Ash (g)'],['fiber','Fiber (g)'],['sodium','Sodium (mg)'],['potassium','Potassium (mg)'],
@@ -889,7 +948,7 @@ export default function NutritionPage() {
                 </Grid>
               ))}
             </Grid>
-          </Stack>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
@@ -912,51 +971,136 @@ export default function NutritionPage() {
             Update the nutritional information for this food item
           </Typography>
           {selectedFoodItem && (
-            <Stack spacing={3}>
-              <TextField
-                fullWidth
-                label="Food Name"
-                value={selectedFoodItem.name}
-                onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, name: e.target.value } : null))}
-                placeholder="e.g., Chicken Breast"
-              />
-              <Stack direction="row" spacing={2}>
-                <TextField
-                  fullWidth
-                  label="Calories (per 100g)"
-                  type="number"
-                  value={selectedFoodItem.calories}
-                  onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, calories: parseInt(e.target.value) || 0 } : null))}
-                  placeholder="165"
-                />
-                <TextField
-                  fullWidth
-                  label="Protein (g)"
-                  type="number"
-                  value={selectedFoodItem.protein}
-                  onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, protein: parseFloat(e.target.value) || 0 } : null))}
-                  placeholder="31"
-                />
-              </Stack>
-              <Stack direction="row" spacing={2}>
-                <TextField
-                  fullWidth
-                  label="Carbs (g)"
-                  type="number"
-                  value={selectedFoodItem.carbs}
-                  onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, carbs: parseFloat(e.target.value) || 0 } : null))}
-                  placeholder="0"
-                />
-                <TextField
-                  fullWidth
-                  label="Fat (g)"
-                  type="number"
-                  value={selectedFoodItem.fat}
-                  onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, fat: parseFloat(e.target.value) || 0 } : null))}
-                  placeholder="3.6"
-                />
-              </Stack>
-            </Stack>
+            <>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                <Tabs value={editTab} onChange={(_, v) => setEditTab(v)}>
+                  <Tab label="Main Details" />
+                  <Tab label="Micronutrients" />
+                </Tabs>
+              </Box>
+              {editTab === 0 && (
+                <Stack spacing={3}>
+                  <TextField
+                    fullWidth
+                    label="Food Name"
+                    value={selectedFoodItem.name}
+                    onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, name: e.target.value } : null))}
+                    placeholder="e.g., Chicken Breast"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Food Name (Arabic)"
+                    value={selectedFoodItem.nameArabic || ''}
+                    onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, nameArabic: e.target.value } : null))}
+                  />
+                  <FormControl fullWidth>
+                    <InputLabel id="edit-category-label">Category</InputLabel>
+                    <Select
+                      labelId="edit-category-label"
+                      label="Category"
+                      value={selectedFoodItem.category || ''}
+                      onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, category: e.target.value as string } : null))}
+                    >
+                      <MenuItem value="">None</MenuItem>
+                      <MenuItem value="Protein">Protein</MenuItem>
+                      <MenuItem value="Carb">Carb</MenuItem>
+                      <MenuItem value="Fat">Fat</MenuItem>
+                      <MenuItem value="Vegetable">Vegetable</MenuItem>
+                      <MenuItem value="Fruit">Fruit</MenuItem>
+                      <MenuItem value="Dairy">Dairy</MenuItem>
+                      <MenuItem value="Beverage">Beverage</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="Category (Arabic)"
+                    value={selectedFoodItem.categoryArabic || ''}
+                    onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, categoryArabic: e.target.value } : null))}
+                  />
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      fullWidth
+                      label="Serving Size"
+                      type="number"
+                      value={selectedFoodItem.servingSize ?? ''}
+                      onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, servingSize: e.target.value === '' ? undefined : Number(e.target.value) } : null))}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Unit"
+                      value={selectedFoodItem.unit || ''}
+                      onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, unit: e.target.value } : null))}
+                    />
+                  </Stack>
+                  <TextField
+                    fullWidth
+                    label="Unit (Arabic)"
+                    value={selectedFoodItem.unitArabic || ''}
+                    onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, unitArabic: e.target.value } : null))}
+                  />
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      fullWidth
+                      label="Calories (per 100g)"
+                      type="number"
+                      value={selectedFoodItem.calories}
+                      onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, calories: parseInt(e.target.value) || 0 } : null))}
+                      placeholder="165"
+                    />
+                    <TextField
+                      fullWidth
+                      label="Protein (g)"
+                      type="number"
+                      value={selectedFoodItem.protein}
+                      onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, protein: parseFloat(e.target.value) || 0 } : null))}
+                      placeholder="31"
+                    />
+                  </Stack>
+                  <Stack direction="row" spacing={2}>
+                    <TextField
+                      fullWidth
+                      label="Carbs (g)"
+                      type="number"
+                      value={selectedFoodItem.carbs}
+                      onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, carbs: parseFloat(e.target.value) || 0 } : null))}
+                      placeholder="0"
+                    />
+                    <TextField
+                      fullWidth
+                      label="Fat (g)"
+                      type="number"
+                      value={selectedFoodItem.fat}
+                      onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, fat: parseFloat(e.target.value) || 0 } : null))}
+                      placeholder="3.6"
+                    />
+                  </Stack>
+                </Stack>
+              )}
+              {editTab === 1 && (
+                <Grid container spacing={2}>
+                  {[
+                    ['water','Water (g)'],['ash','Ash (g)'],['fiber','Fiber (g)'],['sodium','Sodium (mg)'],['potassium','Potassium (mg)'],
+                    ['calcium','Calcium (mg)'],['phosphorous','Phosphorous (mg)'],['magnesium','Magnesium (mg)'],['iron','Iron (mg)'],['zinc','Zinc (mg)'],
+                    ['copper','Copper (mg)'],['manganese','Manganese (mg)'],['fluoride','Fluoride (mcg)'],['selenium','Selenium (mcg)'],
+                    ['vitamin_a','Vitamin A (mcg)'],['vitamin_c','Vitamin C (mg)'],['vitamin_b1','Vitamin B1 (mg)'],['vitamin_b2','Vitamin B2 (mg)'],
+                    ['vitamin_b5','Vitamin B5 (mg)'],['vitamin_b6','Vitamin B6 (mg)'],['vitamin_b12','Vitamin B12 (mcg)'],
+                    ['vitamin_d','Vitamin D (mcg)'],['vitamin_e','Vitamin E (mg)'],['vitamin_k','Vitamin K (mcg)'],
+                    ['niacin','Niacin (mg)'],['folic_acid','Folic Acid (mcg)'],['choline','Choline (mg)'],['betaine','Betaine (mg)']
+                  ].map(([key,label]) => (
+                    <Grid item xs={12} sm={6} key={key}>
+                      <TextField
+                        fullWidth
+                        label={label as string}
+                        type="number"
+                        value={(selectedFoodItem as any)[key] ?? ''}
+                        onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, [key as string]: e.target.value === '' ? undefined : Number(e.target.value) } as any : null))}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </>
           )}
         </DialogContent>
         <DialogActions>

@@ -22,6 +22,8 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -54,6 +56,7 @@ import Avatar from 'components/@extended/Avatar';
 import IconButton from 'components/@extended/IconButton';
 import MainCard from 'components/MainCard';
 import ResponsiveTable from 'components/ResponsiveTable';
+import CreateClientWizard from 'components/CreateClientWizard';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -77,6 +80,9 @@ type Client = {
   email?: string | null;
   phone?: string | null;
   status?: string | null;
+  packageId?: string | null;
+  packageName?: string | null;
+  packageDuration?: number | null;
   createdAt?: string;
 };
 
@@ -119,6 +125,19 @@ export default function ClientsPage() {
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
+  // Create client wizard
+  const [createWizardOpen, setCreateWizardOpen] = useState(false);
+
+  // Bulk form assignment
+  const [bulkFormDialogOpen, setBulkFormDialogOpen] = useState(false);
+  const [formTemplates, setFormTemplates] = useState<any[]>([]);
+  const [selectedFormId, setSelectedFormId] = useState('');
+  const [assigningForm, setAssigningForm] = useState(false);
+
+  // Packages for filtering and display
+  const [packages, setPackages] = useState<any[]>([]);
+  const [packageFilter, setPackageFilter] = useState<string>('all');
+
   useEffect(() => {
     if (!workspaceId) {
       setLoading(false);
@@ -139,16 +158,61 @@ export default function ClientsPage() {
     fetchClients();
   }, [workspaceId]);
 
+  // Load packages and forms
+  useEffect(() => {
+    if (!workspaceId) return;
+    
+    const loadData = async () => {
+      try {
+        // Load packages
+        const packagesRes = await api.get(`/api/workspaces/${workspaceId}/client-packages`);
+        setPackages(packagesRes.data.packages || []);
+
+        // Load form templates
+        const formsRes = await api.get('/api/forms/templates');
+        setFormTemplates(formsRes.data.templates || []);
+      } catch (err) {
+        console.error('Error loading packages and forms:', err);
+      }
+    };
+
+    loadData();
+  }, [workspaceId]);
+
   const filtered = useMemo(() => {
+    let result = clients;
+
+    // Text search filter
     const q = search.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter(
-      (c) =>
-        (c.fullName || c.name || '').toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.phone || '').toLowerCase().includes(q)
-    );
-  }, [clients, search]);
+    if (q) {
+      result = result.filter(
+        (c) =>
+          (c.fullName || c.name || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q) ||
+          (c.phone || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Package filter
+    if (packageFilter && packageFilter !== 'all') {
+      if (packageFilter === 'none') {
+        result = result.filter((c: any) => !c.packageId);
+      } else {
+        result = result.filter((c: any) => c.packageId === packageFilter);
+      }
+    }
+
+    return result;
+  }, [clients, search, packageFilter]);
+
+  const refreshClients = async () => {
+    try {
+      const res = await api.get('/api/clients');
+      setClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
+    } catch {
+      setError('Failed to load clients');
+    }
+  };
 
   const inviteClient = async () => {
     if (!fullName.trim()) return;
@@ -174,10 +238,52 @@ export default function ClientsPage() {
     }
   };
 
+  const handleBulkFormAssignment = async () => {
+    if (!selectedFormId) {
+      setError('Please select a form');
+      return;
+    }
+
+    // Get actual client IDs from selected rows
+    const selectedRows = table.getSelectedRowModel().flatRows;
+    const selectedClientIds = selectedRows.map(row => row.original.id);
+    
+    if (selectedClientIds.length === 0) {
+      setError('No clients selected');
+      return;
+    }
+
+    setAssigningForm(true);
+    setError(null);
+
+    try {
+      // Send form to each selected client
+      for (const clientId of selectedClientIds) {
+        await api.post('/api/forms/send', {
+          formId: selectedFormId,
+          clientId,
+        });
+      }
+
+      setBulkFormDialogOpen(false);
+      setSelectedFormId('');
+      setRowSelection({});
+      setError(null);
+      
+      alert(`Form assigned to ${selectedClientIds.length} client(s) successfully!`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to assign forms');
+    } finally {
+      setAssigningForm(false);
+    }
+  };
+
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
       case 'active':
         return 'success';
+      case 'pre_start':
+        return 'warning';
       case 'pending':
         return 'warning';
       case 'inactive':
@@ -191,6 +297,8 @@ export default function ClientsPage() {
     switch (status?.toLowerCase()) {
       case 'active':
         return 'Active';
+      case 'pre_start':
+        return 'Pre-Start';
       case 'pending':
         return 'Pending';
       case 'inactive':
@@ -254,6 +362,27 @@ export default function ClientsPage() {
         cell: ({ getValue }) => {
           const status = getValue() as string;
           return <Chip color={getStatusColor(status) as any} label={getStatusLabel(status)} size="small" variant="light" />;
+        }
+      },
+      {
+        header: 'Package',
+        accessorKey: 'packageName',
+        cell: ({ row }) => {
+          const packageName = row.original.packageName;
+          const packageDuration = row.original.packageDuration;
+          
+          if (!packageName) {
+            return <Typography color="text.secondary">No package</Typography>;
+          }
+          
+          return (
+            <Stack>
+              <Typography variant="body2">{packageName}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {packageDuration} month{packageDuration !== 1 ? 's' : ''}
+              </Typography>
+            </Stack>
+          );
         }
       },
       {
@@ -321,6 +450,7 @@ export default function ClientsPage() {
     columns: columns,
     state: { columnFilters, sorting, rowSelection, globalFilter },
     enableRowSelection: true,
+    getRowId: (row) => row.id, // Use client ID as row ID
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
@@ -385,6 +515,21 @@ export default function ClientsPage() {
 
         <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: 'center' }}>
           <Select
+            value={packageFilter}
+            onChange={(event) => setPackageFilter(event.target.value)}
+            displayEmpty
+            size="small"
+            sx={{ minWidth: 150 }}
+          >
+            <MenuItem value="all">All Packages</MenuItem>
+            <MenuItem value="none">No Package</MenuItem>
+            {packages.map((pkg) => (
+              <MenuItem key={pkg.id} value={pkg.id}>
+                {pkg.name}
+              </MenuItem>
+            ))}
+          </Select>
+          <Select
             value={tableDensity}
             onChange={(event) => setTableDensity(event.target.value as TableDensity)}
             displayEmpty
@@ -397,8 +542,18 @@ export default function ClientsPage() {
           </Select>
           <SelectColumnSorting {...{ getState: table.getState, getAllColumns: table.getAllColumns, setSorting }} />
           <Stack direction="row" sx={{ gap: 2, alignItems: 'center' }}>
-            <Button variant="contained" startIcon={<Add />} onClick={() => setShowForm(true)} size="large">
-              Invite Client
+            {Object.keys(rowSelection).length > 0 && (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => setBulkFormDialogOpen(true)}
+                size="large"
+              >
+                Assign Form ({Object.keys(rowSelection).length})
+              </Button>
+            )}
+            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateWizardOpen(true)} size="large">
+              Create Client
             </Button>
             <CSVExport
               {...{
@@ -556,6 +711,19 @@ export default function ClientsPage() {
                     </Box>
                   </Box>
                 )}
+                {c.packageName && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Package
+                    </Typography>
+                    <Typography variant="body2">
+                      {c.packageName}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {c.packageDuration} month{c.packageDuration !== 1 ? 's' : ''}
+                    </Typography>
+                  </Box>
+                )}
                 {c.createdAt && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
@@ -614,9 +782,34 @@ export default function ClientsPage() {
               <Grid3 size={16} />
             </ToggleButton>
           </ToggleButtonGroup>
+          <Select
+            value={packageFilter}
+            onChange={(event) => setPackageFilter(event.target.value)}
+            displayEmpty
+            size="small"
+            sx={{ minWidth: 150 }}
+          >
+            <MenuItem value="all">All Packages</MenuItem>
+            <MenuItem value="none">No Package</MenuItem>
+            {packages.map((pkg) => (
+              <MenuItem key={pkg.id} value={pkg.id}>
+                {pkg.name}
+              </MenuItem>
+            ))}
+          </Select>
           <TextField size="small" placeholder="Search clients" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Button variant="contained" onClick={() => setShowForm((s) => !s)}>
-            Invite Client
+          {Object.keys(rowSelection).length > 0 && viewMode === 'table' && (
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => setBulkFormDialogOpen(true)}
+              size="small"
+            >
+              Assign Form ({Object.keys(rowSelection).length})
+            </Button>
+          )}
+          <Button variant="contained" onClick={() => setCreateWizardOpen(true)}>
+            Create Client
           </Button>
         </Stack>
       </Stack>
@@ -704,6 +897,65 @@ export default function ClientsPage() {
             </Button>
           )}
           <Button onClick={() => setViewOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create Client Wizard */}
+      <CreateClientWizard
+        open={createWizardOpen}
+        onClose={() => setCreateWizardOpen(false)}
+        onSuccess={refreshClients}
+      />
+
+      {/* Bulk Form Assignment Dialog */}
+      <Dialog open={bulkFormDialogOpen} onClose={() => setBulkFormDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Assign Form to Selected Clients</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Assign a form template to {Object.keys(rowSelection).length} selected client(s)
+            </Typography>
+            
+            {formTemplates.length === 0 ? (
+              <Alert severity="warning">
+                No form templates available. Create form templates first from the Forms page.
+              </Alert>
+            ) : (
+              <FormControl fullWidth>
+                <InputLabel>Select Form Template</InputLabel>
+                <Select
+                  value={selectedFormId}
+                  label="Select Form Template"
+                  onChange={(e) => setSelectedFormId(e.target.value)}
+                >
+                  {formTemplates.map((form: any) => (
+                    <MenuItem key={form.id} value={form.id}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography>{form.title}</Typography>
+                        <Chip 
+                          label={form.type} 
+                          size="small" 
+                          color={form.type === 'nutrition' ? 'success' : 'primary'} 
+                        />
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkFormDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleBulkFormAssignment}
+            disabled={!selectedFormId || assigningForm || formTemplates.length === 0}
+          >
+            {assigningForm ? <CircularProgress size={20} /> : 'Assign Form'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

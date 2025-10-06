@@ -62,6 +62,13 @@ export default function FormsPage() {
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [viewTemplate, setViewTemplate] = useState<FormTemplate | null>(null);
+  const [editTemplate, setEditTemplate] = useState<FormTemplate | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTitleArabic, setEditTitleArabic] = useState('');
+  const [editFormType, setEditFormType] = useState<'nutrition' | 'workout'>('nutrition');
+  const [editQuestions, setEditQuestions] = useState<Array<{ id: string; originalId?: string; label: string; labelArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>>([]);
+  const [updating, setUpdating] = useState(false);
   // Separate selection for assignment so selecting in the assign UI does not open the view dialog
   const [assignTemplateId, setAssignTemplateId] = useState<string>('');
   const [assignClientId, setAssignClientId] = useState<string>('');
@@ -174,6 +181,48 @@ export default function FormsPage() {
     }
   };
 
+  const openEdit = (t: FormTemplate) => {
+    setEditTemplate(t);
+    setEditTitle(t.title || '');
+    setEditTitleArabic((t as any).titleArabic || '');
+    setEditFormType((t.type as any) === 'workout' ? 'workout' : 'nutrition');
+    const mapped = Array.isArray(t.questions) ? t.questions.map((q: any, idx: number) => ({
+      id: q.id || `tq_${idx}_${Date.now()}`,
+      originalId: q.id,
+      label: q.label || q.question || q.title || `Question ${idx + 1}`,
+      labelArabic: q.labelArabic || q.questionArabic,
+      type: q.type || 'text',
+      required: !!q.required,
+      options: q.options,
+      optionsArabic: q.optionsArabic
+    })) : [];
+    setEditQuestions(mapped);
+    setShowEdit(true);
+  };
+
+  const updateTemplate = async () => {
+    if (!editTemplate) return;
+    if (!editTitle.trim()) return;
+    setUpdating(true);
+    setError(null);
+    try {
+      const questions = editQuestions.map(({ id, label, labelArabic, type, required, options, optionsArabic, originalId }) => ({ id: originalId || id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, type, required, options, optionsArabic }));
+      await api.put(`/api/forms/templates/${editTemplate.id}`, { title: editTitle.trim(), titleArabic: editTitleArabic.trim() || undefined, type: editFormType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
+      setShowEdit(false);
+      setEditTemplate(null);
+      setEditTitle('');
+      setEditTitleArabic('');
+      setEditQuestions([]);
+      const res = await api.get('/api/forms/templates', { headers: { 'x-workspace-id': effectiveWorkspaceId } });
+      setTemplates(Array.isArray(res.data?.templates) ? res.data.templates : []);
+      openSnackbar({ open: true, message: 'Template updated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+    } catch {
+      setError('Failed to update template');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   if (!effectiveWorkspaceId) {
     return (
       <Card sx={{ borderStyle: 'dashed' }}>
@@ -256,31 +305,68 @@ export default function FormsPage() {
               </Box>
             )}
 
-            {/* Added questions preview */}
+            {/* Added questions - editable */}
             {newQuestions.length > 0 && (
               <Box>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
                   Questions
                 </Typography>
-                <List dense>
+                <Stack spacing={1}>
                   {newQuestions.map((q, idx) => (
-                    <ListItem key={q.id} divider>
-                      <ListItemText
-                        primary={`${q.label}${q.labelArabic ? ` / ${q.labelArabic}` : ''}`}
-                        secondary={`${q.type}${q.required ? ' • required' : ''}${q.options?.length ? ` • options: ${q.options.join(', ')}` : ''}`}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton
-                          edge="end"
-                          aria-label="delete"
-                          onClick={() => setNewQuestions((prev) => prev.filter((_, i) => i !== idx))}
-                        >
-                          <Trash />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
+                    <Box key={q.id} sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                      <Grid container spacing={1}>
+                        {/* Row 1: Type + Required */}
+                        <Grid item xs={12} sm={8} md={6}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel id={`qtype-${q.id}`}>Type</InputLabel>
+                            <Select
+                              labelId={`qtype-${q.id}`}
+                              label="Type"
+                              value={q.type}
+                              onChange={(e) => {
+                                const val = String(e.target.value);
+                                setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, type: val, options: ['select','checkbox','radio'].includes(val) ? (x.options||[]) : undefined } : x));
+                              }}
+                            >
+                              <MenuItem value="text">text</MenuItem>
+                              <MenuItem value="textarea">textarea</MenuItem>
+                              <MenuItem value="number">number</MenuItem>
+                              <MenuItem value="select">select</MenuItem>
+                              <MenuItem value="checkbox">checkbox</MenuItem>
+                              <MenuItem value="radio">radio</MenuItem>
+                              <MenuItem value="attachment">attachment</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={4} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
+                          <FormControlLabel control={<Switch size="small" checked={!!q.required} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, required: e.target.checked } : x))} />} label="Required" />
+                        </Grid>
+
+                        {/* Row 2: Label + Arabic Label */}
+                        <Grid item xs={12} sm={6}>
+                          <TextField size="small" fullWidth label="Label" value={q.label} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, label: e.target.value } : x))} />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField size="small" fullWidth label="Label (Arabic)" value={q.labelArabic || ''} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, labelArabic: e.target.value } : x))} />
+                        </Grid>
+
+                        {/* Row 3: Options (if needed) + Delete */}
+                        {['select','checkbox','radio'].includes(q.type) ? (
+                          <Grid item xs={12} sm={9}>
+                            <TextField size="small" fullWidth label="Options (comma separated)" value={(q.options||[]).join(', ')} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))} />
+                          </Grid>
+                        ) : (
+                          <Grid item xs={12} sm={9} />
+                        )}
+                        <Grid item xs={12} sm={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <IconButton size="small" color="error" onClick={() => setNewQuestions((prev) => prev.filter((_, i) => i !== idx))}>
+                            <Trash />
+                          </IconButton>
+                        </Grid>
+                      </Grid>
+                    </Box>
                   ))}
-                </List>
+                </Stack>
               </Box>
             )}
 
@@ -300,6 +386,7 @@ export default function FormsPage() {
                       <MenuItem value="select">select</MenuItem>
                       <MenuItem value="checkbox">checkbox</MenuItem>
                       <MenuItem value="radio">radio</MenuItem>
+                      <MenuItem value="attachment">attachment</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -384,6 +471,9 @@ export default function FormsPage() {
                     <Button size="small" variant="outlined" onClick={() => setViewTemplate(t)}>
                       Open
                     </Button>
+                    <Button size="small" variant="outlined" onClick={() => openEdit(t)}>
+                      Edit
+                    </Button>
                   </Stack>
                 </CardContent>
               </Card>
@@ -426,6 +516,91 @@ export default function FormsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewTemplate(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Template Dialog */}
+      <Dialog open={showEdit} onClose={() => setShowEdit(false)} fullWidth maxWidth="md">
+        <DialogTitle>Edit form template</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={3}>
+            <TextField fullWidth label={intl.formatMessage({ id: 'title' })} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            <TextField fullWidth label={intl.formatMessage({ id: 'title-arabic' })} value={editTitleArabic} onChange={(e) => setEditTitleArabic(e.target.value)} />
+            <FormControl fullWidth>
+              <InputLabel id="edit-form-type-label"><FormattedMessage id="type" /></InputLabel>
+              <Select labelId="edit-form-type-label" label={intl.formatMessage({ id: 'type' })} value={editFormType} onChange={(e) => setEditFormType(e.target.value as any)}>
+                <MenuItem value="nutrition">nutrition</MenuItem>
+                <MenuItem value="workout">workout</MenuItem>
+              </Select>
+            </FormControl>
+
+            {editQuestions.length > 0 && (
+              <Box>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  Questions
+                </Typography>
+                <Stack spacing={1}>
+                  {editQuestions.map((q, idx) => (
+                    <Box key={q.id} sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                      <Grid container spacing={1}>
+                        <Grid item xs={12} sm={8} md={6}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel id={`edit-qtype-${q.id}`}>Type</InputLabel>
+                            <Select
+                              labelId={`edit-qtype-${q.id}`}
+                              label="Type"
+                              value={q.type}
+                              onChange={(e) => {
+                                const val = String(e.target.value);
+                                setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, type: val, options: ['select','checkbox','radio'].includes(val) ? (x.options||[]) : undefined } : x));
+                              }}
+                            >
+                              <MenuItem value="text">text</MenuItem>
+                              <MenuItem value="textarea">textarea</MenuItem>
+                              <MenuItem value="number">number</MenuItem>
+                              <MenuItem value="select">select</MenuItem>
+                              <MenuItem value="checkbox">checkbox</MenuItem>
+                              <MenuItem value="radio">radio</MenuItem>
+                              <MenuItem value="attachment">attachment</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={4} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
+                          <FormControlLabel control={<Switch size="small" checked={!!q.required} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, required: e.target.checked } : x))} />} label="Required" />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField size="small" fullWidth label="Label" value={q.label} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, label: e.target.value } : x))} />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField size="small" fullWidth label="Label (Arabic)" value={q.labelArabic || ''} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, labelArabic: e.target.value } : x))} />
+                        </Grid>
+
+                        {['select','checkbox','radio'].includes(q.type) ? (
+                          <Grid item xs={12} sm={9}>
+                            <TextField size="small" fullWidth label="Options (comma separated)" value={(q.options||[]).join(', ')} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))} />
+                          </Grid>
+                        ) : (
+                          <Grid item xs={12} sm={9} />
+                        )}
+                        <Grid item xs={12} sm={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <IconButton size="small" color="error" onClick={() => setEditQuestions((prev) => prev.filter((_, i) => i !== idx))}>
+                            <Trash />
+                          </IconButton>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowEdit(false)}>Cancel</Button>
+          <Button variant="contained" disabled={updating} onClick={updateTemplate}>
+            {updating ? 'Saving…' : 'Save'}
+          </Button>
         </DialogActions>
       </Dialog>
 

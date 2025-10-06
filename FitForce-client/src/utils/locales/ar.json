@@ -331,5 +331,10 @@
   "view-details": "عرض التفاصيل",
   "workout-details": "تفاصيل التمرين",
   "workout-information": "معلومات التمرين",
-  "date": "التاريخ"
+  "date": "التاريخ",
+  "Queue": "قائمة الانتظار",
+  "Workout Logs": "سجلات التمارين",
+  "Messenger": "الرسائل",
+  "Workspace Subscription": "اشتراك مساحة العمل",
+  "Client Packages": "حزم العملاء"
 }

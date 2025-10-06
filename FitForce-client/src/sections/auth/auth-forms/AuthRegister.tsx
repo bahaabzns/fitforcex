@@ -3,15 +3,11 @@
 import { useEffect, useState, SyntheticEvent } from 'react';
 
 // next
-import Image from 'next/legacy/image';
 import NextLink from 'next/link';
 import { useRouter } from 'next/navigation';
 
 // material-ui
-import { Theme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
 import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
 import FormHelperText from '@mui/material/FormHelperText';
 import FormControl from '@mui/material/FormControl';
 import Grid from '@mui/material/Grid';
@@ -27,10 +23,8 @@ import * as Yup from 'yup';
 import { Formik } from 'formik';
 
 // project-imports
-import FirebaseSocial from './FirebaseSocial';
 import IconButton from 'components/@extended/IconButton';
 import AnimateButton from 'components/@extended/AnimateButton';
-import { APP_DEFAULT_PATH } from 'config';
 import { signupUser } from '@/lib/auth';
 import { strengthColor, strengthIndicator } from 'utils/password-strength';
 
@@ -40,16 +34,10 @@ import { StringColorProps } from 'types/password';
 // assets
 import { Eye, EyeSlash } from '@wandersonalwes/iconsax-react';
 
-const Auth0 = '/assets/images/icons/auth0.svg';
-const Cognito = '/assets/images/icons/aws-cognito.svg';
-const Google = '/assets/images/icons/google.svg';
-
 // ============================|| JWT - REGISTER ||============================ //
 
 export default function AuthRegister({ providers, csrfToken }: any) {
   const router = useRouter();
-
-  const downSM = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
 
   const [level, setLevel] = useState<StringColorProps>();
   const [showPassword, setShowPassword] = useState(false);
@@ -77,7 +65,7 @@ export default function AuthRegister({ providers, csrfToken }: any) {
           firstname: '',
           lastname: '',
           email: '',
-          company: '',
+          phoneNumber: '',
           password: '',
           submit: null
         }}
@@ -85,6 +73,11 @@ export default function AuthRegister({ providers, csrfToken }: any) {
           firstname: Yup.string().max(255).required('First Name is required'),
           lastname: Yup.string().max(255).required('Last Name is required'),
           email: Yup.string().email('Must be a valid email').max(255).required('Email is required'),
+          phoneNumber: Yup.string()
+            .matches(/^[0-9+\-\s()]*$/, 'Please enter a valid phone number')
+            .min(10, 'Phone number must be at least 10 digits')
+            .max(20, 'Phone number is too long')
+            .required('Phone number is required'),
           password: Yup.string()
             .required('Password is required')
             .test('no-leading-trailing-whitespace', 'Password can not start or end with spaces', (value) => value === value.trim())
@@ -93,8 +86,8 @@ export default function AuthRegister({ providers, csrfToken }: any) {
         })}
         onSubmit={async (values, { setErrors, setStatus, setSubmitting }) => {
           const trimmedEmail = values.email.trim();
-          const fullName = `${values.firstname} ${values.lastname}`.trim();
-          const ok = await signupUser(fullName, trimmedEmail, values.password);
+          const fullName = `${values.firstname}`.trim();
+          const ok = await signupUser(fullName, trimmedEmail, values.password, values.lastname, values.phoneNumber);
           if (!ok) {
             setErrors({ submit: 'Registration failed' });
             setSubmitting(false);
@@ -151,18 +144,19 @@ export default function AuthRegister({ providers, csrfToken }: any) {
                 <Stack sx={{ gap: 1 }}>
                   <OutlinedInput
                     fullWidth
-                    error={Boolean(touched.company && errors.company)}
-                    id="company-signup"
-                    value={values.company}
-                    name="company"
+                    error={Boolean(touched.phoneNumber && errors.phoneNumber)}
+                    id="phoneNumber-signup"
+                    value={values.phoneNumber}
+                    name="phoneNumber"
                     onBlur={handleBlur}
                     onChange={handleChange}
-                    placeholder="Company"
+                    placeholder="Phone Number"
+                    type="tel"
                   />
                 </Stack>
-                {touched.company && errors.company && (
-                  <FormHelperText error id="helper-text-company-signup">
-                    {errors.company}
+                {touched.phoneNumber && errors.phoneNumber && (
+                  <FormHelperText error id="helper-text-phoneNumber-signup">
+                    {errors.phoneNumber}
                   </FormHelperText>
                 )}
               </Grid>
@@ -262,65 +256,6 @@ export default function AuthRegister({ providers, csrfToken }: any) {
           </form>
         )}
       </Formik>
-      {providers && (
-        <Stack
-          direction="row"
-          spacing={{ xs: 1, sm: 2 }}
-          justifyContent={{ xs: 'space-around', sm: 'space-between' }}
-          sx={{ mt: 3, '& .MuiButton-startIcon': { mr: { xs: 0, sm: 1 }, ml: { xs: 0, sm: -0.5 } } }}
-        >
-          {Object.values(providers).map((provider: any) => {
-            if (provider.id === 'login' || provider.id === 'register') {
-              return;
-            }
-            return (
-              <Box key={provider.name} sx={{ width: '100%' }}>
-                <Divider sx={{ mt: 2 }}>
-                  <Typography variant="caption"> Sign up with</Typography>
-                </Divider>
-                {provider.id === 'google' && (
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    fullWidth={!downSM}
-                    startIcon={<Image src={Google} alt="Twitter" width={16} height={16} />}
-                    onClick={() => signIn(provider.id, { callbackUrl: APP_DEFAULT_PATH })}
-                  >
-                    {!downSM && 'Google'}
-                  </Button>
-                )}
-                {provider.id === 'auth0' && (
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    fullWidth={!downSM}
-                    startIcon={<Image src={Auth0} alt="Twitter" width={16} height={16} />}
-                    onClick={() => signIn(provider.id, { callbackUrl: APP_DEFAULT_PATH })}
-                  >
-                    {!downSM && 'Auth0'}
-                  </Button>
-                )}
-                {provider.id === 'cognito' && (
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    fullWidth={!downSM}
-                    startIcon={<Image src={Cognito} alt="Twitter" width={16} height={16} />}
-                    onClick={() => signIn(provider.id, { callbackUrl: APP_DEFAULT_PATH })}
-                  >
-                    {!downSM && 'Cognito'}
-                  </Button>
-                )}
-              </Box>
-            );
-          })}
-        </Stack>
-      )}
-      {!providers && (
-        <Box sx={{ mt: 3 }}>
-          <FirebaseSocial />
-        </Box>
-      )}
     </>
   );
 }

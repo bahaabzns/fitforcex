@@ -49,26 +49,7 @@ export default function MegaMenuSection() {
   };
 
   return (
-    <Box sx={{ flexShrink: 0, ml: 0.75 }}>
-      <IconButton
-        color="secondary"
-        variant="light"
-        aria-label="open profile"
-        ref={anchorRef}
-        aria-controls={open ? 'profile-grow' : undefined}
-        aria-haspopup="true"
-        onClick={handleToggle}
-        size="large"
-        sx={(theme) => ({
-          p: 1,
-          ml: { xs: 0, lg: -2 },
-          color: 'secondary.main',
-          bgcolor: open ? 'secondary.200' : 'secondary.100',
-          ...theme.applyStyles('dark', { bgcolor: open ? 'background.paper' : 'background.default' })
-        })}
-      >
-        <Windows variant="Bulk" />
-      </IconButton>
+    <Box sx={{ display: 'none' }}>
       <Popper
         placement="bottom"
         open={open}
@@ -125,36 +106,7 @@ export default function MegaMenuSection() {
                       })}
                     >
                       <Box sx={{ p: 4.5, pb: 3, position: 'inherit', zIndex: 2 }}>
-                        <Stack sx={(theme) => ({ color: 'background.paper', ...theme.applyStyles('dark', { color: 'text.primary' }) })}>
-                          <Typography variant="h2" sx={{ fontSize: '1.875rem', mb: 1 }}>
-                            Explore Components
-                          </Typography>
-                          <Typography variant="h6">
-                            Try Able Pro&apos;s component pages to check how it feels and suits as per your need.
-                          </Typography>
-                          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-end', mt: -1 }}>
-                            <AnimateButton>
-                              <Button
-                                variant="contained"
-                                color="secondary"
-                                sx={{
-                                  zIndex: 2,
-                                  color: 'text.primary',
-                                  bgcolor: 'background.paper',
-                                  '&:hover': { bgcolor: 'background.paper', color: 'text.primary' },
-                                  '& svg': { color: 'primary.main' }
-                                }}
-                                endIcon={<ArrowRight3 variant="Bulk" />}
-                                component={Link}
-                                href="/components-overview/buttons"
-                                target="_blank"
-                              >
-                                View All
-                              </Button>
-                            </AnimateButton>
-                            <CardMedia component="img" src={imageChart} alt="Chart" sx={{ mr: -2.5, mb: -2.5, width: 124 }} />
-                          </Stack>
-                        </Stack>
+                        <Stack />
                       </Box>
                     </Grid>
                     <Grid size={8}>
