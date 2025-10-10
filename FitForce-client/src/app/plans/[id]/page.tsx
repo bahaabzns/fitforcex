@@ -10,10 +10,7 @@ export default function PublicPlanPreviewPage() {
   const params = useParams();
   const id = params?.id as string;
 
-  // Debug: Log if this component is being rendered
-  console.log('🚀 PublicPlanPreviewPage rendered for ID:', id);
-
-  const { data, isLoading, error } = useSWR(() => (id ? `public-plan-${id}-cycles-v2` : null), async () => {
+  const { data, isLoading, error } = useSWR(() => (id ? `public-plan-${id}-cycles-v3` : null), async () => {
     // Get workspace ID from cookie (set by middleware)
     const workspaceId = document.cookie
       .split('; ')
