@@ -226,6 +226,7 @@ export default function NutritionPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  const [tabIndex, setTabIndex] = useState(0); // 0: Food, 1: Recipes
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -300,6 +301,17 @@ export default function NutritionPage() {
   const [importing, setImporting] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
 
+  // Recipes state
+  type Recipe = { id: string; name: string; nameArabic?: string; imageUrl?: string; youtubeUrl?: string };
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipesLoading, setRecipesLoading] = useState(false);
+  const [isCreateRecipeOpen, setIsCreateRecipeOpen] = useState(false);
+  const [newRecipeName, setNewRecipeName] = useState('');
+  const [newRecipeNameAr, setNewRecipeNameAr] = useState('');
+  const [newRecipeImageFile, setNewRecipeImageFile] = useState<File | null>(null);
+  const [creatingRecipe, setCreatingRecipe] = useState(false);
+  const [newRecipeYoutubeUrl, setNewRecipeYoutubeUrl] = useState('');
+
   useEffect(() => {
     if (!workspaceId) {
       setLoading(false);
@@ -321,6 +333,23 @@ export default function NutritionPage() {
 
     fetchFoodItems();
   }, [workspaceId]);
+
+  useEffect(() => {
+    // Load recipes when entering the Recipes tab
+    const loadRecipes = async () => {
+      if (!workspaceId) return;
+      setRecipesLoading(true);
+      try {
+        const res = await api.get('/api/nutrition/recipes');
+        setRecipes(res.data.recipes || []);
+      } catch {
+        setError('Failed to load recipes');
+      } finally {
+        setRecipesLoading(false);
+      }
+    };
+    if (tabIndex === 1) loadRecipes();
+  }, [tabIndex, workspaceId]);
 
   const handleCreate = async () => {
     if (!newFoodItem.name.trim() || newFoodItem.calories <= 0) {
@@ -526,7 +555,7 @@ export default function NutritionPage() {
     );
   }
 
-  if (loading) {
+  if (loading && tabIndex === 0) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
@@ -553,37 +582,21 @@ export default function NutritionPage() {
           <Typography variant="h4" gutterBottom>
             Nutrition
           </Typography>
-          <Typography color="text.secondary">Manage food items and nutrition plans</Typography>
+          <Typography color="text.secondary">Manage food items, recipes, and nutrition plans</Typography>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-          <Button variant="outlined" startIcon={<DocumentUpload />} onClick={handleOpenImport}>
-            Import Items
-          </Button>
-          {selected.length > 0 && (
-            <Button variant="outlined" color="error" startIcon={<Trash />} onClick={() => {
-              if (!confirm(`Delete ${selected.length} selected item(s)?`)) return;
-              Promise.all(selected.map((id) => api.delete(`/api/nutrition/food-items/${id}`)))
-                .then(async () => {
-                  const response = await api.get('/api/nutrition/food-items');
-                  setFoodItems(response.data.foodItems || []);
-                  setSelected([]);
-                  setSelectedValue([]);
-                })
-                .catch(() => setError('Failed to delete selected items'));
-            }}>
-              Delete Selected ({selected.length})
-            </Button>
-          )}
-          <Button variant="contained" startIcon={<Add />} onClick={() => setIsCreateDialogOpen(true)}>
-            Add Food Item
-          </Button>
-        </Stack>
+        <Box sx={{ width: '100%', mt: { xs: 1, sm: 0 } }}>
+          <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)}>
+            <Tab label="Food Items" />
+            <Tab label="Recipes" />
+          </Tabs>
+        </Box>
       </Stack>
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {/* Food Items Table */}
-      {foodItems.length === 0 ? (
+      {tabIndex === 0 && (
+      // Food Items Table
+      foodItems.length === 0 ? (
         <MainCard>
           <Box sx={{ textAlign: 'center', py: 12 }}>
             <Typography variant="h6" gutterBottom>
@@ -608,6 +621,29 @@ export default function NutritionPage() {
           title="Food Items"
           secondary={<CSVExport data={selectedValue.length > 0 ? selectedValue : foodItems} filename={'food-items.csv'} />}
         >
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ p: 2, pt: 0 }}>
+            <Button variant="outlined" startIcon={<DocumentUpload />} onClick={handleOpenImport}>
+              Import Items
+            </Button>
+            {selected.length > 0 && (
+              <Button variant="outlined" color="error" startIcon={<Trash />} onClick={() => {
+                if (!confirm(`Delete ${selected.length} selected item(s)?`)) return;
+                Promise.all(selected.map((id) => api.delete(`/api/nutrition/food-items/${id}`)))
+                  .then(async () => {
+                    const response = await api.get('/api/nutrition/food-items');
+                    setFoodItems(response.data.foodItems || []);
+                    setSelected([]);
+                    setSelectedValue([]);
+                  })
+                  .catch(() => setError('Failed to delete selected items'));
+              }}>
+                Delete Selected ({selected.length})
+              </Button>
+            )}
+            <Button variant="contained" startIcon={<Add />} onClick={() => setIsCreateDialogOpen(true)}>
+              Add Food Item
+            </Button>
+          </Stack>
           <RowSelection selected={selected.length} />
 
           {/* Search Input */}
@@ -809,6 +845,87 @@ export default function NutritionPage() {
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
         </MainCard>
+      )
+      )}
+
+      {tabIndex === 1 && (
+        <MainCard content={false} title="Recipes">
+          <Box sx={{ p: 2 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+              <Typography color="text.secondary">Create and manage your recipe cards</Typography>
+              <Button variant="contained" startIcon={<Add />} onClick={() => setIsCreateRecipeOpen(true)}>
+                Add Recipe
+              </Button>
+            </Stack>
+          </Box>
+          {recipesLoading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            isMobile ? (
+              <Grid container spacing={2} sx={{ p: 2, pt: 0 }}>
+                {recipes.map((r) => (
+                  <Grid item xs={12} key={r.id}>
+                    <Card>
+                      <CardContent>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <Avatar src={r.imageUrl || undefined} variant="rounded" sx={{ width: 64, height: 64 }} />
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Typography variant="subtitle1">{r.name}</Typography>
+                            {r.nameArabic && <Typography variant="body2" color="text.secondary">{r.nameArabic}</Typography>}
+                          </Box>
+                          <IconButton color="error" onClick={async () => {
+                            if (!confirm('Delete this recipe?')) return;
+                            await api.delete(`/api/nutrition/recipes/${r.id}`);
+                            const res = await api.get('/api/nutrition/recipes');
+                            setRecipes(res.data.recipes || []);
+                          }}>
+                            <Trash size={18} />
+                          </IconButton>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              <TableContainer sx={{ p: 2, pt: 0 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Arabic Name</TableCell>
+                      <TableCell>Image</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {recipes.map((r) => (
+                      <TableRow key={r.id} hover>
+                        <TableCell>{r.name}</TableCell>
+                        <TableCell>{r.nameArabic || '-'}</TableCell>
+                        <TableCell>
+                          {r.imageUrl ? <Avatar src={r.imageUrl} variant="rounded" /> : <Typography color="text.secondary">No image</Typography>}
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton color="error" onClick={async () => {
+                            if (!confirm('Delete this recipe?')) return;
+                            await api.delete(`/api/nutrition/recipes/${r.id}`);
+                            const res = await api.get('/api/nutrition/recipes');
+                            setRecipes(res.data.recipes || []);
+                          }}>
+                            <Trash size={18} />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
+          )}
+        </MainCard>
       )}
 
       {/* Create Dialog */}
@@ -960,6 +1077,59 @@ export default function NutritionPage() {
           >
             Create
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create Recipe Dialog */}
+      <Dialog open={isCreateRecipeOpen} onClose={() => setIsCreateRecipeOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Recipe</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <TextField label="Recipe Name" value={newRecipeName} onChange={(e) => setNewRecipeName(e.target.value)} fullWidth />
+            <TextField label="Recipe Name (Arabic)" value={newRecipeNameAr} onChange={(e) => setNewRecipeNameAr(e.target.value)} fullWidth />
+            <TextField label="YouTube URL" value={newRecipeYoutubeUrl} onChange={(e) => setNewRecipeYoutubeUrl(e.target.value)} fullWidth placeholder="https://youtu.be/VIDEO_ID or https://www.youtube.com/watch?v=VIDEO_ID" />
+            <Button component="label" variant="outlined" startIcon={<DocumentUpload />}>
+              {newRecipeImageFile ? `Selected: ${newRecipeImageFile.name}` : 'Upload Image'}
+              <input type="file" accept="image/*" hidden onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                setNewRecipeImageFile(f);
+              }} />
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsCreateRecipeOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={creatingRecipe} startIcon={creatingRecipe ? <CircularProgress size={16} /> : <Add />} onClick={async () => {
+            if (!newRecipeName.trim()) { setError('Please enter recipe name'); return; }
+            setCreatingRecipe(true);
+            try {
+              let imageUrl: string | undefined = undefined;
+              if (newRecipeImageFile) {
+                const pres = await api.post('/api/upload/recipes/presigned', {
+                  workspaceId,
+                  filename: newRecipeImageFile.name,
+                  contentType: newRecipeImageFile.type || 'image/jpeg'
+                });
+                const { uploadUrl, publicUrl } = pres.data;
+                await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': newRecipeImageFile.type || 'image/jpeg' }, body: newRecipeImageFile });
+                imageUrl = publicUrl;
+              }
+              await api.post('/api/nutrition/recipes', {
+                name: newRecipeName,
+                nameArabic: newRecipeNameAr || undefined,
+                imageUrl,
+                youtubeUrl: newRecipeYoutubeUrl || undefined
+              });
+              setIsCreateRecipeOpen(false);
+              setNewRecipeName(''); setNewRecipeNameAr(''); setNewRecipeImageFile(null); setNewRecipeYoutubeUrl('');
+              const res = await api.get('/api/nutrition/recipes');
+              setRecipes(res.data.recipes || []);
+            } catch {
+              setError('Failed to create recipe');
+            } finally {
+              setCreatingRecipe(false);
+            }
+          }}>Create</Button>
         </DialogActions>
       </Dialog>
 

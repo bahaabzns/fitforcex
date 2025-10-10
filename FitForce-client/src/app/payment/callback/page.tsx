@@ -68,11 +68,11 @@ export default function PaymentCallbackPage() {
 
   const handleGoBack = () => {
     if (subdomain) {
-      const url = `${window.location.protocol}//${subdomain}.${APP_CONFIG.frontendDomain}/dashboard/workspaces/subscription`;
+      const url = `${window.location.protocol}//${subdomain}.${APP_CONFIG.frontendDomain}/client/subscription`;
       window.location.replace(url);
       return;
     }
-    const dest = workspaceId ? `/workspace/subscription?workspaceId=${workspaceId}` : '/';
+    const dest = workspaceId ? `/client/subscription?workspaceId=${workspaceId}` : '/client/subscription';
     window.location.replace(dest);
   };
 

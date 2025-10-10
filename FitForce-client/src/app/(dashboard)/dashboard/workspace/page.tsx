@@ -30,6 +30,11 @@ import InputLabel from '@mui/material/InputLabel';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
+import Link from '@mui/material/Link';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 // project-imports
 import MainCard from 'components/MainCard';
@@ -136,6 +141,26 @@ export default function WorkspacePage() {
   const [cfgTableColor, setCfgTableColor] = useState<string>('#1976d2');
   const [cfgItemsPerPage, setCfgItemsPerPage] = useState(12);
 
+  // Payment Settings state
+  const [paymentSettings, setPaymentSettings] = useState({
+    isConnected: false,
+    integrationId: '',
+    iframeId: '',
+    merchantId: '',
+  });
+  const [paymentForm, setPaymentForm] = useState({
+    apiKey: '',
+    integrationId: '',
+    iframeId: '',
+    merchantId: '',
+    hmacSecret: '',
+  });
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
+
+  const webhookUrl = `${APP_CONFIG.apiUrl}/paymob/webhook`;
+
   const canCreateTpl = useMemo(
     () => tplName.trim().length > 0 && !!builderSchema && !tplCreating,
     [tplName, builderSchema, tplCreating]
@@ -200,6 +225,13 @@ export default function WorkspacePage() {
     fetchWorkspace();
   }, [subdomain, workspaceId, dispatch]);
 
+  // Fetch payment settings when workspace is loaded
+  useEffect(() => {
+    if (workspace?.id && isOwner) {
+      fetchPaymentSettings();
+    }
+  }, [workspace?.id, isOwner]);
+
   const handleBrandingSave = async () => {
     if (!workspace?.id) return;
     
@@ -260,6 +292,77 @@ export default function WorkspacePage() {
       router.push('/dashboard');
     } catch {
       setError('Failed to delete workspace');
+    }
+  };
+
+  // Payment Settings functions
+  const fetchPaymentSettings = async () => {
+    if (!workspace?.id) return;
+    
+    try {
+      const response = await api.get(`/api/workspaces/${workspace.id}/payment`);
+      setPaymentSettings(response.data);
+      
+      // Pre-fill form with existing values if connected
+      if (response.data.isConnected) {
+        setPaymentForm(prev => ({
+          ...prev,
+          integrationId: response.data.integrationId || '',
+          iframeId: response.data.iframeId || '',
+          merchantId: response.data.merchantId || '',
+        }));
+      }
+    } catch {
+      setPaymentError('Failed to load payment settings');
+    }
+  };
+
+  const handlePaymentSave = async () => {
+    if (!workspace?.id) return;
+    
+    setPaymentLoading(true);
+    setPaymentError(null);
+    setPaymentSuccess(null);
+
+    try {
+      await api.post(`/api/workspaces/${workspace.id}/payment`, paymentForm);
+      setPaymentSuccess('Payment settings saved successfully!');
+      await fetchPaymentSettings(); // Refresh the settings
+      setTimeout(() => setPaymentSuccess(null), 3000);
+    } catch (error: any) {
+      setPaymentError(error.response?.data?.message || 'Failed to save payment settings');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handlePaymentDisconnect = async () => {
+    if (!workspace?.id) return;
+    
+    if (!confirm('Are you sure you want to disconnect the payment gateway? This will disable online payments for your clients.')) {
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentError(null);
+    setPaymentSuccess(null);
+
+    try {
+      await api.delete(`/api/workspaces/${workspace.id}/payment`);
+      setPaymentSuccess('Payment gateway disconnected successfully!');
+      await fetchPaymentSettings(); // Refresh the settings
+      setPaymentForm({
+        apiKey: '',
+        integrationId: '',
+        iframeId: '',
+        merchantId: '',
+        hmacSecret: '',
+      });
+      setTimeout(() => setPaymentSuccess(null), 3000);
+    } catch (error: any) {
+      setPaymentError(error.response?.data?.message || 'Failed to disconnect payment gateway');
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -333,6 +436,7 @@ export default function WorkspacePage() {
             <Tab label="Branding" />
             <Tab label="Landing Page" />
             <Tab label="PDF Templates" />
+            <Tab label="Payment Settings" />
           </Tabs>
         </Box>
 
@@ -876,6 +980,209 @@ export default function WorkspacePage() {
             </Card>
           </Stack>
         </TabPanel>
+
+        {/* Payment Settings Tab */}
+        <TabPanel value={activeTab} index={4}>
+          <Stack spacing={3}>
+            {paymentError && <Alert severity="error">{paymentError}</Alert>}
+            {paymentSuccess && <Alert severity="success">{paymentSuccess}</Alert>}
+            
+            <Card>
+              <CardHeader>
+                <Typography variant="h6" component="h2">
+                  Payment Settings
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Connect your Paymob account so clients can pay you directly.
+                </Typography>
+              </CardHeader>
+              <CardContent>
+                <Stack spacing={3}>
+                  {/* Connection Status */}
+                  <Card sx={{ 
+                    bgcolor: paymentSettings.isConnected ? 'success.lighter' : 'warning.lighter',
+                    borderColor: paymentSettings.isConnected ? 'success.main' : 'warning.main'
+                  }}>
+                    <CardContent>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Box sx={{ 
+                          width: 12, 
+                          height: 12, 
+                          borderRadius: '50%', 
+                          bgcolor: paymentSettings.isConnected ? 'success.main' : 'warning.main' 
+                        }} />
+                        <Typography variant="body1" fontWeight="medium">
+                          {paymentSettings.isConnected ? '✅ Connected to Paymob' : '⚠️ No payment gateway connected'}
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        {paymentSettings.isConnected 
+                          ? 'Clients can pay subscriptions online through your Paymob account.'
+                          : 'Clients can only be assigned manual subscriptions. Connect Paymob to enable online payments.'
+                        }
+                      </Typography>
+                    </CardContent>
+                  </Card>
+
+                  {/* Payment Form */}
+                  <Stack spacing={2}>
+                    <TextField
+                      fullWidth
+                      label="API Key"
+                      type="password"
+                      value={paymentForm.apiKey}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                      placeholder="Enter your Paymob API key"
+                      helperText={
+                        <span>
+                          Found in Paymob → Settings → Account Info → API Key.
+                          <Tooltip title="Open Paymob Settings in a new tab">
+                            <Link href="https://accept.paymob.com/portal2/en/Settings" target="_blank" rel="noreferrer" sx={{ ml: 0.5 }}>Open</Link>
+                          </Tooltip>
+                        </span>
+                      }
+                      disabled={paymentLoading}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Integration ID"
+                      value={paymentForm.integrationId}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, integrationId: e.target.value }))}
+                      placeholder="Enter your Paymob Integration ID"
+                      helperText={
+                        <span>
+                          Paymob → Developers → Payment Integrations → Your card integration → Integration ID.
+                          <Tooltip title="Open Payment Integrations">
+                            <Link href="https://accept.paymob.com/portal2/en/PaymentIntegrations" target="_blank" rel="noreferrer" sx={{ ml: 0.5 }}>Open</Link>
+                          </Tooltip>
+                        </span>
+                      }
+                      disabled={paymentLoading}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Iframe ID"
+                      value={paymentForm.iframeId}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, iframeId: e.target.value }))}
+                      placeholder="Enter your Paymob Iframe ID"
+                      helperText={
+                        <span>
+                          Paymob → Developers → Payment Integrations → Your card integration → Iframe ID.
+                          <Tooltip title="Open Payment Integrations">
+                            <Link href="https://accept.paymob.com/portal2/en/PaymentIntegrations" target="_blank" rel="noreferrer" sx={{ ml: 0.5 }}>Open</Link>
+                          </Tooltip>
+                        </span>
+                      }
+                      disabled={paymentLoading}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Merchant ID"
+                      value={paymentForm.merchantId}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, merchantId: e.target.value }))}
+                      placeholder="Enter your Paymob Merchant ID"
+                      helperText={
+                        <span>
+                          Found in Paymob → Settings → Account Info → Merchant ID.
+                          <Tooltip title="Open Paymob Settings">
+                            <Link href="https://accept.paymob.com/portal2/en/Settings" target="_blank" rel="noreferrer" sx={{ ml: 0.5 }}>Open</Link>
+                          </Tooltip>
+                        </span>
+                      }
+                      disabled={paymentLoading}
+                    />
+                    <TextField
+                      fullWidth
+                      label="HMAC Secret"
+                      type="password"
+                      value={paymentForm.hmacSecret}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, hmacSecret: e.target.value }))}
+                      placeholder="Enter your Paymob HMAC Secret"
+                      helperText={
+                        <span>
+                          Paymob → Developers → Payment Integrations → Your card integration → HMAC Secret.
+                          <Tooltip title="Open Payment Integrations">
+                            <Link href="https://accept.paymob.com/portal2/en/PaymentIntegrations" target="_blank" rel="noreferrer" sx={{ ml: 0.5 }}>Open</Link>
+                          </Tooltip>
+                        </span>
+                      }
+                      disabled={paymentLoading}
+                    />
+                  </Stack>
+
+                  {/* Action Buttons */}
+                  <Stack direction="row" spacing={2}>
+                    <Button
+                      variant="contained"
+                      onClick={handlePaymentSave}
+                      disabled={paymentLoading || !paymentForm.apiKey || !paymentForm.integrationId || !paymentForm.iframeId || !paymentForm.merchantId || !paymentForm.hmacSecret}
+                      startIcon={paymentLoading ? <CircularProgress size={16} /> : null}
+                    >
+                      {paymentLoading ? 'Saving...' : 'Save Connection'}
+                    </Button>
+                    
+                    {paymentSettings.isConnected && (
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        onClick={handlePaymentDisconnect}
+                        disabled={paymentLoading}
+                        startIcon={paymentLoading ? <CircularProgress size={16} /> : null}
+                      >
+                        {paymentLoading ? 'Disconnecting...' : 'Disconnect'}
+                      </Button>
+                    )}
+                  </Stack>
+
+                  {/* Paymob Setup Guide */}
+                  <Card variant="outlined">
+                    <CardHeader
+                      title={
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <HelpOutlineIcon fontSize="small" />
+                          <Typography variant="subtitle1">Paymob Setup Guide</Typography>
+                        </Stack>
+                      }
+                    />
+                    <CardContent>
+                      <Stack spacing={1.5}>
+                        <Typography variant="body2">
+                          <strong>1. API Key</strong>: Paymob → Settings → Account Info → API Key.
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>2. Merchant ID</strong>: Paymob → Settings → Account Info → Merchant ID.
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>3. Integration & Iframe</strong>: Paymob → Developers → Payment Integrations → Select your card integration → copy Integration ID and Iframe ID.
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>4. HMAC Secret</strong>: Same page as above → copy HMAC Secret.
+                        </Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="subtitle2">Webhook Configuration in Paymob</Typography>
+                        <Typography variant="body2">
+                          Set your webhook URL in Paymob at Developers → Webhooks to:
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <TextField size="small" fullWidth value={webhookUrl} InputProps={{ readOnly: true }} />
+                          <Tooltip title="Copy URL">
+                            <IconButton onClick={() => navigator.clipboard.writeText(webhookUrl)}>
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary">
+                          Events: enable "Transaction" events (success/failure). We verify the signature when provided.
+                        </Typography>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Stack>
+        </TabPanel>
+
         <Dialog fullScreen open={builderOpen} onClose={() => setBuilderOpen(false)}>
           <DialogContent sx={{ p: 2 }}>
             <TemplateBuilder

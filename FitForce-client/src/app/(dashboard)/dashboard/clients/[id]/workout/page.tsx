@@ -123,6 +123,9 @@ export default function ClientWorkoutPage() {
   const [loadPlanDialogOpen, setLoadPlanDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'builder' | 'logs'>('builder');
   const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null);
+  // CaDay catalog and UI
+  const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string }>>([]);
+  const [caDayDialogOpen, setCaDayDialogOpen] = useState(false);
 
   // Load workout logs for this client (for Logs tab)
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
@@ -146,13 +149,23 @@ export default function ClientWorkoutPage() {
       }
     };
     loadExercises();
+    // Load ca_day catalog
+    (async () => {
+      try {
+        const res = await api.get('/api/workout/caday');
+        setCaDays(res.data.caDays || []);
+      } catch {}
+    })();
   }, []);
 
   // Load saved plans function
     const loadSavedPlans = async () => {
       try {
         setLoadingPlans(true);
-        const response = await api.get(`/api/clients/${clientId}/workout/plans`);
+        const response = await api.get(`/api/clients/${clientId}/workout/plans`, {
+          params: { t: Date.now() },
+          headers: { 'Cache-Control': 'no-cache' }
+        });
         setSavedPlans(response.data.plans || []);
       } catch (err: any) {
         openSnackbar({
@@ -261,6 +274,9 @@ export default function ClientWorkoutPage() {
         days: localWorkoutPlan.days.map((day, idx) => ({
           dayIndex: idx + 1,
           label: day.title,
+          caDayName: (day as any).caDay?.name || null,
+          caDayImageUrl: (day as any).caDay?.imageUrl || null,
+          caDayUrl: (day as any).caDay?.url || null,
           items: day.exercises.map((exercise) => ({
             exerciseId: exercise.exercise.id,
             sets: exercise.sets,
@@ -575,15 +591,24 @@ export default function ClientWorkoutPage() {
                 {saving ? 'Saving...' : 'Save Plan'}
               </Button>
             )}
-            {/* Send PDF for selected saved plan */}
+            {/* Preview and Send PDF for selected saved plan */}
             {selectedPlanId && !String(selectedPlanId).startsWith('local_') && (
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={openPdfDialog}
-              >
-                Send PDF
-              </Button>
+              <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => window.open(`/plans/workout/${selectedPlanId}`, '_blank')}
+                >
+                  Preview
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={openPdfDialog}
+                >
+                  Send PDF
+                </Button>
+              </>
             )}
           </Stack>
         </Box>
@@ -706,20 +731,27 @@ export default function ClientWorkoutPage() {
                   <ListItem
                     key={plan.id}
                     component="div"
-                    onClick={() => {
+                    onClick={async () => {
                       setSelectedPlanId(plan.id);
-                      // On mobile, automatically move to section 2 (days) when plan is selected
-                      if (isMobile) {
-                        setMobileSection(1);
-                      }
-                        // Convert saved plan to local state for editing
+                      if (isMobile) setMobileSection(1);
+                      try {
+                        const daysRes = await api.get(`/api/workout/plans/${plan.id}/days`, {
+                          params: { t: Date.now() },
+                          headers: { 'Cache-Control': 'no-cache' }
+                        });
+                        const srvDays: any[] = daysRes.data?.plan?.days || [];
                         setLocalWorkoutPlan({
                           id: plan.id,
                           title: plan.title,
-                          days: plan.days?.map((day: any) => ({
+                          days: srvDays.map((day: any) => ({
                             id: day.id,
                             title: day.label || `Day ${day.dayIndex}`,
-                            exercises: day.items?.map((item: any) => ({
+                            caDay: day.caDayName || day.caDayImageUrl || day.caDayUrl ? {
+                              name: day.caDayName || '',
+                              imageUrl: day.caDayImageUrl || '',
+                              url: day.caDayUrl || ''
+                            } : undefined,
+                            exercises: (day.items || []).map((item: any) => ({
                               id: item.id,
                               exercise: item.exercise,
                               sets: item.sets,
@@ -735,10 +767,11 @@ export default function ClientWorkoutPage() {
                                 tempo: item.tempo || "",
                                 rir: item.rir || 0
                               }))
-                            })) || []
-                          })) || []
+                            }))
+                          }))
                         });
                         setSelectedDayIndex(0);
+                      } catch {}
                     }}
                   >
                   <ListItemText
@@ -824,6 +857,13 @@ export default function ClientWorkoutPage() {
                             <Typography variant="body2" color="textSecondary">
                               {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
                             </Typography>
+                            {(day as any).caDay && (
+                              <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                {(day as any).caDay.imageUrl && <img src={(day as any).caDay.imageUrl} alt="ca_day" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4 }} />}
+                                <Typography variant="caption" color="text.secondary">ca_day: {(day as any).caDay.name}</Typography>
+                              </Box>
+                            )}
                           </Box>
                           {selectedDayIndex === index && (
                             <Chip 
@@ -833,6 +873,11 @@ export default function ClientWorkoutPage() {
                               sx={{ fontWeight: 500 }}
                             />
                           )}
+                          <Button size="small" variant="outlined" onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDayIndex(index);
+                            setCaDayDialogOpen(true);
+                          }}>Choose ca_day</Button>
                         </Box>
                       </CardContent>
                     </Card>
@@ -890,14 +935,23 @@ export default function ClientWorkoutPage() {
               title={localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] ? `Exercises - ${localWorkoutPlan.days[selectedDayIndex].title}` : 'Exercises'}
               action={
                 localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] ? (
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<Add size={16} />}
-                    onClick={() => setIsAddExerciseDialogOpen(true)}
-                  >
-                    Add Exercise
-                  </Button>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setCaDayDialogOpen(true)}
+                    >
+                      Choose ca_day
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Add size={16} />}
+                      onClick={() => setIsAddExerciseDialogOpen(true)}
+                    >
+                      Add Exercise
+                    </Button>
+                  </Stack>
                 ) : null
               }
             />
@@ -1357,17 +1411,52 @@ export default function ClientWorkoutPage() {
               <CardHeader
                 title={`Exercises - ${localWorkoutPlan.days[selectedDayIndex].title}`}
                 action={
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<Add size={16} />}
-                    onClick={() => setIsAddExerciseDialogOpen(true)}
-                  >
-                    Add Exercise
-                  </Button>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setCaDayDialogOpen(true)}
+                    >
+                      Choose ca_day
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Add size={16} />}
+                      onClick={() => setIsAddExerciseDialogOpen(true)}
+                    >
+                      Add Exercise
+                    </Button>
+                  </Stack>
                 }
               />
               <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
+                {/* Show selected ca_day summary if present */}
+                {(localWorkoutPlan.days[selectedDayIndex] as any).caDay && (
+                  <Box sx={{
+                    mb: 2,
+                    p: 1.5,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5
+                  }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {(localWorkoutPlan.days[selectedDayIndex] as any).caDay.imageUrl && (
+                      <img src={(localWorkoutPlan.days[selectedDayIndex] as any).caDay.imageUrl} alt="ca_day" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6 }} />
+                    )}
+                    <Typography variant="body2" fontWeight={600}>
+                      {(localWorkoutPlan.days[selectedDayIndex] as any).caDay.name
+                    }</Typography>
+                    {(localWorkoutPlan.days[selectedDayIndex] as any).caDay.url && (
+                      <Button size="small" href={(localWorkoutPlan.days[selectedDayIndex] as any).caDay.url} target="_blank">
+                        Open
+                      </Button>
+                    )}
+                  </Box>
+                )}
                 {localWorkoutPlan.days[selectedDayIndex].exercises.length > 0 ? (
                   <Stack spacing={2}>
                     {localWorkoutPlan.days[selectedDayIndex].exercises.map((ex, index) => {
@@ -1581,6 +1670,48 @@ export default function ClientWorkoutPage() {
           <Button onClick={createLocalPlan} disabled={!newPlanTitle.trim()}>
             Create Plan
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Choose CaDay Dialog */}
+      <Dialog open={caDayDialogOpen} onClose={() => setCaDayDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Select ca_day for Day {selectedDayIndex + 1}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            <Button variant="outlined" onClick={() => {
+              if (!localWorkoutPlan) return;
+              setLocalWorkoutPlan(prev => prev ? {
+                ...prev,
+                days: prev.days.map((d, i) => i === selectedDayIndex ? ({ ...d, caDay: undefined } as any) : d)
+              } : null);
+              setIsPlanDirty(true);
+            }}>Clear</Button>
+            {caDays.map((c) => (
+              <Card key={c.id} variant="outlined" onClick={() => {
+                if (!localWorkoutPlan) return;
+                setLocalWorkoutPlan(prev => prev ? {
+                  ...prev,
+                  days: prev.days.map((d, i) => i === selectedDayIndex ? ({ ...d, caDay: c } as any) : d)
+                } : null);
+                setIsPlanDirty(true);
+                setCaDayDialogOpen(false);
+              }} sx={{ cursor: 'pointer' }}>
+                <CardContent>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {c.imageUrl && <img src={c.imageUrl} alt="img" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} />}
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="subtitle1" fontWeight={600}>{c.name}</Typography>
+                      {c.url && <Typography variant="caption" color="text.secondary">{c.url}</Typography>}
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCaDayDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 

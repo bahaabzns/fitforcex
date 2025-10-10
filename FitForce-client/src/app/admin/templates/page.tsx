@@ -13,7 +13,8 @@ type Template = {
 	name: string;
 	kind: "workout" | "nutrition" | string;
 	previewUrl?: string | null;
-	schema: any;
+  schema: any;
+  html?: string | null;
 	updatedAt: string;
 };
 
@@ -29,7 +30,9 @@ export default function TemplatesAdminPage() {
 	const [creating, setCreating] = useState(false);
 	const [builderOpen, setBuilderOpen] = useState(false);
 	const [builderValue, setBuilderValue] = useState<any | null>(null);
-	const [creatingWithConfig, setCreatingWithConfig] = useState(true);
+  const [creatingWithConfig, setCreatingWithConfig] = useState(true);
+  const [creatingWithHtml, setCreatingWithHtml] = useState(false);
+  const [htmlText, setHtmlText] = useState("<html>\n  <head>\n    <meta charset=\"utf-8\" />\n    <style>\n      body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; padding: 24px; }\n      h1{ margin: 0 0 8px; font-size: 22px; }\n      .muted{ color: #666; }\n      table{ width: 100%; border-collapse: collapse; margin-top: 16px; }\n      th, td{ border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; }\n      th{ background: #f3f4f6; text-align: left; }\n    </style>\n  </head>\n  <body>\n    <h1>{{plan.title}}</h1>\n    <div class=\"muted\">Client: {{client.fullName}}</div>\n    <table>\n      <thead>\n        <tr>\n          <th>Item</th>\n          <th v-if=\"workout\">Sets</th>\n          <th v-if=\"workout\">Reps</th>\n          <th v-if=\"nutrition\">Servings</th>\n          <th v-if=\"nutrition\">Calories</th>\n        </tr>\n      </thead>\n      <tbody>\n        <!-- For simplicity, back-end substitutes placeholders only; loop logic can be provided by pre-resolving in data -->\n      </tbody>\n    </table>\n  </body>\n</html>");
 	const [previewingId, setPreviewingId] = useState<string | null>(null);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     // Fixed-config UI state
@@ -64,43 +67,46 @@ export default function TemplatesAdminPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [kind]);
 
-	const canCreate = useMemo(() => {
-		if (creatingWithConfig) return name.trim().length > 0 && !creating;
-		return name.trim().length > 0 && schemaText.trim().length > 0 && !creating;
-	}, [name, schemaText, creating, creatingWithConfig]);
+  const canCreate = useMemo(() => {
+    if (creatingWithHtml) return name.trim().length > 0 && htmlText.trim().length > 0 && !creating;
+    if (creatingWithConfig) return name.trim().length > 0 && !creating;
+    return name.trim().length > 0 && schemaText.trim().length > 0 && !creating;
+  }, [name, schemaText, htmlText, creating, creatingWithConfig, creatingWithHtml]);
 
 	async function onCreate(e: React.FormEvent) {
 		e.preventDefault();
 		if (!canCreate) return;
 		setCreating(true);
 		setError(null);
-		try {
-			let body: any = { name: name.trim(), kind };
-			if (!creatingWithConfig) {
-				let parsed: any;
-				try {
-					parsed = JSON.parse(schemaText);
-				} catch (e) {
-					throw new Error("Schema must be valid JSON");
-				}
-				body.schema = parsed;
-			} else {
-				const backgrounds: any = {};
-				if (cfgCover.trim()) backgrounds.cover = cfgCover.trim();
-				if (cfgCycle.trim()) backgrounds.cycle = cfgCycle.trim();
-				if (cfgMealsBg.trim()) backgrounds.meals = cfgMealsBg.trim();
-                if (cfgExtraPages.length > 0) backgrounds.extra = cfgExtraPages;
-				body.config = {
-					orientation: cfgOrientation,
-					backgrounds,
-					mealsLayout: {
-						mode: cfgMealsMode,
-						imageHalf: cfgImageHalf,
-						itemsPerPage: Math.max(1, Number(cfgItemsPerPage) || 1),
-						tableStyle: cfgTableStyle,
-					},
-				};
-			}
+    try {
+      let body: any = { name: name.trim(), kind };
+      if (creatingWithHtml) {
+        body.html = htmlText;
+      } else if (!creatingWithConfig) {
+        let parsed: any;
+        try {
+          parsed = JSON.parse(schemaText);
+        } catch (e) {
+          throw new Error("Schema must be valid JSON");
+        }
+        body.schema = parsed;
+      } else {
+        const backgrounds: any = {};
+        if (cfgCover.trim()) backgrounds.cover = cfgCover.trim();
+        if (cfgCycle.trim()) backgrounds.cycle = cfgCycle.trim();
+        if (cfgMealsBg.trim()) backgrounds.meals = cfgMealsBg.trim();
+        if (cfgExtraPages.length > 0) backgrounds.extra = cfgExtraPages;
+        body.config = {
+          orientation: cfgOrientation,
+          backgrounds,
+          mealsLayout: {
+            mode: cfgMealsMode,
+            imageHalf: cfgImageHalf,
+            itemsPerPage: Math.max(1, Number(cfgItemsPerPage) || 1),
+            tableStyle: cfgTableStyle,
+          },
+        };
+      }
 			const res = await fetch(`/api/templates`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -120,7 +126,7 @@ export default function TemplatesAdminPage() {
 		}
 	}
 
-	function openBuilder() {
+  function openBuilder() {
 		try {
 			const parsed = JSON.parse(schemaText);
 			setBuilderValue(parsed);
@@ -159,7 +165,7 @@ return (
 			</div>
 
 			<form onSubmit={onCreate} className={cx("space-y-4 border rounded-md p-4")}> 
-				<div className={cx("grid grid-cols-1 md:grid-cols-3 gap-4")}>
+            <div className={cx("grid grid-cols-1 md:grid-cols-3 gap-4")}>
 					<div className={cx("space-y-1")}>
 						<label className={cx("text-sm font-medium")}>Name</label>
 						<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Workout Simple v1" className={cx("border rounded px-3 py-2 w-full")} />
@@ -171,10 +177,51 @@ return (
 							<option value="nutrition">nutrition</option>
 						</select>
 					</div>
+              <div className={cx("space-y-1")}>
+                <label className={cx("text-sm font-medium")}>Builder Mode</label>
+                <select value={creatingWithHtml ? 'html' : (creatingWithConfig ? 'config' : 'json')} onChange={(e) => {
+                  const v = e.target.value;
+                  setCreatingWithHtml(v === 'html');
+                  setCreatingWithConfig(v === 'config');
+                }} className={cx("border rounded px-3 py-2 w-full")}>
+                  <option value="config">Fixed Config</option>
+                  <option value="json">JSON Schema</option>
+                  <option value="html">HTML</option>
+                </select>
+              </div>
 				</div>
-				{/* Fixed Config only */}
-				<div className={cx("space-y-3")}> 
-					</div>
+            {/* HTML Editor */}
+            {creatingWithHtml && (
+              <div className={cx("space-y-2")}>
+                <label className={cx("text-sm font-medium")}>HTML</label>
+                <textarea value={htmlText} onChange={(e) => setHtmlText(e.target.value)} rows={16} className={cx("border rounded px-3 py-2 w-full font-mono text-xs whitespace-pre")} />
+                <div className={cx("text-xs text-gray-500")}>
+                  Use placeholders like {`{{plan.title}}`}, {`{{client.fullName}}`}. Lists should be pre-flattened in data.
+                </div>
+                <div className={cx("flex items-center gap-2")}>
+                  <button type="button" onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/templates`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ name: name.trim() || 'HTML Template', kind, html: htmlText }) });
+                      if (!res.ok) throw new Error('Failed to save');
+                      await fetchTemplates();
+                    } catch {}
+                  }} className={cx("px-3 py-1 text-sm rounded border")}>Save HTML Template</button>
+                  <button type="button" onClick={async () => {
+                    try {
+                      // Use preview-from-config mock data endpoint if available; otherwise nothing
+                      const reqBody = { kind, config: { orientation: 'phone', backgrounds: {}, mealsLayout: { mode: 'multi_per_page', imageHalf: true, itemsPerPage: 12, tableStyle: 'simple' } } };
+                      // We don't have a direct HTML preview endpoint without saving; recommend save + preview button below
+                    } catch {}
+                  }} className={cx("px-3 py-1 text-sm rounded border hidden")}>Live Preview</button>
+                </div>
+              </div>
+            )}
+
+            {/* Fixed Config only */}
+            {!creatingWithHtml && (
+            <div className={cx("space-y-3")}> 
+            </div>
+            )}
 					<div className={cx("space-y-3")}> 
 						<div className={cx("grid grid-cols-1 md:grid-cols-3 gap-3")}>
 							<div className={cx("space-y-1")}>
@@ -292,7 +339,7 @@ return (
 					<h2 className={cx("text-lg font-medium")}>Templates ({templates.length})</h2>
 					<button onClick={fetchTemplates} className={cx("px-3 py-1 text-sm rounded border")}>{loading ? "Loading..." : "Refresh"}</button>
 				</div>
-				<div className={cx("grid grid-cols-1 md:grid-cols-2 gap-4")}> 
+            <div className={cx("grid grid-cols-1 md:grid-cols-2 gap-4")}> 
 					{templates.map((t) => (
 						<div key={t.id} className={cx("border rounded p-4 space-y-2")}> 
 							<div className={cx("flex items-center justify-between")}> 
@@ -302,7 +349,11 @@ return (
 							{t.previewUrl && (
 								<img src={t.previewUrl} alt="preview" className={cx("w-full h-40 object-cover rounded border")} />
 							)}
-							<pre className={cx("bg-gray-50 border rounded p-2 text-xs overflow-auto max-h-48")}>{JSON.stringify(t.schema, null, 2)}</pre>
+                  {t.html ? (
+                    <pre className={cx("bg-gray-50 border rounded p-2 text-xs overflow-auto max-h-48")}>{t.html.slice(0, 2000)}</pre>
+                  ) : (
+                    <pre className={cx("bg-gray-50 border rounded p-2 text-xs overflow-auto max-h-48")}>{JSON.stringify(t.schema, null, 2)}</pre>
+                  )}
 							<div className={cx("text-xs text-gray-500")}>
 								Updated: {new Date(t.updatedAt).toLocaleString()}
 							</div>

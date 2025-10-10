@@ -22,6 +22,7 @@ import useConfig from 'hooks/useConfig';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setWorkspace } from '@/store/slices/workspaceSlice';
 import { APP_CONFIG } from '@/lib/config';
+import MessengerBadgeSync from './MessengerBadgeSync';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
@@ -89,6 +90,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <Box sx={{ display: 'flex', width: '100%' }}>
       <Header />
+      <MessengerBadgeSync />
       {!isHorizontal ? <Drawer /> : <HorizontalBar />}
 
       <Box component="main" sx={{ width: `calc(100% - ${DRAWER_WIDTH}px)`, flexGrow: 1, p: { xs: 1, sm: 3 } }}>

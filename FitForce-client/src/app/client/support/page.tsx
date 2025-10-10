@@ -56,8 +56,8 @@ export default function ClientSupportPage() {
     console.log('[Client Support] Client token:', token ? 'Found' : 'Not found');
   }, []);
 
-  // Initialize Socket.IO
-  const { socket, isConnected } = useSocket({ token: clientToken || undefined, enabled: !!clientToken });
+  // Initialize Socket.IO (cookie-based auth supported; keep enabled true)
+  const { socket, isConnected } = useSocket({ token: clientToken || undefined, enabled: true });
 
   // Setup Socket.IO event listeners
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function ClientSupportPage() {
     // Listen for typing indicators
     socket.on('user_typing', (data: { threadId: string; senderName: string; userType: string }) => {
       if (data.threadId === threadId && data.userType === 'team') {
-        setTypingUser(data.senderName);
+        setTypingUser('Support Team');
       }
     });
 
@@ -265,7 +265,7 @@ export default function ClientSupportPage() {
                   }}
                 >
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    {message.senderType === 'client' ? 'You' : message.senderName} •{' '}
+                    {message.senderType === 'client' ? 'You' : 'Support Team'} •{' '}
                     {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
                   </Typography>
                   <Typography variant="body1">{message.body}</Typography>

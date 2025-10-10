@@ -121,6 +121,13 @@ const workspaceMenu: NavItemType = {
       icon: icons.workspace
     },
     {
+      id: 'workspace-pdf-templates',
+      title: 'PDF Templates',
+      type: 'item',
+      url: '/dashboard/workspace/pdf-templates',
+      icon: icons.forms
+    },
+    {
       id: 'workspace-subscription',
       title: 'Workspace Subscription',
       type: 'item',

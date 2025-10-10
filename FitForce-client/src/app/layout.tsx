@@ -8,9 +8,13 @@ import './globals.css';
 import ProviderWrapper from './ProviderWrapper';
 
 export const metadata: Metadata = {
-  title: 'Able Pro Material UI Next JS Dashboard Template',
-  description:
-    'Able Pro React Admin Template, built with Material UI, React, and React Router, offers a modern UI, seamless performance, and powerful customization for any web application.'
+  title: 'FitForce',
+  description: 'FitForce - Training, Nutrition, Clients. All-in-one fitness platform.',
+  icons: {
+    icon: '/logo.svg',
+    shortcut: '/logo.svg',
+    apple: '/logo.svg'
+  }
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

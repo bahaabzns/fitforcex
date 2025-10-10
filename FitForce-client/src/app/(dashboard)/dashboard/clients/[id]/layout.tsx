@@ -14,8 +14,10 @@ import {
   useMediaQuery
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Menu as MenuIcon, CloseCircle } from '@wandersonalwes/iconsax-react';
+import { Menu as MenuIcon, CloseCircle, Category, Apple, Activity, Card } from '@wandersonalwes/iconsax-react';
 import Link from 'next/link';
+import { handlerDrawerOpen, useGetMenuMaster } from '@/api/menu';
+import { DRAWER_WIDTH, MINI_DRAWER_WIDTH } from '@/config';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -24,16 +26,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [open, setOpen] = useState(!isMobile);
+  const { menuMaster } = useGetMenuMaster();
+  const mainDrawerOpen = menuMaster.isDashboardDrawerOpened;
 
   useEffect(() => {
     setOpen(!isMobile);
   }, [isMobile]);
 
   const links = [
-    { href: `/dashboard/clients/${id}/overview`, label: 'Overview' },
-    { href: `/dashboard/clients/${id}/nutrition`, label: 'Nutrition Maker' },
-    { href: `/dashboard/clients/${id}/workout`, label: 'Workout Maker' },
-    { href: `/dashboard/clients/${id}/subscription`, label: 'Subscription' }
+    { href: `/dashboard/clients/${id}/overview`, label: 'Overview', icon: Category },
+    { href: `/dashboard/clients/${id}/nutrition`, label: 'Nutrition Maker', icon: Apple },
+    { href: `/dashboard/clients/${id}/workout`, label: 'Workout Maker', icon: Activity },
+    { href: `/dashboard/clients/${id}/subscription`, label: 'Subscription', icon: Card }
   ];
 
   const drawerContent = (
@@ -55,9 +59,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <CloseCircle size={20} />
         </IconButton>
       </Box>
-      <List>
+      <List dense>
         {links.map((link) => {
           const active = pathname === link.href;
+          const Icon = link.icon;
           return (
             <ListItem key={link.href} disablePadding>
               <ListItemButton
@@ -70,6 +75,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 sx={{
                   borderRadius: 1,
                   mb: 0.5,
+                  px: 1.25,
                   '&.Mui-selected': {
                     backgroundColor: 'primary.main',
                     color: 'primary.contrastText',
@@ -79,6 +85,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   }
                 }}
               >
+                {Icon && <Icon size={18} style={{ marginRight: 8, opacity: 0.9 }} />}
                 <ListItemText primary={link.label} />
               </ListItemButton>
             </ListItem>
@@ -100,7 +107,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen
           }),
-          marginRight: open && !isMobile ? '280px' : 0
+          marginLeft: open && !isMobile ? '280px' : 0
         }}
       >
         {children}
@@ -109,11 +116,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Toggle button - show when drawer is closed */}
       {!open && (
         <IconButton
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true);
+            // Close main dashboard drawer when opening client sections
+            if (mainDrawerOpen) handlerDrawerOpen(false);
+          }}
           sx={{
             position: 'fixed',
-            top: 80,
-            right: 16,
+            top: 16, // align with header toggle row
+            left: (mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH) + 56, // place just after the main sidebar toggle in both states
             zIndex: 1200,
             backgroundColor: 'background.paper',
             boxShadow: 2
@@ -126,7 +137,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Drawer */}
       <Drawer
         variant={isMobile ? 'temporary' : 'persistent'}
-        anchor="right"
+        anchor="left"
         open={open}
         onClose={() => setOpen(false)}
         sx={{

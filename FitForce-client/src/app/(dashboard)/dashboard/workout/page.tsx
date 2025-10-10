@@ -215,7 +215,13 @@ export default function WorkoutPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
-  const [activeTab, setActiveTab] = useState<'builder' | 'logs'>('builder');
+  const [activeTab, setActiveTab] = useState<'builder' | 'logs' | 'ca_day'>('builder');
+  // CaDay catalog state
+  const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string }>>([]);
+  const [loadingCaDays, setLoadingCaDays] = useState(false);
+  const [isAddCaDayOpen, setIsAddCaDayOpen] = useState(false);
+  const [newCaDay, setNewCaDay] = useState<{ name: string; imageUrl?: string; url?: string }>({ name: '' });
+  const [uploadingCaDay, setUploadingCaDay] = useState(false);
 
   // Workspace-wide workout logs for Logs tab
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
@@ -246,7 +252,19 @@ export default function WorkoutPage() {
     };
 
     fetchExercises();
-  }, [workspaceId]);
+    // Load CaDays when tab switches to ca_day
+    if (activeTab === 'ca_day') {
+      (async () => {
+        setLoadingCaDays(true);
+        try {
+          const res = await api.get('/api/workout/caday');
+          setCaDays(res.data.caDays || []);
+        } finally {
+          setLoadingCaDays(false);
+        }
+      })();
+    }
+  }, [workspaceId, activeTab]);
 
   const handleCreate = async () => {
     if (!newExercise.name.trim() || !newExercise.muscleGroup) {
@@ -501,6 +519,7 @@ export default function WorkoutPage() {
       {/* Tabs */}
       <Stack direction="row" spacing={1}>
         <Button variant={activeTab === 'builder' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('builder')}>Builder</Button>
+        <Button variant={activeTab === 'ca_day' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('ca_day')}>ca_day</Button>
         <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button>
       </Stack>
 
@@ -764,6 +783,46 @@ export default function WorkoutPage() {
         </MainCard>
       )}
 
+      {activeTab === 'ca_day' && (
+        <MainCard title="ca_day" secondary={<Button variant="contained" size="small" onClick={() => setIsAddCaDayOpen(true)}>Add</Button>}>
+          {loadingCaDays ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Grid container spacing={2}>
+              {caDays.map((c) => (
+                <Grid item xs={12} sm={6} md={4} key={c.id}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Avatar src={c.imageUrl} variant="rounded" />
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="subtitle1" fontWeight={600}>{c.name}</Typography>
+                          {c.url && (
+                            <Typography variant="body2" color="primary" component="a" href={c.url} target="_blank" rel="noreferrer">
+                              Open Link
+                            </Typography>
+                          )}
+                        </Box>
+                        <IconButton color="error" onClick={async () => {
+                          if (!confirm('Delete this ca_day item?')) return;
+                          await api.delete(`/api/workout/caday/${c.id}`);
+                          const res = await api.get('/api/workout/caday');
+                          setCaDays(res.data.caDays || []);
+                        }}>
+                          <Trash />
+                        </IconButton>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </MainCard>
+      )}
+
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Add Exercise</DialogTitle>
@@ -961,6 +1020,54 @@ export default function WorkoutPage() {
           >
             Import Selected ({selectedItems.size})
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add CaDay Dialog */}
+      <Dialog open={isAddCaDayOpen} onClose={() => setIsAddCaDayOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add ca_day</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField label="Name" value={newCaDay.name} onChange={(e) => setNewCaDay((p) => ({ ...p, name: e.target.value }))} fullWidth />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+              <Button component="label" variant="outlined" startIcon={uploadingCaDay ? <CircularProgress size={16} /> : <DocumentUpload />} disabled={uploadingCaDay}>
+                {newCaDay.imageUrl ? 'Change Image' : 'Upload Image'}
+                <input type="file" accept="image/*" hidden onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    setUploadingCaDay(true);
+                    const pres = await api.post('/api/upload/landing/presigned', {
+                      workspaceId,
+                      filename: file.name,
+                      contentType: file.type || 'image/jpeg'
+                    });
+                    const { uploadUrl, publicUrl } = pres.data;
+                    await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file });
+                    setNewCaDay((p) => ({ ...p, imageUrl: publicUrl }));
+                  } finally {
+                    setUploadingCaDay(false);
+                    if (e.currentTarget) e.currentTarget.value = '';
+                  }
+                }} />
+              </Button>
+              {newCaDay.imageUrl && (
+                <Avatar src={newCaDay.imageUrl} variant="rounded" sx={{ width: 56, height: 56 }} />
+              )}
+            </Stack>
+            <TextField label="Link URL" value={newCaDay.url || ''} onChange={(e) => setNewCaDay((p) => ({ ...p, url: e.target.value }))} fullWidth />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsAddCaDayOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={async () => {
+            if (!newCaDay.name.trim()) return;
+            await api.post('/api/workout/caday', newCaDay);
+            setIsAddCaDayOpen(false);
+            setNewCaDay({ name: '' });
+            const res = await api.get('/api/workout/caday');
+            setCaDays(res.data.caDays || []);
+          }}>Create</Button>
         </DialogActions>
       </Dialog>
     </Box>

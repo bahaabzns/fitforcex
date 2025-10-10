@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -24,19 +23,23 @@ import {
   Badge,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Search,
   Send,
-  CheckCircle,
-  PendingActions,
-  Cancel,
   AttachFile,
   Close,
 } from '@mui/icons-material';
 import api from '@/utils/axios';
 import { formatDistanceToNow } from 'date-fns';
 import { useSocket } from '@/hooks/useSocket';
+import { useAppSelector } from '@/store';
+import { useAppDispatch } from '@/store';
+import { setUnreadTotal } from '@/store/slices/messengerSlice';
 import { getCookie } from '@/utils/cookies';
 
 interface Thread {
@@ -78,6 +81,8 @@ interface Message {
 }
 
 export default function MessengerPage() {
+  const workspaceId = useAppSelector((s) => s.workspace.id);
+  const dispatch = useAppDispatch();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -86,13 +91,16 @@ export default function MessengerPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('open');
+  // Status removed; threads are always open for chat
   const [attachments, setAttachments] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [clients, setClients] = useState<Array<{ id: string; fullName: string; email: string | null }>>([]);
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
 
   // Get auth token for Socket.IO (from cookies)
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -102,8 +110,8 @@ export default function MessengerPage() {
     console.log('[Messenger] Auth token:', token ? 'Found' : 'Not found');
   }, []);
 
-  // Initialize Socket.IO
-  const { socket, isConnected } = useSocket({ token: authToken || undefined, enabled: !!authToken });
+  // Initialize Socket.IO (cookie-based auth supported; keep enabled true)
+  const { socket, isConnected } = useSocket({ token: authToken || undefined, enabled: true, workspaceId: workspaceId || undefined });
 
   // Setup Socket.IO event listeners
   useEffect(() => {
@@ -157,8 +165,14 @@ export default function MessengerPage() {
   // Join/leave thread rooms
   useEffect(() => {
     if (!socket || !selectedThread) return;
-
-    socket.emit('join_thread', selectedThread.id);
+    (async () => {
+      socket.emit('join_thread', selectedThread.id);
+      // Load messages (marks as read on server) then refresh threads to clear unread counters
+      await fetchMessages(selectedThread.id);
+      await fetchThreads();
+      // Ensure we land at the latest message
+      scrollToBottom();
+    })();
 
     return () => {
       socket.emit('leave_thread', selectedThread.id);
@@ -167,7 +181,11 @@ export default function MessengerPage() {
 
   useEffect(() => {
     fetchThreads();
-  }, [statusFilter, searchQuery]);
+  }, [searchQuery]);
+  
+  useEffect(() => {
+    fetchClients();
+  }, []);
 
   useEffect(() => {
     if (selectedThread) {
@@ -182,15 +200,26 @@ export default function MessengerPage() {
   const fetchThreads = async () => {
     try {
       const params: any = {};
-      if (statusFilter) params.status = statusFilter;
       if (searchQuery) params.search = searchQuery;
 
       const { data } = await api.get('/api/messenger/inbox', { params });
       setThreads(data.threads || []);
+      // Update unread total for sidebar badge
+      const unread = Array.isArray(data.threads) ? data.threads.reduce((acc: number, t: any) => acc + (t.unreadCount || 0), 0) : 0;
+      dispatch(setUnreadTotal(unread));
     } catch (err) {
       console.error('Failed to fetch threads:', err);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const fetchClients = async () => {
+    try {
+      const { data } = await api.get('/api/clients');
+      setClients((data.clients || []).map((c: any) => ({ id: c.id, fullName: c.fullName, email: c.email })));
+    } catch (err) {
+      console.error('Failed to fetch clients:', err);
     }
   };
 
@@ -265,6 +294,18 @@ export default function MessengerPage() {
       console.error('Failed to send message:', err);
     } finally {
       setSending(false);
+    }
+  };
+
+  const startChatWithClient = async (clientId: string) => {
+    try {
+      const { data } = await api.post('/api/messenger/threads', { clientId });
+      if (data.thread) {
+        setSelectedThread(data.thread);
+        fetchMessages(data.thread.id);
+      }
+    } catch (err) {
+      console.error('Failed to start chat:', err);
     }
   };
 
@@ -343,9 +384,9 @@ export default function MessengerPage() {
         )}
       </Typography>
 
-      <Grid container spacing={3} sx={{ height: 'calc(100vh - 200px)' }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, height: 'calc(100vh - 200px)' }}>
         {/* Thread List */}
-        <Grid item xs={12} md={4}>
+        <Box sx={{ width: { xs: '100%', md: '35%' } }}>
           <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardContent sx={{ flexGrow: 0 }}>
               <TextField
@@ -363,17 +404,9 @@ export default function MessengerPage() {
                 }}
                 sx={{ mb: 2 }}
               />
-
-              <Stack direction="row" spacing={1}>
-                {['open', 'pending', 'closed'].map((status) => (
-                  <Chip
-                    key={status}
-                    label={status.charAt(0).toUpperCase() + status.slice(1)}
-                    color={statusFilter === status ? 'primary' : 'default'}
-                    onClick={() => setStatusFilter(status)}
-                    size="small"
-                  />
-                ))}
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle2">Conversations</Typography>
+                <Button size="small" variant="contained" onClick={() => setClientPickerOpen(true)}>Start chat</Button>
               </Stack>
             </CardContent>
 
@@ -397,33 +430,34 @@ export default function MessengerPage() {
                         onClick={() => setSelectedThread(thread)}
                       >
                         <Badge
-                          badgeContent={thread.unreadCount}
+                          badgeContent={thread.unreadCount || 0}
                           color="error"
                           sx={{ width: '100%' }}
                         >
                           <ListItemText
+                            primaryTypographyProps={{ component: 'div' }}
+                            secondaryTypographyProps={{ component: 'div' }}
                             primary={
                               <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                <Typography variant="subtitle2">
+                                <Typography variant="subtitle2" component="span">
                                   {thread.client?.fullName || 'Unknown Client'}
                                 </Typography>
-                                <Chip
-                                  label={thread.status}
-                                  size="small"
-                                  color={getStatusColor(thread.status)}
-                                  icon={getStatusIcon(thread.status)}
-                                />
+                                {/* Status chip removed */}
                               </Stack>
                             }
                             secondary={
                               <Stack spacing={0.5}>
-                                <Typography variant="body2" noWrap>
+                                <Typography variant="body2" noWrap component="span">
                                   {thread.subject || 'Support Request'}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {thread.messages[0]?.body.substring(0, 50)}...
+                                <Typography variant="caption" color="text.secondary" component="span">
+                                  {(thread.messages && thread.messages[0] && thread.messages[0].body
+                                    ? (thread.messages[0].body.length > 50
+                                        ? thread.messages[0].body.substring(0, 50) + '...'
+                                        : thread.messages[0].body)
+                                    : 'Start a conversation')}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" color="text.secondary" component="span">
                                   {formatDistanceToNow(new Date(thread.updatedAt), { addSuffix: true })}
                                 </Typography>
                               </Stack>
@@ -437,10 +471,10 @@ export default function MessengerPage() {
               )}
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Message Pane */}
-        <Grid item xs={12} md={8}>
+        <Box sx={{ flex: 1, width: { xs: '100%', md: '65%' } }}>
           <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {selectedThread ? (
               <>
@@ -455,18 +489,7 @@ export default function MessengerPage() {
                         {selectedThread.client?.email}
                       </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1}>
-                      {['open', 'pending', 'closed'].map((status) => (
-                        <Button
-                          key={status}
-                          size="small"
-                          variant={selectedThread.status === status ? 'contained' : 'outlined'}
-                          onClick={() => handleUpdateStatus(selectedThread.id, status)}
-                        >
-                          {status}
-                        </Button>
-                      ))}
-                    </Stack>
+                    {/* Status actions removed */}
                   </Stack>
                 </CardContent>
 
@@ -590,8 +613,45 @@ export default function MessengerPage() {
               </Box>
             )}
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
+      {/* Client Picker Dialog */}
+      <Dialog open={clientPickerOpen} onClose={() => setClientPickerOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Select client</DialogTitle>
+        <DialogContent dividers>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search clients by name or email..."
+            value={clientSearch}
+            onChange={(e) => setClientSearch(e.target.value)}
+            sx={{ mb: 2, mt: 1 }}
+          />
+          <Stack spacing={1} sx={{ maxHeight: 360, overflow: 'auto' }}>
+            {clients
+              .filter((c) => {
+                const q = clientSearch.trim().toLowerCase();
+                if (!q) return true;
+                return c.fullName.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q);
+              })
+              .map((c) => (
+                <Stack key={c.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
+                  <Box>
+                    <Typography variant="subtitle2">{c.fullName}</Typography>
+                    <Typography variant="caption" color="text.secondary">{c.email}</Typography>
+                  </Box>
+                  <Button size="small" variant="outlined" onClick={async () => {
+                    await startChatWithClient(c.id);
+                    setClientPickerOpen(false);
+                  }}>Open</Button>
+                </Stack>
+              ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClientPickerOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

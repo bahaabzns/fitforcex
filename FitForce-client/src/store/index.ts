@@ -4,6 +4,7 @@ import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import authReducer from '@/store/slices/authSlice';
 import workspaceReducer from '@/store/slices/workspaceSlice';
 import settingsReducer from '@/store/slices/settingsSlice';
+import messengerReducer from '@/store/slices/messengerSlice';
 
 const PERSIST_KEYS = ['workspace', 'settings'] as const;
 
@@ -25,7 +26,8 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     workspace: workspaceReducer,
-    settings: settingsReducer
+    settings: settingsReducer,
+    messenger: messengerReducer
   },
   preloadedState: loadState()
 });

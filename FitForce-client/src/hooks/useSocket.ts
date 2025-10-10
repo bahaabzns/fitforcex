@@ -5,10 +5,12 @@ import { APP_CONFIG } from '@/lib/config';
 interface UseSocketOptions {
   token?: string;
   enabled?: boolean;
+  workspaceId?: string;
 }
 
-export function useSocket({ token, enabled = true }: UseSocketOptions = {}) {
+export function useSocket({ token, enabled = true, workspaceId }: UseSocketOptions = {}) {
   const socketRef = useRef<Socket | null>(null);
+  const [socketState, setSocketState] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,9 +20,9 @@ export function useSocket({ token, enabled = true }: UseSocketOptions = {}) {
       return;
     }
 
+    // We support cookie-based auth now; proceed even if token is not readable in JS
     if (!token) {
-      console.log('[Socket.IO] No token provided, waiting...');
-      return;
+      console.log('[Socket.IO] No token provided, proceeding with cookie-based auth');
     }
 
     console.log('[Socket.IO] Initializing connection to:', APP_CONFIG.apiUrl);
@@ -28,12 +30,13 @@ export function useSocket({ token, enabled = true }: UseSocketOptions = {}) {
 
     // Initialize socket connection
     const socket = io(APP_CONFIG.apiUrl, {
-      auth: { token },
+      auth: { ...(token ? { token } : {}), ...(workspaceId ? { workspaceId } : {}) },
       withCredentials: true,
       transports: ['websocket', 'polling'],
     });
 
     socketRef.current = socket;
+    setSocketState(socket);
 
     socket.on('connect', () => {
       console.log('[Socket.IO] ✅ Connected successfully!', socket.id);
@@ -62,11 +65,12 @@ export function useSocket({ token, enabled = true }: UseSocketOptions = {}) {
       console.log('[Socket.IO] Cleaning up connection');
       socket.disconnect();
       socketRef.current = null;
+      setSocketState(null);
     };
-  }, [token, enabled]);
+  }, [token, enabled, workspaceId]);
 
   return {
-    socket: socketRef.current,
+    socket: socketState,
     isConnected,
     error,
   };

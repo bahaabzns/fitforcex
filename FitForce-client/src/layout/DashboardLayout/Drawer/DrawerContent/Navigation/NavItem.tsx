@@ -27,6 +27,7 @@ import useConfig from 'hooks/useConfig';
 
 // types
 import { LinkTarget, NavItemType } from 'types/menu';
+import { useAppSelector } from '@/store';
 
 // ==============================|| NAVIGATION - ITEM ||============================== //
 
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export default function NavItem({ item, level, isParents = false, setSelectedID }: Props) {
+  const unreadTotal = useAppSelector((s) => s.messenger?.unreadTotal ?? 0);
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
   const { menuMaster } = useGetMenuMaster();
@@ -169,14 +171,20 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
                 }
               />
             )}
-            {(drawerOpen || (!drawerOpen && level !== 1)) && item.chip && (
-              <Chip
-                color={item.chip.color}
-                variant={item.chip.variant}
-                size={item.chip.size}
-                label={<FormattedMessage id={item.chip.label as string} />}
-                avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
-              />
+            {(drawerOpen || (!drawerOpen && level !== 1)) && (
+              item.id === 'messenger' ? (
+                <Chip color={unreadTotal > 0 ? 'error' : 'default'} size="small" label={unreadTotal > 99 ? '99+' : unreadTotal} sx={{ ml: 1 }} />
+              ) : (
+                item.chip && (
+                  <Chip
+                    color={item.chip.color}
+                    variant={item.chip.variant}
+                    size={item.chip.size}
+                    label={<FormattedMessage id={item.chip.label as string} />}
+                    avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
+                  />
+                )
+              )
             )}
           </ListItemButton>
 
