@@ -11,32 +11,23 @@ export default function PublicPlanPreviewPage() {
   const id = params?.id as string;
 
   const { data, isLoading, error } = useSWR(() => (id ? `public-plan-${id}-cycles` : null), async () => {
-    // Pull workspace and client to use client-auth cycles + meals endpoints
-    const profileRes = await api.get('/api/clients/profile');
-    const workspaceId = (profileRes.data as any)?.workspace?.id;
-    const clientId = (profileRes.data as any)?.client?.id;
+    // Get workspace ID from cookie (set by middleware)
+    const workspaceId = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('ff_workspace_id='))
+      ?.split('=')[1];
 
     const headers = workspaceId ? { 'x-workspace-id': workspaceId } : {};
 
     try {
-      // Prefer new public cycles endpoint (workspace-scoped, no client binding)
+      // Use public cycles endpoint (workspace-scoped, no client binding required)
       const cyclesRes = await api.get(`/api/nutrition/plans/${id}/cycles`, { headers });
       const planTitle = (cyclesRes.data as any)?.plan?.title || 'Nutrition Plan';
       const cycles = (cyclesRes.data as any)?.cycles || [];
       return { plan: { id, title: planTitle, cycles } as any } as { plan: { id: string; title: string; cycles: Array<any> } };
     } catch (e) {
-      // Fallback to client-auth cycles/meals if needed
-      const cyclesRes = await api.get(`/api/clients/${clientId}/nutrition/plans/${id}/cycles`, { headers });
-      const cycles = (cyclesRes.data as any)?.cycles || [];
-      const cyclesWithMeals = await Promise.all(
-        cycles.map(async (cycle: any) => {
-          const mealsRes = await api.get(`/api/clients/${clientId}/nutrition/cycles/${cycle.id}/meals`, { headers });
-          const meals = (mealsRes.data as any)?.meals || [];
-          return { ...cycle, meals } as any;
-        })
-      );
-      const planTitle = (cyclesRes.data as any)?.plan?.title || 'Nutrition Plan';
-      return { plan: { id, title: planTitle, cycles: cyclesWithMeals } as any } as { plan: { id: string; title: string; cycles: Array<any> } };
+      console.error('Failed to fetch plan cycles:', e);
+      throw e;
     }
   });
 
