@@ -10,6 +10,9 @@ export default function PublicPlanPreviewPage() {
   const params = useParams();
   const id = params?.id as string;
 
+  // Debug: Log if this component is being rendered
+  console.log('🚀 PublicPlanPreviewPage rendered for ID:', id);
+
   const { data, isLoading, error } = useSWR(() => (id ? `public-plan-${id}-cycles-v2` : null), async () => {
     // Get workspace ID from cookie (set by middleware)
     const workspaceId = document.cookie
@@ -22,7 +25,9 @@ export default function PublicPlanPreviewPage() {
     try {
       console.log('🔍 Fetching nutrition plan cycles for ID:', id, 'with workspace:', workspaceId);
       // Use public cycles endpoint (workspace-scoped, no client binding required)
-      const cyclesRes = await api.get(`/api/nutrition/plans/${id}/cycles`, { headers });
+      // Add timestamp to force fresh fetch and bypass any caching
+      const timestamp = Date.now();
+      const cyclesRes = await api.get(`/api/nutrition/plans/${id}/cycles?t=${timestamp}`, { headers });
       console.log('✅ Successfully fetched nutrition plan cycles');
       const planTitle = (cyclesRes.data as any)?.plan?.title || 'Nutrition Plan';
       const cycles = (cyclesRes.data as any)?.cycles || [];
