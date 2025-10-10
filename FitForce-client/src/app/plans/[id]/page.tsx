@@ -10,7 +10,7 @@ export default function PublicPlanPreviewPage() {
   const params = useParams();
   const id = params?.id as string;
 
-  const { data, isLoading, error } = useSWR(() => (id ? `public-plan-${id}-cycles` : null), async () => {
+  const { data, isLoading, error } = useSWR(() => (id ? `public-plan-${id}-cycles-v2` : null), async () => {
     // Get workspace ID from cookie (set by middleware)
     const workspaceId = document.cookie
       .split('; ')
@@ -20,13 +20,15 @@ export default function PublicPlanPreviewPage() {
     const headers = workspaceId ? { 'x-workspace-id': workspaceId } : {};
 
     try {
+      console.log('🔍 Fetching nutrition plan cycles for ID:', id, 'with workspace:', workspaceId);
       // Use public cycles endpoint (workspace-scoped, no client binding required)
       const cyclesRes = await api.get(`/api/nutrition/plans/${id}/cycles`, { headers });
+      console.log('✅ Successfully fetched nutrition plan cycles');
       const planTitle = (cyclesRes.data as any)?.plan?.title || 'Nutrition Plan';
       const cycles = (cyclesRes.data as any)?.cycles || [];
       return { plan: { id, title: planTitle, cycles } as any } as { plan: { id: string; title: string; cycles: Array<any> } };
     } catch (e) {
-      console.error('Failed to fetch plan cycles:', e);
+      console.error('❌ Failed to fetch plan cycles:', e);
       throw e;
     }
   });
