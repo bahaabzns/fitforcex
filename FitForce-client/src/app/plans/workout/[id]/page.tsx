@@ -12,23 +12,22 @@ export default function PublicWorkoutPlanPreviewPage() {
   const id = params?.id as string;
 
   const { data, isLoading, error } = useSWR(() => (id ? `public-workout-plan-${id}` : null), async () => {
-    // Pull workspace and client to use client-auth endpoints
-    const profileRes = await api.get('/api/clients/profile');
-    const workspaceId = (profileRes.data as any)?.workspace?.id;
-    // const clientId = (profileRes.data as any)?.client?.id;
+    // Get workspace ID from cookie (set by middleware)
+    const workspaceId = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('ff_workspace_id='))
+      ?.split('=')[1];
 
     const headers = workspaceId ? { 'x-workspace-id': workspaceId } : {};
 
     try {
-      // Try to get workout plan with days and exercises
-      const res = await api.get(`/api/clients/workout-plans/${id}`, { headers });
-      const workoutPlan = (res.data as any)?.workoutPlan;
-      return { plan: workoutPlan } as { plan: { id: string; title: string; days: Array<{ dayIndex: number; label?: string; items: Array<{ reps?: number; sets?: number; notes?: string; planSets?: any[]; exercise?: any }> }> } };
-    } catch (e) {
-      // Fallback to workspace-scoped endpoint if available
+      // Use public workout plan endpoint (workspace-scoped, no client binding required)
       const res = await api.get(`/api/workout/plans/${id}`, { headers });
       const workoutPlan = (res.data as any)?.plan;
       return { plan: workoutPlan } as { plan: { id: string; title: string; days: Array<{ dayIndex: number; label?: string; items: Array<{ reps?: number; sets?: number; notes?: string; planSets?: any[]; exercise?: any }> }> } };
+    } catch (e) {
+      console.error('Failed to fetch workout plan:', e);
+      throw e;
     }
   });
 
