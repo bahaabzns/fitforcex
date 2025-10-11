@@ -148,6 +148,7 @@ export default function ClientNutritionPage() {
   const [mealNotesDialogOpen, setMealNotesDialogOpen] = useState(false);
   const [mealNotesDraft, setMealNotesDraft] = useState('');
   const [mealNotesMealId, setMealNotesMealId] = useState<string | null>(null);
+  const [showMealNotesSection, setShowMealNotesSection] = useState(false);
   
   // Recipe states
   const [recipes, setRecipes] = useState<any[]>([]);
@@ -886,6 +887,7 @@ export default function ClientNutritionPage() {
             foodItemId: item.foodItemId,
             servings: item.quantity,
             meal: meal.meal || '',
+            notes: meal.notes || '',
             recipeName: (currentMeal as any)?.recipeName || '',
             recipeNameArabic: (currentMeal as any)?.recipeNameArabic || '',
             recipeImageUrl: (currentMeal as any)?.recipeImageUrl || ''
@@ -897,6 +899,7 @@ export default function ClientNutritionPage() {
               foodItemId: null,
               servings: 1,
               meal: meal.meal || '',
+              notes: meal.notes || '',
               recipeName: (currentMeal as any)?.recipeName || '',
               recipeNameArabic: (currentMeal as any)?.recipeNameArabic || '',
               recipeImageUrl: (currentMeal as any)?.recipeImageUrl || ''
@@ -2339,6 +2342,96 @@ export default function ClientNutritionPage() {
                               <Typography color="text.secondary">No food items added yet</Typography>
                             </Box>
                           )}
+                          
+                          {/* Notes Button */}
+                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => {
+                                setShowMealNotesSection(!showMealNotesSection);
+                              }}
+                              sx={{ 
+                                minWidth: 100,
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                  backgroundColor: 'primary.lighter',
+                                  transform: 'translateY(-1px)'
+                                }
+                              }}
+                            >
+                              Notes
+                            </Button>
+                          </Box>
+                          
+                          {/* Animated Notes Section */}
+                          <Box
+                            sx={{
+                              overflow: 'hidden',
+                              transition: 'all 0.3s ease-in-out',
+                              maxHeight: showMealNotesSection ? '200px' : '0px',
+                              opacity: showMealNotesSection ? 1 : 0,
+                              transform: showMealNotesSection ? 'translateY(0)' : 'translateY(-10px)',
+                              mt: showMealNotesSection ? 2 : 0,
+                              mb: showMealNotesSection ? 2 : 0
+                            }}
+                          >
+                            <Box sx={{ 
+                              p: 2, 
+                              backgroundColor: 'background.paper', 
+                              border: '1px solid', 
+                              borderColor: 'divider', 
+                              borderRadius: 2,
+                              boxShadow: 1
+                            }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                  Meal Notes
+                                </Typography>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => setShowMealNotesSection(false)}
+                                  sx={{ fontSize: 16 }}
+                                >
+                                  ✕
+                                </IconButton>
+                              </Box>
+                              <TextField
+                                fullWidth
+                                multiline
+                                minRows={3}
+                                maxRows={6}
+                                value={(() => {
+                                  const selectedMeal = currentMeals.find(m => m.id === selectedMealId);
+                                  return selectedMeal?.notes || '';
+                                })()}
+                                onChange={(e) => {
+                                  const notes = e.target.value;
+                                  // Update current meals
+                                  setCurrentMeals((prev) => prev.map((m) => m.id !== (selectedMealId as string) ? m : ({ ...m, notes })));
+                                  // Update plans tree
+                                  if (selectedPlanId && selectedCycleId) {
+                                    setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                      ...p,
+                                      cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                        ...c,
+                                        meals: (c.meals || []).map((m) => m.id !== (selectedMealId as string) ? m : ({ ...m, notes }))
+                                      }))
+                                    })));
+                                  }
+                                  setIsPlanDirty(true);
+                                }}
+                                placeholder="Add notes about this meal..."
+                                variant="outlined"
+                                size="small"
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    fontSize: '0.875rem'
+                                  }
+                                }}
+                              />
+                            </Box>
+                          </Box>
                         </Box>
                       );
                     })()}

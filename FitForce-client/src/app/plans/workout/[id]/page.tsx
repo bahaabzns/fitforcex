@@ -12,23 +12,21 @@ export default function PublicWorkoutPlanPreviewPage() {
   const id = params?.id as string;
 
   const { data, isLoading, error } = useSWR(() => (id ? `public-workout-plan-${id}` : null), async () => {
-    // Pull workspace and client to use client-auth endpoints
-    const profileRes = await api.get('/api/clients/profile');
-    const workspaceId = (profileRes.data as any)?.workspace?.id;
-    // const clientId = (profileRes.data as any)?.client?.id;
+    // Try to get workspace ID from URL params or cookies
+    const urlParams = new URLSearchParams(window.location.search);
+    const workspaceId = urlParams.get('workspaceId') || 
+      document.cookie.split('; ').find(row => row.startsWith('ff_workspace_id='))?.split('=')[1];
 
     const headers = workspaceId ? { 'x-workspace-id': workspaceId } : {};
 
     try {
-      // Try to get workout plan with days and exercises
-      const res = await api.get(`/api/clients/workout-plans/${id}`, { headers });
-      const workoutPlan = (res.data as any)?.workoutPlan;
-      return { plan: workoutPlan } as { plan: { id: string; title: string; days: Array<{ dayIndex: number; label?: string; items: Array<{ reps?: number; sets?: number; notes?: string; planSets?: any[]; exercise?: any }> }> } };
-    } catch (e) {
-      // Fallback to workspace-scoped endpoint if available
+      // Use public workspace-scoped endpoint (no auth required)
       const res = await api.get(`/api/workout/plans/${id}`, { headers });
       const workoutPlan = (res.data as any)?.plan;
       return { plan: workoutPlan } as { plan: { id: string; title: string; days: Array<{ dayIndex: number; label?: string; items: Array<{ reps?: number; sets?: number; notes?: string; planSets?: any[]; exercise?: any }> }> } };
+    } catch (e) {
+      console.error('Failed to fetch workout plan:', e);
+      throw e;
     }
   });
 
@@ -315,7 +313,7 @@ const page13BgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmg
       {/* Exercise Pages with optional ca_day cover before each day */}
       {plan.days?.map((day: any, dayIndex: number) => (
         <Box key={`wrap-${dayIndex}`}>
-          {(day as any).caDayImageUrl || (day as any).caDayUrl ? (
+          {(day as any).caDayImageUrl || (day as any).caDayUrl || ((day as any).caDayUrls && (day as any).caDayUrls.length > 0) ? (
             <Box sx={{
               width: '100%',
               height: `${PAGE_H_IN}in`,
@@ -326,12 +324,106 @@ const page13BgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmg
               position: 'relative',
               '@media print': { height: '100vh', pageBreakAfter: 'always', pageBreakInside: 'avoid' }
             }}>
-              <Box sx={{ position: 'absolute', top: 24, left: 24, right: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography variant="h3" sx={{ fontWeight: 700, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.6)', '@media print': { fontSize: '1.2rem' } }}>{(day as any).caDayName || ' '}</Typography>
-                {(day as any).caDayUrl && (
-                  <Box component="a" className="print-link" href={(day as any).caDayUrl} target="_blank" rel="noopener noreferrer" sx={{ color: 'white', cursor: 'pointer', fontSize: '1.6rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.35)', '@media print': { color: '#0000EE !important', fontSize: '1rem' }, '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' } }}>📺<Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { color: '#0000EE !important' } }}>Watch</Typography></Box>
-                )}
-              </Box>
+              {/* Collect all URLs */}
+              {(() => {
+                const urls: string[] = [];
+                if ((day as any).caDayUrl) urls.push((day as any).caDayUrl);
+                if ((day as any).caDayUrls) urls.push(...(day as any).caDayUrls);
+                
+                if (urls.length === 0) return null;
+                
+                if (urls.length === 1) {
+                  // Single URL - entire page is clickable
+                  return (
+                    <Box
+                      component="a"
+                      href={urls[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        '&:hover': {
+                          backgroundColor: 'rgba(0,0,0,0.1)'
+                        }
+                      }}
+                    >
+                      <Box sx={{ position: 'absolute', top: 24, left: 24, right: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Typography variant="h3" sx={{ fontWeight: 700, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.6)', '@media print': { fontSize: '1.2rem' } }}>{(day as any).caDayName || ' '}</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Box sx={{ color: 'white', cursor: 'pointer', fontSize: '1.6rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.35)', '@media print': { color: '#0000EE !important', fontSize: '1rem' }, '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' } }}>
+                            📺<Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { color: '#0000EE !important' } }}>Click to Watch</Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                } else {
+                  // Multiple URLs - divide page into clickable sections
+                  return (
+                    <>
+                      <Box sx={{ position: 'absolute', top: 24, left: 24, right: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
+                        <Typography variant="h3" sx={{ fontWeight: 700, color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.6)', '@media print': { fontSize: '1.2rem' } }}>{(day as any).caDayName || ' '}</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {urls.map((url: string, urlIndex: number) => (
+                            <Box key={urlIndex} sx={{ color: 'white', fontSize: '1.6rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.35)', '@media print': { color: '#0000EE !important', fontSize: '1rem' } }}>
+                              📺<Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { color: '#0000EE !important' } }}>Video {urlIndex + 1}</Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </Box>
+                      {urls.map((url: string, urlIndex: number) => (
+                        <Box
+                          key={urlIndex}
+                          component="a"
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: `${(urlIndex / urls.length) * 100}%`,
+                            width: `${100 / urls.length}%`,
+                            height: '100%',
+                            cursor: 'pointer',
+                            textDecoration: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            '&:hover': {
+                              backgroundColor: 'rgba(0,0,0,0.1)'
+                            },
+                            '&:before': {
+                              content: `"Click for Video ${urlIndex + 1}"`,
+                              position: 'absolute',
+                              bottom: '20px',
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              color: 'white',
+                              fontSize: '1.2rem',
+                              fontWeight: 600,
+                              textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+                              backgroundColor: 'rgba(0,0,0,0.5)',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              opacity: 0,
+                              transition: 'opacity 0.3s ease'
+                            },
+                            '&:hover:before': {
+                              opacity: 1
+                            }
+                          }}
+                        />
+                      ))}
+                    </>
+                  );
+                }
+              })()}
             </Box>
           ) : null}
 
@@ -361,7 +453,7 @@ const page13BgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmg
             <Box sx={{ width: '100%', flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '14%', '@media print': { flex: 1, paddingTop: '3%' } }}>
               <Box sx={{ width: '100%', height: '100%', border: '1px dashed white', borderTop: 'none', borderRadius: 1, overflow: 'hidden', '@media print': { border: '1px dashed white', borderTop: 'none' } }}>
                 {/* Table Header */}
-                <Box sx={{ display: 'flex', height: '10%', bgcolor: 'rgba(0, 0, 0, 0.8)', '@media print': { bgcolor: 'rgba(0, 0, 0, 0.9)' } }}>
+                <Box sx={{ display: 'flex', height: '50px', minHeight: '50px', bgcolor: 'rgba(0, 0, 0, 0.8)', '@media print': { height: '40px', minHeight: '40px', bgcolor: 'rgba(0, 0, 0, 0.9)' } }}>
                   <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Muscle Group</Typography>
                   </Box>
@@ -398,49 +490,52 @@ const page13BgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmg
                 {Array.from({ length: 10 }, (_, rowIndex) => (
                   <Box key={rowIndex} sx={{ 
                     display: 'flex', 
-                    height: '9%', 
+                    height: '50px', // Fixed height instead of percentage
+                    minHeight: '50px', // Ensure minimum height
                     bgcolor: ((rowIndex * 9301 + ((day as any).dayIndex || 0) * 49297) % 2 === 0)
                       ? 'rgba(255, 0, 0, 0.3)'
                       : 'rgba(128, 128, 128, 0.3)',
                     borderBottom: '3px dashed white', 
                     '@media print': { 
+                      height: '40px', // Slightly smaller for print
+                      minHeight: '40px',
                       bgcolor: ((rowIndex * 9301 + ((day as any).dayIndex || 0) * 49297) % 2 === 0)
                         ? 'rgba(255, 0, 0, 0.4)'
                         : 'rgba(128, 128, 128, 0.4)'
                     } 
                   }}>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.exercise?.muscleGroup || ''}</Typography>
                     </Box>
-                    <Box sx={{ flex: 3, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 3, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.exercise?.name || ''}</Typography>
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.sets || ''}</Typography>
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.reps || ''}</Typography>
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.planSets?.[0]?.weight || ''}</Typography>
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.rir || ''}</Typography>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
+                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.rir !== undefined ? day.items?.[rowIndex]?.rir : ''}</Typography>
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       {day.items?.[rowIndex]?.exercise?.videoUrl ? (
                         <Box component="a" href={day.items?.[rowIndex]?.exercise?.videoUrl} target="_blank" rel="noopener noreferrer" sx={{ color: 'red', cursor: 'pointer', fontSize: '1.2rem', '@media print': { fontSize: '0.8rem', color: 'red !important' }, '&:hover': { opacity: 0.8 } }}>📺</Box>
                       ) : (
                         <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }} />
                       )}
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }} />
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }} />
                     </Box>
-                    <Box sx={{ flex: 3, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ flex: 3, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
                       <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.notes || ''}</Typography>
                     </Box>
                   </Box>

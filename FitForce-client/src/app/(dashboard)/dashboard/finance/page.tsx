@@ -29,7 +29,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  Pagination
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -73,9 +74,19 @@ interface Subscription {
   }>;
 }
 
+interface PaginationInfo {
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 interface FinanceDashboardData {
   metrics: FinanceMetrics;
   subscriptions: Subscription[];
+  pagination: PaginationInfo;
 }
 
 export default function FinancePage() {
@@ -84,20 +95,26 @@ export default function FinancePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const fetchFinanceData = async () => {
+  const fetchFinanceData = async (page: number = 1) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get('/api/finance/dashboard');
+      const response = await api.get(`/api/finance/dashboard?page=${page}&limit=20`);
       setData(response.data);
+      setCurrentPage(page);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load finance data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
+    fetchFinanceData(page);
   };
 
   useEffect(() => {
@@ -175,10 +192,17 @@ export default function FinancePage() {
     <Container sx={{ py: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4">Finance Dashboard</Typography>
+        <Box>
+          <Typography variant="h4">Finance Dashboard</Typography>
+          {data.pagination && (
+            <Typography variant="body2" color="text.secondary">
+              Showing {((currentPage - 1) * 20) + 1}-{Math.min(currentPage * 20, data.pagination.totalCount)} of {data.pagination.totalCount} subscriptions
+            </Typography>
+          )}
+        </Box>
         <Button 
           startIcon={<Refresh size={16} />} 
-          onClick={fetchFinanceData}
+          onClick={() => fetchFinanceData(currentPage)}
           variant="outlined"
           disabled={loading}
         >
@@ -476,6 +500,19 @@ export default function FinancePage() {
             <Typography align="center" color="textSecondary" sx={{ py: 4 }}>
               No subscriptions found
             </Typography>
+          )}
+
+          {data.pagination && data.pagination.totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Pagination
+                count={data.pagination.totalPages}
+                page={currentPage}
+                onChange={handlePageChange}
+                color="primary"
+                showFirstButton
+                showLastButton
+              />
+            </Box>
           )}
         </CardContent>
       </MainCard>

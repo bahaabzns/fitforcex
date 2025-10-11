@@ -76,6 +76,12 @@ export default function ClientWorkoutPage() {
     days: Array<{
       id: string;
       title: string;
+      caDay?: {
+        name?: string;
+        imageUrl?: string;
+        url?: string;
+        urls?: string[];
+      };
       exercises: Array<{
         id: string;
         exercise: Exercise;
@@ -124,7 +130,7 @@ export default function ClientWorkoutPage() {
   const [activeTab, setActiveTab] = useState<'builder' | 'logs'>('builder');
   const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null);
   // CaDay catalog and UI
-  const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string }>>([]);
+  const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string; urls?: string[] }>>([]);
   const [caDayDialogOpen, setCaDayDialogOpen] = useState(false);
 
   // Load workout logs for this client (for Logs tab)
@@ -277,6 +283,7 @@ export default function ClientWorkoutPage() {
           caDayName: (day as any).caDay?.name || null,
           caDayImageUrl: (day as any).caDay?.imageUrl || null,
           caDayUrl: (day as any).caDay?.url || null,
+          caDayUrls: (day as any).caDay?.urls || null,
           items: day.exercises.map((exercise) => ({
             exerciseId: exercise.exercise.id,
             sets: exercise.sets,
@@ -746,10 +753,11 @@ export default function ClientWorkoutPage() {
                           days: srvDays.map((day: any) => ({
                             id: day.id,
                             title: day.label || `Day ${day.dayIndex}`,
-                            caDay: day.caDayName || day.caDayImageUrl || day.caDayUrl ? {
+                            caDay: day.caDayName || day.caDayImageUrl || day.caDayUrl || (day.caDayUrls && day.caDayUrls.length > 0) ? {
                               name: day.caDayName || '',
                               imageUrl: day.caDayImageUrl || '',
-                              url: day.caDayUrl || ''
+                              url: day.caDayUrl || '',
+                              urls: day.caDayUrls || []
                             } : undefined,
                             exercises: (day.items || []).map((item: any) => ({
                               id: item.id,
@@ -1674,40 +1682,181 @@ export default function ClientWorkoutPage() {
       </Dialog>
 
       {/* Choose CaDay Dialog */}
-      <Dialog open={caDayDialogOpen} onClose={() => setCaDayDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Select ca_day for Day {selectedDayIndex + 1}</DialogTitle>
+      <Dialog open={caDayDialogOpen} onClose={() => setCaDayDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Configure ca_day for Day {selectedDayIndex + 1}</DialogTitle>
         <DialogContent>
-          <Stack spacing={1} sx={{ mt: 1 }}>
-            <Button variant="outlined" onClick={() => {
-              if (!localWorkoutPlan) return;
-              setLocalWorkoutPlan(prev => prev ? {
-                ...prev,
-                days: prev.days.map((d, i) => i === selectedDayIndex ? ({ ...d, caDay: undefined } as any) : d)
-              } : null);
-              setIsPlanDirty(true);
-            }}>Clear</Button>
-            {caDays.map((c) => (
-              <Card key={c.id} variant="outlined" onClick={() => {
-                if (!localWorkoutPlan) return;
-                setLocalWorkoutPlan(prev => prev ? {
-                  ...prev,
-                  days: prev.days.map((d, i) => i === selectedDayIndex ? ({ ...d, caDay: c } as any) : d)
-                } : null);
-                setIsPlanDirty(true);
-                setCaDayDialogOpen(false);
-              }} sx={{ cursor: 'pointer' }}>
-                <CardContent>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {c.imageUrl && <img src={c.imageUrl} alt="img" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} />}
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography variant="subtitle1" fontWeight={600}>{c.name}</Typography>
-                      {c.url && <Typography variant="caption" color="text.secondary">{c.url}</Typography>}
-                    </Box>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {/* Direct Edit Section */}
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                Direct Edit
+              </Typography>
+              <Stack spacing={2}>
+                <TextField
+                  fullWidth
+                  label="ca_day Name"
+                  value={(localWorkoutPlan?.days[selectedDayIndex] as any)?.caDay?.name || ''}
+                  onChange={(e) => {
+                    if (!localWorkoutPlan) return;
+                    setLocalWorkoutPlan(prev => prev ? {
+                      ...prev,
+                      days: prev.days.map((d, i) => i === selectedDayIndex ? ({
+                        ...d,
+                        caDay: { ...d.caDay, name: e.target.value } as any
+                      }) : d)
+                    } : null);
+                    setIsPlanDirty(true);
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Image URL"
+                  value={(localWorkoutPlan?.days[selectedDayIndex] as any)?.caDay?.imageUrl || ''}
+                  onChange={(e) => {
+                    if (!localWorkoutPlan) return;
+                    setLocalWorkoutPlan(prev => prev ? {
+                      ...prev,
+                      days: prev.days.map((d, i) => i === selectedDayIndex ? ({
+                        ...d,
+                        caDay: { ...d.caDay, imageUrl: e.target.value } as any
+                      }) : d)
+                    } : null);
+                    setIsPlanDirty(true);
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Single URL (Legacy)"
+                  value={(localWorkoutPlan?.days[selectedDayIndex] as any)?.caDay?.url || ''}
+                  onChange={(e) => {
+                    if (!localWorkoutPlan) return;
+                    setLocalWorkoutPlan(prev => prev ? {
+                      ...prev,
+                      days: prev.days.map((d, i) => i === selectedDayIndex ? ({
+                        ...d,
+                        caDay: { ...d.caDay, url: e.target.value } as any
+                      }) : d)
+                    } : null);
+                    setIsPlanDirty(true);
+                  }}
+                />
+                
+                {/* Multiple URLs Section */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    Multiple URLs
+                  </Typography>
+                  <Stack spacing={1}>
+                    {((localWorkoutPlan?.days[selectedDayIndex] as any)?.caDay?.urls || []).map((url: string, index: number) => (
+                      <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          fullWidth
+                          label={`URL ${index + 1}`}
+                          value={url}
+                          onChange={(e) => {
+                            if (!localWorkoutPlan) return;
+                            const newUrls = [...((localWorkoutPlan.days[selectedDayIndex] as any).caDay?.urls || [])];
+                            newUrls[index] = e.target.value;
+                            setLocalWorkoutPlan(prev => prev ? {
+                              ...prev,
+                              days: prev.days.map((d, i) => i === selectedDayIndex ? ({
+                                ...d,
+                                caDay: { ...d.caDay, urls: newUrls } as any
+                              }) : d)
+                            } : null);
+                            setIsPlanDirty(true);
+                          }}
+                        />
+                        <IconButton
+                          color="error"
+                          onClick={() => {
+                            if (!localWorkoutPlan) return;
+                            const newUrls = [...((localWorkoutPlan.days[selectedDayIndex] as any).caDay?.urls || [])];
+                            newUrls.splice(index, 1);
+                            setLocalWorkoutPlan(prev => prev ? {
+                              ...prev,
+                              days: prev.days.map((d, i) => i === selectedDayIndex ? ({
+                                ...d,
+                                caDay: { ...d.caDay, urls: newUrls } as any
+                              }) : d)
+                            } : null);
+                            setIsPlanDirty(true);
+                          }}
+                        >
+                          <Trash size={16} />
+                        </IconButton>
+                      </Box>
+                    ))}
+                    <Button
+                      variant="outlined"
+                      startIcon={<Add size={16} />}
+                      onClick={() => {
+                        if (!localWorkoutPlan) return;
+                        const currentUrls = (localWorkoutPlan.days[selectedDayIndex] as any).caDay?.urls || [];
+                        setLocalWorkoutPlan(prev => prev ? {
+                          ...prev,
+                          days: prev.days.map((d, i) => i === selectedDayIndex ? ({
+                            ...d,
+                            caDay: { ...d.caDay, urls: [...currentUrls, ''] } as any
+                          }) : d)
+                        } : null);
+                        setIsPlanDirty(true);
+                      }}
+                    >
+                      Add URL
+                    </Button>
                   </Stack>
-                </CardContent>
-              </Card>
-            ))}
+                </Box>
+              </Stack>
+            </Box>
+
+            {/* Predefined caDays Section */}
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                Predefined ca_days
+              </Typography>
+              <Stack spacing={1}>
+                <Button variant="outlined" onClick={() => {
+                  if (!localWorkoutPlan) return;
+                  setLocalWorkoutPlan(prev => prev ? {
+                    ...prev,
+                    days: prev.days.map((d, i) => i === selectedDayIndex ? ({ ...d, caDay: undefined } as any) : d)
+                  } : null);
+                  setIsPlanDirty(true);
+                }}>Clear</Button>
+                {caDays.map((c) => (
+                  <Card key={c.id} variant="outlined" onClick={() => {
+                    if (!localWorkoutPlan) return;
+                    setLocalWorkoutPlan(prev => prev ? {
+                      ...prev,
+                      days: prev.days.map((d, i) => i === selectedDayIndex ? ({ ...d, caDay: c } as any) : d)
+                    } : null);
+                    setIsPlanDirty(true);
+                    setCaDayDialogOpen(false);
+                  }} sx={{ cursor: 'pointer' }}>
+                    <CardContent>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {c.imageUrl && <img src={c.imageUrl} alt="img" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} />}
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="subtitle1" fontWeight={600}>{c.name}</Typography>
+                          {c.url && <Typography variant="caption" color="text.secondary">{c.url}</Typography>}
+                          {c.urls && c.urls.length > 0 && (
+                            <Box sx={{ mt: 0.5 }}>
+                              {c.urls.map((url: string, index: number) => (
+                                <Typography key={index} variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                                  Link {index + 1}: {url}
+                                </Typography>
+                              ))}
+                            </Box>
+                          )}
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>

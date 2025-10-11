@@ -217,10 +217,10 @@ export default function WorkoutPage() {
   const [loadingDefaults, setLoadingDefaults] = useState(false);
   const [activeTab, setActiveTab] = useState<'builder' | 'logs' | 'ca_day'>('builder');
   // CaDay catalog state
-  const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string }>>([]);
+  const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string; urls?: string[] }>>([]);
   const [loadingCaDays, setLoadingCaDays] = useState(false);
   const [isAddCaDayOpen, setIsAddCaDayOpen] = useState(false);
-  const [newCaDay, setNewCaDay] = useState<{ name: string; imageUrl?: string; url?: string }>({ name: '' });
+  const [newCaDay, setNewCaDay] = useState<{ name: string; imageUrl?: string; url?: string; urls?: string[] }>({ name: '' });
   const [uploadingCaDay, setUploadingCaDay] = useState(false);
 
   // Workspace-wide workout logs for Logs tab
@@ -804,6 +804,15 @@ export default function WorkoutPage() {
                               Open Link
                             </Typography>
                           )}
+                          {c.urls && c.urls.length > 0 && (
+                            <Box sx={{ mt: 0.5 }}>
+                              {c.urls.map((url, index) => (
+                                <Typography key={index} variant="body2" color="primary" component="a" href={url} target="_blank" rel="noreferrer" sx={{ display: 'block', fontSize: '0.75rem' }}>
+                                  Link {index + 1}
+                                </Typography>
+                              ))}
+                            </Box>
+                          )}
                         </Box>
                         <IconButton color="error" onClick={async () => {
                           if (!confirm('Delete this ca_day item?')) return;
@@ -1055,7 +1064,50 @@ export default function WorkoutPage() {
                 <Avatar src={newCaDay.imageUrl} variant="rounded" sx={{ width: 56, height: 56 }} />
               )}
             </Stack>
-            <TextField label="Link URL" value={newCaDay.url || ''} onChange={(e) => setNewCaDay((p) => ({ ...p, url: e.target.value }))} fullWidth />
+            <TextField label="Single URL (Legacy)" value={newCaDay.url || ''} onChange={(e) => setNewCaDay((p) => ({ ...p, url: e.target.value }))} fullWidth />
+            
+            {/* Multiple URLs Section */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Multiple URLs
+              </Typography>
+              <Stack spacing={1}>
+                {(newCaDay.urls || []).map((url: string, index: number) => (
+                  <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <TextField
+                      fullWidth
+                      label={`URL ${index + 1}`}
+                      value={url}
+                      onChange={(e) => {
+                        const newUrls = [...(newCaDay.urls || [])];
+                        newUrls[index] = e.target.value;
+                        setNewCaDay((p) => ({ ...p, urls: newUrls }));
+                      }}
+                    />
+                    <IconButton
+                      color="error"
+                      onClick={() => {
+                        const newUrls = [...(newCaDay.urls || [])];
+                        newUrls.splice(index, 1);
+                        setNewCaDay((p) => ({ ...p, urls: newUrls }));
+                      }}
+                    >
+                      <Trash size={16} />
+                    </IconButton>
+                  </Box>
+                ))}
+                <Button
+                  variant="outlined"
+                  startIcon={<Add size={16} />}
+                  onClick={() => {
+                    const currentUrls = newCaDay.urls || [];
+                    setNewCaDay((p) => ({ ...p, urls: [...currentUrls, ''] }));
+                  }}
+                >
+                  Add URL
+                </Button>
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -1064,7 +1116,7 @@ export default function WorkoutPage() {
             if (!newCaDay.name.trim()) return;
             await api.post('/api/workout/caday', newCaDay);
             setIsAddCaDayOpen(false);
-            setNewCaDay({ name: '' });
+            setNewCaDay({ name: '', urls: [] });
             const res = await api.get('/api/workout/caday');
             setCaDays(res.data.caDays || []);
           }}>Create</Button>

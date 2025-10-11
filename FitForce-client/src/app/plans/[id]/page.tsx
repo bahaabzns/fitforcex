@@ -40,7 +40,7 @@ export default function PublicPlanPreviewPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading plan…</Typography>
+          <Typography sx={{ color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>Loading plan…</Typography>
         </Stack>
       </Box>
     );
@@ -49,7 +49,7 @@ export default function PublicPlanPreviewPage() {
   if (error || !data?.plan) {
     return (
       <Box sx={{ m: { xs: 1, md: 3 }, p: 3, border: '1px solid', borderColor: 'divider' }}>
-        <Typography color="error">Failed to load plan</Typography>
+        <Typography sx={{ color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>Failed to load plan</Typography>
       </Box>
     );
   }
@@ -62,7 +62,7 @@ export default function PublicPlanPreviewPage() {
   const PAGE_RADIUS = 0;   // no rounding per request
 
   const coverBgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmgbk5yo40001bsed99nfm7um/template-assets/1760017978663-Copy_of_test_FMX_Ar_Nutrition_Template__Captain_Maged__page-0001.jpg';
-  const pageBgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmgbk5yo40001bsed99nfm7um/template-assets/1760005657260-Screenshot_From_2025-09-29_20-52-21.png';
+  const pageBgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmglms7sh0002bsjngvwbud55/template-assets/1760199536947-D-3050-251010-2002_-_Ahmed_Essam_-_1120214173.jpg';
 
   const cycles = (plan as any).cycles || [];
 
@@ -94,7 +94,7 @@ export default function PublicPlanPreviewPage() {
 
   // Page 1: Cover
   pages.push(
-    <Box key="cover" sx={{ width: `${PAGE_W_IN}in`, height: `${PAGE_H_IN}in`, mx: 0, my: 0, bgcolor: '#000', color: '#fff', backgroundImage: `url(${coverBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', breakAfter: 'page', borderRadius: PAGE_RADIUS, overflow: 'hidden' }}>
+    <Box key="cover" sx={{ width: `${PAGE_W_IN}in`, height: `${PAGE_H_IN}in`, mx: 0, my: 0, bgcolor: '#000', color: '#fff', backgroundImage: `url(${coverBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', breakAfter: 'page', borderRadius: PAGE_RADIUS, overflow: 'hidden', '@media (prefers-color-scheme: dark)': { color: '#fff' } }}>
       {/* Cover image only, no title overlay per request */}
     </Box>
   );
@@ -110,26 +110,26 @@ export default function PublicPlanPreviewPage() {
     // Day summary page
     pages.push(
       <Box key={`day-summary-${cycleIdx}`} sx={{ width: `${PAGE_W_IN}in`, height: `${PAGE_H_IN}in`, mx: 0, my: 0, p: { xs: 3, md: 6 }, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', breakAfter: 'page', borderRadius: PAGE_RADIUS, overflow: 'hidden', backgroundImage: `url(${pageBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <Typography variant="h2" sx={{ textAlign: 'center', mb: 4, fontSize: '1.2in' }}>{dayTitle}</Typography>
+        <Typography variant="h2" sx={{ textAlign: 'center', mb: 4, fontSize: '1.2in', color: '#000', fontFamily: 'Changa', fontWeight: 700, '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{dayTitle}</Typography>
         <Stack direction="row" spacing={4} sx={{ mb: 6 }}>
                 <Stack alignItems="center">
-                  <Typography variant="overline" sx={{ fontSize: '0.28in' }}>سعرات حرارية</Typography>
-                  <Typography variant="h5" sx={{ fontSize: '0.5in' }}>{Math.round(totals.calories)}</Typography>
+                  <Typography variant="overline" sx={{ fontSize: '0.28in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>سعرات حرارية</Typography>
+                  <Typography variant="h5" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(totals.calories)}</Typography>
                 </Stack>
           <Stack alignItems="center">
-                  <Typography variant="overline" sx={{ fontSize: '0.28in' }}>بروتين</Typography>
-            <Typography variant="h5" sx={{ fontSize: '0.5in' }}>{Math.round(totals.protein)} g</Typography>
+                  <Typography variant="overline" sx={{ fontSize: '0.28in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>بروتين</Typography>
+            <Typography variant="h5" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(totals.protein)} g</Typography>
           </Stack>
           <Stack alignItems="center">
-                  <Typography variant="overline" sx={{ fontSize: '0.28in' }}>كربوهيدرات</Typography>
-            <Typography variant="h5" sx={{ fontSize: '0.5in' }}>{Math.round(totals.carbs)} g</Typography>
+                  <Typography variant="overline" sx={{ fontSize: '0.28in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>كربوهيدرات</Typography>
+            <Typography variant="h5" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(totals.carbs)} g</Typography>
           </Stack>
           <Stack alignItems="center">
-                  <Typography variant="overline" sx={{ fontSize: '0.28in' }}>دهون</Typography>
-            <Typography variant="h5" sx={{ fontSize: '0.5in' }}>{Math.round(totals.fat)} g</Typography>
+                  <Typography variant="overline" sx={{ fontSize: '0.28in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>دهون</Typography>
+            <Typography variant="h5" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(totals.fat)} g</Typography>
           </Stack>
         </Stack>
-        <Typography variant="subtitle1" color="text.secondary">Meals follow in the next pages</Typography>
+        <Typography variant="subtitle1" sx={{ color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>Meals follow in the next pages</Typography>
       </Box>
     );
 
@@ -173,12 +173,12 @@ export default function PublicPlanPreviewPage() {
     if (microEntries.length > 0) {
       pages.push(
         <Box key={`day-micro-${cycleIdx}`} sx={{ width: `${PAGE_W_IN}in`, height: `${PAGE_H_IN}in`, mx: 0, my: 0, p: { xs: 3, md: 6 }, display: 'flex', flexDirection: 'column', breakAfter: 'page', borderRadius: PAGE_RADIUS, overflow: 'hidden', backgroundImage: `url(${pageBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-          <Typography variant="h3" sx={{ textAlign: 'center', mb: 3, fontSize: '0.8in' }}>Micronutrients</Typography>
+          <Typography variant="h3" sx={{ textAlign: 'center', mb: 3, fontSize: '0.8in', color: '#000', fontFamily: 'Changa', fontWeight: 700, '@media (prefers-color-scheme: dark)': { color: '#000' } }}>Micronutrients</Typography>
           <Box className="micro-grid" sx={{ maxWidth: 900, mx: 'auto', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2 }}>
             {microEntries.map(([key, val]) => (
               <Box key={key} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 1 }}>
-                <Typography variant="subtitle1" sx={{ textAlign: 'center', fontSize: '0.35in' }}>{labels[key] || key.replace(/_/g, ' ')}</Typography>
-                <Typography variant="subtitle2" sx={{ textAlign: 'center', fontSize: '0.32in' }}>{Math.round(Number(val ?? 0))}</Typography>
+                <Typography variant="subtitle1" sx={{ textAlign: 'center', fontSize: '0.35in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{labels[key] || key.replace(/_/g, ' ')}</Typography>
+                <Typography variant="subtitle2" sx={{ textAlign: 'center', fontSize: '0.32in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(Number(val ?? 0))}</Typography>
               </Box>
             ))}
           </Box>
@@ -238,22 +238,22 @@ export default function PublicPlanPreviewPage() {
                 {/* Row 1 intentionally empty to match the image header */}
                 <Box sx={{ gridRow: 2, width: '75%', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', transform: 'translateY(0.3in)' }}>
                   <Box sx={{ display: 'flex', gap: '0.25in', alignItems: 'baseline' }}>
-                    <Typography variant="overline" sx={{ fontSize: '0.35in' }}>kcal</Typography>
-                    <Typography variant="h6" sx={{ fontSize: '0.6in' }}>{Math.round(mealTotals.calories)}</Typography>
+                    <Typography variant="overline" sx={{ fontSize: '0.45in',fontFamily: 'Baloo Bhaijaan 2', fontWeight: 500, color: '#FF7F50', '@media (prefers-color-scheme: dark)': { color: '#FF7F50' } }}>kcal</Typography>
+                    <Typography variant="h6" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(mealTotals.calories)}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', gap: '0.25in', alignItems: 'baseline' }}>
-                    <Typography variant="overline" sx={{ fontSize: '0.35in' }}>P</Typography>
-                    <Typography variant="h6" sx={{ fontSize: '0.6in' }}>{Math.round(mealTotals.protein)}</Typography>
+                  <Box sx={{ display: 'flex', gap: '1.0in', alignItems: 'baseline' }}>
+                    <Typography variant="overline" sx={{ fontSize: '0.45in', color: '#FF7F50',fontFamily: 'Baloo Bhaijaan 2', fontWeight: 500, '@media (prefers-color-scheme: dark)': { color: '#FF7F50' } }}>P</Typography>
+                    <Typography variant="h6" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(mealTotals.protein)}</Typography>
                   </Box>
                 </Box>
-                <Box sx={{ gridRow: 3, width: '75%', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', transform: 'translateY(0.16in)' }}>
+                <Box sx={{ gridRow: 3, width: '70%', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', transform: 'translateY(0.16in)' }}>
                   <Box sx={{ display: 'flex', gap: '0.25in', alignItems: 'baseline' }}>
-                    <Typography variant="overline" sx={{ fontSize: '0.35in' }}>C</Typography>
-                    <Typography variant="h6" sx={{ fontSize: '0.6in' }}>{Math.round(mealTotals.carbs)}</Typography>
+                    <Typography variant="overline" sx={{ fontSize: '0.35in', color: '#FF7F50', '@media (prefers-color-scheme: dark)': { color: '#FF7F50' } }}>C</Typography>
+                    <Typography variant="h6" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(mealTotals.carbs)}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', gap: '0.25in', alignItems: 'baseline' }}>
-                    <Typography variant="overline" sx={{ fontSize: '0.35in' }}>F</Typography>
-                    <Typography variant="h6" sx={{ fontSize: '0.6in' }}>{Math.round(mealTotals.fat)}</Typography>
+                  <Box sx={{ display: 'flex', gap: '1.0in', alignItems: 'baseline' }}>
+                    <Typography variant="overline" sx={{ fontSize: '0.59in', color: '#FF7F50', '@media (prefers-color-scheme: dark)': { color: '#FF7F50' } }}>F</Typography>
+                    <Typography variant="h6" sx={{ fontSize: '0.5in', color: '#000', '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{Math.round(mealTotals.fat)}</Typography>
                   </Box>
                 </Box>
               </Box>
@@ -263,7 +263,7 @@ export default function PublicPlanPreviewPage() {
           {/* Right section: title and items list (RTL: name then quantity) */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }} dir="rtl">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 3, gap: 2 }}>
-              <Typography variant="h3" sx={{ textAlign: 'right', fontSize: '0.9in' }}>{mealName}</Typography>
+              <Typography variant="h3" sx={{ textAlign: 'right', fontSize: '0.9in', color: '#000', fontFamily: 'Changa', fontWeight: 700, '@media (prefers-color-scheme: dark)': { color: '#00A36C' } }}>{mealName}</Typography>
               {(meal as any).recipeVideoUrl && (
                 <Box
                   component="a"
@@ -306,12 +306,19 @@ export default function PublicPlanPreviewPage() {
                 const servings = Number(it.servings ?? 1);
                 return (
                   <Box key={i} sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 1.5, borderBottom: '1px dashed', borderColor: 'divider', pb: 1 }}>
-                    <Typography variant="subtitle1" sx={{ textAlign: 'right', fontSize: '0.38in' }}>{fi.nameArabic || fi.titleArabic || fi.name || fi.title || 'Item'}</Typography>
-                    <Typography variant="subtitle2" sx={{ textAlign: 'right', fontSize: '0.36in' }}>{servings}</Typography>
+                    <Typography variant="subtitle1" sx={{ textAlign: 'right', fontSize: '0.38in', color: '#000', fontFamily: 'Baloo Bhaijaan 2', fontWeight: 500, '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{fi.nameArabic || fi.titleArabic || fi.name || fi.title || 'Item'}</Typography>
+                    <Typography variant="subtitle2" sx={{ textAlign: 'right', fontSize: '0.36in', color: '#000', fontFamily: 'Baloo Bhaijaan 2', fontWeight: 500, '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{servings}</Typography>
                   </Box>
                 );
               })}
             </Stack>
+            {/* Meal Notes */}
+            {(meal as any).notes && (
+              <Box sx={{ mt: 3, p: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)', borderRadius: 2, border: '1px solid #ddd' }}>
+                <Typography variant="subtitle2" sx={{ fontSize: '0.32in', color: '#666', fontFamily: 'Baloo Bhaijaan 2', fontWeight: 400, mb: 1, '@media (prefers-color-scheme: dark)': { color: '#666' } }}>ملاحظات:</Typography>
+                <Typography variant="body2" sx={{ fontSize: '0.35in', color: '#000', fontFamily: 'Baloo Bhaijaan 2', fontWeight: 400, textAlign: 'right', lineHeight: 1.4, '@media (prefers-color-scheme: dark)': { color: '#000' } }}>{(meal as any).notes}</Typography>
+              </Box>
+            )}
           </Box>
         </Box>
       );
@@ -333,6 +340,32 @@ export default function PublicPlanPreviewPage() {
   return (
     <Box className="print-container" sx={{ p: 2 }}>
       <style jsx global>{`
+        /* Font Face Declarations */
+        @font-face {
+          font-family: 'Changa';
+          src: url('/assets/fonts/Changa/static/Changa-Regular.ttf') format('truetype');
+          font-weight: 400;
+          font-style: normal;
+        }
+        @font-face {
+          font-family: 'Changa';
+          src: url('/assets/fonts/Changa/static/Changa-Bold.ttf') format('truetype');
+          font-weight: 700;
+          font-style: normal;
+        }
+        @font-face {
+          font-family: 'Baloo Bhaijaan 2';
+          src: url('/assets/fonts/Baloo_Bhaijaan_2,Changa/Baloo_Bhaijaan_2/static/BalooBhaijaan2-Regular.ttf') format('truetype');
+          font-weight: 400;
+          font-style: normal;
+        }
+        @font-face {
+          font-family: 'Baloo Bhaijaan 2';
+          src: url('/assets/fonts/Baloo_Bhaijaan_2,Changa/Baloo_Bhaijaan_2/static/BalooBhaijaan2-Medium.ttf') format('truetype');
+          font-weight: 500;
+          font-style: normal;
+        }
+
         /* Hide settings buttons and layouts - always hidden */
         button[aria-label*="settings"], 
         button[aria-label*="Settings"],
