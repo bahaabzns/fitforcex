@@ -5,7 +5,6 @@ export type PdfTemplate = {
   workspaceId: string;
   name: string;
   kind: 'nutrition' | 'workout';
-  previewUrl?: string | null;
   updatedAt?: string;
 };
 
@@ -21,7 +20,6 @@ export async function createPdfTemplate(input: {
   html?: string;
   schema?: unknown;
   config?: unknown;
-  previewUrl?: string;
 }) {
   const res = await api.post('/api/templates', input);
   return res.data as { template: PdfTemplate };
@@ -41,11 +39,6 @@ export async function uploadHtmlTemplate(templateId: string, file: File | null, 
     return res.data as { template: PdfTemplate };
   }
   throw new Error('Provide a File or html text');
-}
-
-export async function previewTemplate(templateId: string) {
-  const res = await api.get(`/api/templates/${templateId}/preview`);
-  return res.data as { pdfUrl: string };
 }
 
 export async function generatePdfFromTemplate(args: {

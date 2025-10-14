@@ -17,7 +17,7 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { Close, Visibility, Image as ImageIcon, Search } from '@mui/icons-material';
+import { Close, Search } from '@mui/icons-material';
 import ImageAssetManager from './ImageAssetManager';
 import api from '@/utils/axios';
 
@@ -100,7 +100,6 @@ function resolvePlaceholders(text: string, data?: Record<string, any>): string {
 export default function PdfBuilder({ value, onChange, constants, previewData, extraBlocks, workspaceId }: PdfBuilderProps) {
   const [html, setHtml] = useState<string>(value);
   const [filter, setFilter] = useState("");
-  const [showPreview, setShowPreview] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [imageAssets, setImageAssets] = useState<TemplateAsset[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(false);
@@ -196,23 +195,6 @@ export default function PdfBuilder({ value, onChange, constants, previewData, ex
       snippet: `<img src="${asset.url}" alt="${asset.name}" style="max-width:100%;height:auto;border-radius:6px;margin:8px 0"/>`
     }));
   }, [imageAssets]);
-
-  const previewHtml = useMemo(() => resolvePlaceholders(html, previewData), [html, previewData]);
-  const previewWrapped = useMemo(() => {
-    const baseCss = `
-      :root { --primary: ${constants?.primaryColor || '#1976d2'}; }
-      * { box-sizing: border-box; }
-      body { margin: 0; padding: 16px; font-family: ${constants?.fontFamily || 'system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial'}; color: ${constants?.textColor || '#111827'}; font-size: 12px; }
-      h1,h2,h3 { margin: 0 0 8px; font-weight: 600; }
-      p { margin: 0 0 8px; }
-      hr { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { border: 1px solid #e5e7eb; padding: 6px; text-align: left; }
-      thead th { background: #f3f4f6; }
-      img { max-width: 100%; height: auto; }
-    `;
-    return `<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>${baseCss}</style></head><body>${previewHtml}</body></html>`;
-  }, [previewHtml, constants?.primaryColor, constants?.fontFamily, constants?.textColor]);
 
   return (
     <>
@@ -336,15 +318,6 @@ export default function PdfBuilder({ value, onChange, constants, previewData, ex
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   Template Canvas
                 </Typography>
-                <Button
-                  onClick={() => setShowPreview(true)}
-                  size="small"
-                  variant="contained"
-                  startIcon={<Visibility />}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  Preview
-                </Button>
               </Box>
               <Box
                 ref={canvasRef}
@@ -399,65 +372,6 @@ export default function PdfBuilder({ value, onChange, constants, previewData, ex
           </Card>
         </Grid>
       </Grid>
-
-      {/* Preview Modal */}
-      <Modal
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 2
-        }}
-      >
-        <Paper sx={{
-          width: '90%',
-          maxWidth: '1200px',
-          height: '90%',
-          maxHeight: '800px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between', 
-            p: 2, 
-            borderBottom: 1, 
-            borderColor: 'grey.200' 
-          }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Template Preview
-            </Typography>
-            <IconButton onClick={() => setShowPreview(false)}>
-              <Close />
-            </IconButton>
-          </Box>
-          <Box sx={{ flex: 1, overflow: 'hidden' }}>
-            <iframe 
-              title="preview" 
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              srcDoc={previewWrapped} 
-            />
-          </Box>
-          <Box sx={{ p: 2, borderTop: 1, borderColor: 'grey.200', bgcolor: 'grey.50' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="body2" sx={{ color: 'grey.600' }}>
-                This preview shows how your template will look with sample data
-              </Typography>
-              <Button
-                onClick={() => setShowPreview(false)}
-                variant="contained"
-                size="small"
-              >
-                Close Preview
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
-      </Modal>
 
       {/* Manage Images Modal - reuse ImageAssetManager so uploads are immediately available */}
       <Modal

@@ -43,7 +43,6 @@ import MobileSwipeableSections from '@/components/MobileSwipeableSections';
 import LoadPlanDialog from '@/components/LoadPlanDialog';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import { useAppSelector } from '@/store';
 
 interface Exercise {
   id: string;
@@ -68,7 +67,6 @@ interface Plan {
 
 export default function ClientWorkoutPage() {
   const { id: clientId } = useParams() as { id: string };
-  const workspaceId = useAppSelector((s: any) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileSection, setMobileSection] = useState(0);
@@ -710,32 +708,15 @@ export default function ClientWorkoutPage() {
                 {saving ? 'Saving...' : 'Save Plan'}
               </Button>
             )}
-            {/* Preview and Send PDF for selected saved plan */}
+            {/* Send PDF for selected saved plan */}
             {selectedPlanId && !String(selectedPlanId).startsWith('local_') && (
-              <>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {
-                    if (selectedPlanId && workspaceId) {
-                      const url = `/plans/workout/${selectedPlanId}?workspaceId=${workspaceId}`;
-                      console.log('Opening preview URL:', url);
-                      window.open(url, '_blank');
-                    } else {
-                      console.error('Missing selectedPlanId or workspaceId', { selectedPlanId, workspaceId });
-                    }
-                  }}
-                >
-                  Preview
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={openPdfDialog}
-                >
-                  Send PDF
-                </Button>
-              </>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={openPdfDialog}
+              >
+                Send PDF
+              </Button>
             )}
           </Stack>
         </Box>

@@ -678,38 +678,6 @@ export default function WorkspacePage() {
                   </Grid>
 
                     <Stack direction="row" spacing={2} alignItems="center">
-                      {tplUseConfig && (
-                        <Button
-                          variant="outlined"
-                          onClick={async () => {
-                            try {
-                              const backgrounds: any = {};
-                              if (cfgCover.trim()) backgrounds.cover = cfgCover.trim();
-                              if (tplKind === 'nutrition') {
-                                if (cfgCycles.length > 0) backgrounds.cycle = cfgCycles; else if (cfgCycle.trim()) backgrounds.cycle = cfgCycle.trim();
-                              }
-                              if (cfgMealsBg.trim()) backgrounds.meals = cfgMealsBg.trim();
-                              const res = await api.post('/api/templates/preview', {
-                                kind: tplKind,
-                                config: {
-                                  orientation: cfgOrientation,
-                                  backgrounds,
-                                  mealsLayout: {
-                                    mode: cfgMealsMode,
-                                    imageHalf: cfgImageHalf,
-                                    itemsPerPage: Math.max(1, Number(cfgItemsPerPage) || 1),
-                                    tableStyle: cfgTableStyle,
-                                    tableColor: cfgTableColor
-                                  }
-                                }
-                              });
-                              const url = res.data?.pdfUrl; if (url) window.open(url, '_blank');
-                            } catch (e) {}
-                          }}
-                        >
-                          Live Preview
-                        </Button>
-                      )}
                     <Button
                       variant="contained"
                       disabled={tplUseConfig ? !(tplName.trim().length > 0) || tplCreating : !canCreateTpl}

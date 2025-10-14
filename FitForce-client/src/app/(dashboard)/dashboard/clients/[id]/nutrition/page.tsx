@@ -1243,13 +1243,6 @@ export default function ClientNutritionPage() {
         <Typography variant="h5">{clientName || 'Client'}</Typography>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" onClick={handleSavePlan} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-          <Button
-            variant="outlined"
-            onClick={() => { if (selectedPlanId && !selectedPlanId.startsWith('tmp-')) window.open(`/plans/${selectedPlanId}`, '_blank'); }}
-            disabled={!selectedPlanId || selectedPlanId.startsWith('tmp-')}
-          >
-            Preview
-          </Button>
           <Button variant="outlined" onClick={handleSendAsPdf} disabled={!selectedPlanId || generatingPdf}>{generatingPdf ? 'Generating…' : 'Send as PDF'}</Button>
           <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={!selectedPlanId || activating}>
             {activating ? 'Activating…' : 'Activate'}
