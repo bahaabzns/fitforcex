@@ -68,6 +68,7 @@ export default function ClientSubscriptionPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const intl = useIntl();
   
   // State for subscriptions
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);

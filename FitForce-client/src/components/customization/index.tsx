@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 // material-ui
 import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
-import Fab from '@mui/material/Fab';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -26,7 +25,7 @@ import SimpleBar from 'components/third-party/SimpleBar';
 import { HEADER_HEIGHT } from 'config';
 
 // assets
-import { Add, Setting2 } from '@wandersonalwes/iconsax-react';
+import { Add } from '@wandersonalwes/iconsax-react';
 
 // ==============================|| HEADER CONTENT - CUSTOMIZATION ||============================== //
 
@@ -56,38 +55,6 @@ export default function Customization() {
 
   return (
     <>
-      <Fab
-        component="div"
-        onClick={handleToggle}
-        size="large"
-        variant="circular"
-        sx={(theme) => ({
-          borderRadius: 0,
-          borderTopLeftRadius: '50%',
-          borderBottomLeftRadius: '50%',
-          borderTopRightRadius: '4px',
-          borderBottomRightRadius: '4px',
-          top: '14%',
-          position: 'fixed',
-          right: 0,
-          zIndex: 1200,
-          boxShadow: theme.customShadows.z1,
-          bgcolor: 'background.paper',
-          border: '4px solid ',
-          borderColor: 'background.paper',
-          borderRight: 'none',
-          '&:hover': { bgcolor: 'primary.lighter' }
-        })}
-      >
-        <IconButton
-          onClick={handleToggle}
-          aria-label="settings toggler"
-          size="large"
-          sx={{ p: 0, '& :hover': { bgcolor: 'red' }, '& svg': { width: 28, height: 28 } }}
-        >
-          <Setting2 variant="Bulk" />
-        </IconButton>
-      </Fab>
       <Drawer
         sx={{
           zIndex: 2001

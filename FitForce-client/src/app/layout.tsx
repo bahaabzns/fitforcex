@@ -1,11 +1,7 @@
 import { ReactNode } from 'react';
-
 import type { Metadata } from 'next';
-
 import './globals.css';
-
-// project-imports
-import ProviderWrapper from './ProviderWrapper';
+import ClientLayout from './ClientLayout';
 
 export const metadata: Metadata = {
   title: 'FitForce',
@@ -20,8 +16,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
+      <head>
+      </head>
       <body>
-        <ProviderWrapper>{children}</ProviderWrapper>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

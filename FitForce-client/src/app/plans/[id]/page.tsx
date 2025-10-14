@@ -26,9 +26,10 @@ export default function PublicPlanPreviewPage() {
       const timestamp = Date.now();
       const cyclesRes = await api.get(`/api/nutrition/plans/${id}/cycles?t=${timestamp}`, { headers });
       console.log('✅ Successfully fetched nutrition plan cycles');
-      const planTitle = (cyclesRes.data as any)?.plan?.title || 'Nutrition Plan';
+      const planData = (cyclesRes.data as any)?.plan || {};
+      const planTitle = planData.title || 'Nutrition Plan';
       const cycles = (cyclesRes.data as any)?.cycles || [];
-      return { plan: { id, title: planTitle, cycles } as any } as { plan: { id: string; title: string; cycles: Array<any> } };
+      return { plan: { id, title: planTitle, cycles, plan: planData } as any } as { plan: { id: string; title: string; cycles: Array<any>; plan: { waterForDay?: number; waterForTraining?: number } } };
     } catch (e) {
       console.error('❌ Failed to fetch plan cycles:', e);
       throw e;
@@ -325,6 +326,57 @@ export default function PublicPlanPreviewPage() {
     });
   });
 
+  // Water Values Page - Before last page
+  pages.push(
+    <Box key="water-values" sx={{ 
+      width: `${PAGE_W_IN}in`, 
+      height: `${PAGE_H_IN}in`, 
+      mx: 0, 
+      my: 0, 
+      backgroundImage: `url(https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmgp9m7bp0010bsov8v1f19fg/template-assets/1760385836910-Copy_of_test_FMX_Ar_Nutrition_Template__Captain_Maged__page-0004.jpg)`, 
+      backgroundSize: 'cover', 
+      backgroundPosition: 'center', 
+      breakAfter: 'page', 
+      borderRadius: PAGE_RADIUS, 
+      overflow: 'hidden',
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      {/* Water for Training - Positionable */}
+      <Box sx={{
+        position: 'absolute',
+        top: '60%',
+        left: '22%',
+        backgroundColor: 'rgba(255, 255, 255, 0)',
+        padding: 2,
+        borderRadius: 1,
+        textAlign: 'center'
+      }}>
+        <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'black' }}>
+          {(plan as any).plan?.waterForTraining || 'Not set'}
+        </Typography>
+      </Box>
+
+      {/* Water for Day - Positionable */}
+      <Box sx={{
+        position: 'absolute',
+        top: '60%',
+        right: '22%',
+        backgroundColor: 'rgba(255, 255, 255, 0)',
+        padding: 2,
+        borderRadius: 1,
+        textAlign: 'center'
+      }}>
+        <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'black' }}>
+          {(plan as any).plan?.waterForDay || 'Not set'}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
   // Ending pages with provided backgrounds
   const endPages = [
     'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmgbk5yo40001bsed99nfm7um/template-assets/1760007620334-Screenshot_From_2025-10-09_13-59-09.png',
@@ -402,6 +454,8 @@ export default function PublicPlanPreviewPage() {
       <Stack className="print-stack" spacing={4} alignItems="center">
         {pages}
       </Stack>
+      
+
       <Fab className="no-print" color="primary" aria-label="Print" onClick={() => window.print()} sx={{ position: 'fixed', right: 24, bottom: 24, zIndex: 2000 }}>
         <PrintIcon />
       </Fab>

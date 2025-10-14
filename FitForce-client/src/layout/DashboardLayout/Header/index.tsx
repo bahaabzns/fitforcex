@@ -33,11 +33,10 @@ export default function Header() {
   const headerContent = useMemo(() => <HeaderContent />, []);
 
   // common header
-  const mainHeader: ReactNode = (
+const mainHeader: ReactNode = (
     <Toolbar sx={{ px: { xs: 2, sm: 2.5, md: 4.5, lg: 8 } }}>
       {!isHorizontal ? (
         <IconButton
-          aria-label="open drawer"
           onClick={() => handlerDrawerOpen(!drawerOpen)}
           edge="start"
           color="secondary"
@@ -56,6 +55,8 @@ export default function Header() {
         </IconButton>
       ) : null}
       {headerContent}
+      <div style={{ marginLeft: 'auto' }}>
+      </div>
     </Toolbar>
   );
 

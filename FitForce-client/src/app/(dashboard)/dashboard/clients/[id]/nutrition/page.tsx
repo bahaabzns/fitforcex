@@ -68,6 +68,8 @@ interface Plan {
   status?: string;
   clientId?: string;
   cycles?: Cycle[];
+  waterForDay?: number;
+  waterForTraining?: number;
 }
 
 interface Cycle {
@@ -155,6 +157,7 @@ export default function ClientNutritionPage() {
   const [loadingRecipes, setLoadingRecipes] = useState(false);
   const [recipeDropdownOpen, setRecipeDropdownOpen] = useState(false);
   const [plansTab, setPlansTab] = useState(0); // 0: Plans, 1: Forms, 2: Tools
+  const [planTab, setPlanTab] = useState(0); // 0: Cycles & Meals, 1: Water
   const [dragFoodIndex, setDragFoodIndex] = useState<number | null>(null);
   const [editingPlanTitleId, setEditingPlanTitleId] = useState<string | null>(null);
   const [editingPlanTitleValue, setEditingPlanTitleValue] = useState('');
@@ -162,6 +165,8 @@ export default function ClientNutritionPage() {
   const [editingMealTitleValue, setEditingMealTitleValue] = useState('');
   const [editingCycleId, setEditingCycleId] = useState<string | null>(null);
   const [editingCycleValue, setEditingCycleValue] = useState('');
+  const [waterForDay, setWaterForDay] = useState<number>(0);
+  const [waterForTraining, setWaterForTraining] = useState<number>(0);
   // Inline Messenger (Chat Tab)
   const [chatThreadId, setChatThreadId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -516,19 +521,18 @@ export default function ClientNutritionPage() {
   const loadAllPlansData = async () => {
     try {
       setLoadingPlans(true);
-      const response = await api.get(`/api/nutrition/plans`);
+      // Use client-specific endpoint to only load plans for this client
+      const response = await api.get(`/api/clients/${clientId}/nutrition/plans`);
       const plansData = response.data.plans || [];
-      
-      // Filter plans for the current client
-      const clientPlans = plansData.filter((plan: Plan) => plan.clientId === clientId);
       
       // Load cycles and meals for each plan
       const plansWithData = await Promise.all(
-        clientPlans.map(async (plan: Plan) => {
+        plansData.map(async (plan: Plan) => {
           try {
-            // Load cycles for this plan
-            const cyclesResponse = await api.get(`/api/clients/${clientId}/nutrition/plans/${plan.id}/cycles`);
+            // Load cycles for this plan using the endpoint that includes water data
+            const cyclesResponse = await api.get(`/api/nutrition/plans/${plan.id}/cycles`);
             const cycles = cyclesResponse.data.cycles || [];
+            const planData = cyclesResponse.data.plan || {};
             
             // Load meals for each cycle
             const cyclesWithMeals = await Promise.all(
@@ -552,15 +556,23 @@ export default function ClientNutritionPage() {
               })
             );
             
-            return {
+            const updatedPlan = {
               ...plan,
-              cycles: cyclesWithMeals
+              cycles: cyclesWithMeals,
+              // Include water data from the plan response
+              waterForDay: planData.waterForDay || 0,
+              waterForTraining: planData.waterForTraining || 0
             };
+            
+            
+            return updatedPlan;
           } catch (err) {
             console.warn(`Failed to load cycles for plan ${plan.id}:`, err);
             return {
               ...plan,
-              cycles: []
+              cycles: [],
+              waterForDay: 0,
+              waterForTraining: 0
             };
           }
         })
@@ -644,12 +656,28 @@ export default function ClientNutritionPage() {
     } else {
       setCurrentMeals([]);
     }
+    
     // Preserve selected meal if it still exists in this cycle; otherwise clear it
     if (selectedMealId) {
       const stillExists = !!selectedCycle?.meals?.some((m) => m.id === selectedMealId);
       if (!stillExists) setSelectedMealId(null);
     }
   }, [selectedCycleId, currentCycles]);
+
+      // Update water values when plan is selected
+  useEffect(() => {
+    if (!selectedPlanId) {
+      setWaterForDay(0);
+      setWaterForTraining(0);
+      return;
+    }
+
+    const selectedPlan = plans.find(p => p.id === selectedPlanId);
+    if (selectedPlan) {
+      setWaterForDay(selectedPlan.waterForDay || 0);
+      setWaterForTraining(selectedPlan.waterForTraining || 0);
+    }
+  }, [selectedPlanId, plans]);
 
   // When switching to a different plan explicitly, clear selected meal
   useEffect(() => {
@@ -883,15 +911,21 @@ export default function ClientNutritionPage() {
         items: (cycle.meals || []).flatMap((meal) => {
           // Find the corresponding meal in currentMeals to get recipe data
           const currentMeal = currentMeals.find(m => m.id === meal.id);
-          const mealItems = (meal.foodItems || []).map((item) => ({
-            foodItemId: item.foodItemId,
-            servings: item.quantity,
-            meal: meal.meal || '',
-            notes: meal.notes || '',
-            recipeName: (currentMeal as any)?.recipeName || '',
-            recipeNameArabic: (currentMeal as any)?.recipeNameArabic || '',
-            recipeImageUrl: (currentMeal as any)?.recipeImageUrl || ''
-          }));
+          const mealItems = (meal.foodItems || []).map((item) => {
+            const servingSize = (item as any)?.foodItem?.servingSize || 100;
+            const override = (editingQuantities as any)?.[item.id];
+            const candidate = override ?? (item as any)?.quantity ?? ((item as any)?.servings ? (Number((item as any).servings) * servingSize) : undefined);
+            const quantity = typeof candidate === 'number' ? candidate : Number(candidate);
+            return {
+              foodItemId: item.foodItemId,
+              quantity: Number.isFinite(quantity) ? quantity : 0,
+              meal: meal.meal || '',
+              notes: meal.notes || '',
+              recipeName: (currentMeal as any)?.recipeName || '',
+              recipeNameArabic: (currentMeal as any)?.recipeNameArabic || '',
+              recipeImageUrl: (currentMeal as any)?.recipeImageUrl || ''
+            };
+          });
           
           // If meal has recipe but no food items, create a recipe-only item
           if (mealItems.length === 0 && (currentMeal as any)?.recipeName) {
@@ -913,6 +947,20 @@ export default function ClientNutritionPage() {
       await api.put(`/api/nutrition/plans/${serverPlanId}/days`, {
         days: daysData
       });
+
+      // 5) Update plan metadata including water data
+      await api.put(`/api/nutrition/plans/${serverPlanId}`, {
+        title: selectedPlan.title,
+        waterForDay: selectedPlan.waterForDay || 0,
+        waterForTraining: selectedPlan.waterForTraining || 0,
+      });
+
+      // Update local state immediately with the saved water data
+      setPlans((prev) => prev.map((p) => 
+        p.id === selectedPlanId 
+          ? { ...p, waterForDay: selectedPlan.waterForDay || 0, waterForTraining: selectedPlan.waterForTraining || 0 }
+          : p
+      ));
 
       setIsPlanDirty(false);
       
@@ -1341,7 +1389,7 @@ export default function ClientNutritionPage() {
                   const isSelected = selectedPlanId === plan.id;
                   const createdDate = plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : undefined;
                   return (
-                    <Grid item xs={12} key={plan.id}>
+                    <Box key={plan.id}>
                       <Card
                         onClick={() => {
                           if (selectedPlanId !== plan.id) {
@@ -1379,7 +1427,7 @@ export default function ClientNutritionPage() {
                           </IconButton>
                         </Box>
                       </Card>
-                    </Grid>
+                    </Box>
                   );
                 })}
               </Grid>
@@ -1461,76 +1509,130 @@ export default function ClientNutritionPage() {
                   }
                 : {})
             }}>
-              {currentCycle ? (
-                <Box>
-                  {/* Current Cycle Header */}
-                  <Box sx={{ 
-                    p: 2, 
-                    mb: 2, 
-                    backgroundColor: 'primary.main', 
-                    color: 'primary.contrastText',
-                    borderRadius: 1,
-                    textAlign: 'center'
-                  }}>
-                    <Typography variant="h6">{currentCycle.label}</Typography>
-                    <Typography variant="body2">Day {currentCycle.dayIndex}</Typography>
-                  </Box>
-                  
-                  {/* Meals under current cycle stacked vertically */}
-                  <Grid container spacing={2} direction="column">
-                    {currentMeals.map((meal) => (
-                      <Grid item xs={12} key={meal.id}>
-                        <Card
-                          sx={{
-                            border: selectedMealId === meal.id ? 2 : 1,
-                            borderColor: selectedMealId === meal.id ? 'secondary.main' : 'divider',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => {
-                            setSelectedMealId(meal.id);
-                            // On mobile, automatically move to section 3 (meal details) when meal is selected
-                            if (isMobile) {
-                              setMobileSection(2);
-                            }
-                          }}
-                        >
-                          <CardHeader title={meal.meal} />
-                          <CardContent>
-                            <Typography variant="body2" color="text.secondary">
-                              {meal.foodItems?.length || 0} food item(s)
-                            </Typography>
-                            {(() => {
-                              const t = computeMealTotals(meal);
-                              return (
-                                <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                  {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
+              {/* Main Plan Tabs */}
+              <Box sx={{ mb: 2 }}>
+                <Tabs value={planTab} onChange={(_, v) => setPlanTab(v)} variant="fullWidth">
+                  <Tab label="Cycles & Meals" />
+                  <Tab label="Water" />
+                </Tabs>
+              </Box>
+
+              {/* Content based on selected tab */}
+              {planTab === 0 ? (
+                <>
+                  {currentCycle ? (
+                    <Box>
+                      {/* Current Cycle Header */}
+                      <Box sx={{ 
+                        p: 2, 
+                        mb: 2, 
+                        backgroundColor: 'primary.main', 
+                        color: 'primary.contrastText',
+                        borderRadius: 1,
+                        textAlign: 'center'
+                      }}>
+                        <Typography variant="h6">{currentCycle.label}</Typography>
+                        <Typography variant="body2">Day {currentCycle.dayIndex}</Typography>
+                      </Box>
+                      
+                      {/* Meals under current cycle stacked vertically */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {currentMeals.map((meal) => (
+                          <Box key={meal.id}>
+                            <Card
+                              sx={{
+                                border: selectedMealId === meal.id ? 2 : 1,
+                                borderColor: selectedMealId === meal.id ? 'secondary.main' : 'divider',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                setSelectedMealId(meal.id);
+                                // On mobile, automatically move to section 3 (meal details) when meal is selected
+                                if (isMobile) {
+                                  setMobileSection(2);
+                                }
+                              }}
+                            >
+                              <CardHeader title={meal.meal} />
+                              <CardContent>
+                                <Typography variant="body2" color="text.secondary">
+                                  {meal.foodItems?.length || 0} food item(s)
                                 </Typography>
-                              );
-                            })()}
-                          </CardContent>
-                        </Card>
-                      </Grid>
-                    ))}
-                    <Grid item xs={12}>
-                      <Card
-                        sx={{
-                          border: '1px dashed',
-                          borderColor: 'divider',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        onClick={() => setIsCreateMealDialogOpen(true)}
-                      >
-                        <Button startIcon={<Add size={16} />}>Add Meal</Button>
-                      </Card>
-                    </Grid>
-                  </Grid>
-                </Box>
+                                {(() => {
+                                  const t = computeMealTotals(meal);
+                                  return (
+                                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                      {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
+                                    </Typography>
+                                  );
+                                })()}
+                              </CardContent>
+                            </Card>
+                          </Box>
+                        ))}
+                        <Box>
+                          <Card
+                            sx={{
+                              border: '1px dashed',
+                              borderColor: 'divider',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onClick={() => setIsCreateMealDialogOpen(true)}
+                          >
+                            <Button startIcon={<Add size={16} />}>Add Meal</Button>
+                          </Card>
+                        </Box>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography color="text.secondary">No cycle selected</Typography>
+                    </Box>
+                  )}
+                </>
               ) : (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography color="text.secondary">No cycle selected</Typography>
-                </Box>
+                <>
+                  {/* Water tab content */}
+                  <Box sx={{ py: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Water Intake</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <TextField
+                        fullWidth
+                        label="Water for the Day (ml)"
+                        type="number"
+                        value={waterForDay}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setWaterForDay(value);
+                          if (selectedPlanId) {
+                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForDay: value })));
+                            setIsPlanDirty(true);
+                          }
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Water for Training (ml)"
+                        type="number"
+                        value={waterForTraining}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setWaterForTraining(value);
+                          if (selectedPlanId) {
+                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForTraining: value })));
+                            setIsPlanDirty(true);
+                          }
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                    </Box>
+                  </Box>
+                </>
               )}
             </CardContent>
           </Card>,
@@ -1829,7 +1931,7 @@ export default function ClientNutritionPage() {
                     const isSelected = selectedPlanId === plan.id;
                     const createdDate = plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : undefined;
                     return (
-                      <Grid item xs={12} key={plan.id}>
+                      <Box key={plan.id}>
                         <Card
                           onClick={() => {
                             if (selectedPlanId !== plan.id) {
@@ -1868,7 +1970,7 @@ export default function ClientNutritionPage() {
                             </IconButton>
                           </Box>
                         </Card>
-                      </Grid>
+                      </Box>
                     );
                   })}
                 </Grid>
@@ -1913,7 +2015,18 @@ export default function ClientNutritionPage() {
                   <IconButton size="medium" onClick={() => { setSelectedPlanId(null); setSelectedMealId(null); }} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
                 </Box>
 
-                {/* Row 2: Cycle header */}
+                {/* Main Plan Tabs */}
+                <Box sx={{ mb: 2 }}>
+                  <Tabs value={planTab} onChange={(_, v) => setPlanTab(v)} variant="fullWidth">
+                    <Tab label="Cycles & Meals" />
+                    <Tab label="Water" />
+                  </Tabs>
+                </Box>
+
+                {/* Content based on selected tab */}
+                {planTab === 0 ? (
+                  <>
+                    {/* Row 2: Cycle header */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', mb: 1, columnGap: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <IconButton size="small" onClick={handlePreviousCycle} disabled={!canGoPrevious}><ArrowLeft2 size={16} /></IconButton>
@@ -1968,84 +2081,127 @@ export default function ClientNutritionPage() {
                 </Box>
                 <Divider sx={{ mb: 1 }} />
 
-                {/* Row 3: Meals header */}
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="subtitle2">Meals</Typography>
-                  <Button variant="contained" size="small" startIcon={<Add size={16} />} onClick={() => setIsCreateMealDialogOpen(true)}>New Meal</Button>
-                </Box>
+                    {/* Meals header */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="subtitle2">Meals</Typography>
+                      <Button variant="contained" size="small" startIcon={<Add size={16} />} onClick={() => setIsCreateMealDialogOpen(true)}>New Meal</Button>
+                    </Box>
 
-                {/* Row 4: Meals list */}
-                {currentCycle ? (
-                    <Grid container spacing={2} direction="column">
-                      {currentMeals.map((meal) => (
-                        <Grid item xs={12} key={meal.id}>
-                          <Card
-                          onClick={() => setSelectedMealId(meal.id)}
-                            sx={{
-                            cursor: 'pointer',
-                            border: '1px solid',
-                            borderColor: selectedMealId === meal.id ? 'primary.main' : 'divider',
-                            bgcolor: selectedMealId === meal.id ? 'primary.lighter' : 'background.paper',
-                            position: 'relative',
-                            boxShadow: 'none',
-                            '&:hover .meal-actions': { opacity: 1 }
-                          }}
-                        >
-                          <CardContent sx={{ py: 1.25 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: selectedMealId === meal.id ? 'primary.main' : undefined }}>{meal.meal}</Typography>
-                              {(() => { const t = computeMealTotals(meal); return (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary' }}>
-                                  <Typography variant="caption" sx={{ fontSize: 12 }}>{t.calories} kcal</Typography>
-                                  <Typography variant="caption" sx={{ fontSize: 12 }}>P: {t.protein}g</Typography>
-                                  <Typography variant="caption" sx={{ fontSize: 12 }}>C: {t.carbs}g</Typography>
-                                  <Typography variant="caption" sx={{ fontSize: 12 }}>F: {t.fat}g</Typography>
+                    {/* Meals list */}
+                    {currentCycle ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {currentMeals.map((meal) => (
+                            <Box key={meal.id}>
+                              <Card
+                              onClick={() => setSelectedMealId(meal.id)}
+                                sx={{
+                                cursor: 'pointer',
+                                border: '1px solid',
+                                borderColor: selectedMealId === meal.id ? 'primary.main' : 'divider',
+                                bgcolor: selectedMealId === meal.id ? 'primary.lighter' : 'background.paper',
+                                position: 'relative',
+                                boxShadow: 'none',
+                                '&:hover .meal-actions': { opacity: 1 }
+                              }}
+                            >
+                              <CardContent sx={{ py: 1.25 }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
+                                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: selectedMealId === meal.id ? 'primary.main' : undefined }}>{meal.meal}</Typography>
+                                  {(() => { const t = computeMealTotals(meal); return (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary' }}>
+                                      <Typography variant="caption" sx={{ fontSize: 12 }}>{t.calories} kcal</Typography>
+                                      <Typography variant="caption" sx={{ fontSize: 12 }}>P: {t.protein}g</Typography>
+                                      <Typography variant="caption" sx={{ fontSize: 12 }}>C: {t.carbs}g</Typography>
+                                      <Typography variant="caption" sx={{ fontSize: 12 }}>F: {t.fat}g</Typography>
+                                  </Box>
+                                  ); })()}
+                                </Box>
+                                </CardContent>
+                              <Box className="meal-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
+                                <IconButton size="small" title="Copy meal" onClick={() => {
+                                  if (!selectedPlanId || !selectedCycleId) return;
+                                  const newId = `tmpm-${Date.now()}-${Math.random()}`;
+                                  const copiedFoodItems = (meal.foodItems || []).map((fi: any, idx: number) => ({
+                                    ...fi,
+                                    id: `tmpfi-${newId}-${fi.foodItemId || fi.foodItem?.id || idx}-${Date.now()}`,
+                                    mealId: newId
+                                  }));
+                                  const copy = { ...meal, id: newId, foodItems: copiedFoodItems } as any;
+                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                    ...p,
+                                    cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                      ...c,
+                                      meals: [ ...(c.meals || []), copy ]
+                                    }))
+                                  })));
+                                  setIsPlanDirty(true);
+                                }}>
+                                  <Copy size={16} />
+                                </IconButton>
+                                <IconButton size="small" color="error" title="Delete meal" onClick={() => {
+                                  if (!selectedPlanId || !selectedCycleId) return;
+                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                    ...p,
+                                    cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                      ...c,
+                                      meals: (c.meals || []).filter((m) => m.id !== meal.id)
+                                    }))
+                                  })));
+                                  if (selectedMealId === meal.id) setSelectedMealId(null);
+                                  setIsPlanDirty(true);
+                                }}>
+                                  <Trash size={16} />
+                                </IconButton>
                               </Box>
-                              ); })()}
+                              </Card>
                             </Box>
-                            </CardContent>
-                          <Box className="meal-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
-                            <IconButton size="small" title="Copy meal" onClick={() => {
-                              if (!selectedPlanId || !selectedCycleId) return;
-                              const newId = `tmpm-${Date.now()}-${Math.random()}`;
-                              const copiedFoodItems = (meal.foodItems || []).map((fi: any, idx: number) => ({
-                                ...fi,
-                                id: `tmpfi-${newId}-${fi.foodItemId || fi.foodItem?.id || idx}-${Date.now()}`,
-                                mealId: newId
-                              }));
-                              const copy = { ...meal, id: newId, foodItems: copiedFoodItems } as any;
-                              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                                ...p,
-                                cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
-                                  ...c,
-                                  meals: [ ...(c.meals || []), copy ]
-                                }))
-                              })));
-                              setIsPlanDirty(true);
-                            }}>
-                              <Copy size={16} />
-                            </IconButton>
-                            <IconButton size="small" color="error" title="Delete meal" onClick={() => {
-                              if (!selectedPlanId || !selectedCycleId) return;
-                              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                                ...p,
-                                cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
-                                  ...c,
-                                  meals: (c.meals || []).filter((m) => m.id !== meal.id)
-                                }))
-                              })));
-                              if (selectedMealId === meal.id) setSelectedMealId(null);
-                              setIsPlanDirty(true);
-                            }}>
-                              <Trash size={16} />
-                            </IconButton>
-                          </Box>
-                          </Card>
-                        </Grid>
-                      ))}
-                      </Grid>
+                          ))}
+                        </Box>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">No cycle selected</Typography></Box>
+                    )}
+                  </>
                 ) : (
-                  <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">No cycle selected</Typography></Box>
+                  <>
+                    {/* Water tab content */}
+                    <Box sx={{ py: 2 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 2 }}>Water Intake</Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <TextField
+                          fullWidth
+                          label="Water for the Day (ml)"
+                          type="number"
+                          value={waterForDay}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            setWaterForDay(value);
+                            if (selectedPlanId) {
+                              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForDay: value })));
+                              setIsPlanDirty(true);
+                            }
+                          }}
+                          size="small"
+                          inputProps={{ min: 0 }}
+                        />
+                        <TextField
+                          fullWidth
+                          label="Water for Training (ml)"
+                          type="number"
+                          value={waterForTraining}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            setWaterForTraining(value);
+                            if (selectedPlanId) {
+                              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForTraining: value })));
+                              setIsPlanDirty(true);
+                            }
+                          }}
+                          size="small"
+                          inputProps={{ min: 0 }}
+                        />
+                      </Box>
+                    </Box>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -2108,7 +2264,6 @@ export default function ClientNutritionPage() {
                               <Box
                                 component="img"
                                 src={recipe.recipeImageUrl}
-                                alt={recipe.recipeName}
                                 sx={{ width: 32, height: 32, borderRadius: 1, objectFit: 'cover' }}
                               />
                             )}
@@ -2230,7 +2385,6 @@ export default function ClientNutritionPage() {
                                           <Box
                                             component="img"
                                             src={recipe.imageUrl}
-                                            alt={recipe.name}
                                             sx={{ width: 24, height: 24, borderRadius: 1, objectFit: 'cover' }}
                                           />
                                         )}

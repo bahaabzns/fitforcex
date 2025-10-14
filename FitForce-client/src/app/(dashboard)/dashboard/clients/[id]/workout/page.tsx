@@ -41,6 +41,9 @@ import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
 import MobileSwipeableSections from '@/components/MobileSwipeableSections';
 import LoadPlanDialog from '@/components/LoadPlanDialog';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import { useAppSelector } from '@/store';
 
 interface Exercise {
   id: string;
@@ -65,6 +68,7 @@ interface Plan {
 
 export default function ClientWorkoutPage() {
   const { id: clientId } = useParams() as { id: string };
+  const workspaceId = useAppSelector((s: any) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileSection, setMobileSection] = useState(0);
@@ -128,10 +132,21 @@ export default function ClientWorkoutPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loadPlanDialogOpen, setLoadPlanDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'builder' | 'logs'>('builder');
+  const [plansTab, setPlansTab] = useState(0); // 0: Plans, 1: Forms, 2: Tools, 3: Chat
   const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null);
   // CaDay catalog and UI
   const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string; urls?: string[] }>>([]);
   const [caDayDialogOpen, setCaDayDialogOpen] = useState(false);
+  
+  // Cardio tab state
+  const [cardioTab, setCardioTab] = useState(0); // 0: Days, 1: Cardio
+  const [cardioData, setCardioData] = useState({
+    yearsOld: 0,
+    heartRateMax: 0,
+    heartRateTarget: 0,
+    startCardio: 0,
+    startHit: 0
+  });
 
   // Load workout logs for this client (for Logs tab)
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
@@ -189,6 +204,31 @@ export default function ClientWorkoutPage() {
   useEffect(() => {
     if (clientId) loadSavedPlans();
   }, [clientId]);
+
+  // Load cardio data when a plan is selected
+  useEffect(() => {
+    if (selectedPlanId && !String(selectedPlanId).startsWith('local_')) {
+      const selectedPlan = savedPlans.find(p => p.id === selectedPlanId);
+      if (selectedPlan) {
+        setCardioData({
+          yearsOld: (selectedPlan as any).yearsOld || 0,
+          heartRateMax: (selectedPlan as any).heartRateMax || 0,
+          heartRateTarget: (selectedPlan as any).heartRateTarget || 0,
+          startCardio: (selectedPlan as any).startCardio || 0,
+          startHit: (selectedPlan as any).startHit || 0
+        });
+      }
+    } else {
+      // Reset cardio data for local plans
+      setCardioData({
+        yearsOld: 0,
+        heartRateMax: 0,
+        heartRateTarget: 0,
+        startCardio: 0,
+        startHit: 0
+      });
+    }
+  }, [selectedPlanId, savedPlans]);
 
   // Create new local workout plan
   const createLocalPlan = () => {
@@ -275,6 +315,22 @@ export default function ClientWorkoutPage() {
     try {
       setSaving(true);
       
+      const parseRepRange = (repValue: any): { repMin: number | null; repMax: number | null } => {
+        if (typeof repValue === 'number') return { repMin: repValue, repMax: repValue };
+        const str = String(repValue || '').trim();
+        if (!str) return { repMin: null, repMax: null };
+        const rangeMatch = str.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (rangeMatch) {
+          return { repMin: parseInt(rangeMatch[1]), repMax: parseInt(rangeMatch[2]) };
+        }
+        const singleMatch = str.match(/(\d+)/);
+        if (singleMatch) {
+          const v = parseInt(singleMatch[1]);
+          return { repMin: v, repMax: v };
+        }
+        return { repMin: null, repMax: null };
+      };
+
       const daysPayload = {
         cycleLengthDays: localWorkoutPlan.days.length,
         days: localWorkoutPlan.days.map((day, idx) => ({
@@ -291,7 +347,22 @@ export default function ClientWorkoutPage() {
             restSeconds: exercise.restSeconds,
             tempo: exercise.tempo,
             rir: exercise.rir,
-            notes: exercise.notes || ""
+            notes: exercise.notes || "",
+            // Persist per-set data if available
+            planSets: (exercise as any).individualSets && Array.isArray((exercise as any).individualSets)
+              ? (exercise as any).individualSets.map((s: any, index: number) => {
+                  const { repMin, repMax } = parseRepRange(s?.reps ?? exercise.reps);
+                  const set: any = { setIndex: index + 1 };
+                  if (typeof repMin === 'number') set.repMin = repMin;
+                  if (typeof repMax === 'number') set.repMax = repMax;
+                  if (typeof s?.rir === 'number') set.rir = s.rir; else if (typeof exercise.rir === 'number') set.rir = exercise.rir;
+                  if (typeof s?.weight === 'number') set.weight = s.weight;
+                  if (s?.tempo || exercise.tempo) set.tempo = s?.tempo || exercise.tempo;
+                  if (typeof s?.restSeconds === 'number') set.restSeconds = s.restSeconds; else if (typeof exercise.restSeconds === 'number') set.restSeconds = exercise.restSeconds;
+                  if (s?.notes) set.notes = s.notes;
+                  return set;
+                })
+              : undefined
           }))
         }))
       };
@@ -313,16 +384,47 @@ export default function ClientWorkoutPage() {
         const createRes = await api.post(`/api/clients/${clientId}/workout/plans`, {
           title: localWorkoutPlan.title,
           cycleLengthDays: daysPayload.cycleLengthDays,
-          days: daysPayload.days
+          days: daysPayload.days.map(d => ({
+            // creation path does not accept planSets; send only aggregate fields
+            dayIndex: d.dayIndex,
+            label: d.label,
+            caDayName: (d as any).caDayName || null,
+            caDayImageUrl: (d as any).caDayImageUrl || null,
+            caDayUrl: (d as any).caDayUrl || null,
+            caDayUrls: (d as any).caDayUrls || null,
+            items: d.items.map((it: any) => ({
+              exerciseId: it.exerciseId,
+              sets: it.sets,
+              reps: it.reps,
+              restSeconds: it.restSeconds,
+              tempo: it.tempo,
+              rir: it.rir,
+              notes: it.notes
+            }))
+          }))
         });
         const newPlanId = createRes.data?.plan?.id;
         if (newPlanId) {
+          // Immediately persist per-set data via PUT if present
+          try {
+            await api.put(`/api/workout/plans/${newPlanId}/days`, daysPayload);
+          } catch {}
+
+          // Update plan with cardio data
+          try {
+            await api.put(`/api/clients/${clientId}/workout/plans/${newPlanId}`, {
+              title: localWorkoutPlan.title,
+              ...cardioData
+            });
+          } catch {}
+
           // reflect in saved plans
           const newSavedPlan = {
             id: newPlanId,
             title: createRes.data.plan.title,
             createdAt: createRes.data.plan.createdAt,
-            days: createRes.data.plan.days || []
+            days: createRes.data.plan.days || [],
+            ...cardioData
           };
           setSavedPlans((prev) => [newSavedPlan, ...prev]);
           
@@ -364,8 +466,17 @@ export default function ClientWorkoutPage() {
           } as any);
         }
       } else {
-        // Update existing plan days instead of creating a new plan
+        // Update existing plan with cardio data
+        try {
+          await api.put(`/api/clients/${clientId}/workout/plans/${localWorkoutPlan.id}`, {
+            title: localWorkoutPlan.title,
+            ...cardioData
+          });
+        } catch {}
+        
+        // Update existing plan days
         await api.put(`/api/workout/plans/${localWorkoutPlan.id}/days`, daysPayload);
+        
         // Refresh the saved plans list to reflect updates
         try {
           const refreshed = await api.get(`/api/clients/${clientId}/workout/plans`);
@@ -399,6 +510,7 @@ export default function ClientWorkoutPage() {
     setIsPlanDirty(false);
     setSelectedDayIndex(0);
   };
+
 
   const openPdfDialog = async () => {
     try {
@@ -604,7 +716,15 @@ export default function ClientWorkoutPage() {
                 <Button
                   variant="outlined"
                   size="small"
-                  onClick={() => window.open(`/plans/workout/${selectedPlanId}`, '_blank')}
+                  onClick={() => {
+                    if (selectedPlanId && workspaceId) {
+                      const url = `/plans/workout/${selectedPlanId}?workspaceId=${workspaceId}`;
+                      console.log('Opening preview URL:', url);
+                      window.open(url, '_blank');
+                    } else {
+                      console.error('Missing selectedPlanId or workspaceId', { selectedPlanId, workspaceId });
+                    }
+                  }}
                 >
                   Preview
                 </Button>
@@ -635,9 +755,17 @@ export default function ClientWorkoutPage() {
             // Section 1: Plans
             <Card key="plans" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <CardHeader
-            title="Plans"
+            title={
+              <Tabs value={plansTab} onChange={(_, v) => setPlansTab(v)} variant="scrollable" allowScrollButtonsMobile>
+                <Tab label="Plans" />
+                <Tab label="Forms" />
+                <Tab label="Tools" />
+                <Tab label="Chat" />
+              </Tabs>
+            }
             subheader={
-              <Box sx={{ mt: 2 }}>
+              plansTab === 0 ? (
+                <Box sx={{ mt: 2 }}>
                 <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                   <Button
                     variant="contained"
@@ -693,15 +821,17 @@ export default function ClientWorkoutPage() {
                     </Button>
                   </Stack>
                 )}
-              </Box>
+                </Box>
+              ) : null
             }
           />
           <CardContent>
-            {loadingPlans ? (
+            {plansTab === 0 ? (
+              loadingPlans ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
-            ) : (
+              ) : (
               <List>
                 {/* Local Plan (if exists) */}
                 {localWorkoutPlan && localWorkoutPlan.id.startsWith('local_') && (
@@ -759,23 +889,39 @@ export default function ClientWorkoutPage() {
                               url: day.caDayUrl || '',
                               urls: day.caDayUrls || []
                             } : undefined,
-                            exercises: (day.items || []).map((item: any) => ({
-                              id: item.id,
-                              exercise: item.exercise,
-                              sets: item.sets,
-                              reps: String(item.reps),
-                              restSeconds: item.restSeconds || 60,
-                              tempo: item.tempo || "",
-                              rir: item.rir || 0,
-                              notes: item.notes || "",
-                              individualSets: Array.from({ length: item.sets || 1 }, (_, index) => ({
-                                id: `set_${index + 1}`,
+                            exercises: (day.items || []).map((item: any) => {
+                              const individualSets = (item.planSets && item.planSets.length > 0)
+                                ? item.planSets
+                                    .sort((a: any, b: any) => (a.setIndex || 0) - (b.setIndex || 0))
+                                    .map((s: any, idx: number) => ({
+                                      id: `set_${s.setIndex || idx + 1}`,
+                                      reps: (typeof s.repMin === 'number' && typeof s.repMax === 'number' && s.repMin !== s.repMax)
+                                        ? `${s.repMin}-${s.repMax}`
+                                        : (typeof s.repMin === 'number' ? String(s.repMin) : String(item.reps)),
+                                      restSeconds: typeof s.restSeconds === 'number' ? s.restSeconds : (item.restSeconds || 60),
+                                      tempo: s.tempo || item.tempo || "",
+                                      rir: typeof s.rir === 'number' ? s.rir : (item.rir || 0),
+                                      notes: s.notes || undefined
+                                    }))
+                                : Array.from({ length: item.sets || 1 }, (_, index) => ({
+                                    id: `set_${index + 1}`,
+                                    reps: String(item.reps),
+                                    restSeconds: item.restSeconds || 60,
+                                    tempo: item.tempo || "",
+                                    rir: item.rir || 0
+                                  }));
+                              return {
+                                id: item.id,
+                                exercise: item.exercise,
+                                sets: item.sets,
                                 reps: String(item.reps),
                                 restSeconds: item.restSeconds || 60,
                                 tempo: item.tempo || "",
-                                rir: item.rir || 0
-                              }))
-                            }))
+                                rir: item.rir || 0,
+                                notes: item.notes || "",
+                                individualSets
+                              };
+                            })
                           }))
                         });
                         setSelectedDayIndex(0);
@@ -801,6 +947,15 @@ export default function ClientWorkoutPage() {
                   </ListItem>
                 )}
               </List>
+            )
+            ) : (
+              <Box sx={{ py: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {plansTab === 1 && 'Forms coming soon…'}
+                  {plansTab === 2 && 'Tools coming soon…'}
+                  {plansTab === 3 && 'Chat coming soon…'}
+                </Typography>
+              </Box>
             )}
           </CardContent>
         </Card>,
@@ -808,115 +963,199 @@ export default function ClientWorkoutPage() {
             // Section 2: Days
             <Card key="days" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
-              title={localWorkoutPlan ? `Days - ${localWorkoutPlan.title}` : 'Days'}
+              title={
+                localWorkoutPlan ? (
+                  <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="scrollable" allowScrollButtonsMobile>
+                    <Tab label="Days" />
+                    <Tab label="Cardio" />
+                  </Tabs>
+                ) : 'Days'
+              }
               action={
                 localWorkoutPlan ? (
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<Add size={16} />}
-                    onClick={() => setIsCreateDayDialogOpen(true)}
-                  >
-                    Add Day
-                  </Button>
+                  cardioTab === 0 ? (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Add size={16} />}
+                      onClick={() => setIsCreateDayDialogOpen(true)}
+                    >
+                      Add Day
+                    </Button>
+                  ) : null
                 ) : null
               }
             />
             <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
               {localWorkoutPlan ? (
-                <>
-                  {localWorkoutPlan.days.map((day, index) => (
-                    <Card
-                    key={day.id}
-                      sx={{ 
-                        mb: 2,
-                        cursor: 'pointer',
-                        border: '2px solid',
-                        borderColor: selectedDayIndex === index ? 'primary.main' : 'transparent',
-                        transition: 'all 0.2s',
-                        bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
-                        '&:hover': {
-                          borderColor: 'primary.main',
-                          boxShadow: 2
+                cardioTab === 0 ? (
+                  // Days tab content
+                  <>
+                    {localWorkoutPlan.days.map((day, index) => (
+                      <Card
+                      key={day.id}
+                        sx={{ 
+                          mb: 2,
+                          cursor: 'pointer',
+                          border: '2px solid',
+                          borderColor: selectedDayIndex === index ? 'primary.main' : 'transparent',
+                          transition: 'all 0.2s',
+                          bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
+                          '&:hover': {
+                            borderColor: 'primary.main',
+                            boxShadow: 2
+                          }
+                        }}
+                      onClick={() => {
+                        setSelectedDayIndex(index);
+                        // On mobile, automatically move to section 3 (exercises) when day is selected
+                        if (isMobile) {
+                          setMobileSection(2);
                         }
                       }}
-                    onClick={() => {
-                      setSelectedDayIndex(index);
-                      // On mobile, automatically move to section 3 (exercises) when day is selected
-                      if (isMobile) {
-                        setMobileSection(2);
-                      }
-                    }}
-                  >
-                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box sx={{ flex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                              <Chip 
-                                label={`Day ${index + 1}`} 
-                                size="small" 
-                                color={selectedDayIndex === index ? "primary" : "default"}
-                                sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }} 
-                              />
-                              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                                {day.title}
-                              </Typography>
-                            </Box>
-                            <Typography variant="body2" color="textSecondary">
-                              {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
-                            </Typography>
-                            {(day as any).caDay && (
-                              <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                {(day as any).caDay.imageUrl && <img src={(day as any).caDay.imageUrl} alt="ca_day" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4 }} />}
-                                <Typography variant="caption" color="text.secondary">ca_day: {(day as any).caDay.name}</Typography>
+                    >
+                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box sx={{ flex: 1 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                <Chip 
+                                  label={`Day ${index + 1}`} 
+                                  size="small" 
+                                  color={selectedDayIndex === index ? "primary" : "default"}
+                                  sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }} 
+                                />
+                                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                                  {day.title}
+                                </Typography>
                               </Box>
+                              <Typography variant="body2" color="textSecondary">
+                                {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
+                              </Typography>
+                              {(day as any).caDay && (
+                                <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  {(day as any).caDay.imageUrl && <img src={(day as any).caDay.imageUrl} alt="ca_day" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4 }} />}
+                                  <Typography variant="caption" color="text.secondary">ca_day: {(day as any).caDay.name}</Typography>
+                                </Box>
+                              )}
+                            </Box>
+                            {selectedDayIndex === index && (
+                              <Chip 
+                                label="Selected" 
+                                size="small" 
+                                color="primary"
+                                sx={{ fontWeight: 500 }}
+                              />
                             )}
+                            <Button size="small" variant="outlined" onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDayIndex(index);
+                              setCaDayDialogOpen(true);
+                            }}>Choose ca_day</Button>
                           </Box>
-                          {selectedDayIndex === index && (
-                            <Chip 
-                              label="Selected" 
-                              size="small" 
-                              color="primary"
-                              sx={{ fontWeight: 500 }}
-                            />
-                          )}
-                          <Button size="small" variant="outlined" onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedDayIndex(index);
-                            setCaDayDialogOpen(true);
-                          }}>Choose ca_day</Button>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                ))}
-                
-                {localWorkoutPlan.days.length === 0 && (
-                    <Box sx={{ 
-                      textAlign: 'center', 
-                      py: 8,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 2
-                    }}>
-                      <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
-                        No days yet
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        Add your first workout day
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<Add size={20} />}
-                        onClick={() => setIsCreateDayDialogOpen(true)}
-                        sx={{ mt: 1 }}
-                      >
-                        Add First Day
-                      </Button>
+                        </CardContent>
+                      </Card>
+                  ))}
+                  
+                  {localWorkoutPlan.days.length === 0 && (
+                      <Box sx={{ 
+                        textAlign: 'center', 
+                        py: 8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 2
+                      }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
+                          No days yet
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          Add your first workout day
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<Add size={20} />}
+                          onClick={() => setIsCreateDayDialogOpen(true)}
+                          sx={{ mt: 1 }}
+                        >
+                          Add First Day
+                        </Button>
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  // Cardio tab content
+                  <Box sx={{ py: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Cardio Settings</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <TextField
+                        fullWidth
+                        label="Years Old"
+                        type="number"
+                        value={cardioData.yearsOld}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, yearsOld: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Heart Rate Max"
+                        type="number"
+                        value={cardioData.heartRateMax}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, heartRateMax: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Heart Rate Target"
+                        type="number"
+                        value={cardioData.heartRateTarget}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, heartRateTarget: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Start Cardio"
+                        type="number"
+                        value={cardioData.startCardio}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, startCardio: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Start Hit"
+                        type="number"
+                        value={cardioData.startHit}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, startHit: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
                     </Box>
-                  )}
-                </>
+                  </Box>
+                )
               ) : (
                 <Box sx={{ 
                   textAlign: 'center', 
@@ -1137,11 +1376,19 @@ export default function ClientWorkoutPage() {
       ) : (
         <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto' }}>
           {/* Section 1: Plans */}
-          <Card sx={{ flex: '1 1 0', minWidth: 0 }}>
+          <Card sx={{ flex: '1 1 0', minWidth: 0, height: '75vh', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
-              title="Plans"
+              title={
+                <Tabs value={plansTab} onChange={(_, v) => setPlansTab(v)} variant="scrollable" allowScrollButtonsMobile>
+                  <Tab label="Plans" />
+                  <Tab label="Forms" />
+                  <Tab label="Tools" />
+                  <Tab label="Chat" />
+                </Tabs>
+              }
               subheader={
-                <Box sx={{ mt: 2 }}>
+                plansTab === 0 ? (
+                  <Box sx={{ mt: 2 }}>
                   <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                     <Button
                       variant="contained"
@@ -1169,15 +1416,17 @@ export default function ClientWorkoutPage() {
                     value={planQuery}
                     onChange={(e) => setPlanQuery(e.target.value)}
                   />
-                </Box>
+                  </Box>
+                ) : null
               }
             />
-            <CardContent>
-              {loadingPlans ? (
+            <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              {plansTab === 0 ? (
+                loadingPlans ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                   <CircularProgress />
                 </Box>
-              ) : (
+                ) : (
                 <List>
                   {localWorkoutPlan && (
                     <ListItem
@@ -1212,31 +1461,47 @@ export default function ClientWorkoutPage() {
                       component="div"
                       onClick={() => {
                         setSelectedPlanId(plan.id);
-                        setLocalWorkoutPlan({
-                          id: plan.id,
-                          title: plan.title,
-                          days: plan.days?.map((day: any) => ({
-                            id: day.id,
-                            title: day.label || `Day ${day.dayIndex}`,
-                            exercises: day.items?.map((item: any) => ({
-                              id: item.id,
-                              exercise: item.exercise,
-                              sets: item.sets,
-                              reps: String(item.reps),
-                              restSeconds: item.restSeconds || 60,
-                              tempo: item.tempo || "",
-                              rir: item.rir || 0,
-                              notes: item.notes || "",
-                              individualSets: Array.from({ length: item.sets || 1 }, (_, index) => ({
-                                id: `set_${index + 1}`,
-                                reps: String(item.reps),
-                                restSeconds: item.restSeconds || 60,
-                                tempo: item.tempo || "",
-                                rir: item.rir || 0
-                              }))
-                            })) || []
-                          })) || []
-                        });
+                          setLocalWorkoutPlan({
+                            id: plan.id,
+                            title: plan.title,
+                            days: (plan.days || []).map((day: any) => ({
+                              id: day.id,
+                              title: day.label || `Day ${day.dayIndex}`,
+                              exercises: (day.items || []).map((item: any) => {
+                                const individualSets = (item.planSets && item.planSets.length > 0)
+                                  ? item.planSets
+                                      .sort((a: any, b: any) => (a.setIndex || 0) - (b.setIndex || 0))
+                                      .map((s: any, idx: number) => ({
+                                        id: `set_${s.setIndex || idx + 1}`,
+                                        reps: (typeof s.repMin === 'number' && typeof s.repMax === 'number' && s.repMin !== s.repMax)
+                                          ? `${s.repMin}-${s.repMax}`
+                                          : (typeof s.repMin === 'number' ? String(s.repMin) : String(item.reps)),
+                                        restSeconds: typeof s.restSeconds === 'number' ? s.restSeconds : (item.restSeconds || 60),
+                                        tempo: s.tempo || item.tempo || "",
+                                        rir: typeof s.rir === 'number' ? s.rir : (item.rir || 0),
+                                        notes: s.notes || undefined
+                                      }))
+                                  : Array.from({ length: item.sets || 1 }, (_, index) => ({
+                                      id: `set_${index + 1}`,
+                                      reps: String(item.reps),
+                                      restSeconds: item.restSeconds || 60,
+                                      tempo: item.tempo || "",
+                                      rir: item.rir || 0
+                                    }));
+                                return {
+                                  id: item.id,
+                                  exercise: item.exercise,
+                                  sets: item.sets,
+                                  reps: String(item.reps),
+                                  restSeconds: item.restSeconds || 60,
+                                  tempo: item.tempo || "",
+                                  rir: item.rir || 0,
+                                  notes: item.notes || "",
+                                  individualSets
+                                };
+                              })
+                            }))
+                          });
                         setSelectedDayIndex(0);
                       }}
                       sx={{
@@ -1314,16 +1579,31 @@ export default function ClientWorkoutPage() {
                     </ListItem>
                   )}
                 </List>
+                )
+              ) : (
+                <Box sx={{ py: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {plansTab === 1 && 'Forms coming soon…'}
+                    {plansTab === 2 && 'Tools coming soon…'}
+                    {plansTab === 3 && 'Chat coming soon…'}
+                  </Typography>
+                </Box>
               )}
             </CardContent>
           </Card>
 
           {/* Section 2: Days */}
           {localWorkoutPlan && (
-            <Card sx={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ flex: '1 1 0', minWidth: 0, height: '75vh', display: 'flex', flexDirection: 'column' }}>
               <CardHeader
-                title={`Days - ${localWorkoutPlan.title}`}
+                title={
+                  <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="scrollable" allowScrollButtonsMobile>
+                    <Tab label="Days" />
+                    <Tab label="Cardio" />
+                  </Tabs>
+                }
                 action={
+                  cardioTab === 0 ? (
                     <Button
                       variant="contained"
                       size="small"
@@ -1332,81 +1612,157 @@ export default function ClientWorkoutPage() {
                     >
                       Add Day
                     </Button>
+                  ) : null
                 }
               />
-              <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
-                {localWorkoutPlan.days.length > 0 ? (
-                  <Stack spacing={2}>
-                  {localWorkoutPlan.days.map((day, index) => (
-                      <Card
-                      key={day.id}
-                        sx={{ 
-                          cursor: 'pointer',
-                          border: '2px solid',
-                          borderColor: selectedDayIndex === index ? 'primary.main' : 'transparent',
-                          transition: 'all 0.2s',
-                          bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
-                          '&:hover': {
-                            borderColor: 'primary.main',
-                            boxShadow: 2
-                          }
-                        }}
-                      onClick={() => setSelectedDayIndex(index)}
-                    >
-                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Box sx={{ flex: 1 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                <Chip 
-                                  label={`Day ${index + 1}`} 
-                                  size="small" 
-                                  color={selectedDayIndex === index ? "primary" : "default"}
-                                  sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }} 
-                                />
-                                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                                  {day.title}
+              <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                {cardioTab === 0 ? (
+                  // Days tab content
+                  localWorkoutPlan.days.length > 0 ? (
+                    <Stack spacing={2}>
+                    {localWorkoutPlan.days.map((day, index) => (
+                        <Card
+                        key={day.id}
+                          sx={{ 
+                            cursor: 'pointer',
+                            border: '2px solid',
+                            borderColor: selectedDayIndex === index ? 'primary.main' : 'transparent',
+                            transition: 'all 0.2s',
+                            bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
+                            '&:hover': {
+                              borderColor: 'primary.main',
+                              boxShadow: 2
+                            }
+                          }}
+                        onClick={() => setSelectedDayIndex(index)}
+                      >
+                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Box sx={{ flex: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                  <Chip 
+                                    label={`Day ${index + 1}`} 
+                                    size="small" 
+                                    color={selectedDayIndex === index ? "primary" : "default"}
+                                    sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }} 
+                                  />
+                                  <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                                    {day.title}
+                                  </Typography>
+                                </Box>
+                                <Typography variant="body2" color="textSecondary">
+                                  {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
                                 </Typography>
                               </Box>
-                              <Typography variant="body2" color="textSecondary">
-                                {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
-                              </Typography>
+                              {selectedDayIndex === index && (
+                                <Chip 
+                                  label="Selected" 
+                                  size="small" 
+                                  color="primary"
+                                  sx={{ fontWeight: 500 }}
+                                />
+                              )}
                             </Box>
-                            {selectedDayIndex === index && (
-                              <Chip 
-                                label="Selected" 
-                                size="small" 
-                                color="primary"
-                                sx={{ fontWeight: 500 }}
-                              />
-                            )}
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Stack>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      py: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 2
+                    }}>
+                      <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
+                        No days yet
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Add your first workout day
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<Add size={20} />}
+                        onClick={() => setIsCreateDayDialogOpen(true)}
+                        sx={{ mt: 1 }}
+                      >
+                        Add First Day
+                      </Button>
+                    </Box>
+                  )
                 ) : (
-                  <Box sx={{ 
-                    textAlign: 'center', 
-                    py: 8,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 2
-                  }}>
-                    <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
-                      No days yet
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Add your first workout day
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      startIcon={<Add size={20} />}
-                      onClick={() => setIsCreateDayDialogOpen(true)}
-                      sx={{ mt: 1 }}
-                    >
-                      Add First Day
-                    </Button>
+                  // Cardio tab content
+                  <Box sx={{ py: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Cardio Settings</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <TextField
+                        fullWidth
+                        label="Years Old"
+                        type="number"
+                        value={cardioData.yearsOld}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, yearsOld: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Heart Rate Max"
+                        type="number"
+                        value={cardioData.heartRateMax}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, heartRateMax: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Heart Rate Target"
+                        type="number"
+                        value={cardioData.heartRateTarget}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, heartRateTarget: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Start Cardio"
+                        type="number"
+                        value={cardioData.startCardio}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, startCardio: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Start Hit"
+                        type="number"
+                        value={cardioData.startHit}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          setCardioData(prev => ({ ...prev, startHit: value }));
+                          setIsPlanDirty(true);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0 }}
+                      />
+                    </Box>
                   </Box>
                 )}
               </CardContent>
@@ -1415,7 +1771,7 @@ export default function ClientWorkoutPage() {
 
           {/* Section 3: Exercises */}
           {localWorkoutPlan && localWorkoutPlan.days.length > 0 && localWorkoutPlan.days[selectedDayIndex] && (
-            <Card sx={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ flex: '1 1 0', minWidth: 0, height: '75vh', display: 'flex', flexDirection: 'column' }}>
               <CardHeader
                 title={`Exercises - ${localWorkoutPlan.days[selectedDayIndex].title}`}
                 action={
@@ -1438,7 +1794,7 @@ export default function ClientWorkoutPage() {
                   </Stack>
                 }
               />
-              <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
+              <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                 {/* Show selected ca_day summary if present */}
                 {(localWorkoutPlan.days[selectedDayIndex] as any).caDay && (
                   <Box sx={{
@@ -1809,6 +2165,7 @@ export default function ClientWorkoutPage() {
                 </Box>
               </Stack>
             </Box>
+
 
             {/* Predefined caDays Section */}
             <Box>

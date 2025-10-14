@@ -17,7 +17,7 @@ export default function ClientNutritionPlanDetail() {
     const res = await api.get(`/api/nutrition/plans/${id}/cycles`, { headers: workspaceId ? { 'x-workspace-id': workspaceId } : {} });
     const planData = res.data;
     console.log('Nutrition plan data:', planData);
-    return { plan: planData } as { plan: { plan: { id: string; title: string }; cycles: Array<{ dayIndex: number; label?: string; meals: Array<{ meal?: string; foodItems?: Array<{ quantity: number; foodItem: any }>; recipeName?: string; recipeNameArabic?: string; recipeImageUrl?: string }> }> } };
+    return { plan: planData } as { plan: { plan: { id: string; title: string; waterForDay?: number; waterForTraining?: number }; cycles: Array<{ dayIndex: number; label?: string; meals: Array<{ meal?: string; foodItems?: Array<{ quantity: number; foodItem: any }>; recipeName?: string; recipeNameArabic?: string; recipeImageUrl?: string }> }> } };
   });
 
   if (isLoading) {
@@ -45,7 +45,11 @@ export default function ClientNutritionPlanDetail() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 } }}>
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 2 }}>{plan.plan.title}</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" fontWeight={700}>{plan.plan.title}</Typography>
+      </Box>
+
+
       <Stack spacing={2}>
         {plan.cycles.map((d, idx) => (
           <Card key={idx}>

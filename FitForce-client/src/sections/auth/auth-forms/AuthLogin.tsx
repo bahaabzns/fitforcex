@@ -6,6 +6,7 @@ import { useState, SyntheticEvent } from 'react';
 import Link from 'next/link';
 import Image from 'next/legacy/image';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 
 // material-ui
 import { Theme } from '@mui/material/styles';
@@ -64,8 +65,8 @@ export default function AuthLogin({ providers, csrfToken }: any) {
     <>
       <Formik
         initialValues={{
-          email: 'info@phoenixcoded.co',
-          password: '123456',
+          email: '',
+          password: '',
           submit: null
         }}
         validationSchema={Yup.object().shape({

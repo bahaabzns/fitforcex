@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
-  const { container, miniDrawer, menuOrientation } = useConfig();
+  const { miniDrawer, menuOrientation } = useConfig();
   const dispatch = useAppDispatch();
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
 
@@ -96,9 +96,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <Box component="main" sx={{ width: `calc(100% - ${DRAWER_WIDTH}px)`, flexGrow: 1, p: { xs: 1, sm: 3 } }}>
         <Toolbar sx={{ mt: isHorizontal ? 8 : 'inherit', mb: isHorizontal ? 2 : 'inherit' }} />
         <Container
-          maxWidth={container && !downXL ? 'xl' : false}
+          maxWidth={false}
           sx={{
-            ...(container && !downXL && { px: { xs: 0, sm: 3 } }),
             position: 'relative',
             minHeight: 'calc(100vh - 124px)',
             display: 'flex',

@@ -38,7 +38,8 @@ export const PaymentIframe: React.FC<PaymentIframeProps> = ({
       const allowedOrigins = [
         'https://accept.paymob.com',
         'http://localhost:4000',
-        'https://localhost:4000'
+        'https://localhost:4000',
+        'https://api.nano.com'
       ];
       
       if (!allowedOrigins.includes(event.origin)) {

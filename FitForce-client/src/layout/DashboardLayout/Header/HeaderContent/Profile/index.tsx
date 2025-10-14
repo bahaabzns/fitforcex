@@ -27,10 +27,11 @@ import Transitions from 'components/@extended/Transitions';
 import MainCard from 'components/MainCard';
 
 import useUser from 'hooks/useUser';
+import { logoutUser } from '@/lib/auth';
 
 // assets
 const avatar1 = '/assets/images/users/avatar-6.png';
-import { Setting2, Profile, Logout } from '@wandersonalwes/iconsax-react';
+import { Profile, Logout } from '@wandersonalwes/iconsax-react';
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -81,16 +82,22 @@ export default function ProfilePage() {
   const { data: session } = useSession();
   const provider = session?.provider;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Ensure backend httpOnly cookie is cleared first
+    try {
+      await logoutUser();
+    } catch {
+      // ignore
+    }
     switch (provider) {
       case 'auth0':
-        signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/auth0` });
+        await signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/auth0` });
         break;
       case 'cognito':
-        signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/cognito` });
+        await signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/cognito` });
         break;
       default:
-        signOut({ redirect: false });
+        await signOut({ redirect: false });
     }
 
     router.push('/login');
@@ -165,8 +172,8 @@ export default function ProfilePage() {
                           <Avatar alt="profile user" src={avatar1} />
                           <Stack>
                             <Typography variant="subtitle1">{user ? user?.name : ''}</Typography>
-                            {user?.role ? (
-                              <Typography variant="body2" color="secondary">{user.role}</Typography>
+                            {user && typeof user === 'object' && 'role' in user && (user as any).role ? (
+                              <Typography variant="body2" color="secondary">{(user as any).role}</Typography>
                             ) : null}
                           </Stack>
                         </Stack>
