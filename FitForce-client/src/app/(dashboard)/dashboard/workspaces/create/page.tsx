@@ -15,6 +15,7 @@ import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import { APP_CONFIG } from '@/lib/config';
 import api from '@/utils/axios';
+import { checkAuthStatus } from '@/lib/auth';
 
 type WorkspacePkg = {
   id: string;
@@ -35,6 +36,7 @@ export default function CreateWorkspacePage() {
   const [error, setError] = useState<string | null>(null);
   const [packages, setPackages] = useState<WorkspacePkg[]>([]);
   const [freeTrialId, setFreeTrialId] = useState<string>('');
+  const [authChecked, setAuthChecked] = useState(false);
 
   const toSlug = (value: string) =>
     value
@@ -48,8 +50,17 @@ export default function CreateWorkspacePage() {
   const suggestedSubdomain = toSlug(name);
 
   useEffect(() => {
-    const loadPackages = async () => {
+    const checkAuthAndLoadPackages = async () => {
       try {
+        // Check if user is authenticated
+        const isAuthenticated = await checkAuthStatus();
+        if (!isAuthenticated) {
+          // Redirect to login page if not authenticated
+          router.replace('/login');
+          return;
+        }
+        
+        // Load packages if authenticated
         const { data } = await api.get('/api/workspace-packages');
         const list: WorkspacePkg[] = data?.packages || [];
         setPackages(list);
@@ -58,12 +69,16 @@ export default function CreateWorkspacePage() {
           setFreeTrialId(trial.id);
           setSelectedPackageId(trial.id);
         }
-      } catch {
-        // ignore
+      } catch (error) {
+        console.error('Error checking auth or loading packages:', error);
+        // If there's an error, redirect to login
+        router.replace('/login');
+      } finally {
+        setAuthChecked(true);
       }
     };
-    loadPackages();
-  }, []);
+    checkAuthAndLoadPackages();
+  }, [router]);
 
   const startPayment = async () => {
     setLoading(true);
@@ -71,7 +86,7 @@ export default function CreateWorkspacePage() {
     try {
       // Prevent using the reserved management subdomain on the client
       const chosen = (subdomain || suggestedSubdomain).toLowerCase();
-      if (chosen === APP_CONFIG.managementSubdomain.toLowerCase()) {
+      if (APP_CONFIG.managementSubdomain && chosen === APP_CONFIG.managementSubdomain.toLowerCase()) {
         throw new Error('This subdomain is reserved and cannot be used');
       }
       const { data } = await api.post('/api/workspaces', {
@@ -86,15 +101,39 @@ export default function CreateWorkspacePage() {
         router.replace('/dashboard/workspaces');
       }
     } catch (e: unknown) {
-      const errorMessage =
-        e && typeof e === 'object' && 'response' in e
-          ? ((e as any).response?.data?.message || (e as any).response?.data?.error)
-          : undefined;
-      setError(errorMessage || 'Failed to start payment');
+      console.error('Workspace creation error:', e);
+      let errorMessage = 'Failed to create workspace';
+      
+      if (e && typeof e === 'object' && 'response' in e) {
+        const response = (e as any).response;
+        if (response?.status === 401) {
+          errorMessage = 'Authentication required. Please log in and try again.';
+        } else if (response?.status === 409) {
+          errorMessage = 'This subdomain is already taken. Please choose a different one.';
+        } else if (response?.status === 400) {
+          errorMessage = response?.data?.message || response?.data?.error || 'Invalid workspace details.';
+        } else {
+          errorMessage = response?.data?.message || response?.data?.error || 'Failed to create workspace';
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
+  // Show loading while checking authentication
+  if (!authChecked) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress />
+          <Typography color="text.secondary">Checking authentication...</Typography>
+        </Stack>
+      </Box>
+    );
+  }
 
   return (
     <Box maxWidth="md" mx="auto">
@@ -190,10 +229,13 @@ export default function CreateWorkspacePage() {
             disabled={!name || !(subdomain || suggestedSubdomain) || loading}
             sx={{ px: 4, py: 2 }}
           >
-            {loading ? <CircularProgress size={24} /> : (selectedPackageId && selectedPackageId !== freeTrialId ? 'Continue to Payment' : 'Create Workspace')}
+{loading ? <CircularProgress size={24} /> : (selectedPackageId && selectedPackageId !== freeTrialId ? 'Continue to Payment' : 'Create Workspace')}
           </Button>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-            You&apos;ll be redirected to complete your payment after creating the workspace.
+            {selectedPackageId && selectedPackageId !== freeTrialId 
+              ? 'You\'ll be redirected to complete your payment after creating the workspace.'
+              : 'Your workspace will be created with a free trial.'
+            }
           </Typography>
         </Box>
       </Stack>

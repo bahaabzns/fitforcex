@@ -17,6 +17,11 @@ export default function MessengerBadgeSync() {
   useEffect(() => {
     const sync = async () => {
       try {
+        // Only sync if we have a workspace context
+        if (!workspaceId) {
+          return;
+        }
+        
         const { data } = await api.get('/api/messenger/inbox');
         const unread = Array.isArray(data.threads)
           ? data.threads.reduce((acc: number, t: any) => acc + (t.unreadCount || 0), 0)
@@ -27,14 +32,14 @@ export default function MessengerBadgeSync() {
       }
     };
     sync();
-  }, [dispatch]);
+  }, [dispatch, workspaceId]);
 
   // Live updates
   useEffect(() => {
     if (!socket) return;
 
     const handleNewMessage = (message: any) => {
-      if (message?.senderType === 'client') {
+      if (message?.senderType === 'client' && workspaceId) {
         // Re-sync unread count for accuracy across threads
         api.get('/api/messenger/inbox').then(({ data }) => {
           const unread = Array.isArray(data.threads)
@@ -46,12 +51,14 @@ export default function MessengerBadgeSync() {
     };
 
     const handleThreadUpdate = () => {
-      api.get('/api/messenger/inbox').then(({ data }) => {
-        const unread = Array.isArray(data.threads)
-          ? data.threads.reduce((acc: number, t: any) => acc + (t.unreadCount || 0), 0)
-          : 0;
-        dispatch(setUnreadTotal(unread));
-      }).catch(() => {});
+      if (workspaceId) {
+        api.get('/api/messenger/inbox').then(({ data }) => {
+          const unread = Array.isArray(data.threads)
+            ? data.threads.reduce((acc: number, t: any) => acc + (t.unreadCount || 0), 0)
+            : 0;
+          dispatch(setUnreadTotal(unread));
+        }).catch(() => {});
+      }
     };
 
     socket.on('new_message', handleNewMessage);
