@@ -15,10 +15,32 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField
+  TextField,
+  Card,
+  CardContent,
+  CardMedia,
+  Chip
 } from '@mui/material';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import PrintIcon from '@mui/icons-material/Print';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+
+// Helper function to extract YouTube video ID from URL
+const getYouTubeVideoId = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
+
+// Helper function to get YouTube thumbnail URL
+const getYouTubeThumbnail = (videoId: string, quality: 'default' | 'medium' | 'high' = 'medium'): string => {
+  return `https://img.youtube.com/vi/${videoId}/${quality}default.jpg`;
+};
+
+// Helper function to open YouTube video
+const openYouTubeVideo = (url: string) => {
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
 
 export default function PublicWorkoutPlanPreviewPage() {
   const params = useParams();
@@ -789,99 +811,232 @@ const page13BgUrl = 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmg
 
             </Box>
 
-            {/* Exercise Table */}
-            <Box sx={{ width: '100%', flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '10%', '@media print': { flex: 1, paddingTop: '2%' } }}>
-              <Box sx={{ width: '100%', height: '100%', border: '1px dashed white', borderTop: 'none', borderRadius: 1, overflow: 'hidden', '@media print': { border: '1px dashed white', borderTop: 'none' } }}>
-                {/* Table Header */}
-                <Box sx={{ display: 'flex', height: '50px', minHeight: '50px', bgcolor: 'rgba(0, 0, 0, 0.8)', '@media print': { height: '40px', minHeight: '40px', bgcolor: 'rgba(0, 0, 0, 0.9)' } }}>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Muscle Group</Typography>
+            {/* Exercise Cards */}
+            <Box sx={{ 
+              width: '100%', 
+              flex: 1, 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'flex-start', 
+              paddingTop: '10%', 
+              paddingX: '5%',
+              '@media print': { 
+                flex: 1, 
+                paddingTop: '2%',
+                paddingX: '2%'
+              } 
+            }}>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { 
+                  xs: '1fr', 
+                  sm: 'repeat(2, 1fr)', 
+                  md: 'repeat(3, 1fr)' 
+                }, 
+                gap: 2,
+                width: '100%'
+              }}>
+                {day.items?.filter((item: any) => item?.exercise?.name).map((item: any, itemIndex: number) => {
+                  const videoId = item?.exercise?.videoUrl ? getYouTubeVideoId(item.exercise.videoUrl) : null;
+                  const thumbnailUrl = videoId ? getYouTubeThumbnail(videoId, 'medium') : null;
+                  
+                  return (
+                    <Box key={itemIndex}>
+                      <Card 
+                        sx={{ 
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          backdropFilter: 'blur(10px)',
+                          border: '2px solid rgba(255, 255, 255, 0.2)',
+                          borderRadius: 3,
+                          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
+                          },
+                          '@media print': {
+                            backgroundColor: 'white',
+                            border: '1px solid #ccc',
+                            boxShadow: 'none',
+                            '&:hover': {
+                              transform: 'none',
+                              boxShadow: 'none',
+                            }
+                          }
+                        }}
+                      >
+                        {/* Exercise Thumbnail */}
+                        {thumbnailUrl && (
+                          <Box sx={{ position: 'relative', height: 200 }}>
+                            <CardMedia
+                              component="img"
+                              height="200"
+                              image={thumbnailUrl}
+                              alt={item.exercise.name}
+                              sx={{
+                                objectFit: 'cover',
+                                cursor: 'pointer',
+                                '@media print': {
+                                  height: 150
+                                }
+                              }}
+                              onClick={() => openYouTubeVideo(item.exercise.videoUrl)}
+                            />
+                            {/* Play Button Overlay */}
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                borderRadius: '50%',
+                                width: 60,
+                                height: 60,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(255, 0, 0, 0.8)',
+                                  transform: 'translate(-50%, -50%) scale(1.1)',
+                                },
+                                '@media print': {
+                                  display: 'none'
+                                }
+                              }}
+                              onClick={() => openYouTubeVideo(item.exercise.videoUrl)}
+                            >
+                              <PlayArrowIcon sx={{ color: 'white', fontSize: 30 }} />
                   </Box>
-                  <Box sx={{ flex: 3, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Exercise Name</Typography>
                   </Box>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Sets</Typography>
+                        )}
+                        
+                        <CardContent sx={{ flexGrow: 1, p: 2 }}>
+                          {/* Muscle Group Chip */}
+                          <Chip
+                            label={item.exercise.muscleGroup || 'Unknown'}
+                            size="small"
+                            color="primary"
+                            sx={{ 
+                              mb: 1,
+                              fontWeight: 600,
+                              '@media print': {
+                                backgroundColor: '#e3f2fd',
+                                color: '#1976d2'
+                              }
+                            }}
+                          />
+                          
+                          {/* Exercise Name */}
+                          <Typography 
+                            variant="h6" 
+                            component="h3"
+                            sx={{ 
+                              fontWeight: 700,
+                              mb: 1,
+                              color: '#333',
+                              fontSize: '1.1rem',
+                              lineHeight: 1.3,
+                              '@media print': {
+                                fontSize: '0.9rem',
+                                color: '#000'
+                              }
+                            }}
+                          >
+                            {item.exercise.name}
+                          </Typography>
+                          
+                          {/* Exercise Details */}
+                          <Stack spacing={1} sx={{ mt: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
+                                Sets:
+                              </Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
+                                {item.sets || 'N/A'}
+                              </Typography>
                   </Box>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Reps</Typography>
+                            
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
+                                Reps:
+                              </Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
+                                {item.reps || 'N/A'}
+                              </Typography>
                   </Box>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Weight</Typography>
+                            
+                            {item.planSets?.[0]?.weight && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
+                                  Weight:
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
+                                  {item.planSets[0].weight}
+                                </Typography>
                   </Box>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>RIR</Typography>
+                            )}
+                            
+                            {item.rir !== undefined && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
+                                  RIR:
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
+                                  {item.rir}
+                                </Typography>
                   </Box>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Exercise Video</Typography>
-                  </Box>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Alt Exercise</Typography>
-                  </Box>
-                  <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Alt Video</Typography>
-                  </Box>
-                  <Box sx={{ flex: 3, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, '@media print': { fontSize: '0.7rem' } }}>Notes</Typography>
-                  </Box>
-                </Box>
-
-                {/* Table Rows */}
-                {Array.from({ length: 10 }, (_, rowIndex) => (
-                  <Box key={rowIndex} sx={{
-                    display: 'flex',
-                    height: '50px', // Fixed height instead of percentage
-                    minHeight: '50px', // Ensure minimum height
-                    bgcolor: ((rowIndex * 9301 + ((day as any).dayIndex || 0) * 49297) % 2 === 0)
-                      ? 'rgba(255, 0, 0, 0.3)'
-                      : 'rgba(128, 128, 128, 0.3)',
-                    borderBottom: '3px dashed white',
+                            )}
+                          </Stack>
+                          
+                          {/* Notes */}
+                          {item.notes && (
+                            <Box sx={{ mt: 2, p: 1, backgroundColor: 'rgba(0, 0, 0, 0.05)', borderRadius: 1 }}>
+                              <Typography variant="body2" sx={{ 
+                                fontStyle: 'italic', 
+                                color: '#555',
+                                fontSize: '0.85rem',
                     '@media print': {
-                      height: '40px', // Slightly smaller for print
-                      minHeight: '40px',
-                      bgcolor: ((rowIndex * 9301 + ((day as any).dayIndex || 0) * 49297) % 2 === 0)
-                        ? 'rgba(255, 0, 0, 0.4)'
-                        : 'rgba(128, 128, 128, 0.4)'
-                    }
-                  }}>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.exercise?.muscleGroup || ''}</Typography>
+                                  color: '#000'
+                                }
+                              }}>
+                                {item.notes}
+                              </Typography>
                     </Box>
-                    <Box sx={{ flex: 3, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.exercise?.name || ''}</Typography>
+                          )}
+                          
+                          {/* YouTube Link Button */}
+                          {item.exercise.videoUrl && (
+                            <Button
+                              variant="contained"
+                              color="error"
+                              size="small"
+                              startIcon={<PlayArrowIcon />}
+                              onClick={() => openYouTubeVideo(item.exercise.videoUrl)}
+                              sx={{ 
+                                mt: 2,
+                                width: '100%',
+                                fontWeight: 600,
+                                '@media print': {
+                                  display: 'none'
+                                }
+                              }}
+                            >
+                              Watch Video
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
                     </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.sets || ''}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.reps || ''}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.planSets?.[0]?.weight || ''}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.rir !== undefined ? day.items?.[rowIndex]?.rir : ''}</Typography>
-                    </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      {day.items?.[rowIndex]?.exercise?.videoUrl ? (
-                        <Box component="a" href={day.items?.[rowIndex]?.exercise?.videoUrl} target="_blank" rel="noopener noreferrer" sx={{ color: 'red', cursor: 'pointer', fontSize: '1.2rem', '@media print': { fontSize: '0.8rem', color: 'red !important' }, '&:hover': { opacity: 0.8 } }}>📺</Box>
-                      ) : (
-                        <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }} />
-                      )}
-                    </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }} />
-                    </Box>
-                    <Box sx={{ flex: 1, borderRight: '3px dashed white', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }} />
-                    </Box>
-                    <Box sx={{ flex: 3, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, '@media print': { fontSize: '0.6rem' } }}>{day.items?.[rowIndex]?.notes || ''}</Typography>
-                    </Box>
-                  </Box>
-                ))}
+                  );
+                })}
               </Box>
-            </Box>
+                    </Box>
           </Box>
         </Box>
       ))}

@@ -24,7 +24,6 @@ import Box from '@mui/material/Box';
 
 // project-imports
 import AnimateButton from 'components/@extended/AnimateButton';
-import AccessibilityMenu from 'components/AccessibilityMenu';
 import IconButton from 'components/@extended/IconButton';
 import Notification from 'layout/DashboardLayout/Header/HeaderContent/Notification';
 import { handlerComponentDrawer, useGetMenuMaster } from 'api/menu';
@@ -181,9 +180,6 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                     Purchase Now
                   </Button>
                 </AnimateButton>
-              </Box>
-              <Box sx={{ ml: 2 }}>
-                <AccessibilityMenu />
               </Box>
             </Stack>
             <Box

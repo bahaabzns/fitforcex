@@ -801,27 +801,30 @@ export default function WorkoutPage() {
               {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
                 <Stack spacing={1.5}>
                   {logsData!.workoutLogs.map((log: any) => (
-                    <Card key={log.id} variant="outlined">
+                    <Card key={log.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => {
+                      // TODO: Add workout log details dialog
+                      console.log('View workout log details:', log);
+                    }}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                          <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{log.workoutPlan?.title || 'Workout'}</Typography>
-                            <Typography variant="caption" color="text.secondary">Day {Number(log.dayIndex) + 1}</Typography>
-                          </Box>
-                          <Chip label={log.completed ? 'Completed' : 'In Progress'} color={log.completed ? 'success' : 'warning'} size="small" />
-                        </Stack>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ color: 'text.secondary' }}>
-                          <Typography variant="body2">{new Date(log.date).toLocaleDateString()}</Typography>
-                          <Typography variant="body2">{log.startTime && log.endTime ? `${log.startTime} - ${log.endTime}` : 'Not completed'}</Typography>
-                          <Typography variant="body2">{Array.isArray(log.exercises) ? `${log.exercises.length} exercises` : '-'}</Typography>
-                        </Stack>
-                        {log.notes && (
-                          <Typography variant="body2" sx={{ mt: 1 }}>{log.notes}</Typography>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{log.workoutPlan?.title || 'Workout'}</Typography>
+                              <Typography variant="caption" color="text.secondary">Day {Number(log.dayIndex) + 1}</Typography>
+                            </Box>
+                            <Chip label={log.completed ? 'Completed' : 'In Progress'} color={log.completed ? 'success' : 'warning'} size="small" />
+                          </Stack>
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ color: 'text.secondary' }}>
+                            <Typography variant="body2">{new Date(log.date).toLocaleDateString()}</Typography>
+                            <Typography variant="body2">{log.startTime && log.endTime ? `${log.startTime} - ${log.endTime}` : 'Not completed'}</Typography>
+                            <Typography variant="body2">{Array.isArray(log.exercises) ? `${log.exercises.length} exercises` : '-'}</Typography>
+                          </Stack>
+                          {log.notes && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>{log.notes}</Typography>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
               ) : (
                 <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No workout logs found</Typography>
               )}

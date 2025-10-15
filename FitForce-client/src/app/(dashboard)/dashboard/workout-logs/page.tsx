@@ -339,7 +339,7 @@ export default function WorkoutLogsPage() {
                   </TableHead>
                   <TableBody>
                     {workoutLogs.map((log) => (
-                      <TableRow key={log.id}>
+                      <TableRow key={log.id} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => handleViewDetails(log)}>
                         <TableCell>
                           <Typography variant="body2" fontWeight={500}>
                             {log.client.fullName}

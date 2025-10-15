@@ -1968,7 +1968,10 @@ export default function ClientWorkoutPage() {
                 {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
                   <Stack spacing={1.5}>
                     {logsData!.workoutLogs.map((log: any) => (
-                      <Card key={log.id} variant="outlined">
+                      <Card key={log.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => {
+                        // TODO: Add workout log details dialog
+                        console.log('View workout log details:', log);
+                      }}>
                         <CardContent>
                           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                             <Box>
