@@ -1506,11 +1506,10 @@ export default function ClientNutritionPage() {
               <Box sx={{ mb: 2 }}>
                 <Tabs value={planTab} onChange={(_, v) => setPlanTab(v)} variant="fullWidth">
                   <Tab label="Cycles & Meals" />
-                  <Tab label="Water" />
                 </Tabs>
               </Box>
 
-              {/* Content based on selected tab */}
+              {/* Content based on selected tab (Water tab removed) */}
               {planTab === 0 ? (
                 <>
                   {currentCycle ? (
@@ -1585,48 +1584,7 @@ export default function ClientNutritionPage() {
                     </Box>
                   )}
                 </>
-              ) : (
-                <>
-                  {/* Water tab content */}
-                  <Box sx={{ py: 2 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Water Intake</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <TextField
-                        fullWidth
-                        label="Water for the Day (ml)"
-                        type="number"
-                        value={waterForDay}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setWaterForDay(value);
-                          if (selectedPlanId) {
-                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForDay: value })));
-                            setIsPlanDirty(true);
-                          }
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Water for Training (ml)"
-                        type="number"
-                        value={waterForTraining}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setWaterForTraining(value);
-                          if (selectedPlanId) {
-                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForTraining: value })));
-                            setIsPlanDirty(true);
-                          }
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                    </Box>
-                  </Box>
-                </>
-              )}
+              ) : null}
             </CardContent>
           </Card>,
             
@@ -2012,11 +1970,10 @@ export default function ClientNutritionPage() {
                 <Box sx={{ mb: 2 }}>
                   <Tabs value={planTab} onChange={(_, v) => setPlanTab(v)} variant="fullWidth">
                     <Tab label="Cycles & Meals" />
-                    <Tab label="Water" />
                   </Tabs>
                 </Box>
 
-                {/* Content based on selected tab */}
+                {/* Content based on selected tab (Water tab removed) */}
                 {planTab === 0 ? (
                   <>
                     {/* Row 2: Cycle header */}
@@ -2154,48 +2111,7 @@ export default function ClientNutritionPage() {
                       <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">No cycle selected</Typography></Box>
                     )}
                   </>
-                ) : (
-                  <>
-                    {/* Water tab content */}
-                    <Box sx={{ py: 2 }}>
-                      <Typography variant="subtitle2" sx={{ mb: 2 }}>Water Intake</Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <TextField
-                          fullWidth
-                          label="Water for the Day (ml)"
-                          type="number"
-                          value={waterForDay}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 0;
-                            setWaterForDay(value);
-                            if (selectedPlanId) {
-                              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForDay: value })));
-                              setIsPlanDirty(true);
-                            }
-                          }}
-                          size="small"
-                          inputProps={{ min: 0 }}
-                        />
-                        <TextField
-                          fullWidth
-                          label="Water for Training (ml)"
-                          type="number"
-                          value={waterForTraining}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 0;
-                            setWaterForTraining(value);
-                            if (selectedPlanId) {
-                              setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, waterForTraining: value })));
-                              setIsPlanDirty(true);
-                            }
-                          }}
-                          size="small"
-                          inputProps={{ min: 0 }}
-                        />
-                      </Box>
-                    </Box>
-                  </>
-                )}
+                ) : null}
               </CardContent>
             </Card>
           )}

@@ -948,7 +948,6 @@ export default function ClientWorkoutPage() {
                 localWorkoutPlan ? (
                   <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="scrollable" allowScrollButtonsMobile>
                     <Tab label="Days" />
-                    <Tab label="Cardio" />
                   </Tabs>
                 ) : 'Days'
               }
@@ -1064,79 +1063,7 @@ export default function ClientWorkoutPage() {
                       </Box>
                     )}
                   </>
-                ) : (
-                  // Cardio tab content
-                  <Box sx={{ py: 2 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Cardio Settings</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <TextField
-                        fullWidth
-                        label="Years Old"
-                        type="number"
-                        value={cardioData.yearsOld}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, yearsOld: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Heart Rate Max"
-                        type="number"
-                        value={cardioData.heartRateMax}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, heartRateMax: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Heart Rate Target"
-                        type="number"
-                        value={cardioData.heartRateTarget}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, heartRateTarget: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Start Cardio"
-                        type="number"
-                        value={cardioData.startCardio}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, startCardio: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Start Hit"
-                        type="number"
-                        value={cardioData.startHit}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, startHit: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                    </Box>
-                  </Box>
-                )
+                ) : null
               ) : (
                 <Box sx={{ 
                   textAlign: 'center', 

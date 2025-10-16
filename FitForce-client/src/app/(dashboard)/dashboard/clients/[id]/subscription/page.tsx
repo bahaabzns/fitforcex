@@ -87,36 +87,69 @@ export default function ClientSubscriptionPage() {
   
   const [saving, setSaving] = useState(false);
 
+  const refreshSubscriptions = async () => {
+    if (!workspaceId) return;
+    try {
+      setLoadingSubscriptions(true);
+      const response = await api.get(`/api/clients/${workspaceId}/subscriptions?clientId=${clientId}`);
+      const subs = Array.isArray(response.data?.subscriptions) ? response.data.subscriptions : [];
+      // Normalize to UI expectations
+      const normalized = subs
+        .filter(Boolean)
+        .map((s: any) => {
+          const lastPayment = Array.isArray(s.payments) && s.payments.length > 0 ? s.payments[0] : null;
+          return {
+            id: s.id,
+            planName: s.planName || s.packageName || 'Subscription',
+            status: s.status,
+            startDate: s.createdAt,
+            endDate: s.endDate || s.renewalDate,
+            price: s.price ?? (lastPayment ? (lastPayment.amountCents || 0) / 100 : 0),
+            currency: s.currency || (lastPayment ? lastPayment.currency : 'USD'),
+            createdAt: s.createdAt,
+            updatedAt: s.updatedAt,
+          } as Subscription;
+        });
+      setSubscriptions(normalized);
+    } catch (err: any) {
+      openSnackbar({
+        open: true,
+        message: 'Failed to load subscriptions',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    } finally {
+      setLoadingSubscriptions(false);
+    }
+  };
+
   // Load subscriptions
   useEffect(() => {
-    const loadSubscriptions = async () => {
-      if (!workspaceId) return;
-      
-      try {
-        setLoadingSubscriptions(true);
-        const response = await api.get(`/api/clients/${workspaceId}/subscriptions?clientId=${clientId}`);
-        setSubscriptions(response.data.subscriptions || []);
-      } catch (err: any) {
-        openSnackbar({
-          open: true,
-          message: 'Failed to load subscriptions',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
-      } finally {
-        setLoadingSubscriptions(false);
-      }
-    };
-    loadSubscriptions();
+    refreshSubscriptions();
   }, [clientId, workspaceId]);
 
   // Load subscription plans
   useEffect(() => {
     const loadPlans = async () => {
+      if (!workspaceId) return;
       try {
         setLoadingPlans(true);
-        const response = await api.get('/api/subscription-plans');
-        setSubscriptionPlans(response.data.plans || []);
+        const response = await api.get(`/api/workspaces/${workspaceId}/client-packages`);
+        const packages = response.data?.packages || response.data?.plans || [];
+        const normalized: SubscriptionPlan[] = packages.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description || '',
+          price: (p.price ?? (p.priceCents != null ? p.priceCents / 100 : 0)),
+          currency: p.currency || 'USD',
+          duration: p.duration != null ? p.duration : (p.durationMonths != null ? p.durationMonths * 30 : 30),
+          features: Array.isArray(p.features)
+            ? p.features
+            : p.features && typeof p.features === 'object'
+              ? Object.values(p.features)
+              : []
+        }));
+        setSubscriptionPlans(normalized);
       } catch (err: any) {
         openSnackbar({
           open: true,
@@ -129,7 +162,7 @@ export default function ClientSubscriptionPage() {
       }
     };
     loadPlans();
-  }, []);
+  }, [workspaceId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -153,9 +186,15 @@ export default function ClientSubscriptionPage() {
     
     try {
       setSaving(true);
-      const response = await api.post(`/api/clients/${clientId}/subscriptions`, {
-        planId: selectedPlanId,
-        startDate: subscriptionStartDate
+      const response = await api.post(`/api/clients/${workspaceId}/subscribe`, {
+        clientId,
+        packageId: selectedPlanId,
+        billingData: {
+          email: 'client@example.com',
+          first_name: 'Client',
+          last_name: 'User',
+          phone_number: '0000000000'
+        }
       });
       
       setSubscriptions(prev => [...prev, response.data.subscription]);
@@ -183,16 +222,9 @@ export default function ClientSubscriptionPage() {
 
   const handleCancelSubscription = async (subscriptionId: string) => {
     try {
-      await api.delete(`/api/clients/${clientId}/subscriptions/${subscriptionId}`);
-      
-      setSubscriptions(prev => 
-        prev.map(sub => 
-          sub.id === subscriptionId 
-            ? { ...sub, status: 'cancelled' }
-            : sub
-        )
-      );
-      
+      setSaving(true);
+      await api.post(`/api/clients/${workspaceId}/subscriptions/${subscriptionId}/cancel`);
+      await refreshSubscriptions();
       openSnackbar({
         open: true,
         message: 'Subscription cancelled successfully',
@@ -206,6 +238,8 @@ export default function ClientSubscriptionPage() {
         variant: 'alert',
         alert: { color: 'error' }
       });
+    } finally {
+      setSaving(false);
     }
   };
 

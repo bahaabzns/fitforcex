@@ -68,6 +68,13 @@ export default function FormsPage() {
   const [editTitleArabic, setEditTitleArabic] = useState('');
   const [editFormType, setEditFormType] = useState<'nutrition' | 'workout'>('nutrition');
   const [editQuestions, setEditQuestions] = useState<Array<{ id: string; originalId?: string; label: string; labelArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>>([]);
+  // Add-question builder for edit dialog
+  const [editCustomType, setEditCustomType] = useState<string>('text');
+  const [editCustomLabel, setEditCustomLabel] = useState<string>('');
+  const [editCustomLabelArabic, setEditCustomLabelArabic] = useState<string>('');
+  const [editCustomRequired, setEditCustomRequired] = useState<boolean>(false);
+  const [editCustomOptions, setEditCustomOptions] = useState<string>('');
+  const [editCustomError, setEditCustomError] = useState<string>('');
   const [updating, setUpdating] = useState(false);
   // Separate selection for assignment so selecting in the assign UI does not open the view dialog
   const [assignTemplateId, setAssignTemplateId] = useState<string>('');
@@ -594,6 +601,75 @@ export default function FormsPage() {
                 </Stack>
               </Box>
             )}
+
+            {/* Add new question in edit mode */}
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                Add question
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={3}>
+                  <FormControl fullWidth>
+                    <InputLabel id="edit-custom-type-label">Type</InputLabel>
+                    <Select labelId="edit-custom-type-label" label="Type" value={editCustomType} onChange={(e) => setEditCustomType(String(e.target.value))}>
+                      <MenuItem value="text">text</MenuItem>
+                      <MenuItem value="textarea">textarea</MenuItem>
+                      <MenuItem value="number">number</MenuItem>
+                      <MenuItem value="select">select</MenuItem>
+                      <MenuItem value="checkbox">checkbox</MenuItem>
+                      <MenuItem value="radio">radio</MenuItem>
+                      <MenuItem value="attachment">attachment</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={5}>
+                  <TextField fullWidth label="Question label" value={editCustomLabel} onChange={(e) => setEditCustomLabel(e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField fullWidth label="Question label (Arabic)" value={editCustomLabelArabic} onChange={(e) => setEditCustomLabelArabic(e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <FormControlLabel control={<Switch checked={editCustomRequired} onChange={(e) => setEditCustomRequired(e.target.checked)} />} label="Required" />
+                </Grid>
+                <Grid item xs={12} sm={9}>
+                  <TextField fullWidth label="Options (comma separated)" value={editCustomOptions} onChange={(e) => setEditCustomOptions(e.target.value)} disabled={!['select', 'checkbox', 'radio'].includes(editCustomType)} />
+                </Grid>
+              </Grid>
+              {editCustomError && <Alert severity="error" sx={{ mt: 1 }}>{editCustomError}</Alert>}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setEditCustomError('');
+                    if (!editCustomLabel.trim()) {
+                      setEditCustomError('Question label is required');
+                      return;
+                    }
+                    const opts = editCustomOptions
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    setEditQuestions((prev) => [
+                      ...prev,
+                      {
+                        id: `eq_${Date.now()}`,
+                        label: editCustomLabel.trim(),
+                        labelArabic: editCustomLabelArabic.trim() || undefined,
+                        type: editCustomType,
+                        required: editCustomRequired,
+                        options: opts.length ? opts : undefined,
+                      },
+                    ]);
+                    setEditCustomLabel('');
+                    setEditCustomLabelArabic('');
+                    setEditCustomRequired(false);
+                    setEditCustomOptions('');
+                  }}
+                >
+                  Add question
+                </Button>
+              </Box>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>

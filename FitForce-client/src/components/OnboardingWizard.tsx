@@ -142,7 +142,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     try {
       setCompleting(true);
       await api.post('/api/workspaces/onboarding/skip');
-      router.push('/dashboard');
+      router.push('/dashboard/workspaces');
       router.refresh();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to skip onboarding');
@@ -196,7 +196,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
       await api.post('/api/workspaces/onboarding/complete', payload);
 
       // Redirect to dashboard
-      router.push('/dashboard');
+      router.push('/dashboard/workspaces');
       router.refresh();
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to complete onboarding');

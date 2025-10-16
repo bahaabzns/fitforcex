@@ -289,7 +289,7 @@ export default function WorkspacePage() {
 
     try {
       await api.delete(`/api/workspaces/${workspace.id}`);
-      router.push('/dashboard');
+      router.push('/dashboard/workspaces');
     } catch {
       setError('Failed to delete workspace');
     }

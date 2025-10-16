@@ -28,15 +28,8 @@ const mainDomainMenu: NavItemType = {
   icon: icons.home,
   children: [
     {
-      id: 'dashboard-root',
-      title: 'Overview',
-      type: 'item',
-      url: '/dashboard',
-      icon: icons.home
-    },
-    {
       id: 'workspaces',
-      title: 'Workspace',
+      title: 'Workspaces',
       type: 'item',
       url: '/dashboard/workspaces',
       icon: icons.workspaces

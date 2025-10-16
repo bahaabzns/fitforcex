@@ -124,6 +124,11 @@ export default function ClientsPage() {
   // View dialog
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editFullName, setEditFullName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
 
   // Create client wizard
   const [createWizardOpen, setCreateWizardOpen] = useState(false);
@@ -286,6 +291,14 @@ export default function ClientsPage() {
         return 'warning';
       case 'pending':
         return 'warning';
+      case 'no_subscription':
+        return 'default';
+      case 'frozen':
+        return 'warning';
+      case 'expired':
+        return 'error';
+      case 'refunded':
+        return 'error';
       case 'inactive':
         return 'error';
       default:
@@ -301,10 +314,18 @@ export default function ClientsPage() {
         return 'Pre-Start';
       case 'pending':
         return 'Pending';
+      case 'no_subscription':
+        return 'No Subscription';
+      case 'frozen':
+        return 'Frozen';
+      case 'expired':
+        return 'Expired';
+      case 'refunded':
+        return 'Refunded';
       case 'inactive':
         return 'Inactive';
       default:
-        return 'Unknown';
+        return status || 'Unknown';
     }
   };
 
@@ -418,7 +439,11 @@ export default function ClientsPage() {
                   sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
                   onClick={(e: MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
-                    // Handle edit
+                    setSelectedClient(row.original);
+                    setEditFullName(row.original.fullName || row.original.name || '');
+                    setEditEmail(row.original.email || '');
+                    setEditPhone(row.original.phone || '');
+                    setEditOpen(true);
                   }}
                 >
                   <Edit />
@@ -462,6 +487,24 @@ export default function ClientsPage() {
     getPaginationRowModel: getPaginationRowModel(),
     debugTable: true
   });
+  const saveEdit = async () => {
+    if (!selectedClient) return;
+    setEditSaving(true);
+    try {
+      await api.put(`/api/clients/${selectedClient.id}`, {
+        fullName: editFullName.trim() || undefined,
+        email: editEmail.trim() || null,
+        phone: editPhone.trim() || null,
+      });
+      setEditOpen(false);
+      await refreshClients();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to update client');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
 
   const headers: LabelKeyObject[] = [];
   table.getAllColumns().map((column) => {
@@ -859,6 +902,24 @@ export default function ClientsPage() {
       ) : (
         renderCardsView()
       )}
+
+      {/* Edit Client Dialog */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Client</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField label="Full Name" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} fullWidth />
+            <TextField label="Email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} fullWidth />
+            <TextField label="Phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} fullWidth />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={saveEdit} disabled={editSaving}>
+            {editSaving ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Client Details</DialogTitle>

@@ -72,7 +72,16 @@ export default function SeedClientDashboard() {
           <Card sx={{ p: 2 }}>
             <Typography variant="overline" color="text.secondary">Account Status</Typography>
             <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Chip size="small" label={client.status} color={client.status === 'active' ? 'success' : client.status === 'pending' ? 'warning' : 'default'} />
+              <Chip 
+                size="small" 
+                label={client.status} 
+                color={
+                  client.status === 'active' ? 'success' : 
+                  client.status === 'pre_start' || client.status === 'pending' || client.status === 'frozen' ? 'warning' :
+                  client.status === 'expired' || client.status === 'refunded' ? 'error' :
+                  'default'
+                } 
+              />
             </Stack>
           </Card>
         </Grid>

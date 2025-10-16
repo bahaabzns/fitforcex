@@ -20,7 +20,7 @@ import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { DRAWER_WIDTH, MenuOrientation } from 'config';
 import useConfig from 'hooks/useConfig';
 import { useAppSelector, useAppDispatch } from '@/store';
-import { setWorkspace } from '@/store/slices/workspaceSlice';
+import { setWorkspace, clearWorkspace } from '@/store/slices/workspaceSlice';
 import { APP_CONFIG } from '@/lib/config';
 import MessengerBadgeSync from './MessengerBadgeSync';
 
@@ -43,18 +43,28 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       const host = window.location.host;
       const parts = host.split('.');
       const isLocalhost = host.includes('localhost');
-      const hasSubdomain = isLocalhost
-        ? host.includes('localhost:3000') && parts.length >= 2 && parts[0] !== 'localhost'
-        : parts.length > 2;
+      
+      // Check if we're on the main domain (nano.com) or a subdomain
+      const isMainDomain = host === 'nano.com' || host === 'localhost:3000';
+      const hasSubdomain = !isMainDomain && (
+        isLocalhost 
+          ? parts.length >= 2 && parts[0] !== 'localhost'
+          : parts.length > 2
+      );
+
+      console.log('🔍 Subdomain Detection:', {
+        host,
+        parts,
+        isLocalhost,
+        isMainDomain,
+        hasSubdomain,
+        currentSubdomain: workspaceSubdomain
+      });
 
       if (hasSubdomain) {
         const subdomain = isLocalhost
-          ? host.includes('localhost:3000') && parts.length >= 2
-            ? parts[0]
-            : null
-          : parts.length > 2
-            ? parts[0]
-            : null;
+          ? parts.length >= 2 ? parts[0] : null
+          : parts.length > 2 ? parts[0] : null;
 
         if (subdomain && subdomain !== workspaceSubdomain) {
           // Try to resolve workspace and set context
@@ -73,6 +83,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           };
           resolveWorkspace();
         }
+      } else if (isMainDomain && workspaceSubdomain) {
+        // Clear workspace context when on main domain
+        dispatch(clearWorkspace());
       }
     }
   }, [dispatch, workspaceSubdomain]);
