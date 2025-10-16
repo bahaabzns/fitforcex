@@ -10,7 +10,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import useScrollTrigger from '@mui/material/useScrollTrigger';
 import AppBar from '@mui/material/AppBar';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Container from '@mui/material/Container';
 import Drawer from '@mui/material/Drawer';
 import Links from '@mui/material/Link';
@@ -25,14 +24,9 @@ import Box from '@mui/material/Box';
 // project-imports
 import AnimateButton from 'components/@extended/AnimateButton';
 import IconButton from 'components/@extended/IconButton';
-import Notification from 'layout/DashboardLayout/Header/HeaderContent/Notification';
-import { handlerComponentDrawer, useGetMenuMaster } from 'api/menu';
-import Logo from 'components/logo';
-import { ThemeDirection } from 'config';
 
 // assets
-import { ExportSquare, HambergerMenu, Minus } from '@wandersonalwes/iconsax-react';
-import GithubIcon from '../../../public/assets/third-party/github';
+import { HambergerMenu, Minus } from '@wandersonalwes/iconsax-react';
 
 interface ElevationScrollProps {
   layout: string;
@@ -54,7 +48,7 @@ function ElevationScroll({ children, window }: ElevationScrollProps) {
       boxShadow: trigger ? '0 8px 6px -10px rgba(0, 0, 0, 0.5)' : 'none',
       backgroundColor: trigger ? alpha(theme.palette.background.default, 0.8) : alpha(theme.palette.background.default, 0.1)
     }
-  });
+  } as any);
 }
 
 interface Props {
@@ -66,10 +60,12 @@ interface Props {
 export default function Header({ layout = 'landing', ...others }: Props) {
   const downMD = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const [drawerToggle, setDrawerToggle] = useState<boolean>(false);
-
-  const [openDrawer, setOpenDrawer] = useState(false);
-
-  const { menuMaster } = useGetMenuMaster();
+  
+  // Get scroll state for logo switching
+  const isScrolled = useScrollTrigger({
+    disableHysteresis: true,
+    threshold: 10
+  });
 
   /** Method called on multiple components with different event types */
   const drawerToggler = (open: boolean) => (event: any) => {
@@ -77,6 +73,15 @@ export default function Header({ layout = 'landing', ...others }: Props) {
       return;
     }
     setDrawerToggle(open);
+  };
+
+  /** Smooth scroll to section */
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+    setDrawerToggle(false); // Close mobile menu after clicking
   };
 
   return (
@@ -90,18 +95,17 @@ export default function Header({ layout = 'landing', ...others }: Props) {
         })}
       >
         <Container maxWidth="xl" disableGutters={downMD}>
-          <Toolbar sx={{ px: { xs: 1.5, sm: 4, md: 0, lg: 0 }, py: 1 }}>
+          <Toolbar sx={{ px: { xs: 1.5, sm: 4, md: 0, lg: 0 }, py: 0.5 }}>
             <Stack direction="row" sx={{ alignItems: 'center', flexGrow: 1, display: { xs: 'none', md: 'block' } }}>
               <Box sx={{ display: 'inline-block' }}>
-                <Logo to="/" />
+                <Link href="/">
+                  <img 
+                    src={isScrolled ? "/assets/header_logo/down.png" : "/assets/header_logo/hero.png"} 
+                    alt="FitForce" 
+                    style={{ height: 40, cursor: 'pointer' }}
+                  />
+                </Link>
               </Box>
-              <Chip
-                label={process.env.NEXT_PUBLIC_VERSION}
-                variant="outlined"
-                size="small"
-                color="secondary"
-                sx={{ mt: 0.5, ml: 1, fontSize: '0.725rem', height: 20, '& .MuiChip-label': { px: 0.5 } }}
-              />
             </Stack>
             <Stack
               direction="row"
@@ -112,72 +116,81 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                 '& .header-link': { fontWeight: 500, '&:hover': { color: 'primary.main' } }
               }}
             >
-              <Notification />
-              <Links
-                className="header-link"
-                sx={(theme) => ({ ml: theme.direction === ThemeDirection.RTL ? 3 : 0 })}
-                color="secondary.main"
-                component={Link}
-                href={'/login'}
-                target="_blank"
-                underline="none"
-              >
-                Dashboard
-              </Links>
-              <Links className="header-link" color="secondary.main" component={Link} href="#" underline="none">
-                Components
-              </Links>
-              <Links
-                className="header-link"
-                color="secondary.main"
-                href="https://phoenixcoded.gitbook.io/able-pro"
-                target="_blank"
-                underline="none"
-              >
-                Documentation
-              </Links>
-              <Links
-                className="header-link"
-                color="secondary.main"
-                id="wallet-button"
-                href="/sample-page"
-                underline="none"
-                sx={{ path: { strokeWidth: 2 }, svg: { marginBottom: '-3px' } }}
-              >
-                Live Preview
-              </Links>
-              <Links href="https://github.com/phoenixcoded/able-pro-free-admin-dashboard-template" target="_blank" underline="none">
-                <IconButton
-                  size="large"
-                  shape="rounded"
-                  color="secondary"
-                  sx={(theme) => ({
-                    bgcolor: 'secondary.light',
-                    color: 'secondary.darker',
-                    '&:hover': {
-                      color: 'secondary.lighter',
-                      bgcolor: 'grey.800',
-                      svg: { stroke: theme.palette.common.white },
-                      ...theme.applyStyles('dark', { color: 'grey.500' })
-                    }
-                  })}
+              {/* Navigation Links */}
+              <Box sx={{ display: 'flex', gap: 3 }}>
+                <Links
+                  component="button"
+                  onClick={() => scrollToSection('problem-solution')}
+                  sx={{ 
+                    color: isScrolled ? 'text.primary' : 'white', 
+                    textDecoration: 'none', 
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
+                  }}
                 >
-                  <GithubIcon />
-                </IconButton>
-              </Links>
+                  Problem & Solution
+                </Links>
+                <Links
+                  component="button"
+                  onClick={() => scrollToSection('why-fitforce')}
+                  sx={{ 
+                    color: isScrolled ? 'text.primary' : 'white', 
+                    textDecoration: 'none', 
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
+                  }}
+                >
+                  Why FitForce
+                </Links>
+                <Links
+                  component="button"
+                  onClick={() => scrollToSection('pricing')}
+                  sx={{ 
+                    color: isScrolled ? 'text.primary' : 'white', 
+                    textDecoration: 'none', 
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
+                  }}
+                >
+                  Pricing
+                </Links>
+                <Links
+                  component="button"
+                  onClick={() => scrollToSection('book-demo')}
+                  sx={{ 
+                    color: isScrolled ? 'text.primary' : 'white', 
+                    textDecoration: 'none', 
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
+                  }}
+                >
+                  Book Demo
+                </Links>
+              </Box>
+              
               <Box sx={{ display: 'inline-block' }}>
                 <AnimateButton>
                   <Button
-                    component={Links}
-                    href="https://1.envato.market/zNkqj6"
-                    target="_blank"
+                    component={Link}
+                    href="/login"
                     disableElevation
-                    startIcon={<ExportSquare />}
-                    color="success"
                     size="large"
-                    variant="contained"
+                    variant={isScrolled ? "contained" : "outlined"}
+                    sx={{
+                      color: isScrolled ? 'white' : 'white',
+                      borderColor: isScrolled ? 'primary.main' : 'white',
+                      bgcolor: isScrolled ? 'primary.main' : 'transparent',
+                      '&:hover': {
+                        bgcolor: isScrolled ? 'primary.dark' : 'rgba(255,255,255,0.1)',
+                        borderColor: isScrolled ? 'primary.dark' : 'white'
+                      }
+                    }}
                   >
-                    Purchase Now
+                    Login
                   </Button>
                 </AnimateButton>
               </Box>
@@ -191,21 +204,37 @@ export default function Header({ layout = 'landing', ...others }: Props) {
               }}
             >
               <Box sx={{ display: 'inline-block' }}>
-                <Logo to="/" />
+                <Link href="/">
+                  <img 
+                    src={isScrolled ? "/assets/header_logo/down.png" : "/assets/header_logo/hero.png"} 
+                    alt="FitForce" 
+                    style={{ height: 32, cursor: 'pointer' }}
+                  />
+                </Link>
               </Box>
               <Stack direction="row" sx={{ gap: 2 }}>
-                {layout !== 'component' && (
-                  <Button variant="outlined" color="warning" component={Link} href="https://1.envato.market/zNkqj6" sx={{ mt: 0.25 }}>
-                    All Components
-                  </Button>
-                )}
+                <Button
+                  variant={isScrolled ? "contained" : "outlined"}
+                  component={Link}
+                  href="/login"
+                  sx={{ 
+                    mt: 0.25,
+                    color: isScrolled ? 'white' : 'white',
+                    borderColor: isScrolled ? 'primary.main' : 'white',
+                    bgcolor: isScrolled ? 'primary.main' : 'transparent',
+                    '&:hover': {
+                      bgcolor: isScrolled ? 'primary.dark' : 'rgba(255,255,255,0.1)',
+                      borderColor: isScrolled ? 'primary.dark' : 'white'
+                    }
+                  }}
+                >
+                  Login
+                </Button>
 
                 <IconButton
                   size="large"
                   color="secondary"
-                  {...(layout === 'component'
-                    ? { onClick: () => handlerComponentDrawer(!menuMaster.isComponentDrawerOpened) }
-                    : { onClick: drawerToggler(true) })}
+                  onClick={drawerToggler(true)}
                   sx={{ p: 1 }}
                 >
                   <HambergerMenu />
@@ -215,7 +244,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                 anchor="top"
                 open={drawerToggle}
                 onClose={drawerToggler(false)}
-                sx={{ '& .MuiDrawer-paper': { backgroundImage: 'none' } }}
+                slotProps={{ paper: { sx: { backgroundImage: 'none' } } }}
               >
                 <Box
                   sx={{
@@ -229,66 +258,44 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                   onKeyDown={drawerToggler(false)}
                 >
                   <List>
-                    <Links style={{ textDecoration: 'none' }} component={Link} href="/login" target="_blank">
+                    <ListItemButton onClick={() => scrollToSection('problem-solution')}>
+                      <ListItemIcon>
+                        <Minus />
+                      </ListItemIcon>
+                      <ListItemText primary="Problem & Solution" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                    </ListItemButton>
+                    <ListItemButton onClick={() => scrollToSection('why-fitforce')}>
+                      <ListItemIcon>
+                        <Minus />
+                      </ListItemIcon>
+                      <ListItemText primary="Why FitForce" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                    </ListItemButton>
+                    <ListItemButton onClick={() => scrollToSection('pricing')}>
+                      <ListItemIcon>
+                        <Minus />
+                      </ListItemIcon>
+                      <ListItemText primary="Pricing" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                    </ListItemButton>
+                    <ListItemButton onClick={() => scrollToSection('book-demo')}>
+                      <ListItemIcon>
+                        <Minus />
+                      </ListItemIcon>
+                      <ListItemText primary="Book Demo" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                    </ListItemButton>
+                    <Links style={{ textDecoration: 'none' }} component={Link} href="/login">
+                      <ListItemButton>
+                        <ListItemIcon>
+                          <Minus />
+                        </ListItemIcon>
+                        <ListItemText primary="Login" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                      </ListItemButton>
+                    </Links>
+                    <Links style={{ textDecoration: 'none' }} component={Link} href="/dashboard">
                       <ListItemButton>
                         <ListItemIcon>
                           <Minus />
                         </ListItemIcon>
                         <ListItemText primary="Dashboard" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
-                      </ListItemButton>
-                    </Links>
-                    <Links style={{ textDecoration: 'none' }} component={Link} href="https://1.envato.market/zNkqj6" target="_blank">
-                      <ListItemButton>
-                        <ListItemIcon>
-                          <Minus />
-                        </ListItemIcon>
-                        <ListItemText primary="All Components" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
-                      </ListItemButton>
-                    </Links>
-                    <Links
-                      style={{ textDecoration: 'none' }}
-                      href="https://github.com/phoenixcoded/able-pro-free-admin-dashboard-template"
-                      target="_blank"
-                    >
-                      <ListItemButton>
-                        <ListItemIcon>
-                          <Minus />
-                        </ListItemIcon>
-                        <ListItemText primary="Free Version" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
-                      </ListItemButton>
-                    </Links>
-                    <Links style={{ textDecoration: 'none' }} href="https://phoenixcoded.gitbook.io/able-pro" target="_blank">
-                      <ListItemButton>
-                        <ListItemIcon>
-                          <Minus />
-                        </ListItemIcon>
-                        <ListItemText primary="Documentation" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
-                      </ListItemButton>
-                    </Links>
-                    <Links style={{ textDecoration: 'none' }} href="https://phoenixcoded.authordesk.app/" target="_blank">
-                      <ListItemButton>
-                        <ListItemIcon>
-                          <Minus />
-                        </ListItemIcon>
-                        <ListItemText primary="Support" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
-                      </ListItemButton>
-                    </Links>
-                    <Links style={{ textDecoration: 'none' }} href="https://1.envato.market/zNkqj6" target="_blank">
-                      <ListItemButton>
-                        <ListItemIcon>
-                          <Minus />
-                        </ListItemIcon>
-                        <ListItemText primary="Purchase Now" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
-                        <Chip color="primary" label={process.env.NEXT_APP_VERSION} size="small" />
-                      </ListItemButton>
-                    </Links>
-                    <Links style={{ textDecoration: 'none' }} href="#" onClick={() => setOpenDrawer(!openDrawer)}>
-                      <ListItemButton>
-                        <ListItemIcon>
-                          <Minus />
-                        </ListItemIcon>
-                        <ListItemText primary="Live Preview" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
-                        <Stack sx={{ path: { strokeWidth: 2 } }}></Stack>
                       </ListItemButton>
                     </Links>
                   </List>

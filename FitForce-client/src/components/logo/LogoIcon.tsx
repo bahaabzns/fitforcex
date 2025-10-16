@@ -16,6 +16,6 @@ export default function LogoIcon() {
 
   return (
     // Use external logo svg from public
-    <img src="/logo.svg" alt="FitForce" width={52} height={52} style={{ display: 'block' }} />
+    <img src="/logo.svg" alt="FitForce" width={32} height={32} style={{ display: 'block' }} />
   );
 }
