@@ -133,6 +133,11 @@ export default function ClientsPage() {
   // Create client wizard
   const [createWizardOpen, setCreateWizardOpen] = useState(false);
 
+  // Delete client
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Bulk form assignment
   const [bulkFormDialogOpen, setBulkFormDialogOpen] = useState(false);
   const [formTemplates, setFormTemplates] = useState<any[]>([]);
@@ -184,17 +189,32 @@ export default function ClientsPage() {
     loadData();
   }, [workspaceId]);
 
+  // Synchronize search and globalFilter states
+  useEffect(() => {
+    if (search !== globalFilter) {
+      setGlobalFilter(search);
+    }
+  }, [search]);
+
+  useEffect(() => {
+    if (globalFilter !== search) {
+      setSearch(globalFilter);
+    }
+  }, [globalFilter]);
+
   const filtered = useMemo(() => {
     let result = clients;
 
-    // Text search filter
-    const q = search.trim().toLowerCase();
-    if (q) {
+    // Text search filter - use both search and globalFilter for consistency
+    const searchQuery = (search || globalFilter || '').trim().toLowerCase();
+    if (searchQuery) {
       result = result.filter(
         (c) =>
-          (c.fullName || c.name || '').toLowerCase().includes(q) ||
-          (c.email || '').toLowerCase().includes(q) ||
-          (c.phone || '').toLowerCase().includes(q)
+          (c.fullName || c.name || '').toLowerCase().includes(searchQuery) ||
+          (c.email || '').toLowerCase().includes(searchQuery) ||
+          (c.phone || '').toLowerCase().includes(searchQuery) ||
+          (c.status || '').toLowerCase().includes(searchQuery) ||
+          (c.packageName || '').toLowerCase().includes(searchQuery)
       );
     }
 
@@ -208,7 +228,7 @@ export default function ClientsPage() {
     }
 
     return result;
-  }, [clients, search, packageFilter]);
+  }, [clients, search, globalFilter, packageFilter]);
 
   const refreshClients = async () => {
     try {
@@ -455,7 +475,7 @@ export default function ClientsPage() {
                   sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
                   onClick={(e: MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
-                    // Handle delete
+                    handleDeleteClient(row.original);
                   }}
                 >
                   <Trash />
@@ -502,6 +522,28 @@ export default function ClientsPage() {
       setError(e?.response?.data?.error || 'Failed to update client');
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const handleDeleteClient = (client: Client) => {
+    setClientToDelete(client);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteClient = async () => {
+    if (!clientToDelete) return;
+    
+    setDeleting(true);
+    try {
+      await api.delete(`/api/clients/${clientToDelete.id}`);
+      setDeleteDialogOpen(false);
+      setClientToDelete(null);
+      await refreshClients();
+      setError(null);
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to delete client');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1016,6 +1058,41 @@ export default function ClientsPage() {
             disabled={!selectedFormId || assigningForm || formTemplates.length === 0}
           >
             {assigningForm ? <CircularProgress size={20} /> : 'Assign Form'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Client Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Delete Client</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body1">
+              Are you sure you want to delete <strong>{clientToDelete?.fullName || clientToDelete?.name || 'this client'}</strong>?
+            </Typography>
+            <Alert severity="warning">
+              This action cannot be undone. All client data including subscriptions, forms, and plans will be permanently deleted.
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={confirmDeleteClient} 
+            disabled={deleting}
+          >
+            {deleting ? (
+              <>
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+                Deleting...
+              </>
+            ) : (
+              'Delete Client'
+            )}
           </Button>
         </DialogActions>
       </Dialog>
