@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/utils/axios';
-import { useAppSelector } from '@/store';
+import { useAppSelector, useAppDispatch } from '@/store';
+import { setCredentials } from '@/store/slices/authSlice';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -16,9 +17,10 @@ import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
+import TextField from '@mui/material/TextField';
 
 // Icons
-import { TickCircle, CloseCircle, Clock, Shield } from '@wandersonalwes/iconsax-react';
+import { TickCircle, CloseCircle, Clock, Shield, Profile, Lock } from '@wandersonalwes/iconsax-react';
 
 interface InvitationData {
   id: string;
@@ -34,60 +36,182 @@ interface InvitationData {
   };
 }
 
+type FlowState = 'loading' | 'needs-signup' | 'needs-login' | 'wrong-user' | 'ready' | 'accepting' | 'success' | 'error';
+
 export default function TeamInvitationPage() {
   const params = useParams();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const token = params.token as string;
   const userId = useAppSelector((s) => s.auth.user?.id);
   const userEmail = useAppSelector((s) => s.auth.user?.email);
   
-  const [loading, setLoading] = useState(true);
-  const [accepting, setAccepting] = useState(false);
+  const [flowState, setFlowState] = useState<FlowState>('loading');
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+
+  // Signup form state
+  const [fullName, setFullName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [signupLoading, setSignupLoading] = useState(false);
+
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
     if (!token) {
       setError('Invalid invitation link');
-      setLoading(false);
+      setFlowState('error');
       return;
     }
 
-    const fetchInvitation = async () => {
-      try {
-        const response = await api.get(`/api/team/invitations/${token}`);
-        setInvitation(response.data.invitation);
-        setError(null);
-      } catch (err: any) {
-        const errorMsg = err?.response?.data?.error || 'Failed to load invitation';
-        setError(errorMsg);
-      } finally {
-        setLoading(false);
-      }
-    };
+    fetchInvitationAndDetermineFlow();
+  }, [token, userId, userEmail]);
 
-    fetchInvitation();
-  }, [token]);
+  const fetchInvitationAndDetermineFlow = async () => {
+    try {
+      const response = await api.get(`/api/team/invitations/${token}`);
+      const invData = response.data.invitation;
+      setInvitation(invData);
+      setLoginEmail(invData.email); // Pre-fill login email
+      setError(null);
+
+      // Determine flow based on current state
+      if (!userId) {
+        // User not logged in - check if they have an account
+        try {
+          // Try to check if user exists (we'll need a backend endpoint for this)
+          // For now, we'll show signup option
+          setFlowState('needs-signup');
+        } catch {
+          setFlowState('needs-signup');
+        }
+      } else {
+        // User is logged in
+        if (userEmail === invData.email) {
+          // Correct user - ready to accept
+          setFlowState('ready');
+        } else {
+          // Wrong user logged in
+          setFlowState('wrong-user');
+        }
+      }
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || 'Failed to load invitation';
+      setError(errorMsg);
+      setFlowState('error');
+    }
+  };
+
+  const handleSignupAndAccept = async () => {
+    if (!invitation) return;
+
+    // Validation
+    if (!fullName.trim()) {
+      setError('Please enter your full name');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setSignupLoading(true);
+    setError(null);
+
+    try {
+      // 1. Create account
+      await api.post('/api/auth/signup', {
+        fullName: fullName.trim(),
+        email: invitation.email,
+        password,
+        lastName: lastName.trim() || undefined,
+        phoneNumber: phoneNumber.trim() || undefined
+      });
+
+      // 2. Login automatically
+      const loginResponse = await api.post('/api/auth/login', {
+        email: invitation.email,
+        password
+      });
+
+      const user = loginResponse.data.user;
+      dispatch(setCredentials({ user }));
+
+      // 3. Accept invitation
+      await api.post('/api/team/invitations/accept', {
+        token,
+        userId: user.id
+      });
+
+      setFlowState('success');
+      
+      // Redirect to workspace dashboard
+      setTimeout(() => {
+        router.push(`/dashboard`);
+      }, 2000);
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || 'Failed to create account and accept invitation';
+      setError(errorMsg);
+    } finally {
+      setSignupLoading(false);
+    }
+  };
+
+  const handleLoginAndAccept = async () => {
+    if (!invitation) return;
+
+    if (!loginPassword) {
+      setError('Please enter your password');
+      return;
+    }
+
+    setLoginLoading(true);
+    setError(null);
+
+    try {
+      // 1. Login
+      const loginResponse = await api.post('/api/auth/login', {
+        email: loginEmail,
+        password: loginPassword
+      });
+
+      const user = loginResponse.data.user;
+      dispatch(setCredentials({ user }));
+
+      // 2. Accept invitation
+      await api.post('/api/team/invitations/accept', {
+        token,
+        userId: user.id
+      });
+
+      setFlowState('success');
+      
+      // Redirect to workspace dashboard
+      setTimeout(() => {
+        router.push(`/dashboard`);
+      }, 2000);
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || 'Failed to login and accept invitation';
+      setError(errorMsg);
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
   const handleAccept = async () => {
-    if (!userId) {
-      setError('You must be logged in to accept this invitation. Please log in first.');
-      return;
-    }
+    if (!userId || !invitation) return;
 
-    if (!invitation) {
-      setError('Invitation data is missing');
-      return;
-    }
-
-    // Check if logged-in user email matches invitation email
-    if (userEmail !== invitation.email) {
-      setError(`This invitation was sent to ${invitation.email}. Please log in with that email to accept.`);
-      return;
-    }
-
-    setAccepting(true);
+    setFlowState('accepting');
     setError(null);
 
     try {
@@ -96,25 +220,39 @@ export default function TeamInvitationPage() {
         userId
       });
       
-      setSuccess(true);
+      setFlowState('success');
       
-      // Redirect to workspace after 2 seconds
+      // Redirect to workspace dashboard
       setTimeout(() => {
         router.push(`/dashboard`);
       }, 2000);
     } catch (err: any) {
       const errorMsg = err?.response?.data?.error || 'Failed to accept invitation';
       setError(errorMsg);
-    } finally {
-      setAccepting(false);
+      setFlowState('error');
     }
   };
 
-  const handleDecline = () => {
-    router.push('/');
+  const handleSwitchToLogin = () => {
+    setFlowState('needs-login');
   };
 
-  if (loading) {
+  const handleSwitchToSignup = () => {
+    setFlowState('needs-signup');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/api/auth/logout');
+      dispatch(setCredentials({ user: null as any }));
+      // Refresh to show signup/login options
+      window.location.reload();
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
+  if (flowState === 'loading') {
     return (
       <Box
         sx={{
@@ -157,8 +295,19 @@ export default function TeamInvitationPage() {
 
             <Divider />
 
+            {/* Error Alert */}
+            {error && flowState !== 'success' && (
+              <Alert 
+                severity="error" 
+                icon={<CloseCircle variant="Bold" />}
+                onClose={() => setError(null)}
+              >
+                {error}
+              </Alert>
+            )}
+
             {/* Success State */}
-            {success && (
+            {flowState === 'success' && (
               <Alert 
                 severity="success" 
                 icon={<TickCircle variant="Bold" />}
@@ -173,18 +322,8 @@ export default function TeamInvitationPage() {
               </Alert>
             )}
 
-            {/* Error State */}
-            {error && !success && (
-              <Alert 
-                severity="error" 
-                icon={<CloseCircle variant="Bold" />}
-              >
-                {error}
-              </Alert>
-            )}
-
             {/* Invitation Details */}
-            {invitation && !success && (
+            {invitation && flowState !== 'success' && (
               <Stack spacing={2}>
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600 }}>
@@ -194,7 +333,7 @@ export default function TeamInvitationPage() {
                     {invitation.workspace.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {invitation.workspace.subdomain}.{window.location.hostname.replace('localhost:3000', 'nano.com')}
+                    {invitation.workspace.subdomain}
                   </Typography>
                 </Box>
 
@@ -239,60 +378,216 @@ export default function TeamInvitationPage() {
                     })}
                   </Typography>
                 </Box>
-
-                {/* Authentication Check */}
-                {!userId && (
-                  <Alert severity="info">
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      You need to be logged in to accept this invitation.
-                    </Typography>
-                    <Button 
-                      variant="contained" 
-                      size="small"
-                      onClick={() => router.push(`/login?redirect=/team/invitation/${token}`)}
-                    >
-                      Log In
-                    </Button>
-                  </Alert>
-                )}
-
-                {/* Email Mismatch Check */}
-                {userId && userEmail && userEmail !== invitation.email && (
-                  <Alert severity="warning">
-                    <Typography variant="body2">
-                      You are logged in as <strong>{userEmail}</strong>, but this invitation was sent to <strong>{invitation.email}</strong>. 
-                      Please log in with the correct email to accept this invitation.
-                    </Typography>
-                  </Alert>
-                )}
               </Stack>
             )}
 
-            {/* Action Buttons */}
-            {invitation && !success && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Button
-                  variant="outlined"
+            {/* Signup Form (for new users) */}
+            {flowState === 'needs-signup' && invitation && (
+              <Stack spacing={2}>
+                <Alert severity="info">
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Create your account to accept this invitation
+                  </Typography>
+                </Alert>
+                
+                <TextField
+                  label="Full Name *"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   fullWidth
-                  onClick={handleDecline}
-                  disabled={accepting}
-                >
-                  Decline
-                </Button>
+                  disabled={signupLoading}
+                  InputProps={{
+                    startAdornment: <Profile size={20} style={{ marginRight: 8, opacity: 0.5 }} />
+                  }}
+                />
+                
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    label="Last Name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    fullWidth
+                    disabled={signupLoading}
+                  />
+                  <TextField
+                    label="Phone Number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    fullWidth
+                    disabled={signupLoading}
+                  />
+                </Stack>
+
+                <TextField
+                  label="Email"
+                  value={invitation.email}
+                  fullWidth
+                  disabled
+                  helperText="Email is pre-filled from invitation"
+                />
+                
+                <TextField
+                  label="Password *"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  fullWidth
+                  disabled={signupLoading}
+                  helperText="At least 6 characters"
+                  InputProps={{
+                    startAdornment: <Lock size={20} style={{ marginRight: 8, opacity: 0.5 }} />
+                  }}
+                />
+                
+                <TextField
+                  label="Confirm Password *"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  fullWidth
+                  disabled={signupLoading}
+                  InputProps={{
+                    startAdornment: <Lock size={20} style={{ marginRight: 8, opacity: 0.5 }} />
+                  }}
+                />
+
                 <Button
                   variant="contained"
                   fullWidth
-                  onClick={handleAccept}
-                  disabled={accepting || !userId || (userEmail !== invitation.email)}
-                  startIcon={accepting ? <CircularProgress size={20} /> : <TickCircle />}
+                  size="large"
+                  onClick={handleSignupAndAccept}
+                  disabled={signupLoading}
+                  startIcon={signupLoading ? <CircularProgress size={20} /> : <TickCircle />}
                 >
-                  {accepting ? 'Accepting...' : 'Accept Invitation'}
+                  {signupLoading ? 'Creating Account...' : 'Create Account & Accept Invitation'}
+                </Button>
+
+                <Divider>
+                  <Typography variant="caption" color="text.secondary">OR</Typography>
+                </Divider>
+
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={handleSwitchToLogin}
+                  disabled={signupLoading}
+                >
+                  Already have an account? Log In
                 </Button>
               </Stack>
             )}
 
-            {/* Error State Actions */}
-            {error && !invitation && (
+            {/* Login Form */}
+            {flowState === 'needs-login' && invitation && (
+              <Stack spacing={2}>
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    Log in with <strong>{invitation.email}</strong> to accept this invitation
+                  </Typography>
+                </Alert>
+                
+                <TextField
+                  label="Email"
+                  value={loginEmail}
+                  fullWidth
+                  disabled
+                  helperText="Email from invitation"
+                />
+                
+                <TextField
+                  label="Password *"
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  fullWidth
+                  disabled={loginLoading}
+                  autoFocus
+                  InputProps={{
+                    startAdornment: <Lock size={20} style={{ marginRight: 8, opacity: 0.5 }} />
+                  }}
+                />
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  size="large"
+                  onClick={handleLoginAndAccept}
+                  disabled={loginLoading}
+                  startIcon={loginLoading ? <CircularProgress size={20} /> : <TickCircle />}
+                >
+                  {loginLoading ? 'Logging In...' : 'Log In & Accept Invitation'}
+                </Button>
+
+                <Divider>
+                  <Typography variant="caption" color="text.secondary">OR</Typography>
+                </Divider>
+
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={handleSwitchToSignup}
+                  disabled={loginLoading}
+                >
+                  Don't have an account? Sign Up
+                </Button>
+              </Stack>
+            )}
+
+            {/* Wrong User Logged In */}
+            {flowState === 'wrong-user' && invitation && (
+              <Stack spacing={2}>
+                <Alert severity="warning">
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    You are logged in as <strong>{userEmail}</strong>, but this invitation was sent to <strong>{invitation.email}</strong>.
+                  </Typography>
+                  <Typography variant="body2">
+                    Please log out and log in with the correct email to accept this invitation.
+                  </Typography>
+                </Alert>
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={handleLogout}
+                >
+                  Log Out & Switch Account
+                </Button>
+              </Stack>
+            )}
+
+            {/* Ready to Accept (correct user logged in) */}
+            {flowState === 'ready' && invitation && (
+              <Stack spacing={2}>
+                <Alert severity="success">
+                  <Typography variant="body2">
+                    You're logged in as <strong>{userEmail}</strong>. Ready to accept!
+                  </Typography>
+                </Alert>
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  size="large"
+                  onClick={handleAccept}
+                  startIcon={<TickCircle />}
+                >
+                  Accept Invitation
+                </Button>
+              </Stack>
+            )}
+
+            {/* Accepting State */}
+            {flowState === 'accepting' && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CircularProgress size={60} />
+                <Typography variant="body1" sx={{ mt: 2 }}>
+                  Accepting invitation...
+                </Typography>
+              </Box>
+            )}
+
+            {/* Error State */}
+            {flowState === 'error' && !invitation && (
               <Button
                 variant="contained"
                 fullWidth
@@ -307,4 +602,3 @@ export default function TeamInvitationPage() {
     </Box>
   );
 }
-
