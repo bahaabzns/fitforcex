@@ -59,21 +59,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         isMainDomain,
         cookieWorkspaceId,
         cookieSubdomain,
-        currentWorkspaceSubdomain: workspaceSubdomain
+        currentWorkspaceSubdomain: workspaceSubdomain,
+        pathname: window.location.pathname
       });
 
-      // If we have workspace cookies and not already set, update Redux
+      // PRIORITY 1: If we have workspace cookies and Redux is empty or different, update Redux IMMEDIATELY
       if (cookieWorkspaceId && cookieSubdomain && cookieSubdomain !== workspaceSubdomain) {
         console.log('✅ Setting workspace context from cookies');
         dispatch(setWorkspace({ id: cookieWorkspaceId, subdomain: cookieSubdomain }));
       } 
-      // If we're on main domain and have workspace in Redux, clear it
+      // PRIORITY 2: If we're on main domain and have workspace in Redux, clear it
       else if (isMainDomain && workspaceSubdomain && !cookieWorkspaceId) {
         console.log('🧹 Clearing workspace context (on main domain)');
         dispatch(clearWorkspace());
       }
+      // PRIORITY 3: If on subdomain but no cookies yet, wait for middleware
+      else if (!isMainDomain && !cookieWorkspaceId) {
+        console.log('⏳ On subdomain but cookies not set yet, middleware will set them');
+      }
     }
-  }, [dispatch, workspaceSubdomain]);
+  }, [dispatch, workspaceSubdomain]); // Re-run when workspaceSubdomain changes
 
   // set media wise responsive drawer
   useEffect(() => {
