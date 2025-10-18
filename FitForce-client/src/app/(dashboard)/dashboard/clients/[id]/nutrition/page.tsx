@@ -28,7 +28,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Tooltip
+  Tooltip,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import {
   Add,
@@ -181,6 +183,12 @@ export default function ClientNutritionPage() {
   const [formsError, setFormsError] = useState<string | null>(null);
   const [formsSubmissions, setFormsSubmissions] = useState<Array<{ id: string; form: { id: string; title: string }; answers?: any; status?: string; createdAt?: string; formTitle?: string; formType?: string; submittedAt?: string }>>([]);
   const [expandedSubmissionIds, setExpandedSubmissionIds] = useState<Record<string, boolean>>({});
+  
+  // Form completion dialog for plan activation
+  const [formCompletionDialogOpen, setFormCompletionDialogOpen] = useState(false);
+  const [submittedForms, setSubmittedForms] = useState<Array<{ id: string; formTitle: string; submittedAt: string }>>([]);
+  const [selectedFormsToArchive, setSelectedFormsToArchive] = useState<string[]>([]);
+  const [archivingForms, setArchivingForms] = useState(false);
 
   const handleSendAsPdf = useCallback(async () => {
     try {
@@ -999,6 +1007,25 @@ export default function ClientNutritionPage() {
       if (selectedPlanId.startsWith('tmp-') || isPlanDirty) {
         await handleSavePlan();
       }
+      
+      // Check for submitted nutrition forms
+      try {
+        const formsResponse = await api.get(`/api/forms/submitted-by-type?clientId=${clientId}&type=nutrition`);
+        const forms = formsResponse.data?.submissions || [];
+        
+        if (forms.length > 0) {
+          // Show dialog to let coach mark forms as done
+          setSubmittedForms(forms);
+          setSelectedFormsToArchive([]);
+          setFormCompletionDialogOpen(true);
+          setActivating(false);
+          return; // Wait for dialog action
+        }
+      } catch (err) {
+        console.error('Error checking forms:', err);
+        // Continue with activation even if form check fails
+      }
+      
       const planIdToActivate = selectedPlanId;
       await api.post(`/api/nutrition/plans/${planIdToActivate}/activate`, {});
       // Reflect status locally (activate this plan, deactivate others)
@@ -1018,6 +1045,43 @@ export default function ClientNutritionPage() {
       });
     } finally {
       setActivating(false);
+    }
+  };
+  
+  const handleFormCompletionContinue = async () => {
+    try {
+      setArchivingForms(true);
+      
+      // Archive selected forms
+      for (const formId of selectedFormsToArchive) {
+        await api.post(`/api/forms/submissions/${formId}/archive`);
+      }
+      
+      // Close dialog
+      setFormCompletionDialogOpen(false);
+      
+      // Continue with plan activation
+      const planIdToActivate = selectedPlanId;
+      if (planIdToActivate) {
+        await api.post(`/api/nutrition/plans/${planIdToActivate}/activate`, {});
+        setPlans((prev) => prev.map((p) => ({ ...p, status: p.id === planIdToActivate ? 'active' : (p.clientId === (prev.find(pp => pp.id === planIdToActivate)?.clientId) ? 'inactive' : p.status) })));
+        
+        openSnackbar({
+          open: true,
+          message: `Plan activated successfully${selectedFormsToArchive.length > 0 ? ` and ${selectedFormsToArchive.length} form(s) marked as done` : ''}`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        });
+      }
+    } catch (error) {
+      openSnackbar({
+        open: true,
+        message: 'Failed to complete activation',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    } finally {
+      setArchivingForms(false);
     }
   };
   
@@ -2708,6 +2772,77 @@ export default function ClientNutritionPage() {
           } as any);
         }}
       />
+      
+      {/* Form Completion Dialog */}
+      <Dialog
+        open={formCompletionDialogOpen}
+        onClose={() => !archivingForms && setFormCompletionDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5">Submitted Nutrition Forms Found</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            This client has submitted {submittedForms.length} nutrition form{submittedForms.length !== 1 ? 's' : ''}. 
+            Would you like to mark any of them as done before activating the plan?
+          </Alert>
+          
+          {submittedForms.length > 0 && (
+            <Stack spacing={1}>
+              {submittedForms.map((form) => (
+                <FormControlLabel
+                  key={form.id}
+                  control={
+                    <Checkbox
+                      checked={selectedFormsToArchive.includes(form.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedFormsToArchive([...selectedFormsToArchive, form.id]);
+                        } else {
+                          setSelectedFormsToArchive(selectedFormsToArchive.filter(id => id !== form.id));
+                        }
+                      }}
+                      disabled={archivingForms}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">{form.formTitle}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Submitted: {new Date(form.submittedAt).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  }
+                />
+              ))}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setFormCompletionDialogOpen(false)}
+            disabled={archivingForms}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleFormCompletionContinue}
+            variant="contained"
+            disabled={archivingForms}
+          >
+            {archivingForms ? (
+              <>
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+                Processing...
+              </>
+            ) : (
+              `Continue${selectedFormsToArchive.length > 0 ? ` & Mark ${selectedFormsToArchive.length} as Done` : ''}`
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

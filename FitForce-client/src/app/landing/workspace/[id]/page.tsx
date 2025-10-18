@@ -400,3 +400,6 @@ export default function WorkspaceLanding({ params }: WorkspaceLandingProps) {
     </Suspense>
   );
 }
+
+// Export the content component for direct use
+export { WorkspaceLandingContent as WorkspaceLandingContentExport };

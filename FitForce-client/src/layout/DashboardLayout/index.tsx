@@ -37,54 +37,39 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const isHorizontal = menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
 
-  // Detect workspace context from subdomain
+  // Detect workspace context from subdomain using cookies set by middleware
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const host = window.location.host;
-      const parts = host.split('.');
-      const isLocalhost = host.includes('localhost');
-      
-      // Check if we're on the main domain (nano.com) or a subdomain
-      const isMainDomain = host === 'nano.com' || host === 'localhost:3000';
-      const hasSubdomain = !isMainDomain && (
-        isLocalhost 
-          ? parts.length >= 2 && parts[0] !== 'localhost'
-          : parts.length > 2
-      );
+      // Read workspace cookies set by middleware
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
+      };
 
-      console.log('🔍 Subdomain Detection:', {
+      const cookieWorkspaceId = getCookie('ff_workspace_id');
+      const cookieSubdomain = getCookie('ff_workspace_subdomain');
+      
+      const host = window.location.host;
+      const isMainDomain = host === APP_CONFIG.frontendDomain || host === 'localhost:3000';
+
+      console.log('🔍 DashboardLayout Workspace Detection:', {
         host,
-        parts,
-        isLocalhost,
         isMainDomain,
-        hasSubdomain,
-        currentSubdomain: workspaceSubdomain
+        cookieWorkspaceId,
+        cookieSubdomain,
+        currentWorkspaceSubdomain: workspaceSubdomain
       });
 
-      if (hasSubdomain) {
-        const subdomain = isLocalhost
-          ? parts.length >= 2 ? parts[0] : null
-          : parts.length > 2 ? parts[0] : null;
-
-        if (subdomain && subdomain !== workspaceSubdomain) {
-          // Try to resolve workspace and set context
-          const resolveWorkspace = async () => {
-            try {
-              const resolveUrl = new URL('/api/workspaces/resolve', APP_CONFIG.apiUrl);
-              resolveUrl.searchParams.set('host', host);
-              const response = await fetch(resolveUrl.toString(), { cache: 'no-store' });
-              if (response.ok) {
-                const data = await response.json();
-                dispatch(setWorkspace({ id: data.workspace.id, subdomain }));
-              }
-            } catch (error) {
-              console.log('Could not resolve workspace:', error);
-            }
-          };
-          resolveWorkspace();
-        }
-      } else if (isMainDomain && workspaceSubdomain) {
-        // Clear workspace context when on main domain
+      // If we have workspace cookies and not already set, update Redux
+      if (cookieWorkspaceId && cookieSubdomain && cookieSubdomain !== workspaceSubdomain) {
+        console.log('✅ Setting workspace context from cookies');
+        dispatch(setWorkspace({ id: cookieWorkspaceId, subdomain: cookieSubdomain }));
+      } 
+      // If we're on main domain and have workspace in Redux, clear it
+      else if (isMainDomain && workspaceSubdomain && !cookieWorkspaceId) {
+        console.log('🧹 Clearing workspace context (on main domain)');
         dispatch(clearWorkspace());
       }
     }

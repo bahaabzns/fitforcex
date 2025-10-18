@@ -17,7 +17,6 @@ import TableHead from '@mui/material/TableHead';
 import TableBody from '@mui/material/TableBody';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -33,7 +32,7 @@ import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
-type QueueStatus = 'pending' | 'sent' | 'completed' | 'done';
+type QueueStatus = 'pending' | 'sent' | 'completed' | 'archived';
 
 interface QueueItem {
   id: string;
@@ -55,7 +54,7 @@ function statusColor(s: QueueStatus) {
       return 'info';
     case 'completed':
       return 'success';
-    case 'done':
+    case 'archived':
       return 'default';
     default:
       return 'default';
@@ -70,7 +69,7 @@ function statusLabel(s: QueueStatus) {
       return 'Form Requests';
     case 'completed':
       return 'Form Submissions';
-    case 'done':
+    case 'archived':
       return 'Done';
     default:
       return s;
@@ -113,7 +112,7 @@ export default function QueuePage() {
       pending: items.filter((i) => i.status === 'pending').length,
       sent: items.filter((i) => i.status === 'sent').length,
       completed: items.filter((i) => i.status === 'completed').length,
-      done: items.filter((i) => i.status === 'done').length
+      archived: items.filter((i) => i.status === 'archived').length
     };
   }, [items]);
 
@@ -176,7 +175,7 @@ export default function QueuePage() {
             value={tab}
             onChange={(_, v) => {
               setTab(v);
-              const map = ['all', 'pending', 'sent', 'completed', 'done'] as const;
+              const map = ['all', 'pending', 'sent', 'completed', 'archived'] as const;
               setStatusFilter(map[v] as QueueStatus | 'all');
             }}
             sx={{ mb: 2 }}
@@ -185,7 +184,7 @@ export default function QueuePage() {
             <Tab label={`Schedules (${counts.pending})`} />
             <Tab label={`Form Requests (${counts.sent})`} />
             <Tab label={`Form Submissions (${counts.completed})`} />
-            <Tab label={`Done (${counts.done})`} />
+            <Tab label={`Done (${counts.archived})`} />
           </Tabs>
 
           {isMobile ? (

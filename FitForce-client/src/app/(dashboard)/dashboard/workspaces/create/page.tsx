@@ -94,6 +94,17 @@ export default function CreateWorkspacePage() {
         subdomain: chosen
       });
       const newWorkspaceId = (data && (data.workspace?.id || data.id)) || '';
+      
+      // Check if user already used their free trial and needs to pay
+      if (data.requiresPayment) {
+        // User already had a free trial, redirect to subscription page to choose a package
+        setError(data.message || 'You have already used your free trial. Please choose a package to continue.');
+        setTimeout(() => {
+          router.replace(`/workspace/subscription?workspaceId=${newWorkspaceId}`);
+        }, 2000);
+        return;
+      }
+      
       // If a non-trial package is selected, go to subscription; otherwise, free trial auto-issues and we go back to list
       if (selectedPackageId && selectedPackageId !== freeTrialId) {
         router.replace(`/workspace/subscription?workspaceId=${newWorkspaceId}&packageId=${selectedPackageId}`);

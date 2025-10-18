@@ -1,8 +1,12 @@
+'use client';
+
 // material-ui
 import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
 
 // project-imports
 import Hero from 'sections/landing/Hero';
@@ -12,12 +16,166 @@ import PricingPlans from 'sections/landing/PricingPlans';
 import FinalCTA from 'sections/landing/FinalCTA';
 import Subscribe from 'sections/landing/Subscribe';
 import SimpleLayout from 'layout/SimpleLayout';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import Loader from 'components/Loader';
+import { APP_CONFIG } from '@/lib/config';
+import dynamic from 'next/dynamic';
+
+// Dynamically import WorkspaceLanding to avoid circular dependencies
+const WorkspaceLandingContent = dynamic(
+  () => import('./landing/workspace/[id]/page').then(mod => mod.WorkspaceLandingContentExport),
+  { loading: () => <Loader />, ssr: false }
+);
 
 // ==============================|| LANDING PAGE ||============================== //
 
 export default function Landing() {
+  const searchParams = useSearchParams();
+  const [showError, setShowError] = useState(false);
+  const [errorType, setErrorType] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const [isCheckingWorkspace, setIsCheckingWorkspace] = useState(true);
+  const [workspaceData, setWorkspaceData] = useState<{ id: string; subdomain: string } | null>(null);
+
+  useEffect(() => {
+    const checkWorkspace = async () => {
+      // Check if we're on a workspace subdomain by reading the cookies set by middleware
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
+      };
+
+      const workspaceId = getCookie('ff_workspace_id');
+      const workspaceSubdomain = getCookie('ff_workspace_subdomain');
+      
+      // Also check the hostname directly as a fallback
+      const host = window.location.host;
+      const parts = host.split('.');
+      const isLocalhost = host.includes('localhost');
+      const isMainDomain = isLocalhost 
+        ? host === 'localhost:3000' || host === 'localhost'
+        : host === APP_CONFIG.frontendDomain;
+
+      console.log('🔍 Main landing page - Workspace check:', { 
+        host, 
+        parts,
+        isMainDomain,
+        workspaceId, 
+        workspaceSubdomain 
+      });
+
+      // If we have workspace cookies, show workspace landing directly
+      if (workspaceId && workspaceSubdomain) {
+        console.log('✅ Workspace detected from cookies, showing workspace landing page');
+        setWorkspaceData({ id: workspaceId, subdomain: workspaceSubdomain });
+        setIsCheckingWorkspace(false);
+        return;
+      }
+      
+      // If we're on a subdomain but no cookies (middleware might have failed), check directly
+      if (!isMainDomain) {
+        const subdomain = parts[0];
+        console.log(`🔍 On subdomain ${subdomain} but no cookies, checking API directly...`);
+        
+        try {
+          const apiUrl = `${APP_CONFIG.apiUrl}/api/workspaces/resolve?host=${host}`;
+          console.log(`🔗 Fetching from: ${apiUrl}`);
+          
+          const response = await fetch(apiUrl, {
+            cache: 'no-store'
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Workspace found via direct API check:', data.workspace);
+            setWorkspaceData({ id: data.workspace.id, subdomain: data.workspace.subdomain });
+            setIsCheckingWorkspace(false);
+            return;
+          } else {
+            console.log('❌ Workspace not found, will redirect to main domain');
+            // Redirect to main domain with error - use APP_CONFIG
+            const protocol = window.location.protocol;
+            const mainUrl = `${protocol}//${APP_CONFIG.frontendDomain}`;
+            window.location.replace(`${mainUrl}/?error=workspace_not_found&workspace=${subdomain}`);
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking workspace:', error);
+          // Fall through to show main landing
+        }
+      }
+
+      // No workspace context, show main landing page
+      setIsCheckingWorkspace(false);
+
+      // Check for error messages
+      const error = searchParams.get('error');
+      const workspace = searchParams.get('workspace');
+      
+      if (error === 'workspace_not_found' || error === 'workspace_error') {
+        setShowError(true);
+        setErrorType(error);
+        setWorkspaceName(workspace);
+        
+        // Auto-hide after 10 seconds
+        const timer = setTimeout(() => {
+          setShowError(false);
+        }, 10000);
+        
+        return () => clearTimeout(timer);
+      }
+    };
+
+    checkWorkspace();
+  }, [searchParams]);
+
+  // Show loader while checking workspace context
+  if (isCheckingWorkspace) {
+    return <Loader />;
+  }
+
+  // If we have workspace data, show workspace landing
+  if (workspaceData) {
+    return (
+      <Suspense fallback={<Loader />}>
+        <WorkspaceLandingContent params={{ id: workspaceData.id }} />
+      </Suspense>
+    );
+  }
+
   return (
     <SimpleLayout>
+      {/* Error Alert for Non-existent Workspace */}
+      {showError && (
+        <Box sx={{ position: 'sticky', top: 0, zIndex: 1200, width: '100%' }}>
+          <Alert 
+            severity="error" 
+            onClose={() => setShowError(false)}
+            sx={{ 
+              borderRadius: 0,
+              '& .MuiAlert-message': { width: '100%' }
+            }}
+          >
+            <AlertTitle sx={{ fontWeight: 700 }}>Workspace Not Found</AlertTitle>
+            {workspaceName ? (
+              <>
+                The workspace <strong>"{workspaceName}"</strong> doesn't exist or has been removed.
+              </>
+            ) : (
+              <>
+                The workspace you tried to access doesn't exist or has been removed.
+              </>
+            )}
+            {errorType === 'workspace_error' && (
+              <> There was also an error connecting to the server.</>
+            )}
+          </Alert>
+        </Box>
+      )}
+      
       <Hero />
       <Box id="problem-solution">
         <ProblemSolution />

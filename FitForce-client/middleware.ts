@@ -23,21 +23,18 @@ export async function middleware(req: NextRequest) {
 
   const parts = host.split('.');
   const isLocalhost = host.includes('localhost');
+  
+  // For localhost: subdomain.localhost:3000 splits into ['subdomain', 'localhost:3000']
+  // For production: subdomain.nano.com splits into ['subdomain', 'nano', 'com']
   const hasSubdomain = isLocalhost
-    ? host.includes('localhost:3000') && parts.length >= 2 && parts[0] !== 'localhost'
+    ? parts.length >= 2 && parts[0] !== 'localhost' && !parts[0].includes('localhost')
     : parts.length > 2;
 
-  const isMainDomain =
-    !hasSubdomain &&
-    (
-      host === 'localhost:3000' ||
-      host === APP_CONFIG.frontendDomain ||
-      host === `app.${APP_CONFIG.frontendDomain}` 
-    );
+  const isMainDomain = isLocalhost
+    ? host === 'localhost:3000' || host === 'localhost'
+    : host === APP_CONFIG.frontendDomain || host === `app.${APP_CONFIG.frontendDomain}`;
 
-  const subdomain = isLocalhost
-    ? (host.includes('localhost:3000') && parts.length >= 2 ? parts[0] : null)
-    : parts.length > 2
+  const subdomain = hasSubdomain
     ? parts[0]
     : null;
     
@@ -141,8 +138,8 @@ export async function middleware(req: NextRequest) {
         const redirectUrl = new URL(mainOrigin);
         redirectUrl.searchParams.set('error', 'workspace_not_found');
         if (subdomain) redirectUrl.searchParams.set('workspace', subdomain);
-        const res = NextResponse.redirect(redirectUrl, 308);
-        res.headers.set('x-ff-domain-type', 'workspace');
+        const res = NextResponse.redirect(redirectUrl, 307);
+        res.headers.set('x-ff-domain-type', 'invalid-workspace');
         // Clear any workspace cookies to avoid stale state on main domain
         res.cookies.set('ff_workspace_id', '', { path: '/', maxAge: 0 });
         res.cookies.set('ff_workspace_subdomain', '', { path: '/', maxAge: 0 });
@@ -152,10 +149,10 @@ export async function middleware(req: NextRequest) {
       console.error('Error resolving workspace, redirecting to main domain:', error);
       const mainOrigin = getMainDomainOrigin();
       const redirectUrl = new URL(mainOrigin);
-      redirectUrl.searchParams.set('error', 'workspace_not_found');
+      redirectUrl.searchParams.set('error', 'workspace_error');
       if (subdomain) redirectUrl.searchParams.set('workspace', subdomain);
-      const res = NextResponse.redirect(redirectUrl, 308);
-      res.headers.set('x-ff-domain-type', 'workspace');
+      const res = NextResponse.redirect(redirectUrl, 307);
+      res.headers.set('x-ff-domain-type', 'invalid-workspace');
       res.cookies.set('ff_workspace_id', '', { path: '/', maxAge: 0 });
       res.cookies.set('ff_workspace_subdomain', '', { path: '/', maxAge: 0 });
       return res;

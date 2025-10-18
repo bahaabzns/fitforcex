@@ -26,7 +26,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Alert,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import {
   Add,
@@ -145,6 +148,12 @@ export default function ClientWorkoutPage() {
     startCardio: 0,
     startHit: 0
   });
+  
+  // Form completion dialog for plan activation
+  const [formCompletionDialogOpen, setFormCompletionDialogOpen] = useState(false);
+  const [submittedForms, setSubmittedForms] = useState<Array<{ id: string; formTitle: string; submittedAt: string }>>([]);
+  const [selectedFormsToArchive, setSelectedFormsToArchive] = useState<string[]>([]);
+  const [archivingForms, setArchivingForms] = useState(false);
 
   // Load workout logs for this client (for Logs tab)
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
@@ -156,6 +165,69 @@ export default function ClientWorkoutPage() {
       return res.data as { workoutLogs: any[] };
     }
   );
+
+  // Activation handler with form checking
+  const handleActivateWorkoutPlan = async () => {
+    if (!selectedPlanId) return;
+    
+    try {
+      // Check for submitted workout forms
+      const formsResponse = await api.get(`/api/forms/submitted-by-type?clientId=${clientId}&type=workout`);
+      const forms = formsResponse.data?.submissions || [];
+      
+      if (forms.length > 0) {
+        // Show dialog to let coach mark forms as done
+        setSubmittedForms(forms);
+        setSelectedFormsToArchive([]);
+        setFormCompletionDialogOpen(true);
+        return; // Wait for dialog action
+      }
+      
+      // No forms, proceed with activation
+      await api.post(`/api/workout/plans/${selectedPlanId}/activate`);
+      await loadSavedPlans();
+      openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+    } catch (e) {
+      console.error('Error activating plan:', e);
+      openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+    }
+  };
+  
+  const handleWorkoutFormCompletionContinue = async () => {
+    try {
+      setArchivingForms(true);
+      
+      // Archive selected forms
+      for (const formId of selectedFormsToArchive) {
+        await api.post(`/api/forms/submissions/${formId}/archive`);
+      }
+      
+      // Close dialog
+      setFormCompletionDialogOpen(false);
+      
+      // Continue with plan activation
+      if (selectedPlanId) {
+        await api.post(`/api/workout/plans/${selectedPlanId}/activate`);
+        await loadSavedPlans();
+        
+        openSnackbar({
+          open: true,
+          message: `Workout plan activated${selectedFormsToArchive.length > 0 ? ` and ${selectedFormsToArchive.length} form(s) marked as done` : ''}`,
+          variant: 'alert',
+          alert: { color: 'success', variant: 'filled' }
+        } as any);
+      }
+    } catch (error) {
+      openSnackbar({
+        open: true,
+        message: 'Failed to complete activation',
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' }
+      } as any);
+    } finally {
+      setArchivingForms(false);
+    }
+  };
 
   // Load workspace exercises
   useEffect(() => {
@@ -787,15 +859,7 @@ export default function ClientWorkoutPage() {
                     <Button
                       variant="outlined"
                       size="small"
-                      onClick={async () => {
-                        try {
-                          await api.post(`/api/workout/plans/${selectedPlanId}/activate`);
-                          await loadSavedPlans();
-                          openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
-                        } catch (e) {
-                          openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
-                        }
-                      }}
+                      onClick={handleActivateWorkoutPlan}
                       sx={{ flex: 1 }}
                     >
                       Activate
@@ -2462,6 +2526,77 @@ export default function ClientWorkoutPage() {
           } as any);
         }}
       />
+      
+      {/* Form Completion Dialog */}
+      <Dialog
+        open={formCompletionDialogOpen}
+        onClose={() => !archivingForms && setFormCompletionDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5">Submitted Workout Forms Found</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            This client has submitted {submittedForms.length} workout form{submittedForms.length !== 1 ? 's' : ''}. 
+            Would you like to mark any of them as done before activating the plan?
+          </Alert>
+          
+          {submittedForms.length > 0 && (
+            <Stack spacing={1}>
+              {submittedForms.map((form) => (
+                <FormControlLabel
+                  key={form.id}
+                  control={
+                    <Checkbox
+                      checked={selectedFormsToArchive.includes(form.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedFormsToArchive([...selectedFormsToArchive, form.id]);
+                        } else {
+                          setSelectedFormsToArchive(selectedFormsToArchive.filter(id => id !== form.id));
+                        }
+                      }}
+                      disabled={archivingForms}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">{form.formTitle}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Submitted: {new Date(form.submittedAt).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  }
+                />
+              ))}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setFormCompletionDialogOpen(false)}
+            disabled={archivingForms}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleWorkoutFormCompletionContinue}
+            variant="contained"
+            disabled={archivingForms}
+          >
+            {archivingForms ? (
+              <>
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+                Processing...
+              </>
+            ) : (
+              `Continue${selectedFormsToArchive.length > 0 ? ` & Mark ${selectedFormsToArchive.length} as Done` : ''}`
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
