@@ -10,6 +10,7 @@ import Localization from './Localization';
 import MobileSection from './MobileSection';
 import Notification from './Notification';
 import Profile from './Profile';
+import WorkspaceNavigator from './WorkspaceNavigator';
 
 import { MenuOrientation } from 'config';
 import useConfig from 'hooks/useConfig';
@@ -27,6 +28,7 @@ export default function HeaderContent() {
   return (
     <>
       {menuOrientation === MenuOrientation.HORIZONTAL && !downLG && <DrawerHeader open={true} />}
+      {!downLG && <WorkspaceNavigator />}
       <Box sx={{ flexGrow: 1 }} />
       {!downLG && localization}
 

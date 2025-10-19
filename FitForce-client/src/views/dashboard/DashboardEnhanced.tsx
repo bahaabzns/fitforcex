@@ -154,24 +154,10 @@ export default function DashboardEnhanced() {
   const [currencySeries, setCurrencySeries] = useState<Array<{ date: string; [currency: string]: number }>>([]);
   const [currencyKeys, setCurrencyKeys] = useState<string[]>([]);
 
-  // Create mock chart data for demonstration
-  const mockGrowthData = [
-    { month: 'Jan', count: 5 },
-    { month: 'Feb', count: 8 },
-    { month: 'Mar', count: 12 },
-    { month: 'Apr', count: 15 },
-    { month: 'May', count: 18 },
-    { month: 'Jun', count: 22 }
-  ];
-
-  const mockRevenueData = [
-    { month: 'Jan', revenue: 1200 },
-    { month: 'Feb', revenue: 1800 },
-    { month: 'Mar', revenue: 2200 },
-    { month: 'Apr', revenue: 2800 },
-    { month: 'May', revenue: 3200 },
-    { month: 'Jun', revenue: 3800 }
-  ];
+  // Real chart data from analytics API
+  const [growthData, setGrowthData] = useState<Array<{ month: string; total: number; active: number }>>([]);
+  const [revenueData, setRevenueData] = useState<Array<{ month: string; total: number; gateway: number; manual: number }>>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   const fetchDashboardData = async (showUpdatingIndicator = true) => {
     try {
@@ -230,6 +216,7 @@ export default function DashboardEnhanced() {
 
   const handleRefresh = () => {
     fetchDashboardData(true);
+    loadAnalyticsData(); // Also refresh analytics data
   };
 
   const loadFormTemplateStats = async () => {
@@ -261,6 +248,46 @@ export default function DashboardEnhanced() {
   };
 
   // Load packages and payments, build currency series per month
+  const loadAnalyticsData = async () => {
+    try {
+      if (!workspaceId) return;
+      setAnalyticsLoading(true);
+      
+      const response = await api.get('/api/workspaces/analytics', { 
+        headers: { 'x-workspace-id': workspaceId } 
+      });
+      
+      const { charts } = response.data;
+      
+      // Set real growth data
+      if (charts?.clientGrowth) {
+        setGrowthData(charts.clientGrowth.map((item: any) => ({
+          month: item.month,
+          total: item.total,
+          active: item.active
+        })));
+      }
+      
+      // Set real revenue data
+      if (charts?.revenueTrend) {
+        setRevenueData(charts.revenueTrend.map((item: any) => ({
+          month: item.month,
+          total: item.total,
+          gateway: item.gateway,
+          manual: item.manual
+        })));
+      }
+      
+    } catch (error) {
+      console.error('Failed to load analytics data:', error);
+      // Fallback to empty data
+      setGrowthData([]);
+      setRevenueData([]);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
   const loadRevenueByCurrency = async (pkgId: string) => {
     try {
       if (!workspaceId) return;
@@ -373,6 +400,7 @@ export default function DashboardEnhanced() {
 
   const applyFilters = () => {
     fetchDashboardData(true);
+    loadAnalyticsData(); // Also refresh analytics data when filters change
     setShowAdvancedFilters(false);
   };
 
@@ -414,6 +442,7 @@ export default function DashboardEnhanced() {
       fetchDashboardData();
       loadFormTemplateStats();
       loadRevenueByCurrency(selectedPackageId);
+      loadAnalyticsData(); // Load real analytics data
       
       // Add sample notifications for demonstration
       addNotification({
@@ -858,15 +887,26 @@ export default function DashboardEnhanced() {
                 Client Growth
               </Typography>
               <Box sx={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={mockGrowthData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="count" stroke="#1976d2" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {analyticsLoading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <CircularProgress />
+                  </Box>
+                ) : growthData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={growthData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="total" stroke="#1976d2" strokeWidth={2} name="Total Clients" />
+                      <Line type="monotone" dataKey="active" stroke="#2e7d32" strokeWidth={2} name="Active Clients" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Typography color="text.secondary">No client growth data available</Typography>
+                  </Box>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -894,15 +934,27 @@ export default function DashboardEnhanced() {
                 </FormControl>
               </Stack>
               <Box sx={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mockRevenueData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="revenue" fill="#ed6c02" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {analyticsLoading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <CircularProgress />
+                  </Box>
+                ) : revenueData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="total" fill="#ed6c02" name="Total Revenue" />
+                      <Bar dataKey="gateway" fill="#1976d2" name="Gateway Revenue" />
+                      <Bar dataKey="manual" fill="#2e7d32" name="Manual Revenue" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Typography color="text.secondary">No revenue data available</Typography>
+                  </Box>
+                )}
               </Box>
             </CardContent>
           </Card>

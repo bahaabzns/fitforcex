@@ -12,6 +12,7 @@ import Box from '@mui/material/Box';
 import Localization from './Localization';
 import Profile from './Profile';
 import Search from './Search';
+import WorkspaceNavigator from './WorkspaceNavigator';
 import IconButton from 'components/@extended/IconButton';
 import Transitions from 'components/@extended/Transitions';
 
@@ -92,6 +93,7 @@ export default function MobileSection() {
               <ClickAwayListener onClickAway={handleClose}>
                 <AppBar color="inherit">
                   <Toolbar>
+                    <WorkspaceNavigator />
                     <Search />
                     <Localization />
                     <Profile />

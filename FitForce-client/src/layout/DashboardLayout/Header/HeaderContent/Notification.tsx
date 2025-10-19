@@ -28,6 +28,7 @@ import SimpleBar from 'components/third-party/SimpleBar';
 import { Gift, MessageText1, Notification, Setting2 } from '@wandersonalwes/iconsax-react';
 import api from 'utils/axios';
 import { APP_CONFIG } from '@/lib/config';
+import { useAppSelector } from '@/store';
 
 const actionSX = {
   mt: '6px',
@@ -58,15 +59,15 @@ export default function NotificationPage() {
     setOpen(false);
   };
 
+  const workspaceId = useAppSelector((s) => s.workspace.id);
+
   // Fetcher
   const fetchNotifications = async () => {
     try {
       // Only fetch notifications if we have a workspace context
-      // Check if we're on a workspace subdomain or have workspace in localStorage
-      const workspace = localStorage.getItem('workspace');
       const isWorkspaceDomain = window.location.hostname !== APP_CONFIG.frontendDomain;
       
-      if (!workspace && !isWorkspaceDomain) {
+      if (!workspaceId && !isWorkspaceDomain) {
         // No workspace context, skip notifications
         return;
       }

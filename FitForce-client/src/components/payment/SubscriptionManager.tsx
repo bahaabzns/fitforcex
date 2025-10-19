@@ -30,6 +30,7 @@ import PendingIcon from '@mui/icons-material/Pending';
 import { PaymentModal } from './PaymentModal';
 import api from '@/utils/axios';
 import { PaymentIframe } from './PaymentIframe';
+import { useAppSelector } from '@/store';
 
 interface SubscriptionData {
   id: string;
@@ -68,19 +69,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   clientId,
 }) => {
   const intl = useIntl();
-  const getPersistedWorkspaceId = () => {
-    try {
-      if (typeof window === 'undefined') return '';
-      const raw = localStorage.getItem('workspace');
-      if (!raw) return '';
-      const parsed = JSON.parse(raw);
-      return parsed?.id || '';
-    } catch {
-      return '';
-    }
-  };
-
-  const effectiveWorkspaceId = workspaceId || getPersistedWorkspaceId();
+  const reduxWorkspaceId = useAppSelector((s) => s.workspace.id);
+  const effectiveWorkspaceId = workspaceId || reduxWorkspaceId || '';
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

@@ -48,6 +48,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         return null;
       };
 
+      const setCookie = (name: string, value: string) => {
+        const isLocalhost = window.location.host.includes('localhost');
+        const domain = isLocalhost ? '' : `domain=.${APP_CONFIG.frontendDomain};`;
+        document.cookie = `${name}=${value}; path=/; SameSite=Lax; ${domain}`;
+        console.log(`🍪 Client-side set cookie: ${name}=${value}`);
+      };
+
       const cookieWorkspaceId = getCookie('ff_workspace_id');
       const cookieSubdomain = getCookie('ff_workspace_subdomain');
       
@@ -60,7 +67,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         cookieWorkspaceId,
         cookieSubdomain,
         currentWorkspaceSubdomain: workspaceSubdomain,
-        pathname: window.location.pathname
+        pathname: window.location.pathname,
+        allCookies: document.cookie
       });
 
       // PRIORITY 1: If we have workspace cookies and Redux is empty or different, update Redux IMMEDIATELY
@@ -73,9 +81,35 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         console.log('🧹 Clearing workspace context (on main domain)');
         dispatch(clearWorkspace());
       }
-      // PRIORITY 3: If on subdomain but no cookies yet, wait for middleware
+      // PRIORITY 3: If on subdomain but no cookies, fetch workspace and set cookies client-side (middleware fallback)
       else if (!isMainDomain && !cookieWorkspaceId) {
-        console.log('⏳ On subdomain but cookies not set yet, middleware will set them');
+        console.log('⚠️ On subdomain but cookies not set - fetching workspace client-side as fallback');
+        
+        // Fetch workspace data and set cookies client-side
+        const fetchAndSetWorkspace = async () => {
+          try {
+            const response = await fetch(`${APP_CONFIG.apiUrl}/api/workspaces/resolve?host=${host}`);
+            if (response.ok) {
+              const data = await response.json();
+              const workspace = data.workspace;
+              
+              console.log('✅ Fetched workspace client-side:', workspace);
+              
+              // Set cookies client-side
+              setCookie('ff_workspace_id', workspace.id);
+              setCookie('ff_workspace_subdomain', workspace.subdomain);
+              
+              // Update Redux
+              dispatch(setWorkspace({ id: workspace.id, subdomain: workspace.subdomain }));
+            } else {
+              console.error('❌ Failed to fetch workspace, status:', response.status);
+            }
+          } catch (error) {
+            console.error('❌ Error fetching workspace:', error);
+          }
+        };
+        
+        fetchAndSetWorkspace();
       }
     }
   }, [dispatch, workspaceSubdomain]); // Re-run when workspaceSubdomain changes

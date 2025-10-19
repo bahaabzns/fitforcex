@@ -20,6 +20,7 @@ import {
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import api from '@/utils/axios';
+import { useAppSelector } from '@/store';
 
 type ClientPackage = {
   id: string;
@@ -34,18 +35,8 @@ type ClientPackage = {
 export default function WorkspaceClientPackagesPage() {
   const params = useMemo(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams('')), []);
   const workspaceId = params.get('workspaceId') || '';
-  const getPersistedWorkspaceId = () => {
-    try {
-      if (typeof window === 'undefined') return '';
-      const raw = localStorage.getItem('workspace');
-      if (!raw) return '';
-      const parsed = JSON.parse(raw);
-      return parsed?.id || '';
-    } catch {
-      return '';
-    }
-  };
-  const effectiveWorkspaceId = workspaceId || getPersistedWorkspaceId();
+  const reduxWorkspaceId = useAppSelector((s) => s.workspace.id);
+  const effectiveWorkspaceId = workspaceId || reduxWorkspaceId || '';
 
   const [packages, setPackages] = useState<ClientPackage[]>([]);
   const [loading, setLoading] = useState(true);

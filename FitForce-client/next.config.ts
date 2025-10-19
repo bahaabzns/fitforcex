@@ -2,6 +2,7 @@
 const path = require('path');
 
 const nextConfig = {
+  output: 'standalone',
   modularizeImports: {
     '@mui/material': {
       transform: '@mui/material/{{member}}'

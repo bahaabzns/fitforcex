@@ -38,18 +38,18 @@ export default function DashboardPage() {
       reduxWorkspaceSubdomain: workspaceSubdomain
     });
     
-    // If we have workspace cookies and not already set in Redux, set it NOW
-    if (cookieWorkspaceId && cookieSubdomain && !workspaceSubdomain) {
-      console.log('✅ Dashboard: Setting workspace context from cookies');
-      dispatch(setWorkspace({ id: cookieWorkspaceId, subdomain: cookieSubdomain }));
-      setChecking(false);
-      return;
-    }
-    
     // If we already have workspace in Redux, we're good
     if (workspaceSubdomain) {
       console.log('✅ Dashboard: Workspace context already in Redux');
       setChecking(false);
+      return;
+    }
+    
+    // If we have workspace cookies and not already set in Redux, set it NOW and wait for next render
+    if (cookieWorkspaceId && cookieSubdomain && !workspaceSubdomain) {
+      console.log('✅ Dashboard: Setting workspace context from cookies');
+      dispatch(setWorkspace({ id: cookieWorkspaceId, subdomain: cookieSubdomain }));
+      // Return here - the effect will re-run when workspaceSubdomain changes
       return;
     }
     
@@ -60,7 +60,29 @@ export default function DashboardPage() {
       return;
     }
     
+    // If we're on a subdomain but no workspace context yet, wait a bit for middleware
+    if (!isMainDomain && !cookieWorkspaceId && !workspaceSubdomain) {
+      console.log('⏳ Dashboard: On subdomain but no workspace context yet, waiting...');
+      // Wait a bit for middleware to set cookies, then recheck
+      const timer = setTimeout(() => {
+        const retryCookieWorkspaceId = getCookie('ff_workspace_id');
+        const retryCookieSubdomain = getCookie('ff_workspace_subdomain');
+        
+        if (retryCookieWorkspaceId && retryCookieSubdomain) {
+          console.log('✅ Dashboard: Found workspace cookies on retry, setting context');
+          dispatch(setWorkspace({ id: retryCookieWorkspaceId, subdomain: retryCookieSubdomain }));
+          // Don't set checking to false here - let the effect re-run when Redux updates
+        } else {
+          console.log('❌ Dashboard: Still no workspace context after retry');
+          setChecking(false);
+        }
+      }, 100); // Wait 100ms for middleware
+      
+      return () => clearTimeout(timer);
+    }
+    
     // Fallback: no workspace context found
+    console.log('⚠️ Dashboard: No workspace context found, stopping checks');
     setChecking(false);
   }, [dispatch, workspaceSubdomain]);
   

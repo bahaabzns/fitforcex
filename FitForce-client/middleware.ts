@@ -123,14 +123,33 @@ export async function middleware(req: NextRequest) {
         console.log(`✅ Workspace data:`, data);
         const workspace = data.workspace;
 
+        // Determine cookie domain
+        const isLocalhost = host.includes('localhost');
+        const cookieDomain = isLocalhost ? undefined : `.${APP_CONFIG.frontendDomain}`;
+        
+        console.log(`🍪 Setting cookies with domain: ${cookieDomain || 'default (current domain)'}`);
+
         // Set headers and cookies so the client can render at /
         const next = NextResponse.next();
         next.headers.set('x-ff-domain-type', 'workspace');
         next.headers.set('x-ff-workspace-id', workspace.id);
         next.headers.set('x-ff-workspace-subdomain', workspace.subdomain);
         next.headers.set('x-ff-workspace-custom-domain', workspace.customDomain || '');
-        next.cookies.set('ff_workspace_id', workspace.id, { path: '/', sameSite: 'lax' });
-        next.cookies.set('ff_workspace_subdomain', workspace.subdomain || '', { path: '/', sameSite: 'lax' });
+        
+        // Set cookies with proper domain for subdomain access
+        next.cookies.set('ff_workspace_id', workspace.id, { 
+          path: '/', 
+          sameSite: 'lax',
+          domain: cookieDomain,
+          secure: !isLocalhost
+        });
+        next.cookies.set('ff_workspace_subdomain', workspace.subdomain || '', { 
+          path: '/', 
+          sameSite: 'lax',
+          domain: cookieDomain,
+          secure: !isLocalhost
+        });
+        
         return next;
       } else {
         console.log(`❌ Workspace not found, status: ${resolveResponse.status} — redirecting to main domain.`);

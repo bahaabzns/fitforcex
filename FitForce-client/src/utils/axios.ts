@@ -27,16 +27,26 @@ api.interceptors.request.use((config) => {
       (config.headers as Record<string, string>)['Authorization'] = `Bearer ${adminToken}`;
     }
 
-    const workspace = getPersisted<PersistedWorkspace>('workspace');
+    // Get workspace ID from cookies (primary source now)
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(';').shift();
+      return null;
+    };
+    
+    const workspaceIdFromCookie = getCookie('ff_workspace_id');
+    
     // Prefer explicit workspaceId from URL query (e.g., subscription pages)
     const urlParams = new URLSearchParams(window.location.search || '');
     const urlWorkspaceId = urlParams.get('workspaceId');
-    if (workspace?.id) {
-      config.headers = config.headers || {};
-      (config.headers as Record<string, string>)['x-workspace-id'] = workspace.id;
-    } else if (urlWorkspaceId) {
+    
+    if (urlWorkspaceId) {
       config.headers = config.headers || {};
       (config.headers as Record<string, string>)['x-workspace-id'] = urlWorkspaceId;
+    } else if (workspaceIdFromCookie) {
+      config.headers = config.headers || {};
+      (config.headers as Record<string, string>)['x-workspace-id'] = workspaceIdFromCookie;
     }
   }
   return config;

@@ -6,11 +6,18 @@ import workspaceReducer from '@/store/slices/workspaceSlice';
 import settingsReducer from '@/store/slices/settingsSlice';
 import messengerReducer from '@/store/slices/messengerSlice';
 
-const PERSIST_KEYS = ['workspace', 'settings'] as const;
+// Only persist settings, NOT workspace (workspace is derived from cookies and is subdomain-specific)
+const PERSIST_KEYS = ['settings'] as const;
 
 const loadState = () => {
   if (typeof window === 'undefined') return undefined;
   try {
+    // Clean up old workspace data from localStorage if it exists
+    if (localStorage.getItem('workspace')) {
+      console.log('🧹 Cleaning up stale workspace data from localStorage');
+      localStorage.removeItem('workspace');
+    }
+    
     const state: Record<string, unknown> = {};
     PERSIST_KEYS.forEach((k) => {
       const raw = localStorage.getItem(k);
@@ -36,7 +43,7 @@ if (typeof window !== 'undefined') {
   store.subscribe(() => {
     const state = store.getState();
     try {
-      localStorage.setItem('workspace', JSON.stringify(state.workspace));
+      // Only persist settings, NOT workspace (workspace is derived from cookies)
       localStorage.setItem('settings', JSON.stringify(state.settings));
     } catch {}
   });

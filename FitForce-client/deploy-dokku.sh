@@ -25,8 +25,13 @@ dokku apps:create $APP_NAME 2>/dev/null || echo "App already exists"
 echo "🔧 Setting environment variables..."
 dokku config:set $APP_NAME NODE_ENV=production
 dokku config:set $APP_NAME PORT=3000
-dokku config:set $APP_NAME NEXT_PUBLIC_API_URL=https://api.nano.com
-dokku config:set $APP_NAME NEXTAUTH_URL=https://captinmaged.nano.com
+dokku config:set $APP_NAME NEXT_PUBLIC_API_URL=https://api.fitforce.io
+dokku config:set $APP_NAME NEXT_PUBLIC_FRONTEND_DOMAIN=fitforce.io
+dokku config:set $APP_NAME NEXT_PUBLIC_MAIN_DOMAIN=https://fitforce.io
+dokku config:set $APP_NAME NEXT_PUBLIC_MANAGEMENT_SUBDOMAIN=admin
+dokku config:set $APP_NAME NEXT_PUBLIC_DEFAULT_THEME=light
+dokku config:set $APP_NAME NEXT_PUBLIC_DEFAULT_LANG=en
+dokku config:set $APP_NAME NEXTAUTH_URL=https://fitforce.io
 dokku config:set $APP_NAME NEXTAUTH_SECRET=$(openssl rand -base64 32)
 
 # Add git remote if it doesn't exist
@@ -40,7 +45,7 @@ git push dokku main:master
 
 # Set domain
 echo "🌐 Setting domain..."
-dokku domains:set $APP_NAME captinmaged.nano.com
+dokku domains:set $APP_NAME fitforce.io
 
 # Enable nginx
 echo "🔧 Enabling nginx..."
@@ -51,5 +56,5 @@ echo "⚙️ Configuring nginx..."
 dokku nginx:set $APP_NAME client-max-body-size 50m
 
 echo "✅ Deployment complete!"
-echo "🌐 App URL: https://captinmaged.nano.com"
+echo "🌐 App URL: https://fitforce.io"
 echo "📊 Check logs: dokku logs $APP_NAME -t"
