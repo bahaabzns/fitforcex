@@ -87,6 +87,12 @@ export async function middleware(req: NextRequest) {
     }
     const res = NextResponse.next();
     res.headers.set('x-ff-domain-type', 'main');
+    
+    // Clear workspace cookies on main domain to prevent stale state
+    // This ensures the main domain never has workspace context
+    res.cookies.set('ff_workspace_id', '', { path: '/', maxAge: 0 });
+    res.cookies.set('ff_workspace_subdomain', '', { path: '/', maxAge: 0 });
+    
     return res;
   }
 
@@ -123,11 +129,11 @@ export async function middleware(req: NextRequest) {
         console.log(`✅ Workspace data:`, data);
         const workspace = data.workspace;
 
-        // Determine cookie domain
+        // Don't set domain for workspace cookies - let them be subdomain-specific
+        // This prevents cookies from bleeding into the main domain
         const isLocalhost = host.includes('localhost');
-        const cookieDomain = isLocalhost ? undefined : `.${APP_CONFIG.frontendDomain}`;
         
-        console.log(`🍪 Setting cookies with domain: ${cookieDomain || 'default (current domain)'}`);
+        console.log(`🍪 Setting workspace cookies for subdomain: ${subdomain} (no root domain)`);
 
         // Set headers and cookies so the client can render at /
         const next = NextResponse.next();
@@ -136,17 +142,16 @@ export async function middleware(req: NextRequest) {
         next.headers.set('x-ff-workspace-subdomain', workspace.subdomain);
         next.headers.set('x-ff-workspace-custom-domain', workspace.customDomain || '');
         
-        // Set cookies with proper domain for subdomain access
+        // Set cookies WITHOUT domain property - this makes them subdomain-specific only
+        // They won't be accessible on the main domain
         next.cookies.set('ff_workspace_id', workspace.id, { 
           path: '/', 
           sameSite: 'lax',
-          domain: cookieDomain,
           secure: !isLocalhost
         });
         next.cookies.set('ff_workspace_subdomain', workspace.subdomain || '', { 
           path: '/', 
           sameSite: 'lax',
-          domain: cookieDomain,
           secure: !isLocalhost
         });
         

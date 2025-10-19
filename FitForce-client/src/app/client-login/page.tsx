@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '@mui/material';
+import { Card, Alert } from '@mui/material';
 import { TextField, Box, Typography, Stack, Button } from '@mui/material';
 import api from '@/utils/axios';
+import { APP_CONFIG } from '@/lib/config';
 
 export default function SeedClientLoginPage() {
   const router = useRouter();
@@ -12,16 +13,41 @@ export default function SeedClientLoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isWorkspaceSubdomain, setIsWorkspaceSubdomain] = useState(true);
+
+  // Check if we're on a workspace subdomain
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const host = window.location.host;
+    const isMainDomain = host === APP_CONFIG.frontendDomain || 
+                        host === `app.${APP_CONFIG.frontendDomain}` ||
+                        host === 'localhost:3000' || 
+                        host === 'localhost';
+    
+    setIsWorkspaceSubdomain(!isMainDomain);
+    
+    if (isMainDomain) {
+      setError('Client login must be accessed from your workspace subdomain (e.g., yourworkspace.fitforce.io)');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isWorkspaceSubdomain) {
+      setError('Please access this page from your workspace subdomain');
+      return;
+    }
+    
     setError(null);
     setLoading(true);
     try {
       await api.post('/api/clients/login', { email, password });
       router.push('/client/dashboard');
-    } catch (err) {
-      setError('Invalid credentials.');
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || 'Invalid credentials';
+      setError(message);
     } finally {
       setLoading(false);
     }

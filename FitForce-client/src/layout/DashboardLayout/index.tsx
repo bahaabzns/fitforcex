@@ -49,10 +49,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       };
 
       const setCookie = (name: string, value: string) => {
-        const isLocalhost = window.location.host.includes('localhost');
-        const domain = isLocalhost ? '' : `domain=.${APP_CONFIG.frontendDomain};`;
-        document.cookie = `${name}=${value}; path=/; SameSite=Lax; ${domain}`;
-        console.log(`🍪 Client-side set cookie: ${name}=${value}`);
+        // Don't set domain - make cookies subdomain-specific only
+        // This prevents workspace cookies from bleeding into the main domain
+        document.cookie = `${name}=${value}; path=/; SameSite=Lax;`;
+        console.log(`🍪 Client-side set cookie: ${name}=${value} (subdomain-specific)`);
       };
 
       const cookieWorkspaceId = getCookie('ff_workspace_id');

@@ -2,9 +2,45 @@
 
 import useSWR from 'swr';
 import api from '@/utils/axios';
-import { Box, Card, Stack, Typography, CircularProgress, Button as MuiButton, Divider, Alert, TextField, FormControl, InputLabel, Select, MenuItem, RadioGroup, Radio, FormControlLabel, FormGroup, Checkbox, Tabs, Tab } from '@mui/material';
+import { 
+  Box, 
+  Card, 
+  Stack, 
+  Typography, 
+  CircularProgress, 
+  Button as MuiButton, 
+  Divider, 
+  Alert, 
+  TextField, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem, 
+  RadioGroup, 
+  Radio, 
+  FormControlLabel, 
+  FormGroup, 
+  Checkbox, 
+  Tabs, 
+  Tab,
+  Paper,
+  Collapse,
+  IconButton,
+  Chip,
+  Avatar,
+  LinearProgress
+} from '@mui/material';
 import { openSnackbar } from '@/api/snackbar';
 import { useState } from 'react';
+import { 
+  Assignment,
+  ExpandMore,
+  ExpandLess,
+  CheckCircle,
+  Schedule,
+  Send,
+  Archive
+} from '@mui/icons-material';
 
 export default function ClientFormsPage() {
   const { data, isLoading, error, mutate } = useSWR('client-todo-forms', async () => {
@@ -18,7 +54,6 @@ export default function ClientFormsPage() {
   });
 
   const [tab, setTab] = useState(0);
-
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -66,9 +101,14 @@ export default function ClientFormsPage() {
       }
       const answers = getAnswers(submissionId);
       await api.post('/api/forms/client/submit', { submissionId, answers });
-      setSubmitSuccess('Form submitted');
-      openSnackbar({ open: true, message: 'Form submitted', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+      setSubmitSuccess('Form submitted successfully!');
+      openSnackbar({ open: true, message: 'Form submitted successfully!', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
       setExpandedId(null);
+      setAnswersBySubmission((prev) => {
+        const next = { ...prev };
+        delete next[submissionId];
+        return next;
+      });
       mutate();
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Failed to submit form';
@@ -81,10 +121,10 @@ export default function ClientFormsPage() {
 
   if (isLoading || loadingArchived) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8, minHeight: '60vh' }}>
         <Stack alignItems="center" spacing={2}>
-          <CircularProgress />
-          <Typography color="text.secondary">Loading your forms…</Typography>
+          <CircularProgress size={60} />
+          <Typography color="text.secondary" variant="h6">Loading your forms…</Typography>
         </Stack>
       </Box>
     );
@@ -92,153 +132,343 @@ export default function ClientFormsPage() {
 
   if (error) {
     return (
-      <Card>
-        <Box sx={{ p: 2 }}>
-          <Alert severity="error">Failed to load forms</Alert>
-        </Box>
-      </Card>
+      <Box sx={{ p: { xs: 2, md: 4 } }}>
+        <Alert severity="error" sx={{ borderRadius: 2 }}>
+          Failed to load forms. Please try again later.
+        </Alert>
+      </Box>
     );
   }
 
   const submissions = data?.submissions || [];
+  const archivedSubmissions = archived?.submissions || [];
+
+  const renderQuestion = (q: any, idx: number, s: any) => {
+    const qid = q.id || `q_${idx}`;
+    const label = q.question || q.label || `Question ${idx + 1}`;
+    const required = !!q.required;
+    const qtype = q.type || 'text';
+    const options = Array.isArray(q.options) ? q.options : [];
+    const value = getAnswers(s.id)[qid];
+    
+    switch (qtype) {
+      case 'textarea':
+        return (
+          <TextField 
+            key={qid} 
+            fullWidth 
+            label={label} 
+            required={required} 
+            value={value || ''} 
+            onChange={(e) => setAnswer(s.id, qid, e.target.value)} 
+            multiline 
+            minRows={3}
+            variant="outlined"
+          />
+        );
+      case 'number':
+        return (
+          <TextField 
+            key={qid} 
+            fullWidth 
+            type="number" 
+            label={label} 
+            required={required} 
+            value={value ?? ''} 
+            onChange={(e) => setAnswer(s.id, qid, e.target.value)}
+            variant="outlined"
+          />
+        );
+      case 'select':
+        return (
+          <FormControl key={qid} fullWidth variant="outlined">
+            <InputLabel id={`sel-${qid}`}>{label}{required ? ' *' : ''}</InputLabel>
+            <Select 
+              labelId={`sel-${qid}`} 
+              label={label} 
+              value={value ?? ''} 
+              onChange={(e) => setAnswer(s.id, qid, e.target.value)}
+            >
+              <MenuItem value=""><em>Select an option</em></MenuItem>
+              {options.map((opt: string, i: number) => (
+                <MenuItem key={i} value={opt}>{opt}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        );
+      case 'radio':
+        return (
+          <FormControl key={qid} component="fieldset">
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              {label}{required ? ' *' : ''}
+            </Typography>
+            <RadioGroup value={value ?? ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)}>
+              {options.map((opt: string, i: number) => (
+                <FormControlLabel key={i} value={opt} control={<Radio />} label={opt} />
+              ))}
+            </RadioGroup>
+          </FormControl>
+        );
+      case 'checkbox':
+        return (
+          <FormGroup key={qid}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              {label}{required ? ' *' : ''}
+            </Typography>
+            {options.map((opt: string, i: number) => {
+              const arr = Array.isArray(value) ? value : [];
+              const checked = arr.includes(opt);
+              return (
+                <FormControlLabel 
+                  key={i} 
+                  control={
+                    <Checkbox 
+                      checked={checked} 
+                      onChange={(e) => {
+                        const next = new Set(arr);
+                        if (e.target.checked) next.add(opt); else next.delete(opt);
+                        setAnswer(s.id, qid, Array.from(next));
+                      }} 
+                    />
+                  } 
+                  label={opt} 
+                />
+              );
+            })}
+          </FormGroup>
+        );
+      case 'text':
+      default:
+        return (
+          <TextField 
+            key={qid} 
+            fullWidth 
+            label={label} 
+            required={required} 
+            value={value || ''} 
+            onChange={(e) => setAnswer(s.id, qid, e.target.value)}
+            variant="outlined"
+          />
+        );
+    }
+  };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 } }}>
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 2 }}>Your Forms</Typography>
-      <Card sx={{ mb: 2 }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+      {/* Header */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          color: 'white'
+        }}
+      >
+        <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+              <Assignment sx={{ fontSize: 32 }} />
+            </Avatar>
+            <Box>
+              <Typography variant="h4" fontWeight={700}>Your Forms</Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
+                Complete forms to help your trainer customize your program
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={2}>
+            <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>Pending</Typography>
+              <Typography variant="h5" fontWeight={700}>{submissions.length}</Typography>
+            </Paper>
+            <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>Completed</Typography>
+              <Typography variant="h5" fontWeight={700}>{archivedSubmissions.length}</Typography>
+            </Paper>
+          </Stack>
+        </Stack>
+      </Paper>
+
+      {/* Status Messages */}
+      {submitError && (
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSubmitError(null)}>
+          {submitError}
+        </Alert>
+      )}
+      {submitSuccess && (
+        <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSubmitSuccess(null)}>
+          {submitSuccess}
+        </Alert>
+      )}
+
+      {/* Tabs */}
+      <Card sx={{ mb: 3, borderRadius: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab label={`To do (${(data?.submissions || []).length})`} />
-            <Tab label={`Archived (${(archived?.submissions || []).length})`} />
+          <Tabs 
+            value={tab} 
+            onChange={(_, v) => setTab(v)}
+            sx={{ px: 2 }}
+          >
+            <Tab 
+              icon={<Schedule />}
+              iconPosition="start"
+              label={`To Do (${submissions.length})`}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            />
+            <Tab 
+              icon={<Archive />}
+              iconPosition="start"
+              label={`Completed (${archivedSubmissions.length})`}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            />
           </Tabs>
         </Box>
       </Card>
-      {submitError && <Alert severity="error" sx={{ mb: 2 }}>{submitError}</Alert>}
-      {submitSuccess && <Alert severity="success" sx={{ mb: 2 }}>{submitSuccess}</Alert>}
-      {tab === 0 && (submissions.length === 0 ? (
-        <Card>
-          <Box sx={{ p: 3 }}>
-            <Typography color="text.secondary">No forms pending.</Typography>
-          </Box>
-        </Card>
-      ) : (
-        <Stack spacing={2}>
-          {submissions.map((s) => {
-            const open = expandedId === s.id;
-            const qlist = Array.isArray(s.form.questions) ? s.form.questions : [];
-            const ans = getAnswers(s.id);
-            return (
-              <Card key={s.id}>
-                <Box sx={{ p: 2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <Typography variant="h6">{s.form.title}</Typography>
-                      <Typography variant="body2" color="text.secondary">Questions: {qlist.length}</Typography>
-                    </Box>
-                    <MuiButton variant="outlined" onClick={() => setExpandedId(open ? null : s.id)}>
-                      {open ? 'Close' : 'Open'}
-                    </MuiButton>
-                  </Stack>
-                  {open && (
-                    <Box sx={{ mt: 2 }}>
-                      <Stack spacing={2}>
-                        {qlist.map((q: any, idx: number) => {
-                          const qid = q.id || `q_${idx}`;
-                          const label = q.question || q.label || `Question ${idx + 1}`;
-                          const required = !!q.required;
-                          const qtype = q.type || 'text';
-                          const options = Array.isArray(q.options) ? q.options : [];
-                          const value = ans[qid];
-                          switch (qtype) {
-                            case 'textarea':
-                              return (
-                                <TextField key={qid} fullWidth label={label} required={required} value={value || ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)} multiline minRows={3} />
-                              );
-                            case 'number':
-                              return (
-                                <TextField key={qid} fullWidth type="number" label={label} required={required} value={value ?? ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)} />
-                              );
-                            case 'select':
-                              return (
-                                <FormControl key={qid} fullWidth>
-                                  <InputLabel id={`sel-${qid}`}>{label}{required ? ' *' : ''}</InputLabel>
-                                  <Select labelId={`sel-${qid}`} label={label} value={value ?? ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)}>
-                                    {options.map((opt: string, i: number) => (
-                                      <MenuItem key={i} value={opt}>{opt}</MenuItem>
-                                    ))}
-                                  </Select>
-                                </FormControl>
-                              );
-                            case 'radio':
-                              return (
-                                <FormControl key={qid}>
-                                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                                    {label}{required ? ' *' : ''}
-                                  </Typography>
-                                  <RadioGroup value={value ?? ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)}>
-                                    {options.map((opt: string, i: number) => (
-                                      <FormControlLabel key={i} value={opt} control={<Radio />} label={opt} />
-                                    ))}
-                                  </RadioGroup>
-                                </FormControl>
-                              );
-                            case 'checkbox':
-                              return (
-                                <FormGroup key={qid}>
-                                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                                    {label}{required ? ' *' : ''}
-                                  </Typography>
-                                  {options.map((opt: string, i: number) => {
-                                    const arr = Array.isArray(value) ? value : [];
-                                    const checked = arr.includes(opt);
-                                    return (
-                                      <FormControlLabel key={i} control={<Checkbox checked={checked} onChange={(e) => {
-                                        const next = new Set(arr);
-                                        if (e.target.checked) next.add(opt); else next.delete(opt);
-                                        setAnswer(s.id, qid, Array.from(next));
-                                      }} />} label={opt} />
-                                    );
-                                  })}
-                                </FormGroup>
-                              );
-                            case 'text':
-                            default:
-                              return (
-                                <TextField key={qid} fullWidth label={label} required={required} value={value || ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)} />
-                              );
-                          }
-                        })}
-                        <Stack direction="row" spacing={1}>
-                          <MuiButton variant="contained" onClick={() => handleSubmit(s.id)} disabled={submittingId === s.id}>
-                            {submittingId === s.id ? 'Submitting…' : 'Submit'}
-                          </MuiButton>
-                          <MuiButton variant="text" onClick={() => setExpandedId(null)}>Cancel</MuiButton>
-                        </Stack>
-                      </Stack>
-                    </Box>
-                  )}
-                </Box>
-              </Card>
-            );
-          })}
-        </Stack>
-      ))}
 
+      {/* Pending Forms */}
+      {tab === 0 && (
+        submissions.length === 0 ? (
+          <Card sx={{ borderRadius: 3 }}>
+            <Box sx={{ p: 6, textAlign: 'center' }}>
+              <CheckCircle sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+              <Typography variant="h5" fontWeight={700} gutterBottom>
+                All Caught Up!
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                You have no pending forms to complete.
+              </Typography>
+            </Box>
+          </Card>
+        ) : (
+          <Stack spacing={3}>
+            {submissions.map((s) => {
+              const open = expandedId === s.id;
+              const qlist = Array.isArray(s.form.questions) ? s.form.questions : [];
+              const ans = getAnswers(s.id);
+              const answeredCount = Object.keys(ans).length;
+              const progress = qlist.length > 0 ? (answeredCount / qlist.length) * 100 : 0;
+              
+              return (
+                <Card 
+                  key={s.id}
+                  elevation={open ? 4 : 1}
+                  sx={{ 
+                    borderRadius: 3,
+                    transition: 'all 0.3s ease',
+                    border: open ? '2px solid' : '1px solid',
+                    borderColor: open ? 'primary.main' : 'divider'
+                  }}
+                >
+                  <Box sx={{ p: 3 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+                      <Stack direction="row" alignItems="center" spacing={2} flex={1}>
+                        <Avatar sx={{ bgcolor: 'warning.main', width: 48, height: 48 }}>
+                          <Assignment />
+                        </Avatar>
+                        <Box flex={1}>
+                          <Typography variant="h6" fontWeight={700}>{s.form.title}</Typography>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                            <Chip size="small" label={`${qlist.length} Questions`} variant="outlined" />
+                            {answeredCount > 0 && (
+                              <Chip 
+                                size="small" 
+                                label={`${answeredCount}/${qlist.length} Answered`} 
+                                color="primary"
+                                variant="outlined"
+                              />
+                            )}
+                          </Stack>
+                          {progress > 0 && (
+                            <Box sx={{ mt: 1 }}>
+                              <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3 }} />
+                              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                {Math.round(progress)}% Complete
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Stack>
+                      <IconButton 
+                        onClick={() => setExpandedId(open ? null : s.id)}
+                        color="primary"
+                        sx={{ 
+                          bgcolor: 'primary.50',
+                          '&:hover': { bgcolor: 'primary.100' }
+                        }}
+                      >
+                        {open ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
+                    </Stack>
+
+                    <Collapse in={open} timeout="auto">
+                      <Box sx={{ mt: 3 }}>
+                        <Divider sx={{ mb: 3 }} />
+                        <Stack spacing={3}>
+                          {qlist.map((q: any, idx: number) => renderQuestion(q, idx, s))}
+                        </Stack>
+                        <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
+                          <MuiButton 
+                            variant="contained" 
+                            size="large"
+                            onClick={() => handleSubmit(s.id)} 
+                            disabled={submittingId === s.id}
+                            startIcon={submittingId === s.id ? <CircularProgress size={20} /> : <Send />}
+                            fullWidth
+                          >
+                            {submittingId === s.id ? 'Submitting…' : 'Submit Form'}
+                          </MuiButton>
+                          <MuiButton 
+                            variant="outlined" 
+                            onClick={() => setExpandedId(null)}
+                            disabled={submittingId === s.id}
+                            sx={{ minWidth: 120 }}
+                          >
+                            Cancel
+                          </MuiButton>
+                        </Stack>
+                      </Box>
+                    </Collapse>
+                  </Box>
+                </Card>
+              );
+            })}
+          </Stack>
+        )
+      )}
+
+      {/* Archived Forms */}
       {tab === 1 && (
-        (archived?.submissions || []).length === 0 ? (
-          <Card>
-            <Box sx={{ p: 3 }}>
-              <Typography color="text.secondary">No archived forms.</Typography>
+        archivedSubmissions.length === 0 ? (
+          <Card sx={{ borderRadius: 3 }}>
+            <Box sx={{ p: 6, textAlign: 'center' }}>
+              <Archive sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h5" fontWeight={700} gutterBottom>
+                No Completed Forms
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Forms you complete will appear here.
+              </Typography>
             </Box>
           </Card>
         ) : (
           <Stack spacing={2}>
-            {(archived?.submissions || []).map((s) => (
-              <Card key={s.id}>
-                <Box sx={{ p: 2 }}>
-                  <Typography variant="h6">{s.form.title}</Typography>
-                  <Divider sx={{ my: 1.5 }} />
-                  <Typography variant="caption" color="text.secondary">Submitted {s.createdAt ? new Date(s.createdAt).toLocaleString() : ''}</Typography>
+            {archivedSubmissions.map((s) => (
+              <Card key={s.id} sx={{ borderRadius: 3 }}>
+                <Box sx={{ p: 3 }}>
+                  <Stack direction="row" alignItems="center" spacing={2}>
+                    <Avatar sx={{ bgcolor: 'success.main', width: 48, height: 48 }}>
+                      <CheckCircle />
+                    </Avatar>
+                    <Box flex={1}>
+                      <Typography variant="h6" fontWeight={700}>{s.form.title}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Submitted on {s.createdAt ? new Date(s.createdAt).toLocaleString() : 'Unknown date'}
+                      </Typography>
+                    </Box>
+                    <Chip label="Completed" color="success" />
+                  </Stack>
                 </Box>
               </Card>
             ))}
@@ -248,5 +478,3 @@ export default function ClientFormsPage() {
     </Box>
   );
 }
-
-
