@@ -639,6 +639,18 @@ export default function WorkoutTracking({
                       placeholder="0"
                     />
                     
+                    <TextField
+                      label="Rest Time (sec)"
+                      type="number"
+                      value={set.restTime || ''}
+                      onChange={(e) => updateSetData(setIndex, 'restTime', parseInt(e.target.value) || null)}
+                      sx={{ width: '140px' }}
+                      InputProps={{
+                        inputProps: { min: 0, max: 600 }
+                      }}
+                      placeholder="0"
+                    />
+                    
                     <Chip 
                       label={set.completed ? '✓ Completed' : '⏳ Pending'}
                       color={set.completed ? 'success' : 'default'}
@@ -653,7 +665,7 @@ export default function WorkoutTracking({
             {/* Instructions */}
             <Box sx={{ mt: 2, p: 2, bgcolor: 'info.50', borderRadius: 1, border: '1px solid', borderColor: 'info.200' }}>
               <Typography variant="body2" color="info.dark" sx={{ fontWeight: 500 }}>
-                📝 Instructions: Fill in reps and weight for ALL sets above, then click "Complete Exercise" to move to the next exercise.
+                📝 Instructions: Fill in reps, weight, and rest time for ALL sets above, then click "Complete Exercise" to move to the next exercise.
               </Typography>
             </Box>
             

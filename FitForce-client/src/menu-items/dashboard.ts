@@ -1,5 +1,5 @@
 // assets
-import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add, TimerStart, Messages2, Monitor } from '@wandersonalwes/iconsax-react';
+import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add, TimerStart, Messages2 } from '@wandersonalwes/iconsax-react';
 
 // types
 import { NavItemType } from 'types/menu';
@@ -16,8 +16,7 @@ const icons = {
   workspace: Global,
   workspaces: Add,
   queue: TimerStart,
-  messenger: Messages2,
-  monitoring: Monitor
+  messenger: Messages2
 };
 
 // Main domain menu (shows workspace management)
@@ -134,13 +133,6 @@ const workspaceMenu: NavItemType = {
       type: 'item',
       url: '/dashboard/workspaces/client-packages',
       icon: icons.forms
-    },
-    {
-      id: 'monitoring',
-      title: 'Monitoring',
-      type: 'item',
-      url: '/admin/monitoring',
-      icon: icons.monitoring
     }
   ]
 };

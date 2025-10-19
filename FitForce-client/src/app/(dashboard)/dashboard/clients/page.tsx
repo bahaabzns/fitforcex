@@ -143,6 +143,10 @@ export default function ClientsPage() {
   const [formTemplates, setFormTemplates] = useState<any[]>([]);
   const [selectedFormId, setSelectedFormId] = useState('');
   const [assigningForm, setAssigningForm] = useState(false);
+  
+  // Form scheduling options
+  const [formAssignmentType, setFormAssignmentType] = useState<'immediate' | 'scheduled'>('immediate');
+  const [scheduledDate, setScheduledDate] = useState('');
 
   // Packages for filtering and display
   const [packages, setPackages] = useState<any[]>([]);
@@ -269,6 +273,22 @@ export default function ClientsPage() {
       return;
     }
 
+    // Validate scheduled date if scheduling is selected
+    if (formAssignmentType === 'scheduled' && !scheduledDate) {
+      setError('Please select a date for scheduled assignment');
+      return;
+    }
+
+    // Validate scheduled date is in the future
+    if (formAssignmentType === 'scheduled' && scheduledDate) {
+      const selectedDate = new Date(scheduledDate);
+      const now = new Date();
+      if (selectedDate <= now) {
+        setError('Scheduled date must be in the future');
+        return;
+      }
+    }
+
     // Get actual client IDs from selected rows
     const selectedRows = table.getSelectedRowModel().flatRows;
     const selectedClientIds = selectedRows.map(row => row.original.id);
@@ -284,18 +304,31 @@ export default function ClientsPage() {
     try {
       // Send form to each selected client
       for (const clientId of selectedClientIds) {
-        await api.post('/api/forms/send', {
+        const requestData: any = {
           formId: selectedFormId,
           clientId,
-        });
+        };
+
+        // Add scheduleAt if scheduling is selected
+        if (formAssignmentType === 'scheduled' && scheduledDate) {
+          requestData.scheduleAt = scheduledDate;
+        }
+
+        await api.post('/api/forms/send', requestData);
       }
 
       setBulkFormDialogOpen(false);
       setSelectedFormId('');
+      setFormAssignmentType('immediate');
+      setScheduledDate('');
       setRowSelection({});
       setError(null);
       
-      alert(`Form assigned to ${selectedClientIds.length} client(s) successfully!`);
+      const message = formAssignmentType === 'scheduled' 
+        ? `Form scheduled for ${new Date(scheduledDate).toLocaleDateString()} and assigned to ${selectedClientIds.length} client(s) successfully!`
+        : `Form assigned to ${selectedClientIds.length} client(s) successfully!`;
+      
+      alert(message);
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to assign forms');
     } finally {
@@ -1024,27 +1057,65 @@ export default function ClientsPage() {
                 No form templates available. Create form templates first from the Forms page.
               </Alert>
             ) : (
-              <FormControl fullWidth>
-                <InputLabel>Select Form Template</InputLabel>
-                <Select
-                  value={selectedFormId}
-                  label="Select Form Template"
-                  onChange={(e) => setSelectedFormId(e.target.value)}
-                >
-                  {formTemplates.map((form: any) => (
-                    <MenuItem key={form.id} value={form.id}>
+              <>
+                <FormControl fullWidth>
+                  <InputLabel>Select Form Template</InputLabel>
+                  <Select
+                    value={selectedFormId}
+                    label="Select Form Template"
+                    onChange={(e) => setSelectedFormId(e.target.value)}
+                  >
+                    {formTemplates.map((form: any) => (
+                      <MenuItem key={form.id} value={form.id}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography>{form.title}</Typography>
+                          <Chip 
+                            label={form.type} 
+                            size="small" 
+                            color={form.type === 'nutrition' ? 'success' : 'primary'} 
+                          />
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Assignment Type Selection */}
+                <FormControl fullWidth>
+                  <InputLabel>Assignment Type</InputLabel>
+                  <Select
+                    value={formAssignmentType}
+                    label="Assignment Type"
+                    onChange={(e) => setFormAssignmentType(e.target.value as 'immediate' | 'scheduled')}
+                  >
+                    <MenuItem value="immediate">
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography>{form.title}</Typography>
-                        <Chip 
-                          label={form.type} 
-                          size="small" 
-                          color={form.type === 'nutrition' ? 'success' : 'primary'} 
-                        />
+                        <Typography>Immediate (Pending)</Typography>
+                        <Chip label="Available now" size="small" color="success" />
                       </Stack>
                     </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    <MenuItem value="scheduled">
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography>Scheduled</Typography>
+                        <Chip label="Send later" size="small" color="warning" />
+                      </Stack>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+
+                {/* Scheduled Date Input */}
+                {formAssignmentType === 'scheduled' && (
+                  <TextField
+                    fullWidth
+                    label="Schedule Date & Time"
+                    type="datetime-local"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    helperText="Form will be sent to clients at the scheduled time"
+                  />
+                )}
+              </>
             )}
 
             {error && <Alert severity="error">{error}</Alert>}
@@ -1055,9 +1126,9 @@ export default function ClientsPage() {
           <Button
             variant="contained"
             onClick={handleBulkFormAssignment}
-            disabled={!selectedFormId || assigningForm || formTemplates.length === 0}
+            disabled={!selectedFormId || assigningForm || formTemplates.length === 0 || (formAssignmentType === 'scheduled' && !scheduledDate)}
           >
-            {assigningForm ? <CircularProgress size={20} /> : 'Assign Form'}
+            {assigningForm ? <CircularProgress size={20} /> : formAssignmentType === 'scheduled' ? 'Schedule Form' : 'Assign Form'}
           </Button>
         </DialogActions>
       </Dialog>

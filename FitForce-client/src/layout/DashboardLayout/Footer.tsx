@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography';
 
 export default function Footer() {
   return (
-    <Stack direction={{ sm: 'row' }} sx={{ gap: 1, justifyContent: 'space-between', alignItems: 'center', pt: 3, mt: 'auto' }}>
+    <Stack direction={{ sm: 'row' }} sx={{ gap: 1, justifyContent: 'space-between', alignItems: 'center', pt: 0, mt: 'auto' }}>
       <Typography variant="caption">
         &copy; Able Pro crafted with ♥ by Team{' '}
         <Links component={Link} href="https://www.phoenixcoded.net/" target="_blank" underline="none">

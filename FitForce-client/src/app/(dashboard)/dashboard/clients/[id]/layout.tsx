@@ -41,7 +41,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   ];
 
   const drawerContent = (
-    <Box sx={{ width: 280, p: 2 }}>
+    <Box sx={{ width: 200, p: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h6" sx={{ color: 'text.secondary' }}>
           Client Sections
@@ -107,9 +107,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen
           }),
-          marginLeft: open && !isMobile ? 
-            `${(mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH) + 280}px` : 
-            `${mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH}px`
+          marginLeft: open && !isMobile ? '200px' : '0px'
         }}
       >
         {children}
@@ -126,7 +124,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           sx={{
             position: 'fixed',
             top: 16, // align with header toggle row
-            left: (mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH) + 16, // place just after the main sidebar
+            left: 16, // place just after the main sidebar
             zIndex: 1201, // Higher than main drawer to appear above it
             backgroundColor: 'background.paper',
             boxShadow: 2
@@ -145,11 +143,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         sx={{
           zIndex: 1200, // Same as main drawer
           '& .MuiDrawer-paper': {
-            width: 280,
+            width: 200,
             boxSizing: 'border-box',
             top: 64, // Adjust based on your header height
             height: 'calc(100vh - 64px)',
-            left: mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH, // Position after main sidebar
+            left: 0, // Position after main sidebar
             zIndex: 1200
           }
         }}

@@ -462,6 +462,24 @@ export default function WorkoutLogsPage() {
                       size="small"
                     />
                   </Grid>
+                  {selectedLog.startTime && selectedLog.endTime && (
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        <FormattedMessage id="duration" />
+                      </Typography>
+                      <Typography variant="body1">
+                        {calculateDuration(selectedLog.startTime, selectedLog.endTime)}
+                      </Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      <FormattedMessage id="exercises" />
+                    </Typography>
+                    <Typography variant="body1">
+                      {selectedLog.exercises.length} exercises
+                    </Typography>
+                  </Grid>
                 </Grid>
               </Box>
 
@@ -478,13 +496,14 @@ export default function WorkoutLogsPage() {
                           {exercise.exerciseName}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          {exercise.targetSets} <FormattedMessage id="sets" /> x {exercise.targetReps} <FormattedMessage id="reps" />
+                          Target: {exercise.targetSets} <FormattedMessage id="sets" /> x {exercise.targetReps} <FormattedMessage id="reps" />
+                          {exercise.targetWeight && ` @ ${exercise.targetWeight}kg`}
                         </Typography>
                         
                         {/* Sets */}
                         <Stack spacing={1}>
                           {exercise.sets.map((set: any, setIndex: number) => (
-                            <Box key={setIndex} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box key={setIndex} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                               <Typography variant="body2" sx={{ minWidth: '60px' }}>
                                 <FormattedMessage id="set" /> {setIndex + 1}:
                               </Typography>
@@ -494,12 +513,26 @@ export default function WorkoutLogsPage() {
                               {set.weight && (
                                 <Chip label={`${set.weight}kg`} size="small" variant="outlined" />
                               )}
+                              {set.restTime && (
+                                <Chip label={`${set.restTime}s rest`} size="small" variant="outlined" />
+                              )}
                               {set.completed && (
                                 <Chip label={intl.formatMessage({ id: 'completed' })} size="small" color="success" />
+                              )}
+                              {set.completedAt && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {new Date(set.completedAt).toLocaleTimeString()}
+                                </Typography>
                               )}
                             </Box>
                           ))}
                         </Stack>
+                        
+                        {exercise.notes && (
+                          <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                            Exercise Notes: {exercise.notes}
+                          </Typography>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

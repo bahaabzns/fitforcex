@@ -223,6 +223,16 @@ export default function WorkoutPage() {
   const [newCaDay, setNewCaDay] = useState<{ name: string; imageUrl?: string; url?: string; urls?: string[] }>({ name: '' });
   const [uploadingCaDay, setUploadingCaDay] = useState(false);
 
+  // Workout log details dialog state
+  const [workoutLogDetailsOpen, setWorkoutLogDetailsOpen] = useState(false);
+  const [selectedWorkoutLog, setSelectedWorkoutLog] = useState<any>(null);
+
+  // Handler for opening workout log details
+  const handleViewWorkoutLogDetails = (log: any) => {
+    setSelectedWorkoutLog(log);
+    setWorkoutLogDetailsOpen(true);
+  };
+
   // Workspace-wide workout logs for Logs tab
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
     activeTab === 'logs' ? 'workspace-workout-logs' : null,
@@ -801,10 +811,7 @@ export default function WorkoutPage() {
               {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
                 <Stack spacing={1.5}>
                   {logsData!.workoutLogs.map((log: any) => (
-                    <Card key={log.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => {
-                      // TODO: Add workout log details dialog
-                      console.log('View workout log details:', log);
-                    }}>
+                    <Card key={log.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => handleViewWorkoutLogDetails(log)}>
                       <CardContent>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                             <Box>
@@ -1170,6 +1177,158 @@ export default function WorkoutPage() {
             const res = await api.get('/api/workout/caday');
             setCaDays(res.data.caDays || []);
           }}>Create</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Workout Log Details Dialog */}
+      <Dialog
+        open={workoutLogDetailsOpen}
+        onClose={() => setWorkoutLogDetailsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Workout Details
+        </DialogTitle>
+        <DialogContent>
+          {selectedWorkoutLog && (
+            <Stack spacing={3}>
+              {/* Basic Info */}
+              <Box>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Workout Information
+                </Typography>
+                <Stack direction="row" spacing={4} sx={{ mb: 2 }}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Client
+                    </Typography>
+                    <Typography variant="body1">
+                      {selectedWorkoutLog.client?.fullName || 'Unknown Client'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Workout Plan
+                    </Typography>
+                    <Typography variant="body1">
+                      {selectedWorkoutLog.workoutPlan?.title || 'Workout'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Day
+                    </Typography>
+                    <Typography variant="body1">
+                      Day {Number(selectedWorkoutLog.dayIndex) + 1}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Date
+                    </Typography>
+                    <Typography variant="body1">
+                      {new Date(selectedWorkoutLog.date).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Status
+                    </Typography>
+                    <Chip
+                      label={selectedWorkoutLog.completed ? 'Completed' : 'In Progress'}
+                      color={selectedWorkoutLog.completed ? 'success' : 'warning'}
+                      size="small"
+                    />
+                  </Box>
+                </Stack>
+                
+                {selectedWorkoutLog.startTime && selectedWorkoutLog.endTime && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Duration
+                    </Typography>
+                    <Typography variant="body1">
+                      {selectedWorkoutLog.startTime} - {selectedWorkoutLog.endTime}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
+              {/* Exercises */}
+              <Box>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Exercises ({selectedWorkoutLog.exercises?.length || 0})
+                </Typography>
+                <Stack spacing={2}>
+                  {selectedWorkoutLog.exercises?.map((exercise: any, index: number) => (
+                    <Card key={index} variant="outlined">
+                      <CardContent>
+                        <Typography variant="subtitle1" fontWeight={500}>
+                          {exercise.exerciseName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Target: {exercise.targetSets} sets x {exercise.targetReps} reps
+                          {exercise.targetWeight && ` @ ${exercise.targetWeight}kg`}
+                        </Typography>
+                        
+                        {/* Sets */}
+                        <Stack spacing={1}>
+                          {exercise.sets?.map((set: any, setIndex: number) => (
+                            <Box key={setIndex} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                              <Typography variant="body2" sx={{ minWidth: '60px' }}>
+                                Set {setIndex + 1}:
+                              </Typography>
+                              {set.reps && (
+                                <Chip label={`${set.reps} reps`} size="small" variant="outlined" />
+                              )}
+                              {set.weight && (
+                                <Chip label={`${set.weight}kg`} size="small" variant="outlined" />
+                              )}
+                              {set.restTime && (
+                                <Chip label={`${set.restTime}s rest`} size="small" variant="outlined" />
+                              )}
+                              {set.completed && (
+                                <Chip label="Completed" size="small" color="success" />
+                              )}
+                              {set.completedAt && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {new Date(set.completedAt).toLocaleTimeString()}
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Stack>
+                        
+                        {exercise.notes && (
+                          <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                            Notes: {exercise.notes}
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* General Notes */}
+              {selectedWorkoutLog.notes && (
+                <Box>
+                  <Typography variant="h6" sx={{ mb: 1 }}>
+                    General Notes
+                  </Typography>
+                  <Typography variant="body2">
+                    {selectedWorkoutLog.notes}
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWorkoutLogDetailsOpen(false)}>
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

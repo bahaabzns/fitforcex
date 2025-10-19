@@ -17,7 +17,7 @@ import Breadcrumbs from 'components/@extended/Breadcrumbs';
 import Loader from 'components/Loader';
 
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
-import { DRAWER_WIDTH, MenuOrientation } from 'config';
+import { DRAWER_WIDTH, MINI_DRAWER_WIDTH, MenuOrientation } from 'config';
 import useConfig from 'hooks/useConfig';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setWorkspace, clearWorkspace } from '@/store/slices/workspaceSlice';
@@ -34,6 +34,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { miniDrawer, menuOrientation } = useConfig();
   const dispatch = useAppDispatch();
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
+  const { menuMaster } = useGetMenuMaster();
+  const drawerOpen = menuMaster?.isDashboardDrawerOpened ?? false;
 
   const isHorizontal = menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
 
@@ -130,8 +132,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <MessengerBadgeSync />
       {!isHorizontal ? <Drawer /> : <HorizontalBar />}
 
-      <Box component="main" sx={{ width: `calc(100% - ${DRAWER_WIDTH}px)`, flexGrow: 1, p: { xs: 0.5, sm: 1 } }}>
-        <Toolbar sx={{ mt: isHorizontal ? 8 : 'inherit', mb: isHorizontal ? 2 : 'inherit' }} />
+      <Box component="main" sx={{ width: `calc(100% - ${drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH}px)`, flexGrow: 1, p: 0 }}>
+        <Toolbar sx={{ mt: isHorizontal ? 8 : 'inherit', mb: 0 }} />
         <Container
           maxWidth={false}
           sx={{
@@ -139,10 +141,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             minHeight: 'calc(100vh - 124px)',
             display: 'flex',
             flexDirection: 'column',
-            px: { xs: 1, sm: 2 }
+            px: 0
           }}
         >
-          <Breadcrumbs />
           {children}
           <Footer />
         </Container>

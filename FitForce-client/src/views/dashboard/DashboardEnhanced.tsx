@@ -39,6 +39,7 @@ import { useTheme } from '@mui/material/styles';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
+import OnboardingWizard from '@/components/OnboardingWizard';
 
 interface DashboardData {
   workspace: {
@@ -138,6 +139,16 @@ export default function DashboardEnhanced() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // Onboarding state
+  const [onboardingStatus, setOnboardingStatus] = useState<{
+    isOnboarded: boolean;
+    hasLogo: boolean;
+    hasLandingConfig: boolean;
+    formsCount: number;
+    packagesCount: number;
+  } | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
+
   const [formTemplateStats, setFormTemplateStats] = useState<Array<{
     id: string;
     title: string;
@@ -158,6 +169,27 @@ export default function DashboardEnhanced() {
   const [growthData, setGrowthData] = useState<Array<{ month: string; total: number; active: number }>>([]);
   const [revenueData, setRevenueData] = useState<Array<{ month: string; total: number; gateway: number; manual: number }>>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  // Check onboarding status
+  const checkOnboardingStatus = async () => {
+    try {
+      setOnboardingLoading(true);
+      const response = await api.get('/api/workspaces/onboarding/status');
+      setOnboardingStatus(response.data);
+    } catch (err: any) {
+      console.error('Onboarding status check failed:', err);
+      // If onboarding check fails, assume onboarded to not block access
+      setOnboardingStatus({
+        isOnboarded: true,
+        hasLogo: false,
+        hasLandingConfig: false,
+        formsCount: 0,
+        packagesCount: 0,
+      });
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
 
   const fetchDashboardData = async (showUpdatingIndicator = true) => {
     try {
@@ -439,6 +471,7 @@ export default function DashboardEnhanced() {
 
   useEffect(() => {
     if (workspaceId) {
+      checkOnboardingStatus(); // Check onboarding status first
       fetchDashboardData();
       loadFormTemplateStats();
       loadRevenueByCurrency(selectedPackageId);
@@ -474,6 +507,22 @@ export default function DashboardEnhanced() {
         </Stack>
       </Box>
     );
+  }
+
+  // Show onboarding wizard if not onboarded
+  if (onboardingLoading) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress />
+          <Typography color="text.secondary">Checking onboarding status...</Typography>
+        </Stack>
+      </Box>
+    );
+  }
+
+  if (onboardingStatus && !onboardingStatus.isOnboarded) {
+    return <OnboardingWizard workspaceId={workspaceId} />;
   }
 
   if (error) {

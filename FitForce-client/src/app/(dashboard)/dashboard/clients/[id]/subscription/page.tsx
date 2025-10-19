@@ -83,7 +83,6 @@ export default function ClientSubscriptionPage() {
   
   // Form states
   const [selectedPlanId, setSelectedPlanId] = useState('');
-  const [subscriptionStartDate, setSubscriptionStartDate] = useState('');
   
   const [saving, setSaving] = useState(false);
 
@@ -182,24 +181,17 @@ export default function ClientSubscriptionPage() {
   };
 
   const handleCreateSubscription = async () => {
-    if (!selectedPlanId || !subscriptionStartDate) return;
+    if (!selectedPlanId) return;
     
     try {
       setSaving(true);
-      const response = await api.post(`/api/clients/${workspaceId}/subscribe`, {
+      const response = await api.post('/api/clients/subscription/manual', {
         clientId,
-        packageId: selectedPlanId,
-        billingData: {
-          email: 'client@example.com',
-          first_name: 'Client',
-          last_name: 'User',
-          phone_number: '0000000000'
-        }
+        packageId: selectedPlanId
       });
       
-      setSubscriptions(prev => [...prev, response.data.subscription]);
+      await refreshSubscriptions(); // Refresh the list
       setSelectedPlanId('');
-      setSubscriptionStartDate('');
       setIsCreateSubscriptionDialogOpen(false);
       
       openSnackbar({
@@ -209,9 +201,10 @@ export default function ClientSubscriptionPage() {
         alert: { color: 'success' }
       });
     } catch (err: any) {
+      console.error('Create subscription error:', err);
       openSnackbar({
         open: true,
-        message: 'Failed to create subscription',
+        message: err.response?.data?.error || 'Failed to create subscription',
         variant: 'alert',
         alert: { color: 'error' }
       });
@@ -471,19 +464,10 @@ export default function ClientSubscriptionPage() {
               ))}
             </Select>
           </FormControl>
-          <TextField
-            fullWidth
-            label={intl.formatMessage({ id: 'start-date' })}
-            type="date"
-            value={subscriptionStartDate}
-            onChange={(e) => setSubscriptionStartDate(e.target.value)}
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsCreateSubscriptionDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateSubscription} disabled={saving || !selectedPlanId || !subscriptionStartDate}>
+          <Button onClick={handleCreateSubscription} disabled={saving || !selectedPlanId}>
             {saving ? <CircularProgress size={20} /> : 'Create'}
           </Button>
         </DialogActions>

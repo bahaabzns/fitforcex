@@ -1301,7 +1301,7 @@ export default function ClientNutritionPage() {
   };
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={1}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h5">{clientName || 'Client'}</Typography>
