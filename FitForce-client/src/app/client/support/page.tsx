@@ -13,8 +13,18 @@ import {
   CircularProgress,
   IconButton,
   Chip,
+  Avatar,
+  Divider,
+  Alert
 } from '@mui/material';
-import { Send, AttachFile } from '@mui/icons-material';
+import { 
+  Send, 
+  AttachFile, 
+  SupportAgent,
+  Close,
+  Refresh,
+  CheckCircle
+} from '@mui/icons-material';
 import api from '@/utils/axios';
 import { formatDistanceToNow } from 'date-fns';
 import { useSocket } from '@/hooks/useSocket';
@@ -228,92 +238,221 @@ export default function ClientSupportPage() {
   };
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4">Workspace Support</Typography>
-        {isConnected && (
-          <Chip label="Live" color="success" size="small" />
-        )}
-      </Stack>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+      {/* Header */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          color: 'white'
+        }}
+      >
+        <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+              <SupportAgent sx={{ fontSize: 32 }} />
+            </Avatar>
+            <Box>
+              <Typography variant="h4" fontWeight={700}>
+                Support & Help
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
+                Get help from your trainer or support team
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {isConnected ? (
+              <Chip 
+                icon={<CheckCircle sx={{ fontSize: 18 }} />}
+                label="Connected" 
+                sx={{ 
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  fontWeight: 600
+                }}
+                size="small"
+              />
+            ) : (
+              <Chip 
+                label="Offline" 
+                sx={{ 
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  color: 'white'
+                }}
+                size="small"
+              />
+            )}
+          </Stack>
+        </Stack>
+      </Paper>
 
-      <Card sx={{ height: 'calc(100vh - 250px)', display: 'flex', flexDirection: 'column' }}>
-        {/* Messages */}
-        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3 }}>
+      {/* Main Chat Card */}
+      <Card 
+        sx={{ 
+          borderRadius: 3,
+          height: 'calc(100vh - 300px)', 
+          minHeight: 500,
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Messages Area */}
+        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3, bgcolor: 'grey.50' }}>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress />
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Stack alignItems="center" spacing={2}>
+                <CircularProgress size={60} />
+                <Typography color="text.secondary">Loading conversation...</Typography>
+              </Stack>
             </Box>
           ) : messages.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 5 }}>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main', mx: 'auto', mb: 2 }}>
+                <SupportAgent sx={{ fontSize: 48 }} />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom>
                 Welcome to Support
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Send us a message and we'll get back to you as soon as possible.
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Need help? Send us a message and we'll get back to you as soon as possible.
               </Typography>
+              <Alert severity="info" sx={{ maxWidth: 500, mx: 'auto' }}>
+                Our support team typically responds within a few hours during business hours.
+              </Alert>
             </Box>
           ) : (
             <Stack spacing={2}>
-              {messages.map((message) => (
-                <Paper
-                  key={message.id}
-                  sx={{
-                    p: 2,
-                    alignSelf: message.senderType === 'client' ? 'flex-end' : 'flex-start',
-                    maxWidth: '70%',
-                    bgcolor: message.senderType === 'client' ? 'primary.light' : 'grey.100',
-                  }}
-                >
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    {message.senderType === 'client' ? 'You' : 'Support Team'} •{' '}
-                    {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
-                  </Typography>
-                  <Typography variant="body1">{message.body}</Typography>
-                  
-                  {message.attachments && message.attachments.length > 0 && (
-                    <Stack spacing={1} sx={{ mt: 1 }}>
-                      {message.attachments.map((file, idx) => (
-                        <Button
-                          key={idx}
-                          size="small"
-                          startIcon={<AttachFile />}
-                          href={file.url}
-                          target="_blank"
-                          sx={{ justifyContent: 'flex-start' }}
-                        >
-                          {file.originalName} ({formatFileSize(file.size)})
-                        </Button>
-                      ))}
-                    </Stack>
-                  )}
-                </Paper>
-              ))}
+              {messages.map((message) => {
+                const isClient = message.senderType === 'client';
+                return (
+                  <Stack
+                    key={message.id}
+                    direction="row"
+                    justifyContent={isClient ? 'flex-end' : 'flex-start'}
+                    sx={{ width: '100%' }}
+                  >
+                    {!isClient && (
+                      <Avatar sx={{ bgcolor: 'success.main', mr: 1 }}>
+                        <SupportAgent />
+                      </Avatar>
+                    )}
+                    <Paper
+                      elevation={2}
+                      sx={{
+                        p: 2,
+                        maxWidth: '75%',
+                        bgcolor: isClient ? 'primary.main' : 'white',
+                        color: isClient ? 'white' : 'text.primary',
+                        borderRadius: 3,
+                        borderBottomRightRadius: isClient ? 0 : 3,
+                        borderBottomLeftRadius: isClient ? 3 : 0,
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ 
+                        display: 'block', 
+                        mb: 0.5,
+                        opacity: 0.8,
+                        fontWeight: 600
+                      }}>
+                        {isClient ? 'You' : 'Support Team'} •{' '}
+                        {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                      </Typography>
+                      <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {message.body}
+                      </Typography>
+                      
+                      {message.attachments && message.attachments.length > 0 && (
+                        <Stack spacing={1} sx={{ mt: 2 }}>
+                          {message.attachments.map((file, idx) => (
+                            <Button
+                              key={idx}
+                              size="small"
+                              variant="outlined"
+                              startIcon={<AttachFile />}
+                              href={file.url}
+                              target="_blank"
+                              sx={{ 
+                                justifyContent: 'flex-start',
+                                color: isClient ? 'white' : 'primary.main',
+                                borderColor: isClient ? 'rgba(255, 255, 255, 0.5)' : 'primary.main',
+                                '&:hover': {
+                                  borderColor: isClient ? 'white' : 'primary.dark',
+                                }
+                              }}
+                            >
+                              {file.originalName} ({formatFileSize(file.size)})
+                            </Button>
+                          ))}
+                        </Stack>
+                      )}
+                    </Paper>
+                    {isClient && (
+                      <Avatar sx={{ bgcolor: 'primary.main', ml: 1 }}>
+                        {message.senderName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    )}
+                  </Stack>
+                );
+              })}
+              
               {typingUser && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  {typingUser} is typing...
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Avatar sx={{ bgcolor: 'success.main', width: 32, height: 32 }}>
+                    <SupportAgent sx={{ fontSize: 18 }} />
+                  </Avatar>
+                  <Paper 
+                    elevation={1}
+                    sx={{ 
+                      p: 1.5, 
+                      borderRadius: 2,
+                      bgcolor: 'grey.100'
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      {typingUser} is typing...
+                    </Typography>
+                  </Paper>
+                </Stack>
               )}
               <div ref={messagesEndRef} />
             </Stack>
           )}
         </Box>
 
-        {/* Message Input */}
-        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Divider />
+
+        {/* Message Input Area */}
+        <Box sx={{ p: 2.5, bgcolor: 'white' }}>
+          {/* Attachments Preview */}
           {attachments.length > 0 && (
-            <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+            <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
               {attachments.map((file, idx) => (
                 <Chip
                   key={idx}
                   label={`${file.name} (${formatFileSize(file.size)})`}
                   onDelete={() => handleRemoveAttachment(idx)}
+                  deleteIcon={<Close />}
                   size="small"
+                  sx={{ 
+                    maxWidth: 200,
+                    '& .MuiChip-label': {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }
+                  }}
                 />
               ))}
             </Stack>
           )}
           
-          <Stack direction="row" spacing={1}>
+          {/* Input Row */}
+          <Stack direction="row" spacing={1} alignItems="flex-end">
             <input
               ref={fileInputRef}
               type="file"
@@ -325,6 +464,10 @@ export default function ClientSupportPage() {
             <IconButton
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || sending}
+              sx={{ 
+                bgcolor: 'grey.100',
+                '&:hover': { bgcolor: 'grey.200' }
+              }}
             >
               <AttachFile />
             </IconButton>
@@ -346,18 +489,68 @@ export default function ClientSupportPage() {
                 }
               }}
               disabled={sending || uploading}
+              variant="outlined"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                }
+              }}
             />
             
             <Button
               variant="contained"
+              size="large"
               endIcon={<Send />}
               onClick={handleSendMessage}
               disabled={(!messageBody.trim() && attachments.length === 0) || sending || uploading}
+              sx={{ 
+                minWidth: 120,
+                borderRadius: 3,
+                py: 1.75
+              }}
             >
               {uploading ? 'Uploading...' : sending ? 'Sending...' : 'Send'}
             </Button>
           </Stack>
+
+          {/* Connection Status */}
+          {!isConnected && (
+            <Alert 
+              severity="warning" 
+              sx={{ mt: 2, borderRadius: 2 }}
+              action={
+                <Button color="inherit" size="small" onClick={() => window.location.reload()}>
+                  Reconnect
+                </Button>
+              }
+            >
+              Connection lost. Messages may be delayed. Click reconnect to restore live chat.
+            </Alert>
+          )}
         </Box>
+      </Card>
+
+      {/* Help Tips Card */}
+      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: 'info.50', border: '2px solid', borderColor: 'info.main' }}>
+        <CardContent>
+          <Typography variant="h6" fontWeight={700} color="info.main" gutterBottom>
+            💡 Quick Tips
+          </Typography>
+          <Stack spacing={1}>
+            <Typography variant="body2" color="text.secondary">
+              • Response times are typically within a few hours during business hours
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • You can attach images, PDFs, and documents to your messages
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • Press Enter to send, Shift+Enter for a new line
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • The green "Connected" badge means live chat is active
+            </Typography>
+          </Stack>
+        </CardContent>
       </Card>
     </Box>
   );

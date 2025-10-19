@@ -154,6 +154,7 @@ export default function ClientWorkoutPage() {
   const [submittedForms, setSubmittedForms] = useState<Array<{ id: string; formTitle: string; submittedAt: string }>>([]);
   const [selectedFormsToArchive, setSelectedFormsToArchive] = useState<string[]>([]);
   const [archivingForms, setArchivingForms] = useState(false);
+  const [activatingPlanId, setActivatingPlanId] = useState<string | null>(null);
 
   // Load workout logs for this client (for Logs tab)
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
@@ -179,6 +180,7 @@ export default function ClientWorkoutPage() {
         // Show dialog to let coach mark forms as done
         setSubmittedForms(forms);
         setSelectedFormsToArchive([]);
+        setActivatingPlanId(selectedPlanId);
         setFormCompletionDialogOpen(true);
         return; // Wait for dialog action
       }
@@ -206,8 +208,8 @@ export default function ClientWorkoutPage() {
       setFormCompletionDialogOpen(false);
       
       // Continue with plan activation
-      if (selectedPlanId) {
-        await api.post(`/api/workout/plans/${selectedPlanId}/activate`);
+      if (activatingPlanId) {
+        await api.post(`/api/workout/plans/${activatingPlanId}/activate`);
         await loadSavedPlans();
         
         openSnackbar({
@@ -216,6 +218,9 @@ export default function ClientWorkoutPage() {
           variant: 'alert',
           alert: { color: 'success', variant: 'filled' }
         } as any);
+        
+        // Clear the activating plan ID
+        setActivatingPlanId(null);
       }
     } catch (error) {
       openSnackbar({
@@ -1515,10 +1520,25 @@ export default function ClientWorkoutPage() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
+                              // Check for submitted workout forms
+                              const formsResponse = await api.get(`/api/forms/submitted-by-type?clientId=${clientId}&type=workout`);
+                              const forms = formsResponse.data?.submissions || [];
+                              
+                              if (forms.length > 0) {
+                                // Show dialog to let coach mark forms as done
+                                setSubmittedForms(forms);
+                                setSelectedFormsToArchive([]);
+                                setActivatingPlanId(plan.id);
+                                setFormCompletionDialogOpen(true);
+                                return; // Wait for dialog action
+                              }
+                              
+                              // No forms, proceed with activation
                               await api.post(`/api/workout/plans/${plan.id}/activate`);
                               await loadSavedPlans();
                               openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
                             } catch (e) {
+                              console.error('Error activating plan:', e);
                               openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
                             }
                           }}
@@ -2530,7 +2550,12 @@ export default function ClientWorkoutPage() {
       {/* Form Completion Dialog */}
       <Dialog
         open={formCompletionDialogOpen}
-        onClose={() => !archivingForms && setFormCompletionDialogOpen(false)}
+        onClose={() => {
+          if (!archivingForms) {
+            setFormCompletionDialogOpen(false);
+            setActivatingPlanId(null);
+          }
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -2576,7 +2601,10 @@ export default function ClientWorkoutPage() {
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setFormCompletionDialogOpen(false)}
+            onClick={() => {
+              setFormCompletionDialogOpen(false);
+              setActivatingPlanId(null);
+            }}
             disabled={archivingForms}
           >
             Cancel

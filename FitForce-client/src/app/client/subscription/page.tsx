@@ -1,7 +1,28 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Container, Alert, CircularProgress } from '@mui/material';
+import { 
+  Box, 
+  Typography, 
+  Alert, 
+  CircularProgress,
+  Paper,
+  Stack,
+  Avatar,
+  Card,
+  CardContent,
+  Grid,
+  Divider,
+  Chip,
+  Button
+} from '@mui/material';
+import { 
+  CreditCard,
+  Schedule,
+  CheckCircle,
+  Warning,
+  Refresh
+} from '@mui/icons-material';
 import { SubscriptionManager } from '@/components/payment';
 import api from '@/utils/axios';
 
@@ -10,55 +31,229 @@ export default function ClientSubscriptionPage() {
   const [workspaceId, setWorkspaceId] = useState<string>(params.get('workspaceId') || '');
   const [clientId, setClientId] = useState<string>(params.get('clientId') || '');
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     const loadProfileIfNeeded = async () => {
-      if (workspaceId && clientId) return;
       try {
         setLoadingProfile(true);
         const res = await api.get('/api/clients/profile');
-        const data = res.data as { client?: { id: string }; workspace?: { id: string } };
+        const data = res.data as { client?: { id: string; fullName: string; email: string; status: string }; workspace?: { id: string; name: string } };
+        setProfile(data);
+        
         if (!workspaceId && data.workspace?.id) setWorkspaceId(data.workspace.id);
         if (!clientId && data.client?.id) setClientId(data.client.id);
-      } catch {
-        // ignore; page will show warning if still missing
+      } catch (err) {
+        console.error('Failed to load profile:', err);
       } finally {
         setLoadingProfile(false);
       }
     };
     void loadProfileIfNeeded();
-  }, [workspaceId, clientId]);
+  }, []);
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'active':
+        return { color: 'success', icon: <CheckCircle />, message: 'Your subscription is active' };
+      case 'pending':
+        return { color: 'warning', icon: <Schedule />, message: 'Your subscription is pending' };
+      case 'pre_start':
+        return { color: 'info', icon: <Schedule />, message: 'Your program will start soon' };
+      case 'frozen':
+        return { color: 'warning', icon: <Warning />, message: 'Your subscription is frozen' };
+      case 'expired':
+        return { color: 'error', icon: <Warning />, message: 'Your subscription has expired' };
+      case 'refunded':
+        return { color: 'error', icon: <Warning />, message: 'Your subscription was refunded' };
+      default:
+        return { color: 'default', icon: <CreditCard />, message: 'No active subscription' };
+    }
+  };
+
+  if (loadingProfile) {
+    return (
+      <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress size={60} />
+          <Typography variant="h6" color="text.secondary">Loading subscription details...</Typography>
+        </Stack>
+      </Box>
+    );
+  }
+
+  const statusInfo = profile?.client?.status ? getStatusInfo(profile.client.status) : null;
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Client Subscription
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Manage your subscription and billing for this workspace.
-        </Typography>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+      {/* Header */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white'
+        }}
+      >
+        <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+              <CreditCard sx={{ fontSize: 32 }} />
+            </Avatar>
+            <Box>
+              <Typography variant="h4" fontWeight={700}>
+                Subscription Management
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
+                Manage your subscription and billing
+              </Typography>
+            </Box>
+          </Stack>
+          <Button 
+            variant="outlined" 
+            startIcon={<Refresh />}
+            onClick={handleRefresh}
+            sx={{ 
+              color: 'white', 
+              borderColor: 'rgba(255, 255, 255, 0.5)',
+              '&:hover': {
+                borderColor: 'white',
+                bgcolor: 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
+            Refresh
+          </Button>
+        </Stack>
+      </Paper>
 
-        {loadingProfile && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <CircularProgress size={16} />
-            <Typography variant="caption">Loading your profile...</Typography>
-          </Box>
-        )}
-        {(!workspaceId || !clientId) && !loadingProfile && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Missing workspaceId or clientId. Open this page with ?workspaceId=...&clientId=...
-          </Alert>
-        )}
+      {/* Profile Summary */}
+      {profile && (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 3, height: '100%' }}>
+              <CardContent>
+                <Stack spacing={2}>
+                  <Typography variant="h6" fontWeight={700}>Account Status</Typography>
+                  <Divider />
+                  {statusInfo && (
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                      <Avatar sx={{ bgcolor: `${statusInfo.color}.main`, width: 40, height: 40 }}>
+                        {statusInfo.icon}
+                      </Avatar>
+                      <Box flex={1}>
+                        <Chip 
+                          label={profile.client.status.toUpperCase().replace('_', ' ')} 
+                          color={statusInfo.color as any}
+                          size="small"
+                          sx={{ mb: 0.5 }}
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                          {statusInfo.message}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
 
-        {!!workspaceId && !!clientId && (
-          <SubscriptionManager
-            workspaceId={workspaceId}
-            type="client"
-            clientId={clientId}
-          />
-        )}
-      </Box>
-    </Container>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 3, height: '100%' }}>
+              <CardContent>
+                <Stack spacing={2}>
+                  <Typography variant="h6" fontWeight={700}>Client Information</Typography>
+                  <Divider />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      NAME
+                    </Typography>
+                    <Typography variant="body1">{profile.client.fullName}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      EMAIL
+                    </Typography>
+                    <Typography variant="body1">{profile.client.email}</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 3, height: '100%' }}>
+              <CardContent>
+                <Stack spacing={2}>
+                  <Typography variant="h6" fontWeight={700}>Workspace</Typography>
+                  <Divider />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      WORKSPACE NAME
+                    </Typography>
+                    <Typography variant="body1">{profile.workspace.name}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      WORKSPACE ID
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                      {workspaceId}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Status Messages */}
+      {(!workspaceId || !clientId) && !loadingProfile && (
+        <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
+          Missing subscription information. Attempting to load from your profile...
+        </Alert>
+      )}
+
+      {/* Subscription Manager */}
+      {!!workspaceId && !!clientId && (
+        <Card sx={{ borderRadius: 3 }}>
+          <CardContent sx={{ p: 0 }}>
+            <SubscriptionManager
+              workspaceId={workspaceId}
+              type="client"
+              clientId={clientId}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Help Section */}
+      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
+        <CardContent>
+          <Typography variant="h6" fontWeight={700} color="primary.main" gutterBottom>
+            Need Help?
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            If you have any questions about your subscription, billing, or need to make changes, 
+            please contact your trainer or use the support page.
+          </Typography>
+          <Button 
+            variant="contained" 
+            sx={{ mt: 2 }}
+            href="/client/support"
+          >
+            Contact Support
+          </Button>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }

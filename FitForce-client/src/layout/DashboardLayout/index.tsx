@@ -130,7 +130,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <MessengerBadgeSync />
       {!isHorizontal ? <Drawer /> : <HorizontalBar />}
 
-      <Box component="main" sx={{ width: `calc(100% - ${DRAWER_WIDTH}px)`, flexGrow: 1, p: { xs: 1, sm: 3 } }}>
+      <Box component="main" sx={{ width: `calc(100% - ${DRAWER_WIDTH}px)`, flexGrow: 1, p: { xs: 0.5, sm: 1 } }}>
         <Toolbar sx={{ mt: isHorizontal ? 8 : 'inherit', mb: isHorizontal ? 2 : 'inherit' }} />
         <Container
           maxWidth={false}
@@ -138,7 +138,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             position: 'relative',
             minHeight: 'calc(100vh - 124px)',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            px: { xs: 1, sm: 2 }
           }}
         >
           <Breadcrumbs />
