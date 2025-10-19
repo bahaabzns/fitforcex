@@ -724,7 +724,7 @@ export default function WorkoutTracking({
       <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
         <Button
           variant="outlined"
-          onClick={saveProgress}
+          onClick={saveExerciseProgress}
           disabled={saving}
         >
           <FormattedMessage id="save-progress" />

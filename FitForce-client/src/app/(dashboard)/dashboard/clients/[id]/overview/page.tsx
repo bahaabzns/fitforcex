@@ -163,9 +163,19 @@ export default function ClientOverviewPage() {
             <User size={24} />
           </Avatar>
           <Box>
-            <Typography variant="h4" gutterBottom>
-              {client.fullName}
-            </Typography>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+              <Typography variant="h4">
+                {client.fullName}
+              </Typography>
+              {client.code && (
+                <Chip 
+                  label={`#${client.code}`} 
+                  size="small" 
+                  color="primary" 
+                  variant="outlined"
+                />
+              )}
+            </Stack>
             <Stack direction="row" spacing={2} alignItems="center">
               {client.email && (
                 <Typography variant="body2" color="text.secondary">

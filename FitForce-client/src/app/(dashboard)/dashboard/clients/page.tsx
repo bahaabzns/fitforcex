@@ -112,7 +112,6 @@ export default function ClientsPage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
-  const [globalFilter, setGlobalFilter] = useState('');
 
   // Invite form
   const [showForm, setShowForm] = useState(false);
@@ -193,32 +192,33 @@ export default function ClientsPage() {
     loadData();
   }, [workspaceId]);
 
-  // Synchronize search and globalFilter states
-  useEffect(() => {
-    if (search !== globalFilter) {
-      setGlobalFilter(search);
-    }
-  }, [search]);
-
-  useEffect(() => {
-    if (globalFilter !== search) {
-      setSearch(globalFilter);
-    }
-  }, [globalFilter]);
 
   const filtered = useMemo(() => {
     let result = clients;
 
-    // Text search filter - use both search and globalFilter for consistency
-    const searchQuery = (search || globalFilter || '').trim().toLowerCase();
+    // Text search filter - focus on client name primarily
+    const searchQuery = search.trim().toLowerCase();
     if (searchQuery) {
       result = result.filter(
-        (c) =>
-          (c.fullName || c.name || '').toLowerCase().includes(searchQuery) ||
-          (c.email || '').toLowerCase().includes(searchQuery) ||
-          (c.phone || '').toLowerCase().includes(searchQuery) ||
-          (c.status || '').toLowerCase().includes(searchQuery) ||
-          (c.packageName || '').toLowerCase().includes(searchQuery)
+        (c) => {
+          const clientName = (c.fullName || c.name || '').toLowerCase();
+          const email = (c.email || '').toLowerCase();
+          const phone = (c.phone || '').toLowerCase();
+          
+          // Primary search: client name (most common use case)
+          if (clientName.includes(searchQuery)) {
+            return true;
+          }
+          // Secondary search: email (for cases where user searches by email)
+          if (email.includes(searchQuery)) {
+            return true;
+          }
+          // Tertiary search: phone (for cases where user searches by phone)
+          if (phone.includes(searchQuery)) {
+            return true;
+          }
+          return false;
+        }
       );
     }
 
@@ -232,7 +232,7 @@ export default function ClientsPage() {
     }
 
     return result;
-  }, [clients, search, globalFilter, packageFilter]);
+  }, [clients, search, packageFilter]);
 
   const refreshClients = async () => {
     try {
@@ -406,7 +406,19 @@ export default function ClientsPage() {
           />
         )
       },
-      { header: '#', accessorKey: 'id', meta: { align: 'center' } },
+      {
+        header: '#',
+        accessorKey: 'code',
+        cell: ({ getValue }) => {
+          const code = getValue() as number;
+          return (
+            <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+              #{code}
+            </Typography>
+          );
+        },
+        meta: { align: 'center' }
+      },
       {
         header: 'Client Name',
         accessorKey: 'name',
@@ -526,16 +538,14 @@ export default function ClientsPage() {
   const table = useReactTable({
     data: filtered,
     columns: columns,
-    state: { columnFilters, sorting, rowSelection, globalFilter },
+    state: { columnFilters, sorting, rowSelection },
     enableRowSelection: true,
     getRowId: (row) => row.id, // Use client ID as row ID
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
-    onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     getRowCanExpand: () => true,
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     debugTable: true
@@ -626,9 +636,9 @@ export default function ClientsPage() {
         })}
       >
         <DebouncedInput
-          value={globalFilter ?? ''}
-          onFilterChange={(value) => setGlobalFilter(String(value))}
-          placeholder={`Search ${filtered.length} records...`}
+          value={search ?? ''}
+          onFilterChange={(value) => setSearch(String(value))}
+          placeholder={`Search by client name...`}
         />
 
         <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: 'center' }}>
@@ -915,7 +925,7 @@ export default function ClientsPage() {
               </MenuItem>
             ))}
           </Select>
-          <TextField size="small" placeholder="Search clients" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <TextField size="small" placeholder="Search by client name..." value={search} onChange={(e) => setSearch(e.target.value)} />
           {Object.keys(rowSelection).length > 0 && viewMode === 'table' && (
             <Button
               variant="outlined"
@@ -1004,7 +1014,17 @@ export default function ClientsPage() {
               <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
                 <Avatar alt="Avatar" size="sm" src={`/assets/images/users/avatar-1.png`} />
                 <Stack>
-                  <Typography variant="h6">{selectedClient.fullName || selectedClient.name || 'Unnamed'}</Typography>
+                  <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                    <Typography variant="h6">{selectedClient.fullName || selectedClient.name || 'Unnamed'}</Typography>
+                    {selectedClient.code && (
+                      <Chip 
+                        label={`#${selectedClient.code}`} 
+                        size="small" 
+                        color="primary" 
+                        variant="outlined"
+                      />
+                    )}
+                  </Stack>
                   {selectedClient.email && (
                     <Typography sx={{ color: 'text.secondary' }}>{selectedClient.email}</Typography>
                   )}

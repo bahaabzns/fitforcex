@@ -238,9 +238,19 @@ export default function WorkoutLogsPage() {
                               {log.client.fullName.charAt(0).toUpperCase()}
                             </Avatar>
                             <Box sx={{ flexGrow: 1 }}>
-                              <Typography variant="h6">
-                                {log.client.fullName}
-                              </Typography>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="h6">
+                                  {log.client.fullName}
+                                </Typography>
+                                {log.client.code && (
+                                  <Chip 
+                                    label={`#${log.client.code}`} 
+                                    size="small" 
+                                    color="primary" 
+                                    variant="outlined"
+                                  />
+                                )}
+                              </Stack>
                               <Typography variant="body2" color="text.secondary">
                                 {log.client.email}
                               </Typography>
@@ -341,9 +351,19 @@ export default function WorkoutLogsPage() {
                     {workoutLogs.map((log) => (
                       <TableRow key={log.id} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => handleViewDetails(log)}>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>
-                            {log.client.fullName}
-                          </Typography>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="body2" fontWeight={500}>
+                              {log.client.fullName}
+                            </Typography>
+                            {log.client.code && (
+                              <Chip 
+                                label={`#${log.client.code}`} 
+                                size="small" 
+                                color="primary" 
+                                variant="outlined"
+                              />
+                            )}
+                          </Stack>
                           <Typography variant="caption" color="text.secondary">
                             {log.client.email}
                           </Typography>
@@ -432,9 +452,19 @@ export default function WorkoutLogsPage() {
                     <Typography variant="body2" color="text.secondary">
                       <FormattedMessage id="client" />
                     </Typography>
-                    <Typography variant="body1">
-                      {selectedLog.client.fullName}
-                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body1">
+                        {selectedLog.client.fullName}
+                      </Typography>
+                      {selectedLog.client.code && (
+                        <Chip 
+                          label={`#${selectedLog.client.code}`} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                        />
+                      )}
+                    </Stack>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">

@@ -1203,9 +1203,19 @@ export default function WorkoutPage() {
                     <Typography variant="body2" color="text.secondary">
                       Client
                     </Typography>
-                    <Typography variant="body1">
-                      {selectedWorkoutLog.client?.fullName || 'Unknown Client'}
-                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body1">
+                        {selectedWorkoutLog.client?.fullName || 'Unknown Client'}
+                      </Typography>
+                      {selectedWorkoutLog.client?.code && (
+                        <Chip 
+                          label={`#${selectedWorkoutLog.client.code}`} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                        />
+                      )}
+                    </Stack>
                   </Box>
                   <Box>
                     <Typography variant="body2" color="text.secondary">
