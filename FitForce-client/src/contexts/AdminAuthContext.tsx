@@ -41,22 +41,25 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const verifyToken = async (token: string) => {
     try {
-      // Set the token in axios headers for this request
-      const response = await api.get('/api/auth/me', {
+      // Test the token by trying to access an admin endpoint
+      const response = await api.get('/api/admin/workspaces', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
-      if (response.data.user) {
-        setAdminUser(response.data.user);
-        setAdminToken(token);
-      } else {
-        // Token is invalid, clear it
-        sessionStorage.removeItem('adminToken');
-        setAdminToken(null);
-        setAdminUser(null);
-      }
+      // If we get here, the token is valid
+      // We can extract user info from the token or make another call
+      setAdminToken(token);
+      
+      // Try to get user info from the token payload (basic approach)
+      // For now, we'll set a basic admin user object
+      setAdminUser({
+        id: 'admin',
+        fullName: 'FitForce Admin',
+        email: 'admin@fitforce.io'
+      });
+      
     } catch (error) {
       // Token is invalid, clear it
       sessionStorage.removeItem('adminToken');

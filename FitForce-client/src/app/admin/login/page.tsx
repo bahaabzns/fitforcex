@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '@/utils/axios';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { login } = useAdminAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,18 +21,14 @@ export default function AdminLoginPage() {
         throw new Error('Email and password are required');
       }
       
-      // Use the admin login endpoint
-      const response = await api.post('/api/auth/admin-login', { email, password });
+      // Use the AdminAuthContext login method
+      await login(email, password);
       
-      // Store the admin token in sessionStorage (not localStorage for security)
-      if (response.data.token) {
-        sessionStorage.setItem('adminToken', response.data.token);
-        router.replace('/admin');
-      } else {
-        throw new Error('No token received from server');
-      }
+      // If login succeeds, redirect to admin dashboard
+      router.replace('/admin');
+      
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Login failed';
+      const msg = err?.message || 'Login failed';
       setError(msg);
     } finally {
       setLoading(false);
@@ -80,7 +77,7 @@ export default function AdminLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@fitforceapp.com"
+              placeholder="admin@fitforce.io"
               required
               style={{ 
                 padding: '12px 16px', 
