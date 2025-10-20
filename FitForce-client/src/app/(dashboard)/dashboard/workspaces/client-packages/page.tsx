@@ -15,9 +15,14 @@ import {
   Chip,
   Divider,
   IconButton,
-  Switch
+  Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
+import EditIcon from '@mui/icons-material/Edit';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import api from '@/utils/axios';
 import { useAppSelector } from '@/store';
@@ -49,6 +54,16 @@ export default function WorkspaceClientPackagesPage() {
   const [currency, setCurrency] = useState('EGP');
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Edit package state
+  const [editingPackage, setEditingPackage] = useState<ClientPackage | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDurationMonths, setEditDurationMonths] = useState<number>(1);
+  const [editPriceEgp, setEditPriceEgp] = useState<number>(100);
+  const [editCurrency, setEditCurrency] = useState('EGP');
+  const [editSaving, setEditSaving] = useState(false);
 
   const fetchPackages = async () => {
     try {
@@ -126,6 +141,67 @@ export default function WorkspaceClientPackagesPage() {
     } catch (e) {
       setError('Failed to delete package');
     }
+  };
+
+  const handleEditPackage = (pkg: ClientPackage) => {
+    setEditingPackage(pkg);
+    setEditName(pkg.name);
+    setEditDescription(pkg.description || '');
+    setEditDurationMonths(pkg.durationMonths);
+    setEditPriceEgp(pkg.priceCents / 100);
+    setEditCurrency(pkg.currency);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPackage) return;
+
+    try {
+      setEditSaving(true);
+      setError(null);
+      setSuccessMsg(null);
+      
+      if (!editName.trim()) {
+        setError('Name is required');
+        return;
+      }
+      if (editDurationMonths < 1) {
+        setError('Duration must be at least 1 month');
+        return;
+      }
+      if (editPriceEgp < 1) {
+        setError('Price must be at least 1 EGP');
+        return;
+      }
+
+      const priceCents = Math.round(Number(editPriceEgp) * 100);
+      await api.put(`/api/workspaces/${effectiveWorkspaceId}/client-packages/${editingPackage.id}`, {
+        name: editName,
+        description: editDescription || undefined,
+        durationMonths: Number(editDurationMonths),
+        priceCents: Number(priceCents),
+        currency: editCurrency,
+        features: {}
+      });
+
+      setEditDialogOpen(false);
+      await fetchPackages();
+      setSuccessMsg('Package updated successfully');
+    } catch (e) {
+      setError('Failed to update package');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditDialogOpen(false);
+    setEditingPackage(null);
+    setEditName('');
+    setEditDescription('');
+    setEditDurationMonths(1);
+    setEditPriceEgp(100);
+    setEditCurrency('EGP');
   };
 
   return (
@@ -215,15 +291,76 @@ export default function WorkspaceClientPackagesPage() {
                       />
                       <Typography variant="body2">Active</Typography>
                     </Stack>
-                    <IconButton aria-label="delete" color="error" onClick={() => deletePackage(pkg)}>
-                      <DeleteIcon />
-                    </IconButton>
+                    <Stack direction="row" spacing={1}>
+                      <IconButton aria-label="edit" color="primary" onClick={() => handleEditPackage(pkg)}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton aria-label="delete" color="error" onClick={() => deletePackage(pkg)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </Stack>
                   </Stack>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
+
+        {/* Edit Package Dialog */}
+        <Dialog open={editDialogOpen} onClose={handleCancelEdit} maxWidth="sm" fullWidth>
+          <DialogTitle>Edit Package</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                label="Name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                fullWidth
+                multiline
+                rows={2}
+              />
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  label="Duration (months)"
+                  type="number"
+                  value={editDurationMonths}
+                  onChange={(e) => setEditDurationMonths(Number(e.target.value))}
+                  inputProps={{ min: 1, max: 120 }}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  label="Price (EGP)"
+                  type="number"
+                  value={editPriceEgp}
+                  onChange={(e) => setEditPriceEgp(Number(e.target.value))}
+                  inputProps={{ min: 1, step: 1 }}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  label="Currency"
+                  value={editCurrency}
+                  onChange={(e) => setEditCurrency(e.target.value)}
+                  sx={{ width: 120 }}
+                />
+              </Stack>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCancelEdit} disabled={editSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} variant="contained" disabled={editSaving || !editName.trim()}>
+              {editSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Container>
   );

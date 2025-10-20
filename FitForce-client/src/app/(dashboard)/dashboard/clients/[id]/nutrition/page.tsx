@@ -182,7 +182,7 @@ export default function ClientNutritionPage() {
   // Forms tab state
   const [formsLoading, setFormsLoading] = useState(false);
   const [formsError, setFormsError] = useState<string | null>(null);
-  const [formsSubmissions, setFormsSubmissions] = useState<Array<{ id: string; form: { id: string; title: string }; answers?: any; status?: string; createdAt?: string; formTitle?: string; formType?: string; submittedAt?: string }>>([]);
+  const [formsSubmissions, setFormsSubmissions] = useState<Array<{ id: string; form: { id: string; title: string; questions?: any }; answers?: any; status?: string; createdAt?: string; formTitle?: string; formType?: string; submittedAt?: string }>>([]);
   const [expandedSubmissionIds, setExpandedSubmissionIds] = useState<Record<string, boolean>>({});
   
   // Form completion dialog for plan activation
@@ -221,8 +221,19 @@ export default function ClientNutritionPage() {
     }
   }, [selectedPlanId]);
 
-  // Pretty-print answers instead of raw JSON
-  const renderAnswerValue = (value: any, depth = 0): JSX.Element => {
+  // Helper function to find question title by ID
+  const getQuestionTitle = (questionId: string, questions: any[]): string => {
+    if (!Array.isArray(questions)) return questionId;
+    
+    const question = questions.find((q: any) => q.id === questionId);
+    if (question) {
+      return question.question || question.label || question.name || questionId;
+    }
+    return questionId;
+  };
+
+  // Pretty-print answers with proper question titles
+  const renderAnswerValue = (value: any, questions?: any[], depth = 0): JSX.Element => {
     const paddingLeft = depth * 12;
     if (value === null || value === undefined) return <Typography component="span" color="text.secondary">—</Typography> as any;
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -238,7 +249,7 @@ export default function ClientNutritionPage() {
                 primaryTypographyProps={{ variant: 'body2' }}
                 primary={
                   <Box sx={{ width: '100%', pl: paddingLeft }}>
-                    {renderAnswerValue(v, depth + 1)}
+                    {renderAnswerValue(v, questions, depth + 1)}
                   </Box>
                 }
               />
@@ -252,15 +263,18 @@ export default function ClientNutritionPage() {
       if (entries.length === 0) return <Typography component="span" color="text.secondary">{`{}`}</Typography> as any;
       return (
         <List dense sx={{ pl: paddingLeft ? 0 : 0 }}>
-          {entries.map(([k, v]) => (
-            <ListItem key={k} sx={{ alignItems: 'flex-start', py: 0.25 }}>
-              <Box sx={{ width: '100%', pl: paddingLeft }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mr: 1, display: 'inline' }}>{k}</Typography>
-                <Typography variant="body2" sx={{ display: 'inline', color: 'text.secondary', mx: 0.5 }}>:</Typography>
-                <Box component="span">{renderAnswerValue(v, depth + 1)}</Box>
-              </Box>
-            </ListItem>
-          ))}
+          {entries.map(([k, v]) => {
+            const questionTitle = questions ? getQuestionTitle(k, questions) : k;
+            return (
+              <ListItem key={k} sx={{ alignItems: 'flex-start', py: 0.25 }}>
+                <Box sx={{ width: '100%', pl: paddingLeft }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mr: 1, display: 'inline' }}>{questionTitle}</Typography>
+                  <Typography variant="body2" sx={{ display: 'inline', color: 'text.secondary', mx: 0.5 }}>:</Typography>
+                  <Box component="span">{renderAnswerValue(v, questions, depth + 1)}</Box>
+                </Box>
+              </ListItem>
+            );
+          })}
         </List>
       );
     }
@@ -1451,7 +1465,7 @@ export default function ClientNutritionPage() {
                         </Box>
                         {expandedSubmissionIds[s.id] && (
                           <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1, mt: 1 }}>
-                            {renderAnswerValue(s.answers || {})}
+                            {renderAnswerValue(s.answers || {}, s.form?.questions)}
                           </Box>
                         )}
                       </ListItem>
@@ -1951,7 +1965,7 @@ export default function ClientNutritionPage() {
                           </Box>
                           {expandedSubmissionIds[s.id] && (
                             <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1, mt: 1 }}>
-                              {renderAnswerValue(s.answers || {})}
+                              {renderAnswerValue(s.answers || {}, s.form?.questions)}
                             </Box>
                           )}
                         </ListItem>

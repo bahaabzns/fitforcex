@@ -79,6 +79,12 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   const [selectedNutritionFormId, setSelectedNutritionFormId] = useState<string>('');
   const [assignForms, setAssignForms] = useState(true);
 
+  // Validation states
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [isValidatingEmail, setIsValidatingEmail] = useState(false);
+  const [isValidatingPhone, setIsValidatingPhone] = useState(false);
+
   useEffect(() => {
     if (open) {
       loadPackagesAndForms();
@@ -101,8 +107,69 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
     }
   };
 
+  // Validation functions
+  const validateEmail = async (emailValue: string) => {
+    if (!emailValue || !emailValue.includes('@')) {
+      setEmailError(null);
+      return;
+    }
+
+    setIsValidatingEmail(true);
+    try {
+      const res = await api.get('/api/clients');
+      const clients = res.data.clients || [];
+      const existingClient = clients.find((client: any) => 
+        client.email && client.email.toLowerCase() === emailValue.toLowerCase()
+      );
+      
+      if (existingClient) {
+        setEmailError('A client with this email already exists in this workspace');
+      } else {
+        setEmailError(null);
+      }
+    } catch (err) {
+      console.error('Error validating email:', err);
+      setEmailError(null);
+    } finally {
+      setIsValidatingEmail(false);
+    }
+  };
+
+  const validatePhone = async (phoneValue: string) => {
+    if (!phoneValue || phoneValue.trim().length < 5) {
+      setPhoneError(null);
+      return;
+    }
+
+    setIsValidatingPhone(true);
+    try {
+      const res = await api.get('/api/clients');
+      const clients = res.data.clients || [];
+      const existingClient = clients.find((client: any) => 
+        client.phone && client.phone === phoneValue
+      );
+      
+      if (existingClient) {
+        setPhoneError('A client with this phone number already exists in this workspace');
+      } else {
+        setPhoneError(null);
+      }
+    } catch (err) {
+      console.error('Error validating phone:', err);
+      setPhoneError(null);
+    } finally {
+      setIsValidatingPhone(false);
+    }
+  };
+
   const handleNext = async () => {
     if (activeStep === 0) {
+      // Check for validation errors before proceeding
+      if (emailError || phoneError) {
+        setError('Please fix the validation errors before proceeding');
+        return;
+      }
+      
       // Create client
       await createClient();
     } else if (activeStep === 1) {
@@ -257,14 +324,26 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                // Debounce validation
+                setTimeout(() => validateEmail(e.target.value), 500);
+              }}
+              error={!!emailError}
+              helperText={emailError || (isValidatingEmail ? 'Checking...' : '')}
               required
             />
             <TextField
               fullWidth
               label="Phone Number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                // Debounce validation
+                setTimeout(() => validatePhone(e.target.value), 500);
+              }}
+              error={!!phoneError}
+              helperText={phoneError || (isValidatingPhone ? 'Checking...' : '')}
             />
             <TextField
               fullWidth
@@ -474,7 +553,7 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   const canProceed = () => {
     switch (activeStep) {
       case 0:
-        return fullName.trim() && email.trim();
+        return fullName.trim() && email.trim() && !emailError && !phoneError;
       case 1:
         return !assignSubscription || selectedPackageId;
       case 2:

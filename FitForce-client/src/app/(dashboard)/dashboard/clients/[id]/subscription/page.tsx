@@ -37,7 +37,8 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   Add,
-  Trash
+  Trash,
+  Edit
 } from '@wandersonalwes/iconsax-react';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
@@ -85,6 +86,12 @@ export default function ClientSubscriptionPage() {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   
   const [saving, setSaving] = useState(false);
+  
+  // Edit subscription states
+  const [isEditSubscriptionDialogOpen, setIsEditSubscriptionDialogOpen] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
+  const [editSelectedPlanId, setEditSelectedPlanId] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   const refreshSubscriptions = async () => {
     if (!workspaceId) return;
@@ -211,6 +218,50 @@ export default function ClientSubscriptionPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditSubscription = (subscription: Subscription) => {
+    setEditingSubscription(subscription);
+    setEditSelectedPlanId('');
+    setIsEditSubscriptionDialogOpen(true);
+  };
+
+  const handleSaveEditSubscription = async () => {
+    if (!editingSubscription || !editSelectedPlanId) return;
+    
+    try {
+      setEditSaving(true);
+      await api.put(`/api/clients/${workspaceId}/subscriptions/${editingSubscription.id}/update-package`, {
+        packageId: editSelectedPlanId
+      });
+      
+      await refreshSubscriptions(); // Refresh the list
+      setIsEditSubscriptionDialogOpen(false);
+      setEditingSubscription(null);
+      setEditSelectedPlanId('');
+      
+      openSnackbar({
+        open: true,
+        message: 'Subscription package updated successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      });
+    } catch (err: any) {
+      openSnackbar({
+        open: true,
+        message: err?.response?.data?.error || 'Failed to update subscription',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleCancelEditSubscription = () => {
+    setIsEditSubscriptionDialogOpen(false);
+    setEditingSubscription(null);
+    setEditSelectedPlanId('');
   };
 
   const handleCancelSubscription = async (subscriptionId: string) => {
@@ -385,13 +436,23 @@ export default function ClientSubscriptionPage() {
                         sx={{ mr: 1 }}
                       />
                       {(subscription.status === 'active' || subscription.status === 'pre_start') && (
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleCancelSubscription(subscription.id)}
-                        >
-                          <Trash size={16} />
-                        </IconButton>
+                        <>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleEditSubscription(subscription)}
+                            sx={{ mr: 1 }}
+                          >
+                            <Edit size={16} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleCancelSubscription(subscription.id)}
+                          >
+                            <Trash size={16} />
+                          </IconButton>
+                        </>
                       )}
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -469,6 +530,48 @@ export default function ClientSubscriptionPage() {
           <Button onClick={() => setIsCreateSubscriptionDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleCreateSubscription} disabled={saving || !selectedPlanId}>
             {saving ? <CircularProgress size={20} /> : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Subscription Dialog */}
+      <Dialog open={isEditSubscriptionDialogOpen} onClose={handleCancelEditSubscription}>
+        <DialogTitle>Edit Subscription Package</DialogTitle>
+        <DialogContent>
+          {editingSubscription && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Current Package: {editingSubscription.planName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Start Date: {new Date(editingSubscription.startDate).toLocaleDateString()}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                End Date: {editingSubscription.endDate ? new Date(editingSubscription.endDate).toLocaleDateString() : 'N/A'}
+              </Typography>
+            </Box>
+          )}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>New Subscription Plan</InputLabel>
+            <Select
+              value={editSelectedPlanId}
+              onChange={(e) => setEditSelectedPlanId(e.target.value)}
+            >
+              {subscriptionPlans.map((plan) => (
+                <MenuItem key={plan.id} value={plan.id}>
+                  {plan.name} - {plan.currency} {plan.price} ({plan.duration} days)
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Note: The start date will remain the same, and a new end date will be calculated based on the selected package duration.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelEditSubscription}>Cancel</Button>
+          <Button onClick={handleSaveEditSubscription} disabled={editSaving || !editSelectedPlanId}>
+            {editSaving ? <CircularProgress size={20} /> : 'Update Package'}
           </Button>
         </DialogActions>
       </Dialog>

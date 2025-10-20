@@ -119,6 +119,10 @@ export default function ClientsPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [inviting, setInviting] = useState(false);
+  
+  // Validation states for invite form
+  const [inviteEmailError, setInviteEmailError] = useState<string | null>(null);
+  const [invitePhoneError, setInvitePhoneError] = useState<string | null>(null);
 
   // View dialog
   const [viewOpen, setViewOpen] = useState(false);
@@ -128,6 +132,10 @@ export default function ClientsPage() {
   const [editFullName, setEditFullName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  
+  // Validation states for edit form
+  const [editEmailError, setEditEmailError] = useState<string | null>(null);
+  const [editPhoneError, setEditPhoneError] = useState<string | null>(null);
 
   // Create client wizard
   const [createWizardOpen, setCreateWizardOpen] = useState(false);
@@ -236,15 +244,75 @@ export default function ClientsPage() {
 
   const refreshClients = async () => {
     try {
+      console.log('Refreshing clients...');
       const res = await api.get('/api/clients');
-      setClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
-    } catch {
+      const clients = Array.isArray(res.data?.clients) ? res.data.clients : [];
+      console.log('Refreshed clients:', clients.length);
+      setClients(clients);
+    } catch (e) {
+      console.error('Failed to refresh clients:', e);
       setError('Failed to load clients');
+    }
+  };
+
+  // Validation functions for invite form
+  const validateInviteEmail = async (emailValue: string) => {
+    if (!emailValue || !emailValue.includes('@')) {
+      setInviteEmailError(null);
+      return;
+    }
+
+    try {
+      const res = await api.get('/api/clients');
+      const clients = res.data.clients || [];
+      const existingClient = clients.find((client: any) => 
+        client.email && client.email.toLowerCase() === emailValue.toLowerCase()
+      );
+      
+      if (existingClient) {
+        setInviteEmailError('A client with this email already exists in this workspace');
+      } else {
+        setInviteEmailError(null);
+      }
+    } catch (err) {
+      console.error('Error validating email:', err);
+      setInviteEmailError(null);
+    }
+  };
+
+  const validateInvitePhone = async (phoneValue: string) => {
+    if (!phoneValue || phoneValue.trim().length < 5) {
+      setInvitePhoneError(null);
+      return;
+    }
+
+    try {
+      const res = await api.get('/api/clients');
+      const clients = res.data.clients || [];
+      const existingClient = clients.find((client: any) => 
+        client.phone && client.phone === phoneValue
+      );
+      
+      if (existingClient) {
+        setInvitePhoneError('A client with this phone number already exists in this workspace');
+      } else {
+        setInvitePhoneError(null);
+      }
+    } catch (err) {
+      console.error('Error validating phone:', err);
+      setInvitePhoneError(null);
     }
   };
 
   const inviteClient = async () => {
     if (!fullName.trim()) return;
+    
+    // Check for validation errors
+    if (inviteEmailError || invitePhoneError) {
+      setError('Please fix the validation errors before inviting');
+      return;
+    }
+    
     setInviting(true);
     setError(null);
     try {
@@ -257,11 +325,13 @@ export default function ClientsPage() {
       setFullName('');
       setEmail('');
       setPhone('');
+      setInviteEmailError(null);
+      setInvitePhoneError(null);
       // refresh list
       const res = await api.get('/api/clients');
       setClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
-    } catch {
-      setError('Failed to invite client');
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to invite client');
     } finally {
       setInviting(false);
     }
@@ -550,8 +620,77 @@ export default function ClientsPage() {
     getPaginationRowModel: getPaginationRowModel(),
     debugTable: true
   });
+
+  // Validation functions for edit form
+  const validateEditEmail = async (emailValue: string) => {
+    if (!emailValue || !emailValue.includes('@')) {
+      setEditEmailError(null);
+      return;
+    }
+
+    // Don't validate if it's the same as the current client's email
+    if (selectedClient && emailValue === selectedClient.email) {
+      setEditEmailError(null);
+      return;
+    }
+
+    try {
+      const res = await api.get('/api/clients');
+      const clients = res.data.clients || [];
+      const existingClient = clients.find((client: any) => 
+        client.email && client.email.toLowerCase() === emailValue.toLowerCase() && client.id !== selectedClient?.id
+      );
+      
+      if (existingClient) {
+        setEditEmailError('A client with this email already exists in this workspace');
+      } else {
+        setEditEmailError(null);
+      }
+    } catch (err) {
+      console.error('Error validating email:', err);
+      setEditEmailError(null);
+    }
+  };
+
+  const validateEditPhone = async (phoneValue: string) => {
+    if (!phoneValue || phoneValue.trim().length < 5) {
+      setEditPhoneError(null);
+      return;
+    }
+
+    // Don't validate if it's the same as the current client's phone
+    if (selectedClient && phoneValue === selectedClient.phone) {
+      setEditPhoneError(null);
+      return;
+    }
+
+    try {
+      const res = await api.get('/api/clients');
+      const clients = res.data.clients || [];
+      const existingClient = clients.find((client: any) => 
+        client.phone && client.phone === phoneValue && client.id !== selectedClient?.id
+      );
+      
+      if (existingClient) {
+        setEditPhoneError('A client with this phone number already exists in this workspace');
+      } else {
+        setEditPhoneError(null);
+      }
+    } catch (err) {
+      console.error('Error validating phone:', err);
+      setEditPhoneError(null);
+    }
+  };
+
   const saveEdit = async () => {
     if (!selectedClient) return;
+    
+    // Check for validation errors
+    if (editEmailError || editPhoneError) {
+      setError('Please fix the validation errors before saving');
+      return;
+    }
+    
     setEditSaving(true);
     try {
       await api.put(`/api/clients/${selectedClient.id}`, {
@@ -560,6 +699,8 @@ export default function ClientsPage() {
         phone: editPhone.trim() || null,
       });
       setEditOpen(false);
+      setEditEmailError(null);
+      setEditPhoneError(null);
       await refreshClients();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to update client');
@@ -578,12 +719,18 @@ export default function ClientsPage() {
     
     setDeleting(true);
     try {
-      await api.delete(`/api/clients/${clientToDelete.id}`);
+      console.log('Deleting client:', clientToDelete.id, clientToDelete.fullName);
+      const response = await api.delete(`/api/clients/${clientToDelete.id}`);
+      console.log('Delete response:', response.data);
+      
       setDeleteDialogOpen(false);
       setClientToDelete(null);
       await refreshClients();
       setError(null);
     } catch (e: any) {
+      console.error('Delete client error:', e);
+      console.error('Error response:', e.response?.data);
+      console.error('Error status:', e.response?.status);
       setError(e?.response?.data?.error || 'Failed to delete client');
     } finally {
       setDeleting(false);
@@ -953,10 +1100,33 @@ export default function ClientsPage() {
                 <TextField fullWidth label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
-                <TextField fullWidth label="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <TextField 
+                  fullWidth 
+                  label="Email (optional)" 
+                  type="email"
+                  value={email} 
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    // Debounce validation
+                    setTimeout(() => validateInviteEmail(e.target.value), 500);
+                  }}
+                  error={!!inviteEmailError}
+                  helperText={inviteEmailError || ''}
+                />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
-                <TextField fullWidth label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <TextField 
+                  fullWidth 
+                  label="Phone (optional)" 
+                  value={phone} 
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    // Debounce validation
+                    setTimeout(() => validateInvitePhone(e.target.value), 500);
+                  }}
+                  error={!!invitePhoneError}
+                  helperText={invitePhoneError || ''}
+                />
               </Grid>
               <Grid size={12}>
                 <Stack direction="row" spacing={1}>
@@ -994,8 +1164,31 @@ export default function ClientsPage() {
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Full Name" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} fullWidth />
-            <TextField label="Email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} fullWidth />
-            <TextField label="Phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} fullWidth />
+            <TextField 
+              label="Email" 
+              type="email" 
+              value={editEmail} 
+              onChange={(e) => {
+                setEditEmail(e.target.value);
+                // Debounce validation
+                setTimeout(() => validateEditEmail(e.target.value), 500);
+              }}
+              error={!!editEmailError}
+              helperText={editEmailError || ''}
+              fullWidth 
+            />
+            <TextField 
+              label="Phone" 
+              value={editPhone} 
+              onChange={(e) => {
+                setEditPhone(e.target.value);
+                // Debounce validation
+                setTimeout(() => validateEditPhone(e.target.value), 500);
+              }}
+              error={!!editPhoneError}
+              helperText={editPhoneError || ''}
+              fullWidth 
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
