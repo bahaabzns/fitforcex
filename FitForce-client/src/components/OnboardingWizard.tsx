@@ -35,6 +35,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Switch,
 } from '@mui/material';
 import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Trash } from '@mui/icons-material';
 import FileUpload from './FileUpload';
