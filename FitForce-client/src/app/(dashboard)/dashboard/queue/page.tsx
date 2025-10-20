@@ -28,6 +28,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Grid from '@mui/material/Grid';
 import Avatar from '@mui/material/Avatar';
+import { AttachFile } from '@mui/icons-material';
 import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -403,15 +404,47 @@ export default function QueuePage() {
                       const label = q.question || q.label || `Question ${idx + 1}`;
                       const val = viewSubmission.answers ? viewSubmission.answers[qid] : undefined;
                       let display: any = val;
-                      if (Array.isArray(val)) display = val.join(', ');
-                      if (val === true) display = 'Yes';
-                      if (val === false) display = 'No';
-                      if (val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) display = '—';
+                      
+                      // Handle different value types
+                      if (Array.isArray(val)) {
+                        display = val.join(', ');
+                      } else if (val === true) {
+                        display = 'Yes';
+                      } else if (val === false) {
+                        display = 'No';
+                      } else if (val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) {
+                        display = '—';
+                      } else if (typeof val === 'object' && val !== null) {
+                        // Handle attachment objects
+                        if (val.originalName && val.url) {
+                          display = (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <AttachFile fontSize="small" />
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                href={val.url}
+                                target="_blank"
+                                sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                              >
+                                {val.originalName} ({(val.size / 1024).toFixed(1)} KB)
+                              </Button>
+                            </Box>
+                          );
+                        } else {
+                          display = JSON.stringify(val, null, 2);
+                        }
+                      }
+                      
                       return (
                         <Card key={qid} variant="outlined">
                           <CardContent>
                             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>
-                            <Typography variant="body2" color="text.secondary">{String(display)}</Typography>
+                            {typeof display === 'string' ? (
+                              <Typography variant="body2" color="text.secondary">{display}</Typography>
+                            ) : (
+                              display
+                            )}
                           </CardContent>
                         </Card>
                       );

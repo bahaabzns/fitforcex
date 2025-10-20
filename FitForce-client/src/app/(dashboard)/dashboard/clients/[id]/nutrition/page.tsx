@@ -37,7 +37,8 @@ import {
   Trash,
   ArrowLeft2,
   ArrowRight2,
-  Copy
+  Copy,
+  AttachFile
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -259,6 +260,24 @@ export default function ClientNutritionPage() {
       );
     }
     if (typeof value === 'object') {
+      // Handle attachment objects
+      if (value.originalName && value.url && value.size !== undefined) {
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AttachFile fontSize="small" />
+            <Button
+              size="small"
+              variant="outlined"
+              href={value.url}
+              target="_blank"
+              sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+            >
+              {value.originalName} ({(value.size / 1024).toFixed(1)} KB)
+            </Button>
+          </Box>
+        ) as any;
+      }
+      
       const entries = Object.entries(value);
       if (entries.length === 0) return <Typography component="span" color="text.secondary">{`{}`}</Typography> as any;
       return (
