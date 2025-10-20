@@ -12,20 +12,16 @@ export default function Footer() {
   return (
     <Stack direction={{ sm: 'row' }} sx={{ gap: 1, justifyContent: 'space-between', alignItems: 'center', pt: 0, mt: 'auto' }}>
       <Typography variant="caption">
-        &copy; Able Pro crafted with ♥ by Team{' '}
-        <Links component={Link} href="https://www.phoenixcoded.net/" target="_blank" underline="none">
-          {' '}
-          Phoenixcoded
-        </Links>
+        &copy; {new Date().getFullYear()} FitForce. All rights reserved.
       </Typography>
       <Stack direction="row" sx={{ gap: 1.5, justifyContent: 'space-between', alignItems: 'center' }}>
-        <Links component={Link} href="https://ableproadmin.com/react" target="_blank" variant="caption" color="text.primary">
+        <Links component={Link} href="/" variant="caption" color="text.primary">
           Home
         </Links>
-        <Links component={Link} href="https://phoenixcoded.gitbook.io/able-pro" target="_blank" variant="caption" color="text.primary">
-          Documentation
+        <Links component={Link} href="/pricing" variant="caption" color="text.primary">
+          Pricing
         </Links>
-        <Links component={Link} href="https://phoenixcoded.authordesk.app/" target="_blank" variant="caption" color="text.primary">
+        <Links component={Link} href="/contact" variant="caption" color="text.primary">
           Support
         </Links>
       </Stack>

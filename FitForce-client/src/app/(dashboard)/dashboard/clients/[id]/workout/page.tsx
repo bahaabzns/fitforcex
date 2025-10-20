@@ -46,6 +46,7 @@ import MobileSwipeableSections from '@/components/MobileSwipeableSections';
 import LoadPlanDialog from '@/components/LoadPlanDialog';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import { FormSchedulingPopup } from '@/components/forms/FormSchedulingPopup';
 
 interface Exercise {
   id: string;
@@ -139,6 +140,9 @@ export default function ClientWorkoutPage() {
   const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string; urls?: string[] }>>([]);
   const [caDayDialogOpen, setCaDayDialogOpen] = useState(false);
   
+  // Client display name
+  const [clientName, setClientName] = useState<string>('');
+  
   // Cardio tab state
   const [cardioTab, setCardioTab] = useState(0); // 0: Days, 1: Cardio
   const [cardioData, setCardioData] = useState({
@@ -155,6 +159,9 @@ export default function ClientWorkoutPage() {
   const [selectedFormsToArchive, setSelectedFormsToArchive] = useState<string[]>([]);
   const [archivingForms, setArchivingForms] = useState(false);
   const [activatingPlanId, setActivatingPlanId] = useState<string | null>(null);
+  
+  // Form scheduling popup after plan activation
+  const [formSchedulingPopupOpen, setFormSchedulingPopupOpen] = useState(false);
 
   // Workout log details dialog state
   const [workoutLogDetailsOpen, setWorkoutLogDetailsOpen] = useState(false);
@@ -199,6 +206,9 @@ export default function ClientWorkoutPage() {
       await api.post(`/api/workout/plans/${selectedPlanId}/activate`);
       await loadSavedPlans();
       openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+      
+      // Show form scheduling popup after successful activation
+      setFormSchedulingPopupOpen(true);
     } catch (e) {
       console.error('Error activating plan:', e);
       openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
@@ -229,6 +239,9 @@ export default function ClientWorkoutPage() {
           alert: { color: 'success', variant: 'filled' }
         } as any);
         
+        // Show form scheduling popup after successful activation
+        setFormSchedulingPopupOpen(true);
+        
         // Clear the activating plan ID
         setActivatingPlanId(null);
       }
@@ -241,6 +254,40 @@ export default function ClientWorkoutPage() {
       } as any);
     } finally {
       setArchivingForms(false);
+    }
+  };
+  
+  const handleFormSchedule = async (formId: string, scheduleAt?: string) => {
+    try {
+      const requestData: any = {
+        formId,
+        clientId,
+      };
+
+      // Add scheduleAt if scheduling is selected
+      if (scheduleAt) {
+        requestData.scheduleAt = scheduleAt;
+      }
+
+      await api.post('/api/forms/send', requestData);
+      
+      const message = scheduleAt 
+        ? `Form scheduled for ${new Date(scheduleAt).toLocaleDateString()} successfully!`
+        : 'Form sent to client successfully!';
+      
+      openSnackbar({
+        open: true,
+        message,
+        variant: 'alert',
+        alert: { color: 'success', variant: 'filled' }
+      } as any);
+    } catch (err: any) {
+      openSnackbar({
+        open: true,
+        message: err.response?.data?.message || err.response?.data?.error || 'Failed to schedule form',
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' }
+      } as any);
     }
   };
 
@@ -288,6 +335,22 @@ export default function ClientWorkoutPage() {
   // Load saved plans (for reference only)
   useEffect(() => {
     if (clientId) loadSavedPlans();
+  }, [clientId]);
+  
+  // Load client name
+  useEffect(() => {
+    const loadClientName = async () => {
+      try {
+        const response = await api.get(`/api/clients/${clientId}`);
+        setClientName(response.data?.client?.fullName || '');
+      } catch (err) {
+        console.error('Error loading client name:', err);
+      }
+    };
+    
+    if (clientId) {
+      loadClientName();
+    }
   }, [clientId]);
 
   // Load cardio data when a plan is selected
@@ -2776,6 +2839,16 @@ export default function ClientWorkoutPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Form Scheduling Popup */}
+      <FormSchedulingPopup
+        open={formSchedulingPopupOpen}
+        onClose={() => setFormSchedulingPopupOpen(false)}
+        onSchedule={handleFormSchedule}
+        clientId={clientId}
+        formType="workout"
+        clientName={clientName}
+      />
     </Stack>
   );
 }

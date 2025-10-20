@@ -50,6 +50,7 @@ import { Dialog as MuiDialog } from '@mui/material';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Divider from '@mui/material/Divider';
+import { FormSchedulingPopup } from '@/components/forms/FormSchedulingPopup';
 
 interface FoodItem {
   id: string;
@@ -189,6 +190,9 @@ export default function ClientNutritionPage() {
   const [submittedForms, setSubmittedForms] = useState<Array<{ id: string; formTitle: string; submittedAt: string }>>([]);
   const [selectedFormsToArchive, setSelectedFormsToArchive] = useState<string[]>([]);
   const [archivingForms, setArchivingForms] = useState(false);
+  
+  // Form scheduling popup after plan activation
+  const [formSchedulingPopupOpen, setFormSchedulingPopupOpen] = useState(false);
 
   const handleSendAsPdf = useCallback(async () => {
     try {
@@ -1036,6 +1040,9 @@ export default function ClientNutritionPage() {
         variant: 'alert',
         alert: { color: 'success' }
       });
+      
+      // Show form scheduling popup after successful activation
+      setFormSchedulingPopupOpen(true);
     } catch (error) {
       openSnackbar({
         open: true,
@@ -1072,6 +1079,9 @@ export default function ClientNutritionPage() {
           variant: 'alert',
           alert: { color: 'success' }
         });
+        
+        // Show form scheduling popup after successful activation
+        setFormSchedulingPopupOpen(true);
       }
     } catch (error) {
       openSnackbar({
@@ -1082,6 +1092,40 @@ export default function ClientNutritionPage() {
       });
     } finally {
       setArchivingForms(false);
+    }
+  };
+  
+  const handleFormSchedule = async (formId: string, scheduleAt?: string) => {
+    try {
+      const requestData: any = {
+        formId,
+        clientId,
+      };
+
+      // Add scheduleAt if scheduling is selected
+      if (scheduleAt) {
+        requestData.scheduleAt = scheduleAt;
+      }
+
+      await api.post('/api/forms/send', requestData);
+      
+      const message = scheduleAt 
+        ? `Form scheduled for ${new Date(scheduleAt).toLocaleDateString()} successfully!`
+        : 'Form sent to client successfully!';
+      
+      openSnackbar({
+        open: true,
+        message,
+        variant: 'alert',
+        alert: { color: 'success' }
+      });
+    } catch (err: any) {
+      openSnackbar({
+        open: true,
+        message: err.response?.data?.message || err.response?.data?.error || 'Failed to schedule form',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
     }
   };
   
@@ -2843,6 +2887,16 @@ export default function ClientNutritionPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Form Scheduling Popup */}
+      <FormSchedulingPopup
+        open={formSchedulingPopupOpen}
+        onClose={() => setFormSchedulingPopupOpen(false)}
+        onSchedule={handleFormSchedule}
+        clientId={clientId}
+        formType="nutrition"
+        clientName={clientName}
+      />
     </Stack>
   );
 }

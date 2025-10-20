@@ -36,7 +36,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { Add, Delete, ArrowForward, ArrowBack, CheckCircle } from '@mui/icons-material';
+import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Trash } from '@mui/icons-material';
 import FileUpload from './FileUpload';
 import api from '@/utils/axios';
 
@@ -100,6 +100,15 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     selectedQuestionIds: string[];
     additionalQuestions: any[];
   }>>({});
+  
+  // Custom form question builder state
+  const [newFormQuestions, setNewFormQuestions] = useState<any[]>([]);
+  const [customQuestionType, setCustomQuestionType] = useState<string>('text');
+  const [customQuestionLabel, setCustomQuestionLabel] = useState<string>('');
+  const [customQuestionLabelArabic, setCustomQuestionLabelArabic] = useState<string>('');
+  const [customQuestionRequired, setCustomQuestionRequired] = useState<boolean>(false);
+  const [customQuestionOptions, setCustomQuestionOptions] = useState<string>('');
+  const [customQuestionError, setCustomQuestionError] = useState<string>('');
 
   // Step 3: Packages
   const [packages, setPackages] = useState<Package[]>([
@@ -349,9 +358,46 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     }));
   };
 
+  const addCustomQuestion = () => {
+    if (!customQuestionLabel.trim()) {
+      setCustomQuestionError('Please enter a question label');
+      return;
+    }
+
+    const newQuestion = {
+      id: `custom_${Date.now()}`,
+      type: customQuestionType,
+      question: customQuestionLabel,
+      questionArabic: customQuestionLabelArabic || '',
+      required: customQuestionRequired,
+      options: ['select', 'checkbox', 'radio'].includes(customQuestionType) 
+        ? customQuestionOptions.split(',').map(s => s.trim()).filter(Boolean)
+        : undefined,
+      optionsArabic: ['select', 'checkbox', 'radio'].includes(customQuestionType) 
+        ? customQuestionOptions.split(',').map(s => s.trim()).filter(Boolean)
+        : undefined,
+    };
+
+    setNewFormQuestions([...newFormQuestions, newQuestion]);
+    setCustomQuestionLabel('');
+    setCustomQuestionLabelArabic('');
+    setCustomQuestionRequired(false);
+    setCustomQuestionOptions('');
+    setCustomQuestionError('');
+  };
+
+  const removeCustomQuestion = (index: number) => {
+    setNewFormQuestions(newFormQuestions.filter((_, i) => i !== index));
+  };
+
   const addCustomForm = () => {
     if (!newFormTitle.trim()) {
       setError('Please enter a form title');
+      return;
+    }
+    
+    if (newFormQuestions.length === 0) {
+      setError('Please add at least one question to the form');
       return;
     }
     
@@ -359,22 +405,22 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
       type: newFormType,
       title: newFormTitle,
       titleArabic: '',
-      questions: [
-        {
-          id: 'q1',
-          type: 'text',
-          question: 'Sample Question',
-          questionArabic: '',
-          required: true,
-        }
-      ]
+      questions: newFormQuestions
     }]);
     setNewFormTitle('');
+    setNewFormQuestions([]);
     setShowAddCustomForm(false);
   };
 
-  const removeCustomForm = (index: number) => {
-    setCustomForms(customForms.filter((_, i) => i !== index));
+  const handleCloseCustomFormDialog = () => {
+    setShowAddCustomForm(false);
+    setNewFormTitle('');
+    setNewFormQuestions([]);
+    setCustomQuestionLabel('');
+    setCustomQuestionLabelArabic('');
+    setCustomQuestionRequired(false);
+    setCustomQuestionOptions('');
+    setCustomQuestionError('');
   };
 
   const addPackage = () => {
@@ -895,10 +941,10 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
             </Alert>
 
             {/* Add Custom Form Dialog */}
-            <Dialog open={showAddCustomForm} onClose={() => setShowAddCustomForm(false)}>
+            <Dialog open={showAddCustomForm} onClose={handleCloseCustomFormDialog} maxWidth="md" fullWidth>
               <DialogTitle>Create Custom Form</DialogTitle>
               <DialogContent>
-                <Stack spacing={2} sx={{ mt: 1, minWidth: 400 }}>
+                <Stack spacing={3} sx={{ mt: 1 }}>
                   <TextField
                     fullWidth
                     label="Form Title"
@@ -917,14 +963,127 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                       <MenuItem value="workout">Workout</MenuItem>
                     </Select>
                   </FormControl>
-                  <Typography variant="caption" color="text.secondary">
-                    You can add questions to this form later from the Forms page.
-                  </Typography>
+
+                  {/* Questions List */}
+                  {newFormQuestions.length > 0 && (
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                        Questions ({newFormQuestions.length})
+                      </Typography>
+                      <Stack spacing={1}>
+                        {newFormQuestions.map((question, index) => (
+                          <Box key={question.id} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                            <Grid container spacing={1}>
+                              <Grid item xs={12} sm={6}>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {question.question}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  Type: {question.type} {question.required ? '(Required)' : '(Optional)'}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <IconButton size="small" color="error" onClick={() => removeCustomQuestion(index)}>
+                                  <Trash />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {/* Question Builder */}
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                      Add Question
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={3}>
+                        <FormControl fullWidth>
+                          <InputLabel>Type</InputLabel>
+                          <Select
+                            value={customQuestionType}
+                            label="Type"
+                            onChange={(e) => setCustomQuestionType(e.target.value)}
+                          >
+                            <MenuItem value="text">Text</MenuItem>
+                            <MenuItem value="textarea">Textarea</MenuItem>
+                            <MenuItem value="number">Number</MenuItem>
+                            <MenuItem value="select">Select</MenuItem>
+                            <MenuItem value="checkbox">Checkbox</MenuItem>
+                            <MenuItem value="radio">Radio</MenuItem>
+                            <MenuItem value="attachment">Attachment</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} sm={5}>
+                        <TextField
+                          fullWidth
+                          label="Question Label"
+                          value={customQuestionLabel}
+                          onChange={(e) => setCustomQuestionLabel(e.target.value)}
+                          placeholder="What is your age?"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          fullWidth
+                          label="Question Label (Arabic)"
+                          value={customQuestionLabelArabic}
+                          onChange={(e) => setCustomQuestionLabelArabic(e.target.value)}
+                          placeholder="ما عمرك؟"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={customQuestionRequired}
+                              onChange={(e) => setCustomQuestionRequired(e.target.checked)}
+                            />
+                          }
+                          label="Required"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={9}>
+                        <TextField
+                          fullWidth
+                          label="Options (comma separated)"
+                          value={customQuestionOptions}
+                          onChange={(e) => setCustomQuestionOptions(e.target.value)}
+                          disabled={!['select', 'checkbox', 'radio'].includes(customQuestionType)}
+                          placeholder="Option 1, Option 2, Option 3"
+                        />
+                      </Grid>
+                    </Grid>
+                    {customQuestionError && (
+                      <Alert severity="error" sx={{ mt: 1 }}>
+                        {customQuestionError}
+                      </Alert>
+                    )}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                      <Button
+                        variant="outlined"
+                        onClick={addCustomQuestion}
+                        disabled={!customQuestionLabel.trim()}
+                      >
+                        Add Question
+                      </Button>
+                    </Box>
+                  </Box>
                 </Stack>
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => setShowAddCustomForm(false)}>Cancel</Button>
-                <Button onClick={addCustomForm} variant="contained">Create</Button>
+                <Button onClick={handleCloseCustomFormDialog}>Cancel</Button>
+                <Button 
+                  onClick={addCustomForm} 
+                  variant="contained"
+                  disabled={!newFormTitle.trim() || newFormQuestions.length === 0}
+                >
+                  Create Form
+                </Button>
               </DialogActions>
             </Dialog>
           </Stack>

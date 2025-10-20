@@ -93,7 +93,7 @@ export default function FinalCTA() {
                 <AnimateButton>
                   <Button
                     component={Link}
-                    href="/signup"
+                    href="/register"
                     size="large"
                     variant="contained"
                     sx={{

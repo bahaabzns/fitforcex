@@ -130,7 +130,7 @@ export default function HeroPage() {
                       <AnimateButton>
                         <Button
                           component={Link}
-                          href="/signup"
+                          href="/register"
                           size="large"
                           color="secondary"
                           variant="outlined"

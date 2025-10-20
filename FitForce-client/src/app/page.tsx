@@ -57,7 +57,7 @@ export default function Landing() {
       const isLocalhost = host.includes('localhost');
       const isMainDomain = isLocalhost 
         ? host === 'localhost:3000' || host === 'localhost'
-        : host === APP_CONFIG.frontendDomain;
+        : host === APP_CONFIG.frontendDomain || host === `app.${APP_CONFIG.frontendDomain}`;
 
       console.log('🔍 Main landing page - Workspace check:', { 
         host, 
@@ -67,10 +67,28 @@ export default function Landing() {
         workspaceSubdomain 
       });
 
-      // If we have workspace cookies, show workspace landing directly
-      if (workspaceId && workspaceSubdomain) {
-        console.log('✅ Workspace detected from cookies, showing workspace landing page');
+      // Only show workspace landing if we're actually on a workspace subdomain
+      // The main domain should NEVER show workspace content, even if cookies exist
+      if (workspaceId && workspaceSubdomain && !isMainDomain) {
+        console.log('✅ Workspace detected from cookies on subdomain, showing workspace landing page');
         setWorkspaceData({ id: workspaceId, subdomain: workspaceSubdomain });
+        setIsCheckingWorkspace(false);
+        return;
+      }
+      
+      // If we're on main domain but have workspace cookies, clear them and show main landing
+      if (workspaceId && workspaceSubdomain && isMainDomain) {
+        console.log('🧹 Main domain detected with stale workspace cookies, clearing them and showing main landing');
+        // Clear workspace cookies on main domain
+        document.cookie = `ff_workspace_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        document.cookie = `ff_workspace_subdomain=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        
+        // Also clear cookies with domain attribute to be extra sure
+        if (!isLocalhost) {
+          document.cookie = `ff_workspace_id=; path=/; domain=.${APP_CONFIG.frontendDomain}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+          document.cookie = `ff_workspace_subdomain=; path=/; domain=.${APP_CONFIG.frontendDomain}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        }
+        
         setIsCheckingWorkspace(false);
         return;
       }

@@ -228,8 +228,12 @@ export default function TeamPage() {
   // Dialog states
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [isEditRoleDialogOpen, setIsEditRoleDialogOpen] = useState(false);
   const [isRoleChangeDialogOpen, setIsRoleChangeDialogOpen] = useState(false);
+  const [isAdminWarningDialogOpen, setIsAdminWarningDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [pendingRoleId, setPendingRoleId] = useState<string>('');
 
   // Form states
   const [inviteEmail, setInviteEmail] = useState('');
@@ -241,6 +245,8 @@ export default function TeamPage() {
   const [inviting, setInviting] = useState(false);
   const [creatingRole, setCreatingRole] = useState(false);
   const [updatingRole, setUpdatingRole] = useState(false);
+  const [editingRole, setEditingRole] = useState(false);
+  const [deletingRole, setDeletingRole] = useState(false);
 
   // Menu states
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -280,6 +286,18 @@ export default function TeamPage() {
       return;
     }
 
+    // Check if the selected role is admin
+    const selectedRole = roles.find(role => role.id === selectedRoleId);
+    if (selectedRole?.name.toLowerCase() === 'admin') {
+      setPendingRoleId(selectedRoleId);
+      setIsAdminWarningDialogOpen(true);
+      return;
+    }
+
+    await processInvite();
+  };
+
+  const processInvite = async () => {
     setInviting(true);
     setError(null);
     try {
@@ -326,7 +344,7 @@ export default function TeamPage() {
     }
   };
 
-  const handleUpdateRole = async () => {
+  const handleUpdateMemberRole = async () => {
     if (!selectedMember || !newRoleId) {
       setError('Please select a new role');
       return;
@@ -360,6 +378,66 @@ export default function TeamPage() {
       setMembers(response.data.members || []);
     } catch {
       setError('Failed to remove member');
+    }
+  };
+
+  const handleEditRole = (role: Role) => {
+    setSelectedRole(role);
+    setRoleName(role.name);
+    setSelectedPermissions(role.permissions.map(rp => rp.permission.key));
+    setIsEditRoleDialogOpen(true);
+  };
+
+  const handleUpdateRole = async () => {
+    if (!selectedRole || !roleName.trim() || selectedPermissions.length === 0) {
+      setError('Please provide role name and select permissions');
+      return;
+    }
+
+    setEditingRole(true);
+    setError(null);
+    try {
+      // Get permission IDs from permission keys
+      const permissionIds = permissions
+        .filter(p => selectedPermissions.includes(p.key))
+        .map(p => p.id);
+
+      await api.put(`/api/team/roles/${selectedRole.id}`, {
+        name: roleName,
+        permissionIds
+      });
+      setIsEditRoleDialogOpen(false);
+      setSelectedRole(null);
+      setRoleName('');
+      setSelectedPermissions([]);
+      // Refresh the list
+      const response = await api.get('/api/team/roles');
+      setRoles(response.data.roles || []);
+    } catch {
+      setError('Failed to update role');
+    } finally {
+      setEditingRole(false);
+    }
+  };
+
+  const handleDeleteRole = async (role: Role) => {
+    if (!confirm(`Are you sure you want to delete the "${role.name}" role? This action cannot be undone.`)) return;
+
+    setDeletingRole(true);
+    setError(null);
+    try {
+      await api.delete(`/api/team/roles/${role.id}`);
+      // Refresh the list
+      const response = await api.get('/api/team/roles');
+      setRoles(response.data.roles || []);
+    } catch (err: any) {
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to delete role');
+      }
+    } finally {
+      setDeletingRole(false);
     }
   };
 
@@ -425,6 +503,36 @@ export default function TeamPage() {
     setSelectedMember(member);
     setIsRoleChangeDialogOpen(true);
     handleMenuClose();
+  };
+
+  const handleRoleSelection = (roleId: string) => {
+    setNewRoleId(roleId);
+    
+    // Check if the selected role is admin
+    const selectedRole = roles.find(role => role.id === roleId);
+    if (selectedRole?.name.toLowerCase() === 'admin') {
+      setPendingRoleId(roleId);
+      setIsAdminWarningDialogOpen(true);
+    }
+  };
+
+  const handleConfirmAdminRole = () => {
+    setIsAdminWarningDialogOpen(false);
+    // Process the pending action (either invite or role change)
+    if (isInviteDialogOpen) {
+      processInvite();
+    }
+    // For role changes, the role is already set in newRoleId, so we can proceed
+  };
+
+  const handleCancelAdminRole = () => {
+    setIsAdminWarningDialogOpen(false);
+    if (isInviteDialogOpen) {
+      setSelectedRoleId('');
+    } else {
+      setNewRoleId('');
+    }
+    setPendingRoleId('');
   };
 
   const handleRemove = (member: TeamMember) => {
@@ -752,6 +860,31 @@ export default function TeamPage() {
                     size="small" 
                   />
                 </Stack>
+                <Stack direction="row" spacing={1}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleEditRole(role)}
+                    disabled={['owner', 'admin', 'member'].includes(role.name.toLowerCase())}
+                    title={['owner', 'admin', 'member'].includes(role.name.toLowerCase()) ? 'Cannot edit system roles' : 'Edit role'}
+                  >
+                    <Edit size={16} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDeleteRole(role)}
+                    disabled={deletingRole || ['owner', 'admin', 'member'].includes(role.name.toLowerCase()) || role._count.members > 0}
+                    title={
+                      ['owner', 'admin', 'member'].includes(role.name.toLowerCase()) 
+                        ? 'Cannot delete system roles'
+                        : role._count.members > 0 
+                        ? 'Cannot delete role with assigned members'
+                        : 'Delete role'
+                    }
+                    sx={{ color: 'error.main' }}
+                  >
+                    {deletingRole ? <CircularProgress size={16} /> : <Trash size={16} />}
+                  </IconButton>
+                </Stack>
               </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 Permissions:
@@ -795,14 +928,16 @@ export default function TeamPage() {
                 label="Role"
                 onChange={(e) => setSelectedRoleId(e.target.value)}
               >
-                {roles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      {getRoleIcon(role.name)}
-                      <Typography>{role.name}</Typography>
-                    </Stack>
-                  </MenuItem>
-                ))}
+                {roles
+                  .filter((role) => role.name.toLowerCase() !== 'owner') // Prevent owner role assignment
+                  .map((role) => (
+                    <MenuItem key={role.id} value={role.id}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {getRoleIcon(role.name)}
+                        <Typography>{role.name}</Typography>
+                      </Stack>
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
           </Stack>
@@ -881,6 +1016,67 @@ export default function TeamPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Edit Role Dialog */}
+      <Dialog open={isEditRoleDialogOpen} onClose={() => setIsEditRoleDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Role</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 3 }}>
+            Update the role "{selectedRole?.name}" and its permissions
+          </Typography>
+          <Stack spacing={3}>
+            <TextField
+              fullWidth
+              label="Role Name"
+              value={roleName}
+              onChange={(e) => setRoleName(e.target.value)}
+              placeholder="e.g., Trainer, Admin, Manager"
+            />
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                Permissions
+              </Typography>
+              <Box sx={{ maxHeight: 200, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                <Stack spacing={1}>
+                  {permissions.map((permission) => (
+                    <Box key={permission.id} sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Checkbox
+                        checked={selectedPermissions.includes(permission.key)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPermissions([...selectedPermissions, permission.key]);
+                          } else {
+                            setSelectedPermissions(selectedPermissions.filter(key => key !== permission.key));
+                          }
+                        }}
+                      />
+                      <Box sx={{ ml: 1 }}>
+                        <Typography variant="body2" fontWeight={600}>
+                          {permission.key}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {permission.description}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsEditRoleDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleUpdateRole}
+            disabled={!roleName || selectedPermissions.length === 0 || editingRole}
+            startIcon={editingRole ? <CircularProgress size={16} /> : <Edit />}
+          >
+            Update Role
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Change Role Dialog */}
       <Dialog open={isRoleChangeDialogOpen} onClose={() => setIsRoleChangeDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Change Role</DialogTitle>
@@ -893,16 +1089,18 @@ export default function TeamPage() {
             <Select
               value={newRoleId}
               label="New Role"
-              onChange={(e) => setNewRoleId(e.target.value)}
+              onChange={(e) => handleRoleSelection(e.target.value)}
             >
-              {roles.map((role) => (
-                <MenuItem key={role.id} value={role.id}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    {getRoleIcon(role.name)}
-                    <Typography>{role.name}</Typography>
-                  </Stack>
-                </MenuItem>
-              ))}
+              {roles
+                .filter((role) => role.name.toLowerCase() !== 'owner') // Prevent owner role assignment
+                .map((role) => (
+                  <MenuItem key={role.id} value={role.id}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      {getRoleIcon(role.name)}
+                      <Typography>{role.name}</Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
         </DialogContent>
@@ -910,11 +1108,79 @@ export default function TeamPage() {
           <Button onClick={() => setIsRoleChangeDialogOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
-            onClick={handleUpdateRole}
+            onClick={handleUpdateMemberRole}
             disabled={!newRoleId || updatingRole}
             startIcon={updatingRole ? <CircularProgress size={16} /> : <Edit />}
           >
             Update Role
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Admin Warning Dialog */}
+      <Dialog open={isAdminWarningDialogOpen} onClose={handleCancelAdminRole} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Shield size={24} style={{ color: '#f59e0b' }} />
+            <Typography variant="h6">Admin Role Assignment Warning</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              ⚠️ Admin Access Warning
+            </Typography>
+            <Typography variant="body2">
+              You are about to assign admin privileges to <strong>
+                {isInviteDialogOpen ? inviteEmail : selectedMember?.user.fullName}
+              </strong>. 
+              This will give them extensive access to your workspace.
+            </Typography>
+          </Alert>
+          
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Admin users will have access to:
+          </Typography>
+          
+          <Box component="ul" sx={{ pl: 2, mb: 2 }}>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>Team Management:</strong> Invite, remove, and manage all team members
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>Role Management:</strong> Create, edit, and delete roles and permissions
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>Workspace Settings:</strong> Modify workspace configuration and settings
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>Content Management:</strong> Create, edit, and delete all content
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>Client Management:</strong> Manage all clients and their data
+            </Typography>
+            <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+              <strong>Analytics & Reports:</strong> Access all workspace analytics and reports
+            </Typography>
+          </Box>
+
+          <Alert severity="info">
+            <Typography variant="body2">
+              <strong>Note:</strong> Only the workspace owner can remove admin privileges. 
+              Make sure you trust this person with full access to your workspace.
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelAdminRole} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmAdminRole}
+            color="warning"
+            startIcon={<Shield />}
+          >
+            Confirm Admin Assignment
           </Button>
         </DialogActions>
       </Dialog>

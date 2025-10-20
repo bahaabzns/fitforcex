@@ -153,7 +153,7 @@ export default function PricingPlans() {
                   <AnimateButton>
                     <Button
                       component={Link}
-                      href="/signup"
+                      href="/register"
                       variant="outlined"
                       size="large"
                       fullWidth
@@ -285,7 +285,7 @@ export default function PricingPlans() {
                   <AnimateButton>
                     <Button
                       component={Link}
-                      href="/signup"
+                      href="/register"
                       variant="contained"
                       size="large"
                       fullWidth

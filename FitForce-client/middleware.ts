@@ -90,8 +90,21 @@ export async function middleware(req: NextRequest) {
     
     // Clear workspace cookies on main domain to prevent stale state
     // This ensures the main domain never has workspace context
+    console.log(`🧹 Main domain detected (${host}), clearing workspace cookies`);
     res.cookies.set('ff_workspace_id', '', { path: '/', maxAge: 0 });
     res.cookies.set('ff_workspace_subdomain', '', { path: '/', maxAge: 0 });
+    
+    // Also clear cookies with domain attribute to be extra sure
+    res.cookies.set('ff_workspace_id', '', { 
+      path: '/', 
+      maxAge: 0,
+      domain: isLocalhost ? undefined : `.${APP_CONFIG.frontendDomain}`
+    });
+    res.cookies.set('ff_workspace_subdomain', '', { 
+      path: '/', 
+      maxAge: 0,
+      domain: isLocalhost ? undefined : `.${APP_CONFIG.frontendDomain}`
+    });
     
     return res;
   }

@@ -56,8 +56,8 @@ export default function FooterBlock({ isFull }: showProps) {
                   </Grid>
                   <Grid size={12}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 400, maxWidth: 320 }}>
-                      Phoenixcoded has gained the trust of over 6.5K+ customers since 2015, thanks to our commitment to delivering
-                      high-quality products. Our experienced team players are responsible for managing Able Pro.
+                      FitForce empowers fitness professionals worldwide with comprehensive tools for client management, 
+                      nutrition planning, workout design, and business growth.
                     </Typography>
                   </Grid>
                 </Grid>
@@ -69,17 +69,17 @@ export default function FooterBlock({ isFull }: showProps) {
                   <Stack sx={{ gap: 3 }}>
                     <Typography variant="h5">Company</Typography>
                     <Stack sx={{ gap: { xs: 1.5, md: 2.5 } }}>
-                      <FooterLink href="https://1.envato.market/xk3bQd" target="_blank" underline="none">
-                        Profile
+                      <FooterLink href="/about" underline="none">
+                        About Us
                       </FooterLink>
-                      <FooterLink href="https://1.envato.market/Qyre4x" target="_blank" underline="none">
-                        Portfolio
+                      <FooterLink href="/contact" underline="none">
+                        Contact
                       </FooterLink>
-                      <FooterLink href="https://1.envato.market/Py9k4X" target="_blank" underline="none">
-                        Follow Us
+                      <FooterLink href="/careers" underline="none">
+                        Careers
                       </FooterLink>
-                      <FooterLink href="https://phoenixcoded.net" target="_blank" underline="none">
-                        Website
+                      <FooterLink href="/blog" underline="none">
+                        Blog
                       </FooterLink>
                     </Stack>
                   </Stack>
@@ -88,33 +88,36 @@ export default function FooterBlock({ isFull }: showProps) {
                   <Stack sx={{ gap: 3 }}>
                     <Typography variant="h5">Help & Support</Typography>
                     <Stack sx={{ gap: { xs: 1.5, md: 2.5 } }}>
-                      <FooterLink href="https://phoenixcoded.gitbook.io/able-pro" target="_blank" underline="none">
-                        Documentation
+                      <FooterLink href="/help" underline="none">
+                        Help Center
                       </FooterLink>
-                      <FooterLink href="https://phoenixcoded.authordesk.app/" target="_blank" underline="none">
-                        Feature Request
+                      <FooterLink href="/contact" underline="none">
+                        Contact Support
                       </FooterLink>
-                      <FooterLink href="https://phoenixcoded.gitbook.io/able-pro/v/react/roadmap/" target="_blank" underline="none">
-                        RoadMap
+                      <FooterLink href="/features" underline="none">
+                        Features
                       </FooterLink>
-                      <FooterLink href="https://phoenixcoded.authordesk.app/" target="_blank" underline="none">
-                        Support
+                      <FooterLink href="/pricing" underline="none">
+                        Pricing
                       </FooterLink>
-                      <FooterLink href="https://themeforest.net/user/phoenixcoded#contact" target="_blank" underline="none">
-                        Email Us
+                      <FooterLink href="/demo" underline="none">
+                        Book Demo
                       </FooterLink>
                     </Stack>
                   </Stack>
                 </Grid>
                 <Grid size={{ xs: 6, sm: 4 }}>
                   <Stack sx={{ gap: 3 }}>
-                    <Typography variant="h5">Useful Resources</Typography>
+                    <Typography variant="h5">Legal</Typography>
                     <Stack sx={{ gap: { xs: 1.5, md: 2.5 } }}>
-                      <FooterLink href="https://themeforest.net/page/item_support_policy" target="_blank" underline="none">
-                        Support Policy
+                      <FooterLink href="/privacy" underline="none">
+                        Privacy Policy
                       </FooterLink>
-                      <FooterLink href="https://themeforest.net/licenses/standard" target="_blank" underline="none">
-                        Licenses Term
+                      <FooterLink href="/terms" underline="none">
+                        Terms of Service
+                      </FooterLink>
+                      <FooterLink href="/security" underline="none">
+                        Security
                       </FooterLink>
                     </Stack>
                   </Stack>
@@ -129,36 +132,12 @@ export default function FooterBlock({ isFull }: showProps) {
           <Grid container spacing={2} sx={{ alignItems: 'center' }}>
             <Grid size={{ xs: 12, sm: 8 }}>
               <Typography>
-                © Handcrafted by Team{' '}
-                <Link href="https://www.phoenixcoded.net/" target="_blank" underline="none">
-                  {' '}
-                  Phoenixcoded
-                </Link>
+                © {new Date().getFullYear()} FitForce. All rights reserved.
               </Typography>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <Grid container spacing={2} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
-                <Grid>
-                  <Tooltip title="Github">
-                    <Link href="https://github.com/phoenixcoded" underline="none" target="_blank" sx={linkSX}>
-                      <GithubIcon size={20} />
-                    </Link>
-                  </Tooltip>
-                </Grid>
-                <Grid>
-                  <Tooltip title="Dribbble">
-                    <Link href="https://dribbble.com/Phoenixcoded" underline="none" target="_blank" sx={linkSX}>
-                      <Dribbble variant="Bold" size={20} />
-                    </Link>
-                  </Tooltip>
-                </Grid>
-                <Grid>
-                  <Tooltip title="Youtube">
-                    <Link href="https://www.youtube.com/@phoenixcoded" underline="none" target="_blank" sx={linkSX}>
-                      <Youtube variant="Bold" size={20} />
-                    </Link>
-                  </Tooltip>
-                </Grid>
+                {/* Social media links can be added here when FitForce accounts are available */}
               </Grid>
             </Grid>
           </Grid>
