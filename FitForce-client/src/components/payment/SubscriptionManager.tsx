@@ -29,7 +29,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import PendingIcon from '@mui/icons-material/Pending';
 import { PaymentModal } from './PaymentModal';
 import api from '@/utils/axios';
-import { PaymentIframe } from './PaymentIframe';
+import { PaymentComponent } from './PaymentComponent';
 import { useAppSelector } from '@/store';
 
 interface SubscriptionData {
@@ -406,8 +406,9 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
       />
 
       {paymentIframeData && (
-        <PaymentIframe
-          iframeUrl={paymentIframeData.iframeUrl}
+        <PaymentComponent
+          paymentUrl={paymentIframeData.iframeUrl || paymentIframeData.redirectUrl}
+          paymentType={paymentIframeData.iframeUrl ? 'iframe' : 'redirect'}
           onSuccess={handlePaymentComplete}
           onError={handlePaymentError}
           onCancel={handlePaymentCancel}
