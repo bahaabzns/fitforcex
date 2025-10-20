@@ -39,7 +39,10 @@ import {
   CheckCircle,
   Schedule,
   Send,
-  Archive
+  Archive,
+  AttachFile,
+  Delete,
+  CloudUpload
 } from '@mui/icons-material';
 
 export default function ClientFormsPage() {
@@ -59,6 +62,7 @@ export default function ClientFormsPage() {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [answersBySubmission, setAnswersBySubmission] = useState<Record<string, Record<string, any>>>({});
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
 
   const getAnswers = (submissionId: string) => answersBySubmission[submissionId] || {};
   const setAnswer = (submissionId: string, questionId: string, value: any) => {
@@ -117,6 +121,46 @@ export default function ClientFormsPage() {
     } finally {
       setSubmittingId(null);
     }
+  };
+
+  const handleFileUpload = async (submissionId: string, questionId: string, file: File) => {
+    const uploadKey = `${submissionId}-${questionId}`;
+    setUploadingFiles(prev => ({ ...prev, [uploadKey]: true }));
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('submissionId', submissionId);
+      formData.append('questionId', questionId);
+      
+      const response = await api.post('/api/forms/client/upload-attachment', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      
+      const attachment = response.data.attachment;
+      setAnswer(submissionId, questionId, attachment);
+      
+      openSnackbar({
+        open: true,
+        message: 'File uploaded successfully!',
+        variant: 'alert',
+        alert: { color: 'success', variant: 'filled' }
+      } as any);
+    } catch (error: any) {
+      console.error('File upload error:', error);
+      openSnackbar({
+        open: true,
+        message: error?.response?.data?.error || 'Failed to upload file',
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' }
+      } as any);
+    } finally {
+      setUploadingFiles(prev => ({ ...prev, [uploadKey]: false }));
+    }
+  };
+
+  const handleFileRemove = (submissionId: string, questionId: string) => {
+    setAnswer(submissionId, questionId, null);
   };
 
   if (isLoading || loadingArchived) {
@@ -236,6 +280,97 @@ export default function ClientFormsPage() {
               );
             })}
           </FormGroup>
+        );
+      case 'attachment':
+        const uploadKey = `${s.id}-${qid}`;
+        const isUploading = uploadingFiles[uploadKey];
+        const attachment = value;
+        
+        return (
+          <Box key={qid} sx={{ width: '100%' }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              {label}{required ? ' *' : ''}
+            </Typography>
+            
+            {attachment ? (
+              <Paper 
+                elevation={1} 
+                sx={{ 
+                  p: 2, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  bgcolor: 'success.light',
+                  color: 'success.contrastText'
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <AttachFile />
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      {attachment.originalName}
+                    </Typography>
+                    <Typography variant="caption">
+                      {(attachment.size / 1024).toFixed(1)} KB
+                    </Typography>
+                  </Box>
+                </Stack>
+                <MuiButton
+                  size="small"
+                  color="inherit"
+                  onClick={() => handleFileRemove(s.id, qid)}
+                  startIcon={<Delete />}
+                >
+                  Remove
+                </MuiButton>
+              </Paper>
+            ) : (
+              <Paper 
+                elevation={1} 
+                sx={{ 
+                  p: 3, 
+                  textAlign: 'center',
+                  border: '2px dashed',
+                  borderColor: 'primary.main',
+                  bgcolor: 'primary.light',
+                  color: 'primary.contrastText',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'primary.main',
+                  }
+                }}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) {
+                      handleFileUpload(s.id, qid, file);
+                    }
+                  };
+                  input.click();
+                }}
+              >
+                {isUploading ? (
+                  <Stack alignItems="center" spacing={1}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2">Uploading...</Typography>
+                  </Stack>
+                ) : (
+                  <Stack alignItems="center" spacing={1}>
+                    <CloudUpload sx={{ fontSize: 32 }} />
+                    <Typography variant="body2" fontWeight={600}>
+                      Click to upload file
+                    </Typography>
+                    <Typography variant="caption">
+                      Images, PDFs, Documents (max 10MB)
+                    </Typography>
+                  </Stack>
+                )}
+              </Paper>
+            )}
+          </Box>
         );
       case 'text':
       default:
