@@ -37,7 +37,7 @@ import {
   InputLabel,
   Switch,
 } from '@mui/material';
-import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Trash } from '@mui/icons-material';
+import { Add, Delete, ArrowForward, ArrowBack, CheckCircle } from '@mui/icons-material';
 import FileUpload from './FileUpload';
 import api from '@/utils/axios';
 
@@ -985,7 +985,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                               </Grid>
                               <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                                 <IconButton size="small" color="error" onClick={() => removeCustomQuestion(index)}>
-                                  <Trash />
+                                  <Delete />
                                 </IconButton>
                               </Grid>
                             </Grid>
