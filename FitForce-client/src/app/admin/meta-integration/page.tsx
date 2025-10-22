@@ -19,10 +19,8 @@ type ConfigResponse = {
 };
 
 export default function MetaIntegrationPage() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [snack, setSnack] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<any>(null);
+  const [testing, setTesting] = useState(false);
 
   const [form, setForm] = useState({
     appId: '',
@@ -82,13 +80,23 @@ export default function MetaIntegrationPage() {
 
   const onTest = async () => {
     try {
-      setSaving(true);
-      await api.post('/api/admin/meta-integration/test', {});
-      setSnack('Test successful');
+      setTesting(true);
+      setError(null);
+      setTestResults(null);
+      
+      const response = await api.post('/api/admin/meta-integration/test', {});
+      setTestResults(response.data);
+      
+      if (response.data.success) {
+        setSnack('✅ Connection test successful!');
+      } else {
+        setSnack('⚠️ Connection test completed with issues');
+      }
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Test failed');
+      setError(e?.response?.data?.error || 'Test failed');
+      setTestResults(e?.response?.data || null);
     } finally {
-      setSaving(false);
+      setTesting(false);
     }
   };
 
@@ -97,13 +105,89 @@ export default function MetaIntegrationPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4" fontWeight={800}>Meta Integration</Typography>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" onClick={onTest} disabled={saving}>Test Connection</Button>
+          <Button variant="outlined" onClick={onTest} disabled={testing || saving}>
+            {testing ? 'Testing...' : 'Test Connection'}
+          </Button>
           <Button variant="contained" onClick={onSave} disabled={saving}>Save</Button>
         </Stack>
       </Stack>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
+      )}
+
+      {testResults && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Test Results
+              {testResults.success ? (
+                <Typography component="span" color="success.main" sx={{ ml: 1 }}>
+                  ✅ Success
+                </Typography>
+              ) : (
+                <Typography component="span" color="error.main" sx={{ ml: 1 }}>
+                  ❌ Failed
+                </Typography>
+              )}
+            </Typography>
+            
+            {testResults.summary && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Tests: {testResults.summary.passedTests}/{testResults.summary.totalTests} passed
+                  {testResults.summary.criticalPassed ? ' (Critical tests passed)' : ' (Critical tests failed)'}
+                </Typography>
+              </Box>
+            )}
+
+            {testResults.testResults && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>Test Details:</Typography>
+                {Object.entries(testResults.testResults).map(([key, passed]) => (
+                  <Box key={key} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                    {passed ? (
+                      <Typography color="success.main" sx={{ mr: 1 }}>✅</Typography>
+                    ) : (
+                      <Typography color="error.main" sx={{ mr: 1 }}>❌</Typography>
+                    )}
+                    <Typography variant="body2">
+                      {key === 'pixelId' && 'Pixel ID'}
+                      {key === 'appId' && 'App ID'}
+                      {key === 'accessToken' && 'Access Token'}
+                      {key === 'businessId' && 'Business ID'}
+                      {key === 'pageId' && 'Page ID'}
+                      {key === 'webhookUrl' && 'Webhook URL'}
+                      {key === 'publicApi' && 'Public API'}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+
+            {testResults.errors && testResults.errors.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="error.main" gutterBottom>Errors:</Typography>
+                {testResults.errors.map((error: string, index: number) => (
+                  <Typography key={index} variant="body2" color="error.main" sx={{ ml: 2 }}>
+                    • {error}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+
+            {testResults.warnings && testResults.warnings.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="warning.main" gutterBottom>Warnings:</Typography>
+                {testResults.warnings.map((warning: string, index: number) => (
+                  <Typography key={index} variant="body2" color="warning.main" sx={{ ml: 2 }}>
+                    • {warning}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <Card>
