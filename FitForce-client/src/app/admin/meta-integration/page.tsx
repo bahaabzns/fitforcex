@@ -19,6 +19,10 @@ type ConfigResponse = {
 };
 
 export default function MetaIntegrationPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [snack, setSnack] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 

@@ -3,6 +3,14 @@ const path = require('path');
 
 const nextConfig = {
   output: 'standalone',
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:4000/api/:path*'
+      }
+    ];
+  },
   modularizeImports: {
     '@mui/material': {
       transform: '@mui/material/{{member}}'

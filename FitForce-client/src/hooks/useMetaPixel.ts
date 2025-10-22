@@ -29,6 +29,12 @@ export function useMetaPixel() {
       try {
         // Fetch pixel configuration from API
         const response = await fetch('/api/meta/pixel-config');
+        
+        if (!response.ok) {
+          console.log('Meta Pixel API not available:', response.status);
+          return;
+        }
+        
         const config: MetaPixelConfig = await response.json();
 
         if (!config.enabled || !config.pixelId) {
