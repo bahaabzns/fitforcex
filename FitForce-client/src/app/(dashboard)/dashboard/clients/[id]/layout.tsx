@@ -41,7 +41,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   ];
 
   const drawerContent = (
-    <Box sx={{ width: 200, p: 1.5 }}>
+    <Box sx={{ width: 200, p: 1.5, overflowX: 'hidden', boxSizing: 'border-box' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h6" sx={{ color: 'text.secondary' }}>
           Client Sections
@@ -59,7 +59,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <CloseCircle size={20} />
         </IconButton>
       </Box>
-      <List dense>
+      <List dense sx={{ width: '100%', overflowX: 'hidden' }}>
         {links.map((link) => {
           const active = pathname === link.href;
           const Icon = link.icon;
@@ -107,7 +107,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen
           }),
-          marginLeft: open && !isMobile ? '200px' : '0px'
+          marginLeft: open && !isMobile ? `${(mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH) + 200}px` : '0px' // Dynamic margin based on main sidebar state + client sidebar width
         }}
       >
         {children}
@@ -124,7 +124,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           sx={{
             position: 'fixed',
             top: 16, // align with header toggle row
-            left: 16, // place just after the main sidebar
+            left: mainDrawerOpen ? DRAWER_WIDTH + 8 : MINI_DRAWER_WIDTH + 8, // Dynamic positioning based on main sidebar state
             zIndex: 1201, // Higher than main drawer to appear above it
             backgroundColor: 'background.paper',
             boxShadow: 2
@@ -147,8 +147,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             boxSizing: 'border-box',
             top: 64, // Adjust based on your header height
             height: 'calc(100vh - 64px)',
-            left: 0, // Position after main sidebar
-            zIndex: 1200
+            left: mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH, // Dynamic positioning based on main sidebar state
+            zIndex: 1200,
+            overflowX: 'hidden', // Prevent horizontal scrolling
+            overflowY: 'auto' // Allow vertical scrolling if needed
           }
         }}
       >

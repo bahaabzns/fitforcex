@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { useParams } from 'next/navigation';
 import {
@@ -163,6 +163,19 @@ export default function ClientWorkoutPage() {
   // Form scheduling popup after plan activation
   const [formSchedulingPopupOpen, setFormSchedulingPopupOpen] = useState(false);
 
+  // Forms tab state
+  const [formsSubmissions, setFormsSubmissions] = useState<Array<{ id: string; form: { id: string; title: string; questions?: any }; answers?: any; status?: string; createdAt?: string; formTitle?: string; formType?: string; submittedAt?: string }>>([]);
+  const [formsLoading, setFormsLoading] = useState(false);
+  const [formsError, setFormsError] = useState<string | null>(null);
+  const [expandedSubmissionIds, setExpandedSubmissionIds] = useState<Record<string, boolean>>({});
+
+  // Chat tab state
+  const [chatThreadId, setChatThreadId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatInput, setChatInput] = useState('');
+
   // Workout log details dialog state
   const [workoutLogDetailsOpen, setWorkoutLogDetailsOpen] = useState(false);
   const [selectedWorkoutLog, setSelectedWorkoutLog] = useState<any>(null);
@@ -291,6 +304,135 @@ export default function ClientWorkoutPage() {
     }
   };
 
+  // Load client forms (workout forms only)
+  const loadClientForms = useCallback(async () => {
+    if (!clientId) return;
+    try {
+      setFormsLoading(true);
+      setFormsError(null);
+      // Prefer new submitted endpoint
+      let submissions: any[] = [];
+      try {
+        const res = await api.get(`/api/forms/client/${clientId}/submitted`);
+        const raw = res.data?.submissions;
+        submissions = Array.isArray(raw) ? raw : [];
+      } catch {
+        // Fallback: queue items then filter
+        const res2 = await api.get(`/api/forms/queue`);
+        const items = Array.isArray(res2.data?.items) ? res2.data.items : [];
+        submissions = items.filter((s: any) => s.clientId === clientId).map((s: any) => ({
+          id: s.id,
+          formId: s.formId,
+          formTitle: s.formTitle,
+          formType: s.formType,
+          status: s.status,
+          submittedAt: s.completedAt || s.sentAt || s.scheduledAt,
+          answers: undefined,
+        }));
+      }
+      // Filter for workout forms only
+      const workoutSubmissions = submissions.filter((s: any) => s.formType === 'workout');
+      setFormsSubmissions(workoutSubmissions);
+    } catch (e: any) {
+      setFormsError(e.response?.data?.message || e.response?.data?.error || 'Failed to load forms');
+    } finally {
+      setFormsLoading(false);
+    }
+  }, [clientId]);
+
+  // Toggle form submission expansion
+  const toggleExpandSubmission = (submissionId: string) => {
+    setExpandedSubmissionIds(prev => ({
+      ...prev,
+      [submissionId]: !prev[submissionId]
+    }));
+  };
+
+  // Render answer values for form submissions
+  const renderAnswerValue = (answers: any, questions?: any[]) => {
+    if (!answers || typeof answers !== 'object') return <Typography variant="body2">No answers available</Typography>;
+    
+    const questionMap = questions?.reduce((acc, q) => ({ ...acc, [q.id]: q }), {}) || {};
+    
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {Object.entries(answers).map(([questionId, answer]) => {
+          const question = questionMap[questionId];
+          const questionText = question?.text || question?.question || `Question ${questionId}`;
+          
+          return (
+            <Box key={questionId} sx={{ borderBottom: '1px solid', borderColor: 'divider', pb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                {questionText}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {Array.isArray(answer) ? answer.join(', ') : String(answer || 'No answer')}
+              </Typography>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  };
+
+  // Chat functions
+  const ensureClientThread = useCallback(async () => {
+    if (!clientId) return null;
+    try {
+      setChatLoading(true);
+      // Try to find an existing thread first
+      const inbox = await api.get('/api/messenger/inbox');
+      const existing = (inbox.data?.threads || []).find((t: any) => t.client?.id === clientId);
+      if (existing) {
+        setChatThreadId(existing.id);
+        return existing.id as string;
+      }
+      // Create a new thread with this client
+      const created = await api.post('/api/messenger/threads', { clientId });
+      const id = created.data?.thread?.id || created.data?.id;
+      setChatThreadId(id);
+      return id as string;
+    } catch (e: any) {
+      setChatError('Failed to open chat');
+      return null;
+    } finally {
+      setChatLoading(false);
+    }
+  }, [clientId]);
+
+  const loadChatMessages = useCallback(async (threadIdParam?: string) => {
+    const id = threadIdParam || chatThreadId;
+    if (!id) return;
+    try {
+      const { data } = await api.get(`/api/messenger/threads/${id}/messages`);
+      setChatMessages(data?.messages || []);
+    } catch (e: any) {
+      setChatError('Failed to load messages');
+    }
+  }, [chatThreadId]);
+
+  const startChatPolling = useCallback((id: string) => {
+    const chatPollRef = { current: null as number | null };
+    chatPollRef.current = window.setInterval(() => loadChatMessages(id), 4000) as unknown as number;
+    return () => {
+      if (chatPollRef.current) {
+        clearInterval(chatPollRef.current);
+      }
+    };
+  }, [loadChatMessages]);
+
+  const handleSendChat = async () => {
+    if (!chatThreadId || !chatInput.trim()) return;
+    const text = chatInput.trim();
+    setChatInput('');
+    try {
+      await api.post(`/api/messenger/threads/${chatThreadId}/messages`, { body: text });
+      await loadChatMessages();
+    } catch {
+      setChatError('Failed to send message');
+    }
+  };
+
   // Load workspace exercises
   useEffect(() => {
     const loadExercises = async () => {
@@ -310,6 +452,32 @@ export default function ClientWorkoutPage() {
       } catch {}
     })();
   }, []);
+
+  // Load forms when forms tab is selected
+  useEffect(() => {
+    if (plansTab === 1) loadClientForms();
+  }, [plansTab, loadClientForms]);
+
+  // Chat initialization and polling
+  useEffect(() => {
+    if (plansTab === 3) {
+      ensureClientThread().then((id) => {
+        if (id) {
+          loadChatMessages(id);
+          const cleanup = startChatPolling(id);
+          return cleanup;
+        }
+      });
+    }
+  }, [plansTab, ensureClientThread, loadChatMessages, startChatPolling]);
+
+  // Auto-scroll chat to bottom
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
   // Load saved plans function
     const loadSavedPlans = async () => {
@@ -1071,12 +1239,88 @@ export default function ClientWorkoutPage() {
                 )}
               </List>
             )
+            ) : plansTab === 1 ? (
+              <Box sx={{ py: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>Workout Forms</Typography>
+                {formsError && <Alert severity="error" sx={{ mb: 2 }}>{formsError}</Alert>}
+                {formsLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : formsSubmissions.length === 0 ? (
+                  <Typography color="text.secondary">No workout form submissions found for this client.</Typography>
+                ) : (
+                  <List>
+                    {formsSubmissions.map((s) => (
+                      <ListItem key={s.id} alignItems="flex-start" sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 1 }}>
+                          <ListItemText
+                            primary={s.formTitle || s.form?.title || 'Untitled form'}
+                            secondary={
+                              <>
+                                <Typography component="span" variant="caption" color="text.secondary">
+                                  {s.formType ? `${s.formType} • ` : ''}
+                                  {s.submittedAt ? new Date(s.submittedAt as string).toLocaleString() : (s.createdAt ? new Date(s.createdAt as string).toLocaleString() : '')}
+                                  {s.status ? ` • ${s.status}` : ''}
+                                </Typography>
+                              </>
+                            }
+                          />
+                          <Button size="small" onClick={() => toggleExpandSubmission(s.id)}>
+                            {expandedSubmissionIds[s.id] ? 'Hide Answers' : 'View Answers'}
+                          </Button>
+                        </Box>
+                        {expandedSubmissionIds[s.id] && (
+                          <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1, mt: 1 }}>
+                            {renderAnswerValue(s.answers || {}, s.form?.questions)}
+                          </Box>
+                        )}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Box>
+            ) : plansTab === 2 ? (
+              <Box sx={{ py: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>Tools</Typography>
+                <Typography color="text.secondary">Tools coming soon…</Typography>
+              </Box>
+            ) : plansTab === 3 ? (
+              <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', height: '60vh' }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>Chat</Typography>
+                {chatError && <Alert severity="error" sx={{ mb: 1 }}>{chatError}</Alert>}
+                <Box sx={{ flex: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <Box sx={{ flex: 1, overflowY: 'auto', pr: 1 }} ref={chatScrollRef}>
+                    {chatLoading && chatMessages.length === 0 ? (
+                      <Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>
+                    ) : (
+                      chatMessages.map((m: any) => (
+                        <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
+                          <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
+                            <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                            <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
+                          </Box>
+                        </Box>
+                      ))
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
+                    <TextField
+                      size="small"
+                      placeholder="Type a message..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
+                      fullWidth
+                    />
+                    <Button variant="contained" onClick={handleSendChat} disabled={!chatInput.trim()}>Send</Button>
+                  </Box>
+                </Box>
+              </Box>
             ) : (
               <Box sx={{ py: 3 }}>
                 <Typography variant="body2" color="text.secondary">
-                  {plansTab === 1 && 'Forms coming soon…'}
-                  {plansTab === 2 && 'Tools coming soon…'}
-                  {plansTab === 3 && 'Chat coming soon…'}
+                  {plansTab === 0 && 'Select a plan to view details'}
                 </Typography>
               </Box>
             )}
@@ -1610,6 +1854,9 @@ export default function ClientWorkoutPage() {
                               await api.post(`/api/workout/plans/${plan.id}/activate`);
                               await loadSavedPlans();
                               openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+                              
+                              // Show form scheduling popup after successful activation
+                              setFormSchedulingPopupOpen(true);
                             } catch (e) {
                               console.error('Error activating plan:', e);
                               openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
@@ -1645,12 +1892,88 @@ export default function ClientWorkoutPage() {
                   )}
                 </List>
                 )
+              ) : plansTab === 1 ? (
+                <Box sx={{ py: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>Workout Forms</Typography>
+                  {formsError && <Alert severity="error" sx={{ mb: 2 }}>{formsError}</Alert>}
+                  {formsLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : formsSubmissions.length === 0 ? (
+                    <Typography color="text.secondary">No workout form submissions found for this client.</Typography>
+                  ) : (
+                    <List>
+                      {formsSubmissions.map((s) => (
+                        <ListItem key={s.id} alignItems="flex-start" sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 1 }}>
+                            <ListItemText
+                              primary={s.formTitle || s.form?.title || 'Untitled form'}
+                              secondary={
+                                <>
+                                  <Typography component="span" variant="caption" color="text.secondary">
+                                    {s.formType ? `${s.formType} • ` : ''}
+                                    {s.submittedAt ? new Date(s.submittedAt as string).toLocaleString() : (s.createdAt ? new Date(s.createdAt as string).toLocaleString() : '')}
+                                    {s.status ? ` • ${s.status}` : ''}
+                                  </Typography>
+                                </>
+                              }
+                            />
+                            <Button size="small" onClick={() => toggleExpandSubmission(s.id)}>
+                              {expandedSubmissionIds[s.id] ? 'Hide Answers' : 'View Answers'}
+                            </Button>
+                          </Box>
+                          {expandedSubmissionIds[s.id] && (
+                            <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1, mt: 1 }}>
+                              {renderAnswerValue(s.answers || {}, s.form?.questions)}
+                            </Box>
+                          )}
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </Box>
+              ) : plansTab === 2 ? (
+                <Box sx={{ py: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>Tools</Typography>
+                  <Typography color="text.secondary">Tools coming soon…</Typography>
+                </Box>
+              ) : plansTab === 3 ? (
+                <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', height: '60vh' }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>Chat</Typography>
+                  {chatError && <Alert severity="error" sx={{ mb: 1 }}>{chatError}</Alert>}
+                  <Box sx={{ flex: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <Box sx={{ flex: 1, overflowY: 'auto', pr: 1 }} ref={chatScrollRef}>
+                      {chatLoading && chatMessages.length === 0 ? (
+                        <Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>
+                      ) : (
+                        chatMessages.map((m: any) => (
+                          <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
+                            <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
+                              <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                              <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
+                            </Box>
+                          </Box>
+                        ))
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
+                      <TextField
+                        size="small"
+                        placeholder="Type a message..."
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
+                        fullWidth
+                      />
+                      <Button variant="contained" onClick={handleSendChat} disabled={!chatInput.trim()}>Send</Button>
+                    </Box>
+                  </Box>
+                </Box>
               ) : (
                 <Box sx={{ py: 3 }}>
                   <Typography variant="body2" color="text.secondary">
-                    {plansTab === 1 && 'Forms coming soon…'}
-                    {plansTab === 2 && 'Tools coming soon…'}
-                    {plansTab === 3 && 'Chat coming soon…'}
+                    {plansTab === 0 && 'Select a plan to view details'}
                   </Typography>
                 </Box>
               )}

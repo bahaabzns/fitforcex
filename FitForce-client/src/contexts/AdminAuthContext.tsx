@@ -32,6 +32,11 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     const token = sessionStorage.getItem('adminToken');
     if (token) {
       setAdminToken(token);
+      // Set default Authorization header for admin API calls
+      (api as any).defaults = (api as any).defaults || {};
+      (api as any).defaults.headers = (api as any).defaults.headers || {};
+      (api as any).defaults.headers.common = (api as any).defaults.headers.common || {};
+      (api as any).defaults.headers.common['Authorization'] = `Bearer ${token}`;
       // Verify token is still valid
       verifyToken(token);
     } else {
@@ -79,6 +84,13 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem('adminToken', token);
         setAdminToken(token);
         setAdminUser(response.data.user);
+        // Set default Authorization header so subsequent admin requests succeed
+        (api as any).defaults = (api as any).defaults || {};
+        (api as any).defaults.headers = (api as any).defaults.headers || {};
+        (api as any).defaults.headers.common = (api as any).defaults.headers.common || {};
+        (api as any).defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Navigate to admin home after successful login
+        router.replace('/admin');
       } else {
         throw new Error('No token received from server');
       }

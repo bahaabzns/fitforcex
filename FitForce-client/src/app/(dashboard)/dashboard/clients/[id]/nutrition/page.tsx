@@ -37,9 +37,9 @@ import {
   Trash,
   ArrowLeft2,
   ArrowRight2,
-  Copy,
-  AttachFile
+  Copy
 } from '@wandersonalwes/iconsax-react';
+import { AttachFile } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { openSnackbar } from '@/api/snackbar';
@@ -2543,7 +2543,16 @@ export default function ClientNutritionPage() {
                             </List>
                           ) : (
                             <Box sx={{ textAlign: 'center', py: 4 }}>
-                              <Typography color="text.secondary">No food items added yet</Typography>
+                              <Typography color="text.secondary" sx={{ mb: 2 }}>No food items added yet</Typography>
+                              <Button 
+                                variant="contained" 
+                                size="small" 
+                                startIcon={<Add size={16} />} 
+                                onClick={() => setIsAddFoodDialogOpen(true)}
+                                sx={{ minWidth: 120 }}
+                              >
+                                Add Food
+                              </Button>
                             </Box>
                           )}
                           

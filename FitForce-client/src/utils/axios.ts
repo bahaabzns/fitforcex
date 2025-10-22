@@ -13,8 +13,23 @@ const getPersisted = <T = unknown>(key: string): T | null => {
   }
 };
 
+// Resolve API base URL with sensible runtime fallback to the api.<domain>
+const resolveApiBaseUrl = (): string => {
+  // Prefer explicit env configuration
+  if (APP_CONFIG.apiUrl) return APP_CONFIG.apiUrl;
+  // Fallback: derive from current origin (e.g., nano.com -> api.nano.com)
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    const parts = hostname.split('.');
+    const base = parts.length >= 2 ? parts.slice(-2).join('.') : hostname;
+    return `${protocol}//api.${base}`;
+  }
+  // Final fallback (build-time default)
+  return 'https://api.fitforce.io';
+};
+
 export const api = axios.create({
-  baseURL: APP_CONFIG.apiUrl,
+  baseURL: resolveApiBaseUrl(),
   withCredentials: true
 });
 

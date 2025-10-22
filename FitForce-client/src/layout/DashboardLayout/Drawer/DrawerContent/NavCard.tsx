@@ -26,8 +26,8 @@ export default function NavCard() {
           </Typography>
         </Stack>
         <AnimateButton>
-          <Button variant="shadow" size="small" component={Link} href="https://phoenixcoded.authordesk.app/" target="_blank">
-            Get Support
+          <Button variant="shadow" size="small" component={Link} href="https://wa.me/201006206308" target="_blank">
+            Support
           </Button>
         </AnimateButton>
       </Stack>

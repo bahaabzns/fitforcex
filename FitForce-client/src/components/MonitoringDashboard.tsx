@@ -32,6 +32,7 @@ import {
   People,
   AttachMoney,
 } from '@mui/icons-material';
+import api from '@/utils/axios';
 
 interface HealthData {
   status: string;
@@ -105,45 +106,18 @@ export default function MonitoringDashboard() {
       setLoading(true);
       setError(null);
 
-      // Fetch all monitoring data
+      // Fetch all monitoring data via configured API client
       const [healthRes, metricsRes, businessRes, alertsRes] = await Promise.all([
-        fetch('/api/health'),
-        fetch('/api/metrics', {
-          headers: {
-            'Authorization': `Bearer ${sessionStorage.getItem('adminToken')}`,
-          },
-        }),
-        fetch('/api/metrics/business', {
-          headers: {
-            'Authorization': `Bearer ${sessionStorage.getItem('adminToken')}`,
-          },
-        }),
-        fetch('/api/metrics/alerts', {
-          headers: {
-            'Authorization': `Bearer ${sessionStorage.getItem('adminToken')}`,
-          },
-        }),
+        api.get('/api/health'),
+        api.get('/api/metrics'),
+        api.get('/api/metrics/business'),
+        api.get('/api/metrics/alerts'),
       ]);
 
-      if (healthRes.ok) {
-        const health = await healthRes.json();
-        setHealthData(health);
-      }
-
-      if (metricsRes.ok) {
-        const metrics = await metricsRes.json();
-        setMetricsData(metrics);
-      }
-
-      if (businessRes.ok) {
-        const business = await businessRes.json();
-        setBusinessMetrics(business);
-      }
-
-      if (alertsRes.ok) {
-        const alertsData = await alertsRes.json();
-        setAlerts(alertsData);
-      }
+      if (healthRes?.data) setHealthData(healthRes.data);
+      if (metricsRes?.data) setMetricsData(metricsRes.data);
+      if (businessRes?.data) setBusinessMetrics(businessRes.data);
+      if (alertsRes?.data) setAlerts(alertsRes.data);
     } catch (err) {
       setError('Failed to fetch monitoring data');
       console.error('Monitoring data fetch error:', err);
