@@ -576,7 +576,6 @@ export default function WorkoutPage() {
       {/* Tabs */}
       <Stack direction="row" spacing={1}>
         <Button variant={activeTab === 'builder' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('builder')}>Builder</Button>
-        <Button variant={activeTab === 'ca_day' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('ca_day')}>ca_day</Button>
         <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button>
       </Stack>
 

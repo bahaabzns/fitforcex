@@ -243,14 +243,31 @@ export default function WorkspaceClientPackagesPage() {
               Create Package
             </Typography>
             <Stack spacing={2} direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'flex-end' }}>
-              <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
-              <TextField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />
+              <TextField 
+                label="Name" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
+                fullWidth 
+                required 
+                size="medium"
+                sx={{ minWidth: 200 }}
+              />
+              <TextField 
+                label="Description" 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                fullWidth 
+                size="medium"
+                sx={{ minWidth: 200 }}
+              />
               <TextField
                 label="Duration (months)"
                 type="number"
                 value={durationMonths}
                 onChange={(e) => setDurationMonths(Number(e.target.value))}
                 inputProps={{ min: 1, max: 120 }}
+                size="medium"
+                sx={{ minWidth: 150 }}
               />
               <TextField
                 label="Price (EGP)"
@@ -258,9 +275,23 @@ export default function WorkspaceClientPackagesPage() {
                 value={priceEgp}
                 onChange={(e) => setPriceEgp(Number(e.target.value))}
                 inputProps={{ min: 1, step: 1 }}
+                size="medium"
+                sx={{ minWidth: 150 }}
               />
-              <TextField label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} sx={{ width: 120 }} />
-              <Button variant="contained" onClick={handleCreate} disabled={saving || !name}>
+              <TextField 
+                label="Currency" 
+                value={currency} 
+                onChange={(e) => setCurrency(e.target.value)} 
+                size="medium"
+                sx={{ minWidth: 120 }} 
+              />
+              <Button 
+                variant="contained" 
+                onClick={handleCreate} 
+                disabled={saving || !name}
+                size="large"
+                sx={{ minWidth: 120, height: 56 }}
+              >
                 {saving ? 'Saving...' : 'Create'}
               </Button>
             </Stack>
@@ -310,13 +341,14 @@ export default function WorkspaceClientPackagesPage() {
         <Dialog open={editDialogOpen} onClose={handleCancelEdit} maxWidth="sm" fullWidth>
           <DialogTitle>Edit Package</DialogTitle>
           <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1 }}>
+            <Stack spacing={3} sx={{ mt: 1 }}>
               <TextField
                 label="Name"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 fullWidth
                 required
+                size="medium"
               />
               <TextField
                 label="Description"
@@ -324,7 +356,8 @@ export default function WorkspaceClientPackagesPage() {
                 onChange={(e) => setEditDescription(e.target.value)}
                 fullWidth
                 multiline
-                rows={2}
+                rows={3}
+                size="medium"
               />
               <Stack direction="row" spacing={2}>
                 <TextField
@@ -333,7 +366,8 @@ export default function WorkspaceClientPackagesPage() {
                   value={editDurationMonths}
                   onChange={(e) => setEditDurationMonths(Number(e.target.value))}
                   inputProps={{ min: 1, max: 120 }}
-                  sx={{ flex: 1 }}
+                  size="medium"
+                  sx={{ flex: 1, minWidth: 150 }}
                 />
                 <TextField
                   label="Price (EGP)"
@@ -341,22 +375,35 @@ export default function WorkspaceClientPackagesPage() {
                   value={editPriceEgp}
                   onChange={(e) => setEditPriceEgp(Number(e.target.value))}
                   inputProps={{ min: 1, step: 1 }}
-                  sx={{ flex: 1 }}
+                  size="medium"
+                  sx={{ flex: 1, minWidth: 150 }}
                 />
                 <TextField
                   label="Currency"
                   value={editCurrency}
                   onChange={(e) => setEditCurrency(e.target.value)}
-                  sx={{ width: 120 }}
+                  size="medium"
+                  sx={{ minWidth: 120 }}
                 />
               </Stack>
             </Stack>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCancelEdit} disabled={editSaving}>
+          <DialogActions sx={{ p: 3 }}>
+            <Button 
+              onClick={handleCancelEdit} 
+              disabled={editSaving}
+              size="large"
+              sx={{ minWidth: 100 }}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} variant="contained" disabled={editSaving || !editName.trim()}>
+            <Button 
+              onClick={handleSaveEdit} 
+              variant="contained" 
+              disabled={editSaving || !editName.trim()}
+              size="large"
+              sx={{ minWidth: 140 }}
+            >
               {editSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogActions>

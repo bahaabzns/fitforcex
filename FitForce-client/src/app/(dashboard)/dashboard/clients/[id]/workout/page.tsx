@@ -1987,7 +1987,6 @@ export default function ClientWorkoutPage() {
                 title={
                   <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="scrollable" allowScrollButtonsMobile>
                     <Tab label="Days" />
-                    <Tab label="Cardio" />
                   </Tabs>
                 }
                 action={
