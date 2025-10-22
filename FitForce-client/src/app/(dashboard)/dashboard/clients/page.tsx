@@ -154,6 +154,7 @@ export default function ClientsPage() {
   // Form scheduling options
   const [formAssignmentType, setFormAssignmentType] = useState<'immediate' | 'scheduled'>('immediate');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [durationDays, setDurationDays] = useState<number>(7);
 
   // Packages for filtering and display
   const [packages, setPackages] = useState<any[]>([]);
@@ -343,20 +344,10 @@ export default function ClientsPage() {
       return;
     }
 
-    // Validate scheduled date if scheduling is selected
-    if (formAssignmentType === 'scheduled' && !scheduledDate) {
-      setError('Please select a date for scheduled assignment');
+    // Validate duration if scheduling is selected
+    if (formAssignmentType === 'scheduled' && (!durationDays || durationDays <= 0)) {
+      setError('Please enter a valid duration in days');
       return;
-    }
-
-    // Validate scheduled date is in the future
-    if (formAssignmentType === 'scheduled' && scheduledDate) {
-      const selectedDate = new Date(scheduledDate);
-      const now = new Date();
-      if (selectedDate <= now) {
-        setError('Scheduled date must be in the future');
-        return;
-      }
     }
 
     // Get actual client IDs from selected rows
@@ -380,8 +371,10 @@ export default function ClientsPage() {
         };
 
         // Add scheduleAt if scheduling is selected
-        if (formAssignmentType === 'scheduled' && scheduledDate) {
-          requestData.scheduleAt = scheduledDate;
+        if (formAssignmentType === 'scheduled') {
+          const now = new Date();
+          const scheduledDate = new Date(now.getTime() + (durationDays * 24 * 60 * 60 * 1000));
+          requestData.scheduleAt = scheduledDate.toISOString();
         }
 
         await api.post('/api/forms/send', requestData);
@@ -391,11 +384,12 @@ export default function ClientsPage() {
       setSelectedFormId('');
       setFormAssignmentType('immediate');
       setScheduledDate('');
+      setDurationDays(7);
       setRowSelection({});
       setError(null);
       
       const message = formAssignmentType === 'scheduled' 
-        ? `Form scheduled for ${new Date(scheduledDate).toLocaleDateString()} and assigned to ${selectedClientIds.length} client(s) successfully!`
+        ? `Form scheduled in ${durationDays} day${durationDays !== 1 ? 's' : ''} and assigned to ${selectedClientIds.length} client(s) successfully!`
         : `Form assigned to ${selectedClientIds.length} client(s) successfully!`;
       
       alert(message);
@@ -1316,16 +1310,20 @@ export default function ClientsPage() {
                   </Select>
                 </FormControl>
 
-                {/* Scheduled Date Input */}
+                {/* Duration Input */}
                 {formAssignmentType === 'scheduled' && (
                   <TextField
                     fullWidth
-                    label="Schedule Date & Time"
-                    type="datetime-local"
-                    value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
+                    label="Duration (Days)"
+                    type="number"
+                    value={durationDays}
+                    onChange={(e) => setDurationDays(parseInt(e.target.value) || 0)}
                     InputLabelProps={{ shrink: true }}
-                    helperText="Form will be sent to clients at the scheduled time"
+                    helperText={`Form will be sent to clients in ${durationDays} day${durationDays !== 1 ? 's' : ''} (${new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toLocaleDateString()})`}
+                    inputProps={{
+                      min: 1,
+                      max: 365
+                    }}
                   />
                 )}
               </>
@@ -1339,9 +1337,9 @@ export default function ClientsPage() {
           <Button
             variant="contained"
             onClick={handleBulkFormAssignment}
-            disabled={!selectedFormId || assigningForm || formTemplates.length === 0 || (formAssignmentType === 'scheduled' && !scheduledDate)}
+            disabled={!selectedFormId || assigningForm || formTemplates.length === 0 || (formAssignmentType === 'scheduled' && (!durationDays || durationDays <= 0))}
           >
-            {assigningForm ? <CircularProgress size={20} /> : formAssignmentType === 'scheduled' ? 'Schedule Form' : 'Assign Form'}
+            {assigningForm ? <CircularProgress size={20} /> : formAssignmentType === 'scheduled' ? `Schedule in ${durationDays} Day${durationDays !== 1 ? 's' : ''}` : 'Assign Form'}
           </Button>
         </DialogActions>
       </Dialog>

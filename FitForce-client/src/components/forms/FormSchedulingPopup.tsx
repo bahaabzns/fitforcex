@@ -57,6 +57,7 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
   const [selectedFormId, setSelectedFormId] = useState<string>('');
   const [scheduleType, setScheduleType] = useState<'immediate' | 'scheduled'>('immediate');
   const [scheduledDate, setScheduledDate] = useState<string>('');
+  const [durationDays, setDurationDays] = useState<number>(7);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
@@ -97,33 +98,31 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
       return;
     }
 
-    // Validate scheduled date if scheduling is selected
-    if (scheduleType === 'scheduled' && !scheduledDate) {
-      setError('Please select a date for scheduled assignment');
+    // Validate duration if scheduling is selected
+    if (scheduleType === 'scheduled' && (!durationDays || durationDays <= 0)) {
+      setError('Please enter a valid duration in days');
       return;
-    }
-
-    // Validate scheduled date is in the future
-    if (scheduleType === 'scheduled' && scheduledDate) {
-      const selectedDate = new Date(scheduledDate);
-      const now = new Date();
-      if (selectedDate <= now) {
-        setError('Scheduled date must be in the future');
-        return;
-      }
     }
 
     try {
       setScheduling(true);
       setError(null);
 
-      const scheduleAt = scheduleType === 'scheduled' ? scheduledDate : undefined;
+      // Calculate scheduled date based on duration
+      let scheduleAt: string | undefined;
+      if (scheduleType === 'scheduled') {
+        const now = new Date();
+        const scheduledDate = new Date(now.getTime() + (durationDays * 24 * 60 * 60 * 1000));
+        scheduleAt = scheduledDate.toISOString();
+      }
+
       await onSchedule(selectedFormId, scheduleAt);
       
       // Reset form
       setSelectedFormId('');
       setScheduleType('immediate');
       setScheduledDate('');
+      setDurationDays(7);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to schedule form');
@@ -136,6 +135,7 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
     setSelectedFormId('');
     setScheduleType('immediate');
     setScheduledDate('');
+    setDurationDays(7);
     setError(null);
     onClose();
   };
@@ -259,7 +259,7 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
                     <Box>
                       <Typography variant="body1">Scheduled Assignment</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Form will be sent to client at a specific date/time
+                        Form will be sent to client after a specified duration
                       </Typography>
                     </Box>
                   </Box>
@@ -270,15 +270,19 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
             {scheduleType === 'scheduled' && (
               <TextField
                 fullWidth
-                label="Schedule Date & Time"
-                type="datetime-local"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
+                label="Duration (Days)"
+                type="number"
+                value={durationDays}
+                onChange={(e) => setDurationDays(parseInt(e.target.value) || 0)}
                 InputLabelProps={{
                   shrink: true,
                 }}
                 sx={{ mb: 2 }}
-                helperText="Select when the form should be sent to the client"
+                helperText={`Form will be sent to client in ${durationDays} day${durationDays !== 1 ? 's' : ''} (${new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toLocaleDateString()})`}
+                inputProps={{
+                  min: 1,
+                  max: 365
+                }}
               />
             )}
 
@@ -320,7 +324,7 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
           disabled={!selectedFormId || loading}
           startIcon={<CalendarToday />}
         >
-          {scheduleType === 'immediate' ? 'Send Form Now' : 'Schedule Form'}
+          {scheduleType === 'immediate' ? 'Send Form Now' : `Schedule in ${durationDays} Day${durationDays !== 1 ? 's' : ''}`}
         </LoadingButton>
       </DialogActions>
     </Dialog>

@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Card, Stack, TextField, Typography, Button as MuiButton } from '@mui/material';
 import api from '@/utils/axios';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 export default function SeedClientSignupPage() {
   const router = useRouter();
+  const { trackLead } = useMetaPixel();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -27,6 +29,10 @@ export default function SeedClientSignupPage() {
       if (email && password) {
         try { await api.post('/api/auth/signup', { fullName, email, password }); } catch {}
       }
+      
+      // Track Lead event on successful client registration
+      trackLead(undefined, 'EGP'); // No specific value, just track the lead
+      
       setSuccess(true);
     } catch (err) {
       setError('Failed to submit.');

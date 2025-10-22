@@ -31,6 +31,7 @@ import { PaymentModal } from './PaymentModal';
 import api from '@/utils/axios';
 import { PaymentComponent } from './PaymentComponent';
 import { useAppSelector } from '@/store';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 interface SubscriptionData {
   id: string;
@@ -71,6 +72,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   const intl = useIntl();
   const reduxWorkspaceId = useAppSelector((s) => s.workspace.id);
   const effectiveWorkspaceId = workspaceId || reduxWorkspaceId || '';
+  const { trackViewContent, trackAddToCart } = useMetaPixel();
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +86,19 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     fetchSubscription();
     fetchPackages();
   }, [workspaceId, type, clientId]);
+
+  // Track ViewContent when packages are loaded
+  useEffect(() => {
+    if (packages.length > 0) {
+      packages.forEach(packageData => {
+        trackViewContent(
+          [packageData.id],
+          packageData.priceCents / 100,
+          packageData.currency
+        );
+      });
+    }
+  }, [packages, trackViewContent]);
 
   const fetchSubscription = async () => {
     try {
@@ -128,6 +143,13 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   };
 
   const handleSubscribe = (packageData: any) => {
+    // Track AddToCart event when user clicks Subscribe
+    trackAddToCart(
+      [{ id: packageData.id, quantity: 1 }],
+      packageData.priceCents / 100,
+      packageData.currency
+    );
+    
     setSelectedPackage(packageData);
     setPaymentModalOpen(true);
   };

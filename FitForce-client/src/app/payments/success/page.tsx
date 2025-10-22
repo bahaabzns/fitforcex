@@ -1,18 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, Button, Card, CardContent, Container, Stack, Typography } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 export default function PaymentSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { trackPurchase } = useMetaPixel();
   
   const amount = searchParams.get('amount');
   const currency = searchParams.get('currency');
   const orderId = searchParams.get('orderId');
+  const packageId = searchParams.get('packageId');
+
+  // Track Purchase event when page loads
+  useEffect(() => {
+    if (amount && currency) {
+      const purchaseAmount = parseFloat(amount);
+      trackPurchase(
+        purchaseAmount,
+        currency,
+        packageId ? [{ id: packageId, quantity: 1 }] : undefined
+      );
+    }
+  }, [amount, currency, packageId, trackPurchase]);
 
   const handleGoBack = () => {
     router.push('/client/subscription');
