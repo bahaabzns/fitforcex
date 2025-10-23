@@ -37,8 +37,8 @@ import {
   Edit,
   Trash,
   Copy,
-  AttachFile,
-  Close
+  AttachCircle,
+  CloseCircle
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -447,7 +447,7 @@ export default function ClientWorkoutPage() {
 
       // Send message with attachments
       await api.post(`/api/messenger/threads/${chatThreadId}/messages`, { 
-        body: chatInput.trim() || '(attachment)',
+        body: chatInput.trim() || (uploadedFiles.length > 0 ? `📎 ${uploadedFiles.length} attachment${uploadedFiles.length > 1 ? 's' : ''}` : ''),
         attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined
       });
       
@@ -1338,6 +1338,25 @@ export default function ClientWorkoutPage() {
                         <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
                           <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
                             <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                            {m.attachments && m.attachments.length > 0 && (
+                              <Box sx={{ mt: 1 }}>
+                                {m.attachments.map((attachment: any, index: number) => (
+                                  <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                    <AttachCircle fontSize="small" />
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      href={attachment.url}
+                                      target="_blank"
+                                      sx={{ textTransform: 'none', justifyContent: 'flex-start', fontSize: '0.75rem' }}
+                                    >
+                                      {attachment.originalName || attachment.filename || `Attachment ${index + 1}`}
+                                      {attachment.size && ` (${(attachment.size / 1024).toFixed(1)} KB)`}
+                                    </Button>
+                                  </Box>
+                                ))}
+                              </Box>
+                            )}
                             <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
                           </Box>
                         </Box>
@@ -1368,7 +1387,7 @@ export default function ClientWorkoutPage() {
                         '&:hover': { bgcolor: 'grey.200' }
                       }}
                     >
-                      <AttachFile />
+                      <AttachCircle />
                     </IconButton>
                     <Button 
                       variant="contained" 
@@ -1388,7 +1407,7 @@ export default function ClientWorkoutPage() {
                             {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
                           </Typography>
                           <IconButton size="small" onClick={() => handleRemoveAttachment(index)}>
-                            <Close />
+                            <CloseCircle />
                           </IconButton>
                         </Box>
                       ))}
@@ -2030,6 +2049,25 @@ export default function ClientWorkoutPage() {
                           <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
                             <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
                               <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                              {m.attachments && m.attachments.length > 0 && (
+                                <Box sx={{ mt: 1 }}>
+                                  {m.attachments.map((attachment: any, index: number) => (
+                                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                      <AttachCircle fontSize="small" />
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        href={attachment.url}
+                                        target="_blank"
+                                        sx={{ textTransform: 'none', justifyContent: 'flex-start', fontSize: '0.75rem' }}
+                                      >
+                                        {attachment.originalName || attachment.filename || `Attachment ${index + 1}`}
+                                        {attachment.size && ` (${(attachment.size / 1024).toFixed(1)} KB)`}
+                                      </Button>
+                                    </Box>
+                                  ))}
+                                </Box>
+                              )}
                               <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
                             </Box>
                           </Box>
@@ -2060,7 +2098,7 @@ export default function ClientWorkoutPage() {
                           '&:hover': { bgcolor: 'grey.200' }
                         }}
                       >
-                        <AttachFile />
+                        <AttachCircle />
                       </IconButton>
                       <Button 
                         variant="contained" 
@@ -2080,7 +2118,7 @@ export default function ClientWorkoutPage() {
                               {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
                             </Typography>
                             <IconButton size="small" onClick={() => handleRemoveAttachment(index)}>
-                              <Close />
+                              <CloseCircle />
                             </IconButton>
                           </Box>
                         ))}
