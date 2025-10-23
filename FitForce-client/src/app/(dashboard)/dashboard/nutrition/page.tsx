@@ -549,13 +549,44 @@ export default function NutritionPage() {
     }
   };
 
-  // Helper functions for improved import dialog
-  const getNutritionCategories = () => {
-    const categories = new Set(defaultItems.map(item => item.category).filter(Boolean));
-    return Array.from(categories).sort();
+  const handleNutritionCategoryChange = (event: SyntheticEvent, newValue: string) => {
+    setSelectedNutritionCategory(newValue);
   };
 
-  const getFilteredNutritionItems = () => {
+  const handleSelectAllInNutritionCategory = () => {
+    // Check if all filtered items are selected
+    const allFilteredSelected = filteredNutritionNames.size > 0 && Array.from(filteredNutritionNames).every(name => selectedItems.has(name));
+    
+    if (allFilteredSelected) {
+      // Deselect all filtered items
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        filteredNutritionNames.forEach(name => newSet.delete(name));
+        return newSet;
+      });
+    } else {
+      // Select all filtered items
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        filteredNutritionNames.forEach(name => newSet.add(name));
+        return newSet;
+      });
+    }
+  };
+
+  const resetNutritionImportDialog = () => {
+    setNutritionImportSearchTerm('');
+    setSelectedNutritionCategory('all');
+    setSelectedItems(new Set());
+  };
+
+  // Memoized values to prevent infinite re-renders
+  const nutritionCategories = useMemo(() => {
+    const categories = new Set(defaultItems.map(item => item.category).filter(Boolean));
+    return Array.from(categories).sort();
+  }, [defaultItems]);
+  
+  const filteredNutritionItems = useMemo(() => {
     let filtered = defaultItems;
 
     // Filter by category
@@ -574,44 +605,9 @@ export default function NutritionPage() {
     }
 
     return filtered;
-  };
-
-  const handleSelectAllInNutritionCategory = () => {
-    // Check if all filtered items are selected
-    if (allFilteredSelected) {
-      // Deselect all filtered items
-      setSelectedItems(prev => {
-        const newSet = new Set(prev);
-        filteredNutritionNames.forEach(name => newSet.delete(name));
-        return newSet;
-      });
-    } else {
-      // Select all filtered items
-      setSelectedItems(prev => {
-        const newSet = new Set(prev);
-        filteredNutritionNames.forEach(name => newSet.add(name));
-        return newSet;
-      });
-    }
-  };
-
-  const handleNutritionCategoryChange = (event: SyntheticEvent, newValue: string) => {
-    setSelectedNutritionCategory(newValue);
-  };
-
-  const resetNutritionImportDialog = () => {
-    setNutritionImportSearchTerm('');
-    setSelectedNutritionCategory('all');
-    setSelectedItems(new Set());
-  };
-
-  // Memoized values to prevent infinite re-renders
-  const filteredNutritionItems = useMemo(() => getFilteredNutritionItems(), [defaultItems, selectedNutritionCategory, nutritionImportSearchTerm]);
+  }, [defaultItems, selectedNutritionCategory, nutritionImportSearchTerm]);
+  
   const filteredNutritionNames = useMemo(() => new Set(filteredNutritionItems.map(item => item.name)), [filteredNutritionItems]);
-  const allFilteredSelected = useMemo(() => 
-    filteredNutritionNames.size > 0 && Array.from(filteredNutritionNames).every(name => selectedItems.has(name)), 
-    [filteredNutritionNames, selectedItems]
-  );
 
   if (!workspaceId) {
     return (
@@ -1398,7 +1394,7 @@ export default function NutritionPage() {
                   allowScrollButtonsMobile
                 >
                   <Tab label="All" value="all" />
-                  {getNutritionCategories().map((category) => (
+                  {nutritionCategories.map((category) => (
                     <Tab key={category} label={category} value={category} />
                   ))}
                 </Tabs>
@@ -1413,7 +1409,10 @@ export default function NutritionPage() {
                   )}
                 </Typography>
                 <Button variant="outlined" size="small" onClick={handleSelectAllInNutritionCategory}>
-                  {allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredNutritionItems.length})`}
+                  {(() => {
+                    const allFilteredSelected = filteredNutritionNames.size > 0 && Array.from(filteredNutritionNames).every(name => selectedItems.has(name));
+                    return allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredNutritionItems.length})`;
+                  })()}
                 </Button>
                 <Button variant="outlined" size="small" onClick={handleSelectAllImport}>
                   {selectedItems.size === defaultItems.length ? 'Deselect All' : `Select All (${defaultItems.length})`}
