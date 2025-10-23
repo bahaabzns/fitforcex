@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import api from '@/utils/axios';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 import { 
   Box, 
   Card, 
@@ -35,6 +36,7 @@ import {
 
 export default function SeedClientDashboard() {
   const router = useRouter();
+  const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
 
   const { data: profile, isLoading: loadingProfile, error: profileError, mutate: mutateProfile } = useSWR('seed-client-profile', async () => {
     const res = await api.get('/api/clients/profile');
@@ -120,21 +122,28 @@ export default function SeedClientDashboard() {
           p: 3, 
           mb: 3, 
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}CC 100%)`,
           color: 'white'
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
           <Stack direction="row" alignItems="center" spacing={2}>
-            <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)', fontSize: '1.5rem' }}>
-              {client.fullName.charAt(0).toUpperCase()}
-            </Avatar>
+            {logoUrl ? (
+              <Box sx={{ width: 56, height: 56, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt={`${workspaceName} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </Box>
+            ) : (
+              <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)', fontSize: '1.5rem' }}>
+                {client.fullName.charAt(0).toUpperCase()}
+              </Avatar>
+            )}
             <Box>
               <Typography variant="h4" fontWeight={700}>
                 Welcome, {client.fullName}!
               </Typography>
               <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                {workspace?.name} • Client Portal
+                {workspaceName} • Client Portal
               </Typography>
             </Box>
           </Stack>

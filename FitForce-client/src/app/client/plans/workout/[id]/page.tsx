@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import api from '@/utils/axios';
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 import {
   Box,
   Card,
@@ -44,6 +45,7 @@ export default function ClientWorkoutPlanDetail() {
   const params = useParams();
   const id = params?.id as string;
   const intl = useIntl();
+  const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
 
@@ -90,8 +92,40 @@ export default function ClientWorkoutPlanDetail() {
   const plan = data.plan;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 } }}>
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 2 }}>{plan.title}</Typography>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+      {/* Header */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}CC 100%)`,
+          color: 'white'
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={2}>
+          {logoUrl ? (
+            <Box sx={{ width: 56, height: 56, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt={`${workspaceName} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </Box>
+          ) : (
+            <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+              <FitnessCenter sx={{ fontSize: 32 }} />
+            </Avatar>
+          )}
+          <Box flex={1}>
+            <Typography variant="h4" fontWeight={700}>
+              {plan.title}
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
+              Complete workout plan for your goals
+            </Typography>
+          </Box>
+        </Stack>
+      </Paper>
+
       <Stack spacing={2}>
         {plan.days.map((d, idx) => (
           <Card key={idx}>

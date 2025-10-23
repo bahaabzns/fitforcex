@@ -161,6 +161,7 @@ export default function ClientWorkoutPage() {
   const [selectedFormsToArchive, setSelectedFormsToArchive] = useState<string[]>([]);
   const [archivingForms, setArchivingForms] = useState(false);
   const [activatingPlanId, setActivatingPlanId] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
   
   // Form scheduling popup after plan activation
   const [formSchedulingPopupOpen, setFormSchedulingPopupOpen] = useState(false);
@@ -1041,6 +1042,46 @@ export default function ClientWorkoutPage() {
     }
   };
 
+  // Activate a workout plan
+  const handleActivatePlan = async () => {
+    if (!selectedPlanId) return;
+    try {
+      setActivating(true);
+      
+      // Check for submitted workout forms
+      try {
+        const formsResponse = await api.get(`/api/forms/submitted-by-type?clientId=${clientId}&type=workout`);
+        const forms = formsResponse.data?.submissions || [];
+        
+        if (forms.length > 0) {
+          // Show dialog to let coach mark forms as done
+          setSubmittedForms(forms);
+          setSelectedFormsToArchive([]);
+          setActivatingPlanId(selectedPlanId);
+          setFormCompletionDialogOpen(true);
+          setActivating(false);
+          return; // Wait for dialog action
+        }
+      } catch (err) {
+        console.error('Error checking forms:', err);
+        // Continue with activation even if form check fails
+      }
+      
+      // No forms, proceed with activation
+      await api.post(`/api/workout/plans/${selectedPlanId}/activate`);
+      await loadSavedPlans();
+      openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+      
+      // Show form scheduling popup after successful activation
+      setFormSchedulingPopupOpen(true);
+    } catch (e) {
+      console.error('Error activating plan:', e);
+      openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+    } finally {
+      setActivating(false);
+    }
+  };
+
 
   return (
     <Stack spacing={1}>
@@ -1066,14 +1107,16 @@ export default function ClientWorkoutPage() {
                 {saving ? 'Saving...' : 'Save Plan'}
               </Button>
             )}
-            {/* Send PDF for selected saved plan */}
+            {/* Activate selected saved plan */}
             {selectedPlanId && !String(selectedPlanId).startsWith('local_') && (
               <Button
-                variant="outlined"
+                variant="contained"
+                color="success"
                 size="small"
-                onClick={openPdfDialog}
+                onClick={handleActivatePlan}
+                disabled={activating}
               >
-                Send PDF
+                {activating ? 'Activating…' : 'Activate'}
               </Button>
             )}
           </Stack>
@@ -1134,14 +1177,6 @@ export default function ClientWorkoutPage() {
                 />
                 {selectedPlanId && (
                   <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={openPdfDialog}
-                      sx={{ flex: 1 }}
-                    >
-                      Send PDF
-                    </Button>
                     <Button
                       variant="outlined"
                       size="small"
@@ -1928,40 +1963,6 @@ export default function ClientWorkoutPage() {
                           disabled={copyingPlanId === plan.id}
                         >
                           {copyingPlanId === plan.id ? 'Copying…' : 'Copy'}
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              // Check for submitted workout forms
-                              const formsResponse = await api.get(`/api/forms/submitted-by-type?clientId=${clientId}&type=workout`);
-                              const forms = formsResponse.data?.submissions || [];
-                              
-                              if (forms.length > 0) {
-                                // Show dialog to let coach mark forms as done
-                                setSubmittedForms(forms);
-                                setSelectedFormsToArchive([]);
-                                setActivatingPlanId(plan.id);
-                                setFormCompletionDialogOpen(true);
-                                return; // Wait for dialog action
-                              }
-                              
-                              // No forms, proceed with activation
-                              await api.post(`/api/workout/plans/${plan.id}/activate`);
-                              await loadSavedPlans();
-                              openSnackbar({ open: true, message: 'Workout plan activated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
-                              
-                              // Show form scheduling popup after successful activation
-                              setFormSchedulingPopupOpen(true);
-                            } catch (e) {
-                              console.error('Error activating plan:', e);
-                              openSnackbar({ open: true, message: 'Failed to activate plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
-                            }
-                          }}
-                        >
-                          Activate
                         </Button>
                         <IconButton
                           size="small"
@@ -2858,88 +2859,6 @@ export default function ClientWorkoutPage() {
         <DialogContent>
           {editingExercise && (
             <Stack spacing={3} sx={{ mt: 1 }}>
-              {/* Media */}
-              <Box>
-                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                  Media
-                </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                  {/* Thumbnail uploader */}
-                  <Box>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>Thumbnail</Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        disabled={uploadingThumb}
-                        component="label"
-                      >
-                        {uploadingThumb ? <CircularProgress size={18} /> : 'Upload'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            try {
-                              setUploadingThumb(true);
-                              // Get presigned URL (reuse 'landing' type)
-                              const presign = await api.post(`/api/upload/landing/presigned`, {
-                                filename: file.name,
-                                contentType: file.type || 'image/jpeg'
-                              });
-                              const { uploadUrl, publicUrl } = presign.data;
-                              await fetch(uploadUrl, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': file.type || 'image/jpeg' },
-                                body: file
-                              });
-                              setEditingExercise((prev: any) => ({ ...prev, thumbnailUrl: publicUrl }));
-                              setIsPlanDirty(true);
-                            } catch (err) {
-                              openSnackbar({ open: true, message: 'Thumbnail upload failed', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
-                            } finally {
-                              setUploadingThumb(false);
-                              e.currentTarget.value = '';
-                            }
-                          }}
-                        />
-                      </Button>
-                      {editingExercise.thumbnailUrl && (
-                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={editingExercise.thumbnailUrl} alt="thumb" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 4 }} />
-                          <Button size="small" onClick={() => setEditingExercise((prev: any) => ({ ...prev, thumbnailUrl: '' }))}>Remove</Button>
-                        </Box>
-                      )}
-                    </Stack>
-                  </Box>
-                  {/* YouTube link */}
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>YouTube Link</Typography>
-                    <TextField
-                      fullWidth
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      value={editingExercise.videoUrl || ''}
-                      onChange={(e) => setEditingExercise((prev: any) => ({ ...prev, videoUrl: e.target.value }))}
-                    />
-                  </Box>
-                </Stack>
-              </Box>
-              {/* Exercise Notes */}
-              <Box>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Exercise Notes"
-                  value={editingExercise.notes || ''}
-                  onChange={(e) => setEditingExercise((prev: any) => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Add any specific notes or cues for this exercise..."
-                />
-              </Box>
-
               {/* Individual Sets Table */}
               <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
                 <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>

@@ -39,7 +39,8 @@ import {
   ArrowRight2,
   Copy,
   AttachCircle,
-  CloseCircle
+  CloseCircle,
+  InfoCircle
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -84,6 +85,7 @@ interface Cycle {
   dayIndex: number;
   notes?: string;
   meals?: Meal[];
+  microTotals?: Record<string, number>;
 }
 
 interface MealFoodItem {
@@ -134,6 +136,7 @@ export default function ClientNutritionPage() {
   const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
   const [isCreateMealDialogOpen, setIsCreateMealDialogOpen] = useState(false);
   const [isAddFoodDialogOpen, setIsAddFoodDialogOpen] = useState(false);
+  const [isMacrosDialogOpen, setIsMacrosDialogOpen] = useState(false);
   
   // Form states
   const [newPlanTitle, setNewPlanTitle] = useState('');
@@ -383,10 +386,11 @@ export default function ClientNutritionPage() {
         const qty = Number(item.quantity) || 0;
         const base = item.foodItem?.servingSize || 100;
         const factor = base ? qty / base : 0;
-        acc.calories += Math.round((item.foodItem?.calories || 0) * factor);
-        acc.protein += Math.round((item.foodItem?.protein || 0) * factor);
-        acc.carbs += Math.round((item.foodItem?.carbs || 0) * factor);
-        acc.fat += Math.round((item.foodItem?.fat || 0) * factor);
+        // Divide by 100 to fix the display issue in client portal
+        acc.calories += Math.round((item.foodItem?.calories || 0) * factor / 100);
+        acc.protein += Math.round((item.foodItem?.protein || 0) * factor / 100);
+        acc.carbs += Math.round((item.foodItem?.carbs || 0) * factor / 100);
+        acc.fat += Math.round((item.foodItem?.fat || 0) * factor / 100);
         return acc;
       },
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
@@ -565,6 +569,118 @@ export default function ClientNutritionPage() {
     );
   };
 
+  // Calculate macros and micronutrients for current cycle
+  const calculateCurrentCycleMacros = () => {
+    if (!currentCycle) {
+      return {
+        cycleName: 'Current Cycle',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        proteinKcal: 0,
+        carbsKcal: 0,
+        fatKcal: 0,
+        micronutrients: {}
+      };
+    }
+    
+    // Use microTotals from API if available, otherwise calculate from meals
+    if (currentCycle.microTotals) {
+      const microTotals = currentCycle.microTotals;
+      // Divide by 100 to fix the display issue in micros popup
+      const calories = Math.round((microTotals.calories || 0) / 100);
+      const protein = Math.round((microTotals.protein || 0) / 100);
+      const carbs = Math.round((microTotals.carbs || 0) / 100);
+      const fat = Math.round((microTotals.fat || 0) / 100);
+      
+      return {
+        cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
+        calories: calories,
+        protein: protein,
+        carbs: carbs,
+        fat: fat,
+        proteinKcal: Math.round(protein * 4),
+        carbsKcal: Math.round(carbs * 4),
+        fatKcal: Math.round(fat * 9),
+        micronutrients: Object.fromEntries(
+          Object.entries(microTotals).filter(([key]) => 
+            !['calories', 'protein', 'carbs', 'fat'].includes(key)
+          )
+        )
+      };
+    }
+    
+    // Fallback: calculate from meals if microTotals not available
+    if (!currentMeals || currentMeals.length === 0) {
+      return {
+        cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        proteinKcal: 0,
+        carbsKcal: 0,
+        fatKcal: 0,
+        micronutrients: {}
+      };
+    }
+    
+    // Calculate basic macros
+    const totals = currentMeals.reduce((acc, m) => {
+      const mt = computeMealTotals(m);
+      acc.calories += mt.calories;
+      acc.protein += mt.protein;
+      acc.carbs += mt.carbs;
+      acc.fat += mt.fat;
+      return acc;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+    
+    // Calculate micronutrients
+    const micronutrients: Record<string, number> = {};
+    const nutrientKeys = [
+      "water", "ash", "fiber", "sodium", "potassium", "calcium", "phosphorous", 
+      "magnesium", "iron", "zinc", "copper", "manganese", "fluoride", "selenium",
+      "vitamin_a", "vitamin_c", "vitamin_b1", "vitamin_b2", "vitamin_b5", "vitamin_b6", 
+      "vitamin_b12", "vitamin_d", "vitamin_e", "vitamin_k", "niacin", "folic_acid", 
+      "choline", "betaine"
+    ];
+    
+    currentMeals.forEach(meal => {
+      meal.foodItems?.forEach(fi => {
+        const qty = Number(fi.quantity ?? 1);
+        const foodItem = fi.foodItem;
+        if (foodItem) {
+          nutrientKeys.forEach(key => {
+            const base = Number(foodItem[key] ?? 0);
+            if (!isNaN(base) && base > 0) {
+              // Divide by 100 to fix the display issue in client portal
+              micronutrients[key] = (micronutrients[key] || 0) + (base * qty / 100);
+            }
+          });
+        }
+      });
+    });
+    
+    // Divide by 100 to fix the display issue in micros popup
+    const calories = Math.round(totals.calories / 100);
+    const protein = Math.round(totals.protein / 100);
+    const carbs = Math.round(totals.carbs / 100);
+    const fat = Math.round(totals.fat / 100);
+    
+    return {
+      cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
+      calories: calories,
+      protein: protein,
+      carbs: carbs,
+      fat: fat,
+      proteinKcal: Math.round(protein * 4),
+      carbsKcal: Math.round(carbs * 4),
+      fatKcal: Math.round(fat * 9),
+      micronutrients
+    };
+  };
+
   // Load plans
   // Load all nutrition plans with their cycles and meals
   const loadAllPlansData = async () => {
@@ -594,7 +710,8 @@ export default function ClientNutritionPage() {
                       ...m,
                       foodItems: Array.isArray(m.foodItems) ? m.foodItems : []
                     }));
-                    return { ...cycle, meals: normalizedMeals };
+                    // Preserve microTotals from the first API call
+                    return { ...cycle, meals: normalizedMeals, microTotals: cycle.microTotals };
                 } catch (err) {
                   console.warn(`Failed to load meals for cycle ${cycle.id}:`, err);
                   return {
@@ -1423,7 +1540,6 @@ export default function ClientNutritionPage() {
         <Typography variant="h5">{clientName || 'Client'}</Typography>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" onClick={handleSavePlan} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-          <Button variant="outlined" onClick={handleSendAsPdf} disabled={!selectedPlanId || generatingPdf}>{generatingPdf ? 'Generating…' : 'Send as PDF'}</Button>
           <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={!selectedPlanId || activating}>
             {activating ? 'Activating…' : 'Activate'}
           </Button>
@@ -1899,16 +2015,20 @@ export default function ClientNutritionPage() {
                               secondary={(() => {
                                 const quantity = editingQuantities[item.id] ?? item.quantity;
                                 const factor = quantity / (item.foodItem.servingSize || 100);
-                                const calories = Math.round(item.foodItem.calories * factor);
-                                const protein = Math.round(item.foodItem.protein * factor);
-                                const carbs = Math.round(item.foodItem.carbs * factor);
-                                const fat = Math.round(item.foodItem.fat * factor);
+                                // Divide by 100 to fix the display issue in client portal
+                                const calories = Math.round(item.foodItem.calories * factor / 100);
+                                const protein = Math.round(item.foodItem.protein * factor / 100);
+                                const carbs = Math.round(item.foodItem.carbs * factor / 100);
+                                const fat = Math.round(item.foodItem.fat * factor / 100);
                                 return (
                                   <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
                                     <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: 12 }}>{calories} kcal</Typography>
                                     <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: 12 }}>P: {protein}g</Typography>
                                     <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: 12 }}>C: {carbs}g</Typography>
                                     <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: 12, mr: 1 }}>F: {fat}g</Typography>
+                                    <Typography component="span" variant="caption" color="text.disabled" sx={{ fontSize: 10 }}>
+                                      (per {quantity}g)
+                                    </Typography>
                                     <Box sx={{ flexGrow: 1 }} />
                                     <TextField
                                       size="small"
@@ -2318,9 +2438,20 @@ export default function ClientNutritionPage() {
                     </Box>
                     
                 {/* Row 2b: Macros horizontal bar */}
-                <Box sx={{ mb: 1, textAlign: 'center' }}>
+                <Box sx={{ mb: 1, textAlign: 'center', position: 'relative' }}>
                   {currentCycle ? (
-                    <CycleMacroBar cycle={currentCycle} meals={currentMeals} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                      <CycleMacroBar cycle={currentCycle} meals={currentMeals} />
+                      <Tooltip title="View nutritional analysis for current cycle" arrow>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setIsMacrosDialogOpen(true)}
+                          sx={{ ml: 1 }}
+                        >
+                          <InfoCircle size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary">—</Typography>
                   )}
@@ -3006,6 +3137,155 @@ export default function ClientNutritionPage() {
         formType="nutrition"
         clientName={clientName}
       />
+
+      {/* Macros Overview Dialog */}
+      <Dialog 
+        open={isMacrosDialogOpen} 
+        onClose={() => setIsMacrosDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InfoCircle size={20} />
+            <Typography variant="h6">Nutritional Analysis - {calculateCurrentCycleMacros().cycleName}</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {currentCycle ? (
+            <Box sx={{ mt: 2 }}>
+              {(() => {
+                const cycleMacros = calculateCurrentCycleMacros();
+                return (
+                  <Card sx={{ p: 2 }}>
+                    {/* Total Calories */}
+                    <Box sx={{ mb: 3, textAlign: 'center' }}>
+                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                        {cycleMacros.calories} kcal
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">Total Calories</Typography>
+                    </Box>
+
+                    {/* Macro Breakdown */}
+                    <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>Macronutrients</Typography>
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                      <Grid item xs={4}>
+                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#42a5f5', borderRadius: 1, color: 'white' }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                            {cycleMacros.protein}g
+                          </Typography>
+                          <Typography variant="body2">Protein</Typography>
+                          <Typography variant="caption">
+                            {cycleMacros.proteinKcal} kcal
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#66bb6a', borderRadius: 1, color: 'white' }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                            {cycleMacros.carbs}g
+                          </Typography>
+                          <Typography variant="body2">Carbs</Typography>
+                          <Typography variant="caption">
+                            {cycleMacros.carbsKcal} kcal
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#ef5350', borderRadius: 1, color: 'white' }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                            {cycleMacros.fat}g
+                          </Typography>
+                          <Typography variant="body2">Fat</Typography>
+                          <Typography variant="caption">
+                            {cycleMacros.fatKcal} kcal
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+
+                    {/* Macro Percentages */}
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>Macro Distribution</Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip 
+                          label={`Protein: ${cycleMacros.calories > 0 ? Math.round((cycleMacros.proteinKcal / cycleMacros.calories) * 100) : 0}%`}
+                          size="small"
+                          sx={{ bgcolor: '#42a5f5', color: 'white' }}
+                        />
+                        <Chip 
+                          label={`Carbs: ${cycleMacros.calories > 0 ? Math.round((cycleMacros.carbsKcal / cycleMacros.calories) * 100) : 0}%`}
+                          size="small"
+                          sx={{ bgcolor: '#66bb6a', color: 'white' }}
+                        />
+                        <Chip 
+                          label={`Fat: ${cycleMacros.calories > 0 ? Math.round((cycleMacros.fatKcal / cycleMacros.calories) * 100) : 0}%`}
+                          size="small"
+                          sx={{ bgcolor: '#ef5350', color: 'white' }}
+                        />
+                      </Box>
+                    </Box>
+
+                    {/* Micronutrients */}
+                    <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>Micronutrients & Vitamins</Typography>
+                    <Grid container spacing={1}>
+                      {Object.entries(cycleMacros.micronutrients)
+                        .filter(([key, value]) => value > 0)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([key, value]) => {
+                          const displayName = key
+                            .replace(/_/g, ' ')
+                            .replace(/\b\w/g, l => l.toUpperCase());
+                          const unit = ['water', 'ash', 'fiber', 'sodium', 'potassium', 'calcium', 'phosphorous', 
+                            'magnesium', 'iron', 'zinc', 'copper', 'manganese', 'fluoride', 'selenium'].includes(key) ? 'mg' : 'μg';
+                          
+                          return (
+                            <Grid item xs={6} sm={4} key={key}>
+                              <Box sx={{ 
+                                p: 1, 
+                                border: '1px solid', 
+                                borderColor: 'divider', 
+                                borderRadius: 1,
+                                textAlign: 'center',
+                                bgcolor: 'background.paper'
+                              }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                  {Math.round(value / 100 * 100) / 100} {unit}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {displayName}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          );
+                        })}
+                    </Grid>
+                    
+                    {Object.keys(cycleMacros.micronutrients).length === 0 && (
+                      <Box sx={{ textAlign: 'center', py: 2 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No micronutrient data available for this cycle
+                        </Typography>
+                      </Box>
+                    )}
+                  </Card>
+                );
+              })()}
+            </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="body1" color="text.secondary">
+                No cycle selected to display nutritional analysis
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsMacrosDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

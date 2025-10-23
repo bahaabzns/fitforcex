@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import {
   Box,
@@ -8,16 +8,65 @@ import {
   List,
   ListItem,
   ListItemButton,
+  ListItemIcon,
   ListItemText,
   IconButton,
   Typography,
-  useMediaQuery
+  useMediaQuery,
+  Divider
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
-import { Menu as MenuIcon, CloseCircle, Category, Apple, Activity, Card } from '@wandersonalwes/iconsax-react';
+import { useTheme, styled, CSSObject } from '@mui/material/styles';
+import { Menu as MenuIcon, Category, Apple, Activity, Card } from '@wandersonalwes/iconsax-react';
 import Link from 'next/link';
-import { handlerDrawerOpen, useGetMenuMaster } from '@/api/menu';
+import { useGetMenuMaster } from '@/api/menu';
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH } from '@/config';
+
+// ==============================|| CLIENT DRAWER - MINI STYLED ||============================== //
+
+const openedMixin = (theme: any): CSSObject => ({
+  backgroundColor: theme.palette.background.default,
+  width: 200,
+  borderRight: '1px dashed',
+  borderRightColor: theme.palette.secondary[400],
+  boxShadow: 'none',
+  ...theme.applyStyles('dark', {
+    borderRightColor: theme.palette.secondary[200],
+    boxShadow: theme.customShadows.z1
+  }),
+  overflowX: 'hidden',
+  transition: theme.transitions.create('width', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.enteringScreen
+  })
+});
+
+const closedMixin = (theme: any): CSSObject => ({
+  overflow: 'hidden',
+  backgroundColor: theme.palette.background.default,
+  transition: theme.transitions.create('width', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen
+  }),
+  overflowX: 'hidden',
+  width: 60,
+  borderRight: 'none',
+  boxShadow: theme.customShadows.z1
+});
+
+const ClientDrawerStyled = styled(Drawer, { shouldForwardProp: (prop) => prop !== 'open' })(({ theme, open }) => ({
+  width: 200,
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
+  boxSizing: 'border-box',
+  ...(open && {
+    ...openedMixin(theme),
+    '& .MuiDrawer-paper': openedMixin(theme)
+  }),
+  ...(!open && {
+    ...closedMixin(theme),
+    '& .MuiDrawer-paper': closedMixin(theme)
+  })
+}));
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -35,65 +84,142 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const links = [
     { href: `/dashboard/clients/${id}/overview`, label: 'Overview', icon: Category },
-    { href: `/dashboard/clients/${id}/nutrition`, label: 'Nutrition Maker', icon: Apple },
-    { href: `/dashboard/clients/${id}/workout`, label: 'Workout Maker', icon: Activity },
+    { href: `/dashboard/clients/${id}/nutrition`, label: 'Nutrition', icon: Apple },
+    { href: `/dashboard/clients/${id}/workout`, label: 'Workout', icon: Activity },
     { href: `/dashboard/clients/${id}/subscription`, label: 'Subscription', icon: Card }
   ];
 
-  const drawerContent = (
-    <Box sx={{ width: 200, p: 1.5, overflowX: 'hidden', boxSizing: 'border-box' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
-          Client Sections
-        </Typography>
+  // Drawer content component
+  const drawerContent = useMemo(() => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: open ? 'space-between' : 'center',
+        p: open ? 2 : 1,
+        minHeight: 64
+      }}>
+        {open && (
+          <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            Client Sections
+          </Typography>
+        )}
         <IconButton
-          onClick={() => setOpen(false)}
+          onClick={() => setOpen(!open)}
           size="small"
           sx={{ 
             color: 'text.secondary',
             '&:hover': {
-              color: 'error.main'
+              color: 'primary.main',
+              bgcolor: 'primary.lighter'
             }
           }}
         >
-          <CloseCircle size={20} />
+          <MenuIcon size={20} />
         </IconButton>
       </Box>
-      <List dense sx={{ width: '100%', overflowX: 'hidden' }}>
-        {links.map((link) => {
-          const active = pathname === link.href;
-          const Icon = link.icon;
-          return (
-            <ListItem key={link.href} disablePadding>
-              <ListItemButton
-                component={Link}
-                href={link.href}
-                selected={active}
-                onClick={() => {
-                  if (isMobile) setOpen(false);
-                }}
-                sx={{
-                  borderRadius: 1,
-                  mb: 0.5,
-                  px: 1.25,
-                  '&.Mui-selected': {
-                    backgroundColor: 'primary.main',
-                    color: 'primary.contrastText',
-                    '&:hover': {
-                      backgroundColor: 'primary.dark'
-                    }
-                  }
-                }}
-              >
-                {Icon && <Icon size={18} style={{ marginRight: 8, opacity: 0.9 }} />}
-                <ListItemText primary={link.label} />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </List>
+
+      <Divider />
+
+      {/* Navigation */}
+      <Box sx={{ flexGrow: 1, pt: 1 }}>
+        <List dense sx={{ width: '100%' }}>
+          {links.map((link) => {
+            const active = pathname === link.href;
+            const Icon = link.icon;
+            
+            return (
+              <ListItem key={link.href} disablePadding sx={{ px: open ? 1.25 : 0.5, mb: 0.5 }}>
+                <ListItemButton
+                  component={Link}
+                  href={link.href}
+                  selected={active}
+                  onClick={() => {
+                    if (isMobile) setOpen(false);
+                  }}
+                  sx={(theme) => ({
+                    borderRadius: 1,
+                    px: open ? 1.25 : 1,
+                    py: 1,
+                    minHeight: 44,
+                    ...(open && {
+                      mx: 0.5,
+                      '&:hover': { 
+                        bgcolor: 'secondary.200',
+                        ...theme.applyStyles('dark', { bgcolor: 'divider' })
+                      }
+                    }),
+                    ...(!open && {
+                      justifyContent: 'center',
+                      px: 1,
+                      '&:hover': { 
+                        bgcolor: 'secondary.200',
+                        ...theme.applyStyles('dark', { bgcolor: 'divider' })
+                      }
+                    }),
+                    ...(active && {
+                      bgcolor: 'primary.lighter',
+                      color: 'primary.main',
+                      '&:hover': { 
+                        bgcolor: 'primary.lighter',
+                        ...theme.applyStyles('dark', { bgcolor: 'divider' })
+                      }
+                    })
+                  })}
+                >
+                  <ListItemIcon
+                    sx={(theme) => ({
+                      minWidth: open ? 38 : 'auto',
+                      color: active ? 'primary.main' : 'secondary.main',
+                      ...theme.applyStyles('dark', { 
+                        color: active ? 'primary.main' : 'secondary.400' 
+                      }),
+                      ...(!open && {
+                        justifyContent: 'center',
+                        width: 32,
+                        height: 32,
+                        borderRadius: 1,
+                        ...(active && {
+                          bgcolor: 'primary.lighter',
+                          ...theme.applyStyles('dark', { bgcolor: 'divider' })
+                        })
+                      })
+                    })}
+                  >
+                    <Icon 
+                      variant="Bulk" 
+                      size={open ? 20 : 22} 
+                    />
+                  </ListItemIcon>
+                  
+                  {open && (
+                    <ListItemText
+                      primary={
+                        <Typography
+                          variant="h6"
+                          sx={(theme) => ({
+                            color: active ? 'primary.main' : 'secondary.main',
+                            ...theme.applyStyles('dark', { 
+                              color: active ? 'primary.main' : 'secondary.400' 
+                            }),
+                            fontWeight: active ? 500 : 400,
+                            fontSize: '0.875rem'
+                          })}
+                        >
+                          {link.label}
+                        </Typography>
+                      }
+                    />
+                  )}
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Box>
     </Box>
-  );
+  ), [open, pathname, id, isMobile]);
 
   return (
     <Box sx={{ display: 'flex', position: 'relative' }}>
@@ -107,55 +233,54 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen
           }),
-          marginLeft: open && !isMobile ? `${(mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH) + 200}px` : '0px' // Dynamic margin based on main sidebar state + client sidebar width
+          marginLeft: `${mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH}px`,
+          marginRight: open && !isMobile ? `${open ? 200 : 60}px` : '0px'
         }}
       >
         {children}
       </Box>
 
-      {/* Toggle button - show when drawer is closed */}
-      {!open && (
-        <IconButton
-          onClick={() => {
-            setOpen(true);
-            // Close main dashboard drawer when opening client sections
-            if (mainDrawerOpen) handlerDrawerOpen(false);
-          }}
+      {/* Drawer */}
+      {!isMobile ? (
+        <ClientDrawerStyled 
+          variant="permanent" 
+          open={open}
           sx={{
-            position: 'fixed',
-            top: 16, // align with header toggle row
-            left: mainDrawerOpen ? DRAWER_WIDTH + 8 : MINI_DRAWER_WIDTH + 8, // Dynamic positioning based on main sidebar state
-            zIndex: 1201, // Higher than main drawer to appear above it
-            backgroundColor: 'background.paper',
-            boxShadow: 2
+            '& .MuiDrawer-paper': {
+              top: 64,
+              height: 'calc(100vh - 64px)',
+              left: mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH,
+              zIndex: 1200,
+              overflowX: 'hidden',
+              overflowY: 'auto'
+            }
           }}
         >
-          <MenuIcon size={20} />
-        </IconButton>
-      )}
-
-      {/* Drawer */}
-      <Drawer
-        variant={isMobile ? 'temporary' : 'persistent'}
-        anchor="left"
-        open={open}
-        onClose={() => setOpen(false)}
-        sx={{
-          zIndex: 1200, // Same as main drawer
-          '& .MuiDrawer-paper': {
-            width: 200,
-            boxSizing: 'border-box',
-            top: 64, // Adjust based on your header height
-            height: 'calc(100vh - 64px)',
-            left: mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH, // Dynamic positioning based on main sidebar state
+          {drawerContent}
+        </ClientDrawerStyled>
+      ) : (
+        <Drawer
+          variant="temporary"
+          anchor="left"
+          open={open}
+          onClose={() => setOpen(false)}
+          sx={{
             zIndex: 1200,
-            overflowX: 'hidden', // Prevent horizontal scrolling
-            overflowY: 'auto' // Allow vertical scrolling if needed
-          }
-        }}
-      >
-        {drawerContent}
-      </Drawer>
+            '& .MuiDrawer-paper': {
+              width: 200,
+              boxSizing: 'border-box',
+              top: 64,
+              height: 'calc(100vh - 64px)',
+              left: mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH,
+              zIndex: 1200,
+              overflowX: 'hidden',
+              overflowY: 'auto'
+            }
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
     </Box>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 import {
   Box,
   Card,
@@ -46,6 +47,7 @@ interface Message {
 }
 
 export default function ClientSupportPage() {
+  const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageBody, setMessageBody] = useState('');
   const [loading, setLoading] = useState(true);
@@ -246,15 +248,22 @@ export default function ClientSupportPage() {
           p: 3, 
           mb: 3, 
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}CC 100%)`,
           color: 'white'
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
           <Stack direction="row" alignItems="center" spacing={2}>
-            <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
-              <SupportAgent sx={{ fontSize: 32 }} />
-            </Avatar>
+            {logoUrl ? (
+              <Box sx={{ width: 56, height: 56, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt={`${workspaceName} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </Box>
+            ) : (
+              <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+                <SupportAgent sx={{ fontSize: 32 }} />
+              </Avatar>
+            )}
             <Box>
               <Typography variant="h4" fontWeight={700}>
                 Support & Help

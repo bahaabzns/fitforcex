@@ -47,7 +47,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 // project-imports
 import MainCard from 'components/MainCard';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import { CSVExport, RowSelection } from 'components/third-party/react-table';
+import { RowSelection } from 'components/third-party/react-table';
 
 // Icons
 import { Add, Edit, Trash, DocumentUpload, Warning2, SearchNormal1 } from '@wandersonalwes/iconsax-react';
@@ -72,6 +72,13 @@ interface Exercise {
   muscleGroup: string;
   createdAt: string;
   updatedAt: string;
+  nameArabic?: string;
+  gifImage?: string;
+  videoUrl?: string;
+  instructions?: any;
+  notes?: string;
+  category?: string;
+  equipmentNeeded?: string;
 }
 
 const MUSCLE_GROUPS = [
@@ -205,7 +212,13 @@ export default function WorkoutPage() {
   const [newExercise, setNewExercise] = useState({
     name: '',
     nameArabic: '',
-    muscleGroup: ''
+    muscleGroup: '',
+    gifImage: '',
+    videoUrl: '',
+    instructions: '',
+    notes: '',
+    category: '',
+    equipmentNeeded: ''
   });
 
   const [creating, setCreating] = useState(false);
@@ -292,7 +305,7 @@ export default function WorkoutPage() {
     try {
       await api.post('/api/workout/exercises', newExercise);
       setIsCreateDialogOpen(false);
-      setNewExercise({ name: '', nameArabic: '', muscleGroup: '' });
+      setNewExercise({ name: '', nameArabic: '', muscleGroup: '', gifImage: '', videoUrl: '', instructions: '', notes: '', category: '', equipmentNeeded: '' });
       // Refresh the list
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
@@ -670,7 +683,6 @@ export default function WorkoutPage() {
         <MainCard
           content={false}
           title="Exercises"
-          secondary={<CSVExport data={selectedValue.length > 0 ? selectedValue : exercises} filename={'exercises.csv'} />}
         >
           <RowSelection selected={selected.length} />
 
@@ -956,7 +968,7 @@ export default function WorkoutPage() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Add Exercise</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -991,6 +1003,52 @@ export default function WorkoutPage() {
                 ))}
               </Select>
             </FormControl>
+            <TextField
+              fullWidth
+              label="Category"
+              value={newExercise.category}
+              onChange={(e) => setNewExercise((prev) => ({ ...prev, category: e.target.value }))}
+              placeholder="e.g., Strength, Cardio"
+            />
+            <TextField
+              fullWidth
+              label="Equipment Needed"
+              value={newExercise.equipmentNeeded}
+              onChange={(e) => setNewExercise((prev) => ({ ...prev, equipmentNeeded: e.target.value }))}
+              placeholder="e.g., Dumbbells, Bodyweight"
+            />
+            <TextField
+              fullWidth
+              label="YouTube URL"
+              value={newExercise.videoUrl}
+              onChange={(e) => setNewExercise((prev) => ({ ...prev, videoUrl: e.target.value }))}
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+            <TextField
+              fullWidth
+              label="GIF Image URL"
+              value={newExercise.gifImage}
+              onChange={(e) => setNewExercise((prev) => ({ ...prev, gifImage: e.target.value }))}
+              placeholder="https://example.com/exercise.gif"
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Instructions"
+              value={newExercise.instructions}
+              onChange={(e) => setNewExercise((prev) => ({ ...prev, instructions: e.target.value }))}
+              placeholder="Step-by-step instructions for the exercise..."
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={2}
+              label="Notes"
+              value={newExercise.notes}
+              onChange={(e) => setNewExercise((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="Additional notes or tips..."
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -1007,7 +1065,7 @@ export default function WorkoutPage() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Edit Exercise</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -1043,6 +1101,52 @@ export default function WorkoutPage() {
                   ))}
                 </Select>
               </FormControl>
+              <TextField
+                fullWidth
+                label="Category"
+                value={(selectedExercise as any).category || ''}
+                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, category: e.target.value } as any) : null))}
+                placeholder="e.g., Strength, Cardio"
+              />
+              <TextField
+                fullWidth
+                label="Equipment Needed"
+                value={(selectedExercise as any).equipmentNeeded || ''}
+                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, equipmentNeeded: e.target.value } as any) : null))}
+                placeholder="e.g., Dumbbells, Bodyweight"
+              />
+              <TextField
+                fullWidth
+                label="YouTube URL"
+                value={(selectedExercise as any).videoUrl || ''}
+                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, videoUrl: e.target.value } as any) : null))}
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+              <TextField
+                fullWidth
+                label="GIF Image URL"
+                value={(selectedExercise as any).gifImage || ''}
+                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, gifImage: e.target.value } as any) : null))}
+                placeholder="https://example.com/exercise.gif"
+              />
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Instructions"
+                value={(selectedExercise as any).instructions || ''}
+                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, instructions: e.target.value } as any) : null))}
+                placeholder="Step-by-step instructions for the exercise..."
+              />
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                label="Notes"
+                value={(selectedExercise as any).notes || ''}
+                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, notes: e.target.value } as any) : null))}
+                placeholder="Additional notes or tips..."
+              />
             </Stack>
           )}
         </DialogContent>

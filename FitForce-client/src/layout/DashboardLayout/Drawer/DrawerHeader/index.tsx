@@ -4,7 +4,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 // project-imports
 import DrawerHeaderStyled from './DrawerHeaderStyled';
 
-import Logo from 'components/logo';
+import WorkspaceLogo from 'components/logo/WorkspaceLogo';
 import { DRAWER_WIDTH, HEADER_HEIGHT, MenuOrientation } from 'config';
 import useConfig from 'hooks/useConfig';
 
@@ -31,7 +31,7 @@ export default function DrawerHeader({ open }: Props) {
         paddingLeft: isHorizontal ? { xs: '24px', lg: '0' } : open ? '24px' : 0
       }}
     >
-      <Logo isIcon={!open} sx={{ width: open ? '80%' : 48, height: 'auto', maxWidth: open ? 120 : 48 }} />
+      <WorkspaceLogo isIcon={!open} sx={{ width: open ? '80%' : 48, height: 'auto', maxWidth: open ? 120 : 48 }} />
     </DrawerHeaderStyled>
   );
 }

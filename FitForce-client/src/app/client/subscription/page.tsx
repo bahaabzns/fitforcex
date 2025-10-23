@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 import { 
   Box, 
   Typography, 
@@ -28,6 +29,7 @@ import api from '@/utils/axios';
 
 export default function ClientSubscriptionPage() {
   const params = useMemo(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams('')), []);
+  const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const [workspaceId, setWorkspaceId] = useState<string>(params.get('workspaceId') || '');
   const [clientId, setClientId] = useState<string>(params.get('clientId') || '');
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -97,15 +99,22 @@ export default function ClientSubscriptionPage() {
           p: 3, 
           mb: 3, 
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}CC 100%)`,
           color: 'white'
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
           <Stack direction="row" alignItems="center" spacing={2}>
-            <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
-              <CreditCard sx={{ fontSize: 32 }} />
-            </Avatar>
+            {logoUrl ? (
+              <Box sx={{ width: 56, height: 56, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt={`${workspaceName} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </Box>
+            ) : (
+              <Avatar sx={{ width: 56, height: 56, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+                <CreditCard sx={{ fontSize: 32 }} />
+              </Avatar>
+            )}
             <Box>
               <Typography variant="h4" fontWeight={700}>
                 Subscription Management

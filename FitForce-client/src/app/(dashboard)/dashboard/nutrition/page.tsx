@@ -46,7 +46,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 // project-imports
 import MainCard from 'components/MainCard';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import { CSVExport, RowSelection } from 'components/third-party/react-table';
+import { RowSelection } from 'components/third-party/react-table';
 
 // Icons
 import { Add, Edit, Trash, DocumentUpload, SearchNormal1 } from '@wandersonalwes/iconsax-react';
@@ -684,7 +684,6 @@ export default function NutritionPage() {
         <MainCard
           content={false}
           title="Food Items"
-          secondary={<CSVExport data={selectedValue.length > 0 ? selectedValue : foodItems} filename={'food-items.csv'} />}
         >
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ p: 2, pt: 0 }}>
             <Button variant="outlined" startIcon={<DocumentUpload />} onClick={handleOpenImport}>
@@ -769,7 +768,7 @@ export default function NutritionPage() {
                             <Grid container spacing={2}>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Calories
+                                  Calories (per 100g)
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.calories} kcal
@@ -777,7 +776,7 @@ export default function NutritionPage() {
                               </Grid>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Protein
+                                  Protein (per 100g)
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.protein}g
@@ -785,7 +784,7 @@ export default function NutritionPage() {
                               </Grid>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Carbs
+                                  Carbs (per 100g)
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.carbs}g
@@ -793,7 +792,7 @@ export default function NutritionPage() {
                               </Grid>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Fat
+                                  Fat (per 100g)
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.fat}g
@@ -1070,6 +1069,15 @@ export default function NutritionPage() {
                 value={newFoodItem.unitArabic}
                 onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unitArabic: e.target.value }))}
               />
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <InfoCircle size={16} color="#1976d2" />
+                  <Typography variant="caption" color="info.dark">
+                    <strong>Note:</strong> All nutrition values should be entered per 100g of the food item. 
+                    The system will automatically calculate the correct values based on the serving size and quantity used in meal plans.
+                  </Typography>
+                </Stack>
+              </Box>
               <Stack direction="row" spacing={2}>
                 <TextField
                   fullWidth
@@ -1078,32 +1086,36 @@ export default function NutritionPage() {
                   value={newFoodItem.calories}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, calories: parseInt(e.target.value) || 0 }))}
                   placeholder="165"
+                  helperText="Calories per 100g of food"
                 />
                 <TextField
                   fullWidth
-                  label="Protein (g)"
+                  label="Protein (g per 100g)"
                   type="number"
                   value={newFoodItem.protein}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, protein: parseFloat(e.target.value) || 0 }))}
                   placeholder="31"
+                  helperText="Protein grams per 100g"
                 />
               </Stack>
               <Stack direction="row" spacing={2}>
                 <TextField
                   fullWidth
-                  label="Carbs (g)"
+                  label="Carbs (g per 100g)"
                   type="number"
                   value={newFoodItem.carbs}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, carbs: parseFloat(e.target.value) || 0 }))}
                   placeholder="0"
+                  helperText="Carbohydrates grams per 100g"
                 />
                 <TextField
                   fullWidth
-                  label="Fat (g)"
+                  label="Fat (g per 100g)"
                   type="number"
                   value={newFoodItem.fat}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, fat: parseFloat(e.target.value) || 0 }))}
                   placeholder="3.6"
+                  helperText="Fat grams per 100g"
                 />
               </Stack>
             </Stack>
