@@ -386,11 +386,11 @@ export default function ClientNutritionPage() {
         const qty = Number(item.quantity) || 0;
         const base = item.foodItem?.servingSize || 100;
         const factor = base ? qty / base : 0;
-        // Divide by 100 to fix the display issue in client portal
-        acc.calories += Math.round((item.foodItem?.calories || 0) * factor / 100);
-        acc.protein += Math.round((item.foodItem?.protein || 0) * factor / 100);
-        acc.carbs += Math.round((item.foodItem?.carbs || 0) * factor / 100);
-        acc.fat += Math.round((item.foodItem?.fat || 0) * factor / 100);
+        // Match the calculation used in food items cards (no division by 100)
+        acc.calories += Math.round((item.foodItem?.calories || 0) * factor);
+        acc.protein += Math.round((item.foodItem?.protein || 0) * factor);
+        acc.carbs += Math.round((item.foodItem?.carbs || 0) * factor);
+        acc.fat += Math.round((item.foodItem?.fat || 0) * factor);
         return acc;
       },
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
@@ -2015,11 +2015,10 @@ export default function ClientNutritionPage() {
                               secondary={(() => {
                                 const quantity = editingQuantities[item.id] ?? item.quantity;
                                 const factor = quantity / (item.foodItem.servingSize || 100);
-                                // Divide by 100 to fix the display issue in client portal
-                                const calories = Math.round(item.foodItem.calories * factor / 100);
-                                const protein = Math.round(item.foodItem.protein * factor / 100);
-                                const carbs = Math.round(item.foodItem.carbs * factor / 100);
-                                const fat = Math.round(item.foodItem.fat * factor / 100);
+                                const calories = Math.round(item.foodItem.calories * factor);
+                                const protein = Math.round(item.foodItem.protein * factor);
+                                const carbs = Math.round(item.foodItem.carbs * factor);
+                                const fat = Math.round(item.foodItem.fat * factor);
                                 return (
                                   <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
                                     <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: 12 }}>{calories} kcal</Typography>
