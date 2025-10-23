@@ -33,6 +33,7 @@ import {
   AttachMoney,
 } from '@mui/icons-material';
 import api from '@/utils/axios';
+import WorkspaceAnalytics from './WorkspaceAnalytics';
 
 interface HealthData {
   status: string;
@@ -194,6 +195,9 @@ export default function MonitoringDashboard() {
       <Typography variant="h4" gutterBottom>
         📊 System Monitoring Dashboard
       </Typography>
+
+      {/* Workspace Analytics */}
+      <WorkspaceAnalytics />
 
       {/* Alerts */}
       {alerts.length > 0 && (

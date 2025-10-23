@@ -87,7 +87,7 @@ type Client = {
 };
 
 type ViewMode = 'table' | 'cards';
-type TableDensity = 'comfortable' | 'standard' | 'compact';
+type TableDensity = 'compact';
 
 export default function ClientsPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
@@ -99,7 +99,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [tableDensity, setTableDensity] = useState<TableDensity>('comfortable');
+  const [tableDensity, setTableDensity] = useState<TableDensity>('compact');
 
   // Auto-switch to cards view on mobile
   useEffect(() => {
@@ -767,80 +767,10 @@ export default function ClientsPage() {
 
   const renderTableView = () => (
     <MainCard content={false}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        sx={(theme) => ({
-          gap: 2,
-          justifyContent: 'space-between',
-          p: 3,
-          [theme.breakpoints.down('sm')]: { '& .MuiOutlinedInput-root, & .MuiFormControl-root': { width: '100%' } }
-        })}
-      >
-        <DebouncedInput
-          value={search ?? ''}
-          onFilterChange={(value) => setSearch(String(value))}
-          placeholder={`Search by client name...`}
-        />
-
-        <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: 'center' }}>
-          <Select
-            value={packageFilter}
-            onChange={(event) => setPackageFilter(event.target.value)}
-            displayEmpty
-            size="small"
-            sx={{ minWidth: 150 }}
-          >
-            <MenuItem value="all">All Packages</MenuItem>
-            <MenuItem value="none">No Package</MenuItem>
-            {packages.map((pkg) => (
-              <MenuItem key={pkg.id} value={pkg.id}>
-                {pkg.name}
-              </MenuItem>
-            ))}
-          </Select>
-          <Select
-            value={tableDensity}
-            onChange={(event) => setTableDensity(event.target.value as TableDensity)}
-            displayEmpty
-            slotProps={{ input: { 'aria-label': 'Table Density' } }}
-            size="small"
-          >
-            <MenuItem value="comfortable">Comfortable</MenuItem>
-            <MenuItem value="standard">Standard</MenuItem>
-            <MenuItem value="compact">Compact</MenuItem>
-          </Select>
-          <SelectColumnSorting {...{ getState: table.getState, getAllColumns: table.getAllColumns, setSorting }} />
-          <Stack direction="row" sx={{ gap: 2, alignItems: 'center' }}>
-            {Object.keys(rowSelection).length > 0 && (
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={() => setBulkFormDialogOpen(true)}
-                size="large"
-              >
-                Assign Form ({Object.keys(rowSelection).length})
-              </Button>
-            )}
-            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateWizardOpen(true)} size="large">
-              Create Client
-            </Button>
-            <CSVExport
-              {...{
-                data:
-                  table.getSelectedRowModel().flatRows.map((row) => row.original).length === 0
-                    ? filtered
-                    : table.getSelectedRowModel().flatRows.map((row) => row.original),
-                headers,
-                filename: 'clients-list.csv'
-              }}
-            />
-          </Stack>
-        </Stack>
-      </Stack>
       <Stack>
         <RowSelection selected={Object.keys(rowSelection).length} />
         <ResponsiveTable>
-          <Table size={tableDensity === 'compact' ? 'small' : tableDensity === 'comfortable' ? 'medium' : 'small'}>
+          <Table size={tableDensity === 'compact' ? 'small' : 'small'}>
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -884,9 +814,6 @@ export default function ClientsPage() {
                         <Stack direction="row" spacing={2}>
                           <Button size="small" variant="outlined" href={`/dashboard/clients/${row.original.id}`}>
                             View Details
-                          </Button>
-                          <Button size="small" variant="outlined" href={`/dashboard/clients/${row.original.id}?tab=workout`}>
-                            Workouts
                           </Button>
                         </Stack>
                       </TableCell>
@@ -1015,15 +942,6 @@ export default function ClientsPage() {
                     <Eye style={{ marginRight: 4 }} />
                     Details
                   </Button>
-                  <Button 
-                    size="small" 
-                    variant="outlined" 
-                    href={`/dashboard/clients/${c.id}?tab=workout`}
-                    onClick={(e) => e.stopPropagation()}
-                    fullWidth={isMobile}
-                  >
-                    Workouts
-                  </Button>
                 </Stack>
               </Stack>
             </CardContent>
@@ -1080,6 +998,13 @@ export default function ClientsPage() {
           <Button variant="contained" onClick={() => setCreateWizardOpen(true)}>
             Create Client
           </Button>
+          <CSVExport
+            {...{
+              data: filtered,
+              headers,
+              filename: 'clients-list.csv'
+            }}
+          />
         </Stack>
       </Stack>
 

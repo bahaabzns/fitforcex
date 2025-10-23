@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '@/utils/axios';
 import ResponsiveTable from '@/components/ResponsiveTable';
+import { useAppSelector } from '@/store';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -28,10 +29,21 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Grid from '@mui/material/Grid';
 import Avatar from '@mui/material/Avatar';
-import { AttachFile } from '@mui/icons-material';
+import { AttachFile, Assignment } from '@mui/icons-material';
 import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Menu from '@mui/material/Menu';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import IconButton from '@mui/material/IconButton';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 
 type QueueStatus = 'pending' | 'sent' | 'completed' | 'archived';
 
@@ -45,6 +57,30 @@ interface QueueItem {
   sentAt?: string | null;
   completedAt?: string | null;
   status: QueueStatus;
+  assignedToId?: string | null;
+  assignedToName?: string | null;
+  assignedById?: string | null;
+  assignedByName?: string | null;
+  assignedAt?: string | null;
+}
+
+interface TeamMember {
+  id: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  role: {
+    id: string;
+    name: string;
+  };
+}
+
+interface QueueResponse {
+  items: QueueItem[];
+  hasFormsRead: boolean;
+  assignedToMe: boolean;
 }
 
 function statusColor(s: QueueStatus) {
@@ -88,16 +124,39 @@ export default function QueuePage() {
   const [viewLoading, setViewLoading] = useState(false);
   const [viewError, setViewError] = useState<string | null>(null);
   const [viewSubmission, setViewSubmission] = useState<any | null>(null);
+  
+  // New state for assignment functionality
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [hasFormsRead, setHasFormsRead] = useState(true);
+  const [assignedToMe, setAssignedToMe] = useState(false);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<QueueItem | null>(null);
+  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [menuSubmission, setMenuSubmission] = useState<QueueItem | null>(null);
+  
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const userId = useAppSelector((state) => state.auth.user?.id);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await api.get('/api/forms/queue');
-        setItems(Array.isArray(res.data?.items) ? res.data.items : []);
+        // Load queue with assignment filter
+        const queueUrl = assignedToMe ? '/api/forms/queue?assignedToMe=true' : '/api/forms/queue';
+        const queueRes = await api.get(queueUrl);
+        const queueData: QueueResponse = queueRes.data;
+        
+        setItems(Array.isArray(queueData?.items) ? queueData.items : []);
+        setHasFormsRead(queueData.hasFormsRead);
+        setAssignedToMe(queueData.assignedToMe);
+        
+        // Load team members for assignment dropdown
+        const membersRes = await api.get('/api/team/members');
+        setTeamMembers(membersRes.data?.members || []);
       } catch {
         setError('Failed to load queue');
       } finally {
@@ -105,7 +164,7 @@ export default function QueuePage() {
       }
     };
     load();
-  }, []);
+  }, [assignedToMe]);
 
   const counts = useMemo(() => {
     return {
@@ -143,6 +202,71 @@ export default function QueuePage() {
     }
   };
 
+  // Assignment handlers
+  const openAssignDialog = (submission: QueueItem) => {
+    setSelectedSubmission(submission);
+    setSelectedAssignee('');
+    setAssignDialogOpen(true);
+  };
+
+  const handleAssign = async () => {
+    if (!selectedSubmission || !selectedAssignee) return;
+    
+    setAssigning(true);
+    try {
+      await api.post(`/api/forms/submissions/${selectedSubmission.id}/assign`, {
+        assignedToId: selectedAssignee,
+      });
+      setAssignDialogOpen(false);
+      // Reload queue
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to assign form');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleUnassign = async (submission: QueueItem) => {
+    try {
+      await api.post(`/api/forms/submissions/${submission.id}/unassign`);
+      // Reload queue
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to unassign form');
+    }
+  };
+
+  const openMenu = (event: React.MouseEvent<HTMLElement>, submission: QueueItem) => {
+    setMenuAnchor(event.currentTarget);
+    setMenuSubmission(submission);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchor(null);
+    setMenuSubmission(null);
+  };
+
+  // Filter team members by appropriate permission
+  const getFilteredTeamMembers = (formType: string) => {
+    return teamMembers.filter(member => {
+      // Owner can be assigned anything
+      if (member.role.name === 'owner') return true;
+      
+      // Check permissions based on form type
+      if (formType === 'nutrition') {
+        // For nutrition forms, we need members with nutrition.manage permission
+        // This is a simplified check - in a real app you'd check actual permissions
+        return ['owner', 'admin', 'trainer'].includes(member.role.name);
+      } else if (formType === 'workout') {
+        // For workout forms, we need members with workout.manage permission
+        return ['owner', 'admin', 'trainer'].includes(member.role.name);
+      }
+      
+      return false;
+    });
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
@@ -169,6 +293,17 @@ export default function QueuePage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {hasFormsRead && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={assignedToMe}
+                    onChange={(e) => setAssignedToMe(e.target.checked)}
+                  />
+                }
+                label="Show My Assignments Only"
+              />
+            )}
           </Stack>
 
           {/* Status Tabs */}
@@ -239,6 +374,20 @@ export default function QueuePage() {
                           </Box>
                         )}
 
+                        {/* Assignment Info */}
+                        {row.assignedToName && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Assigned to: {row.assignedToName}
+                            </Typography>
+                            {row.assignedAt && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                Assigned: {new Date(row.assignedAt).toLocaleDateString()}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+
                         <Divider />
 
                         {/* Timeline Details */}
@@ -282,10 +431,25 @@ export default function QueuePage() {
                               View Submission
                             </Button>
                           )}
-                          {row.status === 'completed' && row.clientId && row.formType && (
+                          
+                          {/* Assignment Actions */}
+                          {row.status === 'completed' && hasFormsRead && !row.assignedToId && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Assignment />}
+                              onClick={() => openAssignDialog(row)}
+                            >
+                              Assign
+                            </Button>
+                          )}
+                          
+                          {/* Create Plan Actions */}
+                          {row.status === 'completed' && row.formType && (
                             <Button
                               size="small"
                               variant="contained"
+                              startIcon={<Assignment />}
                               onClick={() => {
                                 const path = row.formType === 'nutrition'
                                   ? `/dashboard/clients/${row.clientId}/nutrition`
@@ -293,8 +457,18 @@ export default function QueuePage() {
                                 window.location.href = path;
                               }}
                             >
-                              {row.formType === 'nutrition' ? 'Create Nutrition Plan' : 'Create Workout Plan'}
+                              Make {row.formType === 'nutrition' ? 'Nutrition' : 'Workout'} Plan
                             </Button>
+                          )}
+                          
+                          {/* Menu for additional actions */}
+                          {hasFormsRead && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => openMenu(e, row)}
+                            >
+                              <MoreVertIcon />
+                            </IconButton>
                           )}
                         </Stack>
                       </Stack>
@@ -322,6 +496,7 @@ export default function QueuePage() {
                   <TableRow>
                     <TableCell>Client</TableCell>
                     <TableCell>Form</TableCell>
+                    <TableCell>Assigned To</TableCell>
                     <TableCell>Scheduled</TableCell>
                     <TableCell>Sent</TableCell>
                     <TableCell>Completed</TableCell>
@@ -336,6 +511,20 @@ export default function QueuePage() {
                         {row.formTitle}
                         {row.formType ? <Chip size="small" label={row.formType} sx={{ ml: 1 }} /> : null}
                       </TableCell>
+                      <TableCell>
+                        {row.assignedToName ? (
+                          <Box>
+                            <Typography variant="body2">{row.assignedToName}</Typography>
+                            {row.assignedAt && (
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(row.assignedAt).toLocaleDateString()}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
                       <TableCell>{row.scheduledAt ? new Date(row.scheduledAt).toLocaleString() : '-'}</TableCell>
                       <TableCell>{row.sentAt ? new Date(row.sentAt).toLocaleString() : '-'}</TableCell>
                       <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleString() : '-'}</TableCell>
@@ -345,10 +534,25 @@ export default function QueuePage() {
                           {row.status === 'completed' && (
                             <Button size="small" variant="outlined" onClick={() => openView(row.id)}>View</Button>
                           )}
-                          {row.status === 'completed' && row.clientId && row.formType && (
+                          
+                          {/* Assignment Actions */}
+                          {row.status === 'completed' && hasFormsRead && !row.assignedToId && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Assignment />}
+                              onClick={() => openAssignDialog(row)}
+                            >
+                              Assign
+                            </Button>
+                          )}
+                          
+                          {/* Create Plan Actions */}
+                          {row.status === 'completed' && row.formType && (
                             <Button
                               size="small"
                               variant="contained"
+                              startIcon={<Assignment />}
                               onClick={() => {
                                 const path = row.formType === 'nutrition'
                                   ? `/dashboard/clients/${row.clientId}/nutrition`
@@ -356,8 +560,18 @@ export default function QueuePage() {
                                 window.location.href = path;
                               }}
                             >
-                              {row.formType === 'nutrition' ? 'Create Nutrition Plan' : 'Create Workout Plan'}
+                              Make Plan
                             </Button>
+                          )}
+                          
+                          {/* Menu for additional actions */}
+                          {hasFormsRead && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => openMenu(e, row)}
+                            >
+                              <MoreVertIcon />
+                            </IconButton>
                           )}
                         </Stack>
                       </TableCell>
@@ -365,7 +579,7 @@ export default function QueuePage() {
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={7}>
                         <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
                           No queue items match your filters
                         </Typography>
@@ -467,6 +681,72 @@ export default function QueuePage() {
           <Button onClick={() => setViewOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Assignment Dialog */}
+      <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Assign Form</DialogTitle>
+        <DialogContent>
+          {selectedSubmission && (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Assign "{selectedSubmission.formTitle}" to a team member
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>Team Member</InputLabel>
+                <Select
+                  value={selectedAssignee}
+                  onChange={(e) => setSelectedAssignee(e.target.value)}
+                  label="Team Member"
+                >
+                  {getFilteredTeamMembers(selectedSubmission.formType || '').map((member) => (
+                    <MenuItem key={member.user.id} value={member.user.id}>
+                      <Box>
+                        <Typography variant="body2">{member.user.fullName}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {member.role.name}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleAssign} 
+            variant="contained" 
+            disabled={!selectedAssignee || assigning}
+          >
+            {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Context Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={closeMenu}
+      >
+        {menuSubmission && (
+          <>
+            {menuSubmission.assignedToId && (
+              <MenuItem onClick={() => {
+                handleUnassign(menuSubmission);
+                closeMenu();
+              }}>
+                <ListItemIcon>
+                  <Assignment fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Unassign</ListItemText>
+              </MenuItem>
+            )}
+          </>
+        )}
+      </Menu>
     </Box>
   );
 }
