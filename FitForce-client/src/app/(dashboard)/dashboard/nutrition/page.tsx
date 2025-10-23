@@ -49,7 +49,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { RowSelection } from 'components/third-party/react-table';
 
 // Icons
-import { Add, Edit, Trash, DocumentUpload, SearchNormal1 } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, DocumentUpload, SearchNormal1, Information } from '@wandersonalwes/iconsax-react';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -1071,7 +1071,7 @@ export default function NutritionPage() {
               />
               <Box sx={{ mb: 2, p: 2, bgcolor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
                 <Stack direction="row" alignItems="center" spacing={1}>
-                  <InfoCircle size={16} color="#1976d2" />
+                  <Information size={16} color="#1976d2" />
                   <Typography variant="caption" color="info.dark">
                     <strong>Note:</strong> All nutrition values should be entered per 100g of the food item. 
                     The system will automatically calculate the correct values based on the serving size and quantity used in meal plans.

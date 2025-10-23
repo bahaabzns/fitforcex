@@ -40,7 +40,7 @@ import {
   Copy,
   AttachCircle,
   CloseCircle,
-  InfoCircle
+  Information
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -2448,7 +2448,7 @@ export default function ClientNutritionPage() {
                           onClick={() => setIsMacrosDialogOpen(true)}
                           sx={{ ml: 1 }}
                         >
-                          <InfoCircle size={16} />
+                          <Information size={16} />
                         </IconButton>
                       </Tooltip>
                     </Box>
@@ -3147,7 +3147,7 @@ export default function ClientNutritionPage() {
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <InfoCircle size={20} />
+            <Information size={20} />
             <Typography variant="h6">Nutritional Analysis - {calculateCurrentCycleMacros().cycleName}</Typography>
           </Box>
         </DialogTitle>

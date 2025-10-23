@@ -1,5 +1,5 @@
 // assets
-import { OceanProtocol, Level, ShieldCross, InfoCircle, I24Support, Driving } from '@wandersonalwes/iconsax-react';
+import { OceanProtocol, Level, ShieldCross, Information, I24Support, Driving } from '@wandersonalwes/iconsax-react';
 
 // types
 import { NavItemType } from 'types/menu';
@@ -9,7 +9,7 @@ const icons = {
   menuLevel: OceanProtocol,
   menuLevelSubtitle: Level,
   disabledMenu: ShieldCross,
-  chipMenu: InfoCircle,
+  chipMenu: Information,
   documentation: I24Support,
   roadmap: Driving
 };
