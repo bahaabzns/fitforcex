@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent } from 'react';
+import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent, useMemo } from 'react';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
 
@@ -577,24 +577,19 @@ export default function NutritionPage() {
   };
 
   const handleSelectAllInNutritionCategory = () => {
-    const filteredItems = getFilteredNutritionItems();
-    const filteredNames = new Set(filteredItems.map(item => item.name));
-    
     // Check if all filtered items are selected
-    const allSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
-    
-    if (allSelected) {
+    if (allFilteredSelected) {
       // Deselect all filtered items
       setSelectedItems(prev => {
         const newSet = new Set(prev);
-        filteredNames.forEach(name => newSet.delete(name));
+        filteredNutritionNames.forEach(name => newSet.delete(name));
         return newSet;
       });
     } else {
       // Select all filtered items
       setSelectedItems(prev => {
         const newSet = new Set(prev);
-        filteredNames.forEach(name => newSet.add(name));
+        filteredNutritionNames.forEach(name => newSet.add(name));
         return newSet;
       });
     }
@@ -609,6 +604,14 @@ export default function NutritionPage() {
     setSelectedNutritionCategory('all');
     setSelectedItems(new Set());
   };
+
+  // Memoized values to prevent infinite re-renders
+  const filteredNutritionItems = useMemo(() => getFilteredNutritionItems(), [defaultItems, selectedNutritionCategory, nutritionImportSearchTerm]);
+  const filteredNutritionNames = useMemo(() => new Set(filteredNutritionItems.map(item => item.name)), [filteredNutritionItems]);
+  const allFilteredSelected = useMemo(() => 
+    filteredNutritionNames.size > 0 && Array.from(filteredNutritionNames).every(name => selectedItems.has(name)), 
+    [filteredNutritionNames, selectedItems]
+  );
 
   if (!workspaceId) {
     return (
@@ -1405,17 +1408,12 @@ export default function NutritionPage() {
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
                 <Typography variant="body2" color="text.secondary">
                   {selectedItems.size} of {defaultItems.length} selected
-                  {getFilteredNutritionItems().length !== defaultItems.length && (
-                    <span> ({getFilteredNutritionItems().length} shown)</span>
+                  {filteredNutritionItems.length !== defaultItems.length && (
+                    <span> ({filteredNutritionItems.length} shown)</span>
                   )}
                 </Typography>
                 <Button variant="outlined" size="small" onClick={handleSelectAllInNutritionCategory}>
-                  {(() => {
-                    const filteredItems = getFilteredNutritionItems();
-                    const filteredNames = new Set(filteredItems.map(item => item.name));
-                    const allFilteredSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
-                    return allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredItems.length})`;
-                  })()}
+                  {allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredNutritionItems.length})`}
                 </Button>
                 <Button variant="outlined" size="small" onClick={handleSelectAllImport}>
                   {selectedItems.size === defaultItems.length ? 'Deselect All' : `Select All (${defaultItems.length})`}
@@ -1425,7 +1423,7 @@ export default function NutritionPage() {
               {/* Food Items Grid */}
               <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
                 <Stack spacing={2}>
-                  {getFilteredNutritionItems().map((item) => {
+                  {filteredNutritionItems.map((item) => {
                     const isSelected = selectedItems.has(item.name);
                     return (
                       <Box
@@ -1489,7 +1487,7 @@ export default function NutritionPage() {
                       </Box>
                     );
                   })}
-                  {getFilteredNutritionItems().length === 0 && (
+                  {filteredNutritionItems.length === 0 && (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                       <Typography color="text.secondary">
                         No food items found matching your criteria
