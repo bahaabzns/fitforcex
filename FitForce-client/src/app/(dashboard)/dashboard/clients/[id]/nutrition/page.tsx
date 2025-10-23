@@ -1965,25 +1965,35 @@ export default function ClientNutritionPage() {
                         <Typography variant="subtitle2">
                           {currentMeals.find(m => m.id === selectedMealId)?.foodItems.length} food item(s)
                         </Typography>
-                        {selectedFoodItems.length > 0 && (
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            startIcon={<Trash size={16} />}
-                            onClick={() => {
-                              const ids = new Set(selectedFoodItems);
-                              setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
-                                ...m,
-                                foodItems: m.foodItems.filter(fi => !ids.has(fi.foodItem.id))
-                              }));
-                              setSelectedFoodItems([]);
-                              setIsPlanDirty(true);
-                            }}
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button 
+                            variant="contained" 
+                            size="small" 
+                            startIcon={<Add size={16} />} 
+                            onClick={() => setIsAddFoodDialogOpen(true)}
                           >
-                            Delete Selected ({selectedFoodItems.length})
+                            Add Food
                           </Button>
-                        )}
+                          {selectedFoodItems.length > 0 && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<Trash size={16} />}
+                              onClick={() => {
+                                const ids = new Set(selectedFoodItems);
+                                setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
+                                  ...m,
+                                  foodItems: m.foodItems.filter(fi => !ids.has(fi.foodItem.id))
+                                }));
+                                setSelectedFoodItems([]);
+                                setIsPlanDirty(true);
+                              }}
+                            >
+                              Delete Selected ({selectedFoodItems.length})
+                            </Button>
+                          )}
+                        </Box>
                       </Box>
                 <List>
                         {currentMeals.find(m => m.id === selectedMealId)?.foodItems.map((item) => {
@@ -2094,7 +2104,16 @@ export default function ClientNutritionPage() {
                     </Box>
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography color="text.secondary">No food items added yet</Typography>
+                      <Typography color="text.secondary" sx={{ mb: 2 }}>No food items added yet</Typography>
+                      <Button 
+                        variant="contained" 
+                        size="small" 
+                        startIcon={<Add size={16} />} 
+                        onClick={() => setIsAddFoodDialogOpen(true)}
+                        sx={{ minWidth: 120 }}
+                      >
+                        Add Food
+                      </Button>
                     </Box>
                   )}
                 </Box>

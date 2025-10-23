@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import {
   Box,
@@ -20,6 +20,7 @@ import { Menu as MenuIcon, Category, Apple, Activity, Card } from '@wandersonalw
 import Link from 'next/link';
 import { useGetMenuMaster } from '@/api/menu';
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH } from '@/config';
+import { useClientSidebar } from '@/contexts/ClientSidebarContext';
 
 // ==============================|| CLIENT DRAWER - MINI STYLED ||============================== //
 
@@ -68,19 +69,19 @@ const ClientDrawerStyled = styled(Drawer, { shouldForwardProp: (prop) => prop !=
   })
 }));
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+function ClientLayoutContent({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const pathname = usePathname();
   const id = params?.id as string;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
-  const [open, setOpen] = useState(!isMobile);
+  const { isOpen: open, setIsOpen: setOpen } = useClientSidebar();
   const { menuMaster } = useGetMenuMaster();
   const mainDrawerOpen = menuMaster.isDashboardDrawerOpened;
 
   useEffect(() => {
     setOpen(!isMobile);
-  }, [isMobile]);
+  }, [isMobile, setOpen]);
 
   const links = [
     { href: `/dashboard/clients/${id}/overview`, label: 'Overview', icon: Category },
@@ -233,8 +234,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen
           }),
-          marginLeft: `${mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH}px`,
-          marginRight: open && !isMobile ? `${open ? 200 : 60}px` : '0px'
+          marginLeft: '50px', // Main dashboard layout handles main sidebar spacing
+          marginRight: '0px' // Remove margin - sidebar should overlay without affecting layout
         }}
       >
         {children}
@@ -246,10 +247,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           variant="permanent" 
           open={open}
           sx={{
+            position: 'absolute',
+            left: -20, // Position at the very left edge of the content area (right after main sidebar)
+            top: 0,
+            height: '100vh',
+            zIndex: 1200,
             '& .MuiDrawer-paper': {
+              position: 'absolute',
               top: 64,
               height: 'calc(100vh - 64px)',
-              left: mainDrawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH,
+              left: 0,
+              right: 'auto',
               zIndex: 1200,
               overflowX: 'hidden',
               overflowY: 'auto'
@@ -283,4 +291,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       )}
     </Box>
   );
+}
+
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  return <ClientLayoutContent>{children}</ClientLayoutContent>;
 }
