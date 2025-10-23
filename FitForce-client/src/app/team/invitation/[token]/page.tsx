@@ -51,7 +51,7 @@ export default function TeamInvitationPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Signup form state
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -112,8 +112,8 @@ export default function TeamInvitationPage() {
     if (!invitation) return;
 
     // Validation
-    if (!fullName.trim()) {
-      setError('Please enter your full name');
+    if (!firstName.trim()) {
+      setError('Please enter your first name');
       return;
     }
     if (!password || password.length < 6) {
@@ -129,9 +129,9 @@ export default function TeamInvitationPage() {
     setError(null);
 
     try {
-      // 1. Create account
+      // 1. Create account - set fullName to firstName
       await api.post('/api/auth/signup', {
-        fullName: fullName.trim(),
+        fullName: firstName.trim(), // Set fullName to firstName
         email: invitation.email,
         password,
         lastName: lastName.trim() || undefined,
@@ -391,9 +391,9 @@ export default function TeamInvitationPage() {
                 </Alert>
                 
                 <TextField
-                  label="Full Name *"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  label="First Name *"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                   fullWidth
                   disabled={signupLoading}
                   InputProps={{

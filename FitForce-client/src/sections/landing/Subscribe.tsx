@@ -39,7 +39,7 @@ export default function SubscribePage() {
                     color="primary"
                     size="large"
                     component={Link}
-                    href="https://phoenixcoded.authordesk.app/"
+                    href="https://wa.me/201006206308"
                     target="_blank"
                   >
                     Get Support

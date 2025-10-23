@@ -38,6 +38,9 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
 import Avatar from '@mui/material/Avatar';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import InputAdornment from '@mui/material/InputAdornment';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -47,7 +50,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { CSVExport, RowSelection } from 'components/third-party/react-table';
 
 // Icons
-import { Add, Edit, Trash, DocumentUpload, Warning2 } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, DocumentUpload, Warning2, SearchNormal1 } from '@wandersonalwes/iconsax-react';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -215,6 +218,8 @@ export default function WorkoutPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
+  const [importSearchTerm, setImportSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'builder' | 'logs' | 'ca_day'>('builder');
   // CaDay catalog state
   const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string; urls?: string[] }>>([]);
@@ -416,6 +421,7 @@ export default function WorkoutPage() {
     setIsImportDialogOpen(true);
     setLoadingDefaults(true);
     setError(null);
+    resetImportDialog();
     try {
       const response = await api.get('/api/workout/exercises/defaults');
       setDefaultItems(response.data.exercises || []);
@@ -458,7 +464,7 @@ export default function WorkoutPage() {
       const itemsToImport = defaultItems.filter(item => selectedItems.has(item.name));
       await api.post('/api/workout/exercises/import-selected', { items: itemsToImport });
       setIsImportDialogOpen(false);
-      setSelectedItems(new Set());
+      resetImportDialog();
       // Refresh the list
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
@@ -467,6 +473,67 @@ export default function WorkoutPage() {
     } finally {
       setImporting(false);
     }
+  };
+
+  // Helper functions for improved import dialog
+  const getCategories = () => {
+    const categories = new Set(defaultItems.map(item => item.category).filter(Boolean));
+    return Array.from(categories).sort();
+  };
+
+  const getFilteredExercises = () => {
+    let filtered = defaultItems;
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(item => item.category === selectedCategory);
+    }
+
+    // Filter by search term
+    if (importSearchTerm.trim()) {
+      const term = importSearchTerm.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(term) ||
+        item.muscleGroup.toLowerCase().includes(term) ||
+        (item.category && item.category.toLowerCase().includes(term))
+      );
+    }
+
+    return filtered;
+  };
+
+  const handleSelectAllInCategory = () => {
+    const filteredExercises = getFilteredExercises();
+    const filteredNames = new Set(filteredExercises.map(item => item.name));
+    
+    // Check if all filtered exercises are selected
+    const allSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
+    
+    if (allSelected) {
+      // Deselect all filtered exercises
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        filteredNames.forEach(name => newSet.delete(name));
+        return newSet;
+      });
+    } else {
+      // Select all filtered exercises
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        filteredNames.forEach(name => newSet.add(name));
+        return newSet;
+      });
+    }
+  };
+
+  const handleCategoryChange = (event: SyntheticEvent, newValue: string) => {
+    setSelectedCategory(newValue);
+  };
+
+  const resetImportDialog = () => {
+    setImportSearchTerm('');
+    setSelectedCategory('all');
+    setSelectedItems(new Set());
   };
 
   if (!workspaceId) {
@@ -576,7 +643,7 @@ export default function WorkoutPage() {
       {/* Tabs */}
       <Stack direction="row" spacing={1}>
         <Button variant={activeTab === 'builder' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('builder')}>Builder</Button>
-        <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button>
+        {/* <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button> */}
       </Stack>
 
       {/* Exercises Table */}
@@ -799,7 +866,7 @@ export default function WorkoutPage() {
         </MainCard>
       ))}
 
-      {activeTab === 'logs' && (
+      {/* {activeTab === 'logs' && (
         <MainCard title="Workout Logs" secondary={<Button variant="outlined" size="small" onClick={() => refreshLogs()}>Refresh</Button>}>
           {logsLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -837,7 +904,7 @@ export default function WorkoutPage() {
             </>
           )}
         </MainCard>
-      )}
+      )} */}
 
       {activeTab === 'ca_day' && (
         <MainCard title="ca_day" secondary={<Button variant="contained" size="small" onClick={() => setIsAddCaDayOpen(true)}>Add</Button>}>
@@ -1009,11 +1076,54 @@ export default function WorkoutPage() {
             </Box>
           ) : (
             <>
+              {/* Search Bar */}
+              <TextField
+                fullWidth
+                placeholder="Search exercises by name, muscle group, or category..."
+                value={importSearchTerm}
+                onChange={(e) => setImportSearchTerm(e.target.value)}
+                sx={{ mb: 3 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchNormal1 size={20} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              {/* Category Tabs */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                <Tabs
+                  value={selectedCategory}
+                  onChange={handleCategoryChange}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  allowScrollButtonsMobile
+                >
+                  <Tab label="All" value="all" />
+                  {getCategories().map((category) => (
+                    <Tab key={category} label={category} value={category} />
+                  ))}
+                </Tabs>
+              </Box>
+
               {/* Selection Controls */}
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
                 <Typography variant="body2" color="text.secondary">
                   {selectedItems.size} of {defaultItems.length} selected
+                  {getFilteredExercises().length !== defaultItems.length && (
+                    <span> ({getFilteredExercises().length} shown)</span>
+                  )}
                 </Typography>
+                <Button variant="outlined" size="small" onClick={handleSelectAllInCategory}>
+                  {(() => {
+                    const filteredExercises = getFilteredExercises();
+                    const filteredNames = new Set(filteredExercises.map(item => item.name));
+                    const allFilteredSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
+                    return allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredExercises.length})`;
+                  })()}
+                </Button>
                 <Button variant="outlined" size="small" onClick={handleSelectAllImport}>
                   {selectedItems.size === defaultItems.length ? 'Deselect All' : `Select All (${defaultItems.length})`}
                 </Button>
@@ -1022,7 +1132,7 @@ export default function WorkoutPage() {
               {/* Exercises Grid */}
               <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
                 <Stack spacing={2}>
-                  {defaultItems.map((item) => {
+                  {getFilteredExercises().map((item) => {
                     const isSelected = selectedItems.has(item.name);
                     return (
                       <Box
@@ -1043,8 +1153,11 @@ export default function WorkoutPage() {
                             <Typography variant="subtitle1" fontWeight={600}>
                               {item.name}
                             </Typography>
-                            <Stack direction="row" spacing={3} sx={{ mt: 1 }}>
+                            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                               <Chip label={item.muscleGroup} variant="outlined" size="small" />
+                              {item.category && (
+                                <Chip label={item.category} variant="outlined" size="small" color="secondary" />
+                              )}
                             </Stack>
                           </Box>
                           <Box
@@ -1070,6 +1183,13 @@ export default function WorkoutPage() {
                       </Box>
                     );
                   })}
+                  {getFilteredExercises().length === 0 && (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography color="text.secondary">
+                        No exercises found matching your criteria
+                      </Typography>
+                    </Box>
+                  )}
                 </Stack>
               </Box>
             </>

@@ -36,7 +36,9 @@ import {
   AddCircle,
   Edit,
   Trash,
-  Copy
+  Copy,
+  AttachFile,
+  Close
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -175,6 +177,9 @@ export default function ClientWorkoutPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Workout log details dialog state
   const [workoutLogDetailsOpen, setWorkoutLogDetailsOpen] = useState(false);
@@ -422,15 +427,50 @@ export default function ClientWorkoutPage() {
   }, [loadChatMessages]);
 
   const handleSendChat = async () => {
-    if (!chatThreadId || !chatInput.trim()) return;
-    const text = chatInput.trim();
-    setChatInput('');
+    if (!chatThreadId || (!chatInput.trim() && attachments.length === 0)) return;
+    
+    setUploading(true);
     try {
-      await api.post(`/api/messenger/threads/${chatThreadId}/messages`, { body: text });
+      // Upload files first if any
+      let uploadedFiles: any[] = [];
+      if (attachments.length > 0) {
+        const formData = new FormData();
+        attachments.forEach((file) => {
+          formData.append('files', file);
+        });
+        
+        const { data } = await api.post('/api/messenger/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        uploadedFiles = data.files || [];
+      }
+
+      // Send message with attachments
+      await api.post(`/api/messenger/threads/${chatThreadId}/messages`, { 
+        body: chatInput.trim() || '(attachment)',
+        attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined
+      });
+      
+      setChatInput('');
+      setAttachments([]);
       await loadChatMessages();
-    } catch {
+    } catch (error) {
+      console.error('Failed to send message:', error);
       setChatError('Failed to send message');
+    } finally {
+      setUploading(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setAttachments([file]); // Only allow one file
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Load workspace exercises
@@ -1313,8 +1353,47 @@ export default function ClientWorkoutPage() {
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
                       fullWidth
                     />
-                    <Button variant="contained" onClick={handleSendChat} disabled={!chatInput.trim()}>Send</Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      hidden
+                      onChange={handleFileSelect}
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    />
+                    <IconButton
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      sx={{ 
+                        bgcolor: 'grey.100',
+                        '&:hover': { bgcolor: 'grey.200' }
+                      }}
+                    >
+                      <AttachFile />
+                    </IconButton>
+                    <Button 
+                      variant="contained" 
+                      onClick={handleSendChat} 
+                      disabled={(!chatInput.trim() && attachments.length === 0) || uploading}
+                    >
+                      {uploading ? 'Sending...' : 'Send'}
+                    </Button>
                   </Box>
+                  
+                  {/* Attachment preview */}
+                  {attachments.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      {attachments.map((file, index) => (
+                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                          <Typography variant="body2" sx={{ flex: 1 }}>
+                            {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </Typography>
+                          <IconButton size="small" onClick={() => handleRemoveAttachment(index)}>
+                            <Close />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
                 </Box>
               </Box>
             ) : (
@@ -1966,8 +2045,47 @@ export default function ClientWorkoutPage() {
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
                         fullWidth
                       />
-                      <Button variant="contained" onClick={handleSendChat} disabled={!chatInput.trim()}>Send</Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        hidden
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      />
+                      <IconButton
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        sx={{ 
+                          bgcolor: 'grey.100',
+                          '&:hover': { bgcolor: 'grey.200' }
+                        }}
+                      >
+                        <AttachFile />
+                      </IconButton>
+                      <Button 
+                        variant="contained" 
+                        onClick={handleSendChat} 
+                        disabled={(!chatInput.trim() && attachments.length === 0) || uploading}
+                      >
+                        {uploading ? 'Sending...' : 'Send'}
+                      </Button>
                     </Box>
+                    
+                    {/* Attachment preview */}
+                    {attachments.length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        {attachments.map((file, index) => (
+                          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                            <Typography variant="body2" sx={{ flex: 1 }}>
+                              {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                            </Typography>
+                            <IconButton size="small" onClick={() => handleRemoveAttachment(index)}>
+                              <Close />
+                            </IconButton>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
                   </Box>
                 </Box>
               ) : (

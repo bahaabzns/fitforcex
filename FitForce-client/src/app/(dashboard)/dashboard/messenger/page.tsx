@@ -237,9 +237,9 @@ export default function MessengerPage() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setAttachments((prev) => [...prev, ...files]);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setAttachments([file]); // Only allow one file
     }
   };
 
@@ -563,7 +563,6 @@ export default function MessengerPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      multiple
                       hidden
                       onChange={handleFileSelect}
                       accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"

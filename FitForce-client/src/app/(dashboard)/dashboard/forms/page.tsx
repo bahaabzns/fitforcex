@@ -34,7 +34,7 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
-import { Trash } from '@wandersonalwes/iconsax-react';
+import { Trash, Copy } from '@wandersonalwes/iconsax-react';
 
 type FormTemplate = {
   id: string;
@@ -96,6 +96,7 @@ export default function FormsPage() {
   const [customRequired, setCustomRequired] = useState<boolean>(false);
   const [customOptions, setCustomOptions] = useState<string>('');
   const [customError, setCustomError] = useState<string>('');
+  const [copying, setCopying] = useState<string | null>(null);
 
   useEffect(() => {
     if (!effectiveWorkspaceId) {
@@ -189,6 +190,51 @@ export default function FormsPage() {
     })) : [];
     setEditQuestions(mapped);
     setShowEdit(true);
+  };
+
+  const copyTemplate = async (template: FormTemplate) => {
+    setCopying(template.id);
+    setError(null);
+    try {
+      // Create a copy with modified title
+      const copyTitle = `${template.title} (Copy)`;
+      const copyTitleArabic = (template as any).titleArabic ? `${(template as any).titleArabic} (نسخة)` : undefined;
+      
+      // Map questions for the copy
+      const questions = Array.isArray(template.questions) ? template.questions.map((q: any) => ({
+        id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: q.name || q.question || q.label,
+        nameArabic: q.nameArabic || q.questionArabic,
+        question: q.question || q.name || q.label,
+        questionArabic: q.questionArabic || q.nameArabic,
+        type: q.type || 'text',
+        required: !!q.required,
+        options: q.options,
+        optionsArabic: q.optionsArabic
+      })) : [];
+
+      await api.post('/api/forms/templates', {
+        title: copyTitle,
+        titleArabic: copyTitleArabic,
+        type: template.type || 'nutrition',
+        questions
+      }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
+
+      // Refresh templates list
+      const res = await api.get('/api/forms/templates', { headers: { 'x-workspace-id': effectiveWorkspaceId } });
+      setTemplates(Array.isArray(res.data?.templates) ? res.data.templates : []);
+      
+      openSnackbar('Form copied successfully', 'success');
+    } catch (err: any) {
+      console.error('Copy template error:', err);
+      if (err.response?.data?.message?.includes('already exists')) {
+        setError('A form with this name already exists. Please rename the original form first.');
+      } else {
+        setError('Failed to copy form');
+      }
+    } finally {
+      setCopying(null);
+    }
   };
 
   const updateTemplate = async () => {
@@ -465,6 +511,15 @@ export default function FormsPage() {
                     <Button size="small" variant="outlined" onClick={() => openEdit(t)}>
                       Edit
                     </Button>
+                    <IconButton 
+                      size="small" 
+                      color="primary" 
+                      onClick={() => copyTemplate(t)}
+                      disabled={copying === t.id}
+                      title="Copy form"
+                    >
+                      <Copy size={16} />
+                    </IconButton>
                   </Stack>
                 </CardContent>
               </Card>

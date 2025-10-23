@@ -35,9 +35,11 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
 import Avatar from '@mui/material/Avatar';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import InputAdornment from '@mui/material/InputAdornment';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -47,7 +49,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { CSVExport, RowSelection } from 'components/third-party/react-table';
 
 // Icons
-import { Add, Edit, Trash, DocumentUpload } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, DocumentUpload, SearchNormal1 } from '@wandersonalwes/iconsax-react';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -300,6 +302,8 @@ export default function NutritionPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
+  const [nutritionImportSearchTerm, setNutritionImportSearchTerm] = useState('');
+  const [selectedNutritionCategory, setSelectedNutritionCategory] = useState<string>('all');
 
   // Recipes state
   type Recipe = { id: string; name: string; nameArabic?: string; imageUrl?: string; youtubeUrl?: string };
@@ -491,6 +495,7 @@ export default function NutritionPage() {
     setIsImportDialogOpen(true);
     setLoadingDefaults(true);
     setError(null);
+    resetNutritionImportDialog();
     try {
       const response = await api.get('/api/nutrition/food-items/defaults');
       setDefaultItems(response.data.foodItems || []);
@@ -533,7 +538,7 @@ export default function NutritionPage() {
       const itemsToImport = defaultItems.filter(item => selectedItems.has(item.name));
       await api.post('/api/nutrition/food-items/import-selected', { items: itemsToImport });
       setIsImportDialogOpen(false);
-      setSelectedItems(new Set());
+      resetNutritionImportDialog();
       // Refresh the list
       const response = await api.get('/api/nutrition/food-items');
       setFoodItems(response.data.foodItems || []);
@@ -542,6 +547,67 @@ export default function NutritionPage() {
     } finally {
       setImporting(false);
     }
+  };
+
+  // Helper functions for improved import dialog
+  const getNutritionCategories = () => {
+    const categories = new Set(defaultItems.map(item => item.category).filter(Boolean));
+    return Array.from(categories).sort();
+  };
+
+  const getFilteredNutritionItems = () => {
+    let filtered = defaultItems;
+
+    // Filter by category
+    if (selectedNutritionCategory !== 'all') {
+      filtered = filtered.filter(item => item.category === selectedNutritionCategory);
+    }
+
+    // Filter by search term
+    if (nutritionImportSearchTerm.trim()) {
+      const term = nutritionImportSearchTerm.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(term) ||
+        (item.nameArabic && item.nameArabic.toLowerCase().includes(term)) ||
+        (item.category && item.category.toLowerCase().includes(term))
+      );
+    }
+
+    return filtered;
+  };
+
+  const handleSelectAllInNutritionCategory = () => {
+    const filteredItems = getFilteredNutritionItems();
+    const filteredNames = new Set(filteredItems.map(item => item.name));
+    
+    // Check if all filtered items are selected
+    const allSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
+    
+    if (allSelected) {
+      // Deselect all filtered items
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        filteredNames.forEach(name => newSet.delete(name));
+        return newSet;
+      });
+    } else {
+      // Select all filtered items
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        filteredNames.forEach(name => newSet.add(name));
+        return newSet;
+      });
+    }
+  };
+
+  const handleNutritionCategoryChange = (event: SyntheticEvent, newValue: string) => {
+    setSelectedNutritionCategory(newValue);
+  };
+
+  const resetNutritionImportDialog = () => {
+    setNutritionImportSearchTerm('');
+    setSelectedNutritionCategory('all');
+    setSelectedItems(new Set());
   };
 
   if (!workspaceId) {
@@ -1303,11 +1369,54 @@ export default function NutritionPage() {
             </Box>
           ) : (
             <>
+              {/* Search Bar */}
+              <TextField
+                fullWidth
+                placeholder="Search food items by name, Arabic name, or category..."
+                value={nutritionImportSearchTerm}
+                onChange={(e) => setNutritionImportSearchTerm(e.target.value)}
+                sx={{ mb: 3 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchNormal1 size={20} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              {/* Category Tabs */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                <Tabs
+                  value={selectedNutritionCategory}
+                  onChange={handleNutritionCategoryChange}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  allowScrollButtonsMobile
+                >
+                  <Tab label="All" value="all" />
+                  {getNutritionCategories().map((category) => (
+                    <Tab key={category} label={category} value={category} />
+                  ))}
+                </Tabs>
+              </Box>
+
               {/* Selection Controls */}
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
                 <Typography variant="body2" color="text.secondary">
                   {selectedItems.size} of {defaultItems.length} selected
+                  {getFilteredNutritionItems().length !== defaultItems.length && (
+                    <span> ({getFilteredNutritionItems().length} shown)</span>
+                  )}
                 </Typography>
+                <Button variant="outlined" size="small" onClick={handleSelectAllInNutritionCategory}>
+                  {(() => {
+                    const filteredItems = getFilteredNutritionItems();
+                    const filteredNames = new Set(filteredItems.map(item => item.name));
+                    const allFilteredSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
+                    return allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredItems.length})`;
+                  })()}
+                </Button>
                 <Button variant="outlined" size="small" onClick={handleSelectAllImport}>
                   {selectedItems.size === defaultItems.length ? 'Deselect All' : `Select All (${defaultItems.length})`}
                 </Button>
@@ -1316,7 +1425,7 @@ export default function NutritionPage() {
               {/* Food Items Grid */}
               <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
                 <Stack spacing={2}>
-                  {defaultItems.map((item) => {
+                  {getFilteredNutritionItems().map((item) => {
                     const isSelected = selectedItems.has(item.name);
                     return (
                       <Box
@@ -1337,6 +1446,11 @@ export default function NutritionPage() {
                             <Typography variant="subtitle1" fontWeight={600}>
                               {item.name}
                             </Typography>
+                            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                              {item.category && (
+                                <Chip label={item.category} variant="outlined" size="small" color="secondary" />
+                              )}
+                            </Stack>
                             <Stack direction="row" spacing={3} sx={{ mt: 1 }}>
                               <Typography variant="body2" color="text.secondary">
                                 Calories: {item.calories}
@@ -1375,6 +1489,13 @@ export default function NutritionPage() {
                       </Box>
                     );
                   })}
+                  {getFilteredNutritionItems().length === 0 && (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography color="text.secondary">
+                        No food items found matching your criteria
+                      </Typography>
+                    </Box>
+                  )}
                 </Stack>
               </Box>
             </>

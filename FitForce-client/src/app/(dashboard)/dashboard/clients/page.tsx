@@ -578,7 +578,7 @@ export default function ClientsPage() {
                   <Edit />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Delete">
+              <Tooltip title="Archive">
                 <IconButton
                   color="error"
                   sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
@@ -713,19 +713,19 @@ export default function ClientsPage() {
     
     setDeleting(true);
     try {
-      console.log('Deleting client:', clientToDelete.id, clientToDelete.fullName);
+      console.log('Archiving client:', clientToDelete.id, clientToDelete.fullName);
       const response = await api.delete(`/api/clients/${clientToDelete.id}`);
-      console.log('Delete response:', response.data);
+      console.log('Archive response:', response.data);
       
       setDeleteDialogOpen(false);
       setClientToDelete(null);
       await refreshClients();
       setError(null);
     } catch (e: any) {
-      console.error('Delete client error:', e);
+      console.error('Archive client error:', e);
       console.error('Error response:', e.response?.data);
       console.error('Error status:', e.response?.status);
-      setError(e?.response?.data?.error || 'Failed to delete client');
+      setError(e?.response?.data?.error || 'Failed to archive client');
     } finally {
       setDeleting(false);
     }
@@ -1269,16 +1269,16 @@ export default function ClientsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Client Confirmation Dialog */}
+      {/* Archive Client Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Delete Client</DialogTitle>
+        <DialogTitle>Archive Client</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body1">
-              Are you sure you want to delete <strong>{clientToDelete?.fullName || clientToDelete?.name || 'this client'}</strong>?
+              Are you sure you want to archive <strong>{clientToDelete?.fullName || clientToDelete?.name || 'this client'}</strong>?
             </Typography>
             <Alert severity="warning">
-              This action cannot be undone. All client data including subscriptions, forms, and plans will be permanently deleted.
+              This will archive the client and prevent them from signing in. The client data will be preserved but hidden from the active clients list.
             </Alert>
           </Stack>
         </DialogContent>
@@ -1295,10 +1295,10 @@ export default function ClientsPage() {
             {deleting ? (
               <>
                 <CircularProgress size={20} sx={{ mr: 1 }} />
-                Deleting...
+                Archiving...
               </>
             ) : (
-              'Delete Client'
+              'Archive Client'
             )}
           </Button>
         </DialogActions>

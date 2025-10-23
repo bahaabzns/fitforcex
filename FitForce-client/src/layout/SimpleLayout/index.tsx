@@ -31,7 +31,6 @@ export default function SimpleLayout({ children }: Props) {
     <>
       <Header />
       {children}
-      <FooterBlock isFull={layout === 'landing'} />
     </>
   );
 }

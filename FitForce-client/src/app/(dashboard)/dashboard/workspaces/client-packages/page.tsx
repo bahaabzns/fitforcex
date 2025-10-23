@@ -65,6 +65,11 @@ export default function WorkspaceClientPackagesPage() {
   const [editCurrency, setEditCurrency] = useState('EGP');
   const [editSaving, setEditSaving] = useState(false);
 
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [packageToDelete, setPackageToDelete] = useState<ClientPackage | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const fetchPackages = async () => {
     try {
       setError(null);
@@ -133,14 +138,32 @@ export default function WorkspaceClientPackagesPage() {
     }
   };
 
-  const deletePackage = async (pkg: ClientPackage) => {
+  const handleDeleteClick = (pkg: ClientPackage) => {
+    setPackageToDelete(pkg);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!packageToDelete) return;
+
     try {
+      setDeleteLoading(true);
       setError(null);
-      await api.delete(`/api/workspaces/${effectiveWorkspaceId}/client-packages/${pkg.id}`);
+      await api.delete(`/api/workspaces/${effectiveWorkspaceId}/client-packages/${packageToDelete.id}`);
       await fetchPackages();
+      setDeleteDialogOpen(false);
+      setPackageToDelete(null);
+      setSuccessMsg('Package deleted successfully');
     } catch (e) {
       setError('Failed to delete package');
+    } finally {
+      setDeleteLoading(false);
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setPackageToDelete(null);
   };
 
   const handleEditPackage = (pkg: ClientPackage) => {
@@ -326,7 +349,7 @@ export default function WorkspaceClientPackagesPage() {
                       <IconButton aria-label="edit" color="primary" onClick={() => handleEditPackage(pkg)}>
                         <EditIcon />
                       </IconButton>
-                      <IconButton aria-label="delete" color="error" onClick={() => deletePackage(pkg)}>
+                      <IconButton aria-label="delete" color="error" onClick={() => handleDeleteClick(pkg)}>
                         <DeleteIcon />
                       </IconButton>
                     </Stack>
@@ -405,6 +428,51 @@ export default function WorkspaceClientPackagesPage() {
               sx={{ minWidth: 140 }}
             >
               {editSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onClose={cancelDelete} maxWidth="sm" fullWidth>
+          <DialogTitle>Delete Package</DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Are you sure you want to delete this package? This action cannot be undone.
+            </Typography>
+            {packageToDelete && (
+              <Card variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom>{packageToDelete.name}</Typography>
+                {packageToDelete.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {packageToDelete.description}
+                  </Typography>
+                )}
+                <Stack direction="row" spacing={1}>
+                  <Chip size="small" label={`Duration: ${packageToDelete.durationMonths} mo`} />
+                  <Chip size="small" color="primary" label={`Price: ${(packageToDelete.priceCents / 100).toFixed(2)} ${packageToDelete.currency}`} />
+                  <Chip size="small" color={packageToDelete.isActive ? 'success' : 'default'} label={packageToDelete.isActive ? 'Active' : 'Inactive'} />
+                </Stack>
+              </Card>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+            <Button 
+              onClick={cancelDelete} 
+              disabled={deleteLoading}
+              size="large"
+              sx={{ minWidth: 100 }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmDelete} 
+              variant="contained" 
+              color="error"
+              disabled={deleteLoading}
+              size="large"
+              sx={{ minWidth: 100 }}
+            >
+              {deleteLoading ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>
