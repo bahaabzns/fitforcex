@@ -19,7 +19,9 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  Chip
+  Chip,
+  Paper,
+  Avatar
 } from '@mui/material';
 import { PlayArrow, FitnessCenter } from '@mui/icons-material';
 import WorkoutTracking from '@/components/workout/WorkoutTracking';
@@ -154,7 +156,12 @@ export default function ClientWorkoutPlanDetail() {
               }}>
                 {d.items.map((it, i) => {
                   const videoId = it?.exercise?.videoUrl ? getYouTubeVideoId(it.exercise.videoUrl) : null;
-                  const thumbnailUrl = videoId ? getYouTubeThumbnail(videoId, 'medium') : null;
+                  const youtubeThumbnailUrl = videoId ? getYouTubeThumbnail(videoId, 'medium') : null;
+                  const gifUrl = it?.exercise?.gifImage || null;
+                  
+                  // Priority: YouTube thumbnail > GIF > nothing
+                  const mediaUrl = youtubeThumbnailUrl || gifUrl;
+                  const isYouTube = !!youtubeThumbnailUrl;
                   
                   return (
                     <Card 
@@ -175,45 +182,47 @@ export default function ClientWorkoutPlanDetail() {
                         }
                       }}
                     >
-                      {/* Exercise Thumbnail */}
-                      {thumbnailUrl && (
+                      {/* Exercise Media */}
+                      {mediaUrl && (
                         <Box sx={{ position: 'relative', height: 200 }}>
                           <CardMedia
                             component="img"
                             height="200"
-                            image={thumbnailUrl}
+                            image={mediaUrl}
                             alt={it.exercise?.name || 'Exercise'}
                             sx={{
                               objectFit: 'cover',
-                              cursor: 'pointer'
+                              cursor: isYouTube ? 'pointer' : 'default'
                             }}
-                            onClick={() => openYouTubeVideo(it.exercise.videoUrl)}
+                            onClick={() => isYouTube && openYouTubeVideo(it.exercise.videoUrl)}
                           />
-                          {/* Play Button Overlay */}
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              top: '50%',
-                              left: '50%',
-                              transform: 'translate(-50%, -50%)',
-                              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                              borderRadius: '50%',
-                              width: 60,
-                              height: 60,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.3s ease',
-                              '&:hover': {
-                                backgroundColor: 'rgba(255, 0, 0, 0.8)',
-                                transform: 'translate(-50%, -50%) scale(1.1)',
-                              }
-                            }}
-                            onClick={() => openYouTubeVideo(it.exercise.videoUrl)}
-                          >
-                            <PlayArrow sx={{ color: 'white', fontSize: 30 }} />
-                          </Box>
+                          {/* Play Button Overlay - only for YouTube videos */}
+                          {isYouTube && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                borderRadius: '50%',
+                                width: 60,
+                                height: 60,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(255, 0, 0, 0.8)',
+                                  transform: 'translate(-50%, -50%) scale(1.1)',
+                                }
+                              }}
+                              onClick={() => openYouTubeVideo(it.exercise.videoUrl)}
+                            >
+                              <PlayArrow sx={{ color: 'white', fontSize: 30 }} />
+                            </Box>
+                          )}
                         </Box>
                       )}
                       
