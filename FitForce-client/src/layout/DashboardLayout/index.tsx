@@ -26,11 +26,13 @@ import { useAppSelector, useAppDispatch } from '@/store';
 import { setWorkspace, clearWorkspace } from '@/store/slices/workspaceSlice';
 import { APP_CONFIG } from '@/lib/config';
 import MessengerBadgeSync from './MessengerBadgeSync';
+import { usePathname } from 'next/navigation';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const theme = useTheme();
+  const pathname = usePathname();
   const { menuMasterLoading } = useGetMenuMaster();
   const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
@@ -41,6 +43,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster?.isDashboardDrawerOpened ?? false;
   const { isOpen: clientSidebarOpen } = useClientSidebar();
+
+  // Check if we're on a client detail page
+  const isClientDetailPage = Boolean(pathname?.match(/^\/dashboard\/clients\/([^/]+)/));
 
   const isHorizontal = menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
 
@@ -131,15 +136,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (menuMasterLoading) return <Loader />;
 
-  // Calculate total sidebar width including client sidebar
-  const mainDrawerWidth = downLG ? 0 : (drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH - 300);
+  // Calculate drawer widths
+  const mainDrawerWidth = downLG ? 0 : (drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH);
   const clientSidebarWidth = 270; // CLIENT_DRAWER_WIDTH
-  const totalSidebarWidth =  downLG ? 0 : (
-    drawerOpen ?
-     (clientSidebarOpen ?
-       (mainDrawerWidth + clientSidebarWidth - 240) :
-        mainDrawerWidth  - 240 ) :
-         clientSidebarOpen? clientSidebarWidth + MINI_DRAWER_WIDTH -50 : MINI_DRAWER_WIDTH - 50);
+  
+  // Only account for client sidebar if we're on a client detail page AND it's open
+  const shouldShowClientSidebar = isClientDetailPage && clientSidebarOpen;
+  
+  // Calculate total sidebar width
+  const totalSidebarWidth = downLG ? 0 : (
+    shouldShowClientSidebar 
+      ? mainDrawerWidth + clientSidebarWidth
+      : mainDrawerWidth
+  );
 
   return (
     <Box sx={{ display: 'flex', width: '100%' }}> 
@@ -150,11 +159,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <ClientSidebarMobileDrawer />
 
       <Box component="main" sx={{ 
-        width: downLG ? '100%' : `calc(100% - ${totalSidebarWidth}px)`, 
         flexGrow: 1, 
         p: 0,
-        marginLeft: `${totalSidebarWidth}px`,
-        transition: theme.transitions.create(['width', 'margin-left'], {
+        marginLeft: downLG ? 0 : `${totalSidebarWidth - 240}px`,
+        transition: theme.transitions.create(['margin-left'], {
           easing: theme.transitions.easing.sharp,
           duration: theme.transitions.duration.leavingScreen
         })

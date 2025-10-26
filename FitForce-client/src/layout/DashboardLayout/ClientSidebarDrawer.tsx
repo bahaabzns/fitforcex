@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Drawer, Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { styled, CSSObject } from '@mui/material/styles';
@@ -48,12 +49,27 @@ export default function ClientSidebarDrawer() {
   const downLG = useMediaQuery(theme.breakpoints.down('lg'));
   const { menuMaster } = useGetMenuMaster();
   const mainDrawerOpen = menuMaster?.isDashboardDrawerOpened ?? false;
-  const { isOpen } = useClientSidebar();
+  const { isOpen, setIsOpen } = useClientSidebar();
+  const prevPathnameRef = useRef(pathname);
 
   // Extract client ID from pathname
   const clientIdMatch = pathname?.match(/^\/dashboard\/clients\/([^/]+)/);
   const isClientDetailPage = Boolean(clientIdMatch);
   const clientId = clientIdMatch?.[1];
+
+  // Auto-close sidebar when navigating away from client detail pages
+  useEffect(() => {
+    const isNowClientPage = pathname?.match(/^\/dashboard\/clients\/([^/]+)/);
+    const wasClientPage = prevPathnameRef.current?.match(/^\/dashboard\/clients\/([^/]+)/);
+    
+    // If we just left a client page and it's still open, close it
+    if (wasClientPage && !isNowClientPage && isOpen) {
+      setIsOpen(false);
+    }
+    
+    // Update previous pathname
+    prevPathnameRef.current = pathname;
+  }, [pathname, isOpen, setIsOpen]);
 
   // Don't render if not on client detail page or on mobile
   if (!isClientDetailPage || downLG || !clientId || !isOpen) {
