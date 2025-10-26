@@ -22,9 +22,12 @@ export default function MobileSwipeableSections({
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentSection, setCurrentSection] = useState(activeSection);
   const isScrollingProgrammatically = useRef(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentSectionRef = useRef(activeSection);
 
   useEffect(() => {
     setCurrentSection(activeSection);
+    currentSectionRef.current = activeSection;
     // Scroll to the active section when it changes from parent
     if (containerRef.current && activeSection !== currentSection) {
       isScrollingProgrammatically.current = true;
@@ -54,15 +57,31 @@ export default function MobileSwipeableSections({
       const sectionWidth = container.offsetWidth;
       const newSection = Math.round(scrollLeft / sectionWidth);
       
-      if (newSection !== currentSection && newSection >= 0 && newSection < sections.length) {
-        setCurrentSection(newSection);
-        onSectionChange?.(newSection);
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
       }
+      
+      // Only update section when scrolling has stopped or is very slow
+      // This prevents jumping multiple sections during fast swipes
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (newSection !== currentSectionRef.current && newSection >= 0 && newSection < sections.length) {
+          setCurrentSection(newSection);
+          currentSectionRef.current = newSection;
+          onSectionChange?.(newSection);
+        }
+      }, 100); // Wait 100ms after scrolling stops
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [currentSection, sections.length, onSectionChange]);
+    
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [sections.length, onSectionChange]);
 
 
   const goToSection = (index: number) => {
@@ -114,11 +133,12 @@ export default function MobileSwipeableSections({
           overflowY: 'hidden',
           scrollSnapType: 'x mandatory',
           scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch',
+          '-ms-overflow-style': 'none',
+          scrollbarWidth: 'none',
           '&::-webkit-scrollbar': {
             display: 'none'
-          },
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'none'
+          }
         }}
       >
         {sections.map((section, index) => (
@@ -129,9 +149,11 @@ export default function MobileSwipeableSections({
               width: '100%',
               height: '100%',
               scrollSnapAlign: 'start',
+              scrollSnapStop: 'always',
               overflowY: 'auto',
               px: 2,
               py: 2,
+              WebkitOverflowScrolling: 'touch',
               '&::-webkit-scrollbar': {
                 width: '4px'
               },

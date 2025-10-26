@@ -52,7 +52,10 @@ export default function Navigation() {
       } as unknown as NavItemType;
       return { items: [clientMenu] };
     }
+    
+    // Get the dashboard menu
     const dashboardMenu = getDashboardMenu(isWorkspaceSubdomain);
+    
     return {
       items: [dashboardMenu, ...menuItems.items.slice(1)] // Replace first item (dashboard) with dynamic one
     };

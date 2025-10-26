@@ -29,7 +29,8 @@ import {
   MenuItem,
   Alert,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Grid
 } from '@mui/material';
 import {
   Add,
@@ -38,7 +39,13 @@ import {
   Trash,
   Copy,
   AttachCircle,
-  CloseCircle
+  CloseCircle,
+  ArrowLeft2,
+  ArrowRight2,
+  Category,
+  DocumentText,
+  Setting2,
+  Messages2
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -130,6 +137,10 @@ export default function ClientWorkoutPage() {
   const [saving, setSaving] = useState(false);
   const [planQuery, setPlanQuery] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [editingPlanTitleId, setEditingPlanTitleId] = useState<string | null>(null);
+  const [editingPlanTitleValue, setEditingPlanTitleValue] = useState('');
+  const [editingDayTitleId, setEditingDayTitleId] = useState<string | null>(null);
+  const [editingDayTitleValue, setEditingDayTitleValue] = useState('');
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [pdfTemplates, setPdfTemplates] = useState<Array<{ id: string; name: string }>>([]);
   const [pdfTemplateId, setPdfTemplateId] = useState<string>('');
@@ -192,9 +203,9 @@ export default function ClientWorkoutPage() {
     setWorkoutLogDetailsOpen(true);
   };
 
-  // Load workout logs for this client (for Logs tab)
+  // Load workout logs for this client (disabled for now)
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
-    activeTab === 'logs' ? `client-${clientId}-workout-logs` : null,
+    null, // Disabled
     async () => {
       const params = new URLSearchParams();
       params.append('clientId', clientId);
@@ -812,7 +823,12 @@ export default function ClientWorkoutPage() {
             }))
           });
           
+          // Reload saved plans to get the newly saved plan
+          const refreshed = await api.get(`/api/clients/${clientId}/workout/plans`);
+          setSavedPlans(refreshed.data.plans || []);
+          
           setSelectedPlanId(newPlanId);
+          setLocalWorkoutPlan(null); // Clear local plan since it's now saved
           setIsPlanDirty(false);
           setSelectedDayIndex(0);
           openSnackbar({
@@ -1086,64 +1102,65 @@ export default function ClientWorkoutPage() {
   return (
     <Stack spacing={1}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 1 }}>Workout Maker</Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h5" sx={{ ml: { xs: 2, md: 0 } }}>{clientName || 'Client'}</Typography>
+        <Stack direction="row" spacing={1} sx={{ mr: { xs: 2, md: 0 } }}>
             {localWorkoutPlan && isPlanDirty && (
-              <Button
-                variant="contained"
-                size="large"
-                onClick={saveLocalPlan}
-                disabled={saving}
-                startIcon={saving ? <CircularProgress size={20} /> : null}
-                sx={{ 
-                  boxShadow: 2,
-                  '&:hover': {
-                    boxShadow: 4
-                  }
-                }}
-              >
-                {saving ? 'Saving...' : 'Save Plan'}
+            <Button variant="outlined" onClick={saveLocalPlan} disabled={saving}>
+              {saving ? 'Saving...' : 'Save'}
               </Button>
             )}
-            {/* Activate selected saved plan */}
             {selectedPlanId && !String(selectedPlanId).startsWith('local_') && (
-              <Button
-                variant="contained"
-                color="success"
-                size="small"
-                onClick={handleActivatePlan}
-                disabled={activating}
-              >
+            <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={activating}>
                 {activating ? 'Activating…' : 'Activate'}
               </Button>
             )}
           </Stack>
-        </Box>
-        <Chip label={`Client: ${clientId}`} variant="outlined" />
       </Box>
 
-      {/* Tabs */}
-      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-        <Button variant={activeTab === 'builder' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('builder')}>Builder</Button>
-        <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button>
-      </Stack>
-
       {/* Main Content */}
-      {activeTab === 'builder' && (isMobile ? (
+      {(isMobile ? (
         <MobileSwipeableSections
           sections={[
             // Section 1: Plans
             <Card key="plans" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <CardHeader
             title={
-              <Tabs value={plansTab} onChange={(_, v) => setPlansTab(v)} variant="scrollable" allowScrollButtonsMobile>
-                <Tab label="Plans" />
-                <Tab label="Forms" />
-                <Tab label="Tools" />
-                <Tab label="Chat" />
-              </Tabs>
+              <Box sx={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin' }}>
+                <Tabs 
+                  value={plansTab} 
+                  onChange={(_, v) => setPlansTab(v)} 
+                  variant="scrollable" 
+                  allowScrollButtonsMobile 
+                  scrollButtons="auto"
+                  sx={{
+                    '& .MuiTab-root': {
+                      minWidth: 48
+                    }
+                  }}
+                >
+                  <Tab 
+                    label=""
+                    icon={<Category size={20} />}
+                    iconPosition="top"
+                  />
+                  <Tab 
+                    label=""
+                    icon={<DocumentText size={20} />}
+                    iconPosition="top"
+                  />
+                  <Tab 
+                    label=""
+                    icon={<Setting2 size={20} />}
+                    iconPosition="top"
+                  />
+                  <Tab 
+                    label=""
+                    icon={<Messages2 size={20} />}
+                    iconPosition="top"
+                  />
+                </Tabs>
+              </Box>
             }
             subheader={
               plansTab === 0 ? (
@@ -1175,18 +1192,6 @@ export default function ClientWorkoutPage() {
                   value={planQuery}
                   onChange={(e) => setPlanQuery(e.target.value)}
                 />
-                {selectedPlanId && (
-                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={handleActivateWorkoutPlan}
-                      sx={{ flex: 1 }}
-                    >
-                      Activate
-                    </Button>
-                  </Stack>
-                )}
                 </Box>
               ) : null
             }
@@ -1198,45 +1203,37 @@ export default function ClientWorkoutPage() {
                 <CircularProgress />
               </Box>
               ) : (
-              <List>
-                {/* Local Plan (if exists) */}
-                {localWorkoutPlan && localWorkoutPlan.id.startsWith('local_') && (
-                  <ListItem
-                    key={localWorkoutPlan.id}
-                    component="div"
-                    onClick={() => {
-                      setSelectedPlanId(localWorkoutPlan.id);
-                      setSelectedDayIndex(0);
-                    }}
-                    sx={{ 
-                      backgroundColor: 'primary.lighter',
-                      border: '1px solid',
-                      borderColor: 'primary.main',
-                      borderRadius: 1,
-                      mb: 1,
-                      cursor: 'pointer',
-                      '&:hover': {
-                        bgcolor: 'primary.light'
-                      }
-                    }}
-                  >
-                    <ListItemText
-                      primary={`${localWorkoutPlan.title} (Draft)`}
-                      secondary={`Local draft • ${localWorkoutPlan.days.length} days`}
-                    />
-                  </ListItem>
-                )}
-                
-                {/* Saved Plans */}
-                {savedPlans
+              <Grid container spacing={2} direction="column">
+                {/* Combine local plan with saved plans */}
+                {[
+                  // Add local draft plan if it exists
+                  ...(localWorkoutPlan && localWorkoutPlan.id.startsWith('local_') 
+                    ? [{
+                        id: localWorkoutPlan.id,
+                        title: localWorkoutPlan.title,
+                        days: localWorkoutPlan.days
+                      }]
+                    : []),
+                  ...savedPlans
+                ]
                   .filter(plan => plan.title.toLowerCase().includes(planQuery.toLowerCase()))
-                  .map((plan) => (
-                  <ListItem
-                    key={plan.id}
-                    component="div"
+                  .map((plan: any) => {
+                    const isSelected = selectedPlanId === plan.id;
+                    const isDraft = plan.isDraft;
+                    return (
+                      <Grid item xs={12} key={plan.id}>
+                        <Card
                     onClick={async () => {
                       setSelectedPlanId(plan.id);
                       if (isMobile) setMobileSection(1);
+                            
+                            // If it's a draft, we already have it in localWorkoutPlan
+                            if (isDraft) {
+                              setSelectedDayIndex(0);
+                              return;
+                            }
+                            
+                            // Otherwise fetch from server
                       try {
                         const daysRes = await api.get(`/api/workout/plans/${plan.id}/days`, {
                           params: { t: Date.now() },
@@ -1293,26 +1290,89 @@ export default function ClientWorkoutPage() {
                         setSelectedDayIndex(0);
                       } catch {}
                     }}
-                  >
-                  <ListItemText
-                      primary={plan.title}
-                      secondary={
-                        `${plan.status ? `Status: ${plan.status} • ` : ''}Created: ${plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'Unknown'} • ${plan.days?.length || 0} days`
-                      }
-                    />
-                    </ListItem>
-                  ))}
+                          sx={{
+                            cursor: 'pointer',
+                            border: '1px solid',
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+                            position: 'relative',
+                            '&:hover .plan-actions': { opacity: 1 }
+                          }}
+                        >
+                          <CardContent sx={{ py: 1.25 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 60 }}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>
+                                {plan.title}
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  {plan.status ? `Status: ${plan.status} • ` : ''}{plan.createdAt ? `Created: ${new Date(plan.createdAt).toLocaleDateString()} • ` : ''}{plan.days?.length || 0} days
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  {plan.status && (
+                                    <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} />
+                                  )}
+                                </Box>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                          <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                              <IconButton 
+                                size="small" 
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    setCopyingPlanId(plan.id);
+                                    await api.post(`/api/workout/plans/${plan.id}/copy`, { targetClientId: clientId });
+                                    await loadSavedPlans();
+                                    openSnackbar({ open: true, message: 'Workout plan copied', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+                                  } catch (e) {
+                                    openSnackbar({ open: true, message: 'Failed to copy plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+                                  } finally {
+                                    setCopyingPlanId(null);
+                                  }
+                                }}
+                                disabled={copyingPlanId === plan.id} 
+                                title="Copy plan" 
+                                sx={{ '&:hover': { bgcolor: 'action.selected' } }}
+                              >
+                                <Copy size={16} />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                color="error" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm('Delete this plan?')) {
+                                    handleDeletePlan(plan.id);
+                                  }
+                                }}
+                                title="Delete plan" 
+                                sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
+                              >
+                                <Trash size={16} />
+                              </IconButton>
+                            </Box>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
                 
-                {savedPlans.length === 0 && (
-                  <ListItem>
-                    <ListItemText
-                      primary="No plans yet"
-                      secondary="Create your first workout plan"
-                      sx={{ textAlign: 'center' }}
-                    />
-                  </ListItem>
+                {savedPlans.length === 0 && !localWorkoutPlan?.id.startsWith('local_') && (
+                  <Grid item xs={12}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="body1" sx={{ textAlign: 'center' }}>
+                          No plans yet
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}>
+                          Create your first workout plan
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
                 )}
-              </List>
+              </Grid>
             )
             ) : plansTab === 1 ? (
               <Box sx={{ py: 2 }}>
@@ -1462,17 +1522,46 @@ export default function ClientWorkoutPage() {
 
             // Section 2: Days
             <Card key="days" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <CardHeader
-              title={
-                localWorkoutPlan ? (
-                  <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="scrollable" allowScrollButtonsMobile>
-                    <Tab label="Days" />
-                  </Tabs>
-                ) : 'Days'
-              }
-              action={
-                localWorkoutPlan ? (
-                  cardioTab === 0 ? (
+            <CardContent sx={{ pb: 0 }}>
+              {/* Row 1: Plan name with close */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {editingPlanTitleId === localWorkoutPlan?.id ? (
+                    <TextField
+                      size="small"
+                      value={editingPlanTitleValue}
+                      autoFocus
+                      onChange={(e) => setEditingPlanTitleValue(e.target.value)}
+                      onBlur={() => {
+                        if (localWorkoutPlan) {
+                          setLocalWorkoutPlan((prev) => prev ? { ...prev, title: editingPlanTitleValue || prev.title } : null);
+                          setIsPlanDirty(true);
+                        }
+                        setEditingPlanTitleId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        if (e.key === 'Escape') setEditingPlanTitleId(null);
+                      }}
+                    />
+                  ) : (
+                    <Typography 
+                      variant="h6" 
+                      onClick={() => {
+                        if (localWorkoutPlan) {
+                          const t = localWorkoutPlan.title || '';
+                          setEditingPlanTitleId(localWorkoutPlan.id);
+                          setEditingPlanTitleValue(t);
+                        }
+                      }} 
+                      sx={{ cursor: 'text' }}
+                    >
+                      {localWorkoutPlan?.title || 'Plan'}
+                    </Typography>
+                  )}
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {localWorkoutPlan && cardioTab === 0 && (
                     <Button
                       variant="contained"
                       size="small"
@@ -1481,29 +1570,35 @@ export default function ClientWorkoutPage() {
                     >
                       Add Day
                     </Button>
-                  ) : null
-                ) : null
-              }
-            />
-            <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+                  )}
+                  <IconButton size="medium" onClick={clearLocalPlan} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
+                </Box>
+              </Box>
+
+              {/* Tabs */}
+              {localWorkoutPlan && (
+                <Box>
+                  <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="fullWidth">
+                    <Tab label="Days" />
+                  </Tabs>
+                </Box>
+              )}
+            </CardContent>
+            <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', display: 'flex', p: 0, '&:last-child': { pb: 0 } }}>
               {localWorkoutPlan ? (
                 cardioTab === 0 ? (
                   // Days tab content
-                  <>
+                  <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
                     {localWorkoutPlan.days.map((day, index) => (
                       <Card
                       key={day.id}
                         sx={{ 
-                          mb: 2,
-                          cursor: 'pointer',
-                          border: '2px solid',
-                          borderColor: selectedDayIndex === index ? 'primary.main' : 'transparent',
-                          transition: 'all 0.2s',
+                          border: selectedDayIndex === index ? 2 : 1,
+                          borderColor: selectedDayIndex === index ? 'primary.main' : 'divider',
                           bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
-                          '&:hover': {
-                            borderColor: 'primary.main',
-                            boxShadow: 2
-                          }
+                          cursor: 'pointer',
+                          position: 'relative',
+                          '&:hover .day-actions': { opacity: 1 }
                         }}
                       onClick={() => {
                         setSelectedDayIndex(index);
@@ -1513,48 +1608,80 @@ export default function ClientWorkoutPage() {
                         }
                       }}
                     >
-                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Box sx={{ flex: 1 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                <Chip 
-                                  label={`Day ${index + 1}`} 
-                                  size="small" 
-                                  color={selectedDayIndex === index ? "primary" : "default"}
-                                  sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }} 
-                                />
-                                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                                  {day.title}
-                                </Typography>
-                              </Box>
-                              <Typography variant="body2" color="textSecondary">
+                        <CardHeader title={day.title} />
+                        <CardContent>
+                          <Typography variant="body2" color="text.secondary">
                                 {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
                               </Typography>
-                              {(day as any).caDay && (
-                                <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  {(day as any).caDay.imageUrl && <img src={(day as any).caDay.imageUrl} alt="ca_day" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4 }} />}
-                                  <Typography variant="caption" color="text.secondary">ca_day: {(day as any).caDay.name}</Typography>
-                                </Box>
-                              )}
-                            </Box>
-                            {selectedDayIndex === index && (
-                              <Chip 
-                                label="Selected" 
-                                size="small" 
-                                color="primary"
-                                sx={{ fontWeight: 500 }}
-                              />
-                            )}
-                            <Button size="small" variant="outlined" onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDayIndex(index);
-                              setCaDayDialogOpen(true);
-                            }}>Choose ca_day</Button>
-                          </Box>
                         </CardContent>
+                        <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                          <IconButton 
+                                size="small" 
+                            title="Copy day"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!localWorkoutPlan) return;
+                              const newId = `day_${Date.now()}`;
+                              const copiedDay = {
+                                ...day,
+                                id: newId,
+                                exercises: day.exercises.map((ex: any, idx: number) => ({
+                                  ...ex,
+                                  id: `exercise_${Date.now()}_${idx}_${Math.random()}`
+                                }))
+                              };
+                              setLocalWorkoutPlan(prev => prev ? {
+                                ...prev,
+                                days: [...prev.days, copiedDay]
+                              } : null);
+                              setIsPlanDirty(true);
+                            }}
+                            sx={{ '&:hover': { bgcolor: 'action.selected' } }}
+                          >
+                            <Copy size={16} />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            title="Delete day"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!localWorkoutPlan) return;
+                              if (window.confirm('Delete this day?')) {
+                                setLocalWorkoutPlan(prev => prev ? {
+                                  ...prev,
+                                  days: prev.days.filter((_, i) => i !== index)
+                                } : null);
+                                if (selectedDayIndex === index) {
+                                  setSelectedDayIndex(0);
+                                } else if (selectedDayIndex > index) {
+                                  setSelectedDayIndex(selectedDayIndex - 1);
+                                }
+                                setIsPlanDirty(true);
+                              }
+                            }}
+                            sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
+                          >
+                            <Trash size={16} />
+                          </IconButton>
+                          </Box>
                       </Card>
                   ))}
+                  
+                  <Box>
+                    <Card
+                      sx={{
+                        border: '1px dashed',
+                        borderColor: 'divider',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      onClick={() => setIsCreateDayDialogOpen(true)}
+                    >
+                      <Button startIcon={<Add size={16} />}>Add Day</Button>
+                    </Card>
+                  </Box>
                   
                   {localWorkoutPlan.days.length === 0 && (
                       <Box sx={{ 
@@ -1568,20 +1695,9 @@ export default function ClientWorkoutPage() {
                         <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
                           No days yet
                         </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          Add your first workout day
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          startIcon={<Add size={20} />}
-                          onClick={() => setIsCreateDayDialogOpen(true)}
-                          sx={{ mt: 1 }}
-                        >
-                          Add First Day
-                        </Button>
                       </Box>
                     )}
-                  </>
+                  </Box>
                 ) : null
               ) : (
                 <Box sx={{ 
@@ -1605,18 +1721,57 @@ export default function ClientWorkoutPage() {
 
             // Section 3: Exercises
             <Card key="exercises" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <CardHeader
-              title={localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] ? `Exercises - ${localWorkoutPlan.days[selectedDayIndex].title}` : 'Exercises'}
-              action={
-                localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] ? (
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant="outlined"
+            <CardContent sx={{ pb: 1 }}>
+              {/* Row 1: Day name with close */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] ? (
+                    editingDayTitleId === localWorkoutPlan.days[selectedDayIndex].id ? (
+                      <TextField
                       size="small"
-                      onClick={() => setCaDayDialogOpen(true)}
-                    >
-                      Choose ca_day
-                    </Button>
+                        value={editingDayTitleValue}
+                        autoFocus
+                        onChange={(e) => setEditingDayTitleValue(e.target.value)}
+                        onBlur={() => {
+                          if (localWorkoutPlan) {
+                            setLocalWorkoutPlan((prev) => prev ? {
+                              ...prev,
+                              days: prev.days.map((day, idx) => 
+                                idx === selectedDayIndex 
+                                  ? { ...day, title: editingDayTitleValue || day.title }
+                                  : day
+                              )
+                            } : null);
+                            setIsPlanDirty(true);
+                          }
+                          setEditingDayTitleId(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          if (e.key === 'Escape') setEditingDayTitleId(null);
+                        }}
+                      />
+                    ) : (
+                      <Typography 
+                        variant="h6" 
+                        onClick={() => {
+                          if (localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex]) {
+                            const t = localWorkoutPlan.days[selectedDayIndex].title || '';
+                            setEditingDayTitleId(localWorkoutPlan.days[selectedDayIndex].id);
+                            setEditingDayTitleValue(t);
+                          }
+                        }} 
+                        sx={{ cursor: 'text' }}
+                      >
+                        {localWorkoutPlan?.days[selectedDayIndex]?.title || 'Day'}
+                      </Typography>
+                    )
+                  ) : (
+                    <Typography variant="h6">Exercises</Typography>
+                  )}
+                </Box>
+                {localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Button
                       variant="contained"
                       size="small"
@@ -1625,10 +1780,11 @@ export default function ClientWorkoutPage() {
                     >
                       Add Exercise
                     </Button>
-                  </Stack>
-                ) : null
-              }
-            />
+                    <IconButton size="medium" onClick={() => setSelectedDayIndex(0)} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
             <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
               {localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] ? (
                 <>
@@ -1763,17 +1919,6 @@ export default function ClientWorkoutPage() {
                     <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
                       No exercises yet
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Add exercises to this day to build your workout
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      startIcon={<Add size={20} />}
-                      onClick={() => setIsAddExerciseDialogOpen(true)}
-                      sx={{ mt: 1 }}
-                    >
-                      Add First Exercise
-                    </Button>
                   </Box>
                 )}
                 </>
@@ -1806,17 +1951,30 @@ export default function ClientWorkoutPage() {
           <Card sx={{ flex: '1 1 0', minWidth: 0, height: '75vh', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
               title={
-                <Tabs value={plansTab} onChange={(_, v) => setPlansTab(v)} variant="scrollable" allowScrollButtonsMobile>
-                  <Tab label="Plans" />
-                  <Tab label="Forms" />
-                  <Tab label="Tools" />
-                  <Tab label="Chat" />
-                </Tabs>
+                <Box sx={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin' }}>
+                  <Tabs 
+                    value={plansTab} 
+                    onChange={(_, v) => setPlansTab(v)} 
+                    variant="scrollable" 
+                    allowScrollButtonsMobile 
+                    scrollButtons="auto"
+                    sx={{
+                      '& .MuiTab-root': {
+                        minWidth: { xs: 48, md: 'auto' }
+                      }
+                    }}
+                  >
+                        <Tab label="Plans" />
+                        <Tab label="Forms" />
+                        <Tab label="Tools" />
+                        <Tab label="Chat" />
+                  </Tabs>
+                </Box>
               }
               subheader={
                 plansTab === 0 ? (
                   <Box sx={{ mt: 2 }}>
-                  <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
                     <Button
                       variant="contained"
                       size="small"
@@ -1854,40 +2012,36 @@ export default function ClientWorkoutPage() {
                   <CircularProgress />
                 </Box>
                 ) : (
-                <List>
-                  {localWorkoutPlan && (
-                    <ListItem
-                      component="div"
-                      onClick={() => {
-                        setSelectedPlanId(localWorkoutPlan.id);
-                        setSelectedDayIndex(0);
-                      }}
-                      sx={{ 
-                        backgroundColor: 'primary.lighter',
-                        mb: 1,
-                        borderRadius: 1,
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: 'primary.light'
-                        }
-                      }}
-                    >
-                      <ListItemText
-                        primary={`${localWorkoutPlan.title} (Editing)`}
-                        secondary={`${localWorkoutPlan.days.length} days`}
-                      />
-                      <Chip label="Current" color="primary" size="small" />
-                    </ListItem>
-                  )}
-                  
-                  {savedPlans
+                <Grid container spacing={2} direction="column">
+                  {/* Combine local plan with saved plans */}
+                  {[
+                    // Add local draft plan if it exists
+                    ...(localWorkoutPlan && localWorkoutPlan.id.startsWith('local_') 
+                      ? [{
+                          id: localWorkoutPlan.id,
+                          title: localWorkoutPlan.title,
+                          days: localWorkoutPlan.days
+                        }]
+                      : []),
+                    ...savedPlans
+                  ]
                     .filter(plan => plan.title.toLowerCase().includes(planQuery.toLowerCase()))
-                    .map((plan) => (
-                    <ListItem
-                      key={plan.id}
-                      component="div"
+                    .map((plan: any) => {
+                      const isSelected = selectedPlanId === plan.id;
+                      const isDraft = plan.isDraft;
+                      return (
+                        <Grid item xs={12} key={plan.id}>
+                          <Card
                       onClick={() => {
-                        setSelectedPlanId(plan.id);
+                              setSelectedPlanId(plan.id);
+                              
+                              // If it's a draft, we already have it in localWorkoutPlan
+                              if (isDraft) {
+                        setSelectedDayIndex(0);
+                                return;
+                              }
+                              
+                              // Otherwise, set up the plan from saved data
                           setLocalWorkoutPlan({
                             id: plan.id,
                             title: plan.title,
@@ -1933,20 +2087,33 @@ export default function ClientWorkoutPage() {
                       }}
                       sx={{
                         cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: 'action.hover'
-                        }
-                      }}
-                    >
-                    <ListItemText
-                      primary={plan.title}
-                      secondary={`${plan.days?.length || 0} days`}
-                    />
-                    <ListItemSecondaryAction>
-                      <Stack direction="row" spacing={1}>
-                        <Button
+                              border: '1px solid',
+                              borderColor: isSelected ? 'primary.main' : 'divider',
+                              bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+                              position: 'relative',
+                              '&:hover .plan-actions': { opacity: 1 }
+                            }}
+                          >
+                            <CardContent sx={{ py: 1.25 }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 60 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>
+                                  {plan.title}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {plan.days?.length || 0} days
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    {plan.status && (
+                                      <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} />
+                                    )}
+                                  </Box>
+                                </Box>
+                              </Box>
+                            </CardContent>
+                            <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                                <IconButton
                           size="small"
-                          variant="outlined"
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
@@ -1961,35 +2128,46 @@ export default function ClientWorkoutPage() {
                             }
                           }}
                           disabled={copyingPlanId === plan.id}
+                                  title="Copy plan"
+                                  sx={{ '&:hover': { bgcolor: 'action.selected' } }}
                         >
-                          {copyingPlanId === plan.id ? 'Copying…' : 'Copy'}
-                        </Button>
+                                  <Copy size={16} />
+                                </IconButton>
                         <IconButton
                           size="small"
+                                  color="error"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (window.confirm('Delete this plan?')) {
                               handleDeletePlan(plan.id);
                             }
                           }}
+                                  title="Delete plan"
+                                  sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
                         >
                           <Trash size={16} />
                         </IconButton>
-                      </Stack>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                  ))}
+                              </Box>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
                   
-                  {savedPlans.length === 0 && !localWorkoutPlan && (
-                    <ListItem>
-                      <ListItemText
-                        primary="No plans yet"
-                        secondary="Create your first workout plan"
-                        sx={{ textAlign: 'center' }}
-                      />
-                    </ListItem>
+                  {savedPlans.length === 0 && !localWorkoutPlan?.id.startsWith('local_') && (
+                    <Grid item xs={12}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="body1" sx={{ textAlign: 'center' }}>
+                            No plans yet
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}>
+                            Create your first workout plan
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
                   )}
-                </List>
+                </Grid>
                 )
               ) : plansTab === 1 ? (
                 <Box sx={{ py: 2 }}>
@@ -2140,14 +2318,46 @@ export default function ClientWorkoutPage() {
           {/* Section 2: Days */}
           {localWorkoutPlan && (
             <Card sx={{ flex: '1 1 0', minWidth: 0, height: '75vh', display: 'flex', flexDirection: 'column' }}>
-              <CardHeader
-                title={
-                  <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="scrollable" allowScrollButtonsMobile>
-                    <Tab label="Days" />
-                  </Tabs>
-                }
-                action={
-                  cardioTab === 0 ? (
+              <CardContent sx={{ pb: 0 }}>
+                {/* Row 1: Plan name with close */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {editingPlanTitleId === localWorkoutPlan?.id ? (
+                      <TextField
+                        size="small"
+                        value={editingPlanTitleValue}
+                        autoFocus
+                        onChange={(e) => setEditingPlanTitleValue(e.target.value)}
+                        onBlur={() => {
+                          if (localWorkoutPlan) {
+                            setLocalWorkoutPlan((prev) => prev ? { ...prev, title: editingPlanTitleValue || prev.title } : null);
+                            setIsPlanDirty(true);
+                          }
+                          setEditingPlanTitleId(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          if (e.key === 'Escape') setEditingPlanTitleId(null);
+                        }}
+                      />
+                    ) : (
+                      <Typography 
+                        variant="h6" 
+                        onClick={() => {
+                          if (localWorkoutPlan) {
+                            const t = localWorkoutPlan.title || '';
+                            setEditingPlanTitleId(localWorkoutPlan.id);
+                            setEditingPlanTitleValue(t);
+                          }
+                        }} 
+                        sx={{ cursor: 'text' }}
+                      >
+                        {localWorkoutPlan?.title || 'Plan'}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {cardioTab === 0 && (
                     <Button
                       variant="contained"
                       size="small"
@@ -2156,61 +2366,111 @@ export default function ClientWorkoutPage() {
                     >
                       Add Day
                     </Button>
-                  ) : null
-                }
-              />
-              <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                    )}
+                    <IconButton size="medium" onClick={clearLocalPlan} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
+                  </Box>
+                </Box>
+
+                {/* Tabs */}
+                <Box>
+                  <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="fullWidth">
+                    <Tab label="Days" />
+                  </Tabs>
+                </Box>
+              </CardContent>
+              <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', p: 0, '&:last-child': { pb: 0 } }}>
                 {cardioTab === 0 ? (
                   // Days tab content
                   localWorkoutPlan.days.length > 0 ? (
-                    <Stack spacing={2}>
+                    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
                     {localWorkoutPlan.days.map((day, index) => (
                         <Card
                         key={day.id}
                           sx={{ 
-                            cursor: 'pointer',
-                            border: '2px solid',
-                            borderColor: selectedDayIndex === index ? 'primary.main' : 'transparent',
-                            transition: 'all 0.2s',
+                            border: selectedDayIndex === index ? 2 : 1,
+                            borderColor: selectedDayIndex === index ? 'primary.main' : 'divider',
                             bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
-                            '&:hover': {
-                              borderColor: 'primary.main',
-                              boxShadow: 2
-                            }
+                            cursor: 'pointer',
+                            position: 'relative',
+                            '&:hover .day-actions': { opacity: 1 }
                           }}
                         onClick={() => setSelectedDayIndex(index)}
                       >
-                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Box sx={{ flex: 1 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                  <Chip 
-                                    label={`Day ${index + 1}`} 
-                                    size="small" 
-                                    color={selectedDayIndex === index ? "primary" : "default"}
-                                    sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }} 
-                                  />
-                                  <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                                    {day.title}
-                                  </Typography>
-                                </Box>
-                                <Typography variant="body2" color="textSecondary">
+                          <CardHeader title={day.title} />
+                          <CardContent>
+                            <Typography variant="body2" color="text.secondary">
                                   {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
                                 </Typography>
-                              </Box>
-                              {selectedDayIndex === index && (
-                                <Chip 
-                                  label="Selected" 
-                                  size="small" 
-                                  color="primary"
-                                  sx={{ fontWeight: 500 }}
-                                />
-                              )}
-                            </Box>
                           </CardContent>
+                          <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                            <IconButton 
+                                  size="small" 
+                              title="Copy day"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!localWorkoutPlan) return;
+                                const newId = `day_${Date.now()}`;
+                                const copiedDay = {
+                                  ...day,
+                                  id: newId,
+                                  exercises: day.exercises.map((ex: any, idx: number) => ({
+                                    ...ex,
+                                    id: `exercise_${Date.now()}_${idx}_${Math.random()}`
+                                  }))
+                                };
+                                setLocalWorkoutPlan(prev => prev ? {
+                                  ...prev,
+                                  days: [...prev.days, copiedDay]
+                                } : null);
+                                setIsPlanDirty(true);
+                              }}
+                              sx={{ '&:hover': { bgcolor: 'action.selected' } }}
+                            >
+                              <Copy size={16} />
+                            </IconButton>
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              title="Delete day"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!localWorkoutPlan) return;
+                                if (window.confirm('Delete this day?')) {
+                                  setLocalWorkoutPlan(prev => prev ? {
+                                    ...prev,
+                                    days: prev.days.filter((_, i) => i !== index)
+                                  } : null);
+                                  if (selectedDayIndex === index) {
+                                    setSelectedDayIndex(0);
+                                  } else if (selectedDayIndex > index) {
+                                    setSelectedDayIndex(selectedDayIndex - 1);
+                                  }
+                                  setIsPlanDirty(true);
+                                }
+                              }}
+                              sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
+                            >
+                              <Trash size={16} />
+                            </IconButton>
+                            </Box>
                         </Card>
                       ))}
-                    </Stack>
+                      
+                      <Box>
+                        <Card
+                          sx={{
+                            border: '1px dashed',
+                            borderColor: 'divider',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          onClick={() => setIsCreateDayDialogOpen(true)}
+                        >
+                          <Button startIcon={<Add size={16} />}>Add Day</Button>
+                        </Card>
+                      </Box>
+                    </Box>
                   ) : (
                     <Box sx={{ 
                       textAlign: 'center', 
@@ -2223,17 +2483,6 @@ export default function ClientWorkoutPage() {
                       <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
                         No days yet
                       </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        Add your first workout day
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<Add size={20} />}
-                        onClick={() => setIsCreateDayDialogOpen(true)}
-                        sx={{ mt: 1 }}
-                      >
-                        Add First Day
-                      </Button>
                     </Box>
                   )
                 ) : (
@@ -2316,17 +2565,52 @@ export default function ClientWorkoutPage() {
           {/* Section 3: Exercises */}
           {localWorkoutPlan && localWorkoutPlan.days.length > 0 && localWorkoutPlan.days[selectedDayIndex] && (
             <Card sx={{ flex: '1 1 0', minWidth: 0, height: '75vh', display: 'flex', flexDirection: 'column' }}>
-              <CardHeader
-                title={`Exercises - ${localWorkoutPlan.days[selectedDayIndex].title}`}
-                action={
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant="outlined"
+              <CardContent sx={{ pb: 1 }}>
+                {/* Row 1: Day name with close */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {editingDayTitleId === localWorkoutPlan.days[selectedDayIndex].id ? (
+                      <TextField
                       size="small"
-                      onClick={() => setCaDayDialogOpen(true)}
-                    >
-                      Choose ca_day
-                    </Button>
+                        value={editingDayTitleValue}
+                        autoFocus
+                        onChange={(e) => setEditingDayTitleValue(e.target.value)}
+                        onBlur={() => {
+                          if (localWorkoutPlan) {
+                            setLocalWorkoutPlan((prev) => prev ? {
+                              ...prev,
+                              days: prev.days.map((day, idx) => 
+                                idx === selectedDayIndex 
+                                  ? { ...day, title: editingDayTitleValue || day.title }
+                                  : day
+                              )
+                            } : null);
+                            setIsPlanDirty(true);
+                          }
+                          setEditingDayTitleId(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          if (e.key === 'Escape') setEditingDayTitleId(null);
+                        }}
+                      />
+                    ) : (
+                      <Typography 
+                        variant="h6" 
+                        onClick={() => {
+                          if (localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex]) {
+                            const t = localWorkoutPlan.days[selectedDayIndex].title || '';
+                            setEditingDayTitleId(localWorkoutPlan.days[selectedDayIndex].id);
+                            setEditingDayTitleValue(t);
+                          }
+                        }} 
+                        sx={{ cursor: 'text' }}
+                      >
+                        {localWorkoutPlan.days[selectedDayIndex].title}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Button
                       variant="contained"
                       size="small"
@@ -2335,36 +2619,11 @@ export default function ClientWorkoutPage() {
                     >
                       Add Exercise
                     </Button>
-                  </Stack>
-                }
-              />
-              <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                {/* Show selected ca_day summary if present */}
-                {(localWorkoutPlan.days[selectedDayIndex] as any).caDay && (
-                  <Box sx={{
-                    mb: 2,
-                    p: 1.5,
-                    border: '1px dashed',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5
-                  }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {(localWorkoutPlan.days[selectedDayIndex] as any).caDay.imageUrl && (
-                      <img src={(localWorkoutPlan.days[selectedDayIndex] as any).caDay.imageUrl} alt="ca_day" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6 }} />
-                    )}
-                    <Typography variant="body2" fontWeight={600}>
-                      {(localWorkoutPlan.days[selectedDayIndex] as any).caDay.name
-                    }</Typography>
-                    {(localWorkoutPlan.days[selectedDayIndex] as any).caDay.url && (
-                      <Button size="small" href={(localWorkoutPlan.days[selectedDayIndex] as any).caDay.url} target="_blank">
-                        Open
-                      </Button>
-                    )}
+                    <IconButton size="medium" onClick={() => setSelectedDayIndex(0)} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
                   </Box>
-                )}
+                </Box>
+              </CardContent>
+              <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                 {localWorkoutPlan.days[selectedDayIndex].exercises.length > 0 ? (
                   <Stack spacing={2}>
                     {localWorkoutPlan.days[selectedDayIndex].exercises.map((ex, index) => {
@@ -2496,17 +2755,6 @@ export default function ClientWorkoutPage() {
                     <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
                       No exercises yet
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Add exercises to this day to build your workout
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      startIcon={<Add size={20} />}
-                      onClick={() => setIsAddExerciseDialogOpen(true)}
-                      sx={{ mt: 1 }}
-                    >
-                      Add First Exercise
-                    </Button>
                   </Box>
                 )}
               </CardContent>
@@ -2514,52 +2762,6 @@ export default function ClientWorkoutPage() {
           )}
         </Box>
       ))}
-
-      {activeTab === 'logs' && (
-        <Card>
-          <CardHeader
-            title={`Workout Logs (${logsData?.workoutLogs?.length || 0})`}
-            action={<Button variant="outlined" size="small" onClick={() => refreshLogs()}>Refresh</Button>}
-          />
-          <CardContent>
-            {logsLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <>
-                {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
-                  <Stack spacing={1.5}>
-                    {logsData!.workoutLogs.map((log: any) => (
-                      <Card key={log.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => handleViewWorkoutLogDetails(log)}>
-                        <CardContent>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                            <Box>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{log.workoutPlan?.title || 'Workout'}</Typography>
-                              <Typography variant="caption" color="text.secondary">Day {Number(log.dayIndex) + 1}</Typography>
-                            </Box>
-                            <Chip label={log.completed ? 'Completed' : 'In Progress'} color={log.completed ? 'success' : 'warning'} size="small" />
-                          </Stack>
-                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ color: 'text.secondary' }}>
-                            <Typography variant="body2">{new Date(log.date).toLocaleDateString()}</Typography>
-                            <Typography variant="body2">{log.startTime && log.endTime ? `${log.startTime} - ${log.endTime}` : 'Not completed'}</Typography>
-                            <Typography variant="body2">{Array.isArray(log.exercises) ? `${log.exercises.length} exercises` : '-'}</Typography>
-                          </Stack>
-                          {log.notes && (
-                            <Typography variant="body2" sx={{ mt: 1 }}>{log.notes}</Typography>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No workout logs found</Typography>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Create Plan Dialog */}
       <Dialog open={isCreatePlanDialogOpen} onClose={() => setIsCreatePlanDialogOpen(false)}>

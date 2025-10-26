@@ -40,7 +40,11 @@ import {
   Copy,
   AttachCircle,
   CloseCircle,
-  Information
+  Information,
+  Category,
+  DocumentText,
+  Setting2,
+  Messages2
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -1537,8 +1541,8 @@ export default function ClientNutritionPage() {
     <Stack spacing={1}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5">{clientName || 'Client'}</Typography>
-        <Stack direction="row" spacing={1}>
+        <Typography variant="h5" sx={{ ml: { xs: 2, md: 0 } }}>{clientName || 'Client'}</Typography>
+        <Stack direction="row" spacing={1} sx={{ mr: { xs: 2, md: 0 } }}>
           <Button variant="outlined" onClick={handleSavePlan} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
           <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={!selectedPlanId || activating}>
             {activating ? 'Activating…' : 'Activate'}
@@ -1554,26 +1558,63 @@ export default function ClientNutritionPage() {
             <Card key="plans" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <CardHeader
             title={
-              <Tabs value={plansTab} onChange={(_, v) => setPlansTab(v)} variant="scrollable" allowScrollButtonsMobile>
-                <Tab label="Plans" />
-                <Tab label="Forms" />
-                <Tab label="Tools" />
-                <Tab label="Chat" />
-              </Tabs>
+              <Box sx={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin' }}>
+                <Tabs 
+                  value={plansTab} 
+                  onChange={(_, v) => setPlansTab(v)} 
+                  variant="scrollable" 
+                  allowScrollButtonsMobile 
+                  scrollButtons="auto"
+                  sx={{
+                    '& .MuiTab-root': {
+                      minWidth: 48
+                    }
+                  }}
+                >
+                  <Tab 
+                    label=""
+                    icon={<Category size={20} />}
+                    iconPosition="top"
+                  />
+                  <Tab 
+                    label=""
+                    icon={<DocumentText size={20} />}
+                    iconPosition="top"
+                  />
+                  <Tab 
+                    label=""
+                    icon={<Setting2 size={20} />}
+                    iconPosition="top"
+                  />
+                  <Tab 
+                    label=""
+                    icon={<Messages2 size={20} />}
+                    iconPosition="top"
+                  />
+                </Tabs>
+              </Box>
             }
             subheader={plansTab === 0 ? (
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography variant="subtitle2">Plans History</Typography>
-                <Stack direction="row" spacing={1}>
-                  <Button variant="outlined" size="small" onClick={() => setLoadPlanDialogOpen(true)}>Load Plan</Button>
-                  <Button variant="contained" size="small" startIcon={<Add size={16} />} onClick={() => setIsCreatePlanDialogOpen(true)}>
-                    New Plan
+              <Box sx={{ mt: 2 }}>
+                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                  <Button variant="contained" size="small" startIcon={<Add size={16} />} onClick={() => setIsCreatePlanDialogOpen(true)} sx={{ flex: 1 }}>
+                    Create
+                  </Button>
+                  <Button variant="outlined" size="small" startIcon={<Copy size={16} />} onClick={() => setLoadPlanDialogOpen(true)} sx={{ flex: 1 }}>
+                    Load
                   </Button>
                 </Stack>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search plans..."
+                  value={planQuery}
+                  onChange={(e) => setPlanQuery(e.target.value)}
+                />
               </Box>
             ) : null}
           />
-          <CardContent>
+          <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {plansTab === 3 ? (
               <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', height: '60vh' }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>Chat</Typography>
@@ -1812,14 +1853,20 @@ export default function ClientNutritionPage() {
                 </Box>
               }
               action={
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={0.5}>
                   {selectedCycleId && (
                     <Button
                       variant="outlined"
                       size="small"
-                      startIcon={<Copy size={16} />}
+                      startIcon={<Copy size={14} />}
                       onClick={handleCopyCycle}
                       disabled={saving}
+                      sx={{ 
+                        minWidth: 'auto', 
+                        px: 1, 
+                        fontSize: '0.7rem',
+                        textTransform: 'none'
+                      }}
                     >
                       Copy
                     </Button>
@@ -1828,24 +1875,40 @@ export default function ClientNutritionPage() {
                     variant="outlined"
                     color="error"
                     size="small"
-                    startIcon={<Trash size={16} />}
+                    startIcon={<Trash size={14} />}
                     onClick={handleDeleteCycle}
                     disabled={saving || currentCycles.length <= 1}
+                    sx={{ 
+                      minWidth: 'auto', 
+                      px: 1, 
+                      fontSize: '0.7rem',
+                      textTransform: 'none'
+                    }}
                   >
-                    Delete Cycle
+                    Del
                   </Button>
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<Add size={16} />}
-                  onClick={() => setIsCreateMealDialogOpen(true)}
-                >
-                  Create Meal
-                </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    startIcon={<Add size={14} />}
+                    onClick={() => setIsCreateMealDialogOpen(true)}
+                    sx={{ 
+                      minWidth: 'auto', 
+                      px: 1, 
+                      fontSize: '0.7rem',
+                      textTransform: 'none'
+                    }}
+                  >
+                    Meal
+                  </Button>
                 </Stack>
               }
             />
             <CardContent sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
               position: 'relative',
               ...(selectedMealId && (currentMeals.find(m => m.id === selectedMealId)?.recipeImageUrl)
                 ? {
@@ -1879,6 +1942,11 @@ export default function ClientNutritionPage() {
                       }}>
                         <Typography variant="h6">{currentCycle.label}</Typography>
                         <Typography variant="body2">Day {currentCycle.dayIndex}</Typography>
+                      </Box>
+                      
+                      {/* Macros bar */}
+                      <Box sx={{ mb: 2 }}>
+                        <CycleMacroBar cycle={currentCycle} meals={currentMeals} />
                       </Box>
                       
                       {/* Meals under current cycle stacked vertically */}
@@ -1944,7 +2012,7 @@ export default function ClientNutritionPage() {
             
             // Section 3: Food Items
             <Card key="food-items" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <CardContent>
+            <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {selectedMealId && currentMeals.find(m => m.id === selectedMealId) ? (
                 <Box>
                   {/* Row 1: Meal name + close */}
@@ -2104,16 +2172,7 @@ export default function ClientNutritionPage() {
                     </Box>
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography color="text.secondary" sx={{ mb: 2 }}>No food items added yet</Typography>
-                      <Button 
-                        variant="contained" 
-                        size="small" 
-                        startIcon={<Add size={16} />} 
-                        onClick={() => setIsAddFoodDialogOpen(true)}
-                        sx={{ minWidth: 120 }}
-                      >
-                        Add Food
-                      </Button>
+                      <Typography color="text.secondary">No food items added yet</Typography>
                     </Box>
                   )}
                 </Box>
@@ -2134,22 +2193,70 @@ export default function ClientNutritionPage() {
           <Card sx={{ flex: showSection2 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection2 ? '50%' : '100%', height: '75vh', display: 'flex', flexDirection: 'column' }}>
             <CardHeader
               title={
-                <Tabs value={plansTab} onChange={(_, v) => setPlansTab(v)} variant="scrollable" allowScrollButtonsMobile>
-                  <Tab label="Plans" />
-                  <Tab label="Forms" />
-                  <Tab label="Tools" />
-                  <Tab label="Chat" />
-                </Tabs>
+                <Box sx={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin' }}>
+                  <Tabs 
+                    value={plansTab} 
+                    onChange={(_, v) => setPlansTab(v)} 
+                    variant="scrollable" 
+                    allowScrollButtonsMobile 
+                    scrollButtons="auto"
+                    sx={{
+                      '& .MuiTab-root': {
+                        minWidth: { xs: 48, md: 'auto' }
+                      }
+                    }}
+                  >
+                    {isMobile ? (
+                      <>
+                        <Tab 
+                          label=""
+                          icon={<Category size={20} />}
+                          iconPosition="top"
+                        />
+                        <Tab 
+                          label=""
+                          icon={<DocumentText size={20} />}
+                          iconPosition="top"
+                        />
+                        <Tab 
+                          label=""
+                          icon={<Setting2 size={20} />}
+                          iconPosition="top"
+                        />
+                        <Tab 
+                          label=""
+                          icon={<Messages2 size={20} />}
+                          iconPosition="top"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <Tab label="Plans" />
+                        <Tab label="Forms" />
+                        <Tab label="Tools" />
+                        <Tab label="Chat" />
+                      </>
+                    )}
+                  </Tabs>
+                </Box>
               }
               subheader={plansTab === 0 ? (
-                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2">Plans History</Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Button variant="outlined" size="small" onClick={() => setLoadPlanDialogOpen(true)}>Load Plan</Button>
-                    <Button variant="contained" size="small" startIcon={<Add size={16} />} onClick={() => setIsCreatePlanDialogOpen(true)}>
-                     New Plan
+                <Box sx={{ mt: 2 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
+                    <Button variant="contained" size="small" startIcon={<Add size={16} />} onClick={() => setIsCreatePlanDialogOpen(true)} sx={{ flex: 1 }}>
+                      Create
+                    </Button>
+                    <Button variant="outlined" size="small" startIcon={<Copy size={16} />} onClick={() => setLoadPlanDialogOpen(true)} sx={{ flex: 1 }}>
+                      Load
                     </Button>
                   </Stack>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search plans..."
+                    value={planQuery}
+                    onChange={(e) => setPlanQuery(e.target.value)}
+                  />
                 </Box>
               ) : null}
             />
@@ -2759,16 +2866,7 @@ export default function ClientNutritionPage() {
                             </List>
                           ) : (
                             <Box sx={{ textAlign: 'center', py: 4 }}>
-                              <Typography color="text.secondary" sx={{ mb: 2 }}>No food items added yet</Typography>
-                              <Button 
-                                variant="contained" 
-                                size="small" 
-                                startIcon={<Add size={16} />} 
-                                onClick={() => setIsAddFoodDialogOpen(true)}
-                                sx={{ minWidth: 120 }}
-                              >
-                                Add Food
-                              </Button>
+                              <Typography color="text.secondary">No food items added yet</Typography>
                             </Box>
                           )}
                           

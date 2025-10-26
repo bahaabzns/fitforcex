@@ -4,6 +4,7 @@ import { useEffect, ReactNode } from 'react';
 
 // material-ui
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import Toolbar from '@mui/material/Toolbar';
 import Box from '@mui/material/Box';
@@ -13,8 +14,10 @@ import Drawer from './Drawer';
 import Header from './Header';
 import Footer from './Footer';
 import HorizontalBar from './Drawer/HorizontalBar';
-import Breadcrumbs from 'components/@extended/Breadcrumbs';
+import ClientSidebarDrawer from './ClientSidebarDrawer';
+import ClientSidebarMobileDrawer from '@/components/ClientSidebarMobileDrawer';
 import Loader from 'components/Loader';
+import { useClientSidebar } from '@/contexts/ClientSidebarContext';
 
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH, MenuOrientation } from 'config';
@@ -27,6 +30,7 @@ import MessengerBadgeSync from './MessengerBadgeSync';
 // ==============================|| MAIN LAYOUT ||============================== //
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const theme = useTheme();
   const { menuMasterLoading } = useGetMenuMaster();
   const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
@@ -36,6 +40,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster?.isDashboardDrawerOpened ?? false;
+  const { isOpen: clientSidebarOpen } = useClientSidebar();
 
   const isHorizontal = menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
 
@@ -126,16 +131,33 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (menuMasterLoading) return <Loader />;
 
+  // Calculate total sidebar width including client sidebar
+  const mainDrawerWidth = downLG ? 0 : (drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH - 300);
+  const clientSidebarWidth = 270; // CLIENT_DRAWER_WIDTH
+  const totalSidebarWidth =  downLG ? 0 : (
+    drawerOpen ?
+     (clientSidebarOpen ?
+       (mainDrawerWidth + clientSidebarWidth - 240) :
+        mainDrawerWidth  - 240 ) :
+         clientSidebarOpen? clientSidebarWidth + MINI_DRAWER_WIDTH -50 : MINI_DRAWER_WIDTH - 50);
+
   return (
-    <Box sx={{ display: 'flex', width: '100%' }}>
+    <Box sx={{ display: 'flex', width: '100%' }}> 
       <Header />
       <MessengerBadgeSync />
       {!isHorizontal ? <Drawer /> : <HorizontalBar />}
+      <ClientSidebarDrawer />
+      <ClientSidebarMobileDrawer />
 
       <Box component="main" sx={{ 
-        width: downLG ? '100%' : `calc(100% - ${drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH}px)`, 
+        width: downLG ? '100%' : `calc(100% - ${totalSidebarWidth}px)`, 
         flexGrow: 1, 
-        p: 0 
+        p: 0,
+        marginLeft: `${totalSidebarWidth}px`,
+        transition: theme.transitions.create(['width', 'margin-left'], {
+          easing: theme.transitions.easing.sharp,
+          duration: theme.transitions.duration.leavingScreen
+        })
       }}>
         <Toolbar sx={{ mt: isHorizontal ? 8 : 'inherit', mb: 0 }} />
         <Container

@@ -11,7 +11,7 @@ interface ClientSidebarContextType {
 const ClientSidebarContext = createContext<ClientSidebarContextType | undefined>(undefined);
 
 export function ClientSidebarProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -28,9 +28,4 @@ export function useClientSidebar() {
     throw new Error('useClientSidebar must be used within a ClientSidebarProvider');
   }
   return context;
-}
-
-export function useClientSidebarSafe() {
-  const context = useContext(ClientSidebarContext);
-  return context; // Returns undefined if not in provider
 }

@@ -14,6 +14,7 @@ import IconButton from 'components/@extended/IconButton';
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH, MenuOrientation } from 'config';
 import useConfig from 'hooks/useConfig';
+import { useClientSidebar } from '@/contexts/ClientSidebarContext';
 
 // assets
 import { HambergerMenu } from '@wandersonalwes/iconsax-react';
@@ -26,8 +27,19 @@ export default function Header() {
   const { menuOrientation } = useConfig();
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
+  const { isOpen: clientSidebarOpen } = useClientSidebar();
 
   const isHorizontal = menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
+  
+  // Calculate total sidebar width including client sidebar
+  const clientSidebarWidth = 270; // CLIENT_DRAWER_WIDTH
+  const mainDrawerWidth = downLG ? 0 : (drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH - 300);
+  const totalSidebarWidth =  downLG ? 0 : (
+    drawerOpen ?
+     (clientSidebarOpen ?
+       (mainDrawerWidth + clientSidebarWidth - 240) :
+        mainDrawerWidth  - 240 ) :
+         clientSidebarOpen? clientSidebarWidth + MINI_DRAWER_WIDTH -50 : MINI_DRAWER_WIDTH - 50);
 
   // header content
   const headerContent = useMemo(() => <HeaderContent />, []);
@@ -70,7 +82,12 @@ const mainHeader: ReactNode = (
       zIndex: 1200,
       width: isHorizontal
         ? '100%'
-        : { xs: '100%', lg: drawerOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : `calc(100% - ${MINI_DRAWER_WIDTH}px)` }
+        : { xs: '100%', lg: `calc(100% - ${totalSidebarWidth}px)` },
+      marginLeft: isHorizontal ? 0 : `${totalSidebarWidth}px`,
+      transition: theme.transitions.create(['width', 'margin-left'], {
+        easing: theme.transitions.easing.sharp,
+        duration: theme.transitions.duration.leavingScreen
+      })
     })
   };
 

@@ -16,7 +16,7 @@ import Box from '@mui/material/Box';
 
 // project-imports
 import Dot from 'components/@extended/Dot';
-import IconButton from 'components/@extended/IconButton';
+import CustomIconButton from 'components/@extended/IconButton';
 
 // third-party
 import { FormattedMessage } from 'react-intl';
@@ -28,6 +28,7 @@ import useConfig from 'hooks/useConfig';
 // types
 import { LinkTarget, NavItemType } from 'types/menu';
 import { useAppSelector } from '@/store';
+import ClientSidebarToggle from '@/components/ClientSidebarToggle';
 
 // ==============================|| NAVIGATION - ITEM ||============================== //
 
@@ -41,6 +42,7 @@ interface Props {
 export default function NavItem({ item, level, isParents = false, setSelectedID }: Props) {
   const unreadTotal = useAppSelector((s) => s.messenger?.unreadTotal ?? 0);
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
+  const pathname = usePathname();
 
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
@@ -64,7 +66,6 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
   );
 
   const isSelected = openItem === item.id;
-  const pathname = usePathname();
 
   // active menu item on page load
   useEffect(() => {
@@ -186,6 +187,11 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
                 )
               )
             )}
+            {item.id === 'clients' && drawerOpen && !downLG && (
+              <Box sx={{ ml: 'auto' }}>
+                <ClientSidebarToggle />
+              </Box>
+            )}
           </ListItemButton>
 
           {(drawerOpen || (!drawerOpen && level !== 1)) &&
@@ -195,7 +201,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
               const callAction = action?.function;
 
               return ActionIcon ? (
-                <IconButton
+                <CustomIconButton
                   key={index}
                   {...(action.type === NavActionType.FUNCTION && {
                     onClick: (event) => {
@@ -224,7 +230,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
                   })}
                 >
                   <ActionIcon size={12} style={{ marginLeft: 1 }} />
-                </IconButton>
+                </CustomIconButton>
               ) : null;
             })}
         </Box>
