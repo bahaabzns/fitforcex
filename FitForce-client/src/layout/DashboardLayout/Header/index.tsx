@@ -31,15 +31,8 @@ export default function Header() {
 
   const isHorizontal = menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
   
-  // Calculate total sidebar width including client sidebar
-  const clientSidebarWidth = 270; // CLIENT_DRAWER_WIDTH
-  const mainDrawerWidth = downLG ? 0 : (drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH - 300);
-  const totalSidebarWidth =  downLG ? 0 : (
-    drawerOpen ?
-     (clientSidebarOpen ?
-       (mainDrawerWidth + clientSidebarWidth - 240) :
-        mainDrawerWidth  - 240 ) :
-         clientSidebarOpen? clientSidebarWidth + MINI_DRAWER_WIDTH -50 : MINI_DRAWER_WIDTH - 50);
+  // Calculate drawer width (client sidebar is absolutely positioned, so we don't count it)
+  const mainDrawerWidth = downLG ? 0 : (drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH);
 
   // header content
   const headerContent = useMemo(() => <HeaderContent />, []);
@@ -80,10 +73,8 @@ const mainHeader: ReactNode = (
       bgcolor: alpha(theme.palette.background.default, 0.8),
       backdropFilter: 'blur(8px)',
       zIndex: 1200,
-      width: isHorizontal
-        ? '100%'
-        : { xs: '100%', lg: `calc(100% - ${totalSidebarWidth}px)` },
-      marginLeft: isHorizontal ? 0 : `${totalSidebarWidth}px`,
+      width: isHorizontal ? '100%' : (downLG ? '100%' : `calc(100% - ${mainDrawerWidth}px)`),
+      marginLeft: isHorizontal ? 0 : (downLG ? 0 : `${mainDrawerWidth}px`),
       transition: theme.transitions.create(['width', 'margin-left'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen
