@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 
 // material-ui
 import { Theme } from '@mui/material/styles';
@@ -21,21 +22,25 @@ import DrawerHeader from 'layout/DashboardLayout/Drawer/DrawerHeader';
 
 export default function HeaderContent() {
   const { menuOrientation } = useConfig();
+  const pathname = usePathname();
 
   const downLG = useMediaQuery((theme: Theme) => theme.breakpoints.down('lg'));
+  
+  // Check if we're on a client route - don't show workspace navigator for client routes
+  const isClientRoute = pathname?.startsWith('/client');
 
   const localization = useMemo(() => <Localization />, []);
 
   return (
     <>
       {menuOrientation === MenuOrientation.HORIZONTAL && !downLG && <DrawerHeader open={true} />}
-      {!downLG && <WorkspaceNavigator />}
+      {!downLG && !isClientRoute && <WorkspaceNavigator />}
       {downLG && <ClientSidebarMobileToggle />}
       <Box sx={{ flexGrow: 1 }} />
       {!downLG && localization}
 
-      <Notification />
-      {!downLG && <Profile />}
+      {!isClientRoute && <Notification />}
+      {!downLG && !isClientRoute && <Profile />}
       {downLG && <MobileSection />}
     </>
   );

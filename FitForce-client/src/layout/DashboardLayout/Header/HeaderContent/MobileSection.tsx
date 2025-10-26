@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 // material-ui
 import AppBar from '@mui/material/AppBar';
@@ -22,6 +23,10 @@ import { MoreSquare } from '@wandersonalwes/iconsax-react';
 // ==============================|| HEADER CONTENT - MOBILE ||============================== //
 
 export default function MobileSection() {
+  const pathname = usePathname();
+  
+  // Check if we're on a client route
+  const isClientRoute = pathname?.startsWith('/client');
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<any>(null);
 
@@ -93,10 +98,10 @@ export default function MobileSection() {
               <ClickAwayListener onClickAway={handleClose}>
                 <AppBar color="inherit">
                   <Toolbar>
-                    <WorkspaceNavigator />
+                    {!isClientRoute && <WorkspaceNavigator />}
                     <Search />
                     <Localization />
-                    <Profile />
+                    {!isClientRoute && <Profile />}
                   </Toolbar>
                 </AppBar>
               </ClickAwayListener>
