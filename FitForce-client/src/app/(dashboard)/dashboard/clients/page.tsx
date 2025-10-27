@@ -156,6 +156,12 @@ export default function ClientsPage() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [durationDays, setDurationDays] = useState<number>(7);
 
+  // Password management
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [customPassword, setCustomPassword] = useState('');
+
   // Packages for filtering and display
   const [packages, setPackages] = useState<any[]>([]);
   const [packageFilter, setPackageFilter] = useState<string>('all');
@@ -731,6 +737,57 @@ export default function ClientsPage() {
     }
   };
 
+  const openPasswordDialog = () => {
+    setPasswordDialogOpen(true);
+    setGeneratedPassword(null);
+    setCustomPassword('');
+  };
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const handleSetPassword = async () => {
+    if (!selectedClient || !selectedClient.email) {
+      setError('Client must have an email to set password');
+      return;
+    }
+
+    setSettingPassword(true);
+    try {
+      let password;
+      
+      // If user entered a custom password and it's valid, use it
+      if (customPassword.trim().length >= 6) {
+        password = customPassword.trim();
+        await api.post('/api/clients/set-password', {
+          clientId: selectedClient.id,
+          password: password
+        });
+        setPasswordDialogOpen(false);
+        setError(null);
+      } else {
+        // Generate random password
+        password = generateRandomPassword();
+        setGeneratedPassword(password);
+        
+        await api.post('/api/clients/set-password', {
+          clientId: selectedClient.id,
+          password: password
+        });
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to set password');
+    } finally {
+      setSettingPassword(false);
+    }
+  };
+
 
   const headers: LabelKeyObject[] = [];
   table.getAllColumns().map((column) => {
@@ -1160,11 +1217,91 @@ export default function ClientsPage() {
         </DialogContent>
         <DialogActions>
           {selectedClient && (
-            <Button variant="contained" component={Link} href={`/dashboard/clients/${selectedClient.id}/overview`} onClick={() => setViewOpen(false)}>
-              Go to Overview
-            </Button>
+            <>
+              <Button variant="contained" component={Link} href={`/dashboard/clients/${selectedClient.id}/overview`} onClick={() => setViewOpen(false)}>
+                Go to Overview
+              </Button>
+              {selectedClient.email && (
+                <Button variant="outlined" color="secondary" onClick={openPasswordDialog}>
+                  Set/Reset Password
+                </Button>
+              )}
+            </>
           )}
           <Button onClick={() => setViewOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Password Management Dialog */}
+      <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Set/Reset Password</DialogTitle>
+        <DialogContent>
+          {selectedClient && (
+            <Stack spacing={3} sx={{ mt: 2 }}>
+              {!generatedPassword ? (
+                <>
+                  <Typography variant="body2" color="text.secondary">
+                    Set or reset the password for {selectedClient.fullName || selectedClient.name || 'this client'}
+                  </Typography>
+                  
+                  <TextField
+                    fullWidth
+                    label="Custom Password (optional)"
+                    type="password"
+                    value={customPassword}
+                    onChange={(e) => setCustomPassword(e.target.value)}
+                    helperText={customPassword.length > 0 && customPassword.length < 6 ? "Password must be at least 6 characters" : "Leave empty to generate a random password"}
+                  />
+
+                  {customPassword.length === 0 && (
+                    <Alert severity="info">
+                      A random 12-character password will be generated and displayed for you to share with the client.
+                    </Alert>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Alert severity="success">
+                    Password has been set successfully!
+                  </Alert>
+                  <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Generated Password (save this - it won't be shown again):
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                      {generatedPassword}
+                    </Typography>
+                  </Box>
+                  <Alert severity="warning">
+                    Please share this password with the client securely. They should change it after logging in.
+                  </Alert>
+                </>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!generatedPassword ? (
+            <>
+              <Button onClick={() => setPasswordDialogOpen(false)} disabled={settingPassword}>
+                Cancel
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={handleSetPassword} 
+                disabled={settingPassword || (customPassword.length > 0 && customPassword.length < 6)}
+              >
+                {settingPassword ? 'Setting...' : 'Set Password'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="contained" onClick={() => {
+              setPasswordDialogOpen(false);
+              setGeneratedPassword(null);
+            }}>
+              Done
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

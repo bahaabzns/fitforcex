@@ -119,8 +119,11 @@ export default function Landing() {
               ) : /* Sign up/Login buttons - Show if not logged in */
               (
                 <>
-                  <Button component={Link} href="/register" size="large" variant="contained">
-                    Get Started
+                  <Button component="a" href="#book-demo" size="large" variant="contained" onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('book-demo')?.scrollIntoView({ behavior: 'smooth' });
+                  }}>
+                    Book a Demo
                   </Button>
                   <Button component={Link} href="/login" size="large" variant="outlined">
                     Sign In
@@ -225,7 +228,10 @@ export default function Landing() {
                   </Stack>
                   <Stack direction="row" spacing={2}>
                     <Button component={Link} href="/pricing" variant="outlined" color="primary">View Pricing</Button>
-                    <Button component={Link} href="/register" variant="contained" color="primary">Start Free</Button>
+                    <Button component="a" href="#book-demo" variant="contained" color="primary" onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById('book-demo')?.scrollIntoView({ behavior: 'smooth' });
+                    }}>Book a Demo</Button>
                   </Stack>
                 </Stack>
               </Paper>
@@ -251,7 +257,10 @@ export default function Landing() {
                         <Typography color="text.secondary">{pkg.description}</Typography>
                       )}
                       <Box sx={{ flexGrow: 1 }} />
-                      <Button component={Link} href="/register" variant="contained" color="primary">Choose Plan</Button>
+                      <Button component="a" href="#book-demo" variant="contained" color="primary" onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('book-demo')?.scrollIntoView({ behavior: 'smooth' });
+                      }}>Book a Demo</Button>
                     </Stack>
                   </Paper>
                 </Grid>

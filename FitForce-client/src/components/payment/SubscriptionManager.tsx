@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+  LinearProgress,
 } from '@mui/material';
 import CancelIcon from '@mui/icons-material/Cancel';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -37,7 +38,9 @@ interface SubscriptionData {
   id: string;
   status: string;
   startDate: string;
-  endDate: string;
+  endDate?: string;
+  renewalDate?: string;
+  createdAt?: string;
   autoRenew: boolean;
   package: {
     id: string;
@@ -233,6 +236,30 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     return `${(cents / 100).toFixed(2)} ${currency}`;
   };
 
+  const calculateSubscriptionProgress = () => {
+    if (!subscription) return { progress: 0, daysRemaining: 0, hoursRemaining: 0, totalDays: 0 };
+    
+    const startDateStr = subscription.startDate || subscription.createdAt;
+    const endDateStr = subscription.endDate || subscription.renewalDate;
+    
+    if (!startDateStr || !endDateStr) return { progress: 0, daysRemaining: 0, hoursRemaining: 0, totalDays: 0 };
+    
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    const now = new Date();
+    
+    const total = endDate.getTime() - startDate.getTime();
+    const elapsed = now.getTime() - startDate.getTime();
+    const remaining = endDate.getTime() - now.getTime();
+    
+    const progress = total > 0 ? Math.max(0, Math.min(100, (elapsed / total) * 100)) : 0;
+    const daysRemaining = Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24)));
+    const hoursRemaining = Math.max(0, Math.ceil(remaining / (1000 * 60 * 60)));
+    const totalDays = Math.ceil(total / (1000 * 60 * 60 * 24));
+    
+    return { progress, daysRemaining, hoursRemaining, totalDays };
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
@@ -263,6 +290,46 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                 variant="outlined"
               />
             </Box>
+
+            {/* Subscription Progress Bar */}
+            {subscription.status === 'active' && (subscription.endDate || subscription.renewalDate) ? (
+              (() => {
+                const progressData = calculateSubscriptionProgress();
+                return (
+                  <Box sx={{ mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Subscription Progress
+                      </Typography>
+                      <Typography variant="body2" color="primary" fontWeight={600}>
+                        {progressData.daysRemaining > 0 
+                          ? `${progressData.daysRemaining} day${progressData.daysRemaining !== 1 ? 's' : ''} remaining`
+                          : `${progressData.hoursRemaining} hour${progressData.hoursRemaining !== 1 ? 's' : ''} remaining`}
+                      </Typography>
+                    </Box>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={progressData.progress} 
+                      sx={{ 
+                        height: 8, 
+                        borderRadius: 4,
+                        bgcolor: 'grey.200',
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 4,
+                          bgcolor: progressData.progress < 20 ? 'error.main' : 'primary.main'
+                        }
+                      }} 
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      {formatDate(subscription.startDate || subscription.createdAt)} → {formatDate(subscription.endDate || subscription.renewalDate)}
+                      {progressData.totalDays > 0 && ` (${progressData.totalDays} day${progressData.totalDays !== 1 ? 's' : ''})`}
+                    </Typography>
+                  </Box>
+                );
+              })()
+            ) : null}
+
+            <Divider sx={{ mb: 2 }} />
 
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>

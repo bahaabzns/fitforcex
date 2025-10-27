@@ -5,6 +5,7 @@ import authReducer from '@/store/slices/authSlice';
 import workspaceReducer from '@/store/slices/workspaceSlice';
 import settingsReducer from '@/store/slices/settingsSlice';
 import messengerReducer from '@/store/slices/messengerSlice';
+import queueReducer from '@/store/slices/queueSlice';
 
 // Only persist settings, NOT workspace (workspace is derived from cookies and is subdomain-specific)
 const PERSIST_KEYS = ['settings'] as const;
@@ -34,7 +35,8 @@ export const store = configureStore({
     auth: authReducer,
     workspace: workspaceReducer,
     settings: settingsReducer,
-    messenger: messengerReducer
+    messenger: messengerReducer,
+    queue: queueReducer
   },
   preloadedState: loadState()
 });

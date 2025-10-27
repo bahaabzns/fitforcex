@@ -159,9 +159,9 @@ export default function ClientWorkoutPlanDetail() {
                   const youtubeThumbnailUrl = videoId ? getYouTubeThumbnail(videoId, 'medium') : null;
                   const gifUrl = it?.exercise?.gifImage || null;
                   
-                  // Priority: YouTube thumbnail > GIF > nothing
-                  const mediaUrl = youtubeThumbnailUrl || gifUrl;
-                  const isYouTube = !!youtubeThumbnailUrl;
+                  // Priority: GIF > YouTube thumbnail > nothing (GIFs are better for exercise demos)
+                  const mediaUrl = gifUrl || youtubeThumbnailUrl;
+                  const isYouTube = !!youtubeThumbnailUrl && !gifUrl;
                   
                   return (
                     <Card 

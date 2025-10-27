@@ -152,11 +152,17 @@ export default function PricingPlans() {
                   
                   <AnimateButton>
                     <Button
-                      component={Link}
-                      href="/register"
+                      component="a"
+                      href="#book-demo"
                       variant="outlined"
                       size="large"
                       fullWidth
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('book-demo')?.scrollIntoView({ 
+                          behavior: 'smooth' 
+                        });
+                      }}
                       sx={{
                         borderColor: '#159bff',
                         color: '#159bff',
@@ -168,7 +174,7 @@ export default function PricingPlans() {
                         }
                       }}
                     >
-                      Get Started
+                      Book a Demo
                     </Button>
                   </AnimateButton>
                 </Stack>
@@ -284,11 +290,17 @@ export default function PricingPlans() {
                   
                   <AnimateButton>
                     <Button
-                      component={Link}
-                      href="/register"
+                      component="a"
+                      href="#book-demo"
                       variant="contained"
                       size="large"
                       fullWidth
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('book-demo')?.scrollIntoView({ 
+                          behavior: 'smooth' 
+                        });
+                      }}
                       sx={{
                         bgcolor: 'white',
                         color: '#159bff',
@@ -300,7 +312,7 @@ export default function PricingPlans() {
                         }
                       }}
                     >
-                      Get Started
+                      Book a Demo
                     </Button>
                   </AnimateButton>
                 </Stack>

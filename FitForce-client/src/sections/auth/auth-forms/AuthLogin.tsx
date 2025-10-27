@@ -196,7 +196,8 @@ export default function AuthLogin({ providers, csrfToken }: any) {
         )}
       </Formik>
 
-      {providers && (
+      {/* Social auth providers temporarily removed */}
+      {/* {providers && (
         <Stack
           direction="row"
           spacing={{ xs: 1, sm: 2 }}
@@ -255,7 +256,7 @@ export default function AuthLogin({ providers, csrfToken }: any) {
         <Box sx={{ mt: 3 }}>
           <FirebaseSocial />
         </Box>
-      )}
+      )} */}
     </>
   );
 }

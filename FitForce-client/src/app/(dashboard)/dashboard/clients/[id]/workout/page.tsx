@@ -4,6 +4,23 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { useParams } from 'next/navigation';
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   Box,
   Card,
   CardContent,
@@ -64,6 +81,7 @@ interface Exercise {
   description?: string;
   thumbnailUrl?: string;
   videoUrl?: string; // YouTube link
+  gifImage?: string; // GIF image URL
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +95,225 @@ interface Plan {
   days?: any[];
 }
 
+// SortableExercise Component
+function SortableExercise({ 
+  exercise, 
+  index, 
+  onEdit, 
+  onDelete, 
+  formatRepRange 
+}: { 
+  exercise: any; 
+  index: number; 
+  onEdit: (ex: any) => void; 
+  onDelete: (id: string) => void;
+  formatRepRange: (reps: string, sets: number) => string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id: exercise.id 
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const repRange = formatRepRange(exercise.reps, exercise.sets);
+
+  return (
+    <Card 
+      ref={setNodeRef} 
+      style={style}
+      sx={{ 
+        cursor: 'grab',
+        transition: 'all 0.2s',
+        '&:hover': {
+          boxShadow: 3,
+          transform: 'translateY(-2px)'
+        },
+        '&:active': {
+          cursor: 'grabbing'
+        }
+      }}
+    >
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+          {/* Drag Handle */}
+          <Box 
+            {...attributes} 
+            {...listeners}
+            sx={{ 
+              cursor: 'grab',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 40,
+              height: '100%',
+              '&:active': {
+                cursor: 'grabbing'
+              }
+            }}
+          >
+            <Category size={20} style={{ opacity: 0.5 }} />
+          </Box>
+          
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {/* GIF Image */}
+            {exercise.exercise.gifImage && (
+              <Box
+                sx={{
+                  width: '100%',
+                  maxWidth: 200,
+                  height: 120,
+                  mb: 2,
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    opacity: 0.9
+                  }
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(exercise.exercise.gifImage, '_blank');
+                }}
+              >
+                <img
+                  src={exercise.exercise.gifImage}
+                  alt={exercise.exercise.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <Chip 
+                label={`#${index + 1}`} 
+                size="small" 
+                color="primary" 
+                sx={{ height: 20, fontSize: '0.75rem' }} 
+              />
+              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                {exercise.exercise.name}
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+              {exercise.exercise.muscleGroup}
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+              <Chip 
+                label={repRange} 
+                size="small" 
+                variant="outlined"
+                sx={{ fontWeight: 500 }}
+              />
+              {exercise.restSeconds > 0 && (
+                <Chip 
+                  label={`Rest: ${exercise.restSeconds}s`} 
+                  size="small" 
+                  variant="outlined"
+                />
+              )}
+              {exercise.tempo && (
+                <Chip 
+                  label={`Tempo: ${exercise.tempo}`} 
+                  size="small" 
+                  variant="outlined"
+                />
+              )}
+              {exercise.rir > 0 && (
+                <Chip 
+                  label={`RIR: ${exercise.rir}`} 
+                  size="small" 
+                  variant="outlined"
+                />
+              )}
+            </Box>
+            {exercise.notes && (
+              <Typography 
+                variant="body2" 
+                color="textSecondary" 
+                sx={{ 
+                  mt: 1, 
+                  fontSize: '0.875rem',
+                  fontStyle: 'italic',
+                  pl: 1,
+                  borderLeft: '3px solid',
+                  borderColor: 'primary.main'
+                }}
+              >
+                💡 {exercise.notes}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(exercise);
+              }}
+              sx={{ 
+                bgcolor: 'primary.lighter',
+                '&:hover': { bgcolor: 'primary.light' }
+              }}
+            >
+              <Edit size={16} />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm(`Remove ${exercise.exercise.name} from this day?`)) {
+                  onDelete(exercise.id);
+                }
+              }}
+              sx={{ 
+                bgcolor: 'error.lighter',
+                '&:hover': { bgcolor: 'error.light' }
+              }}
+            >
+              <Trash size={16} />
+            </IconButton>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+// SortableDay Component
+function SortableDay({ 
+  day, 
+  index, 
+  children 
+}: { 
+  day: any; 
+  index: number;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id: day.id 
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Box ref={setNodeRef} style={style}>
+      {children}
+    </Box>
+  );
+}
 
 export default function ClientWorkoutPage() {
   const { id: clientId } = useParams() as { id: string };
@@ -155,6 +392,14 @@ export default function ClientWorkoutPage() {
   
   // Client display name
   const [clientName, setClientName] = useState<string>('');
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   
   // Cardio tab state
   const [cardioTab, setCardioTab] = useState(0); // 0: Days, 1: Cardio
@@ -943,6 +1188,50 @@ export default function ClientWorkoutPage() {
   };
 
   // Open exercise edit dialog
+  // Drag and drop handlers
+  const handleExerciseDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !localWorkoutPlan) return;
+    
+    const oldIndex = localWorkoutPlan.days[selectedDayIndex].exercises.findIndex((ex: any) => ex.id === active.id);
+    const newIndex = localWorkoutPlan.days[selectedDayIndex].exercises.findIndex((ex: any) => ex.id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newExercises = arrayMove(localWorkoutPlan.days[selectedDayIndex].exercises, oldIndex, newIndex);
+      setLocalWorkoutPlan(prev => prev ? {
+        ...prev,
+        days: prev.days.map((day, idx) => 
+          idx === selectedDayIndex ? { ...day, exercises: newExercises } : day
+        )
+      } : null);
+      setIsPlanDirty(true);
+    }
+  };
+
+  const handleDayDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !localWorkoutPlan) return;
+    
+    const oldIndex = localWorkoutPlan.days.findIndex((day: any) => day.id === active.id);
+    const newIndex = localWorkoutPlan.days.findIndex((day: any) => day.id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newDays = arrayMove(localWorkoutPlan.days, oldIndex, newIndex);
+      setLocalWorkoutPlan(prev => prev ? { ...prev, days: newDays } : null);
+      // Update selectedDayIndex if needed
+      if (selectedDayIndex === oldIndex) {
+        setSelectedDayIndex(newIndex);
+      } else if (selectedDayIndex === newIndex) {
+        setSelectedDayIndex(oldIndex);
+      } else if (selectedDayIndex > Math.max(oldIndex, newIndex)) {
+        // No change needed
+      } else if (selectedDayIndex < Math.min(oldIndex, newIndex)) {
+        // No change needed
+      }
+      setIsPlanDirty(true);
+    }
+  };
+
   const openEditExerciseDialog = (exercise: any) => {
     // Initialize individualSets if they don't exist
     const exerciseWithSets = {
@@ -2382,95 +2671,103 @@ export default function ClientWorkoutPage() {
                 {cardioTab === 0 ? (
                   // Days tab content
                   localWorkoutPlan.days.length > 0 ? (
-                    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
-                    {localWorkoutPlan.days.map((day, index) => (
-                        <Card
-                        key={day.id}
-                          sx={{ 
-                            border: selectedDayIndex === index ? 2 : 1,
-                            borderColor: selectedDayIndex === index ? 'primary.main' : 'divider',
-                            bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            '&:hover .day-actions': { opacity: 1 }
-                          }}
-                        onClick={() => setSelectedDayIndex(index)}
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDayDragEnd}>
+                      <SortableContext 
+                        items={localWorkoutPlan.days.map(day => day.id)}
+                        strategy={verticalListSortingStrategy}
                       >
-                          <CardHeader title={day.title} />
-                          <CardContent>
-                            <Typography variant="body2" color="text.secondary">
-                                  {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
-                                </Typography>
-                          </CardContent>
-                          <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-                            <IconButton 
-                                  size="small" 
-                              title="Copy day"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!localWorkoutPlan) return;
-                                const newId = `day_${Date.now()}`;
-                                const copiedDay = {
-                                  ...day,
-                                  id: newId,
-                                  exercises: day.exercises.map((ex: any, idx: number) => ({
-                                    ...ex,
-                                    id: `exercise_${Date.now()}_${idx}_${Math.random()}`
-                                  }))
-                                };
-                                setLocalWorkoutPlan(prev => prev ? {
-                                  ...prev,
-                                  days: [...prev.days, copiedDay]
-                                } : null);
-                                setIsPlanDirty(true);
+                        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
+                          {localWorkoutPlan.days.map((day, index) => (
+                            <SortableDay key={day.id} day={day} index={index}>
+                              <Card
+                                sx={{ 
+                                  border: selectedDayIndex === index ? 2 : 1,
+                                  borderColor: selectedDayIndex === index ? 'primary.main' : 'divider',
+                                  bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
+                                  cursor: 'pointer',
+                                  position: 'relative',
+                                  '&:hover .day-actions': { opacity: 1 }
+                                }}
+                                onClick={() => setSelectedDayIndex(index)}
+                              >
+                                <CardHeader title={day.title} />
+                                <CardContent>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
+                                  </Typography>
+                                </CardContent>
+                                <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                                  <IconButton 
+                                    size="small" 
+                                    title="Copy day"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!localWorkoutPlan) return;
+                                      const newId = `day_${Date.now()}`;
+                                      const copiedDay = {
+                                        ...day,
+                                        id: newId,
+                                        exercises: day.exercises.map((ex: any, idx: number) => ({
+                                          ...ex,
+                                          id: `exercise_${Date.now()}_${idx}_${Math.random()}`
+                                        }))
+                                      };
+                                      setLocalWorkoutPlan(prev => prev ? {
+                                        ...prev,
+                                        days: [...prev.days, copiedDay]
+                                      } : null);
+                                      setIsPlanDirty(true);
+                                    }}
+                                    sx={{ '&:hover': { bgcolor: 'action.selected' } }}
+                                  >
+                                    <Copy size={16} />
+                                  </IconButton>
+                                  <IconButton 
+                                    size="small" 
+                                    color="error" 
+                                    title="Delete day"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!localWorkoutPlan) return;
+                                      if (window.confirm('Delete this day?')) {
+                                        setLocalWorkoutPlan(prev => prev ? {
+                                          ...prev,
+                                          days: prev.days.filter((_, i) => i !== index)
+                                        } : null);
+                                        if (selectedDayIndex === index) {
+                                          setSelectedDayIndex(0);
+                                        } else if (selectedDayIndex > index) {
+                                          setSelectedDayIndex(selectedDayIndex - 1);
+                                        }
+                                        setIsPlanDirty(true);
+                                      }
+                                    }}
+                                    sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
+                                  >
+                                    <Trash size={16} />
+                                  </IconButton>
+                                </Box>
+                              </Card>
+                            </SortableDay>
+                          ))}
+                          
+                          <Box>
+                            <Card
+                              sx={{
+                                border: '1px dashed',
+                                borderColor: 'divider',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                               }}
-                              sx={{ '&:hover': { bgcolor: 'action.selected' } }}
+                              onClick={() => setIsCreateDayDialogOpen(true)}
                             >
-                              <Copy size={16} />
-                            </IconButton>
-                            <IconButton 
-                              size="small" 
-                              color="error" 
-                              title="Delete day"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!localWorkoutPlan) return;
-                                if (window.confirm('Delete this day?')) {
-                                  setLocalWorkoutPlan(prev => prev ? {
-                                    ...prev,
-                                    days: prev.days.filter((_, i) => i !== index)
-                                  } : null);
-                                  if (selectedDayIndex === index) {
-                                    setSelectedDayIndex(0);
-                                  } else if (selectedDayIndex > index) {
-                                    setSelectedDayIndex(selectedDayIndex - 1);
-                                  }
-                                  setIsPlanDirty(true);
-                                }
-                              }}
-                              sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
-                            >
-                              <Trash size={16} />
-                            </IconButton>
-                            </Box>
-                        </Card>
-                      ))}
-                      
-                      <Box>
-                        <Card
-                          sx={{
-                            border: '1px dashed',
-                            borderColor: 'divider',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          onClick={() => setIsCreateDayDialogOpen(true)}
-                        >
-                          <Button startIcon={<Add size={16} />}>Add Day</Button>
-                        </Card>
-                      </Box>
-                    </Box>
+                              <Button startIcon={<Add size={16} />}>Add Day</Button>
+                            </Card>
+                          </Box>
+                        </Box>
+                      </SortableContext>
+                    </DndContext>
                   ) : (
                     <Box sx={{ 
                       textAlign: 'center', 
@@ -2625,124 +2922,25 @@ export default function ClientWorkoutPage() {
               </CardContent>
               <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                 {localWorkoutPlan.days[selectedDayIndex].exercises.length > 0 ? (
-                  <Stack spacing={2}>
-                    {localWorkoutPlan.days[selectedDayIndex].exercises.map((ex, index) => {
-                      const repRange = formatRepRange(ex.reps, ex.sets);
-                      
-                      return (
-                        <Card 
-                          key={ex.id}
-                          sx={{ 
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            '&:hover': {
-                              boxShadow: 3,
-                              transform: 'translateY(-2px)'
-                            }
-                          }}
-                          onClick={() => openEditExerciseDialog(ex)}
-                        >
-                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
-                              <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                  <Chip 
-                                    label={`#${index + 1}`} 
-                                    size="small" 
-                                    color="primary" 
-                                    sx={{ height: 20, fontSize: '0.75rem' }} 
-                                  />
-                                  <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                                    {ex.exercise.name}
-                                  </Typography>
-                                </Box>
-                                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                                  {ex.exercise.muscleGroup}
-                                </Typography>
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
-                                  <Chip 
-                                    label={repRange} 
-                                    size="small" 
-                                    variant="outlined"
-                                    sx={{ fontWeight: 500 }}
-                                  />
-                                  {ex.restSeconds > 0 && (
-                                    <Chip 
-                                      label={`Rest: ${ex.restSeconds}s`} 
-                                      size="small" 
-                                      variant="outlined"
-                                    />
-                                  )}
-                                  {ex.tempo && (
-                                    <Chip 
-                                      label={`Tempo: ${ex.tempo}`} 
-                                      size="small" 
-                                      variant="outlined"
-                                    />
-                                  )}
-                                  {ex.rir > 0 && (
-                                    <Chip 
-                                      label={`RIR: ${ex.rir}`} 
-                                      size="small" 
-                                      variant="outlined"
-                                    />
-                                  )}
-                                </Box>
-                                {ex.notes && (
-                                  <Typography 
-                                    variant="body2" 
-                                    color="textSecondary" 
-                                    sx={{ 
-                                      mt: 1, 
-                                      fontSize: '0.875rem',
-                                      fontStyle: 'italic',
-                                      pl: 1,
-                                      borderLeft: '3px solid',
-                                      borderColor: 'primary.main'
-                                    }}
-                                  >
-                                    💡 {ex.notes}
-                                  </Typography>
-                                )}
-                              </Box>
-                              <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>
-                          <IconButton
-                            size="small"
-                                  color="primary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditExerciseDialog(ex);
-                                  }}
-                                  sx={{ 
-                                    bgcolor: 'primary.lighter',
-                                    '&:hover': { bgcolor: 'primary.light' }
-                            }}
-                          >
-                            <Edit size={16} />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm(`Remove ${ex.exercise.name} from this day?`)) {
-                                      removeExerciseFromDay(ex.id);
-                                    }
-                                  }}
-                                  sx={{ 
-                                    bgcolor: 'error.lighter',
-                                    '&:hover': { bgcolor: 'error.light' }
-                            }}
-                          >
-                            <Trash size={16} />
-                          </IconButton>
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </Stack>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleExerciseDragEnd}>
+                    <SortableContext 
+                      items={localWorkoutPlan.days[selectedDayIndex].exercises.map(ex => ex.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <Stack spacing={2}>
+                        {localWorkoutPlan.days[selectedDayIndex].exercises.map((ex, index) => (
+                          <SortableExercise
+                            key={ex.id}
+                            exercise={ex}
+                            index={index}
+                            onEdit={openEditExerciseDialog}
+                            onDelete={removeExerciseFromDay}
+                            formatRepRange={formatRepRange}
+                          />
+                        ))}
+                      </Stack>
+                    </SortableContext>
+                  </DndContext>
                 ) : (
                   <Box sx={{ 
                     textAlign: 'center', 

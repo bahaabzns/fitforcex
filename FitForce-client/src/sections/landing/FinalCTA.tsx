@@ -83,7 +83,7 @@ export default function FinalCTA() {
                 mx: 'auto'
               }}
             >
-              {/* Start Free Trial Button */}
+              {/* Book a Demo and Start your Free Trial Button */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -92,10 +92,16 @@ export default function FinalCTA() {
               >
                 <AnimateButton>
                   <Button
-                    component={Link}
-                    href="/register"
+                    component="a"
+                    href="#book-demo"
                     size="large"
                     variant="contained"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById('book-demo')?.scrollIntoView({ 
+                        behavior: 'smooth' 
+                      });
+                    }}
                     sx={{
                       bgcolor: 'white',
                       color: '#159bff',
@@ -114,7 +120,7 @@ export default function FinalCTA() {
                       minWidth: 200
                     }}
                   >
-                    ✅ Start Free Trial
+                    Book a Demo and Start your Free Trial
                   </Button>
                 </AnimateButton>
               </motion.div>

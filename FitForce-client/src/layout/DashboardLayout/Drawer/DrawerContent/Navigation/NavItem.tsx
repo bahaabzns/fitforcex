@@ -41,6 +41,7 @@ interface Props {
 
 export default function NavItem({ item, level, isParents = false, setSelectedID }: Props) {
   const unreadTotal = useAppSelector((s) => s.messenger?.unreadTotal ?? 0);
+  const submittedCount = useAppSelector((s) => s.queue?.submittedCount ?? 0);
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
   const pathname = usePathname();
 
@@ -175,6 +176,8 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
             {(drawerOpen || (!drawerOpen && level !== 1)) && (
               item.id === 'messenger' ? (
                 <Chip color={unreadTotal > 0 ? 'error' : 'default'} size="small" label={unreadTotal > 99 ? '99+' : unreadTotal} sx={{ ml: 1 }} />
+              ) : item.id === 'queue' ? (
+                <Chip color={submittedCount > 0 ? 'error' : 'default'} size="small" label={submittedCount > 99 ? '99+' : submittedCount} sx={{ ml: 1 }} />
               ) : (
                 item.chip && (
                   <Chip

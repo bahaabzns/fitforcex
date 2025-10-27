@@ -1,8 +1,18 @@
-// project-imports
-import Register from 'views/authentication/Register';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Loader from 'components/Loader';
 
 // ================================|| REGISTER ||================================ //
 
 export default function RegisterPage() {
-  return <Register />;
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to landing page book-demo section
+    router.replace('/#book-demo');
+  }, [router]);
+
+  return <Loader />;
 }

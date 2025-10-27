@@ -17,12 +17,7 @@ export default function Login() {
     <AuthWrapper>
       <Grid container spacing={3}>
         <Grid size={12}>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'baseline', mb: { xs: -0.5, sm: 0.5 } }}>
-            <Typography variant="h3">Login</Typography>
-            <Typography component={Link} href={'/register'} variant="body1" sx={{ textDecoration: 'none' }} color="primary" passHref>
-              Don&apos;t have an account?
-            </Typography>
-          </Stack>
+          <Typography variant="h3" sx={{ mb: { xs: -0.5, sm: 0.5 } }}>Login</Typography>
         </Grid>
         <Grid size={12}>
           <AuthLogin />

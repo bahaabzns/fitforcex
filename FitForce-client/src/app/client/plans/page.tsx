@@ -216,19 +216,15 @@ export default function ClientPlansPage() {
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
           <Box>
-            <Typography variant="h4" fontWeight={700}>Your Plans</Typography>
+            <Typography variant="h4" fontWeight={700}>Your Active Plans</Typography>
             <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
-              View and manage your workout and nutrition plans
+              View your active workout and nutrition plans
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
             <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Total Active</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>Active Plans</Typography>
               <Typography variant="h5" fontWeight={700}>{totalActivePlans}</Typography>
-            </Paper>
-            <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Total Plans</Typography>
-              <Typography variant="h5" fontWeight={700}>{nutritionPlans.length + workoutPlans.length}</Typography>
             </Paper>
           </Stack>
         </Stack>
@@ -246,30 +242,7 @@ export default function ClientPlansPage() {
         </Alert>
       )}
 
-      {/* Active Plans Section */}
-      {totalActivePlans > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-            <CheckCircle color="success" />
-            <Typography variant="h5" fontWeight={700}>Active Plans</Typography>
-            <Chip label={totalActivePlans} color="success" size="small" />
-          </Stack>
-          <Grid container spacing={3}>
-            {activeWorkoutPlans.map((plan) => (
-              <Grid key={plan.id} item xs={12} md={6} lg={4}>
-                <PlanCard plan={plan} type="workout" />
-              </Grid>
-            ))}
-            {activeNutritionPlans.map((plan) => (
-              <Grid key={plan.id} item xs={12} md={6} lg={4}>
-                <PlanCard plan={plan} type="nutrition" />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
-      {/* All Plans Tabs */}
+      {/* Plans Tabs */}
       <Card sx={{ borderRadius: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs 
@@ -280,13 +253,13 @@ export default function ClientPlansPage() {
             <Tab 
               icon={<Restaurant />} 
               iconPosition="start"
-              label={`Nutrition Plans (${nutritionPlans.length})`}
+              label={`Nutrition Plans (${activeNutritionPlans.length})`}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
             <Tab 
               icon={<FitnessCenter />} 
               iconPosition="start"
-              label={`Workout Plans (${workoutPlans.length})`}
+              label={`Workout Plans (${activeWorkoutPlans.length})`}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
           </Tabs>
@@ -294,12 +267,12 @@ export default function ClientPlansPage() {
         <CardContent sx={{ p: 3 }}>
           {tab === 0 && (
             <Grid container spacing={3}>
-              {nutritionPlans.length === 0 ? (
+              {activeNutritionPlans.length === 0 ? (
                 <Grid item xs={12}>
                   <Box sx={{ textAlign: 'center', py: 8 }}>
                     <Restaurant sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                      No Nutrition Plans Yet
+                      No Active Nutrition Plans Yet
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Your trainer will assign nutrition plans to help you reach your goals.
@@ -307,7 +280,7 @@ export default function ClientPlansPage() {
                   </Box>
                 </Grid>
               ) : (
-                nutritionPlans.map((plan) => (
+                activeNutritionPlans.map((plan) => (
                   <Grid key={plan.id} item xs={12} md={6} lg={4}>
                     <PlanCard plan={plan} type="nutrition" />
                   </Grid>
@@ -317,12 +290,12 @@ export default function ClientPlansPage() {
           )}
           {tab === 1 && (
             <Grid container spacing={3}>
-              {workoutPlans.length === 0 ? (
+              {activeWorkoutPlans.length === 0 ? (
                 <Grid item xs={12}>
                   <Box sx={{ textAlign: 'center', py: 8 }}>
                     <FitnessCenter sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                      No Workout Plans Yet
+                      No Active Workout Plans Yet
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Your trainer will create workout plans tailored to your fitness level.
@@ -330,7 +303,7 @@ export default function ClientPlansPage() {
                   </Box>
                 </Grid>
               ) : (
-                workoutPlans.map((plan) => (
+                activeWorkoutPlans.map((plan) => (
                   <Grid key={plan.id} item xs={12} md={6} lg={4}>
                     <PlanCard plan={plan} type="workout" />
                   </Grid>

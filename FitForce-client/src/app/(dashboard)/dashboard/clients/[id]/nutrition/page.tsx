@@ -855,9 +855,17 @@ export default function ClientNutritionPage() {
     setSelectedMealId(null);
   }, [selectedPlanId]);
 
-  const filteredPlans = plans.filter(plan =>
-    plan.title.toLowerCase().includes(planQuery.toLowerCase())
-  );
+  const filteredPlans = plans
+    .filter(plan => plan.title.toLowerCase().includes(planQuery.toLowerCase()))
+    .sort((a, b) => {
+      // Active plans always at top
+      if (a.status === 'active' && b.status !== 'active') return -1;
+      if (a.status !== 'active' && b.status === 'active') return 1;
+      // Then sort by createdAt descending (newest first)
+      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bDate - aDate;
+    });
 
   const handleCopyPlanCard = async (planId: string) => {
     if (!clientId) return;

@@ -47,7 +47,8 @@ export default function Navigation() {
           { id: 'client-forms', title: 'Forms', type: 'item', url: '/client/forms' },
           { id: 'client-plans', title: 'Plans', type: 'item', url: '/client/plans' },
           { id: 'client-subscription', title: 'Subscription', type: 'item', url: '/client/subscription' },
-          { id: 'client-support', title: 'Support', type: 'item', url: '/client/support' }
+          { id: 'client-support', title: 'Support', type: 'item', url: '/client/support' },
+          { id: 'client-settings', title: 'Settings', type: 'item', url: '/client/settings' }
         ]
       } as unknown as NavItemType;
       return { items: [clientMenu] };

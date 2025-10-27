@@ -129,11 +129,17 @@ export default function HeroPage() {
                     <Grid>
                       <AnimateButton>
                         <Button
-                          component={Link}
-                          href="/register"
+                          component="a"
+                          href="#book-demo"
                           size="large"
                           color="secondary"
                           variant="outlined"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            document.getElementById('book-demo')?.scrollIntoView({ 
+                              behavior: 'smooth' 
+                            });
+                          }}
                           sx={{
                             borderColor: 'white',
                             color: 'white',
@@ -143,7 +149,7 @@ export default function HeroPage() {
                             }
                           }}
                         >
-                          Start Your 7-Day Free Trial
+                          Book a Demo and Start your Free Trial
                         </Button>
                       </AnimateButton>
                     </Grid>

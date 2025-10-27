@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '@/utils/axios';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import { useAppSelector } from '@/store';
+import { useAppSelector, useAppDispatch } from '@/store';
+import { setSubmittedCount } from '@/store/slices/queueSlice';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -44,6 +45,13 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import Checkbox from '@mui/material/Checkbox';
+import Toolbar from '@mui/material/Toolbar';
+import AppBar from '@mui/material/AppBar';
+import TableSortLabel from '@mui/material/TableSortLabel';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import Pagination from '@mui/material/Pagination';
 
 type QueueStatus = 'pending' | 'sent' | 'completed' | 'archived';
 
@@ -53,6 +61,7 @@ interface QueueItem {
   clientName: string;
   formTitle: string;
   formType?: 'nutrition' | 'workout' | string | null;
+  createdAt?: string | null;
   scheduledAt?: string | null;
   sentAt?: string | null;
   completedAt?: string | null;
@@ -136,9 +145,29 @@ export default function QueuePage() {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuSubmission, setMenuSubmission] = useState<QueueItem | null>(null);
   
+  // Bulk selection state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false);
+  const [bulkSelectedAssignee, setBulkSelectedAssignee] = useState('');
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+  
+  // Sorting state
+  const [sortField, setSortField] = useState<string>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Pagination state
+  const [page, setPage] = useState<number>(1);
+  const itemsPerPage = 10;
+  
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const userId = useAppSelector((state) => state.auth.user?.id);
+  const dispatch = useAppDispatch();
+
+  // Clear selection when tab changes
+  useEffect(() => {
+    setSelectedItems(new Set());
+  }, [tab, statusFilter]);
 
   useEffect(() => {
     const load = async () => {
@@ -153,6 +182,12 @@ export default function QueuePage() {
         setItems(Array.isArray(queueData?.items) ? queueData.items : []);
         setHasFormsRead(queueData.hasFormsRead);
         setAssignedToMe(queueData.assignedToMe);
+        
+        // Update submitted count in Redux
+        const completedCount = Array.isArray(queueData?.items)
+          ? queueData.items.filter((item: QueueItem) => item.status === 'completed').length
+          : 0;
+        dispatch(setSubmittedCount(completedCount));
         
         // Load team members for assignment dropdown
         const membersRes = await api.get('/api/team/members');
@@ -178,14 +213,98 @@ export default function QueuePage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((it) => {
+    let result = items.filter((it) => {
       const byStatus = statusFilter === 'all' ? true : it.status === statusFilter;
       const byText = !q
         ? true
         : it.clientName.toLowerCase().includes(q) || it.formTitle.toLowerCase().includes(q);
       return byStatus && byText;
     });
-  }, [items, search, statusFilter]);
+    
+    // Apply sorting
+    result.sort((a, b) => {
+      let aVal: any = (a as any)[sortField];
+      let bVal: any = (b as any)[sortField];
+      
+      // Handle date sorting
+      if (sortField === 'createdAt' || sortField === 'scheduledAt' || sortField === 'sentAt' || sortField === 'completedAt' || sortField === 'assignedAt') {
+        aVal = aVal ? new Date(aVal).getTime() : 0;
+        bVal = bVal ? new Date(bVal).getTime() : 0;
+      }
+      
+      // Handle string sorting
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = typeof bVal === 'string' ? bVal.toLowerCase() : '';
+      }
+      
+      // Handle null/undefined values
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+      
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      }
+    });
+    
+    return result;
+  }, [items, search, statusFilter, sortField, sortDirection]);
+  
+  // Get only completed items for bulk operations
+  const completedItems = useMemo(() => {
+    return filtered.filter(item => item.status === 'completed');
+  }, [filtered]);
+
+  // Handle column sorting
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Bulk selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(new Set(completedItems.map(item => item.id)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const isAllSelected = completedItems.length > 0 && selectedItems.size === completedItems.length;
+  const isSomeSelected = selectedItems.size > 0 && selectedItems.size < completedItems.length;
+
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (page - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedItems = filtered.slice(startIndex, endIndex);
+
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+    // Scroll to top of table
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [tab, statusFilter, search, assignedToMe]);
 
   const openView = async (id: string) => {
     setViewOpen(true);
@@ -237,6 +356,36 @@ export default function QueuePage() {
     }
   };
 
+  // Bulk assignment handlers
+  const handleBulkAssignOpen = () => {
+    setBulkSelectedAssignee('');
+    setBulkAssignDialogOpen(true);
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkSelectedAssignee || selectedItems.size === 0) return;
+    
+    setBulkAssigning(true);
+    try {
+      // Assign all selected items
+      const promises = Array.from(selectedItems).map(id => 
+        api.post(`/api/forms/submissions/${id}/assign`, {
+          assignedToId: bulkSelectedAssignee,
+        })
+      );
+      
+      await Promise.all(promises);
+      setBulkAssignDialogOpen(false);
+      setSelectedItems(new Set());
+      // Reload queue
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to assign forms');
+    } finally {
+      setBulkAssigning(false);
+    }
+  };
+
   const openMenu = (event: React.MouseEvent<HTMLElement>, submission: QueueItem) => {
     setMenuAnchor(event.currentTarget);
     setMenuSubmission(submission);
@@ -284,6 +433,55 @@ export default function QueuePage() {
 
       {error && <Alert severity="error">{error}</Alert>}
 
+      {/* Bulk Action Toolbar - Desktop */}
+      {selectedItems.size > 0 && !isMobile && (
+        <Box 
+          sx={{ 
+            bgcolor: 'primary.main', 
+            color: 'primary.contrastText',
+            borderRadius: 1,
+            py: 2,
+            px: 3
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Typography sx={{ flexGrow: 1 }}>
+              {selectedItems.size} form{selectedItems.size > 1 ? 's' : ''} selected
+            </Typography>
+            <Button 
+              variant="outlined"
+              onClick={() => setSelectedItems(new Set())}
+              sx={{ 
+                borderColor: 'primary.light',
+                color: 'primary.contrastText',
+                '&:hover': {
+                  borderColor: 'primary.dark',
+                  bgcolor: 'action.hover'
+                }
+              }}
+            >
+              Clear Selection
+            </Button>
+            <Button 
+              variant="contained"
+              color="secondary"
+              startIcon={<Assignment />}
+              onClick={handleBulkAssignOpen}
+              disabled={completedItems.length === 0}
+              sx={{ 
+                bgcolor: 'background.paper',
+                color: 'primary.main',
+                '&:hover': {
+                  bgcolor: 'background.default'
+                }
+              }}
+            >
+              Assign Selected
+            </Button>
+          </Stack>
+        </Box>
+      )}
+
       <Card>
         <CardContent>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: 'center', mb: 2 }}>
@@ -326,11 +524,80 @@ export default function QueuePage() {
           {isMobile ? (
             // Mobile Cards View
             <Grid container spacing={2}>
+              {/* Bulk Action Bar for Mobile (for completed status only) */}
+              {tab === 3 && completedItems.length > 0 && (
+                <Grid item xs={12}>
+                  <Card>
+                    <CardContent>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Checkbox
+                          checked={isAllSelected}
+                          indeterminate={isSomeSelected}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                        />
+                        <Typography>
+                          Select All ({completedItems.length})
+                        </Typography>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+              
+              {selectedItems.size > 0 && (
+                <Grid item xs={12}>
+                  <Card sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+                    <CardContent>
+                      <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                        <Typography>
+                          {selectedItems.size} selected
+                        </Typography>
+                        <Stack direction="row" spacing={1}>
+                          <Button 
+                            size="small" 
+                            variant="outlined"
+                            onClick={() => setSelectedItems(new Set())}
+                            sx={{ 
+                              borderColor: 'primary.light',
+                              color: 'primary.contrastText',
+                              '&:hover': {
+                                borderColor: 'primary.dark',
+                                bgcolor: 'action.hover'
+                              }
+                            }}
+                          >
+                            Clear
+                          </Button>
+                          <Button 
+                            size="small" 
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<Assignment />}
+                            onClick={handleBulkAssignOpen}
+                            sx={{ 
+                              bgcolor: 'background.paper',
+                              color: 'primary.main',
+                              '&:hover': {
+                                bgcolor: 'background.default'
+                              }
+                            }}
+                          >
+                            Assign
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+              
               {filtered.map((row) => (
                 <Grid item xs={12} key={row.id}>
                   <Card 
                     sx={{ 
                       transition: 'all 0.2s',
+                      border: selectedItems.has(row.id) ? '2px solid' : undefined,
+                      borderColor: selectedItems.has(row.id) ? 'primary.main' : undefined,
                       '&:hover': {
                         boxShadow: 4,
                         transform: 'translateY(-2px)'
@@ -339,8 +606,15 @@ export default function QueuePage() {
                   >
                     <CardContent>
                       <Stack spacing={2}>
-                        {/* Header with Avatar and Status */}
+                        {/* Header with Checkbox (only for completed status), Avatar and Status */}
                         <Stack direction="row" spacing={2} alignItems="center">
+                          {row.status === 'completed' && hasFormsRead && (
+                            <Checkbox
+                              checked={selectedItems.has(row.id)}
+                              onChange={(e) => handleSelectItem(row.id, e.target.checked)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
                           <Avatar sx={{ bgcolor: 'primary.main' }}>
                             {row.clientName.charAt(0).toUpperCase()}
                           </Avatar>
@@ -392,6 +666,14 @@ export default function QueuePage() {
 
                         {/* Timeline Details */}
                         <Grid container spacing={2}>
+                          <Grid item xs={12}>
+                            <Typography variant="caption" color="text.secondary">
+                              Created At
+                            </Typography>
+                            <Typography variant="body2">
+                              {row.createdAt ? new Date(row.createdAt).toLocaleString() : '-'}
+                            </Typography>
+                          </Grid>
                           <Grid item xs={6}>
                             <Typography variant="caption" color="text.secondary">
                               Scheduled
@@ -475,8 +757,8 @@ export default function QueuePage() {
                     </CardContent>
                   </Card>
                 </Grid>
-              ))}
-              {filtered.length === 0 && (
+                  ))}
+                  {paginatedItems.length === 0 && (
                 <Grid item xs={12}>
                   <Card>
                     <CardContent>
@@ -494,18 +776,114 @@ export default function QueuePage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Client</TableCell>
-                    <TableCell>Form</TableCell>
-                    <TableCell>Assigned To</TableCell>
-                    <TableCell>Scheduled</TableCell>
-                    <TableCell>Sent</TableCell>
-                    <TableCell>Completed</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell padding="checkbox">
+                      {tab === 3 && completedItems.length > 0 && (
+                        <Checkbox
+                          indeterminate={isSomeSelected}
+                          checked={isAllSelected}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'clientName'}
+                        direction={sortField === 'clientName' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('clientName')}
+                        IconComponent={sortField === 'clientName' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Client
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'formTitle'}
+                        direction={sortField === 'formTitle' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('formTitle')}
+                        IconComponent={sortField === 'formTitle' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Form
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'assignedToName'}
+                        direction={sortField === 'assignedToName' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('assignedToName')}
+                        IconComponent={sortField === 'assignedToName' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Assigned To
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'createdAt'}
+                        direction={sortField === 'createdAt' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('createdAt')}
+                        IconComponent={sortField === 'createdAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Created At
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'scheduledAt'}
+                        direction={sortField === 'scheduledAt' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('scheduledAt')}
+                        IconComponent={sortField === 'scheduledAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Scheduled
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'sentAt'}
+                        direction={sortField === 'sentAt' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('sentAt')}
+                        IconComponent={sortField === 'sentAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Sent
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'completedAt'}
+                        direction={sortField === 'completedAt' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('completedAt')}
+                        IconComponent={sortField === 'completedAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Completed
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'status'}
+                        direction={sortField === 'status' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('status')}
+                        IconComponent={sortField === 'status' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        Status
+                      </TableSortLabel>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filtered.map((row) => (
-                    <TableRow key={row.id}>
+                  {paginatedItems.map((row) => (
+                    <TableRow 
+                      key={row.id}
+                      sx={{
+                        backgroundColor: selectedItems.has(row.id) ? 'action.selected' : undefined
+                      }}
+                    >
+                      <TableCell padding="checkbox">
+                        {row.status === 'completed' && hasFormsRead && (
+                          <Checkbox
+                            checked={selectedItems.has(row.id)}
+                            onChange={(e) => handleSelectItem(row.id, e.target.checked)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </TableCell>
                       <TableCell>{row.clientName}</TableCell>
                       <TableCell>
                         {row.formTitle}
@@ -525,6 +903,7 @@ export default function QueuePage() {
                           '-'
                         )}
                       </TableCell>
+                      <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleString() : '-'}</TableCell>
                       <TableCell>{row.scheduledAt ? new Date(row.scheduledAt).toLocaleString() : '-'}</TableCell>
                       <TableCell>{row.sentAt ? new Date(row.sentAt).toLocaleString() : '-'}</TableCell>
                       <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleString() : '-'}</TableCell>
@@ -577,9 +956,9 @@ export default function QueuePage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filtered.length === 0 && (
+                  {paginatedItems.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7}>
+                      <TableCell colSpan={8}>
                         <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
                           No queue items match your filters
                         </Typography>
@@ -589,6 +968,19 @@ export default function QueuePage() {
                 </TableBody>
               </Table>
             </ResponsiveTable>
+          )}
+
+          {/* Pagination */}
+          {filtered.length > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={handlePageChange}
+                color="primary"
+                size={isMobile ? 'small' : 'medium'}
+              />
+            </Box>
           )}
         </CardContent>
       </Card>
@@ -721,6 +1113,47 @@ export default function QueuePage() {
             disabled={!selectedAssignee || assigning}
           >
             {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Assignment Dialog */}
+      <Dialog open={bulkAssignDialogOpen} onClose={() => setBulkAssignDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Assign {selectedItems.size} Form{selectedItems.size > 1 ? 's' : ''}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Assign {selectedItems.size} selected form{selectedItems.size > 1 ? 's' : ''} to a team member
+            </Typography>
+            <FormControl fullWidth>
+              <InputLabel>Team Member</InputLabel>
+              <Select
+                value={bulkSelectedAssignee}
+                onChange={(e) => setBulkSelectedAssignee(e.target.value)}
+                label="Team Member"
+              >
+                {teamMembers.map((member) => (
+                  <MenuItem key={member.user.id} value={member.user.id}>
+                    <Box>
+                      <Typography variant="body2">{member.user.fullName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {member.role.name}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkAssignDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleBulkAssign} 
+            variant="contained" 
+            disabled={!bulkSelectedAssignee || bulkAssigning}
+          >
+            {bulkAssigning ? 'Assigning...' : 'Assign'}
           </Button>
         </DialogActions>
       </Dialog>

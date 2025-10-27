@@ -390,18 +390,17 @@ export default function TeamInvitationPage() {
                   </Typography>
                 </Alert>
                 
-                <TextField
-                  label="First Name *"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  fullWidth
-                  disabled={signupLoading}
-                  InputProps={{
-                    startAdornment: <Profile size={20} style={{ marginRight: 8, opacity: 0.5 }} />
-                  }}
-                />
-                
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    label="First Name *"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    fullWidth
+                    disabled={signupLoading}
+                    InputProps={{
+                      startAdornment: <Profile size={20} style={{ marginRight: 8, opacity: 0.5 }} />
+                    }}
+                  />
                   <TextField
                     label="Last Name"
                     value={lastName}
@@ -409,14 +408,15 @@ export default function TeamInvitationPage() {
                     fullWidth
                     disabled={signupLoading}
                   />
-                  <TextField
-                    label="Phone Number"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    fullWidth
-                    disabled={signupLoading}
-                  />
                 </Stack>
+                
+                <TextField
+                  label="Phone Number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  fullWidth
+                  disabled={signupLoading}
+                />
 
                 <TextField
                   label="Email"

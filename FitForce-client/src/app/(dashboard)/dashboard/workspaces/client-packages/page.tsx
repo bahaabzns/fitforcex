@@ -19,7 +19,11 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
@@ -293,7 +297,7 @@ export default function WorkspaceClientPackagesPage() {
                 sx={{ minWidth: 150 }}
               />
               <TextField
-                label="Price (EGP)"
+                label="Price"
                 type="number"
                 value={priceEgp}
                 onChange={(e) => setPriceEgp(Number(e.target.value))}
@@ -301,13 +305,21 @@ export default function WorkspaceClientPackagesPage() {
                 size="medium"
                 sx={{ minWidth: 150 }}
               />
-              <TextField 
-                label="Currency" 
-                value={currency} 
-                onChange={(e) => setCurrency(e.target.value)} 
-                size="medium"
-                sx={{ minWidth: 120 }} 
-              />
+              <FormControl sx={{ minWidth: 120 }} size="medium">
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  value={currency}
+                  label="Currency"
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  <MenuItem value="EGP">EGP</MenuItem>
+                  <MenuItem value="USD">USD</MenuItem>
+                  <MenuItem value="EUR">EUR</MenuItem>
+                  <MenuItem value="GBP">GBP</MenuItem>
+                  <MenuItem value="SAR">SAR</MenuItem>
+                  <MenuItem value="AED">AED</MenuItem>
+                </Select>
+              </FormControl>
               <Button 
                 variant="contained" 
                 onClick={handleCreate} 
@@ -393,7 +405,7 @@ export default function WorkspaceClientPackagesPage() {
                   sx={{ flex: 1, minWidth: 150 }}
                 />
                 <TextField
-                  label="Price (EGP)"
+                  label="Price"
                   type="number"
                   value={editPriceEgp}
                   onChange={(e) => setEditPriceEgp(Number(e.target.value))}
@@ -401,13 +413,21 @@ export default function WorkspaceClientPackagesPage() {
                   size="medium"
                   sx={{ flex: 1, minWidth: 150 }}
                 />
-                <TextField
-                  label="Currency"
-                  value={editCurrency}
-                  onChange={(e) => setEditCurrency(e.target.value)}
-                  size="medium"
-                  sx={{ minWidth: 120 }}
-                />
+                <FormControl sx={{ minWidth: 120 }} size="medium">
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    value={editCurrency}
+                    label="Currency"
+                    onChange={(e) => setEditCurrency(e.target.value)}
+                  >
+                    <MenuItem value="EGP">EGP</MenuItem>
+                    <MenuItem value="USD">USD</MenuItem>
+                    <MenuItem value="EUR">EUR</MenuItem>
+                    <MenuItem value="GBP">GBP</MenuItem>
+                    <MenuItem value="SAR">SAR</MenuItem>
+                    <MenuItem value="AED">AED</MenuItem>
+                  </Select>
+                </FormControl>
               </Stack>
             </Stack>
           </DialogContent>
