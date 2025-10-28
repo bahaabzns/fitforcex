@@ -2214,37 +2214,19 @@ export default function ClientNutritionPage() {
                       }
                     }}
                   >
-                    {isMobile ? (
-                      <>
-                        <Tab 
-                          label=""
-                          icon={<Category size={20} />}
-                          iconPosition="top"
-                        />
-                        <Tab 
-                          label=""
-                          icon={<DocumentText size={20} />}
-                          iconPosition="top"
-                        />
-                        <Tab 
-                          label=""
-                          icon={<Setting2 size={20} />}
-                          iconPosition="top"
-                        />
-                        <Tab 
-                          label=""
-                          icon={<Messages2 size={20} />}
-                          iconPosition="top"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Tab label="Plans" />
-                        <Tab label="Forms" />
-                        <Tab label="Tools" />
-                        <Tab label="Chat" />
-                      </>
-                    )}
+                    {isMobile
+                      ? [
+                          <Tab key="plans-icon" label="" icon={<Category size={20} />} iconPosition="top" />,
+                          <Tab key="forms-icon" label="" icon={<DocumentText size={20} />} iconPosition="top" />,
+                          <Tab key="tools-icon" label="" icon={<Setting2 size={20} />} iconPosition="top" />,
+                          <Tab key="chat-icon" label="" icon={<Messages2 size={20} />} iconPosition="top" />,
+                        ]
+                      : [
+                          <Tab key="plans" label="Plans" />,
+                          <Tab key="forms" label="Forms" />,
+                          <Tab key="tools" label="Tools" />,
+                          <Tab key="chat" label="Chat" />,
+                        ]}
                   </Tabs>
                 </Box>
               }

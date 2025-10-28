@@ -40,6 +40,16 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
 import OnboardingWizard from '@/components/OnboardingWizard';
+import useConfig from '@/hooks/useConfig';
+
+// Import translations
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = {
+  ar,
+  en,
+};
 
 interface DashboardData {
   workspace: {
@@ -109,6 +119,13 @@ interface DashboardData {
 }
 
 export default function DashboardEnhanced() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  
+  const t = (key: string): string => {
+    return translations[currentLang]?.[key] || translations['en'][key] || key;
+  };
+  
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -772,7 +789,7 @@ export default function DashboardEnhanced() {
                     {data?.clientsOverview?.all || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total Clients
+                    {t('total-clients')}
                   </Typography>
                   {isUpdating && <CircularProgress size={16} />}
                 </Box>
@@ -791,7 +808,7 @@ export default function DashboardEnhanced() {
                     {data?.clientsOverview?.active || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Active Clients
+                    {t('active-clients')}
                   </Typography>
                   {isUpdating && <CircularProgress size={16} />}
                 </Box>
@@ -810,7 +827,7 @@ export default function DashboardEnhanced() {
                     ${(data?.financeData?.subscriptions?.total || 0) * 100}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total Revenue
+                    {t('total-revenue')}
                   </Typography>
                   {isUpdating && <CircularProgress size={16} />}
                 </Box>
@@ -829,7 +846,7 @@ export default function DashboardEnhanced() {
                     {data?.formsData?.total || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Total Forms
+                    {t('total-forms')}
                   </Typography>
                   {isUpdating && <CircularProgress size={16} />}
                 </Box>
@@ -851,10 +868,10 @@ export default function DashboardEnhanced() {
                     {data?.metrics?.subscriptions?.active || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Active Subscriptions
+                    {t('active-subscriptions')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {data?.metrics?.subscriptions?.expiring || 0} expiring
+                    {data?.metrics?.subscriptions?.expiring || 0} {t('expiring')}
                   </Typography>
                 </Box>
                 <Avatar sx={{ bgcolor: 'secondary.main', width: 56, height: 56 }}>
@@ -872,10 +889,10 @@ export default function DashboardEnhanced() {
                     {data?.metrics?.nutritionPlans?.total || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Nutrition Plans
+                    {t('nutrition-plans')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {data?.metrics?.workoutPlans?.total || 0} workout plans
+                    {data?.metrics?.workoutPlans?.total || 0} {t('workout-plans')}
                   </Typography>
                 </Box>
                 <Avatar sx={{ bgcolor: 'success.main', width: 56, height: 56 }}>
@@ -893,10 +910,10 @@ export default function DashboardEnhanced() {
                     1
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Team Members
+                    {t('team-members')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Currently active
+                    {t('currently-active')}
                   </Typography>
                 </Box>
                 <Avatar sx={{ bgcolor: 'info.main', width: 56, height: 56 }}>
@@ -914,7 +931,7 @@ export default function DashboardEnhanced() {
                     85%
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Conversion Rate
+                    {t('conversion-rate')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     92% retention
@@ -933,7 +950,7 @@ export default function DashboardEnhanced() {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Client Growth
+                {t('client-growth')}
               </Typography>
               <Box sx={{ height: 300 }}>
                 {analyticsLoading ? (
@@ -964,7 +981,7 @@ export default function DashboardEnhanced() {
             <CardContent>
               <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
                 <Typography variant="h6">
-                  Revenue Trend
+                  {t('revenue-trend')}
                 </Typography>
                 <FormControl size="small" sx={{ minWidth: 140 }}>
                   <InputLabel id="currency-label">Currency</InputLabel>
@@ -1011,7 +1028,7 @@ export default function DashboardEnhanced() {
 
         {/* Forms by Template Table */}
         <Card sx={{ mb: 3 }}>
-          <CardHeader title="Forms by Template" subheader="Scheduled, Requested, Submitted, Done, Total" />
+          <CardHeader title={t('forms-by-template')} subheader={`${t('scheduled')}, ${t('requested')}, ${t('submitted')}, ${t('done')}, ${t('template')}`} />
           <CardContent>
             {formTemplateStats.length === 0 ? (
               <Typography color="text.secondary">No form templates found.</Typography>
@@ -1019,12 +1036,12 @@ export default function DashboardEnhanced() {
               <Table size={isMobile ? 'small' : 'medium'}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Template</TableCell>
-                    <TableCell align="right">Scheduled</TableCell>
-                    <TableCell align="right">Requested</TableCell>
-                    <TableCell align="right">Submitted</TableCell>
-                    <TableCell align="right">Done</TableCell>
-                    <TableCell align="right">Total</TableCell>
+                    <TableCell>{t('template')}</TableCell>
+                    <TableCell align="right">{t('scheduled')}</TableCell>
+                    <TableCell align="right">{t('requested')}</TableCell>
+                    <TableCell align="right">{t('submitted')}</TableCell>
+                    <TableCell align="right">{t('done')}</TableCell>
+                    <TableCell align="right">{t('all')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1048,7 +1065,7 @@ export default function DashboardEnhanced() {
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Stack direction={isMobile ? 'column' : 'row'} spacing={2} alignItems={isMobile ? 'flex-start' : 'center'} justifyContent="space-between" sx={{ mb: 2 }}>
-              <Typography variant="h6">Revenue by Currency</Typography>
+              <Typography variant="h6">{t('revenue-by-currency')}</Typography>
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel id="pkg-filter-label">Package</InputLabel>
                 <Select
@@ -1084,13 +1101,13 @@ export default function DashboardEnhanced() {
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3, mb: 3 }}>
           {/* Performance Indicators */}
           <Card>
-            <CardHeader title="Performance Indicators" />
+            <CardHeader title={t('performance-indicators')} />
             <CardContent>
               <Stack spacing={3}>
                 <Box>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Conversion Rate
+                      {t('conversion-rate')}
                     </Typography>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                       85%
@@ -1114,7 +1131,7 @@ export default function DashboardEnhanced() {
                 <Box>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Retention Rate
+                      {t('retention-rate')}
                     </Typography>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                       92%
@@ -1188,7 +1205,7 @@ export default function DashboardEnhanced() {
 
           {/* Recent Activity */}
           <Card>
-            <CardHeader title="Recent Activity" />
+            <CardHeader title={t('recent-activity')} />
             <CardContent>
               {data?.recentActivities && data.recentActivities.length > 0 ? (
                 <List sx={{ p: 0 }}>

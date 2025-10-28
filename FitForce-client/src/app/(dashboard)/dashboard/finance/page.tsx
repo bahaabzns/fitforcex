@@ -45,6 +45,7 @@ import {
 import api from '@/utils/axios';
 import MainCard from '@/components/MainCard';
 import ResponsiveTable from '@/components/ResponsiveTable';
+import { useTranslation } from '@/utils/useTranslation';
 
 interface FinanceMetrics {
   totalSubscriptions: number;
@@ -90,6 +91,7 @@ interface FinanceDashboardData {
 }
 
 export default function FinancePage() {
+  const { t } = useTranslation();
   const [data, setData] = useState<FinanceDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +195,7 @@ export default function FinancePage() {
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
-          <Typography variant="h4">Finance Dashboard</Typography>
+          <Typography variant="h4">{t('finance')} {t('dashboard')}</Typography>
           {data.pagination && (
             <Typography variant="body2" color="text.secondary">
               Showing {((currentPage - 1) * 20) + 1}-{Math.min(currentPage * 20, data.pagination.totalCount)} of {data.pagination.totalCount} subscriptions
@@ -206,7 +208,7 @@ export default function FinancePage() {
           variant="outlined"
           disabled={loading}
         >
-          Refresh
+          {t('refresh')}
         </Button>
       </Box>
 
@@ -219,7 +221,7 @@ export default function FinancePage() {
                 <Box>
                   <Typography variant="h4">{data.metrics.totalSubscriptions}</Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Total Subscriptions
+                    {t('total-subscriptions')}
                   </Typography>
                 </Box>
                 <Avatar variant="rounded" sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
@@ -237,7 +239,7 @@ export default function FinancePage() {
                 <Box>
                   <Typography variant="h4">{data.metrics.activeSubscriptions}</Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Active Subscriptions
+                    {t('active-subscriptions')}
                   </Typography>
                 </Box>
                 <Avatar variant="rounded" sx={{ bgcolor: 'success.main', width: 56, height: 56 }}>
@@ -255,7 +257,7 @@ export default function FinancePage() {
                 <Box>
                   <Typography variant="h4">{formatCurrency(data.metrics.totalRevenueCents)}</Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Total Revenue
+                    {t('total-revenue')}
                   </Typography>
                 </Box>
                 <Avatar variant="rounded" sx={{ bgcolor: 'info.main', width: 56, height: 56 }}>
@@ -388,7 +390,7 @@ export default function FinancePage() {
                           </Grid>
                           <Grid item xs={6}>
                             <Typography variant="caption" color="text.secondary">
-                              Renewal Date
+                              {t('renewal-date')}
                             </Typography>
                             <Typography variant="body2">
                               {subscription.renewalDate 
@@ -409,7 +411,7 @@ export default function FinancePage() {
                             startIcon={<Eye size={16} />}
                             onClick={() => handleViewSubscriptionDetails(subscription)}
                           >
-                            View Details
+                            {t('view-details')}
                           </Button>
                         </Stack>
                       </Stack>
@@ -424,12 +426,12 @@ export default function FinancePage() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Client</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell>{t('client')}</TableCell>
+                    <TableCell>{t('status')}</TableCell>
                     <TableCell>Payment Method</TableCell>
                     <TableCell>Revenue</TableCell>
                     <TableCell>Created</TableCell>
-                    <TableCell>Renewal Date</TableCell>
+                    <TableCell>{t('renewal-date')}</TableCell>
                     <TableCell align="center">Actions</TableCell>
                   </TableRow>
                 </TableHead>

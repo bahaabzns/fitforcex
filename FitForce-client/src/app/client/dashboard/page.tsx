@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import api from '@/utils/axios';
 import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
+import useConfig from '@/hooks/useConfig';
 import { 
   Box, 
   Card, 
@@ -34,9 +35,24 @@ import {
   Email
 } from '@mui/icons-material';
 
+// Import translations
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = {
+  ar,
+  en,
+};
+
 export default function SeedClientDashboard() {
   const router = useRouter();
   const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  
+  const t = (key: string): string => {
+    return translations[currentLang]?.[key] || translations['en'][key] || key;
+  };
 
   const { data: profile, isLoading: loadingProfile, error: profileError, mutate: mutateProfile } = useSWR('seed-client-profile', async () => {
     const res = await api.get('/api/clients/profile');
@@ -70,7 +86,7 @@ export default function SeedClientDashboard() {
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Stack alignItems="center" spacing={2}>
           <LinearProgress sx={{ width: 200 }} />
-          <Typography color="text.secondary">Loading your dashboard...</Typography>
+          <Typography color="text.secondary">{t('loading-your-dashboard')}</Typography>
         </Stack>
       </Box>
     );
@@ -81,11 +97,11 @@ export default function SeedClientDashboard() {
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
         <Card sx={{ p: 4, width: '100%', maxWidth: 420 }}>
           <Stack spacing={2}>
-            <Typography color="error" variant="h6" textAlign="center">Access Denied</Typography>
+            <Typography color="error" variant="h6" textAlign="center">{t('access-denied')}</Typography>
             <Typography variant="body2" color="text.secondary" textAlign="center">
-              Please log in to access your client dashboard.
+              {t('please-log-in-to-access-your-client-dashboard')}
             </Typography>
-            <MuiButton variant="contained" onClick={() => router.push('/client-login')}>Go to Login</MuiButton>
+            <MuiButton variant="contained" onClick={() => router.push('/client-login')}>{t('go-to-login')}</MuiButton>
           </Stack>
         </Card>
       </Box>
@@ -140,10 +156,10 @@ export default function SeedClientDashboard() {
             )}
             <Box>
               <Typography variant="h4" fontWeight={700}>
-                Welcome, {client.fullName}!
+                {t('welcome-back')}, {client.fullName}!
               </Typography>
               <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                {workspaceName} • Client Portal
+                {workspaceName} • {t('client-portal')}
               </Typography>
             </Box>
           </Stack>
@@ -169,7 +185,7 @@ export default function SeedClientDashboard() {
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap">
           <Box>
             <Typography variant="subtitle1" fontWeight={600}>
-              Account Status: <Chip 
+              {t('account-status')}: <Chip 
                 size="small" 
                 label={client.status.replace('_', ' ').toUpperCase()} 
                 color={getStatusColor(client.status) as any}
@@ -177,11 +193,11 @@ export default function SeedClientDashboard() {
               />
             </Typography>
             <Typography variant="body2">
-              {client.status === 'active' && 'Your account is active and ready to go!'}
-              {client.status === 'pending' && 'Your account setup is pending. Please complete your onboarding.'}
-              {client.status === 'pre_start' && 'Your program will start soon. Get ready!'}
-              {client.status === 'frozen' && 'Your account is currently frozen.'}
-              {(client.status === 'expired' || client.status === 'refunded') && 'Your subscription has ended. Please renew to continue.'}
+              {client.status === 'active' && t('your-account-is-active-and-ready-to-go')}
+              {client.status === 'pending' && t('your-account-setup-is-pending')}
+              {client.status === 'pre_start' && t('your-program-will-start-soon')}
+              {client.status === 'frozen' && t('your-account-is-currently-frozen')}
+              {(client.status === 'expired' || client.status === 'refunded') && t('your-subscription-has-ended')}
             </Typography>
           </Box>
           {(client.status === 'expired' || client.status === 'refunded') && (
@@ -191,7 +207,7 @@ export default function SeedClientDashboard() {
               onClick={() => router.push('/client/subscription')}
               sx={{ mt: { xs: 1, sm: 0 } }}
             >
-              Renew Now
+              {t('renew-now')}
             </MuiButton>
           )}
         </Stack>
@@ -218,7 +234,7 @@ export default function SeedClientDashboard() {
               </Avatar>
               <Box flex={1}>
                 <Typography variant="overline" color="text.secondary" fontWeight={600}>
-                  Workout Plans
+                  {t('workout-plans')}
                 </Typography>
                 <Typography variant="h4" fontWeight={700}>
                   {metrics?.workoutPlansCount ?? '0'}
@@ -231,7 +247,7 @@ export default function SeedClientDashboard() {
               onClick={() => router.push('/client/plans')}
               sx={{ mt: 2 }}
             >
-              View Plans
+              {t('view-plans')}
             </MuiButton>
           </Card>
         </Grid>
@@ -255,7 +271,7 @@ export default function SeedClientDashboard() {
               </Avatar>
               <Box flex={1}>
                 <Typography variant="overline" color="text.secondary" fontWeight={600}>
-                  Nutrition Plans
+                  {t('nutrition-plans')}
                 </Typography>
                 <Typography variant="h4" fontWeight={700}>
                   {metrics?.nutritionPlansCount ?? '0'}
@@ -268,7 +284,7 @@ export default function SeedClientDashboard() {
               onClick={() => router.push('/client/plans')}
               sx={{ mt: 2 }}
             >
-              View Plans
+              {t('view-plans')}
             </MuiButton>
           </Card>
         </Grid>
@@ -292,7 +308,7 @@ export default function SeedClientDashboard() {
               </Avatar>
               <Box flex={1}>
                 <Typography variant="overline" color="text.secondary" fontWeight={600}>
-                  Pending Forms
+                  {t('pending-forms')}
                 </Typography>
                 <Typography variant="h4" fontWeight={700}>
                   {metrics?.pendingFormsCount ?? '0'}
@@ -306,7 +322,7 @@ export default function SeedClientDashboard() {
               sx={{ mt: 2 }}
               color="warning"
             >
-              Fill Forms
+              {t('submit-forms')}
             </MuiButton>
           </Card>
         </Grid>
@@ -330,7 +346,7 @@ export default function SeedClientDashboard() {
               </Avatar>
               <Box flex={1}>
                 <Typography variant="overline" color="text.secondary" fontWeight={600}>
-                  Total Submissions
+                  {t('form-submissions')}
                 </Typography>
                 <Typography variant="h4" fontWeight={700}>
                   {metrics?.totalFormSubmissions ?? '0'}
@@ -349,21 +365,21 @@ export default function SeedClientDashboard() {
             <CardContent>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
                 <TrendingUp color="primary" />
-                <Typography variant="h6" fontWeight={700}>Recent Activity</Typography>
+                <Typography variant="h6" fontWeight={700}>{t('recent-activities')}</Typography>
               </Stack>
               <Divider sx={{ mb: 2 }} />
               {loadingOverview && (
                 <Stack alignItems="center" py={4}>
                   <LinearProgress sx={{ width: '50%' }} />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                    Loading activity…
+                    {t('loading-your-dashboard')}
                   </Typography>
                 </Stack>
               )}
               {!loadingOverview && activities.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
                   <Typography variant="body1" color="text.secondary">
-                    No activity yet. Start by viewing your plans or filling out forms!
+                    {t('no-activities-found')}
                   </Typography>
                   <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 3 }}>
                     <MuiButton 
@@ -371,14 +387,14 @@ export default function SeedClientDashboard() {
                       startIcon={<FitnessCenter />}
                       onClick={() => router.push('/client/plans')}
                     >
-                      View Plans
+                      {t('view-plans')}
                     </MuiButton>
                     <MuiButton 
                       variant="outlined" 
                       startIcon={<Assignment />}
                       onClick={() => router.push('/client/forms')}
                     >
-                      View Forms
+                      {t('submit-forms')}
                     </MuiButton>
                   </Stack>
                 </Box>
@@ -428,31 +444,31 @@ export default function SeedClientDashboard() {
               <CardContent>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
                   <Person color="primary" />
-                  <Typography variant="h6" fontWeight={700}>Your Profile</Typography>
+                  <Typography variant="h6" fontWeight={700}>{t('user-profile')}</Typography>
                 </Stack>
                 <Divider sx={{ mb: 2 }} />
                 <Stack spacing={2}>
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      FULL NAME
+                      {t('full-name')}
                     </Typography>
                     <Typography variant="body1">{client.fullName}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      EMAIL
+                      {t('email-address')}
                     </Typography>
                     <Typography variant="body1">{client.email || '—'}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      WORKSPACE
+                      {t('workspace')}
                     </Typography>
                     <Typography variant="body1">{workspace?.name || '—'}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      FORMS COMPLETED
+                      {t('forms-completed')}
                     </Typography>
                     <Typography variant="body1">{metrics?.totalFormSubmissions ?? 0}</Typography>
                   </Box>
@@ -464,7 +480,7 @@ export default function SeedClientDashboard() {
             <Card sx={{ borderRadius: 3 }}>
               <CardContent>
                 <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
-                  Quick Actions
+                  {t('quick-access')}
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 <Stack spacing={1.5}>
@@ -475,7 +491,7 @@ export default function SeedClientDashboard() {
                     onClick={() => router.push('/client/plans')}
                     size="large"
                   >
-                    My Plans
+                    {t('my-plans')}
                   </MuiButton>
                   <MuiButton 
                     variant="outlined" 
@@ -485,7 +501,7 @@ export default function SeedClientDashboard() {
                     size="large"
                     color="warning"
                   >
-                    Forms {metrics?.pendingFormsCount ? `(${metrics.pendingFormsCount})` : ''}
+                    {t('forms')} {metrics?.pendingFormsCount ? `(${metrics.pendingFormsCount})` : ''}
                   </MuiButton>
                   <MuiButton 
                     variant="outlined" 
@@ -494,7 +510,7 @@ export default function SeedClientDashboard() {
                     onClick={() => router.push('/client/support')}
                     size="large"
                   >
-                    Contact Support
+                    {t('contact-support')}
                   </MuiButton>
                 </Stack>
               </CardContent>
@@ -504,10 +520,10 @@ export default function SeedClientDashboard() {
             <Card sx={{ borderRadius: 3, bgcolor: 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={700} color="primary.main" sx={{ mb: 1 }}>
-                  Need Help?
+                  {t('need-help')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Contact your trainer if you need assistance with your plans or have any questions about your program.
+                  {t('need-help-description')}
                 </Typography>
                 <MuiButton 
                   variant="contained" 
@@ -515,7 +531,7 @@ export default function SeedClientDashboard() {
                   sx={{ mt: 2 }}
                   onClick={() => router.push('/client/support')}
                 >
-                  Get Support
+                  {t('get-support')}
                 </MuiButton>
               </CardContent>
             </Card>

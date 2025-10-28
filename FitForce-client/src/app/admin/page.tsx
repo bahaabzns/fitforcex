@@ -51,6 +51,13 @@ export default function AdminHome() {
 
   const items = [
     {
+      href: '/admin/users',
+      title: 'Users',
+      desc: 'Create and manage user accounts.',
+      icon: <People color="primary" />,
+      chip: 'Directory'
+    },
+    {
       href: '/admin/workspaces',
       title: 'Workspaces',
       desc: 'View all workspaces and their owners.',

@@ -1428,26 +1428,12 @@ export default function ClientWorkoutPage() {
                     }
                   }}
                 >
-                  <Tab 
-                    label=""
-                    icon={<Category size={20} />}
-                    iconPosition="top"
-                  />
-                  <Tab 
-                    label=""
-                    icon={<DocumentText size={20} />}
-                    iconPosition="top"
-                  />
-                  <Tab 
-                    label=""
-                    icon={<Setting2 size={20} />}
-                    iconPosition="top"
-                  />
-                  <Tab 
-                    label=""
-                    icon={<Messages2 size={20} />}
-                    iconPosition="top"
-                  />
+                  {[
+                    <Tab key="plans-icon" label="" icon={<Category size={20} />} iconPosition="top" />,
+                    <Tab key="forms-icon" label="" icon={<DocumentText size={20} />} iconPosition="top" />,
+                    <Tab key="tools-icon" label="" icon={<Setting2 size={20} />} iconPosition="top" />,
+                    <Tab key="chat-icon" label="" icon={<Messages2 size={20} />} iconPosition="top" />,
+                  ]}
                 </Tabs>
               </Box>
             }
@@ -1485,7 +1471,7 @@ export default function ClientWorkoutPage() {
               ) : null
             }
           />
-          <CardContent>
+          <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {plansTab === 0 ? (
               loadingPlans ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

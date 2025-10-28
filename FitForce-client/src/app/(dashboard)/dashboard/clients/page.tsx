@@ -72,6 +72,16 @@ import {
 
 // Assets
 import { Add, Edit, Eye, Trash, Grid3, Menu } from '@wandersonalwes/iconsax-react';
+import useConfig from '@/hooks/useConfig';
+
+// Import translations
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = {
+  ar,
+  en,
+};
 
 type Client = {
   id: string;
@@ -93,6 +103,12 @@ export default function ClientsPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  
+  const t = (key: string): string => {
+    return translations[currentLang]?.[key] || translations['en'][key] || key;
+  };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -490,7 +506,7 @@ export default function ClientsPage() {
         meta: { align: 'center' }
       },
       {
-        header: 'Client Name',
+        header: t('client-name'),
         accessorKey: 'name',
         cell: ({ row, getValue }) => {
           const name = (getValue() as string) || row.original.fullName || 'Unnamed';
@@ -501,19 +517,19 @@ export default function ClientsPage() {
                 <Link href={`/dashboard/clients/${row.original.id}/overview`} style={{ textDecoration: 'none' }}>
                   <Typography variant="subtitle1" sx={{ cursor: 'pointer' }}>{name}</Typography>
                 </Link>
-                <Typography sx={{ color: 'text.secondary' }}>{row.original.email || 'No email'}</Typography>
+                <Typography sx={{ color: 'text.secondary' }}>{row.original.email || t('no-email')}</Typography>
               </Stack>
             </Stack>
           );
         }
       },
       {
-        header: 'Contact',
+        header: t('contact'),
         accessorKey: 'phone',
-        cell: ({ getValue }) => <Typography>{(getValue() as string) || 'No phone'}</Typography>
+        cell: ({ getValue }) => <Typography>{(getValue() as string) || t('no-phone')}</Typography>
       },
       {
-        header: 'Status',
+        header: t('status'),
         accessorKey: 'status',
         cell: ({ getValue }) => {
           const status = getValue() as string;
@@ -521,14 +537,14 @@ export default function ClientsPage() {
         }
       },
       {
-        header: 'Package',
+        header: t('package'),
         accessorKey: 'packageName',
         cell: ({ row }) => {
           const packageName = row.original.packageName;
           const packageDuration = row.original.packageDuration;
           
           if (!packageName) {
-            return <Typography color="text.secondary">No package</Typography>;
+            return <Typography color="text.secondary">{t('no-package')}</Typography>;
           }
           
           return (
@@ -816,7 +832,7 @@ export default function ClientsPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading clients…</Typography>
+            <Typography color="text.secondary">{t('loading-clients')}</Typography>
         </Stack>
       </Box>
     );
@@ -870,7 +886,7 @@ export default function ClientsPage() {
                       <TableCell colSpan={row.getVisibleCells().length} sx={{ p: 2.5, overflow: 'hidden' }}>
                         <Stack direction="row" spacing={2}>
                           <Button size="small" variant="outlined" href={`/dashboard/clients/${row.original.id}`}>
-                            View Details
+                            {t('view-details')}
                           </Button>
                         </Stack>
                       </TableCell>
@@ -949,7 +965,7 @@ export default function ClientsPage() {
                 {c.status && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
-                      Status
+                      {t('status')}
                     </Typography>
                     <Box sx={{ mt: 0.5 }}>
                       <Chip 
@@ -967,7 +983,7 @@ export default function ClientsPage() {
                 {c.packageName && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
-                      Package
+                      {t('package')}
                     </Typography>
                     <Typography variant="body2">
                       {c.packageName}
@@ -980,7 +996,7 @@ export default function ClientsPage() {
                 {c.createdAt && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
-                      Joined
+                      {t('joined')}
                     </Typography>
                     <Typography variant="body2">
                       {new Date(c.createdAt).toLocaleDateString()}
@@ -997,7 +1013,7 @@ export default function ClientsPage() {
                     fullWidth={isMobile}
                   >
                     <Eye style={{ marginRight: 4 }} />
-                    Details
+                    {t('details')}
                   </Button>
                 </Stack>
               </Stack>
@@ -1016,7 +1032,7 @@ export default function ClientsPage() {
         alignItems={{ xs: 'stretch', sm: 'center' }}
         justifyContent="space-between"
       >
-        <Typography variant="h4">Clients</Typography>
+        <Typography variant="h4">{t('clients')}</Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
           <ToggleButtonGroup value={viewMode} exclusive onChange={(_, newMode) => newMode && setViewMode(newMode)} size="small">
             <ToggleButton value="table">
@@ -1033,15 +1049,15 @@ export default function ClientsPage() {
             size="small"
             sx={{ minWidth: 150 }}
           >
-            <MenuItem value="all">All Packages</MenuItem>
-            <MenuItem value="none">No Package</MenuItem>
+            <MenuItem value="all">{t('all-packages')}</MenuItem>
+            <MenuItem value="none">{t('no-package-filter')}</MenuItem>
             {packages.map((pkg) => (
               <MenuItem key={pkg.id} value={pkg.id}>
                 {pkg.name}
               </MenuItem>
             ))}
           </Select>
-          <TextField size="small" placeholder="Search by client name..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <TextField size="small" placeholder={t('search-by-client-name')} value={search} onChange={(e) => setSearch(e.target.value)} />
           {Object.keys(rowSelection).length > 0 && viewMode === 'table' && (
             <Button
               variant="outlined"
