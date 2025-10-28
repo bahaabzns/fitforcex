@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
 import api from '@/utils/axios';
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { useAppSelector, useAppDispatch } from '@/store';
@@ -33,6 +34,7 @@ import Avatar from '@mui/material/Avatar';
 import { AttachFile, Assignment } from '@mui/icons-material';
 import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
+import { FormattedMessage } from 'react-intl';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
@@ -107,22 +109,32 @@ function statusColor(s: QueueStatus) {
   }
 }
 
-function statusLabel(s: QueueStatus) {
+function statusLabelIntl(intl: any, s: QueueStatus) {
   switch (s) {
     case 'pending':
-      return 'Scheduless';
+      return intl.formatMessage({ id: 'queue.status.pending', defaultMessage: 'Schedules' });
     case 'sent':
-      return 'Form Requests';
+      return intl.formatMessage({ id: 'queue.status.sent', defaultMessage: 'Form Requests' });
     case 'completed':
-      return 'Form Submissions';
+      return intl.formatMessage({ id: 'queue.status.completed', defaultMessage: 'Form Submissions' });
     case 'archived':
-      return 'Done';
+      return intl.formatMessage({ id: 'queue.status.archived', defaultMessage: 'Done' });
     default:
       return s;
   }
 }
 
+function formatFormType(intl: any, type?: string | null) {
+  if (!type) return '';
+  const t = String(type).toLowerCase();
+  if (t === 'nutrition') return intl.formatMessage({ id: 'queue.type.nutrition', defaultMessage: 'Nutrition' });
+  if (t === 'workout') return intl.formatMessage({ id: 'queue.type.workout', defaultMessage: 'Workout' });
+  return type;
+}
+
 export default function QueuePage() {
+  const intl = useIntl();
+  const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
   const [items, setItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -421,7 +433,7 @@ export default function QueuePage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading queue…</Typography>
+          <Typography color="text.secondary"><FormattedMessage id="queue.loading" defaultMessage="Loading queue…" /></Typography>
         </Stack>
       </Box>
     );
@@ -429,7 +441,7 @@ export default function QueuePage() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Typography variant="h4">Queue</Typography>
+      <Typography variant="h4"><FormattedMessage id="queue.title" defaultMessage="Queue" /></Typography>
 
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -446,7 +458,7 @@ export default function QueuePage() {
         >
           <Stack direction="row" spacing={2} alignItems="center">
             <Typography sx={{ flexGrow: 1 }}>
-              {selectedItems.size} form{selectedItems.size > 1 ? 's' : ''} selected
+              {intl.formatMessage({ id: 'queue.selected.count', defaultMessage: '{count} selected' }, { count: selectedItems.size })}
             </Typography>
             <Button 
               variant="outlined"
@@ -460,7 +472,7 @@ export default function QueuePage() {
                 }
               }}
             >
-              Clear Selection
+              <FormattedMessage id="queue.clearSelection" defaultMessage="Clear Selection" />
             </Button>
             <Button 
               variant="contained"
@@ -476,7 +488,7 @@ export default function QueuePage() {
                 }
               }}
             >
-              Assign Selected
+              <FormattedMessage id="queue.assignSelected" defaultMessage="Assign Selected" />
             </Button>
           </Stack>
         </Box>
@@ -487,7 +499,7 @@ export default function QueuePage() {
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: 'center', mb: 2 }}>
             <TextField
               size="small"
-              placeholder="Search by client or form title"
+              placeholder={intl.formatMessage({ id: 'queue.search.placeholder', defaultMessage: 'Search by client or form title' })}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -499,7 +511,7 @@ export default function QueuePage() {
                     onChange={(e) => setAssignedToMe(e.target.checked)}
                   />
                 }
-                label="Show My Assignments Only"
+                label={intl.formatMessage({ id: 'queue.filter.assignedToMe', defaultMessage: 'Show My Assignments Only' })}
               />
             )}
           </Stack>
@@ -514,11 +526,11 @@ export default function QueuePage() {
             }}
             sx={{ mb: 2 }}
           >
-            <Tab label={`All (${counts.all})`} />
-            <Tab label={`Schedules (${counts.pending})`} />
-            <Tab label={`Form Requests (${counts.sent})`} />
-            <Tab label={`Form Submissions (${counts.completed})`} />
-            <Tab label={`Done (${counts.archived})`} />
+            <Tab label={`${intl.formatMessage({ id: 'queue.tab.all', defaultMessage: 'All' })} (${counts.all})`} />
+            <Tab label={`${intl.formatMessage({ id: 'queue.status.pending', defaultMessage: 'Schedules' })} (${counts.pending})`} />
+            <Tab label={`${intl.formatMessage({ id: 'queue.status.sent', defaultMessage: 'Form Requests' })} (${counts.sent})`} />
+            <Tab label={`${intl.formatMessage({ id: 'queue.status.completed', defaultMessage: 'Form Submissions' })} (${counts.completed})`} />
+            <Tab label={`${intl.formatMessage({ id: 'queue.status.archived', defaultMessage: 'Done' })} (${counts.archived})`} />
           </Tabs>
 
           {isMobile ? (
@@ -536,7 +548,7 @@ export default function QueuePage() {
                           onChange={(e) => handleSelectAll(e.target.checked)}
                         />
                         <Typography>
-                          Select All ({completedItems.length})
+                          {intl.formatMessage({ id: 'queue.selectAll', defaultMessage: 'Select All ({count})' }, { count: completedItems.length })}
                         </Typography>
                       </Stack>
                     </CardContent>
@@ -566,7 +578,7 @@ export default function QueuePage() {
                               }
                             }}
                           >
-                            Clear
+                            <FormattedMessage id="queue.clear" defaultMessage="Clear" />
                           </Button>
                           <Button 
                             size="small" 
@@ -582,7 +594,7 @@ export default function QueuePage() {
                               }
                             }}
                           >
-                            Assign
+                            <FormattedMessage id="queue.assign" defaultMessage="Assign" />
                           </Button>
                         </Stack>
                       </Stack>
@@ -623,13 +635,13 @@ export default function QueuePage() {
                               {row.clientName}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {row.formTitle}
+                              {(isArabic ? (row as any).formTitleArabic : undefined) || row.formTitle}
                             </Typography>
                           </Box>
                           <Chip 
                             size="small" 
                             color={statusColor(row.status) as any} 
-                            label={statusLabel(row.status)} 
+                            label={statusLabelIntl(intl, row.status)} 
                             variant="outlined" 
                           />
                         </Stack>
@@ -641,7 +653,7 @@ export default function QueuePage() {
                           <Box>
                             <Chip 
                               size="small" 
-                              label={row.formType} 
+                              label={formatFormType(intl, row.formType)} 
                               variant="outlined"
                               color="primary"
                             />
@@ -710,7 +722,7 @@ export default function QueuePage() {
                               variant="outlined" 
                               onClick={() => openView(row.id)}
                             >
-                              View Submission
+                              <FormattedMessage id="queue.viewSubmission" defaultMessage="View Submission" />
                             </Button>
                           )}
                           
@@ -722,7 +734,7 @@ export default function QueuePage() {
                               startIcon={<Assignment />}
                               onClick={() => openAssignDialog(row)}
                             >
-                              Assign
+                              <FormattedMessage id="queue.assign" defaultMessage="Assign" />
                             </Button>
                           )}
                           
@@ -739,7 +751,7 @@ export default function QueuePage() {
                                 window.location.href = path;
                               }}
                             >
-                              Make {row.formType === 'nutrition' ? 'Nutrition' : 'Workout'} Plan
+                              {intl.formatMessage({ id: 'queue.makePlan', defaultMessage: 'Make {type} Plan' }, { type: row.formType === 'nutrition' ? intl.formatMessage({ id: 'queue.type.nutrition', defaultMessage: 'Nutrition' }) : intl.formatMessage({ id: 'queue.type.workout', defaultMessage: 'Workout' }) })}
                             </Button>
                           )}
                           
@@ -763,7 +775,7 @@ export default function QueuePage() {
                   <Card>
                     <CardContent>
                       <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                        No queue items match your filters
+                        <FormattedMessage id="queue.empty" defaultMessage="No queue items match your filters" />
                       </Typography>
                     </CardContent>
                   </Card>
@@ -792,7 +804,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('clientName')}
                         IconComponent={sortField === 'clientName' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Client
+                        <FormattedMessage id="queue.col.client" defaultMessage="Client" />
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -802,7 +814,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('formTitle')}
                         IconComponent={sortField === 'formTitle' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Form
+                        <FormattedMessage id="queue.col.form" defaultMessage="Form" />
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -812,7 +824,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('assignedToName')}
                         IconComponent={sortField === 'assignedToName' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Assigned To
+                        <FormattedMessage id="queue.col.assignedTo" defaultMessage="Assigned To" />
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -822,7 +834,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('createdAt')}
                         IconComponent={sortField === 'createdAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Created At
+                        <FormattedMessage id="queue.col.createdAt" defaultMessage="Created At" />
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -832,7 +844,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('scheduledAt')}
                         IconComponent={sortField === 'scheduledAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Scheduled
+                        <FormattedMessage id="queue.col.scheduledAt" defaultMessage="Scheduled" />
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -842,7 +854,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('sentAt')}
                         IconComponent={sortField === 'sentAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Sent
+                        <FormattedMessage id="queue.col.sentAt" defaultMessage="Sent" />
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -852,7 +864,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('completedAt')}
                         IconComponent={sortField === 'completedAt' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Completed
+                        <FormattedMessage id="queue.col.completedAt" defaultMessage="Completed" />
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>
@@ -862,7 +874,7 @@ export default function QueuePage() {
                         onClick={() => handleSort('status')}
                         IconComponent={sortField === 'status' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
                       >
-                        Status
+                        <FormattedMessage id="queue.col.status" defaultMessage="Status" />
                       </TableSortLabel>
                     </TableCell>
                   </TableRow>
@@ -886,8 +898,8 @@ export default function QueuePage() {
                       </TableCell>
                       <TableCell>{row.clientName}</TableCell>
                       <TableCell>
-                        {row.formTitle}
-                        {row.formType ? <Chip size="small" label={row.formType} sx={{ ml: 1 }} /> : null}
+                        {(isArabic ? (row as any).formTitleArabic : undefined) || row.formTitle}
+                        {row.formType ? <Chip size="small" label={formatFormType(intl, row.formType)} sx={{ ml: 1 }} /> : null}
                       </TableCell>
                       <TableCell>
                         {row.assignedToName ? (
@@ -909,9 +921,9 @@ export default function QueuePage() {
                       <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleString() : '-'}</TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <Chip size="small" color={statusColor(row.status) as any} label={statusLabel(row.status)} variant="outlined" />
+                          <Chip size="small" color={statusColor(row.status) as any} label={statusLabelIntl(intl, row.status)} variant="outlined" />
                           {row.status === 'completed' && (
-                            <Button size="small" variant="outlined" onClick={() => openView(row.id)}>View</Button>
+                            <Button size="small" variant="outlined" onClick={() => openView(row.id)}><FormattedMessage id="queue.view" defaultMessage="View" /></Button>
                           )}
                           
                           {/* Assignment Actions */}
@@ -922,7 +934,7 @@ export default function QueuePage() {
                               startIcon={<Assignment />}
                               onClick={() => openAssignDialog(row)}
                             >
-                              Assign
+                              <FormattedMessage id="queue.assign" defaultMessage="Assign" />
                             </Button>
                           )}
                           
@@ -939,7 +951,7 @@ export default function QueuePage() {
                                 window.location.href = path;
                               }}
                             >
-                              Make Plan
+                              <FormattedMessage id="queue.makePlan.short" defaultMessage="Make Plan" />
                             </Button>
                           )}
                           
@@ -960,7 +972,7 @@ export default function QueuePage() {
                     <TableRow>
                       <TableCell colSpan={8}>
                         <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                          No queue items match your filters
+                          <FormattedMessage id="queue.empty" defaultMessage="No queue items match your filters" />
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -987,7 +999,7 @@ export default function QueuePage() {
 
       {/* View Submission Dialog */}
       <Dialog fullWidth maxWidth="md" open={viewOpen} onClose={() => setViewOpen(false)}>
-        <DialogTitle>Form Submission</DialogTitle>
+        <DialogTitle>{(isArabic ? (viewSubmission as any)?.form?.titleArabic : undefined) || viewSubmission?.form?.title || 'Form Submission'}</DialogTitle>
         <DialogContent dividers>
           {viewLoading && (
             <Stack alignItems="center" sx={{ py: 4 }}>
@@ -1007,7 +1019,7 @@ export default function QueuePage() {
                   <Stack spacing={1.5}>
                     {viewSubmission.form.questions.map((q: any, idx: number) => {
                       const qid = q.id || `q_${idx}`;
-                      const label = q.question || q.label || `Question ${idx + 1}`;
+                      const label = (isArabic ? q.questionArabic || q.labelArabic : undefined) || q.question || q.label || `Question ${idx + 1}`;
                       const val = viewSubmission.answers ? viewSubmission.answers[qid] : undefined;
                       let display: any = val;
                       

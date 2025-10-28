@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent } from 'react';
+import { useIntl, FormattedMessage } from 'react-intl';
 import useSWR from 'swr';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
@@ -118,29 +119,30 @@ const headCells = [
     id: 'name',
     numeric: false,
     disablePadding: true,
-    label: 'Exercise Name'
+    label: 'workout.col.name'
   },
   {
     id: 'muscleGroup',
     numeric: false,
     disablePadding: false,
-    label: 'Muscle Group'
+    label: 'workout.col.muscleGroup'
   },
   {
     id: 'createdAt',
     numeric: false,
     disablePadding: false,
-    label: 'Created'
+    label: 'workout.col.created'
   },
   {
     id: 'actions',
     numeric: false,
     disablePadding: false,
-    label: 'Actions'
+    label: 'actions'
   }
 ];
 
 function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowCount, onRequestSort }: EnhancedTableHeadProps) {
+  const intl = useIntl();
   const createSortHandler = (property: string) => (event: SyntheticEvent) => {
     onRequestSort(event, property);
   };
@@ -165,16 +167,16 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
             sortDirection={orderBy === headCell.id ? order : undefined}
           >
             {headCell.id === 'actions' ? (
-              headCell.label
+              <FormattedMessage id={headCell.label} defaultMessage="Actions" />
             ) : (
               <TableSortLabel
                 active={orderBy === headCell.id}
                 direction={orderBy === headCell.id ? order : 'asc'}
                 onClick={createSortHandler(headCell.id)}
               >
-                {headCell.label}
+                {intl.formatMessage({ id: headCell.label, defaultMessage: headCell.label })}
                 {orderBy === headCell.id ? (
-                  <Box sx={visuallyHidden}>{order === 'desc' ? 'sorted descending' : 'sorted ascending'}</Box>
+                  <Box sx={visuallyHidden}>{order === 'desc' ? intl.formatMessage({ id: 'sorted.desc', defaultMessage: 'sorted descending' }) : intl.formatMessage({ id: 'sorted.asc', defaultMessage: 'sorted ascending' })}</Box>
                 ) : null}
               </TableSortLabel>
             )}
@@ -186,9 +188,11 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
 }
 
 export default function WorkoutPage() {
+  const intl = useIntl();
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
 
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -733,9 +737,9 @@ export default function WorkoutPage() {
                               />
                               <Box sx={{ flexGrow: 1 }}>
                                 <Typography variant="h6">
-                                  {row.name}
+                                  {(isArabic ? row.nameArabic : undefined) || row.name}
                                 </Typography>
-                                {row.nameArabic && (
+                                {!isArabic && row.nameArabic && (
                                   <Typography variant="body2" color="text.secondary">
                                     {row.nameArabic}
                                   </Typography>
@@ -749,7 +753,7 @@ export default function WorkoutPage() {
                             <Grid container spacing={2}>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Muscle Group
+                                  <FormattedMessage id="workout.col.muscleGroup" defaultMessage="Muscle Group" />
                                 </Typography>
                                 <Box sx={{ mt: 0.5 }}>
                                   <Chip label={row.muscleGroup} variant="outlined" size="small" />
@@ -757,7 +761,7 @@ export default function WorkoutPage() {
                               </Grid>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Created
+                                  <FormattedMessage id="workout.col.created" defaultMessage="Created" />
                                 </Typography>
                                 <Typography variant="body2">
                                   {new Date(row.createdAt).toLocaleDateString()}
@@ -829,7 +833,7 @@ export default function WorkoutPage() {
                             <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
                           </TableCell>
                           <TableCell component="th" id={labelId} scope="row" padding="none">
-                            {row.name}
+                            {(isArabic ? row.nameArabic : undefined) || row.name}
                           </TableCell>
                           <TableCell>
                             <Chip label={row.muscleGroup} variant="outlined" size="small" />

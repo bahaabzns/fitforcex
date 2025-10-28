@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import api from '@/utils/axios';
+import useConfig from '@/hooks/useConfig';
 import { 
   Box, 
   Card, 
@@ -32,6 +33,12 @@ import {
   Star
 } from '@mui/icons-material';
 
+// translations
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
+
 type NutritionPlan = {
   id: string;
   title: string;
@@ -51,6 +58,10 @@ type WorkoutPlan = {
 };
 
 export default function ClientPlansPage() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const isArabic = currentLang === 'ar';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
   const { data: profile, isLoading: loadingProfile } = useSWR('seed-client-profile', async () => {
     const res = await api.get('/api/clients/profile');
     return res.data as { client: { id: string; fullName: string } };
@@ -81,7 +92,7 @@ export default function ClientPlansPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8, minHeight: '60vh' }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress size={60} />
-          <Typography color="text.secondary" variant="h6">Loading your plans…</Typography>
+          <Typography color="text.secondary" variant="h6">{t('client.plans.loading')}</Typography>
         </Stack>
       </Box>
     );
@@ -127,7 +138,7 @@ export default function ClientPlansPage() {
         {isActive && (
           <Chip 
             icon={<Star />}
-            label="ACTIVE" 
+            label={t('client.plans.active')}
             color={color as any}
             size="small"
             sx={{ 
@@ -146,12 +157,12 @@ export default function ClientPlansPage() {
             </Avatar>
             <Box flex={1}>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-                {plan.title}
+                {(isArabic && (plan as any).titleArabic) || plan.title}
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" gap={0.5}>
                 <Chip 
                   size="small" 
-                  label={plan.status?.toUpperCase() || 'DRAFT'} 
+                  label={(plan.status ? t(`client.plan.status.${plan.status}`) : t('client.plans.draft'))}
                   color={isActive ? color as any : 'default'}
                   variant={isActive ? 'filled' : 'outlined'}
                 />
@@ -167,19 +178,19 @@ export default function ClientPlansPage() {
           <Divider sx={{ my: 1.5 }} />
           <Stack spacing={1}>
             <Typography variant="body2" color="text.secondary">
-              <strong>Created:</strong> {new Date(plan.createdAt).toLocaleString()}
+              <strong>{t('client.plans.created')}:</strong> {new Date(plan.createdAt).toLocaleString()}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              <strong>Last Updated:</strong> {new Date(plan.updatedAt).toLocaleString()}
+              <strong>{t('client.plans.lastUpdated')}:</strong> {new Date(plan.updatedAt).toLocaleString()}
             </Typography>
             {type === 'workout' && 'days' in plan && (
               <Typography variant="body2" color="text.secondary">
-                <strong>Days:</strong> {plan.days?.length || 0}
+                <strong>{t('client.plans.days')}:</strong> {plan.days?.length || 0}
               </Typography>
             )}
             {type === 'nutrition' && 'items' in plan && (
               <Typography variant="body2" color="text.secondary">
-                <strong>Items:</strong> {plan.items?.length || 0}
+                <strong>{t('client.plans.items')}:</strong> {plan.items?.length || 0}
               </Typography>
             )}
           </Stack>
@@ -194,7 +205,7 @@ export default function ClientPlansPage() {
             size="large"
             startIcon={<Visibility />}
           >
-            View Details
+            {t('client.plans.viewDetails')}
           </Button>
         </CardActions>
       </Card>
@@ -216,14 +227,14 @@ export default function ClientPlansPage() {
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
           <Box>
-            <Typography variant="h4" fontWeight={700}>Your Active Plans</Typography>
+            <Typography variant="h4" fontWeight={700}>{t('client.plans.title')}</Typography>
             <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
-              View your active workout and nutrition plans
+              {t('client.plans.subtitle')}
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
             <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Active Plans</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.plans.activePlans')}</Typography>
               <Typography variant="h5" fontWeight={700}>{totalActivePlans}</Typography>
             </Paper>
           </Stack>
@@ -233,12 +244,12 @@ export default function ClientPlansPage() {
       {/* Error Messages */}
       {nutritionError && (
         <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
-          Failed to load nutrition plans. Please try again later.
+          {t('client.plans.nutritionError')}
         </Alert>
       )}
       {workoutError && (
         <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
-          Failed to load workout plans. Please try again later.
+          {t('client.plans.workoutError')}
         </Alert>
       )}
 
@@ -253,13 +264,13 @@ export default function ClientPlansPage() {
             <Tab 
               icon={<Restaurant />} 
               iconPosition="start"
-              label={`Nutrition Plans (${activeNutritionPlans.length})`}
+              label={`${t('client.plans.nutritionTab')} (${activeNutritionPlans.length})`}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
             <Tab 
               icon={<FitnessCenter />} 
               iconPosition="start"
-              label={`Workout Plans (${activeWorkoutPlans.length})`}
+              label={`${t('client.plans.workoutTab')} (${activeWorkoutPlans.length})`}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
           </Tabs>
@@ -272,10 +283,10 @@ export default function ClientPlansPage() {
                   <Box sx={{ textAlign: 'center', py: 8 }}>
                     <Restaurant sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                      No Active Nutrition Plans Yet
+                      {t('client.plans.noActiveNutrition')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Your trainer will assign nutrition plans to help you reach your goals.
+                      {t('client.plans.noActiveNutritionDesc')}
                     </Typography>
                   </Box>
                 </Grid>
@@ -295,10 +306,10 @@ export default function ClientPlansPage() {
                   <Box sx={{ textAlign: 'center', py: 8 }}>
                     <FitnessCenter sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                      No Active Workout Plans Yet
+                      {t('client.plans.noActiveWorkout')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Your trainer will create workout plans tailored to your fitness level.
+                      {t('client.plans.noActiveWorkoutDesc')}
                     </Typography>
                   </Box>
                 </Grid>

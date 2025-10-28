@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useIntl, FormattedMessage } from 'react-intl';
 import {
   Box,
   Button,
@@ -42,6 +43,7 @@ type ClientPackage = {
 };
 
 export default function WorkspaceClientPackagesPage() {
+  const intl = useIntl();
   const params = useMemo(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams('')), []);
   const workspaceId = params.get('workspaceId') || '';
   const reduxWorkspaceId = useAppSelector((s) => s.workspace.id);
@@ -235,20 +237,20 @@ export default function WorkspaceClientPackagesPage() {
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Client Packages
+          <FormattedMessage id="pkgs.title" defaultMessage="Client Packages" />
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Create and manage packages that clients can subscribe to for this workspace.
+          <FormattedMessage id="pkgs.subtitle" defaultMessage="Create and manage packages that clients can subscribe to for this workspace." />
         </Typography>
 
         {(!effectiveWorkspaceId) && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Missing workspaceId. Open this page with ?workspaceId=... or select a workspace first.
+            <FormattedMessage id="pkgs.missingWorkspace" defaultMessage="Missing workspaceId. Open this page with ?workspaceId=... or select a workspace first." />
           </Alert>
         )}
         <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
           <Button size="small" startIcon={<RefreshIcon />} onClick={fetchPackages} disabled={loading}>
-            Refresh
+            <FormattedMessage id="refresh" defaultMessage="Refresh" />
           </Button>
         </Stack>
 

@@ -6,9 +6,17 @@ import api from '@/utils/axios';
 import { Box, Card, Stack, Typography, Button as MuiButton, Grid, Divider, Chip, Alert } from '@mui/material';
 import { openSnackbar } from '@/api/snackbar';
 import { useState } from 'react';
+import useConfig from '@/hooks/useConfig';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 export default function ClientSubscripePage() {
   const router = useRouter();
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
 
   const { data: profile } = useSWR('seed-client-profile', async () => {
     const res = await api.get('/api/clients/profile');
@@ -58,32 +66,32 @@ export default function ClientSubscripePage() {
     <Box sx={{ p: { xs: 2, md: 4 } }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" fontWeight={700}>
-          Subscripe
+          {t('client.subscripe.title')}
         </Typography>
-        <Typography color="text.secondary">Manage your subscription and renewal</Typography>
+        <Typography color="text.secondary">{t('client.subscripe.subtitle')}</Typography>
       </Box>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={8}>
           <Card sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6" fontWeight={700}>Current Subscription</Typography>
+            <Typography variant="h6" fontWeight={700}>{t('client.subscripe.current')}</Typography>
             <Divider sx={{ my: 2 }} />
             <Stack spacing={1}>
-              <Typography variant="body2">Status: <Chip size="small" label={subscriptionsCount > 0 ? 'active' : 'none'} color={subscriptionsCount > 0 ? 'success' : 'default'} /></Typography>
-              <Typography variant="body2">Total Subscriptions: {subscriptionsCount}</Typography>
+              <Typography variant="body2">{t('status')}: <Chip size="small" label={subscriptionsCount > 0 ? t('active') : t('none')} color={subscriptionsCount > 0 ? 'success' : 'default'} /></Typography>
+              <Typography variant="body2">{t('client.subscripe.total')}: {subscriptionsCount}</Typography>
             </Stack>
           </Card>
 
           <Card sx={{ p: 2 }}>
-            <Typography variant="h6" fontWeight={700}>Renewal</Typography>
+            <Typography variant="h6" fontWeight={700}>{t('client.subscripe.renewal')}</Typography>
             <Divider sx={{ my: 2 }} />
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Click below to renew your subscription.
+              {t('client.subscripe.renewDesc')}
             </Typography>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
             <MuiButton variant="contained" onClick={handleRenew} disabled={renewing}>
-              {renewing ? 'Renewing…' : 'Renew Now'}
+              {renewing ? t('client.subscripe.renewing') : t('renew-now')}
             </MuiButton>
           </Card>
         </Grid>

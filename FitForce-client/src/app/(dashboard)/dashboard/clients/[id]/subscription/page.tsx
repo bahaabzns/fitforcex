@@ -14,8 +14,7 @@ import {
   Chip,
   Stack,
   CircularProgress,
-  Alert,
-  Grid,
+  
   List,
   ListItem,
   ListItemText,
@@ -29,7 +28,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField,
   Divider,
   Avatar
 } from '@mui/material';
@@ -104,12 +102,23 @@ export default function ClientSubscriptionPage() {
         .filter(Boolean)
         .map((s: any) => {
           const lastPayment = Array.isArray(s.payments) && s.payments.length > 0 ? s.payments[0] : null;
+          
+          // Handle queued subscriptions (pre_active with null dates)
+          let displayStatus = s.status;
+          let displayStartDate = s.startDate || s.createdAt;
+          let displayEndDate = s.endDate || s.renewalDate;
+          
+          if (s.status === 'pre_active') {
+            // Show as "Queued" in UI
+            displayStatus = 'queued';
+          }
+          
           return {
             id: s.id,
             planName: s.planName || s.packageName || 'Subscription',
-            status: s.status,
-            startDate: s.createdAt,
-            endDate: s.endDate || s.renewalDate,
+            status: displayStatus,
+            startDate: displayStartDate,
+            endDate: displayEndDate,
             price: s.price ?? (lastPayment ? (lastPayment.amountCents || 0) / 100 : 0),
             currency: s.currency || (lastPayment ? lastPayment.currency : 'USD'),
             createdAt: s.createdAt,
@@ -120,9 +129,17 @@ export default function ClientSubscriptionPage() {
     } catch (err: any) {
       openSnackbar({
         open: true,
-        message: 'Failed to load subscriptions',
+        message: intl.formatMessage({ id: 'client.subs.loadError', defaultMessage: 'Failed to load subscriptions' }),
         variant: 'alert',
-        alert: { color: 'error' }
+        alert: { color: 'error', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
       });
     } finally {
       setLoadingSubscriptions(false);
@@ -157,12 +174,20 @@ export default function ClientSubscriptionPage() {
         }));
         setSubscriptionPlans(normalized);
       } catch (err: any) {
-        openSnackbar({
-          open: true,
-          message: 'Failed to load subscription plans',
-          variant: 'alert',
-          alert: { color: 'error' }
-        });
+      openSnackbar({
+        open: true,
+        message: intl.formatMessage({ id: 'client.subs.loadPlansError', defaultMessage: 'Failed to load subscription plans' }),
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
+      });
       } finally {
         setLoadingPlans(false);
       }
@@ -176,6 +201,8 @@ export default function ClientSubscriptionPage() {
         return 'success';
       case 'pre_start':
         return 'info';
+      case 'pre_active':
+        return 'warning';
       case 'pending':
         return 'warning';
       case 'expired':
@@ -192,7 +219,7 @@ export default function ClientSubscriptionPage() {
     
     try {
       setSaving(true);
-      const response = await api.post('/api/clients/subscription/manual', {
+      await api.post('/api/clients/subscription/manual', {
         clientId,
         packageId: selectedPlanId
       });
@@ -203,17 +230,33 @@ export default function ClientSubscriptionPage() {
       
       openSnackbar({
         open: true,
-        message: 'Subscription created successfully',
+        message: intl.formatMessage({ id: 'client.subs.created', defaultMessage: 'Subscription created successfully' }),
         variant: 'alert',
-        alert: { color: 'success' }
+        alert: { color: 'success', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
       });
     } catch (err: any) {
       console.error('Create subscription error:', err);
       openSnackbar({
         open: true,
-        message: err.response?.data?.error || 'Failed to create subscription',
+        message: err.response?.data?.error || intl.formatMessage({ id: 'client.subs.createError', defaultMessage: 'Failed to create subscription' }),
         variant: 'alert',
-        alert: { color: 'error' }
+        alert: { color: 'error', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
       });
     } finally {
       setSaving(false);
@@ -242,16 +285,32 @@ export default function ClientSubscriptionPage() {
       
       openSnackbar({
         open: true,
-        message: 'Subscription package updated successfully',
+        message: intl.formatMessage({ id: 'client.subs.updated', defaultMessage: 'Subscription package updated successfully' }),
         variant: 'alert',
-        alert: { color: 'success' }
+        alert: { color: 'success', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
       });
     } catch (err: any) {
       openSnackbar({
         open: true,
-        message: err?.response?.data?.error || 'Failed to update subscription',
+        message: err?.response?.data?.error || intl.formatMessage({ id: 'client.subs.updateError', defaultMessage: 'Failed to update subscription' }),
         variant: 'alert',
-        alert: { color: 'error' }
+        alert: { color: 'error', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
       });
     } finally {
       setEditSaving(false);
@@ -271,16 +330,32 @@ export default function ClientSubscriptionPage() {
       await refreshSubscriptions();
       openSnackbar({
         open: true,
-        message: 'Subscription cancelled successfully',
+        message: intl.formatMessage({ id: 'client.subs.cancelled', defaultMessage: 'Subscription cancelled successfully' }),
         variant: 'alert',
-        alert: { color: 'success' }
+        alert: { color: 'success', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
       });
     } catch (err: any) {
       openSnackbar({
         open: true,
-        message: 'Failed to cancel subscription',
+        message: intl.formatMessage({ id: 'client.subs.cancelError', defaultMessage: 'Failed to cancel subscription' }),
         variant: 'alert',
-        alert: { color: 'error' }
+        alert: { color: 'error', variant: 'filled' },
+        action: true,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        transition: 'Fade',
+        close: true,
+        actionButton: false,
+        maxStack: 3,
+        dense: false,
+        iconVariant: 'usedefault'
       });
     } finally {
       setSaving(false);
@@ -288,11 +363,12 @@ export default function ClientSubscriptionPage() {
   };
 
   return (
-    <Stack spacing={3}>
+    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', px: { xs: 1, md: 0 } }}>
+    <Stack spacing={3} sx={{ width: '100%', maxWidth: '100%' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h4">Subscription Management</Typography>
-        <Chip label={`Client: ${clientId}`} variant="outlined" />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h4" sx={{ fontSize: { xs: 'h6', md: 'h4' } }}><FormattedMessage id="client.subs.title" defaultMessage="Subscription Management" /></Typography>
+        <Chip label={intl.formatMessage({ id: 'client.subs.client', defaultMessage: 'Client' }) + `: ${clientId}`} variant="outlined" size={isMobile ? 'small' : 'medium'} />
       </Box>
 
       {/* Current Subscriptions */}
@@ -305,7 +381,7 @@ export default function ClientSubscriptionPage() {
               startIcon={<Add size={16} />}
               onClick={() => setIsCreateSubscriptionDialogOpen(true)}
             >
-              Create Subscription
+              <FormattedMessage id="client.subs.create" defaultMessage="Create Subscription" />
             </Button>
           }
         />
@@ -317,9 +393,9 @@ export default function ClientSubscriptionPage() {
           ) : subscriptions.length > 0 ? (
             isMobile ? (
               // Mobile Cards View
-              <Grid container spacing={2}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2 }}>
                 {subscriptions.map((subscription) => (
-                  <Grid item xs={12} key={subscription.id}>
+                  <Box key={subscription.id}>
                     <Card 
                       sx={{ 
                         transition: 'all 0.2s',
@@ -341,7 +417,7 @@ export default function ClientSubscriptionPage() {
                                 {subscription.planName}
                               </Typography>
                               <Chip
-                                label={subscription.status}
+                                label={subscription.status === 'queued' ? 'Queued' : subscription.status}
                                 color={getStatusColor(subscription.status) as any}
                                 size="small"
                               />
@@ -351,57 +427,76 @@ export default function ClientSubscriptionPage() {
                           <Divider />
 
                           {/* Subscription Details */}
-                          <Grid container spacing={2}>
-                            <Grid item xs={6}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 2 }}>
+                            <Box>
                               <Typography variant="caption" color="text.secondary">
-                                Start Date
+                                <FormattedMessage id="client.subs.startDate" defaultMessage="Start Date" />
                               </Typography>
                               <Typography variant="body2">
-                                {new Date(subscription.startDate).toLocaleDateString()}
+                                {subscription.status === 'queued' ? (
+                                  <FormattedMessage id="client.subs.pendingStart" defaultMessage="Pending Start" />
+                                ) : (
+                                  new Date(subscription.startDate).toLocaleDateString()
+                                )}
                               </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
+                            </Box>
+                            <Box>
                               <Typography variant="caption" color="text.secondary">
-                                Price
+                                <FormattedMessage id="client.subs.price" defaultMessage="Price" />
                               </Typography>
                               <Typography variant="body2">
                                 {subscription.currency} {subscription.price}
                               </Typography>
-                            </Grid>
+                            </Box>
                             {subscription.endDate && (
-                              <Grid item xs={12}>
+                              <Box sx={{ gridColumn: '1 / -1' }}>
                                 <Typography variant="caption" color="text.secondary">
-                                  End Date
+                                  <FormattedMessage id="client.subs.endDate" defaultMessage="End Date" />
                                 </Typography>
                                 <Typography variant="body2">
-                                  {new Date(subscription.endDate).toLocaleDateString()}
+                                  {subscription.status === 'queued' ? (
+                                    <FormattedMessage id="client.subs.pendingEnd" defaultMessage="Pending End" />
+                                  ) : (
+                                    new Date(subscription.endDate).toLocaleDateString()
+                                  )}
                                 </Typography>
-                              </Grid>
+                              </Box>
                             )}
-                          </Grid>
+                          </Box>
 
                           <Divider />
 
                           {/* Actions */}
                           <Stack direction="row" spacing={1} justifyContent="flex-end">
                             {(subscription.status === 'active' || subscription.status === 'pre_start') && (
-                              <Button
-                                size="small"
-                                color="error"
-                                variant="outlined"
-                                startIcon={<Trash size={16} />}
-                                onClick={() => handleCancelSubscription(subscription.id)}
-                              >
-                                Cancel
-                              </Button>
+                              <>
+                                <Button
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  startIcon={<Edit size={16} />}
+                                  onClick={() => handleEditSubscription(subscription)}
+                                >
+                                  <FormattedMessage id="edit" defaultMessage="Edit" />
+                                </Button>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  variant="outlined"
+                                  startIcon={<Trash size={16} />}
+                                  onClick={() => handleCancelSubscription(subscription.id)}
+                                >
+                                  <FormattedMessage id="client.subs.cancel" defaultMessage="Cancel" />
+                                </Button>
+                              </>
                             )}
                           </Stack>
                         </Stack>
                       </CardContent>
                     </Card>
-                  </Grid>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             ) : (
               // Desktop List View
               <List>
@@ -412,18 +507,26 @@ export default function ClientSubscriptionPage() {
                       secondary={
                         <Stack spacing={1}>
                           <Typography variant="body2">
-                            Status: {subscription.status}
+                            {intl.formatMessage({ id: 'client.subs.status', defaultMessage: 'Status' })}: {subscription.status === 'queued' ? 'Queued' : subscription.status}
                           </Typography>
                           <Typography variant="body2">
-                            Start Date: {new Date(subscription.startDate).toLocaleDateString()}
+                            {intl.formatMessage({ id: 'client.subs.startDate', defaultMessage: 'Start Date' })}: {
+                              subscription.status === 'queued' 
+                                ? intl.formatMessage({ id: 'client.subs.pendingStart', defaultMessage: 'Pending Start' })
+                                : new Date(subscription.startDate).toLocaleDateString()
+                            }
                           </Typography>
                           {subscription.endDate && (
                             <Typography variant="body2">
-                              End Date: {new Date(subscription.endDate).toLocaleDateString()}
+                              {intl.formatMessage({ id: 'client.subs.endDate', defaultMessage: 'End Date' })}: {
+                                subscription.status === 'queued'
+                                  ? intl.formatMessage({ id: 'client.subs.pendingEnd', defaultMessage: 'Pending End' })
+                                  : new Date(subscription.endDate).toLocaleDateString()
+                              }
                             </Typography>
                           )}
                           <Typography variant="body2">
-                            Price: {subscription.currency} {subscription.price}
+                            {intl.formatMessage({ id: 'client.subs.price', defaultMessage: 'Price' })}: {subscription.currency} {subscription.price}
                           </Typography>
                         </Stack>
                       }
@@ -461,7 +564,7 @@ export default function ClientSubscriptionPage() {
             )
           ) : (
             <Typography color="text.secondary" textAlign="center" py={4}>
-              No subscriptions found
+              <FormattedMessage id="client.subs.none" defaultMessage="No subscriptions found" />
             </Typography>
           )}
         </CardContent>
@@ -476,9 +579,17 @@ export default function ClientSubscriptionPage() {
               <CircularProgress />
             </Box>
           ) : subscriptionPlans.length > 0 ? (
-            <Grid container spacing={2}>
+            <Box sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: {
+                xs: '1fr',
+                md: 'repeat(2, minmax(0, 1fr))',
+                lg: 'repeat(3, minmax(0, 1fr))'
+              }
+            }}>
               {subscriptionPlans.map((plan) => (
-                <Grid item xs={12} md={6} lg={4} key={plan.id}>
+                <Box key={plan.id}>
                   <Card variant="outlined">
                     <CardHeader
                       title={plan.name}
@@ -497,9 +608,9 @@ export default function ClientSubscriptionPage() {
                       </List>
                     </CardContent>
                   </Card>
-                </Grid>
+                </Box>
               ))}
-            </Grid>
+            </Box>
           ) : (
             <Typography color="text.secondary" textAlign="center" py={4}>
               No subscription plans available
@@ -510,10 +621,10 @@ export default function ClientSubscriptionPage() {
 
       {/* Create Subscription Dialog */}
       <Dialog open={isCreateSubscriptionDialogOpen} onClose={() => setIsCreateSubscriptionDialogOpen(false)}>
-        <DialogTitle>Create Subscription</DialogTitle>
+        <DialogTitle><FormattedMessage id="client.subs.create" defaultMessage="Create Subscription" /></DialogTitle>
         <DialogContent>
           <FormControl fullWidth margin="normal">
-            <InputLabel>Subscription Plan</InputLabel>
+            <InputLabel><FormattedMessage id="client.subs.plan" defaultMessage="Subscription Plan" /></InputLabel>
             <Select
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -527,32 +638,32 @@ export default function ClientSubscriptionPage() {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsCreateSubscriptionDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setIsCreateSubscriptionDialogOpen(false)}><FormattedMessage id="cancel" defaultMessage="Cancel" /></Button>
           <Button onClick={handleCreateSubscription} disabled={saving || !selectedPlanId}>
-            {saving ? <CircularProgress size={20} /> : 'Create'}
+            {saving ? <CircularProgress size={20} /> : intl.formatMessage({ id: 'create', defaultMessage: 'Create' })}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Subscription Dialog */}
       <Dialog open={isEditSubscriptionDialogOpen} onClose={handleCancelEditSubscription}>
-        <DialogTitle>Edit Subscription Package</DialogTitle>
+        <DialogTitle><FormattedMessage id="client.subs.editTitle" defaultMessage="Edit Subscription Package" /></DialogTitle>
         <DialogContent>
           {editingSubscription && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">
-                Current Package: {editingSubscription.planName}
+                {intl.formatMessage({ id: 'client.subs.currentPackage', defaultMessage: 'Current Package' })}: {editingSubscription.planName}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Start Date: {new Date(editingSubscription.startDate).toLocaleDateString()}
+                {intl.formatMessage({ id: 'client.subs.startDate', defaultMessage: 'Start Date' })}: {new Date(editingSubscription.startDate).toLocaleDateString()}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                End Date: {editingSubscription.endDate ? new Date(editingSubscription.endDate).toLocaleDateString() : 'N/A'}
+                {intl.formatMessage({ id: 'client.subs.endDate', defaultMessage: 'End Date' })}: {editingSubscription.endDate ? new Date(editingSubscription.endDate).toLocaleDateString() : 'N/A'}
               </Typography>
             </Box>
           )}
           <FormControl fullWidth margin="normal">
-            <InputLabel>New Subscription Plan</InputLabel>
+            <InputLabel><FormattedMessage id="client.subs.newPlan" defaultMessage="New Subscription Plan" /></InputLabel>
             <Select
               value={editSelectedPlanId}
               onChange={(e) => setEditSelectedPlanId(e.target.value)}
@@ -565,16 +676,17 @@ export default function ClientSubscriptionPage() {
             </Select>
           </FormControl>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Note: The start date will remain the same, and a new end date will be calculated based on the selected package duration.
+            <FormattedMessage id="client.subs.note" defaultMessage="Note: The start date will remain the same, and a new end date will be calculated based on the selected package duration." />
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCancelEditSubscription}>Cancel</Button>
+          <Button onClick={handleCancelEditSubscription}><FormattedMessage id="cancel" defaultMessage="Cancel" /></Button>
           <Button onClick={handleSaveEditSubscription} disabled={editSaving || !editSelectedPlanId}>
-            {editSaving ? <CircularProgress size={20} /> : 'Update Package'}
+            {editSaving ? <CircularProgress size={20} /> : intl.formatMessage({ id: 'client.subs.update', defaultMessage: 'Update Package' })}
           </Button>
         </DialogActions>
       </Dialog>
     </Stack>
+    </Box>
   );
 }

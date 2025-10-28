@@ -5,10 +5,18 @@ import { useRouter } from 'next/navigation';
 import { Box, Card, Stack, TextField, Typography, Button as MuiButton } from '@mui/material';
 import api from '@/utils/axios';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import useConfig from '@/hooks/useConfig';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 export default function SeedClientSignupPage() {
   const router = useRouter();
   const { trackLead } = useMetaPixel();
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -35,7 +43,7 @@ export default function SeedClientSignupPage() {
       
       setSuccess(true);
     } catch (err) {
-      setError('Failed to submit.');
+      setError(t('client.signup.submitError'));
     } finally {
       setLoading(false);
     }
@@ -45,25 +53,25 @@ export default function SeedClientSignupPage() {
     <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
       <Card sx={{ p: 4, width: '100%', maxWidth: 520 }}>
         <Stack spacing={2} component="form" onSubmit={handleSubmit}>
-          <Typography variant="h5" fontWeight={700} textAlign="center">Become a Client</Typography>
-          <TextField label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required fullWidth />
+          <Typography variant="h5" fontWeight={700} textAlign="center">{t('client.signup.title')}</Typography>
+          <TextField label={t('full-name')} value={fullName} onChange={(e) => setFullName(e.target.value)} required fullWidth />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField label="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
-            <TextField label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />
+            <TextField label={t('client.signup.emailOptional')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
+            <TextField label={t('client.signup.phoneOptional')} value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />
           </Stack>
-          <TextField label="Password (optional)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
+          <TextField label={t('client.signup.passwordOptional')} type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
           {error && <Typography color="error" variant="body2" textAlign="center">{error}</Typography>}
           {!success ? (
             <MuiButton type="submit" variant="contained" fullWidth disabled={loading}>
-              {loading ? 'Submitting...' : 'Submit Request'}
+              {loading ? t('submitting') : t('client.signup.submit')}
             </MuiButton>
           ) : (
             <Stack spacing={2}>
-              <Typography variant="body2" color="success.main" textAlign="center">Request submitted successfully.</Typography>
+              <Typography variant="body2" color="success.main" textAlign="center">{t('client.signup.success')}</Typography>
               <MuiButton variant="contained" onClick={() => router.push(`/client/payment/mock${createdClientId ? `?clientId=${createdClientId}` : ''}`)}>
-                Proceed to Mock Payment
+                {t('client.signup.proceedMockPayment')}
               </MuiButton>
-              <MuiButton variant="outlined" onClick={() => router.push('/')}>Back to Home</MuiButton>
+              <MuiButton variant="outlined" onClick={() => router.push('/')}>{t('client.signup.backHome')}</MuiButton>
             </Stack>
           )}
         </Stack>

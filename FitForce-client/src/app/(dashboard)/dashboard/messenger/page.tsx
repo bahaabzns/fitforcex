@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useIntl, FormattedMessage } from 'react-intl';
 import {
   Box,
   Card,
@@ -81,6 +82,7 @@ interface Message {
 }
 
 export default function MessengerPage() {
+  const intl = useIntl();
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const dispatch = useAppDispatch();
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -370,13 +372,21 @@ export default function MessengerPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const getThreadPreview = (t: Thread): string => {
+    const body = t.messages && t.messages[0] && t.messages[0].body ? t.messages[0].body : '';
+    if (body) {
+      return body.length > 50 ? body.substring(0, 50) + '...' : body;
+    }
+    return intl.formatMessage({ id: 'messenger.startConversation', defaultMessage: 'Start a conversation' });
+  };
+
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 3 }}>
-        Messenger
+        <FormattedMessage id="messenger.title" defaultMessage="Messenger" />
         {isConnected && (
           <Chip
-            label="Live"
+            label={intl.formatMessage({ id: 'messenger.live', defaultMessage: 'Live' })}
             color="success"
             size="small"
             sx={{ ml: 2 }}
@@ -392,7 +402,7 @@ export default function MessengerPage() {
               <TextField
                 fullWidth
                 size="small"
-                placeholder="Search conversations..."
+                placeholder={intl.formatMessage({ id: 'messenger.search.placeholder', defaultMessage: 'Search conversations...' })}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
@@ -405,8 +415,8 @@ export default function MessengerPage() {
                 sx={{ mb: 2 }}
               />
               <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="subtitle2">Conversations</Typography>
-                <Button size="small" variant="contained" onClick={() => setClientPickerOpen(true)}>Start chat</Button>
+                <Typography variant="subtitle2"><FormattedMessage id="messenger.conversations" defaultMessage="Conversations" /></Typography>
+                <Button size="small" variant="contained" onClick={() => setClientPickerOpen(true)}><FormattedMessage id="messenger.startChat" defaultMessage="Start chat" /></Button>
               </Stack>
             </CardContent>
 
@@ -419,7 +429,7 @@ export default function MessengerPage() {
                 </Box>
               ) : threads.length === 0 ? (
                 <Typography sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-                  No conversations found
+                  <FormattedMessage id="messenger.noConversations" defaultMessage="No conversations found" />
                 </Typography>
               ) : (
                 <List>
@@ -440,7 +450,7 @@ export default function MessengerPage() {
                             primary={
                               <Stack direction="row" justifyContent="space-between" alignItems="center">
                                 <Typography variant="subtitle2" component="span">
-                                  {thread.client?.fullName || 'Unknown Client'}
+                                  {thread.client?.fullName || intl.formatMessage({ id: 'messenger.unknownClient', defaultMessage: 'Unknown Client' })}
                                 </Typography>
                                 {/* Status chip removed */}
                               </Stack>
@@ -448,14 +458,10 @@ export default function MessengerPage() {
                             secondary={
                               <Stack spacing={0.5}>
                                 <Typography variant="body2" noWrap component="span">
-                                  {thread.subject || 'Support Request'}
+                                  {thread.subject || intl.formatMessage({ id: 'messenger.supportRequest', defaultMessage: 'Support Request' })}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" component="span">
-                                  {(thread.messages && thread.messages[0] && thread.messages[0].body
-                                    ? (thread.messages[0].body.length > 50
-                                        ? thread.messages[0].body.substring(0, 50) + '...'
-                                        : thread.messages[0].body)
-                                    : 'Start a conversation')}
+                                  {getThreadPreview(thread)}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" component="span">
                                   {formatDistanceToNow(new Date(thread.updatedAt), { addSuffix: true })}
@@ -616,12 +622,12 @@ export default function MessengerPage() {
       </Box>
       {/* Client Picker Dialog */}
       <Dialog open={clientPickerOpen} onClose={() => setClientPickerOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Select client</DialogTitle>
+        <DialogTitle><FormattedMessage id="messenger.selectClient" defaultMessage="Select client" /></DialogTitle>
         <DialogContent dividers>
           <TextField
             fullWidth
             size="small"
-            placeholder="Search clients by name or email..."
+            placeholder={intl.formatMessage({ id: 'messenger.searchClients', defaultMessage: 'Search clients by name or email...' })}
             value={clientSearch}
             onChange={(e) => setClientSearch(e.target.value)}
             sx={{ mb: 2, mt: 1 }}
@@ -642,13 +648,13 @@ export default function MessengerPage() {
                   <Button size="small" variant="outlined" onClick={async () => {
                     await startChatWithClient(c.id);
                     setClientPickerOpen(false);
-                  }}>Open</Button>
+                  }}><FormattedMessage id="open" defaultMessage="Open" /></Button>
                 </Stack>
               ))}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setClientPickerOpen(false)}>Close</Button>
+          <Button onClick={() => setClientPickerOpen(false)}><FormattedMessage id="close" defaultMessage="Close" /></Button>
         </DialogActions>
       </Dialog>
     </Box>

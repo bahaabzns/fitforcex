@@ -26,8 +26,16 @@ import {
 } from '@mui/icons-material';
 import { SubscriptionManager } from '@/components/payment';
 import api from '@/utils/axios';
+import useConfig from '@/hooks/useConfig';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 export default function ClientSubscriptionPage() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
   const params = useMemo(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams('')), []);
   const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const [workspaceId, setWorkspaceId] = useState<string>(params.get('workspaceId') || '');
@@ -82,7 +90,7 @@ export default function ClientSubscriptionPage() {
       <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress size={60} />
-          <Typography variant="h6" color="text.secondary">Loading subscription details...</Typography>
+          <Typography variant="h6" color="text.secondary">{t('client.subscription.loading')}</Typography>
         </Stack>
       </Box>
     );
@@ -117,10 +125,10 @@ export default function ClientSubscriptionPage() {
             )}
             <Box>
               <Typography variant="h4" fontWeight={700}>
-                Subscription Management
+                {t('client.subscription.title')}
               </Typography>
               <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
-                Manage your subscription and billing
+                {t('client.subscription.subtitle')}
               </Typography>
             </Box>
           </Stack>
@@ -137,7 +145,7 @@ export default function ClientSubscriptionPage() {
               }
             }}
           >
-            Refresh
+            {t('refresh')}
           </Button>
         </Stack>
       </Paper>
@@ -149,7 +157,7 @@ export default function ClientSubscriptionPage() {
             <Card sx={{ borderRadius: 3, height: '100%' }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6" fontWeight={700}>Account Status</Typography>
+                  <Typography variant="h6" fontWeight={700}>{t('client.subscription.accountStatus')}</Typography>
                   <Divider />
                   {statusInfo && (
                     <Stack direction="row" alignItems="center" spacing={1.5}>
@@ -164,7 +172,7 @@ export default function ClientSubscriptionPage() {
                           sx={{ mb: 0.5 }}
                         />
                         <Typography variant="body2" color="text.secondary">
-                          {statusInfo.message}
+                          {t(`client.subscription.status.${profile.client.status}`)}
                         </Typography>
                       </Box>
                     </Stack>
@@ -178,17 +186,17 @@ export default function ClientSubscriptionPage() {
             <Card sx={{ borderRadius: 3, height: '100%' }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6" fontWeight={700}>Client Information</Typography>
+                  <Typography variant="h6" fontWeight={700}>{t('client.subscription.clientInfo')}</Typography>
                   <Divider />
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      NAME
+                      {t('full-name').toUpperCase()}
                     </Typography>
                     <Typography variant="body1">{profile.client.fullName}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      EMAIL
+                      {t('email-address').toUpperCase()}
                     </Typography>
                     <Typography variant="body1">{profile.client.email}</Typography>
                   </Box>
@@ -201,17 +209,17 @@ export default function ClientSubscriptionPage() {
             <Card sx={{ borderRadius: 3, height: '100%' }}>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h6" fontWeight={700}>Workspace</Typography>
+                  <Typography variant="h6" fontWeight={700}>{t('client.subscription.workspace')}</Typography>
                   <Divider />
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      WORKSPACE NAME
+                      {t('workspace').toUpperCase()}
                     </Typography>
                     <Typography variant="body1">{profile.workspace.name}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      WORKSPACE ID
+                      {t('workspace-id').toUpperCase()}
                     </Typography>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                       {workspaceId}
@@ -227,7 +235,7 @@ export default function ClientSubscriptionPage() {
       {/* Status Messages */}
       {(!workspaceId || !clientId) && !loadingProfile && (
         <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
-          Missing subscription information. Attempting to load from your profile...
+          {t('client.subscription.missingInfo')}
         </Alert>
       )}
 
@@ -248,18 +256,17 @@ export default function ClientSubscriptionPage() {
       <Card sx={{ borderRadius: 3, mt: 3, bgcolor: 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
         <CardContent>
           <Typography variant="h6" fontWeight={700} color="primary.main" gutterBottom>
-            Need Help?
+            {t('need-help')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            If you have any questions about your subscription, billing, or need to make changes, 
-            please contact your trainer or use the support page.
+            {t('client.subscription.helpText')}
           </Typography>
           <Button 
             variant="contained" 
             sx={{ mt: 2 }}
             href="/client/support"
           >
-            Contact Support
+            {t('get-support')}
           </Button>
         </CardContent>
       </Card>

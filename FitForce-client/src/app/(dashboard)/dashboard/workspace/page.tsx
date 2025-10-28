@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useIntl, FormattedMessage } from 'react-intl';
 import { useRouter } from 'next/navigation';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setWorkspace } from '@/store/slices/workspaceSlice';
@@ -99,6 +100,7 @@ type PdfTemplate = {
 };
 
 export default function WorkspacePage() {
+  const intl = useIntl();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const workspaceId = useAppSelector((s) => s.workspace.id);
@@ -371,7 +373,7 @@ export default function WorkspacePage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading workspace...</Typography>
+          <Typography color="text.secondary"><FormattedMessage id="workspace.loading" defaultMessage="Loading workspace..." /></Typography>
         </Stack>
       </Box>
     );
@@ -383,10 +385,10 @@ export default function WorkspacePage() {
         <Box sx={{ textAlign: 'center', py: 6 }}>
           <Warning2 size={48} style={{ color: '#ef4444', margin: '0 auto 16px' }} />
           <Typography variant="h6" color="error" gutterBottom>
-            Access Restricted
+            <FormattedMessage id="workspace.restricted" defaultMessage="Access Restricted" />
           </Typography>
           <Typography color="text.secondary">
-            You are not the owner of this workspace. Redirecting to main site...
+            <FormattedMessage id="workspace.restricted.desc" defaultMessage="You are not the owner of this workspace. Redirecting to main site..." />
           </Typography>
         </Box>
       </MainCard>
@@ -420,10 +422,10 @@ export default function WorkspacePage() {
         </Box>
         <Box>
           <Typography variant="h4" gutterBottom>
-            Workspace Settings
+            <FormattedMessage id="workspace.title" defaultMessage="Workspace Settings" />
           </Typography>
           <Typography color="text.secondary">
-            Manage the workspace configuration, branding, and billing
+            <FormattedMessage id="workspace.subtitle" defaultMessage="Manage the workspace configuration, branding, and billing" />
           </Typography>
         </Box>
       </Stack>
@@ -432,11 +434,11 @@ export default function WorkspacePage() {
       <MainCard>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-            <Tab label="General" />
-            <Tab label="Branding" />
-            <Tab label="Landing Page" />
-            <Tab label="PDF Templates" />
-            <Tab label="Payment Settings" />
+            <Tab label={intl.formatMessage({ id: 'workspace.tab.general', defaultMessage: 'General' })} />
+            <Tab label={intl.formatMessage({ id: 'workspace.tab.branding', defaultMessage: 'Branding' })} />
+            <Tab label={intl.formatMessage({ id: 'workspace.tab.landing', defaultMessage: 'Landing Page' })} />
+            <Tab label={intl.formatMessage({ id: 'workspace.tab.pdf', defaultMessage: 'PDF Templates' })} />
+            <Tab label={intl.formatMessage({ id: 'workspace.tab.payment', defaultMessage: 'Payment Settings' })} />
           </Tabs>
         </Box>
 
@@ -446,24 +448,24 @@ export default function WorkspacePage() {
             <Card>
               <CardHeader>
                 <Typography variant="h6" component="h2">
-                  General
+                  <FormattedMessage id="workspace.general.title" defaultMessage="General" />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Workspace name and subdomain
+                  <FormattedMessage id="workspace.general.subtitle" defaultMessage="Workspace name and subdomain" />
                 </Typography>
               </CardHeader>
               <CardContent>
                 <Stack spacing={3}>
                   <TextField
                     fullWidth
-                    label="Name"
+                    label={intl.formatMessage({ id: 'workspace.general.name', defaultMessage: 'Name' })}
                     value={workspaceName}
                     onChange={(e) => setWorkspaceName(e.target.value)}
-                    placeholder="Enter workspace name"
+                    placeholder={intl.formatMessage({ id: 'workspace.general.name.placeholder', defaultMessage: 'Enter workspace name' })}
                   />
                   <TextField
                     fullWidth
-                    label="Subdomain"
+                    label={intl.formatMessage({ id: 'workspace.general.subdomain', defaultMessage: 'Subdomain' })}
                     value={workspace?.subdomain || ''}
                     disabled
                     InputProps={{
@@ -477,10 +479,10 @@ export default function WorkspacePage() {
                       onClick={handleGeneralSave}
                       disabled={saving}
                     >
-                      {saving ? 'Saving...' : 'Save Changes'}
+                      {saving ? intl.formatMessage({ id: 'saving', defaultMessage: 'Saving...' }) : intl.formatMessage({ id: 'workspace.saveChanges', defaultMessage: 'Save Changes' })}
                     </Button>
                     <Button variant="outlined" startIcon={<Settings />}>
-                      Advanced
+                      <FormattedMessage id="workspace.advanced" defaultMessage="Advanced" />
                     </Button>
                   </Stack>
                 </Stack>
@@ -491,23 +493,23 @@ export default function WorkspacePage() {
             <Card sx={{ borderColor: 'error.main' }}>
               <CardHeader>
                 <Typography variant="h6" component="h2" color="error">
-                  Danger Zone
+                  <FormattedMessage id="workspace.danger.title" defaultMessage="Danger Zone" />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Delete this workspace
+                  <FormattedMessage id="workspace.danger.subtitle" defaultMessage="Delete this workspace" />
                 </Typography>
               </CardHeader>
               <CardContent>
                 <Stack spacing={2}>
                   <Typography variant="body2" color="text.secondary">
-                    Deleting a workspace is irreversible. All data will be permanently removed.
+                    <FormattedMessage id="workspace.danger.note" defaultMessage="Deleting a workspace is irreversible. All data will be permanently removed." />
                   </Typography>
                   <Button
                     variant="outlined"
                     color="error"
                     onClick={handleDeleteWorkspace}
                   >
-                    Delete Workspace
+                    <FormattedMessage id="workspace.delete" defaultMessage="Delete Workspace" />
                   </Button>
                 </Stack>
               </CardContent>
@@ -519,22 +521,22 @@ export default function WorkspacePage() {
         <TabPanel value={activeTab} index={1}>
           <Stack spacing={3}>
             {brandingError && <Alert severity="error">{brandingError}</Alert>}
-            {brandingSuccess && <Alert severity="success">Branding updated successfully!</Alert>}
+            {brandingSuccess && <Alert severity="success"><FormattedMessage id="workspace.branding.success" defaultMessage="Branding updated successfully!" /></Alert>}
             
             <Card>
               <CardHeader>
                 <Typography variant="h6" component="h2">
-                  Branding
+                  <FormattedMessage id="workspace.branding.title" defaultMessage="Branding" />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Customize your workspace branding
+                  <FormattedMessage id="workspace.branding.subtitle" defaultMessage="Customize your workspace branding" />
                 </Typography>
               </CardHeader>
               <CardContent>
                 <Stack spacing={3}>
                   <Box>
                     <Typography variant="subtitle2" gutterBottom>
-                      Logo
+                      <FormattedMessage id="workspace.branding.logo" defaultMessage="Logo" />
                     </Typography>
                     <FileUpload
                       onUploadComplete={(imageUrl) => {
@@ -546,7 +548,7 @@ export default function WorkspacePage() {
                       maxSize={5}
                     />
                     <Typography variant="caption" color="text.secondary">
-                      Upload your workspace logo (PNG, JPG, or SVG, max 5MB)
+                      <FormattedMessage id="workspace.branding.logo.help" defaultMessage="Upload your workspace logo (PNG, JPG, or SVG, max 5MB)" />
                     </Typography>
                   </Box>
                   
@@ -554,18 +556,18 @@ export default function WorkspacePage() {
                     <Grid item xs={8} sm={9} md={10}>
                       <TextField
                         fullWidth
-                        label="Primary Color"
+                        label={intl.formatMessage({ id: 'workspace.branding.primary', defaultMessage: 'Primary Color' })}
                         value={primaryColor}
                         onChange={(e) => setPrimaryColor(e.target.value)}
                         placeholder="#3B82F6"
-                        helperText="Enter a hex color code (e.g., #3B82F6)"
+                        helperText={intl.formatMessage({ id: 'workspace.branding.primary.help', defaultMessage: 'Enter a hex color code (e.g., #3B82F6)' })}
                       />
                     </Grid>
                     <Grid item xs={4} sm={3} md={2}>
                       <TextField
                         fullWidth
                         type="color"
-                        label="Pick"
+                        label={intl.formatMessage({ id: 'workspace.branding.pick', defaultMessage: 'Pick' })}
                         value={primaryColor}
                         onChange={(e) => setPrimaryColor(e.target.value)}
                         inputProps={{ style: { padding: 0, height: 48 } }}
@@ -577,14 +579,14 @@ export default function WorkspacePage() {
                   {(workspace?.brandingLogoUrl || workspace?.brandingPrimaryHex) && (
                     <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'grey.50' }}>
                       <Typography variant="subtitle2" gutterBottom>
-                        Preview
+                        <FormattedMessage id="workspace.branding.preview" defaultMessage="Preview" />
                       </Typography>
                       <Stack direction="row" spacing={2} alignItems="center">
                         {workspace.brandingLogoUrl ? (
                           <Box
                             component="img"
                             src={workspace.brandingLogoUrl}
-                            alt="Logo preview"
+                            alt={intl.formatMessage({ id: 'workspace.branding.logo.previewAlt', defaultMessage: 'Logo preview' })}
                             sx={{ width: 32, height: 32, borderRadius: 1 }}
                           />
                         ) : (
@@ -612,7 +614,7 @@ export default function WorkspacePage() {
                     onClick={handleBrandingSave}
                     disabled={brandingLoading}
                   >
-                    {brandingLoading ? 'Saving...' : 'Save Branding'}
+                      {brandingLoading ? intl.formatMessage({ id: 'saving', defaultMessage: 'Saving...' }) : intl.formatMessage({ id: 'workspace.branding.save', defaultMessage: 'Save Branding' })}
                   </Button>
                 </Stack>
               </CardContent>

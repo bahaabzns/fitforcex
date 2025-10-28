@@ -30,6 +30,11 @@ import api from '@/utils/axios';
 import { formatDistanceToNow } from 'date-fns';
 import { useSocket } from '@/hooks/useSocket';
 import { getCookie } from '@/utils/cookies';
+import useConfig from '@/hooks/useConfig';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 interface Message {
   id: string;
@@ -47,6 +52,9 @@ interface Message {
 }
 
 export default function ClientSupportPage() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
   const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageBody, setMessageBody] = useState('');
@@ -266,10 +274,10 @@ export default function ClientSupportPage() {
             )}
             <Box>
               <Typography variant="h4" fontWeight={700}>
-                Support & Help
+                {t('client.support.title')}
               </Typography>
               <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
-                Get help from your trainer or support team
+                {t('client.support.subtitle')}
               </Typography>
             </Box>
           </Stack>
@@ -277,7 +285,7 @@ export default function ClientSupportPage() {
             {isConnected ? (
               <Chip 
                 icon={<CheckCircle sx={{ fontSize: 18 }} />}
-                label="Connected" 
+                label={t('client.support.connected')} 
                 sx={{ 
                   bgcolor: 'rgba(255, 255, 255, 0.2)',
                   color: 'white',
@@ -287,7 +295,7 @@ export default function ClientSupportPage() {
               />
             ) : (
               <Chip 
-                label="Offline" 
+                label={t('client.support.offline')} 
                 sx={{ 
                   bgcolor: 'rgba(255, 255, 255, 0.1)',
                   color: 'white'
@@ -316,7 +324,7 @@ export default function ClientSupportPage() {
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <Stack alignItems="center" spacing={2}>
                 <CircularProgress size={60} />
-                <Typography color="text.secondary">Loading conversation...</Typography>
+                <Typography color="text.secondary">{t('client.support.loading')}</Typography>
               </Stack>
             </Box>
           ) : messages.length === 0 ? (
@@ -325,13 +333,13 @@ export default function ClientSupportPage() {
                 <SupportAgent sx={{ fontSize: 48 }} />
               </Avatar>
               <Typography variant="h5" fontWeight={700} gutterBottom>
-                Welcome to Support
+                {t('client.support.welcome')}
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Need help? Send us a message and we'll get back to you as soon as possible.
+                {t('client.support.welcomeDesc')}
               </Typography>
               <Alert severity="info" sx={{ maxWidth: 500, mx: 'auto' }}>
-                Our support team typically responds within a few hours during business hours.
+                {t('client.support.responseTime')}
               </Alert>
             </Box>
           ) : (
@@ -368,7 +376,7 @@ export default function ClientSupportPage() {
                         opacity: 0.8,
                         fontWeight: 600
                       }}>
-                        {isClient ? 'You' : 'Support Team'} •{' '}
+                        {isClient ? t('you') : t('client.support.team')} •{' '}
                         {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
                       </Typography>
                       <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -484,7 +492,7 @@ export default function ClientSupportPage() {
               fullWidth
               multiline
               maxRows={4}
-              placeholder="Type your message..."
+              placeholder={t('client.support.typeMessage')}
               value={messageBody}
               onChange={(e) => {
                 setMessageBody(e.target.value);
@@ -517,7 +525,7 @@ export default function ClientSupportPage() {
                 py: 1.75
               }}
             >
-              {uploading ? 'Uploading...' : sending ? 'Sending...' : 'Send'}
+              {uploading ? t('uploading') : sending ? t('sending') : t('send')}
             </Button>
           </Stack>
 
@@ -528,11 +536,11 @@ export default function ClientSupportPage() {
               sx={{ mt: 2, borderRadius: 2 }}
               action={
                 <Button color="inherit" size="small" onClick={() => window.location.reload()}>
-                  Reconnect
+                  {t('client.support.reconnect')}
                 </Button>
               }
             >
-              Connection lost. Messages may be delayed. Click reconnect to restore live chat.
+              {t('client.support.connectionLost')}
             </Alert>
           )}
         </Box>
@@ -542,20 +550,20 @@ export default function ClientSupportPage() {
       <Card sx={{ borderRadius: 3, mt: 3, bgcolor: 'info.50', border: '2px solid', borderColor: 'info.main' }}>
         <CardContent>
           <Typography variant="h6" fontWeight={700} color="info.main" gutterBottom>
-            💡 Quick Tips
+            {t('client.support.tipsTitle')}
           </Typography>
           <Stack spacing={1}>
             <Typography variant="body2" color="text.secondary">
-              • Response times are typically within a few hours during business hours
+              • {t('client.support.tip1')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              • You can attach images, PDFs, and documents to your messages
+              • {t('client.support.tip2')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              • Press Enter to send, Shift+Enter for a new line
+              • {t('client.support.tip3')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              • The green "Connected" badge means live chat is active
+              • {t('client.support.tip4')}
             </Typography>
           </Stack>
         </CardContent>

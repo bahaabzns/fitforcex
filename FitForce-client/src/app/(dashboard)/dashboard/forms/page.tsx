@@ -47,6 +47,7 @@ type FormTemplate = {
 export default function FormsPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const intl = useIntl();
+  const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
 
   // Debug logging
   console.log('FormsPage - workspaceId:', workspaceId);
@@ -324,7 +325,7 @@ export default function FormsPage() {
                   {defaultQuestions.map((q) => (
                     <Chip
                       key={q.id}
-                      label={q.label}
+                      label={(isArabic ? (q as any).labelArabic : undefined) || q.label}
                       onClick={() =>
                         setNewQuestions((prev) => {
                           // prevent duplicate of the same default question
@@ -499,7 +500,7 @@ export default function FormsPage() {
           {templates.map((t) => (
             <Grid key={t.id} size={{ xs: 12, md: 6, lg: 4 }}>
               <Card sx={{ height: '100%' }}>
-                <CardHeader title={t.title} subheader={[t.type ? `Type: ${t.type}` : null, t.createdAt ? new Date(t.createdAt).toLocaleString() : null].filter(Boolean).join(' • ')} />
+                <CardHeader title={(isArabic ? (t as any).titleArabic : undefined) || t.title} subheader={[t.type ? `Type: ${t.type}` : null, t.createdAt ? new Date(t.createdAt).toLocaleString() : null].filter(Boolean).join(' • ')} />
                 <CardContent>
                   <Typography variant="body2" color="text.secondary">
                     Questions: {Array.isArray(t.questions) ? t.questions.length : 0}
@@ -530,7 +531,7 @@ export default function FormsPage() {
 
       {/* View Template Dialog */}
       <Dialog open={!!viewTemplate} onClose={() => setViewTemplate(null)} fullWidth maxWidth="md">
-        <DialogTitle>{viewTemplate?.title || 'Form'}</DialogTitle>
+        <DialogTitle>{(isArabic ? (viewTemplate as any)?.titleArabic : undefined) || viewTemplate?.title || 'Form'}</DialogTitle>
         <DialogContent dividers>
           {Array.isArray(viewTemplate?.questions) && viewTemplate!.questions.length > 0 ? (
             <Stack spacing={2}>
@@ -540,7 +541,7 @@ export default function FormsPage() {
                   <Card key={idx} variant="outlined">
                     <CardContent>
                       <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                        {q.question || q.label || q.text || q.title || `Question ${idx + 1}`}
+                        {(isArabic ? (q as any).questionArabic || (q as any).labelArabic : undefined) || q.question || q.label || q.text || q.title || `Question ${idx + 1}`}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         Type: {q.type}

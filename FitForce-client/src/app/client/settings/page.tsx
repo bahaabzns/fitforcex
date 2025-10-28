@@ -19,8 +19,16 @@ import {
   InputAdornment
 } from '@mui/material';
 import { Visibility, VisibilityOff, Save } from '@mui/icons-material';
+import useConfig from '@/hooks/useConfig';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 export default function ClientSettingsPage() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -110,7 +118,7 @@ export default function ClientSettingsPage() {
   if (profileError) {
     return (
       <Alert severity="error" sx={{ m: 3 }}>
-        Failed to load profile
+        {t('client.settings.loadError')}
       </Alert>
     );
   }
@@ -118,7 +126,7 @@ export default function ClientSettingsPage() {
   return (
     <Box sx={{ p: { xs: 2, md: 4 } }}>
       <Typography variant="h4" fontWeight={700} gutterBottom sx={{ mb: 4 }}>
-        Settings
+        {t('client.settings.title')}
       </Typography>
 
       {error && (
@@ -136,24 +144,24 @@ export default function ClientSettingsPage() {
       {/* Profile Information */}
       <Card sx={{ mb: 3 }}>
         <CardHeader 
-          title="Profile Information" 
-          subheader="Update your personal information"
+          title={t('client.settings.profileInfo')} 
+          subheader={t('client.settings.profileInfoDesc')}
         />
         <CardContent>
           <Stack spacing={3}>
             <TextField
               fullWidth
-              label="Full Name"
+              label={t('full-name')}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
             />
             <TextField
               fullWidth
-              label="Phone Number"
+              label={t('phone-number')}
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Enter your phone number"
+              placeholder={t('client.settings.phonePlaceholder')}
             />
             <Box>
               <Button
@@ -163,7 +171,7 @@ export default function ClientSettingsPage() {
                 startIcon={<Save />}
                 size="large"
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? t('saving') : t('save-changes')}
               </Button>
             </Box>
           </Stack>
@@ -173,14 +181,14 @@ export default function ClientSettingsPage() {
       {/* Change Password */}
       <Card>
         <CardHeader 
-          title="Change Password" 
-          subheader="Update your password to keep your account secure"
+          title={t('client.settings.changePassword')} 
+          subheader={t('client.settings.changePasswordDesc')}
         />
         <CardContent>
           <Stack spacing={3}>
             <TextField
               fullWidth
-              label="Current Password"
+              label={t('client.settings.currentPassword')}
               type={showCurrentPassword ? 'text' : 'password'}
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
@@ -200,12 +208,12 @@ export default function ClientSettingsPage() {
             />
             <TextField
               fullWidth
-              label="New Password"
+              label={t('client.settings.newPassword')}
               type={showNewPassword ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              helperText="Password must be at least 6 characters long"
+              helperText={t('client.settings.passwordHint')}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -221,7 +229,7 @@ export default function ClientSettingsPage() {
             />
             <TextField
               fullWidth
-              label="Confirm New Password"
+              label={t('client.settings.confirmPassword')}
               type={showConfirmPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -248,7 +256,7 @@ export default function ClientSettingsPage() {
                 startIcon={<Save />}
                 size="large"
               >
-                {saving ? 'Changing...' : 'Change Password'}
+                {saving ? t('changing') : t('client.settings.changePassword')}
               </Button>
             </Box>
           </Stack>

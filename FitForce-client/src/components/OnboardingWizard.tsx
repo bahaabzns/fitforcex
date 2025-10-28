@@ -94,6 +94,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [customForms, setCustomForms] = useState<any[]>([]);
   const [showAddCustomForm, setShowAddCustomForm] = useState(false);
+  const [editingFormIndex, setEditingFormIndex] = useState<number | null>(null);
   const [newFormTitle, setNewFormTitle] = useState('');
   const [newFormType, setNewFormType] = useState<'nutrition' | 'workout'>('nutrition');
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
@@ -110,6 +111,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
   const [customQuestionRequired, setCustomQuestionRequired] = useState<boolean>(false);
   const [customQuestionOptions, setCustomQuestionOptions] = useState<string>('');
   const [customQuestionError, setCustomQuestionError] = useState<string>('');
+  const [defaultQuestions, setDefaultQuestions] = useState<any[]>([]);
 
   // Step 3: Packages
   const [packages, setPackages] = useState<Package[]>([
@@ -138,6 +140,25 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
       }
     };
     loadDefaultTemplates();
+    // Load default questions for quick add
+    const loadDefaultQuestions = async () => {
+      try {
+        const { data } = await api.get('/api/forms/default-questions');
+        const qs = Array.isArray(data?.questions) ? data.questions : [];
+        setDefaultQuestions(qs.map((q: any, idx: number) => ({
+          id: q.id || `dq_${idx}`,
+          type: q.type || 'text',
+          question: q.question || q.label || q.title || `Question ${idx + 1}`,
+          questionArabic: q.questionArabic,
+          required: !!q.required,
+          options: q.options,
+          optionsArabic: q.optionsArabic,
+        })));
+      } catch (err) {
+        // non-blocking
+      }
+    };
+    loadDefaultQuestions();
   }, []);
 
   const handleNext = () => {
@@ -152,7 +173,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     try {
       setCompleting(true);
       await api.post('/api/workspaces/onboarding/skip');
-      router.push('/dashboard/workspaces');
+      router.push('/dashboard/overview');
       router.refresh();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to skip onboarding');
@@ -205,8 +226,8 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
 
       await api.post('/api/workspaces/onboarding/complete', payload);
 
-      // Redirect to dashboard
-      router.push('/dashboard/workspaces');
+      // Redirect to overview
+      router.push('/dashboard/overview');
       router.refresh();
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to complete onboarding');
@@ -402,19 +423,36 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
       return;
     }
     
-    setCustomForms([...customForms, {
-      type: newFormType,
-      title: newFormTitle,
-      titleArabic: '',
-      questions: newFormQuestions
-    }]);
+    if (editingFormIndex !== null) {
+      const updated = [...customForms];
+      updated[editingFormIndex] = {
+        ...updated[editingFormIndex],
+        type: newFormType,
+        title: newFormTitle,
+        titleArabic: updated[editingFormIndex]?.titleArabic || '',
+        questions: newFormQuestions,
+      };
+      setCustomForms(updated);
+    } else {
+      setCustomForms([
+        ...customForms,
+        {
+          type: newFormType,
+          title: newFormTitle,
+          titleArabic: '',
+          questions: newFormQuestions,
+        },
+      ]);
+    }
     setNewFormTitle('');
     setNewFormQuestions([]);
     setShowAddCustomForm(false);
+    setEditingFormIndex(null);
   };
 
   const handleCloseCustomFormDialog = () => {
     setShowAddCustomForm(false);
+    setEditingFormIndex(null);
     setNewFormTitle('');
     setNewFormQuestions([]);
     setCustomQuestionLabel('');
@@ -422,6 +460,19 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setCustomQuestionRequired(false);
     setCustomQuestionOptions('');
     setCustomQuestionError('');
+  };
+
+  const removeCustomForm = (index: number) => {
+    setCustomForms(customForms.filter((_: any, i: number) => i !== index));
+  };
+
+  const openEditCustomForm = (index: number) => {
+    const form = customForms[index];
+    setEditingFormIndex(index);
+    setNewFormTitle(form.title || '');
+    setNewFormType((form.type === 'workout' ? 'workout' : 'nutrition'));
+    setNewFormQuestions(Array.isArray(form.questions) ? form.questions : []);
+    setShowAddCustomForm(true);
   };
 
   const addPackage = () => {
@@ -927,9 +978,12 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                             />
                           }
                         />
-                        <IconButton edge="end" onClick={() => removeCustomForm(index)} color="error">
-                          <Delete />
-                        </IconButton>
+                        <Stack direction="row" spacing={1}>
+                          <Button size="small" onClick={() => openEditCustomForm(index)}>Edit</Button>
+                          <IconButton edge="end" onClick={() => removeCustomForm(index)} color="error">
+                            <Delete />
+                          </IconButton>
+                        </Stack>
                       </ListItem>
                     ))}
                   </List>
@@ -1000,6 +1054,38 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                     <Typography variant="subtitle1" sx={{ mb: 1 }}>
                       Add Question
                     </Typography>
+                    {defaultQuestions.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Quick add from default questions
+                        </Typography>
+                        <Stack direction="row" flexWrap="wrap" gap={1}>
+                          {defaultQuestions.map((q: any) => (
+                            <Chip
+                              key={q.id}
+                              label={q.question}
+                              onClick={() => {
+                                if (newFormQuestions.some((x) => x.originalId === q.id)) return;
+                                setNewFormQuestions((prev) => [
+                                  ...prev,
+                                  {
+                                    id: `dq_${q.id}_${Date.now()}`,
+                                    originalId: q.id,
+                                    type: q.type,
+                                    question: q.question,
+                                    questionArabic: q.questionArabic,
+                                    required: !!q.required,
+                                    options: q.options,
+                                    optionsArabic: q.optionsArabic,
+                                  },
+                                ]);
+                              }}
+                              sx={{ cursor: 'pointer' }}
+                            />
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={3}>
                         <FormControl fullWidth>

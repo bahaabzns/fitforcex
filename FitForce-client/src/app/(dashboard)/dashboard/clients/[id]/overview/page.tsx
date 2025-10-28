@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useIntl, FormattedMessage } from 'react-intl';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
@@ -66,6 +67,7 @@ interface ClientData {
 }
 
 export default function ClientOverviewPage() {
+  const intl = useIntl();
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;
@@ -117,7 +119,7 @@ export default function ClientOverviewPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading client overview...</Typography>
+          <Typography color="text.secondary"><FormattedMessage id="client.overview.loading" defaultMessage="Loading client overview..." /></Typography>
         </Stack>
       </Box>
     );
@@ -129,7 +131,7 @@ export default function ClientOverviewPage() {
         {error}
         <Button onClick={loadClientData} sx={{ ml: 2 }}>
           <Refresh size={16} />
-          Retry
+          <FormattedMessage id="retry" defaultMessage="Retry" />
         </Button>
       </Alert>
     );
@@ -138,7 +140,7 @@ export default function ClientOverviewPage() {
   if (!data) {
     return (
       <Alert severity="warning">
-        No client data found
+        <FormattedMessage id="client.overview.empty" defaultMessage="No client data found" />
       </Alert>
     );
   }
@@ -146,7 +148,8 @@ export default function ClientOverviewPage() {
   const { client, metrics, recentActivities } = data;
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw' }}>
+    <Box sx={{ p: { xs: 1, md: 2 }, width: '100%' }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Button
@@ -155,7 +158,7 @@ export default function ClientOverviewPage() {
           onClick={() => router.push('/dashboard/clients')}
           sx={{ mb: 2 }}
         >
-          Back to Clients
+          <FormattedMessage id="client.overview.back" defaultMessage="Back to Clients" />
         </Button>
         
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -358,6 +361,7 @@ export default function ClientOverviewPage() {
           </Stack>
         </CardContent>
       </Card>
+    </Box>
     </Box>
   );
 }

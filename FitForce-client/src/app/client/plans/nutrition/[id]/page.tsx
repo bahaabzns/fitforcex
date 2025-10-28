@@ -40,8 +40,17 @@ import {
   FitnessCenter,
   Info
 } from '@mui/icons-material';
+import useConfig from '@/hooks/useConfig';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 export default function ClientNutritionPlanDetail() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const isArabic = currentLang === 'ar';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
@@ -90,7 +99,7 @@ export default function ClientNutritionPlanDetail() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8, minHeight: '60vh' }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress size={60} />
-          <Typography color="text.secondary" variant="h6">Loading nutrition plan…</Typography>
+          <Typography color="text.secondary" variant="h6">{t('client.nutrition.loading')}</Typography>
         </Stack>
       </Box>
     );
@@ -100,7 +109,7 @@ export default function ClientNutritionPlanDetail() {
     return (
       <Box sx={{ p: { xs: 2, md: 4 } }}>
         <Alert severity="error" sx={{ borderRadius: 2 }}>
-          Failed to load nutrition plan. Please try again later.
+          {t('client.nutrition.loadError')}
         </Alert>
       </Box>
     );
@@ -169,10 +178,10 @@ export default function ClientNutritionPlanDetail() {
           )}
           <Box flex={1}>
             <Typography variant="h4" fontWeight={700}>
-              {plan.plan.title}
+              {(isArabic && (plan.plan as any).titleArabic) || plan.plan.title}
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
-              Complete nutrition plan for your goals
+              {t('client.nutrition.subtitle')}
             </Typography>
           </Box>
         </Stack>
@@ -184,7 +193,7 @@ export default function ClientNutritionPlanDetail() {
               <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Opacity />
                 <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.8 }}>Daily Water</Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.nutrition.dailyWater')}</Typography>
                   <Typography variant="h6" fontWeight={700}>{plan.plan.waterForDay}L</Typography>
                 </Box>
               </Paper>
@@ -193,7 +202,7 @@ export default function ClientNutritionPlanDetail() {
               <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FitnessCenter />
                 <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.8 }}>Training Water</Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.nutrition.trainingWater')}</Typography>
                   <Typography variant="h6" fontWeight={700}>{plan.plan.waterForTraining}L</Typography>
                 </Box>
               </Paper>
@@ -201,7 +210,7 @@ export default function ClientNutritionPlanDetail() {
             <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 1 }}>
               <Restaurant />
               <Box>
-                <Typography variant="caption" sx={{ opacity: 0.8 }}>Total Days</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.nutrition.totalDays')}</Typography>
                 <Typography variant="h6" fontWeight={700}>{totalDays}</Typography>
               </Box>
             </Paper>
@@ -220,7 +229,7 @@ export default function ClientNutritionPlanDetail() {
                 {/* Day Header */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                   <Typography variant="h5" fontWeight={700}>
-                    {day.label || `Day ${day.dayIndex + 1}`}
+                    {day.label || `${t('client.nutrition.day')} ${day.dayIndex + 1}`}
                   </Typography>
                   <Stack direction="row" spacing={1}>
                     <Chip 
@@ -229,7 +238,7 @@ export default function ClientNutritionPlanDetail() {
                       color="error" 
                       size="small"
                     />
-                    <Chip label={`${day.meals?.length || 0} Meals`} variant="outlined" size="small" />
+                    <Chip label={`${day.meals?.length || 0} ${t('client.nutrition.meals')}`} variant="outlined" size="small" />
                   </Stack>
                 </Stack>
 
@@ -246,8 +255,8 @@ export default function ClientNutritionPlanDetail() {
                   }}
                 >
                   <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>
-                    Daily Nutrition Summary
-                    <Tooltip title="View micronutrients for this day" arrow>
+                    {t('client.nutrition.dailySummary')}
+                    <Tooltip title={t('client.nutrition.viewMicros')} arrow>
                       <IconButton 
                         size="small" 
                         onClick={() => {
@@ -266,7 +275,7 @@ export default function ClientNutritionPlanDetail() {
                         <Typography variant="h6" fontWeight={700} color="error.main">
                           {dayTotals.calories}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">Calories</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('calories')}</Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={3}>
@@ -274,7 +283,7 @@ export default function ClientNutritionPlanDetail() {
                         <Typography variant="h6" fontWeight={700} color="info.main">
                           {dayTotals.protein}g
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">Protein</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('protein')}</Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={3}>
@@ -282,7 +291,7 @@ export default function ClientNutritionPlanDetail() {
                         <Typography variant="h6" fontWeight={700} color="warning.main">
                           {dayTotals.carbs}g
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">Carbs</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('carbs')}</Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={3}>
@@ -290,7 +299,7 @@ export default function ClientNutritionPlanDetail() {
                         <Typography variant="h6" fontWeight={700} color="success.main">
                           {dayTotals.fat}g
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">Fat</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('fat')}</Typography>
                       </Box>
                     </Grid>
                   </Grid>
@@ -330,10 +339,10 @@ export default function ClientNutritionPlanDetail() {
                             </Avatar>
                             <Box flex={1}>
                               <Typography variant="h6" fontWeight={700}>
-                                {meal.meal || `Meal ${mealIdx + 1}`}
+                                {meal.meal || `${t('client.nutrition.meal')} ${mealIdx + 1}`}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                {mealTotals.calories} kcal • P {mealTotals.protein}g • C {mealTotals.carbs}g • F {mealTotals.fat}g
+                                {mealTotals.calories} {t('kcal')} • {t('protein-short')} {mealTotals.protein}g • {t('carbs-short')} {mealTotals.carbs}g • {t('fat-short')} {mealTotals.fat}g
                               </Typography>
                             </Box>
                           </Stack>
@@ -368,15 +377,15 @@ export default function ClientNutritionPlanDetail() {
                               <Table size="small">
                                 <TableHead>
                                   <TableRow>
-                                    <TableCell><strong>Food</strong></TableCell>
-                                    <TableCell align="center"><strong>Qty</strong></TableCell>
-                                    <TableCell align="right"><strong>Cal</strong></TableCell>
+                                    <TableCell><strong>{t('client.nutrition.food')}</strong></TableCell>
+                                    <TableCell align="center"><strong>{t('qty')}</strong></TableCell>
+                                    <TableCell align="right"><strong>{t('cal-short')}</strong></TableCell>
                                   </TableRow>
                                 </TableHead>
                                 <TableBody>
                                   {meal.foodItems.map((fi, fiIdx) => (
                                     <TableRow key={fiIdx} hover>
-                                      <TableCell>{fi.foodItem?.name || 'Unknown'}</TableCell>
+                                      <TableCell>{(isArabic && fi.foodItem?.nameArabic) || fi.foodItem?.name || t('unknown')}</TableCell>
                                       <TableCell align="center">
                                         <Chip label={fi.quantity} size="small" variant="outlined" />
                                       </TableCell>
@@ -392,7 +401,7 @@ export default function ClientNutritionPlanDetail() {
 
                           {(!meal.foodItems || meal.foodItems.length === 0) && (
                             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                              No food items specified
+                              {t('client.nutrition.noFoodItems')}
                             </Typography>
                           )}
                         </Paper>
@@ -404,7 +413,7 @@ export default function ClientNutritionPlanDetail() {
                 {day.meals?.length === 0 && (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Restaurant sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                    <Typography color="text.secondary">No meals for this day.</Typography>
+                    <Typography color="text.secondary">{t('client.nutrition.noMeals')}</Typography>
                   </Box>
                 )}
               </CardContent>
@@ -418,7 +427,7 @@ export default function ClientNutritionPlanDetail() {
           <Box sx={{ p: 6, textAlign: 'center' }}>
             <Restaurant sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
-              No nutrition plan data available
+              {t('client.nutrition.noPlan')}
             </Typography>
           </Box>
         </Card>
@@ -435,7 +444,7 @@ export default function ClientNutritionPlanDetail() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Info />
             <Typography variant="h6">
-              Micronutrients - {plan.cycles?.[selectedDayIndex]?.label || `Day ${selectedDayIndex + 1}`}
+              {t('client.nutrition.microsTitle')} - {plan.cycles?.[selectedDayIndex]?.label || `${t('client.nutrition.day')} ${selectedDayIndex + 1}`}
             </Typography>
           </Box>
         </DialogTitle>
@@ -508,7 +517,7 @@ export default function ClientNutritionPlanDetail() {
             return (
               <Box sx={{ mt: 2 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Micronutrient values are divided by 100 for better readability
+                  {t('client.nutrition.microsNote')}
                 </Typography>
                 <Grid container spacing={2}>
                   {microEntries.map(([key, val]) => (

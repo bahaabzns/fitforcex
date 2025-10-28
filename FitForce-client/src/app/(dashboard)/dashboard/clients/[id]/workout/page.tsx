@@ -1389,11 +1389,12 @@ export default function ClientWorkoutPage() {
 
 
   return (
-    <Stack spacing={1}>
+    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
+    <Stack spacing={1} sx={{ width: '100%', maxWidth: '100%' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" sx={{ ml: { xs: 2, md: 0 } }}>{clientName || 'Client'}</Typography>
-        <Stack direction="row" spacing={1} sx={{ mr: { xs: 2, md: 0 } }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 1, md: 0 } }}>
+        <Typography variant="h5">{clientName || 'Client'}</Typography>
+        <Stack direction="row" spacing={1} sx={{ gap: { xs: 0.5, md: 1 } }}>
             {localWorkoutPlan && isPlanDirty && (
             <Button variant="outlined" onClick={saveLocalPlan} disabled={saving}>
               {saving ? 'Saving...' : 'Save'}
@@ -3633,5 +3634,6 @@ export default function ClientWorkoutPage() {
         clientName={clientName}
       />
     </Stack>
+    </Box>
   );
 }

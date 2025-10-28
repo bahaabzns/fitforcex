@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent, useMemo } from 'react';
+import { useIntl, FormattedMessage } from 'react-intl';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
 
@@ -144,41 +145,42 @@ const headCells = [
     id: 'name',
     numeric: false,
     disablePadding: true,
-    label: 'Food Name'
+    label: 'nutrition.col.name'
   },
   {
     id: 'calories',
     numeric: true,
     disablePadding: false,
-    label: 'Calories (per 100g)'
+    label: 'nutrition.col.calories'
   },
   {
     id: 'protein',
     numeric: true,
     disablePadding: false,
-    label: 'Protein (g)'
+    label: 'nutrition.col.protein'
   },
   {
     id: 'carbs',
     numeric: true,
     disablePadding: false,
-    label: 'Carbs (g)'
+    label: 'nutrition.col.carbs'
   },
   {
     id: 'fat',
     numeric: true,
     disablePadding: false,
-    label: 'Fat (g)'
+    label: 'nutrition.col.fat'
   },
   {
     id: 'actions',
     numeric: false,
     disablePadding: false,
-    label: 'Actions'
+    label: 'actions'
   }
 ];
 
 function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowCount, onRequestSort }: EnhancedTableHeadProps) {
+  const intl = useIntl();
   const createSortHandler = (property: string) => (event: SyntheticEvent) => {
     onRequestSort(event, property);
   };
@@ -203,16 +205,16 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
             sortDirection={orderBy === headCell.id ? order : undefined}
           >
             {headCell.id === 'actions' ? (
-              headCell.label
+              <FormattedMessage id={headCell.label} defaultMessage="Actions" />
             ) : (
               <TableSortLabel
                 active={orderBy === headCell.id}
                 direction={orderBy === headCell.id ? order : 'asc'}
                 onClick={createSortHandler(headCell.id)}
               >
-                {headCell.label}
+                {intl.formatMessage({ id: headCell.label, defaultMessage: headCell.label })}
                 {orderBy === headCell.id ? (
-                  <Box sx={visuallyHidden}>{order === 'desc' ? 'sorted descending' : 'sorted ascending'}</Box>
+                  <Box sx={visuallyHidden}>{order === 'desc' ? intl.formatMessage({ id: 'sorted.desc', defaultMessage: 'sorted descending' }) : intl.formatMessage({ id: 'sorted.asc', defaultMessage: 'sorted ascending' })}</Box>
                 ) : null}
               </TableSortLabel>
             )}
@@ -224,9 +226,11 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
 }
 
 export default function NutritionPage() {
+  const intl = useIntl();
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
 
   const [tabIndex, setTabIndex] = useState(0); // 0: Food, 1: Recipes
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
@@ -757,7 +761,7 @@ export default function NutritionPage() {
                               />
                               <Box sx={{ flexGrow: 1 }}>
                                 <Typography variant="h6">
-                                  {row.name}
+                                  {(isArabic ? row.nameArabic : undefined) || row.name}
                                 </Typography>
                               </Box>
                             </Stack>
@@ -768,7 +772,7 @@ export default function NutritionPage() {
                             <Grid container spacing={2}>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Calories (per 100g)
+                                  <FormattedMessage id="nutrition.col.calories" defaultMessage="Calories (per 100g)" />
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.calories} kcal
@@ -776,7 +780,7 @@ export default function NutritionPage() {
                               </Grid>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Protein (per 100g)
+                                  <FormattedMessage id="nutrition.col.protein" defaultMessage="Protein (g)" />
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.protein}g
@@ -784,7 +788,7 @@ export default function NutritionPage() {
                               </Grid>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Carbs (per 100g)
+                                  <FormattedMessage id="nutrition.col.carbs" defaultMessage="Carbs (g)" />
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.carbs}g
@@ -792,7 +796,7 @@ export default function NutritionPage() {
                               </Grid>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  Fat (per 100g)
+                                  <FormattedMessage id="nutrition.col.fat" defaultMessage="Fat (g)" />
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.fat}g
@@ -810,7 +814,7 @@ export default function NutritionPage() {
                                 startIcon={<Edit size={16} />}
                                 onClick={(e) => { e.stopPropagation(); handleEdit(row); }}
                               >
-                                Edit
+                                <FormattedMessage id="edit" defaultMessage="Edit" />
                               </Button>
                               <Button
                                 size="small"
@@ -820,7 +824,7 @@ export default function NutritionPage() {
                                 onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}
                                 disabled={deleting === row.id}
                               >
-                                Delete
+                                <FormattedMessage id="delete" defaultMessage="Delete" />
                               </Button>
                             </Stack>
                           </Stack>
@@ -864,7 +868,7 @@ export default function NutritionPage() {
                             <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
                           </TableCell>
                           <TableCell component="th" id={labelId} scope="row" padding="none">
-                            {row.name}
+                            {(isArabic ? row.nameArabic : undefined) || row.name}
                           </TableCell>
                           <TableCell align="right">{row.calories}</TableCell>
                           <TableCell align="right">{row.protein}</TableCell>

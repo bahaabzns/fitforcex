@@ -1546,13 +1546,14 @@ export default function ClientNutritionPage() {
   };
 
   return (
-    <Stack spacing={1}>
+    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
+    <Stack spacing={1} sx={{ width: '100%', maxWidth: '100%' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" sx={{ ml: { xs: 2, md: 0 } }}>{clientName || 'Client'}</Typography>
-        <Stack direction="row" spacing={1} sx={{ mr: { xs: 2, md: 0 } }}>
-          <Button variant="outlined" onClick={handleSavePlan} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-          <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={!selectedPlanId || activating}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 1, md: 0 } }}>
+        <Typography variant="h5">{clientName || 'Client'}</Typography>
+        <Stack direction="row" spacing={1} sx={{ gap: { xs: 0.5, md: 1 } }}>
+          <Button variant="outlined" onClick={handleSavePlan} disabled={saving} size={isMobile ? 'small' : 'medium'}>{saving ? 'Saving...' : 'Save'}</Button>
+          <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={!selectedPlanId || activating} size={isMobile ? 'small' : 'medium'}>
             {activating ? 'Activating…' : 'Activate'}
           </Button>
         </Stack>
@@ -1939,17 +1940,18 @@ export default function ClientNutritionPage() {
                 <>
                   {currentCycle ? (
                     <Box>
-                      {/* Current Cycle Header */}
-                      <Box sx={{ 
-                        p: 2, 
-                        mb: 2, 
-                        backgroundColor: 'primary.main', 
-                        color: 'primary.contrastText',
-                        borderRadius: 1,
-                        textAlign: 'center'
-                      }}>
-                        <Typography variant="h6">{currentCycle.label}</Typography>
-                        <Typography variant="body2">Day {currentCycle.dayIndex}</Typography>
+                      {/* Current Cycle Header - match desktop style on mobile */}
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', mb: 1, columnGap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <IconButton size="small" onClick={handlePreviousCycle} disabled={!canGoPrevious}><ArrowLeft2 size={16} /></IconButton>
+                          <IconButton size="small" onClick={handleNextCycle} disabled={!canGoNext}><ArrowRight2 size={16} /></IconButton>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Typography variant="subtitle1" sx={{ textAlign: 'center' }}>
+                            {currentCycle.label || `Day ${currentCycle.dayIndex}`}
+                          </Typography>
+                        </Box>
+                        <Box />
                       </Box>
                       
                       {/* Macros bar */}
@@ -2179,8 +2181,17 @@ export default function ClientNutritionPage() {
                       {/* Inline editing saves in-memory on change; no bulk actions needed */}
                     </Box>
                   ) : (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography color="text.secondary">No food items added yet</Typography>
+                    <Box sx={{ textAlign: 'center', py: 6 }}>
+                      <Typography color="text.secondary" sx={{ mb: 2 }}>
+                        No food items in this meal
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<Add size={16} />}
+                        onClick={() => setIsAddFoodDialogOpen(true)}
+                      >
+                        Add Food
+                      </Button>
                     </Box>
                   )}
                 </Box>
@@ -3393,5 +3404,6 @@ export default function ClientNutritionPage() {
         </DialogActions>
       </Dialog>
     </Stack>
+    </Box>
   );
 }

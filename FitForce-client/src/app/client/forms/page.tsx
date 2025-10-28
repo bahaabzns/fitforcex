@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import api from '@/utils/axios';
+import useConfig from '@/hooks/useConfig';
 import { 
   Box, 
   Card, 
@@ -44,8 +45,17 @@ import {
   Delete,
   CloudUpload
 } from '@mui/icons-material';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 export default function ClientFormsPage() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const isArabic = currentLang === 'ar';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
+
   const { data, isLoading, error, mutate } = useSWR('client-todo-forms', async () => {
     const res = await api.get('/api/forms/client/todo');
     return res.data as { submissions: Array<{ id: string; form: { id: string; title: string; questions: any[] } }> };
@@ -168,7 +178,7 @@ export default function ClientFormsPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8, minHeight: '60vh' }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress size={60} />
-          <Typography color="text.secondary" variant="h6">Loading your forms…</Typography>
+          <Typography color="text.secondary" variant="h6">{t('client.forms.loading')}</Typography>
         </Stack>
       </Box>
     );
@@ -178,7 +188,7 @@ export default function ClientFormsPage() {
     return (
       <Box sx={{ p: { xs: 2, md: 4 } }}>
         <Alert severity="error" sx={{ borderRadius: 2 }}>
-          Failed to load forms. Please try again later.
+          {t('client.forms.error')}
         </Alert>
       </Box>
     );
@@ -407,19 +417,19 @@ export default function ClientFormsPage() {
               <Assignment sx={{ fontSize: 32 }} />
             </Avatar>
             <Box>
-              <Typography variant="h4" fontWeight={700}>Your Forms</Typography>
+              <Typography variant="h4" fontWeight={700}>{t('client.forms.title')}</Typography>
               <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
-                Complete forms to help your trainer customize your program
+                {t('client.forms.subtitle')}
               </Typography>
             </Box>
           </Stack>
           <Stack direction="row" spacing={2}>
             <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Pending</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.forms.pending')}</Typography>
               <Typography variant="h5" fontWeight={700}>{submissions.length}</Typography>
             </Paper>
             <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Completed</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.forms.completed')}</Typography>
               <Typography variant="h5" fontWeight={700}>{archivedSubmissions.length}</Typography>
             </Paper>
           </Stack>
@@ -449,13 +459,13 @@ export default function ClientFormsPage() {
             <Tab 
               icon={<Schedule />}
               iconPosition="start"
-              label={`To Do (${submissions.length})`}
+              label={`${t('client.forms.todo')} (${submissions.length})`}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
             <Tab 
               icon={<Archive />}
               iconPosition="start"
-              label={`Completed (${archivedSubmissions.length})`}
+              label={`${t('client.forms.completed')} (${archivedSubmissions.length})`}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             />
           </Tabs>
@@ -469,10 +479,10 @@ export default function ClientFormsPage() {
             <Box sx={{ p: 6, textAlign: 'center' }}>
               <CheckCircle sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
               <Typography variant="h5" fontWeight={700} gutterBottom>
-                All Caught Up!
+                {t('client.forms.allCaughtUp')}
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                You have no pending forms to complete.
+                {t('client.forms.noPending')}
               </Typography>
             </Box>
           </Card>
@@ -503,13 +513,13 @@ export default function ClientFormsPage() {
                           <Assignment />
                         </Avatar>
                         <Box flex={1}>
-                          <Typography variant="h6" fontWeight={700}>{s.form.title}</Typography>
+                          <Typography variant="h6" fontWeight={700}>{(isArabic && (s.form as any).titleArabic) || s.form.title}</Typography>
                           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                            <Chip size="small" label={`${qlist.length} Questions`} variant="outlined" />
+                            <Chip size="small" label={`${qlist.length} ${t('client.forms.questions')}`} variant="outlined" />
                             {answeredCount > 0 && (
                               <Chip 
                                 size="small" 
-                                label={`${answeredCount}/${qlist.length} Answered`} 
+                                label={`${answeredCount}/${qlist.length} ${t('client.forms.answered')}`} 
                                 color="primary"
                                 variant="outlined"
                               />
@@ -519,7 +529,7 @@ export default function ClientFormsPage() {
                             <Box sx={{ mt: 1 }}>
                               <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3 }} />
                               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                {Math.round(progress)}% Complete
+                                {Math.round(progress)}% {t('client.forms.complete')}
                               </Typography>
                             </Box>
                           )}
@@ -552,7 +562,7 @@ export default function ClientFormsPage() {
                             startIcon={submittingId === s.id ? <CircularProgress size={20} /> : <Send />}
                             fullWidth
                           >
-                            {submittingId === s.id ? 'Submitting…' : 'Submit Form'}
+                            {submittingId === s.id ? t('client.forms.submitting') : t('client.forms.submit')}
                           </MuiButton>
                           <MuiButton 
                             variant="outlined" 
@@ -560,7 +570,7 @@ export default function ClientFormsPage() {
                             disabled={submittingId === s.id}
                             sx={{ minWidth: 120 }}
                           >
-                            Cancel
+                            {t('cancel')}
                           </MuiButton>
                         </Stack>
                       </Box>
@@ -580,10 +590,10 @@ export default function ClientFormsPage() {
             <Box sx={{ p: 6, textAlign: 'center' }}>
               <Archive sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
               <Typography variant="h5" fontWeight={700} gutterBottom>
-                No Completed Forms
+                {t('client.forms.noCompleted')}
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                Forms you complete will appear here.
+                {t('client.forms.noCompletedDesc')}
               </Typography>
             </Box>
           </Card>
@@ -597,12 +607,12 @@ export default function ClientFormsPage() {
                       <CheckCircle />
                     </Avatar>
                     <Box flex={1}>
-                      <Typography variant="h6" fontWeight={700}>{s.form.title}</Typography>
+                      <Typography variant="h6" fontWeight={700}>{(isArabic && (s.form as any).titleArabic) || s.form.title}</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Submitted on {s.createdAt ? new Date(s.createdAt).toLocaleString() : 'Unknown date'}
+                        {t('client.forms.submittedOn')} {s.createdAt ? new Date(s.createdAt).toLocaleString() : t('unknown-date')}
                       </Typography>
                     </Box>
-                    <Chip label="Completed" color="success" />
+                    <Chip label={t('completed')} color="success" />
                   </Stack>
                 </Box>
               </Card>

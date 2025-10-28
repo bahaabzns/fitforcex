@@ -25,6 +25,11 @@ import {
 } from '@mui/material';
 import { PlayArrow, FitnessCenter } from '@mui/icons-material';
 import WorkoutTracking from '@/components/workout/WorkoutTracking';
+import useConfig from '@/hooks/useConfig';
+import ar from '@/utils/locales/ar.json';
+import en from '@/utils/locales/en.json';
+
+const translations: Record<string, Record<string, string>> = { ar, en };
 
 // Helper function to extract YouTube video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
@@ -44,6 +49,10 @@ const openYouTubeVideo = (url: string) => {
 };
 
 export default function ClientWorkoutPlanDetail() {
+  const { i18n } = useConfig();
+  const currentLang = i18n || 'en';
+  const isArabic = currentLang === 'ar';
+  const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
   const params = useParams();
   const id = params?.id as string;
   const intl = useIntl();
@@ -64,7 +73,7 @@ export default function ClientWorkoutPlanDetail() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading plan…</Typography>
+          <Typography color="text.secondary">{t('client.plans.loading')}</Typography>
         </Stack>
       </Box>
     );
@@ -74,7 +83,7 @@ export default function ClientWorkoutPlanDetail() {
     return (
       <Card>
         <CardContent>
-          <Typography color="error">Failed to load plan</Typography>
+          <Typography color="error">{t('client.plans.loadError')}</Typography>
         </CardContent>
       </Card>
     );
@@ -119,10 +128,10 @@ export default function ClientWorkoutPlanDetail() {
           )}
           <Box flex={1}>
             <Typography variant="h4" fontWeight={700}>
-              {plan.title}
+              {(isArabic && (plan as any).titleArabic) || plan.title}
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
-              Complete workout plan for your goals
+              {t('client.workout.subtitle')}
             </Typography>
           </Box>
         </Stack>
@@ -133,14 +142,14 @@ export default function ClientWorkoutPlanDetail() {
           <Card key={idx}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">{d.label || `Day ${d.dayIndex}`}</Typography>
+                <Typography variant="h6">{d.label || `${t('client.workout.day')} ${d.dayIndex}`}</Typography>
                 <Button
                   variant="contained"
                   startIcon={<PlayArrow />}
                   onClick={() => handleStartWorkout(d.dayIndex)}
                   disabled={d.items.length === 0}
                 >
-                  <FormattedMessage id="log-workout" />
+                  {t('client.workout.log')}
                 </Button>
               </Box>
               <Divider sx={{ my: 1.5 }} />
@@ -229,7 +238,7 @@ export default function ClientWorkoutPlanDetail() {
                       <CardContent sx={{ flexGrow: 1, p: 2 }}>
                         {/* Muscle Group Chip */}
                         <Chip
-                          label={it.exercise?.muscleGroup || 'Unknown'}
+                          label={(isArabic && it.exercise?.muscleGroupArabic) || it.exercise?.muscleGroup || t('unknown')}
                           size="small"
                           color="primary"
                           sx={{ 
@@ -250,14 +259,14 @@ export default function ClientWorkoutPlanDetail() {
                             lineHeight: 1.3
                           }}
                         >
-                          {it.exercise?.name || 'Exercise'}
+                          {(isArabic && it.exercise?.nameArabic) || it.exercise?.name || t('exercise')}
                         </Typography>
                         
                         {/* Exercise Details */}
                         <Stack spacing={1} sx={{ mt: 2 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
-                              Sets:
+                              {t('client.workout.sets')}:
                             </Typography>
                             <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
                               {it.sets || 'N/A'}
@@ -266,7 +275,7 @@ export default function ClientWorkoutPlanDetail() {
                           
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
-                              Reps:
+                              {t('client.workout.reps')}:
                             </Typography>
                             <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
                               {it.reps || 'N/A'}
@@ -276,7 +285,7 @@ export default function ClientWorkoutPlanDetail() {
                           {it.planSets?.[0]?.weight && (
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
-                                Weight:
+                                {t('client.workout.weight')}:
                               </Typography>
                               <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
                                 {it.planSets[0].weight}kg
@@ -289,7 +298,7 @@ export default function ClientWorkoutPlanDetail() {
                         {Array.isArray(it.planSets) && it.planSets.length > 0 && (
                           <Box sx={{ mt: 2 }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 1 }}>
-                              Sets Details:
+                              {t('client.workout.setsDetails')}:
                             </Typography>
                             {it.planSets.map((s: any, setIndex: number) => (
                               <Chip
@@ -330,7 +339,7 @@ export default function ClientWorkoutPlanDetail() {
                               fontWeight: 600
                             }}
                           >
-                            Watch Video
+                            {t('client.workout.watchVideo')}
                           </Button>
                         )}
                       </CardContent>
@@ -339,7 +348,7 @@ export default function ClientWorkoutPlanDetail() {
                 })}
                 {d.items.length === 0 && (
                   <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4 }}>
-                    <Typography color="text.secondary">No exercises for this day.</Typography>
+                    <Typography color="text.secondary">{t('client.workout.noExercises')}</Typography>
                   </Box>
                 )}
               </Box>

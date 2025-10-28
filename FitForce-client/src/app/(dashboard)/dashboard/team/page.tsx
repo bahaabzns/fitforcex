@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent } from 'react';
+import { useIntl, FormattedMessage } from 'react-intl';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
 
@@ -207,9 +208,11 @@ function EnhancedTableHead({ onSelectAllClick, order, orderBy, numSelected, rowC
 }
 
 export default function TeamPage() {
+  const intl = useIntl();
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -578,8 +581,8 @@ export default function TeamPage() {
     return (
       <MainCard sx={{ borderStyle: 'dashed' }}>
         <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6">Select a workspace</Typography>
-          <Typography color="text.secondary">Open a workspace subdomain to manage team members.</Typography>
+          <Typography variant="h6"><FormattedMessage id="team.selectWorkspace" defaultMessage="Select a workspace" /></Typography>
+          <Typography color="text.secondary"><FormattedMessage id="team.selectWorkspace.help" defaultMessage="Open a workspace subdomain to manage team members." /></Typography>
         </Box>
       </MainCard>
     );
@@ -590,7 +593,7 @@ export default function TeamPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading team...</Typography>
+          <Typography color="text.secondary"><FormattedMessage id="team.loading" defaultMessage="Loading team..." /></Typography>
         </Stack>
       </Box>
     );
@@ -610,16 +613,16 @@ export default function TeamPage() {
       >
         <Box>
           <Typography variant="h4" gutterBottom>
-            Team Management
+            <FormattedMessage id="team.title" defaultMessage="Team Management" />
           </Typography>
-          <Typography color="text.secondary">Manage your workspace members, roles, and permissions</Typography>
+          <Typography color="text.secondary"><FormattedMessage id="team.subtitle" defaultMessage="Manage your workspace members, roles, and permissions" /></Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
           <Button variant="outlined" startIcon={<Shield />} onClick={() => setIsRoleDialogOpen(true)}>
-            Create Role
+            <FormattedMessage id="team.createRole" defaultMessage="Create Role" />
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={() => setIsInviteDialogOpen(true)}>
-            Invite Member
+            <FormattedMessage id="team.inviteMember" defaultMessage="Invite Member" />
           </Button>
         </Stack>
       </Stack>
@@ -631,20 +634,20 @@ export default function TeamPage() {
         <MainCard>
           <Box sx={{ textAlign: 'center', py: 12 }}>
             <Typography variant="h6" gutterBottom>
-              No team members yet
+              <FormattedMessage id="team.empty.title" defaultMessage="No team members yet" />
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 4 }}>
-              Invite your first team member to get started
+              <FormattedMessage id="team.empty.subtitle" defaultMessage="Invite your first team member to get started" />
             </Typography>
             <Button variant="contained" startIcon={<Add />} onClick={() => setIsInviteDialogOpen(true)}>
-              Invite Member
+              <FormattedMessage id="team.inviteMember" defaultMessage="Invite Member" />
             </Button>
           </Box>
         </MainCard>
       ) : (
         <MainCard
           content={false}
-          title={`Team Members (${members.length})`}
+          title={`${intl.formatMessage({ id: 'team.members', defaultMessage: 'Team Members' })} (${members.length})`}
           secondary={<CSVExport data={selectedValue.length > 0 ? selectedValue : members} filename={'team-members.csv'} />}
         >
           <RowSelection selected={selected.length} />
