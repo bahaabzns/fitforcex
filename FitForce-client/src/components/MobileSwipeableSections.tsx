@@ -20,10 +20,12 @@ export default function MobileSwipeableSections({
 }: MobileSwipeableSectionsProps) {
   const theme = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [currentSection, setCurrentSection] = useState(activeSection);
   const isScrollingProgrammatically = useRef(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentSectionRef = useRef(activeSection);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
 
   useEffect(() => {
     setCurrentSection(activeSection);
@@ -84,6 +86,48 @@ export default function MobileSwipeableSections({
   }, [sections.length, onSectionChange]);
 
 
+  // Measure available height so each section fits exactly one screen below any fixed headers
+  useEffect(() => {
+    const measure = () => {
+      // Determine viewport height (handle mobile browser UI with visualViewport if available)
+      const viewportHeight = (typeof window !== 'undefined' && (window as any).visualViewport?.height)
+        ? (window as any).visualViewport.height
+        : (typeof window !== 'undefined' ? window.innerHeight : 0);
+      const topOffset = wrapperRef.current ? wrapperRef.current.getBoundingClientRect().top : 0;
+      const computed = Math.max(0, Math.floor(viewportHeight - topOffset));
+      if (!Number.isNaN(computed) && computed !== containerHeight) {
+        setContainerHeight(computed);
+      }
+    };
+
+    measure();
+
+    // Listen to resize/orientation changes and visualViewport resize for mobile address bar changes
+    const handleResize = () => {
+      // Use rAF to avoid layout thrashing during continuous resize
+      requestAnimationFrame(measure);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize, { passive: true } as any);
+      window.addEventListener('orientationchange', handleResize as any, { passive: true } as any);
+      if ((window as any).visualViewport) {
+        (window as any).visualViewport.addEventListener('resize', handleResize, { passive: true } as any);
+      }
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize as any);
+        window.removeEventListener('orientationchange', handleResize as any);
+        if ((window as any).visualViewport) {
+          (window as any).visualViewport.removeEventListener('resize', handleResize as any);
+        }
+      }
+    };
+  }, [containerHeight]);
+
+
   const goToSection = (index: number) => {
     if (index >= 0 && index < sections.length && index !== currentSection) {
       setCurrentSection(index);
@@ -114,10 +158,11 @@ export default function MobileSwipeableSections({
 
   return (
     <Box
+      ref={wrapperRef}
       sx={{
         position: 'relative',
         width: '100%',
-        height: '100vh',
+        height: containerHeight ? `${containerHeight}px` : '100dvh',
         overflow: 'hidden',
         bgcolor: 'background.default'
       }}

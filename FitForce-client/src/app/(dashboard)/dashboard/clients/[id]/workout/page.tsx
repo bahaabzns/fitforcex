@@ -1859,7 +1859,7 @@ export default function ClientWorkoutPage() {
                 </Box>
               )}
             </CardContent>
-            <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', display: 'flex', p: 0, '&:last-child': { pb: 0 } }}>
+            <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', p: 0, '&:last-child': { pb: 0 } }}>
               {localWorkoutPlan ? (
                 cardioTab === 0 ? (
                   // Days tab content
@@ -2060,7 +2060,7 @@ export default function ClientWorkoutPage() {
                 )}
               </Box>
             </CardContent>
-            <CardContent sx={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
+            <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {localWorkoutPlan && localWorkoutPlan.days[selectedDayIndex] ? (
                 <>
                 {localWorkoutPlan.days[selectedDayIndex].exercises.map((exercise, index) => {
