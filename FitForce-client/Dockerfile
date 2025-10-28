@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* yarn.lock* ./
 
-# Install dependencies using npm (more reliable for Docker)
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# Install dependencies (use npm install to avoid lockfile strictness in CI)
+RUN npm install
 
 # Copy source code
 COPY . .
