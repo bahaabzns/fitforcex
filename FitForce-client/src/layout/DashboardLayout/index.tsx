@@ -163,7 +163,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <Box component="main" sx={{ 
         flexGrow: 1, 
         p: 0,
-        marginLeft: downLG ? 0 : `${totalSidebarWidth - 240}px`,
+        marginLeft: downLG ? 0 : `${ 0.5*totalSidebarWidth}px`,
+        paddingLeft: downLG ? 2 : 0,
         transition: theme.transitions.create(['margin-left'], {
           easing: theme.transitions.easing.sharp,
           duration: theme.transitions.duration.leavingScreen

@@ -116,6 +116,19 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [tableDensity, setTableDensity] = useState<TableDensity>('compact');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const statusOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Active', color: 'success' },
+    { value: 'pre_start', label: 'Pre-Start', color: 'info' },
+    { value: 'frozen', label: 'Frozen', color: 'warning' },
+    { value: 'expired', label: 'Expired', color: 'error' },
+    { value: 'pending', label: 'Pending', color: 'warning' },
+    { value: 'no_subscription', label: 'No-Sub', color: 'default' },
+    { value: 'refunded', label: 'Refunded', color: 'default' },
+    { value: 'inactive', label: 'Inactive', color: 'error' },
+  ];
 
   // Auto-switch to cards view on mobile
   useEffect(() => {
@@ -262,8 +275,14 @@ export default function ClientsPage() {
       }
     }
 
+    // Status filter
+    if (statusFilter && statusFilter !== 'all') {
+      const target = statusFilter.toLowerCase();
+      result = result.filter((c: any) => (c.status || '').toLowerCase() === target);
+    }
+
     return result;
-  }, [clients, search, packageFilter]);
+  }, [clients, search, packageFilter, statusFilter]);
 
   const refreshClients = async () => {
     try {
@@ -1026,6 +1045,7 @@ export default function ClientsPage() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Header row */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
@@ -1080,6 +1100,29 @@ export default function ClientsPage() {
           />
         </Stack>
       </Stack>
+
+      {/* Status filters row */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ px: 1 }}>
+          Filter by Status
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {statusOptions.map((option) => (
+            <Chip
+              key={option.value}
+              label={option.label}
+              onClick={() => setStatusFilter(option.value)}
+              color={statusFilter === option.value ? (option.color as any) : undefined}
+              variant={statusFilter === option.value ? 'filled' : 'outlined'}
+              size="small"
+              sx={{
+                cursor: 'pointer',
+                fontWeight: statusFilter === option.value ? 600 : 400,
+              }}
+            />
+          ))}
+        </Box>
+      </Box>
 
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -1201,9 +1244,9 @@ export default function ClientsPage() {
                 <Stack>
                   <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
                     <Typography variant="h6">{selectedClient.fullName || selectedClient.name || 'Unnamed'}</Typography>
-                    {selectedClient.code && (
+                    {selectedClient.id && (
                       <Chip 
-                        label={`#${selectedClient.code}`} 
+                        label={`#${selectedClient.id.substring(0, 8)}`} 
                         size="small" 
                         color="primary" 
                         variant="outlined"
