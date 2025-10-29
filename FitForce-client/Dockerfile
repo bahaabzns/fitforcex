@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Build the application
-RUN npm run build --force
+RUN npm run build --force 
 
 FROM node:20-bookworm-slim AS runner
 
@@ -42,4 +42,4 @@ USER nextjs
 EXPOSE 3000
 
 # Run the standalone Next.js server
-CMD ["npm", "start"]
+CMD ["npm", "start", "--hostname", "0.0.0.0"]
