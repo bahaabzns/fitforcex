@@ -1,3 +1,5 @@
+ARG CACHEBUST=1
+
 FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
