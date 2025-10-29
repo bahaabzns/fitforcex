@@ -40,4 +40,4 @@ USER nextjs
 EXPOSE 3000
 
 # Run the standalone Next.js server
-CMD ["node", ".next/standalone/server.js"]
+CMD ["node", ".next/standalone/server.js", "--hostname", "0.0.0.0"]
