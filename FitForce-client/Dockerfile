@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN npm run build --force
 
 FROM node:20-bookworm-slim AS runner
 
