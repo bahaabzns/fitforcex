@@ -5,7 +5,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* yarn.lock* ./
 
-# Install dependencies (use npm install to avoid lockfile strictness in CI)
+# Install dependencies
 RUN npm install
 
 # Copy source code
@@ -39,4 +39,5 @@ USER nextjs
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Run the standalone Next.js server
+CMD ["node", ".next/standalone/server.js"]
