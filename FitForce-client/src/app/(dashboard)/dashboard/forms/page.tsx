@@ -61,6 +61,7 @@ export default function FormsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionRequired, setSubscriptionRequired] = useState<boolean>(false);
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [viewTemplate, setViewTemplate] = useState<FormTemplate | null>(null);
   const [editTemplate, setEditTemplate] = useState<FormTemplate | null>(null);
@@ -128,8 +129,16 @@ export default function FormsPage() {
             }))
           );
         } catch {}
-      } catch {
-        setError('Failed to load forms');
+      } catch (e: any) {
+        const status = e?.response?.status;
+        const message: string = e?.response?.data?.error || e?.response?.data?.message || '';
+        const isSubscriptionError = status === 402 || status === 404 || (typeof message === 'string' && message.toLowerCase().includes('subscription')) || (typeof message === 'string' && message.toLowerCase().includes('workspace_subscription_required'));
+        if (isSubscriptionError) {
+          setSubscriptionRequired(true);
+          setError('Workspace subscription required');
+        } else {
+          setError('Failed to load forms');
+        }
       } finally {
         setLoading(false);
       }
@@ -299,7 +308,17 @@ export default function FormsPage() {
         </Button>
       </Stack>
 
-      {error && <Alert severity="error">{error}</Alert>}
+      {subscriptionRequired ? (
+        <Alert severity="warning" action={<Button color="warning" variant="contained" size="small" href="/dashboard/workspaces/subscription">Manage Subscription</Button>}>
+          <Box>
+            <Box sx={{ fontWeight: 600, mb: 0.5 }}>Workspace subscription required</Box>
+            <Box sx={{ color: 'text.secondary' }}>Your workspace has no active subscription. Activate a plan to manage forms.</Box>
+            <Box sx={{ mt: 0.5, fontFamily: 'monospace', fontSize: '0.8rem', color: 'warning.dark' }}>workspace_subscription_required</Box>
+          </Box>
+        </Alert>
+      ) : (
+        error && <Alert severity="error">{error}</Alert>
+      )}
 
       <Dialog open={showCreate} onClose={() => setShowCreate(false)} fullWidth maxWidth="md">
         <DialogTitle><FormattedMessage id="new-form-template" /></DialogTitle>

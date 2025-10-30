@@ -31,6 +31,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import api from '@/utils/axios';
 import { useAppSelector } from '@/store';
+import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 
 type ClientPackage = {
   id: string;
@@ -234,6 +235,7 @@ export default function WorkspaceClientPackagesPage() {
   };
 
   return (
+    <WorkspaceSubscriptionGuard description="Activate a plan to manage client packages for this workspace.">
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
         <Typography variant="h4" gutterBottom>
@@ -500,6 +502,7 @@ export default function WorkspaceClientPackagesPage() {
         </Dialog>
       </Box>
     </Container>
+    </WorkspaceSubscriptionGuard>
   );
 }
 

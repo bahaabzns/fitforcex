@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import api from '@/utils/axios';
 import ResponsiveTable from '@/components/ResponsiveTable';
+import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setSubmittedCount } from '@/store/slices/queueSlice';
 
@@ -440,6 +441,7 @@ export default function QueuePage() {
   }
 
   return (
+    <WorkspaceSubscriptionGuard description="Activate a plan to access the forms queue and assignments.">
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Typography variant="h4"><FormattedMessage id="queue.title" defaultMessage="Queue" /></Typography>
 
@@ -1193,6 +1195,7 @@ export default function QueuePage() {
         )}
       </Menu>
     </Box>
+    </WorkspaceSubscriptionGuard>
   );
 }
 

@@ -112,6 +112,7 @@ export default function ClientsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionRequired, setSubscriptionRequired] = useState<boolean>(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -206,8 +207,16 @@ export default function ClientsPage() {
       try {
         const res = await api.get('/api/clients');
         setClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
-      } catch {
-        setError('Failed to load clients');
+      } catch (e: any) {
+        const status = e?.response?.status;
+        const message: string = e?.response?.data?.error || e?.response?.data?.message || '';
+        const isSubscriptionError = status === 402 || status === 404 || (typeof message === 'string' && message.toLowerCase().includes('subscription')) || (typeof message === 'string' && message.toLowerCase().includes('workspace_subscription_required'));
+        if (isSubscriptionError) {
+          setSubscriptionRequired(true);
+          setError('Workspace subscription required');
+        } else {
+          setError('Failed to load clients');
+        }
       } finally {
         setLoading(false);
       }
@@ -291,9 +300,19 @@ export default function ClientsPage() {
       const clients = Array.isArray(res.data?.clients) ? res.data.clients : [];
       console.log('Refreshed clients:', clients.length);
       setClients(clients);
+      setSubscriptionRequired(false);
+      setError(null);
     } catch (e) {
       console.error('Failed to refresh clients:', e);
-      setError('Failed to load clients');
+      const status = (e as any)?.response?.status;
+      const message: string = (e as any)?.response?.data?.error || (e as any)?.response?.data?.message || '';
+      const isSubscriptionError = status === 402 || status === 404 || (typeof message === 'string' && message.toLowerCase().includes('subscription')) || (typeof message === 'string' && message.toLowerCase().includes('workspace_subscription_required'));
+      if (isSubscriptionError) {
+        setSubscriptionRequired(true);
+        setError('Workspace subscription required');
+      } else {
+        setError('Failed to load clients');
+      }
     }
   };
 
@@ -1124,7 +1143,17 @@ export default function ClientsPage() {
         </Box>
       </Box>
 
-      {error && <Alert severity="error">{error}</Alert>}
+      {subscriptionRequired ? (
+        <Alert severity="warning" action={<Button color="warning" variant="contained" size="small" href="/dashboard/workspaces/subscription">Manage Subscription</Button>}>
+          <Box>
+            <Box sx={{ fontWeight: 600, mb: 0.5 }}>Workspace subscription required</Box>
+            <Box sx={{ color: 'text.secondary' }}>Your workspace has no active subscription. Activate a plan to view and manage clients.</Box>
+            <Box sx={{ mt: 0.5, fontFamily: 'monospace', fontSize: '0.8rem', color: 'warning.dark' }}>workspace_subscription_required</Box>
+          </Box>
+        </Alert>
+      ) : (
+        error && <Alert severity="error">{error}</Alert>
+      )}
 
       {showForm && (
         <Card>

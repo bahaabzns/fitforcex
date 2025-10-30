@@ -95,6 +95,7 @@ export default function FinancePage() {
   const [data, setData] = useState<FinanceDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionRequired, setSubscriptionRequired] = useState<boolean>(false);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,7 +110,15 @@ export default function FinancePage() {
       setData(response.data);
       setCurrentPage(page);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load finance data');
+      const status = err?.response?.status;
+      const message: string = err?.response?.data?.error || err?.response?.data?.message || '';
+      const isSubscriptionError = status === 402 || status === 404 || (typeof message === 'string' && message.toLowerCase().includes('subscription')) || (typeof message === 'string' && message.toLowerCase().includes('workspace_subscription_required'));
+      if (isSubscriptionError) {
+        setSubscriptionRequired(true);
+        setError('Workspace subscription required');
+      } else {
+        setError(message || 'Failed to load finance data');
+      }
     } finally {
       setLoading(false);
     }
@@ -164,6 +173,20 @@ export default function FinancePage() {
     return (
       <Container sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <CircularProgress />
+      </Container>
+    );
+  }
+
+  if (subscriptionRequired) {
+    return (
+      <Container sx={{ py: 4 }}>
+        <Alert severity="warning" action={<Button color="warning" variant="contained" size="small" href="/dashboard/workspaces/subscription">Manage Subscription</Button>}>
+          <Box>
+            <Box sx={{ fontWeight: 600, mb: 0.5 }}>Workspace subscription required</Box>
+            <Box sx={{ color: 'text.secondary' }}>Your workspace has no active subscription. Activate a plan to view finance data.</Box>
+            <Box sx={{ mt: 0.5, fontFamily: 'monospace', fontSize: '0.8rem', color: 'warning.dark' }}>workspace_subscription_required</Box>
+          </Box>
+        </Alert>
       </Container>
     );
   }

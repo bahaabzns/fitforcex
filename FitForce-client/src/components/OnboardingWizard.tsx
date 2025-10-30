@@ -173,8 +173,12 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     try {
       setCompleting(true);
       await api.post('/api/workspaces/onboarding/skip');
-      router.push('/dashboard/overview');
-      router.refresh();
+      // Hard reload so the dashboard re-mounts and re-checks onboarding status
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      } else {
+        router.refresh();
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to skip onboarding');
     } finally {
@@ -213,12 +217,23 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
         };
       }).filter(Boolean);
 
+      // Sanitize custom forms: remove helper fields like originalId
+      const sanitizedCustomForms = (customForms || []).map((form: any) => ({
+        ...form,
+        questions: Array.isArray(form.questions)
+          ? form.questions.map((q: any) => {
+              const { originalId, ...rest } = q || {};
+              return rest;
+            })
+          : []
+      }));
+
       const payload = {
         brandingLogoUrl: logoUrl || null,
         brandingPrimaryHex: primaryColor || null,
         landingConfig: landingConfig.title || landingConfig.subtitle ? landingConfig : null,
         formTemplateIds: [], // Don't use raw template IDs
-        customForms: [...customizedTemplates, ...customForms], // Combine customized templates and custom forms
+        customForms: [...customizedTemplates, ...sanitizedCustomForms], // Combine customized templates and custom forms (sanitized)
         packages,
         importAllFoodItems,
         importAllExercises,
@@ -226,9 +241,12 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
 
       await api.post('/api/workspaces/onboarding/complete', payload);
 
-      // Redirect to overview
-      router.push('/dashboard/overview');
-      router.refresh();
+      // Hard reload so the dashboard re-mounts and re-checks onboarding status
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      } else {
+        router.refresh();
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to complete onboarding');
       setCompleting(false);

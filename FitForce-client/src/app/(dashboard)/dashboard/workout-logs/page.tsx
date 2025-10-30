@@ -33,6 +33,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Visibility, FilterList, Refresh } from '@mui/icons-material';
+import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 
 interface WorkoutLog {
   id: string;
@@ -130,6 +131,7 @@ export default function WorkoutLogsPage() {
   const workoutLogs = data?.workoutLogs || [];
 
   return (
+    <WorkspaceSubscriptionGuard description="Activate a plan to access workout logs and history.">
     <Box sx={{ p: { xs: 2, md: 4 } }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4" fontWeight={700}>
@@ -590,6 +592,7 @@ export default function WorkoutLogsPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </WorkspaceSubscriptionGuard>
   );
 }
 

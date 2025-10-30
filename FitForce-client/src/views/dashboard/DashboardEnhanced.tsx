@@ -129,6 +129,7 @@ export default function DashboardEnhanced() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionRequired, setSubscriptionRequired] = useState<boolean>(false);
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
   const [isUpdating, setIsUpdating] = useState(false);
   const [refreshTimer] = useState<NodeJS.Timeout | null>(null);
@@ -247,13 +248,26 @@ export default function DashboardEnhanced() {
       }
     } catch (err: any) {
       console.error('Dashboard API Error:', err);
-      setError(err.response?.data?.error || 'Failed to load dashboard data');
-      
+      const status = err?.response?.status;
+      const message: string = err?.response?.data?.error || err?.response?.data?.message || '';
+      const isSubscriptionError =
+        status === 402 ||
+        status === 404 ||
+        (typeof message === 'string' && message.toLowerCase().includes('subscription')) ||
+        (typeof message === 'string' && message.toLowerCase().includes('workspace_subscription_required'));
+
+      if (isSubscriptionError) {
+        setSubscriptionRequired(true);
+        setError(message || 'Workspace subscription required');
+      } else {
+        setError(message || 'Failed to load dashboard data');
+      }
+
       // Add error notification
       addNotification({
         type: 'error',
-        title: 'Dashboard Error',
-        message: err.response?.data?.error || 'Failed to load dashboard data',
+        title: isSubscriptionError ? 'Subscription Required' : 'Dashboard Error',
+        message: message || (isSubscriptionError ? 'Workspace subscription required' : 'Failed to load dashboard data'),
       });
     } finally {
       if (showUpdatingIndicator) {
@@ -540,6 +554,29 @@ export default function DashboardEnhanced() {
 
   if (onboardingStatus && !onboardingStatus.isOnboarded) {
     return <OnboardingWizard workspaceId={workspaceId} />;
+  }
+
+  if (subscriptionRequired) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+        <Stack alignItems="center" spacing={2}>
+          <Typography color="error" variant="h6">
+            Workspace subscription required
+          </Typography>
+          <Typography color="text.secondary" textAlign="center">
+            {error || 'Your workspace has no active subscription. Activate a plan to continue using the dashboard.'}
+          </Typography>
+          <Stack direction="row" spacing={2}>
+            <Button variant="contained" color="warning" href="/dashboard/workspaces/subscription">
+              Manage Subscription
+            </Button>
+            <Button variant="outlined" onClick={handleRefresh}>
+              Retry
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
   }
 
   if (error) {

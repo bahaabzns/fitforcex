@@ -47,6 +47,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 // project-imports
 import MainCard from 'components/MainCard';
+import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { RowSelection } from 'components/third-party/react-table';
 
@@ -579,6 +580,7 @@ export default function WorkoutPage() {
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * rowsPerPage - exercises.length) : 0;
 
   return (
+    <WorkspaceSubscriptionGuard description="Activate a plan to manage exercises and workout plans.">
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Cover Image */}
       <Box
@@ -1569,5 +1571,6 @@ export default function WorkoutPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </WorkspaceSubscriptionGuard>
   );
 }

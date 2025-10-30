@@ -42,6 +42,7 @@ import { useAppSelector } from '@/store';
 import { useAppDispatch } from '@/store';
 import { setUnreadTotal } from '@/store/slices/messengerSlice';
 import { getCookie } from '@/utils/cookies';
+import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 
 interface Thread {
   id: string;
@@ -381,6 +382,7 @@ export default function MessengerPage() {
   };
 
   return (
+    <WorkspaceSubscriptionGuard description="Activate a plan to use the Messenger and chat with clients.">
     <Box>
       <Typography variant="h4" sx={{ mb: 3 }}>
         <FormattedMessage id="messenger.title" defaultMessage="Messenger" />
@@ -658,5 +660,6 @@ export default function MessengerPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </WorkspaceSubscriptionGuard>
   );
 }

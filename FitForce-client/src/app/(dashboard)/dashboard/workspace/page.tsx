@@ -43,6 +43,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import FileUpload from 'components/FileUpload';
 import LandingPageEditor from 'components/LandingPageEditor';
 import TemplateBuilder from '@/components/TemplateBuilder';
+import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 
 // Icons
 import { Settings, Warning2 } from '@wandersonalwes/iconsax-react';
@@ -404,6 +405,7 @@ export default function WorkspacePage() {
   }
 
   return (
+    <WorkspaceSubscriptionGuard description="Activate a plan to access workspace settings and configuration.">
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
       <Stack direction="row" spacing={2} alignItems="center">
@@ -1170,5 +1172,6 @@ export default function WorkspacePage() {
         </Dialog>
       </MainCard>
     </Box>
+    </WorkspaceSubscriptionGuard>
   );
 }

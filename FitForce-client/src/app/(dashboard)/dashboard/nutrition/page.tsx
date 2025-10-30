@@ -46,6 +46,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 // project-imports
 import MainCard from 'components/MainCard';
+import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { RowSelection } from 'components/third-party/react-table';
 
@@ -639,6 +640,7 @@ export default function NutritionPage() {
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * rowsPerPage - foodItems.length) : 0;
 
   return (
+    <WorkspaceSubscriptionGuard description="Activate a plan to manage nutrition items and recipes.">
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
       <Stack
@@ -1527,5 +1529,6 @@ export default function NutritionPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </WorkspaceSubscriptionGuard>
   );
 }
