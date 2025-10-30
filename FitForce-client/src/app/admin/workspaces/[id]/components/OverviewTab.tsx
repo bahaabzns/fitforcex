@@ -80,6 +80,8 @@ export default function OverviewTab({ workspace, onRefresh }: OverviewTabProps) 
     switch (status) {
       case 'active':
         return 'success';
+      case 'pre_active':
+        return 'info';
       case 'expired':
         return 'error';
       case 'cancelled':

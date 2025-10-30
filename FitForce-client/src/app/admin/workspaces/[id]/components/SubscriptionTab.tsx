@@ -62,6 +62,21 @@ interface Workspace {
       priceCents: number;
     };
   };
+  workspaceSubscriptions?: Array<{
+    id: string;
+    status: string;
+    startDate: string | null;
+    endDate: string | null;
+    queuePosition?: number | null;
+    package: {
+      id: string;
+      name: string;
+      durationMonths: number;
+      priceCents: number;
+    };
+    createdAt: string;
+    updatedAt: string;
+  }>;
   roles: Array<{
     id: string;
     name: string;
@@ -120,8 +135,10 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
   };
 
   const handleCreateSubscription = async () => {
-    if (!startDate || !endDate) {
-      setError('Start date and end date are required');
+    // Allow omitted dates; server will compute using package/custom duration.
+    // If end date provided without start date, keep minimal validation.
+    if (endDate && !startDate) {
+      setError('Start date is required when end date is provided');
       return;
     }
 
@@ -140,10 +157,11 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
       setError(null);
 
       const payload: any = {
-        startDate,
-        endDate,
         skipPayment,
       };
+
+      if (startDate) payload.startDate = startDate;
+      if (endDate) payload.endDate = endDate;
 
       if (subscriptionMode === 'package') {
         payload.packageId = selectedPackageId;
@@ -227,6 +245,8 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
     switch (status) {
       case 'active':
         return 'success';
+      case 'pre_active':
+        return 'info';
       case 'expired':
         return 'error';
       case 'cancelled':
@@ -346,6 +366,61 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
           ) : (
             <Typography variant="body2" color="text.secondary">
               No active subscription
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Queued Subscriptions */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Queued Subscriptions
+          </Typography>
+          {Array.isArray(workspace.workspaceSubscriptions) && workspace.workspaceSubscriptions.filter(s => s.status === 'pre_active' || s.status === 'frozen').length > 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {workspace.workspaceSubscriptions.filter(s => s.status === 'pre_active' || s.status === 'frozen').map((s) => (
+                <Box key={s.id} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, py: 0.5 }}>
+                  <Chip label={s.status} color={getStatusColor(s.status) as any} size="small" />
+                  <Chip label={`Package: ${s.package.name}`} size="small" variant="outlined" />
+                  {typeof s.queuePosition === 'number' && (
+                    <Chip label={`Queue: ${s.queuePosition}`} size="small" variant="outlined" />
+                  )}
+                  <Chip label={`Start: ${s.startDate ? new Date(s.startDate).toLocaleDateString() : '—'}`} size="small" variant="outlined" />
+                  <Chip label={`End: ${s.endDate ? new Date(s.endDate).toLocaleDateString() : '—'}`} size="small" variant="outlined" />
+                  <Chip label={`Created: ${new Date(s.createdAt).toLocaleDateString()}`} size="small" variant="outlined" />
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No queued subscriptions
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Archived Subscriptions (hidden from queue) */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Archived Subscriptions
+          </Typography>
+          {Array.isArray(workspace.workspaceSubscriptions) && workspace.workspaceSubscriptions.filter(s => s.status === 'expired' || s.status === 'cancelled' || s.status === 'refunded').length > 0 ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {workspace.workspaceSubscriptions.filter(s => s.status === 'expired' || s.status === 'cancelled' || s.status === 'refunded').map((s) => (
+                <Box key={s.id} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, py: 0.5 }}>
+                  <Chip label={s.status} color={getStatusColor(s.status) as any} size="small" />
+                  <Chip label={`Package: ${s.package.name}`} size="small" variant="outlined" />
+                  <Chip label={`Start: ${s.startDate ? new Date(s.startDate).toLocaleDateString() : '—'}`} size="small" variant="outlined" />
+                  <Chip label={`End: ${s.endDate ? new Date(s.endDate).toLocaleDateString() : '—'}`} size="small" variant="outlined" />
+                  <Chip label={`Created: ${new Date(s.createdAt).toLocaleDateString()}`} size="small" variant="outlined" />
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No archived subscriptions
             </Typography>
           )}
         </CardContent>

@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "next dev -p 3000 --turbopack",
     "build": "next build",
-    "start": "next start --hostname 0.0.0.0 -p $PORT",
+    "start": "next start --hostname 0.0.0.0",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
