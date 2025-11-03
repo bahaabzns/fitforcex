@@ -59,7 +59,7 @@ export function usePermissions(): UsePermissionsReturn {
               'nutrition.read', 'nutrition.manage', 'nutrition.delete',
               'workout.read', 'workout.manage', 'workout.delete',
               'messaging.read', 'messaging.write',
-              'dashboard.view', 'reports.generate',
+              'dashboard.view', 'reports.generate', 'tm.view_reports',
               'team.manage', 'roles.manage', 'permissions.assign',
               'settings.manage', 'branding.manage', 'integrations.manage'
             ]);
