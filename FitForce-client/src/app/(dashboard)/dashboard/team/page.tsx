@@ -600,6 +600,35 @@ export default function TeamPage() {
     );
   }
 
+  // Feature gate (hide UI if team members disabled)
+  const [featuresError, setFeaturesError] = useState<string | null>(null);
+  const [teamEnabled, setTeamEnabled] = useState<boolean>(true);
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!workspaceId) return;
+        const { data } = await api.get(`/api/workspaces/${workspaceId}/subscription`);
+        const enabled = data?.subscription?.teamMembersEnabled ?? data?.subscription?.package?.teamMembersEnabled ?? true;
+        setTeamEnabled(!!enabled);
+      } catch (e: any) {
+        setFeaturesError(e?.response?.data?.error || null);
+        setTeamEnabled(true);
+      }
+    };
+    run();
+  }, [workspaceId]);
+
+  if (!teamEnabled) {
+    return (
+      <MainCard sx={{ borderStyle: 'dashed' }}>
+        <Box sx={{ textAlign: 'center', py: 6 }}>
+          <Typography variant="h6"><FormattedMessage id="team.disabled" defaultMessage="Team Members feature is not enabled for this workspace" /></Typography>
+          <Typography color="text.secondary"><FormattedMessage id="team.disabled.help" defaultMessage="Upgrade or enable the feature in your subscription to manage team members." /></Typography>
+        </Box>
+      </MainCard>
+    );
+  }
+
   // Avoid a layout jump when reaching the last page with empty rows.
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * rowsPerPage - members.length) : 0;
 

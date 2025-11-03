@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/utils/axios';
-import { Box, Typography, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Chip, TextField, Button, Alert, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TablePagination, Stack } from '@mui/material';
+import { Box, Typography, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Chip, TextField, Button, Alert, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TablePagination, Stack, Snackbar } from '@mui/material';
 import { Refresh, Add, Visibility, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 
 interface UserRow {
@@ -42,6 +42,7 @@ export default function AdminUsersPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({open: false, message: '', severity: 'success'});
 
   const fetchRows = async () => {
     try {
@@ -267,7 +268,8 @@ export default function AdminUsersPage() {
                       />
                     </TableCell>
                     <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} alignItems="center">
                       <IconButton
                         size="small"
                         onClick={() => handleViewUser(r.id)}
@@ -275,7 +277,16 @@ export default function AdminUsersPage() {
                       >
                         <Visibility />
                       </IconButton>
-                    </TableCell>
+                      <Button size="small" variant="outlined" color="warning" onClick={async () => {
+                        try {
+                          await api.post(`/api/admin/users/${r.id}/reset-password`);
+                          setSnackbar({ open: true, message: 'Reset email sent', severity: 'success' });
+                        } catch (e:any) {
+                          setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to send reset email', severity: 'error' });
+                        }
+                      }}>Reset Password</Button>
+                    </Stack>
+                  </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -354,6 +365,12 @@ export default function AdminUsersPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({...s, open: false}))}
+        message={snackbar.message}
+      />
     </Box>
   );
 }

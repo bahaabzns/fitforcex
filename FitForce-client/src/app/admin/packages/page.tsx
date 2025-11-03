@@ -63,6 +63,7 @@ interface PackageFormData {
   priceCents: number;
   currency: string;
   features: any;
+  teamMembersEnabled?: boolean;
   isActive: boolean;
 }
 
@@ -79,6 +80,7 @@ export default function AdminPackagesPage() {
     priceCents: 100,
     currency: 'EGP',
     features: {},
+    teamMembersEnabled: true,
     isActive: true,
   });
   const [tabValue, setTabValue] = useState(0);
@@ -107,6 +109,7 @@ export default function AdminPackagesPage() {
       priceCents: 100,
       currency: 'EGP',
       features: {},
+      teamMembersEnabled: true,
       isActive: true,
     });
     setDialogOpen(true);
@@ -121,6 +124,7 @@ export default function AdminPackagesPage() {
       priceCents: packageData.priceCents,
       currency: packageData.currency,
       features: packageData.features || {},
+      teamMembersEnabled: (packageData as any).teamMembersEnabled ?? true,
       isActive: packageData.isActive,
     });
     setDialogOpen(true);
@@ -408,6 +412,17 @@ export default function AdminPackagesPage() {
                   />
                 }
                 label="Active"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={!!formData.teamMembersEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, teamMembersEnabled: e.target.checked }))}
+                  />
+                }
+                label="Team members enabled"
               />
             </Grid>
           </Grid>

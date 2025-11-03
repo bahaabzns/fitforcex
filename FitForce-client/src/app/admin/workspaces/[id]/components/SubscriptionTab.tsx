@@ -115,6 +115,7 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [skipPayment, setSkipPayment] = useState(false);
+  const [teamMembersEnabled, setTeamMembersEnabled] = useState(true);
 
   // Edit subscription form state
   const [editStartDate, setEditStartDate] = useState('');
@@ -158,6 +159,7 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
 
       const payload: any = {
         skipPayment,
+        teamMembersEnabled,
       };
 
       if (startDate) payload.startDate = startDate;
@@ -193,6 +195,7 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
         startDate: editStartDate,
         endDate: editEndDate,
         status: editStatus,
+        teamMembersEnabled,
       });
 
       setIsEditDialogOpen(false);
@@ -517,6 +520,16 @@ export default function SubscriptionTab({ workspace, onRefresh }: SubscriptionTa
               }
               label="Skip Payment (Mark as Paid)"
             />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={teamMembersEnabled}
+                onChange={(e) => setTeamMembersEnabled(e.target.checked)}
+              />
+            }
+            label="Enable Team Members feature"
+          />
           </Box>
         </DialogContent>
         <DialogActions>

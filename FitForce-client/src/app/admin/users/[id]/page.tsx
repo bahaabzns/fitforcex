@@ -27,6 +27,7 @@ import {
   Stack,
 } from '@mui/material';
 import { ArrowBack, Settings, Add } from '@mui/icons-material';
+import Snackbar from '@mui/material/Snackbar';
 
 interface User {
   id: string;
@@ -73,6 +74,7 @@ export default function UserDetailPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{open: boolean, message: string}>({open: false, message: ''});
 
   // Create workspace form state
   const [workspaceName, setWorkspaceName] = useState('');
@@ -163,6 +165,21 @@ export default function UserDetailPage() {
         <Typography variant="h5" fontWeight={800} sx={{ flex: 1 }}>
           {user.fullName} {user.lastName || ''}
         </Typography>
+        <Button
+          variant="outlined"
+          color="warning"
+          size="small"
+          onClick={async () => {
+            try {
+              await api.post(`/api/admin/users/${user.id}/reset-password`);
+              setSnackbar({ open: true, message: 'Reset email sent' });
+            } catch (e:any) {
+              setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to send reset email' });
+            }
+          }}
+        >
+          Reset Password
+        </Button>
       </Box>
 
       {error && (
@@ -357,6 +374,12 @@ export default function UserDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({...s, open: false}))}
+        message={snackbar.message}
+      />
     </Box>
   );
 }
