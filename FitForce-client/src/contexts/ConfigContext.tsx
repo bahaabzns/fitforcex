@@ -1,3 +1,4 @@
+"use client";
 import { createContext, ReactElement, useCallback } from 'react';
 
 // project-imports
