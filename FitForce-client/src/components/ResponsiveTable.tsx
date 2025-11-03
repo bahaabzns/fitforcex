@@ -1,3 +1,4 @@
+"use client";
 import { ReactNode } from 'react';
 import { Box, TableContainer } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
