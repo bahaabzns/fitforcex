@@ -592,11 +592,11 @@ export default function ClientNutritionPage() {
     // Use microTotals from API if available, otherwise calculate from meals
     if (currentCycle.microTotals) {
       const microTotals = currentCycle.microTotals;
-      // Divide by 100 to fix the display issue in micros popup
-      const calories = Math.round((microTotals.calories || 0) / 100);
-      const protein = Math.round((microTotals.protein || 0) / 100);
-      const carbs = Math.round((microTotals.carbs || 0) / 100);
-      const fat = Math.round((microTotals.fat || 0) / 100);
+      // Server now returns correctly scaled totals; no UI normalization required
+      const calories = Math.round(microTotals.calories || 0);
+      const protein = Math.round(microTotals.protein || 0);
+      const carbs = Math.round(microTotals.carbs || 0);
+      const fat = Math.round(microTotals.fat || 0);
       
       return {
         cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
@@ -658,7 +658,7 @@ export default function ClientNutritionPage() {
           nutrientKeys.forEach(key => {
             const base = Number(foodItem[key] ?? 0);
             if (!isNaN(base) && base > 0) {
-              // Divide by 100 to fix the display issue in client portal
+              // Micros stored per 100g → scale by grams/100
               micronutrients[key] = (micronutrients[key] || 0) + (base * qty / 100);
             }
           });
@@ -666,11 +666,11 @@ export default function ClientNutritionPage() {
       });
     });
     
-    // Divide by 100 to fix the display issue in micros popup
-    const calories = Math.round(totals.calories / 100);
-    const protein = Math.round(totals.protein / 100);
-    const carbs = Math.round(totals.carbs / 100);
-    const fat = Math.round(totals.fat / 100);
+    // Totals already computed using serving-size scaling; use as-is
+    const calories = Math.round(totals.calories);
+    const protein = Math.round(totals.protein);
+    const carbs = Math.round(totals.carbs);
+    const fat = Math.round(totals.fat);
     
     return {
       cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
@@ -3353,8 +3353,14 @@ export default function ClientNutritionPage() {
                           const displayName = key
                             .replace(/_/g, ' ')
                             .replace(/\b\w/g, l => l.toUpperCase());
-                          const unit = ['water', 'ash', 'fiber', 'sodium', 'potassium', 'calcium', 'phosphorous', 
-                            'magnesium', 'iron', 'zinc', 'copper', 'manganese', 'fluoride', 'selenium'].includes(key) ? 'mg' : 'μg';
+                          // Unit map aligned with seed/import conventions
+                          const unitMap: Record<string, string> = {
+                            water: 'g', ash: 'g', fiber: 'g',
+                            sodium: 'mg', potassium: 'mg', calcium: 'mg', phosphorous: 'mg', magnesium: 'mg', iron: 'mg', zinc: 'mg', copper: 'mg', manganese: 'mg', fluoride: 'mg', selenium: 'mg',
+                            vitamin_a: 'μg', vitamin_b12: 'μg', vitamin_k: 'μg', folic_acid: 'μg', vitamin_d: 'IU',
+                            vitamin_c: 'mg', vitamin_e: 'mg', niacin: 'mg', choline: 'mg', betaine: 'mg', vitamin_b1: 'mg', vitamin_b2: 'mg', vitamin_b5: 'mg', vitamin_b6: 'mg',
+                          };
+                          const unit = unitMap[key] || 'mg';
                           
                           return (
                             <Grid item xs={6} sm={4} key={key}>
@@ -3367,7 +3373,7 @@ export default function ClientNutritionPage() {
                                 bgcolor: 'background.paper'
                               }}>
                                 <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                  {Math.round(value / 100 * 100) / 100} {unit}
+                                  {Math.round(value * 100) / 100} {unit}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
                                   {displayName}

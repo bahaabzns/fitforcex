@@ -24,6 +24,7 @@ export default function DefaultExercisesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ExerciseItem | null>(null);
   const [form, setForm] = useState<Partial<ExerciseItem>>({ name: '', muscleGroup: '', category: '', equipmentNeeded: '', videoUrl: '' });
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const fetchItems = async () => {
     try {
@@ -48,6 +49,47 @@ export default function DefaultExercisesPage() {
   const filtered = Array.isArray(items)
     ? items.filter((it) => it.name.toLowerCase().includes(q.toLowerCase()))
     : [];
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((it) => selectedIds.includes(it.id));
+  const someFilteredSelected = filtered.some((it) => selectedIds.includes(it.id));
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !filtered.find((it) => it.id === id)));
+    } else {
+      const filteredIds = filtered.map((it) => it.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const toggleRow = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const bulkDeleteSelected = async () => {
+    try {
+      setError(null);
+      if (selectedIds.length === 0) return;
+      await api.post('/api/admin/default-exercises/bulk-delete', { ids: selectedIds });
+      setSelectedIds([]);
+      await fetchItems();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to delete selected');
+    }
+  };
+
+  const deleteAll = async () => {
+    try {
+      setError(null);
+      await api.post('/api/admin/default-exercises/bulk-delete', { all: true });
+      setSelectedIds([]);
+      await fetchItems();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to delete all');
+    }
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -96,6 +138,9 @@ export default function DefaultExercisesPage() {
         <Typography variant="h5" fontWeight={800}>Base Exercises</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <Button variant="outlined" color="error" startIcon={<Delete />} disabled={selectedIds.length === 0} onClick={bulkDeleteSelected}>Delete Selected ({selectedIds.length})</Button>
+        <Button variant="outlined" color="error" onClick={deleteAll}>Delete All</Button>
+        <Button variant="outlined" onClick={clearSelection} disabled={selectedIds.length === 0}>Clear Selection</Button>
         <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Add Exercise</Button>
         <Button variant="outlined" startIcon={<Refresh />} onClick={fetchItems}>Refresh</Button>
       </Box>
@@ -110,6 +155,15 @@ export default function DefaultExercisesPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox">
+                    <input
+                      type="checkbox"
+                      aria-label="select all"
+                      checked={allFilteredSelected}
+                      ref={(el) => { if (el) el.indeterminate = !allFilteredSelected && someFilteredSelected; }}
+                      onChange={toggleSelectAllFiltered}
+                    />
+                  </TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Muscle Group</TableCell>
                   <TableCell>Category</TableCell>
@@ -121,6 +175,9 @@ export default function DefaultExercisesPage() {
               <TableBody>
                 {filtered.map((it) => (
                   <TableRow key={it.id} hover>
+                    <TableCell padding="checkbox">
+                      <input type="checkbox" checked={selectedIds.includes(it.id)} onChange={() => toggleRow(it.id)} />
+                    </TableCell>
                     <TableCell>{it.name}</TableCell>
                     <TableCell>{it.muscleGroup}</TableCell>
                     <TableCell>{it.category || '-'}</TableCell>

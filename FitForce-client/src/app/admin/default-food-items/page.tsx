@@ -18,6 +18,35 @@ interface FoodItem {
   carbs: number;
   fat: number;
   isActive?: boolean;
+  // Micronutrients
+  water?: number | null;
+  ash?: number | null;
+  fiber?: number | null;
+  sodium?: number | null;
+  potassium?: number | null;
+  calcium?: number | null;
+  phosphorous?: number | null;
+  magnesium?: number | null;
+  iron?: number | null;
+  zinc?: number | null;
+  copper?: number | null;
+  manganese?: number | null;
+  fluoride?: number | null;
+  selenium?: number | null;
+  vitamin_a?: number | null;
+  vitamin_c?: number | null;
+  vitamin_b1?: number | null;
+  vitamin_b2?: number | null;
+  vitamin_b5?: number | null;
+  vitamin_b6?: number | null;
+  vitamin_b12?: number | null;
+  vitamin_d?: number | null;
+  vitamin_e?: number | null;
+  vitamin_k?: number | null;
+  niacin?: number | null;
+  folic_acid?: number | null;
+  choline?: number | null;
+  betaine?: number | null;
 }
 
 export default function DefaultFoodItemsPage() {
@@ -28,6 +57,8 @@ export default function DefaultFoodItemsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FoodItem | null>(null);
   const [form, setForm] = useState<Partial<FoodItem>>({ name: '', calories: 0, protein: 0, carbs: 0, fat: 0, category: '', servingSize: undefined, unit: '' });
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showMicros, setShowMicros] = useState<boolean>(false);
 
   const fetchItems = async () => {
     try {
@@ -52,6 +83,49 @@ export default function DefaultFoodItemsPage() {
   const filtered = Array.isArray(items)
     ? items.filter((it) => it.name.toLowerCase().includes(q.toLowerCase()))
     : [];
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((it) => selectedIds.includes(it.id));
+  const someFilteredSelected = filtered.some((it) => selectedIds.includes(it.id));
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      // unselect all filtered
+      setSelectedIds((prev) => prev.filter((id) => !filtered.find((it) => it.id === id)));
+    } else {
+      // select all filtered
+      const filteredIds = filtered.map((it) => it.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const toggleRow = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const bulkDeleteSelected = async () => {
+    try {
+      setError(null);
+      if (selectedIds.length === 0) return;
+      await api.post('/api/admin/default-food-items/bulk-delete', { ids: selectedIds });
+      setSelectedIds([]);
+      await fetchItems();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to delete selected');
+    }
+  };
+
+  const deleteAll = async () => {
+    try {
+      setError(null);
+      await api.post('/api/admin/default-food-items/bulk-delete', { all: true });
+      setSelectedIds([]);
+      await fetchItems();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to delete all');
+    }
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -100,6 +174,9 @@ export default function DefaultFoodItemsPage() {
         <Typography variant="h5" fontWeight={800}>Base Food Items</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <Button variant="outlined" color="error" startIcon={<Delete />} disabled={selectedIds.length === 0} onClick={bulkDeleteSelected}>Delete Selected ({selectedIds.length})</Button>
+        <Button variant="outlined" color="error" onClick={deleteAll}>Delete All</Button>
+        <Button variant="outlined" onClick={clearSelection} disabled={selectedIds.length === 0}>Clear Selection</Button>
         <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Add Item</Button>
         <Button variant="outlined" startIcon={<Refresh />} onClick={fetchItems}>Refresh</Button>
       </Box>
@@ -114,6 +191,15 @@ export default function DefaultFoodItemsPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox">
+                    <input
+                      type="checkbox"
+                      aria-label="select all"
+                      checked={allFilteredSelected}
+                      ref={(el) => { if (el) el.indeterminate = !allFilteredSelected && someFilteredSelected; }}
+                      onChange={toggleSelectAllFiltered}
+                    />
+                  </TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Category</TableCell>
                   <TableCell align="right">Calories</TableCell>
@@ -126,6 +212,9 @@ export default function DefaultFoodItemsPage() {
               <TableBody>
                 {filtered.map((it) => (
                   <TableRow key={it.id} hover>
+                    <TableCell padding="checkbox">
+                      <input type="checkbox" checked={selectedIds.includes(it.id)} onChange={() => toggleRow(it.id)} />
+                    </TableCell>
                     <TableCell>{it.name}</TableCell>
                     <TableCell>{it.category || '-'}</TableCell>
                     <TableCell align="right">{it.calories}</TableCell>
@@ -176,6 +265,94 @@ export default function DefaultFoodItemsPage() {
             <Grid item xs={12} md={6}>
               <TextField label="Unit" value={form.unit || ''} onChange={(e) => setForm({ ...form, unit: e.target.value })} fullWidth />
             </Grid>
+            <Grid item xs={12}>
+              <Button size="small" onClick={() => setShowMicros((v) => !v)}>{showMicros ? 'Hide Micronutrients' : 'Show Micronutrients'}</Button>
+            </Grid>
+            {showMicros && (
+              <>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Water" type="number" value={(form.water as number) ?? ''} onChange={(e) => setForm({ ...form, water: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Fiber" type="number" value={(form.fiber as number) ?? ''} onChange={(e) => setForm({ ...form, fiber: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Sodium" type="number" value={(form.sodium as number) ?? ''} onChange={(e) => setForm({ ...form, sodium: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Potassium" type="number" value={(form.potassium as number) ?? ''} onChange={(e) => setForm({ ...form, potassium: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Calcium" type="number" value={(form.calcium as number) ?? ''} onChange={(e) => setForm({ ...form, calcium: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Phosphorous" type="number" value={(form.phosphorous as number) ?? ''} onChange={(e) => setForm({ ...form, phosphorous: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Magnesium" type="number" value={(form.magnesium as number) ?? ''} onChange={(e) => setForm({ ...form, magnesium: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Iron" type="number" value={(form.iron as number) ?? ''} onChange={(e) => setForm({ ...form, iron: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Zinc" type="number" value={(form.zinc as number) ?? ''} onChange={(e) => setForm({ ...form, zinc: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Copper" type="number" value={(form.copper as number) ?? ''} onChange={(e) => setForm({ ...form, copper: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Manganese" type="number" value={(form.manganese as number) ?? ''} onChange={(e) => setForm({ ...form, manganese: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Fluoride" type="number" value={(form.fluoride as number) ?? ''} onChange={(e) => setForm({ ...form, fluoride: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Selenium" type="number" value={(form.selenium as number) ?? ''} onChange={(e) => setForm({ ...form, selenium: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit A" type="number" value={(form.vitamin_a as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_a: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit C" type="number" value={(form.vitamin_c as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_c: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit B1" type="number" value={(form.vitamin_b1 as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_b1: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit B2" type="number" value={(form.vitamin_b2 as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_b2: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit B5" type="number" value={(form.vitamin_b5 as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_b5: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit B6" type="number" value={(form.vitamin_b6 as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_b6: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit B12" type="number" value={(form.vitamin_b12 as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_b12: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit D" type="number" value={(form.vitamin_d as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_d: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit E" type="number" value={(form.vitamin_e as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_e: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Vit K" type="number" value={(form.vitamin_k as number) ?? ''} onChange={(e) => setForm({ ...form, vitamin_k: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Niacin" type="number" value={(form.niacin as number) ?? ''} onChange={(e) => setForm({ ...form, niacin: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Folic Acid" type="number" value={(form.folic_acid as number) ?? ''} onChange={(e) => setForm({ ...form, folic_acid: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Choline" type="number" value={(form.choline as number) ?? ''} onChange={(e) => setForm({ ...form, choline: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField label="Betaine" type="number" value={(form.betaine as number) ?? ''} onChange={(e) => setForm({ ...form, betaine: e.target.value === '' ? null : Number(e.target.value) })} fullWidth />
+                </Grid>
+              </>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
