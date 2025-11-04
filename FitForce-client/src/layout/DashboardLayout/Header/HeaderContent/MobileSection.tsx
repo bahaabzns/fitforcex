@@ -14,6 +14,7 @@ import Localization from './Localization';
 import Profile from './Profile';
 import Search from './Search';
 import WorkspaceNavigator from './WorkspaceNavigator';
+import ThemeToggle from './ThemeToggle';
 import IconButton from 'components/@extended/IconButton';
 import Transitions from 'components/@extended/Transitions';
 
@@ -101,6 +102,7 @@ export default function MobileSection() {
                     {!isClientRoute && <WorkspaceNavigator />}
                     <Search />
                     <Localization />
+                    <ThemeToggle />
                     {!isClientRoute && <Profile />}
                   </Toolbar>
                 </AppBar>

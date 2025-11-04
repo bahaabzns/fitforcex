@@ -12,6 +12,7 @@ import MobileSection from './MobileSection';
 import Notification from './Notification';
 import Profile from './Profile';
 import WorkspaceNavigator from './WorkspaceNavigator';
+import ThemeToggle from './ThemeToggle';
 import ClientSidebarMobileToggle from '@/components/ClientSidebarMobileToggle';
 
 import { MenuOrientation } from 'config';
@@ -37,6 +38,7 @@ export default function HeaderContent() {
       {!downLG && !isClientRoute && <WorkspaceNavigator />}
       {downLG && <ClientSidebarMobileToggle />}
       <Box sx={{ flexGrow: 1 }} />
+      {!downLG && <ThemeToggle />}
       {!downLG && localization}
 
       {!isClientRoute && <Notification />}

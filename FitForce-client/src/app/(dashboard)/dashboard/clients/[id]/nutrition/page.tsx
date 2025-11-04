@@ -171,6 +171,7 @@ export default function ClientNutritionPage() {
   const [plansTab, setPlansTab] = useState(0); // 0: Plans, 1: Forms, 2: Tools
   const [planTab, setPlanTab] = useState(0); // 0: Cycles & Meals, 1: Water
   const [dragFoodIndex, setDragFoodIndex] = useState<number | null>(null);
+  const [dragMealIndex, setDragMealIndex] = useState<number | null>(null);
   const [editingPlanTitleId, setEditingPlanTitleId] = useState<string | null>(null);
   const [editingPlanTitleValue, setEditingPlanTitleValue] = useState('');
   const [editingMealTitleId, setEditingMealTitleId] = useState<string | null>(null);
@@ -331,6 +332,22 @@ export default function ClientNutritionPage() {
       }))
     })));
     setDragFoodIndex(null);
+    setIsPlanDirty(true);
+  };
+
+  const handleMealDrop = (toIndex: number) => {
+    if (dragMealIndex === null || toIndex === dragMealIndex || !selectedPlanId || !selectedCycleId) return;
+    // Update plans tree
+    setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+      ...p,
+      cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+        ...c,
+        meals: reorderArray(c.meals || [], dragMealIndex, toIndex)
+      }))
+    })));
+    // Keep currentMeals in sync
+    setCurrentMeals((prev) => reorderArray(prev || [], dragMealIndex, toIndex));
+    setDragMealIndex(null);
     setIsPlanDirty(true);
   };
 
@@ -1306,8 +1323,10 @@ export default function ClientNutritionPage() {
     if (canGoPrevious) {
       const newIndex = currentCycleIndex - 1;
       setCurrentCycleIndex(newIndex);
-      setSelectedCycleId(currentCycles[newIndex].id);
-      setSelectedMealId(null); // Reset meal selection
+      const newCycle = currentCycles[newIndex];
+      setSelectedCycleId(newCycle.id);
+      const firstMealId = (newCycle.meals && newCycle.meals.length > 0) ? newCycle.meals[0].id : null;
+      setSelectedMealId(firstMealId);
     }
   };
   
@@ -1315,8 +1334,10 @@ export default function ClientNutritionPage() {
     if (canGoNext) {
       const newIndex = currentCycleIndex + 1;
       setCurrentCycleIndex(newIndex);
-      setSelectedCycleId(currentCycles[newIndex].id);
-      setSelectedMealId(null); // Reset meal selection
+      const newCycle = currentCycles[newIndex];
+      setSelectedCycleId(newCycle.id);
+      const firstMealId = (newCycle.meals && newCycle.meals.length > 0) ? newCycle.meals[0].id : null;
+      setSelectedMealId(firstMealId);
     }
   };
   
@@ -1350,6 +1371,7 @@ export default function ClientNutritionPage() {
     
     setCurrentCycleIndex(currentCycles.length);
     setSelectedCycleId(newId);
+    setSelectedMealId(copy.meals && copy.meals.length > 0 ? copy.meals[0].id : null);
     setIsPlanDirty(true);
   };
 
@@ -1368,8 +1390,16 @@ export default function ClientNutritionPage() {
     ));
     
     const newIndex = Math.max(0, currentCycleIndex - 1);
+    const targetCycle = currentCycles[newIndex];
     setCurrentCycleIndex(newIndex);
-    setSelectedMealId(null);
+    if (targetCycle) {
+      setSelectedCycleId(targetCycle.id);
+      const firstMealId = (targetCycle.meals && targetCycle.meals.length > 0) ? targetCycle.meals[0].id : null;
+      setSelectedMealId(firstMealId);
+    } else {
+      setSelectedCycleId(null);
+      setSelectedMealId(null);
+    }
     setIsPlanDirty(true);
   };
 
@@ -1817,7 +1847,7 @@ export default function ClientNutritionPage() {
                             )}
                           </Box>
                         </CardContent>
-                        <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
+                        <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: isMobile ? 1 : 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
                           <IconButton size="small" onClick={() => handleCopyPlanCard(plan.id)} disabled={copyingPlanId === plan.id} title="Copy plan" sx={{ '&:hover': { bgcolor: 'action.selected' } }}>
                             <Copy size={16} />
                           </IconButton>
@@ -1942,16 +1972,43 @@ export default function ClientNutritionPage() {
                 <>
                   {currentCycle ? (
                     <Box>
-                      {/* Current Cycle Header - match desktop style on mobile */}
+                      {/* Current Cycle Header - editable on mobile */}
                       <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', mb: 1, columnGap: 1 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <IconButton size="small" onClick={handlePreviousCycle} disabled={!canGoPrevious}><ArrowLeft2 size={16} /></IconButton>
                           <IconButton size="small" onClick={handleNextCycle} disabled={!canGoNext}><ArrowRight2 size={16} /></IconButton>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Typography variant="subtitle1" sx={{ textAlign: 'center' }}>
-                            {currentCycle.label || `Day ${currentCycle.dayIndex}`}
-                          </Typography>
+                          {editingCycleId === selectedCycleId ? (
+                            <TextField
+                              size="small"
+                              value={editingCycleValue}
+                              autoFocus
+                              onChange={(e) => setEditingCycleValue(e.target.value)}
+                              onBlur={() => {
+                                if (!selectedCycleId || !selectedPlanId) { setEditingCycleId(null); return; }
+                                setCurrentCycles((prev) => prev.map((c) => c.id !== selectedCycleId ? c : ({ ...c, label: editingCycleValue || c.label, title: editingCycleValue || c.title })));
+                                setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                  ...p,
+                                  cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({ ...c, label: editingCycleValue || c.label, title: editingCycleValue || c.title }))
+                                })));
+                                setEditingCycleId(null);
+                                setIsPlanDirty(true);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                if (e.key === 'Escape') setEditingCycleId(null);
+                              }}
+                            />
+                          ) : (
+                            <Typography variant="subtitle1" sx={{ textAlign: 'center', cursor: 'text' }} onClick={() => {
+                              const t = currentCycle ? (currentCycle.label || currentCycle.title || '') : '';
+                              setEditingCycleId(selectedCycleId || null);
+                              setEditingCycleValue(t);
+                            }}>
+                              {currentCycle ? (currentCycle.label || `Day ${currentCycle.dayIndex}`) : 'Cycle'}
+                            </Typography>
+                          )}
                         </Box>
                         <Box />
                       </Box>
@@ -1966,6 +2023,10 @@ export default function ClientNutritionPage() {
                         {currentMeals.map((meal) => (
                           <Box key={meal.id}>
                             <Card
+                              draggable
+                              onDragStart={() => setDragMealIndex(currentMeals.findIndex(m => m.id === meal.id))}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => handleMealDrop(currentMeals.findIndex(m => m.id === meal.id))}
                               sx={{
                                 border: selectedMealId === meal.id ? 2 : 1,
                                 borderColor: selectedMealId === meal.id ? 'secondary.main' : 'divider',
@@ -1979,11 +2040,54 @@ export default function ClientNutritionPage() {
                                 }
                               }}
                             >
-                              <CardHeader title={meal.meal} />
+                              <CardHeader 
+                                title={meal.meal}
+                                action={
+                                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }} onClick={(e: any) => e.stopPropagation()}>
+                                    <IconButton size="small" title="Copy meal" onClick={() => {
+                                      if (!selectedPlanId || !selectedCycleId) return;
+                                      const newId = `tmpm-${Date.now()}-${Math.random()}`;
+                                      const copiedFoodItems = (meal.foodItems || []).map((fi: any, idx: number) => ({
+                                        ...fi,
+                                        id: `tmpfi-${newId}-${fi.foodItemId || fi.foodItem?.id || idx}-${Date.now()}`,
+                                        mealId: newId
+                                      }));
+                                      const copy = { ...meal, id: newId, foodItems: copiedFoodItems } as any;
+                                      setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                        ...p,
+                                        cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                          ...c,
+                                          meals: [ ...(c.meals || []), copy ]
+                                        }))
+                                      })));
+                                      setIsPlanDirty(true);
+                                    }}>
+                                      <Copy size={16} />
+                                    </IconButton>
+                                    <IconButton size="small" color="error" title="Delete meal" onClick={() => {
+                                      if (!selectedPlanId || !selectedCycleId) return;
+                                      setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                        ...p,
+                                        cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                          ...c,
+                                          meals: (c.meals || []).filter((m) => m.id !== meal.id)
+                                        }))
+                                      })));
+                                      if (selectedMealId === meal.id) setSelectedMealId(null);
+                                      setIsPlanDirty(true);
+                                    }}>
+                                      <Trash size={16} />
+                                    </IconButton>
+                                  </Stack>
+                                }
+                              />
                               <CardContent>
-                                <Typography variant="body2" color="text.secondary">
-                                  {meal.foodItems?.length || 0} food item(s)
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                  <Box sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} title="Drag to reorder">≡</Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {(meal.foodItems?.length || 0)} food item(s)
+                                  </Typography>
+                                </Box>
                                 {(() => {
                                   const t = computeMealTotals(meal);
                                   return (
@@ -2027,9 +2131,47 @@ export default function ClientNutritionPage() {
             <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {selectedMealId && currentMeals.find(m => m.id === selectedMealId) ? (
                 <Box>
-                  {/* Row 1: Meal name + close */}
+                  {/* Row 1: Meal name (editable) + close */}
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="h6">{currentMeals.find(m => m.id === selectedMealId)?.meal}</Typography>
+                    {editingMealTitleId === selectedMealId ? (
+                      <TextField
+                        size="small"
+                        value={editingMealTitleValue}
+                        autoFocus
+                        onChange={(e) => setEditingMealTitleValue(e.target.value)}
+                        onBlur={() => {
+                          const id = selectedMealId as string;
+                          setCurrentMeals((prev) => prev.map((m) => m.id !== id ? m : ({ ...m, meal: editingMealTitleValue || m.meal })));
+                          if (selectedPlanId && selectedCycleId) {
+                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                              ...p,
+                              cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                ...c,
+                                meals: (c.meals || []).map((m) => m.id !== id ? m : ({ ...m, meal: editingMealTitleValue || m.meal }))
+                              }))
+                            })));
+                          }
+                          setEditingMealTitleId(null);
+                          setIsPlanDirty(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          if (e.key === 'Escape') setEditingMealTitleId(null);
+                        }}
+                      />
+                    ) : (
+                      <Typography 
+                        variant="h6"
+                        onClick={() => {
+                          const t = currentMeals.find(m => m.id === selectedMealId)?.meal || '';
+                          setEditingMealTitleId(selectedMealId);
+                          setEditingMealTitleValue(t);
+                        }}
+                        sx={{ cursor: 'text' }}
+                      >
+                        {currentMeals.find(m => m.id === selectedMealId)?.meal}
+                      </Typography>
+                    )}
                     <IconButton size="medium" onClick={() => setSelectedMealId(null)} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
                   </Box>
                   {/* Row 2: Macros center */}
@@ -2598,6 +2740,10 @@ export default function ClientNutritionPage() {
                           {currentMeals.map((meal) => (
                             <Box key={meal.id}>
                               <Card
+                                draggable
+                                onDragStart={() => setDragMealIndex(currentMeals.findIndex(m => m.id === meal.id))}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={() => handleMealDrop(currentMeals.findIndex(m => m.id === meal.id))}
                               onClick={() => setSelectedMealId(meal.id)}
                                 sx={{
                                 cursor: 'pointer',
@@ -2611,7 +2757,10 @@ export default function ClientNutritionPage() {
                             >
                               <CardContent sx={{ py: 1.25 }}>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
-                                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: selectedMealId === meal.id ? 'primary.main' : undefined }}>{meal.meal}</Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                    <Box sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} title="Drag to reorder">≡</Box>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: selectedMealId === meal.id ? 'primary.main' : undefined }}>{meal.meal}</Typography>
+                                  </Box>
                                   {(() => { const t = computeMealTotals(meal); return (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary' }}>
                                       <Typography variant="caption" sx={{ fontSize: 12 }}>{t.calories} kcal</Typography>

@@ -371,6 +371,7 @@ export default function ClientWorkoutPage() {
   // UI states
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [isPlanDirty, setIsPlanDirty] = useState(false);
+  const [dragDayIndex, setDragDayIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [planQuery, setPlanQuery] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -392,6 +393,24 @@ export default function ClientWorkoutPage() {
   
   // Client display name
   const [clientName, setClientName] = useState<string>('');
+
+  const handleDayDrop = (toIndex: number) => {
+    if (dragDayIndex === null || toIndex === dragDayIndex || !localWorkoutPlan) return;
+    const arr = [...localWorkoutPlan.days];
+    const from = dragDayIndex;
+    const item = arr[from];
+    arr.splice(from, 1);
+    arr.splice(toIndex, 0, item);
+    setLocalWorkoutPlan(prev => prev ? { ...prev, days: arr } : prev);
+    setSelectedDayIndex((idx) => {
+      if (idx === from) return toIndex;
+      if (from < idx && toIndex >= idx) return idx - 1;
+      if (from > idx && toIndex <= idx) return idx + 1;
+      return idx;
+    });
+    setDragDayIndex(null);
+    setIsPlanDirty(true);
+  };
 
   // DnD sensors
   const sensors = useSensors(
@@ -1592,7 +1611,7 @@ export default function ClientWorkoutPage() {
                               </Box>
                             </Box>
                           </CardContent>
-                          <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                          <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: isMobile ? 1 : 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                               <IconButton 
                                 size="small" 
                                 onClick={async (e) => {
@@ -1867,6 +1886,10 @@ export default function ClientWorkoutPage() {
                   <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
                     {localWorkoutPlan.days.map((day, index) => (
                       <Card
+                      draggable
+                      onDragStart={() => setDragDayIndex(index)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => handleDayDrop(index)}
                       key={day.id}
                         sx={{ 
                           border: selectedDayIndex === index ? 2 : 1,
@@ -1886,11 +1909,14 @@ export default function ClientWorkoutPage() {
                     >
                         <CardHeader title={day.title} />
                         <CardContent>
-                          <Typography variant="body2" color="text.secondary">
-                                {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
-                              </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                            <Box sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} title="Drag to reorder">≡</Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
+                            </Typography>
+                          </Box>
                         </CardContent>
-                        <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                        <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: isMobile ? 1 : 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                           <IconButton 
                                 size="small" 
                             title="Copy day"
