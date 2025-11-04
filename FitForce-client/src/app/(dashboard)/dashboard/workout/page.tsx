@@ -117,6 +117,12 @@ function stableSort(array: Exercise[], comparator: (a: KeyedObject, b: KeyedObje
 // table header
 const headCells = [
   {
+    id: 'gif',
+    numeric: false,
+    disablePadding: false,
+    label: 'GIF'
+  },
+  {
     id: 'name',
     numeric: false,
     disablePadding: true,
@@ -212,6 +218,9 @@ export default function WorkoutPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+
+  // Image preview dialog
+  const [imagePreviewSrc, setImagePreviewSrc] = useState<string | null>(null);
 
   // Form states
   const [newExercise, setNewExercise] = useState({
@@ -789,6 +798,18 @@ export default function WorkoutPage() {
                           <TableCell sx={{ pl: 3 }} padding="checkbox">
                             <Checkbox color="primary" checked={isItemSelected} slotProps={{ input: { 'aria-labelledby': labelId } }} />
                           </TableCell>
+                          <TableCell>
+                            <Avatar
+                              variant="rounded"
+                              src={row.gifImage}
+                              sx={{ width: 56, height: 56, boxShadow: 1, cursor: row.gifImage ? 'pointer' : 'default' }}
+                              onClick={(e) => { e.stopPropagation(); if (row.gifImage) setImagePreviewSrc(row.gifImage); }}
+                            >
+                              {!row.gifImage && (
+                                <Typography variant="caption" color="text.secondary">GIF</Typography>
+                              )}
+                            </Avatar>
+                          </TableCell>
                           <TableCell component="th" id={labelId} scope="row" padding="none">
                             {(isArabic ? row.nameArabic : undefined) || row.name}
                           </TableCell>
@@ -818,7 +839,7 @@ export default function WorkoutPage() {
                     })}
                   {emptyRows > 0 && (
                     <TableRow sx={{ height: 53 * emptyRows }}>
-                      <TableCell colSpan={5} />
+                      <TableCell colSpan={6} />
                     </TableRow>
                   )}
                 </TableBody>
@@ -1214,17 +1235,29 @@ export default function WorkoutPage() {
                         onClick={() => handleSelectImportItem(item.name)}
                       >
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Box>
-                            <Typography variant="subtitle1" fontWeight={600}>
-                              {item.name}
-                            </Typography>
-                            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                              <Chip label={item.muscleGroup} variant="outlined" size="small" />
-                              {item.category && (
-                                <Chip label={item.category} variant="outlined" size="small" color="secondary" />
+                          <Stack direction="row" spacing={2} alignItems="center">
+                            <Avatar
+                              variant="rounded"
+                              src={item.gifImage}
+                              sx={{ width: 48, height: 48, boxShadow: 1, cursor: item.gifImage ? 'pointer' : 'default' }}
+                              onClick={(e) => { e.stopPropagation(); if (item.gifImage) setImagePreviewSrc(item.gifImage); }}
+                            >
+                              {!item.gifImage && (
+                                <Typography variant="caption" color="text.secondary">GIF</Typography>
                               )}
-                            </Stack>
-                          </Box>
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle1" fontWeight={600}>
+                                {item.name}
+                              </Typography>
+                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                <Chip label={item.muscleGroup} variant="outlined" size="small" />
+                                {item.category && (
+                                  <Chip label={item.category} variant="outlined" size="small" color="secondary" />
+                                )}
+                              </Stack>
+                            </Box>
+                          </Stack>
                           <Box
                             sx={{
                               width: 24,
@@ -1523,6 +1556,41 @@ export default function WorkoutPage() {
           <Button onClick={() => setWorkoutLogDetailsOpen(false)}>
             Close
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog
+        open={Boolean(imagePreviewSrc)}
+        onClose={() => setImagePreviewSrc(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Exercise Preview</DialogTitle>
+        <DialogContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          {imagePreviewSrc && (
+            <Box sx={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <Box
+                component="img"
+                src={imagePreviewSrc}
+                alt="Exercise GIF"
+                sx={{
+                  maxWidth: '100%',
+                  maxHeight: '70vh',
+                  borderRadius: 2,
+                  boxShadow: 3
+                }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImagePreviewSrc(null)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

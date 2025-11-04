@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useParams } from 'next/navigation';
 import {
   Box,
@@ -317,6 +320,48 @@ export default function ClientNutritionPage() {
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     return next;
+  };
+
+  // Smooth drag-and-drop (like workout maker) for food items
+  const Sortable: React.FC<{ id: string; children: (args: { attributes: any; listeners: any; setNodeRef: any; style: any }) => React.ReactNode }> = ({ id, children }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.6 : 1
+    } as any;
+    return <>{children({ attributes, listeners, setNodeRef, style })}</>;
+  };
+
+  const handleFoodDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    if (!selectedMealId || !selectedPlanId || !selectedCycleId) return;
+
+    const meal = currentMeals.find((m) => m.id === selectedMealId);
+    if (!meal) return;
+    const items = meal.foodItems || [];
+    const oldIndex = items.findIndex((fi: any) => fi.id === active.id);
+    const newIndex = items.findIndex((fi: any) => fi.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+      ...p,
+      cycles: (p.cycles || []).map((c: any) => c.id !== selectedCycleId ? c : ({
+        ...c,
+        meals: (c.meals || []).map((m: any) => m.id !== selectedMealId ? m : ({
+          ...m,
+          foodItems: reorderArray(m.foodItems || [], oldIndex, newIndex)
+        }))
+      }))
+    })));
+
+    setCurrentMeals((prev) => prev.map((m: any) => m.id !== selectedMealId ? m : ({
+      ...m,
+      foodItems: reorderArray(m.foodItems || [], oldIndex, newIndex)
+    })));
+
+    setIsPlanDirty(true);
   };
 
   const handleFoodDrop = (toIndex: number) => {
@@ -2218,33 +2263,42 @@ export default function ClientNutritionPage() {
                         </Box>
                       </Box>
                 <List>
-                        {currentMeals.find(m => m.id === selectedMealId)?.foodItems.map((item) => {
-                          const index = currentMeals.find(m => m.id === selectedMealId)!.foodItems.findIndex(fi => fi.id === item.id);
-                          return (
-                          <ListItem
-                            key={item.id}
-                            draggable
-                            onDragStart={() => setDragFoodIndex(index)}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => handleFoodDrop(index)}
-                            sx={{
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              bgcolor: 'background.paper',
-                              borderRadius: 1,
-                              mb: 1,
-                              cursor: 'pointer',
-                              position: 'relative',
-                              '&:hover .food-actions': { opacity: 1 },
-                              '&:hover': { borderColor: 'primary.light' },
-                              '&:focus-within': { borderColor: 'primary.main', bgcolor: 'primary.lighter' }
-                            }}
-                          >
-                            <Box sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} title="Drag to reorder">≡</Box>
-                      <ListItemText
-                        primary={item.foodItem.name}
-                        secondaryTypographyProps={{ component: 'span' }}
-                              secondary={(() => {
+                  <DndContext collisionDetection={closestCenter} onDragEnd={handleFoodDragEnd}>
+                    <SortableContext
+                      items={(currentMeals.find(m => m.id === selectedMealId)?.foodItems || []).map((fi) => fi.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {(currentMeals.find(m => m.id === selectedMealId)?.foodItems || []).map((item) => (
+                        <Sortable id={item.id} key={item.id}>
+                          {({ attributes, listeners, setNodeRef, style }) => (
+                            <ListItem
+                              ref={setNodeRef}
+                              style={style}
+                              sx={{
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                bgcolor: 'background.paper',
+                                borderRadius: 1,
+                                mb: 1,
+                                cursor: 'pointer',
+                                position: 'relative',
+                                '&:hover .food-actions': { opacity: 1 },
+                                '&:hover': { borderColor: 'primary.light' },
+                                '&:focus-within': { borderColor: 'primary.main', bgcolor: 'primary.lighter' }
+                              }}
+                            >
+                              <Box 
+                                sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} 
+                                title="Drag to reorder"
+                                {...attributes}
+                                {...listeners}
+                              >
+                                ≡
+                              </Box>
+                              <ListItemText
+                                primary={item.foodItem.name}
+                                secondaryTypographyProps={{ component: 'span' }}
+                                secondary={(() => {
                                 const quantity = editingQuantities[item.id] ?? item.quantity;
                                 const factor = quantity / (item.foodItem.servingSize || 100);
                                 const calories = Math.round(item.foodItem.calories * factor);
@@ -2292,9 +2346,9 @@ export default function ClientNutritionPage() {
                                     />
                                   </Box>
                                 );
-                              })()}
-                      />
-                      <Box className="food-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
+                                })()}
+                              />
+                              <Box className="food-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
                         <IconButton size="small" title="Copy" onClick={() => {
                           if (!selectedPlanId || !selectedCycleId || !selectedMealId) return;
                           const newId = `tmpfi-${selectedMealId}-${item.foodItemId}-${Date.now()}`;
@@ -2319,8 +2373,12 @@ export default function ClientNutritionPage() {
                           setIsPlanDirty(true);
                         }}><Trash size={16} /></IconButton>
                       </Box>
-                    </ListItem>
-                  );})}
+                            </ListItem>
+                          )}
+                        </Sortable>
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 </List>
                       {/* Inline editing saves in-memory on change; no bulk actions needed */}
                     </Box>

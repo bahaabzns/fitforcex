@@ -49,6 +49,8 @@ import {
   FormControlLabel,
   Grid
 } from '@mui/material';
+import Avatar from '@mui/material/Avatar';
+import Tooltip from '@mui/material/Tooltip';
 import {
   Add,
   AddCircle,
@@ -82,6 +84,8 @@ interface Exercise {
   thumbnailUrl?: string;
   videoUrl?: string; // YouTube link
   gifImage?: string; // GIF image URL
+  category?: string;
+  equipmentNeeded?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,13 +105,15 @@ function SortableExercise({
   index, 
   onEdit, 
   onDelete, 
-  formatRepRange 
+  formatRepRange,
+  onPreviewGif
 }: { 
   exercise: any; 
   index: number; 
   onEdit: (ex: any) => void; 
   onDelete: (id: string) => void;
   formatRepRange: (reps: string, sets: number) => string;
+  onPreviewGif: (src: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
     id: exercise.id 
@@ -128,8 +134,11 @@ function SortableExercise({
       sx={{ 
         cursor: 'grab',
         transition: 'all 0.2s',
+        border: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
         '&:hover': {
-          boxShadow: 3,
+          boxShadow: 6,
           transform: 'translateY(-2px)'
         },
         '&:active': {
@@ -159,79 +168,92 @@ function SortableExercise({
           </Box>
           
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            {/* GIF Image */}
-            {exercise.exercise.gifImage && (
-              <Box
-                sx={{
-                  width: '100%',
-                  maxWidth: 200,
-                  height: 120,
-                  mb: 2,
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    opacity: 0.9
-                  }
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(exercise.exercise.gifImage, '_blank');
-                }}
-              >
-                <img
-                  src={exercise.exercise.gifImage}
-                  alt={exercise.exercise.name}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                  }}
-                />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {exercise.exercise.gifImage && (
+                <Tooltip title="Preview GIF" arrow>
+                  <Box
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      flex: '0 0 auto',
+                      cursor: 'pointer',
+                      border: 1,
+                      borderColor: 'divider',
+                      '&:hover': { opacity: 0.9 }
+                    }}
+                    onClick={(e) => { e.stopPropagation(); onPreviewGif(exercise.exercise.gifImage as string); }}
+                  >
+                    <img
+                      src={exercise.exercise.gifImage}
+                      alt={exercise.exercise.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </Box>
+                </Tooltip>
+              )}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                  <Chip 
+                    label={`#${index + 1}`} 
+                    size="small" 
+                    color="primary" 
+                    sx={{ height: 20, fontSize: '0.75rem' }} 
+                  />
+                  <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }} noWrap>
+                    {exercise.exercise.name}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" color="textSecondary" sx={{ mr: 1 }}>
+                    {exercise.exercise.muscleGroup}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, p: 0.5, px: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                    <Chip 
+                      label={repRange} 
+                      size="small" 
+                      variant="outlined"
+                      sx={{ fontWeight: 500 }}
+                    />
+                    {exercise.restSeconds > 0 && (
+                      <Chip 
+                        label={`Rest: ${exercise.restSeconds}s`} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                    )}
+                    {exercise.tempo && (
+                      <Chip 
+                        label={`Tempo: ${exercise.tempo}`} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                    )}
+                    {exercise.rir > 0 && (
+                      <Chip 
+                        label={`RIR: ${exercise.rir}`} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                </Box>
               </Box>
-            )}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-              <Chip 
-                label={`#${index + 1}`} 
-                size="small" 
-                color="primary" 
-                sx={{ height: 20, fontSize: '0.75rem' }} 
-              />
-              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                {exercise.exercise.name}
-              </Typography>
             </Box>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-              {exercise.exercise.muscleGroup}
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5, mt: 0.5 }}>
               <Chip 
-                label={repRange} 
-                size="small" 
+                label={exercise.exercise.category || ''}
+                size="small"
                 variant="outlined"
-                sx={{ fontWeight: 500 }}
+                sx={{ display: (exercise.exercise.category ? 'inline-flex' : 'none') }}
               />
-              {exercise.restSeconds > 0 && (
-                <Chip 
-                  label={`Rest: ${exercise.restSeconds}s`} 
-                  size="small" 
-                  variant="outlined"
-                />
-              )}
-              {exercise.tempo && (
-                <Chip 
-                  label={`Tempo: ${exercise.tempo}`} 
-                  size="small" 
-                  variant="outlined"
-                />
-              )}
-              {exercise.rir > 0 && (
-                <Chip 
-                  label={`RIR: ${exercise.rir}`} 
-                  size="small" 
-                  variant="outlined"
-                />
-              )}
+              <Chip 
+                label={exercise.exercise.equipmentNeeded || ''}
+                size="small"
+                variant="outlined"
+                sx={{ display: (exercise.exercise.equipmentNeeded ? 'inline-flex' : 'none') }}
+              />
             </Box>
             {exercise.notes && (
               <Typography 
@@ -250,7 +272,7 @@ function SortableExercise({
               </Typography>
             )}
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5, alignItems: 'center' }}>
             <IconButton
               size="small"
               color="primary"
@@ -367,6 +389,9 @@ export default function ClientWorkoutPage() {
   const [newDayTitle, setNewDayTitle] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const [exerciseSearchTerm, setExerciseSearchTerm] = useState('');
+  const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<string[]>([]);
+  const [exerciseEquipmentFilter, setExerciseEquipmentFilter] = useState<string[]>([]);
+  const [imagePreviewSrc, setImagePreviewSrc] = useState<string | null>(null);
   
   // UI states
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
@@ -2949,6 +2974,7 @@ export default function ClientWorkoutPage() {
                             onEdit={openEditExerciseDialog}
                             onDelete={removeExerciseFromDay}
                             formatRepRange={formatRepRange}
+                            onPreviewGif={(src) => setImagePreviewSrc(src)}
                           />
                         ))}
                       </Stack>
@@ -3202,6 +3228,8 @@ export default function ClientWorkoutPage() {
       <Dialog open={isAddExerciseDialogOpen} onClose={() => {
         setIsAddExerciseDialogOpen(false);
         setExerciseSearchTerm('');
+        setExerciseCategoryFilter([]);
+        setExerciseEquipmentFilter([]);
       }} maxWidth="md" fullWidth>
         <DialogTitle>Add Exercises to Workout Day</DialogTitle>
         <DialogContent>
@@ -3214,30 +3242,94 @@ export default function ClientWorkoutPage() {
               sx={{ mb: 2 }}
               autoFocus
             />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Category</InputLabel>
+                <Select
+                  multiple
+                  label="Category"
+                  value={exerciseCategoryFilter}
+                  onChange={(e) => setExerciseCategoryFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(selected as string[]).map((value) => (
+                        <Chip key={value} label={value} size="small" />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {Array.from(new Set(workspaceExercises.map((e) => e.category).filter(Boolean) as string[]))
+                    .sort()
+                    .map((c) => (
+                      <MenuItem key={c} value={c}>{c}</MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Equipment</InputLabel>
+                <Select
+                  multiple
+                  label="Equipment"
+                  value={exerciseEquipmentFilter}
+                  onChange={(e) => setExerciseEquipmentFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(selected as string[]).map((value) => (
+                        <Chip key={value} label={value} size="small" />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {Array.from(new Set(workspaceExercises.map((e) => e.equipmentNeeded).filter(Boolean) as string[]))
+                    .sort()
+                    .map((eq) => (
+                      <MenuItem key={eq} value={eq}>{eq}</MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+            </Stack>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {workspaceExercises.filter((exercise) =>
-                exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
-                exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
-                (exercise.description && exercise.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()))
-              ).length} exercise(s) found
+              {workspaceExercises.filter((exercise) => {
+                const matchesSearch =
+                  exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                  exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                  (exercise.description && exercise.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()));
+                const matchesCategory = exerciseCategoryFilter.length === 0 || exerciseCategoryFilter.includes((exercise.category || ''));
+                const matchesEquipment = exerciseEquipmentFilter.length === 0 || exerciseEquipmentFilter.includes((exercise.equipmentNeeded || ''));
+                return matchesSearch && matchesCategory && matchesEquipment;
+              }).length} exercise(s) found
             </Typography>
           </Box>
           <List>
             {workspaceExercises
-              .filter((exercise) =>
-                exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
-                exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
-                (exercise.description && exercise.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()))
-              )
+              .filter((exercise) => {
+                const matchesSearch =
+                  exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                  exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
+                  (exercise.description && exercise.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()));
+                const matchesCategory = exerciseCategoryFilter.length === 0 || exerciseCategoryFilter.includes((exercise.category || ''));
+                const matchesEquipment = exerciseEquipmentFilter.length === 0 || exerciseEquipmentFilter.includes((exercise.equipmentNeeded || ''));
+                return matchesSearch && matchesCategory && matchesEquipment;
+              })
               .map((exercise) => {
               const isSelected = selectedExercises.includes(exercise.id);
               
-              return (
-                <ListItem key={exercise.id} sx={{ border: '1px solid', borderColor: 'divider', mb: 1, borderRadius: 1 }}>
-                  <ListItemText
-                    primary={exercise.name}
-                    secondary={`${exercise.muscleGroup} - ${exercise.description || 'No description'}`}
-                  />
+            return (
+              <ListItem key={exercise.id} sx={{ border: '1px solid', borderColor: 'divider', mb: 1, borderRadius: 1 }}>
+                  <Stack direction="row" spacing={2} alignItems="center" sx={{ pr: 10 }}>
+                    <Avatar
+                      variant="rounded"
+                      src={exercise.gifImage}
+                      sx={{ width: 48, height: 48, boxShadow: 1, cursor: exercise.gifImage ? 'pointer' : 'default' }}
+                      onClick={(e) => { e.stopPropagation(); if (exercise.gifImage) setImagePreviewSrc(exercise.gifImage); }}
+                    />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={600}>{exercise.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {exercise.muscleGroup} - {exercise.description || 'No description'}
+                      </Typography>
+                    </Box>
+                  </Stack>
                   <ListItemSecondaryAction>
                     <Button
                       size="small"
@@ -3388,6 +3480,41 @@ export default function ClientWorkoutPage() {
           <Button variant="contained" onClick={saveExerciseChanges}>
             Save Changes
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog
+        open={Boolean(imagePreviewSrc)}
+        onClose={() => setImagePreviewSrc(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Exercise Preview</DialogTitle>
+        <DialogContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          {imagePreviewSrc && (
+            <Box sx={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <Box
+                component="img"
+                src={imagePreviewSrc}
+                alt="Exercise GIF"
+                sx={{
+                  maxWidth: '100%',
+                  maxHeight: '70vh',
+                  borderRadius: 2,
+                  boxShadow: 3
+                }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImagePreviewSrc(null)}>Close</Button>
         </DialogActions>
       </Dialog>
 
