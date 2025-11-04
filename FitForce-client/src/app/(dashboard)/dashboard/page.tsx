@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setWorkspace } from '@/store/slices/workspaceSlice';
-import DashboardEnhanced from '@/views/dashboard/DashboardEnhanced';
+import DashboardOverviewBlank from '@/views/dashboard/DashboardOverviewBlank';
 import Loader from 'components/Loader';
 import { APP_CONFIG } from '@/lib/config';
 
@@ -93,7 +93,7 @@ export default function DashboardPage() {
   
   // If we're on a workspace subdomain, show the enhanced dashboard
   if (workspaceSubdomain) {
-    return <DashboardEnhanced />;
+    return <DashboardOverviewBlank />;
   }
   
   // If we're on the main domain, redirect to workspaces

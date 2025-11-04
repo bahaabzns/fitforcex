@@ -70,11 +70,12 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
-import MobileSwipeableSections from '@/components/MobileSwipeableSections';
+import WorkoutMakerMobile from '@/components/workout/WorkoutMakerMobile';
 import LoadPlanDialog from '@/components/LoadPlanDialog';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import { FormSchedulingPopup } from '@/components/forms/FormSchedulingPopup';
+import SortableExercise from '@/components/workout/SortableExercise';
 
 interface Exercise {
   id: string;
@@ -99,216 +100,7 @@ interface Plan {
   days?: any[];
 }
 
-// SortableExercise Component
-function SortableExercise({ 
-  exercise, 
-  index, 
-  onEdit, 
-  onDelete, 
-  formatRepRange,
-  onPreviewGif
-}: { 
-  exercise: any; 
-  index: number; 
-  onEdit: (ex: any) => void; 
-  onDelete: (id: string) => void;
-  formatRepRange: (reps: string, sets: number) => string;
-  onPreviewGif: (src: string) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
-    id: exercise.id 
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const repRange = formatRepRange(exercise.reps, exercise.sets);
-
-  return (
-    <Card 
-      ref={setNodeRef} 
-      style={style}
-      sx={{ 
-        cursor: 'grab',
-        transition: 'all 0.2s',
-        border: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        '&:hover': {
-          boxShadow: 6,
-          transform: 'translateY(-2px)'
-        },
-        '&:active': {
-          cursor: 'grabbing'
-        }
-      }}
-    >
-      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
-          {/* Drag Handle */}
-          <Box 
-            {...attributes} 
-            {...listeners}
-            sx={{ 
-              cursor: 'grab',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 40,
-              height: '100%',
-              '&:active': {
-                cursor: 'grabbing'
-              }
-            }}
-          >
-            <Category size={20} style={{ opacity: 0.5 }} />
-          </Box>
-          
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {exercise.exercise.gifImage && (
-                <Tooltip title="Preview GIF" arrow>
-                  <Box
-                    sx={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 2,
-                      overflow: 'hidden',
-                      flex: '0 0 auto',
-                      cursor: 'pointer',
-                      border: 1,
-                      borderColor: 'divider',
-                      '&:hover': { opacity: 0.9 }
-                    }}
-                    onClick={(e) => { e.stopPropagation(); onPreviewGif(exercise.exercise.gifImage as string); }}
-                  >
-                    <img
-                      src={exercise.exercise.gifImage}
-                      alt={exercise.exercise.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  </Box>
-                </Tooltip>
-              )}
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                  <Chip 
-                    label={`#${index + 1}`} 
-                    size="small" 
-                    color="primary" 
-                    sx={{ height: 20, fontSize: '0.75rem' }} 
-                  />
-                  <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }} noWrap>
-                    {exercise.exercise.name}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="body2" color="textSecondary" sx={{ mr: 1 }}>
-                    {exercise.exercise.muscleGroup}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, p: 0.5, px: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Chip 
-                      label={repRange} 
-                      size="small" 
-                      variant="outlined"
-                      sx={{ fontWeight: 500 }}
-                    />
-                    {exercise.restSeconds > 0 && (
-                      <Chip 
-                        label={`Rest: ${exercise.restSeconds}s`} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                    )}
-                    {exercise.tempo && (
-                      <Chip 
-                        label={`Tempo: ${exercise.tempo}`} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                    )}
-                    {exercise.rir > 0 && (
-                      <Chip 
-                        label={`RIR: ${exercise.rir}`} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5, mt: 0.5 }}>
-              <Chip 
-                label={exercise.exercise.category || ''}
-                size="small"
-                variant="outlined"
-                sx={{ display: (exercise.exercise.category ? 'inline-flex' : 'none') }}
-              />
-              <Chip 
-                label={exercise.exercise.equipmentNeeded || ''}
-                size="small"
-                variant="outlined"
-                sx={{ display: (exercise.exercise.equipmentNeeded ? 'inline-flex' : 'none') }}
-              />
-            </Box>
-            {exercise.notes && (
-              <Typography 
-                variant="body2" 
-                color="textSecondary" 
-                sx={{ 
-                  mt: 1, 
-                  fontSize: '0.875rem',
-                  fontStyle: 'italic',
-                  pl: 1,
-                  borderLeft: '3px solid',
-                  borderColor: 'primary.main'
-                }}
-              >
-                💡 {exercise.notes}
-              </Typography>
-            )}
-          </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5, alignItems: 'center' }}>
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(exercise);
-              }}
-              sx={{ 
-                bgcolor: 'primary.lighter',
-                '&:hover': { bgcolor: 'primary.light' }
-              }}
-            >
-              <Edit size={16} />
-            </IconButton>
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm(`Remove ${exercise.exercise.name} from this day?`)) {
-                  onDelete(exercise.id);
-                }
-              }}
-              sx={{ 
-                bgcolor: 'error.lighter',
-                '&:hover': { bgcolor: 'error.light' }
-              }}
-            >
-              <Trash size={16} />
-            </IconButton>
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
+// SortableExercise moved to components/workout/SortableExercise
 
 // SortableDay Component
 function SortableDay({ 
@@ -793,6 +585,28 @@ export default function ClientWorkoutPage() {
       } catch {}
     })();
   }, []);
+
+  // Hydrate loaded plan exercises with full workspace exercise objects (ensures gifImage available)
+  useEffect(() => {
+    if (!localWorkoutPlan || workspaceExercises.length === 0) return;
+    setLocalWorkoutPlan((prev) => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        days: prev.days.map((day) => ({
+          ...day,
+          exercises: day.exercises.map((ex: any) => {
+            const full = workspaceExercises.find((w) => w.id === (ex.exercise?.id || ex.exerciseId));
+            if (!full) return ex;
+            // Only replace if different to avoid unnecessary renders
+            if (ex.exercise && ex.exercise.id === full.id && ex.exercise.gifImage === full.gifImage) return ex;
+            return { ...ex, exercise: full };
+          })
+        }))
+      } as any;
+      return updated;
+    });
+  }, [workspaceExercises]);
 
   // Load forms when forms tab is selected
   useEffect(() => {
@@ -1454,7 +1268,7 @@ export default function ClientWorkoutPage() {
 
       {/* Main Content */}
       {(isMobile ? (
-        <MobileSwipeableSections
+        <WorkoutMakerMobile
           sections={[
             // Section 1: Plans
             <Card key="plans" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -1593,9 +1407,10 @@ export default function ClientWorkoutPage() {
                                     tempo: item.tempo || "",
                                     rir: item.rir || 0
                                   }));
+                              const exFull = (workspaceExercises || []).find((e) => e.id === (item.exercise?.id || item.exerciseId)) || item.exercise;
                               return {
                                 id: item.id,
-                                exercise: item.exercise,
+                                exercise: exFull,
                                 sets: item.sets,
                                 reps: String(item.reps),
                                 restSeconds: item.restSeconds || 60,
@@ -2974,7 +2789,7 @@ export default function ClientWorkoutPage() {
                             onEdit={openEditExerciseDialog}
                             onDelete={removeExerciseFromDay}
                             formatRepRange={formatRepRange}
-                            onPreviewGif={(src) => setImagePreviewSrc(src)}
+                            onPreviewGif={(src: string) => setImagePreviewSrc(src)}
                           />
                         ))}
                       </Stack>
@@ -3370,21 +3185,21 @@ export default function ClientWorkoutPage() {
                   Individual Sets
                 </Typography>
                 <Box sx={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e0e0e0' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: `1px solid ${theme.palette.divider}` }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
-                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>Set</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>Reps</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>Rest (sec)</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>Tempo</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>RIR</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>Actions</th>
+                      <tr style={{ backgroundColor: `${theme.palette.action.hover}`, borderBottom: `1px solid ${theme.palette.divider}` }}>
+                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Set</th>
+                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Reps</th>
+                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Rest (sec)</th>
+                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Tempo</th>
+                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>RIR</th>
+                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
  {(editingExercise.individualSets || []).map((set: any, index: number) => (
-                        <tr key={set.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                          <td style={{ padding: '12px', fontWeight: 500 }}>{index + 1}</td>
+                        <tr key={set.id} style={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
+                          <td style={{ padding: '12px', fontWeight: 500, color: `${theme.palette.text.primary}` }}>{index + 1}</td>
                           <td style={{ padding: '8px' }}>
                             <TextField
                               size="small"
