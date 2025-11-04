@@ -40,40 +40,15 @@ export function usePermissions(): UsePermissionsReturn {
     const fetchPermissions = async () => {
       try {
         setLoading(true);
-        
-        // Get current user's workspace membership
-        const response = await api.get('/api/team/members');
-        const members = response.data.members || [];
-        const currentMember = members.find((m: any) => m.user.id === userId);
-        
-        if (currentMember) {
-          setRole(currentMember.role.name);
-          
-          // If owner, grant all permissions
-          if (currentMember.role.name === 'owner') {
-            // Owner has all permissions - set a comprehensive list
-            setPermissions([
-              'clients.read', 'clients.write', 'clients.delete', 'clients.export',
-              'finance.read', 'finance.write', 'finance.export',
-              'forms.read', 'forms.manage', 'forms.delete',
-              'nutrition.read', 'nutrition.manage', 'nutrition.delete',
-              'workout.read', 'workout.manage', 'workout.delete',
-              'messaging.read', 'messaging.write',
-              'dashboard.view', 'reports.generate', 'tm.view_reports',
-              'team.manage', 'roles.manage', 'permissions.assign',
-              'settings.manage', 'branding.manage', 'integrations.manage'
-            ]);
-          } else {
-            // Get permissions from role
-            const rolesResponse = await api.get('/api/team/roles');
-            const roles = rolesResponse.data.roles || [];
-            const userRole = roles.find((r: any) => r.id === currentMember.role.id);
-            
-            if (userRole && userRole.permissions) {
-              const permissionKeys = userRole.permissions.map((rp: any) => rp.permission.key);
-              setPermissions(permissionKeys);
-            }
-          }
+
+        // Fetch current user's role and permissions directly
+        const { data } = await api.get('/api/team/me');
+        const myRole = data?.role;
+        const myPermissions = Array.isArray(data?.permissions) ? data.permissions : [];
+
+        if (myRole) {
+          setRole(myRole.name || null);
+          setPermissions(myPermissions);
         } else {
           setPermissions([]);
           setRole(null);

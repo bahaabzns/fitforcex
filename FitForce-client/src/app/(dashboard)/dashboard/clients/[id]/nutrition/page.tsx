@@ -1097,6 +1097,7 @@ export default function ClientNutritionPage() {
             return {
               foodItemId: item.foodItemId,
               quantity: Number.isFinite(quantity) ? quantity : 0,
+              mealKey: meal.id,
               meal: meal.meal || '',
               notes: meal.notes || '',
               recipeName: (currentMeal as any)?.recipeName || '',
@@ -1110,6 +1111,7 @@ export default function ClientNutritionPage() {
             mealItems.push({
               foodItemId: null,
               servings: 1,
+              mealKey: meal.id,
               meal: meal.meal || '',
               notes: meal.notes || '',
               recipeName: (currentMeal as any)?.recipeName || '',

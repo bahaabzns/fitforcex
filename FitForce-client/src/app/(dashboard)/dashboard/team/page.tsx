@@ -256,6 +256,24 @@ export default function TeamPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [menuMember, setMenuMember] = useState<TeamMember | null>(null);
 
+  // Feature gate (hooks must be declared before any conditional returns)
+  const [featuresError, setFeaturesError] = useState<string | null>(null);
+  const [teamEnabled, setTeamEnabled] = useState<boolean>(true);
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!workspaceId) return;
+        const { data } = await api.get(`/api/workspaces/${workspaceId}/subscription`);
+        const enabled = data?.subscription?.teamMembersEnabled ?? data?.subscription?.package?.teamMembersEnabled ?? true;
+        setTeamEnabled(!!enabled);
+      } catch (e: any) {
+        setFeaturesError(e?.response?.data?.error || null);
+        setTeamEnabled(true);
+      }
+    };
+    run();
+  }, [workspaceId]);
+
   useEffect(() => {
     if (!workspaceId) {
       setLoading(false);
@@ -599,24 +617,6 @@ export default function TeamPage() {
       </Box>
     );
   }
-
-  // Feature gate (hide UI if team members disabled)
-  const [featuresError, setFeaturesError] = useState<string | null>(null);
-  const [teamEnabled, setTeamEnabled] = useState<boolean>(true);
-  useEffect(() => {
-    const run = async () => {
-      try {
-        if (!workspaceId) return;
-        const { data } = await api.get(`/api/workspaces/${workspaceId}/subscription`);
-        const enabled = data?.subscription?.teamMembersEnabled ?? data?.subscription?.package?.teamMembersEnabled ?? true;
-        setTeamEnabled(!!enabled);
-      } catch (e: any) {
-        setFeaturesError(e?.response?.data?.error || null);
-        setTeamEnabled(true);
-      }
-    };
-    run();
-  }, [workspaceId]);
 
   if (!teamEnabled) {
     return (
