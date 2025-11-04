@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { openSnackbar } from 'api/snackbar';
 import { APP_CONFIG } from '@/lib/config';
 
 type PersistedWorkspace = { id?: string } | null;
@@ -73,3 +74,35 @@ export const fetcher = async (url: string) => {
   const res = await api.get(url);
   return res.data;
 };
+
+// Handle permission-denied responses globally with a warning instead of an error
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      const status = error?.response?.status;
+      const message: string = error?.response?.data?.error || error?.response?.data?.message || '';
+      const msgLower = typeof message === 'string' ? message.toLowerCase() : '';
+      const isPermissionDenied =
+        status === 403 ||
+        msgLower.includes('permission') ||
+        msgLower.includes('forbidden') ||
+        msgLower.includes('not authorized') ||
+        msgLower.includes('unauthorized');
+
+      if (isPermissionDenied) {
+        openSnackbar({
+          open: true,
+          message: message || 'You do not have access to that.',
+          variant: 'alert',
+          alert: { color: 'warning', variant: 'filled' },
+          transition: 'SlideUp'
+        } as any);
+      }
+    } catch {
+      // noop
+    }
+
+    return Promise.reject(error);
+  }
+);

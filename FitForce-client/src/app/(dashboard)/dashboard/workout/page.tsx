@@ -582,52 +582,7 @@ export default function WorkoutPage() {
   return (
     <WorkspaceSubscriptionGuard description="Activate a plan to manage exercises and workout plans.">
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {/* Cover Image */}
-      <Box
-        sx={{
-          position: 'relative',
-          height: { xs: 200, sm: 250, md: 300 },
-          borderRadius: 2,
-          overflow: 'hidden',
-          mb: 2
-        }}
-      >
-        <img
-          src="https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmgnyvmff0002bsvhvv6hb607/template-assets/1760461859261-b2.jpeg"
-          alt="Workout Cover"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center'
-          }}
-        />
-        {/* Optional overlay for better text readability if needed */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.3))',
-            display: 'flex',
-            alignItems: 'flex-end',
-            p: 3
-          }}
-        >
-          <Typography
-            variant="h3"
-            sx={{
-              color: 'white',
-              fontWeight: 'bold',
-              textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-            }}
-          >
-            Exercise Library
-          </Typography>
-        </Box>
-      </Box>
+      {/* Removed top cover image/banner */}
 
       {/* Header */}
       <Stack
