@@ -127,18 +127,20 @@ export default function ClientNutritionPlanDetail() {
 
     day.meals?.forEach(meal => {
       meal.foodItems?.forEach(fi => {
-        totalCalories += (fi.foodItem?.calories || 0) * fi.quantity;
-        totalProtein += (fi.foodItem?.protein || 0) * fi.quantity;
-        totalCarbs += (fi.foodItem?.carbs || 0) * fi.quantity;
-        totalFat += (fi.foodItem?.fat || 0) * fi.quantity;
+        const serving = Number(fi.foodItem?.servingSize ?? 100) || 100;
+        const factor = serving > 0 ? (Number(fi.quantity ?? 0) / serving) : 0;
+        totalCalories += (fi.foodItem?.calories || 0) * factor;
+        totalProtein += (fi.foodItem?.protein || 0) * factor;
+        totalCarbs += (fi.foodItem?.carbs || 0) * factor;
+        totalFat += (fi.foodItem?.fat || 0) * factor;
       });
     });
 
     return {
-      calories: Math.round(totalCalories / 100),
-      protein: Math.round(totalProtein / 100),
-      carbs: Math.round(totalCarbs / 100),
-      fat: Math.round(totalFat / 100)
+      calories: Math.round(totalCalories),
+      protein: Math.round(totalProtein),
+      carbs: Math.round(totalCarbs),
+      fat: Math.round(totalFat)
     };
   };
 
@@ -311,10 +313,26 @@ export default function ClientNutritionPlanDetail() {
                 <Grid container spacing={3}>
                   {day.meals?.map((meal, mealIdx) => {
                     const mealTotals = {
-                      calories: Math.round((meal.foodItems?.reduce((sum, fi) => sum + (fi.foodItem?.calories || 0) * fi.quantity, 0) || 0) / 100),
-                      protein: Math.round((meal.foodItems?.reduce((sum, fi) => sum + (fi.foodItem?.protein || 0) * fi.quantity, 0) || 0) / 100),
-                      carbs: Math.round((meal.foodItems?.reduce((sum, fi) => sum + (fi.foodItem?.carbs || 0) * fi.quantity, 0) || 0) / 100),
-                      fat: Math.round((meal.foodItems?.reduce((sum, fi) => sum + (fi.foodItem?.fat || 0) * fi.quantity, 0) || 0) / 100)
+                      calories: Math.round((meal.foodItems?.reduce((sum, fi) => {
+                        const serving = Number(fi.foodItem?.servingSize ?? 100) || 100;
+                        const factor = serving > 0 ? (Number(fi.quantity ?? 0) / serving) : 0;
+                        return sum + (fi.foodItem?.calories || 0) * factor;
+                      }, 0) || 0)),
+                      protein: Math.round((meal.foodItems?.reduce((sum, fi) => {
+                        const serving = Number(fi.foodItem?.servingSize ?? 100) || 100;
+                        const factor = serving > 0 ? (Number(fi.quantity ?? 0) / serving) : 0;
+                        return sum + (fi.foodItem?.protein || 0) * factor;
+                      }, 0) || 0)),
+                      carbs: Math.round((meal.foodItems?.reduce((sum, fi) => {
+                        const serving = Number(fi.foodItem?.servingSize ?? 100) || 100;
+                        const factor = serving > 0 ? (Number(fi.quantity ?? 0) / serving) : 0;
+                        return sum + (fi.foodItem?.carbs || 0) * factor;
+                      }, 0) || 0)),
+                      fat: Math.round((meal.foodItems?.reduce((sum, fi) => {
+                        const serving = Number(fi.foodItem?.servingSize ?? 100) || 100;
+                        const factor = serving > 0 ? (Number(fi.quantity ?? 0) / serving) : 0;
+                        return sum + (fi.foodItem?.fat || 0) * factor;
+                      }, 0) || 0))
                     };
 
                     return (
@@ -390,7 +408,7 @@ export default function ClientNutritionPlanDetail() {
                                         <Chip label={fi.quantity} size="small" variant="outlined" />
                                       </TableCell>
                                       <TableCell align="right">
-                                        {Math.round(((fi.foodItem?.calories || 0) * fi.quantity) / 100)}
+                                        {Math.round((fi.foodItem?.calories || 0) * ((Number(fi.quantity ?? 0)) / (Number(fi.foodItem?.servingSize ?? 100) || 100)))}
                                       </TableCell>
                                     </TableRow>
                                   ))}
@@ -452,7 +470,7 @@ export default function ClientNutritionPlanDetail() {
           {plan.cycles?.[selectedDayIndex] && (() => {
             const selectedDay = plan.cycles[selectedDayIndex];
             
-            // Calculate micronutrients for the selected day
+            // Calculate micronutrients for the selected day (prefer server-provided totals)
             const microTotals: Record<string, number> = {};
             const add = (k: string, v: number) => {
               microTotals[k] = (microTotals[k] || 0) + v;
@@ -512,7 +530,11 @@ export default function ClientNutritionPlanDetail() {
               "niacin","folic_acid","choline","betaine"
             ];
             
-            const microEntries = order.map((k) => [k, Number(microTotals[k] ?? 0) / 100] as [string, number]);
+            // If server provided microTotals on the day, use it directly
+            const serverTotals = (selectedDay as any).microTotals as Record<string, number> | undefined;
+            const microEntries = serverTotals
+              ? order.map((k) => [k, Number(serverTotals[k] ?? 0)] as [string, number])
+              : order.map((k) => [k, Number(microTotals[k] ?? 0)] as [string, number]);
             
             return (
               <Box sx={{ mt: 2 }}>
