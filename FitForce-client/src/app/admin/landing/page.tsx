@@ -21,6 +21,7 @@ import {
 import { Add, Trash } from '@wandersonalwes/iconsax-react';
 import api from '@/utils/axios';
 import FileUpload from '@/components/FileUpload';
+import { useRef } from 'react';
 
 interface FeatureItem { title: string; description: string; icon?: string }
 interface TestimonialItem { quote: string; author: string; role: string }
@@ -46,6 +47,8 @@ export default function AdminLandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [activeLang, setActiveLang] = useState<'en' | 'ar'>('en');
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -137,6 +140,55 @@ export default function AdminLandingPage() {
       setError(e.response?.data?.message || 'Failed to save landing config');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSelectVideoClick = () => {
+    videoInputRef.current?.click();
+  };
+
+  const handleVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Basic validation
+    if (!file.type.startsWith('video/')) {
+      alert('Please choose a video file');
+      e.target.value = '';
+      return;
+    }
+    // 200MB limit by default
+    const maxSizeMb = 200;
+    if (file.size > maxSizeMb * 1024 * 1024) {
+      alert(`Video must be smaller than ${maxSizeMb}MB`);
+      e.target.value = '';
+      return;
+    }
+
+    setVideoUploading(true);
+    try {
+      const presigned = await api.post(`/api/upload/landing/presigned`, {
+        workspaceId: 'global',
+        filename: file.name,
+        contentType: file.type
+      });
+      const { uploadUrl, publicUrl } = presigned.data || {};
+      if (!uploadUrl || !publicUrl) throw new Error('Failed to get upload URL');
+
+      const putResp = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      });
+      if (!putResp.ok) throw new Error('S3 upload failed');
+
+      updateSectionField('video', 'videoUrl', publicUrl);
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.response?.data?.message || err?.message || 'Upload failed');
+    } finally {
+      setVideoUploading(false);
+      if (videoInputRef.current) videoInputRef.current.value = '';
     }
   };
 
@@ -401,13 +453,40 @@ export default function AdminLandingPage() {
                     <TextField label="Video Subtitle" fullWidth value={config.translations[activeLang].sections?.video?.subtitle || ''} onChange={(e) => updateSectionField('video', 'subtitle', e.target.value)} />
                   </Grid>
                 </Grid>
-                <TextField
-                  fullWidth
-                  label="YouTube URL (or direct MP4 URL)"
-                  placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
-                  value={config.translations[activeLang].sections?.video?.videoUrl || ''}
-                  onChange={(e) => updateSectionField('video', 'videoUrl', e.target.value)}
-                />
+                <Box>
+                  <Stack spacing={1}>
+                    <TextField
+                      fullWidth
+                      label="Video URL (YouTube or direct file URL)"
+                      placeholder="Paste a YouTube link or upload a file to auto-fill"
+                      value={config.translations[activeLang].sections?.video?.videoUrl || ''}
+                      onChange={(e) => updateSectionField('video', 'videoUrl', e.target.value)}
+                    />
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <input
+                        ref={videoInputRef}
+                        type="file"
+                        accept="video/*"
+                        style={{ display: 'none' }}
+                        onChange={handleVideoFileSelected}
+                      />
+                      <Button variant="outlined" onClick={handleSelectVideoClick} disabled={videoUploading}>
+                        {videoUploading ? 'Uploading…' : 'Upload Video to S3'}
+                      </Button>
+                    </Box>
+                    {!!config.translations[activeLang].sections?.video?.videoUrl && (
+                      <Box sx={{ mt: 1, borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+                        <video
+                          src={config.translations[activeLang].sections?.video?.videoUrl}
+                          poster={config.translations[activeLang].sections?.video?.posterUrl || undefined}
+                          controls
+                          playsInline
+                          style={{ width: '100%', height: 'auto', display: 'block' }}
+                        />
+                      </Box>
+                    )}
+                  </Stack>
+                </Box>
                 <Box>
                   <Typography variant="subtitle2" gutterBottom>
                     Poster Image (optional)
