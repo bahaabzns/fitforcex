@@ -24,7 +24,15 @@ export function useMetaPixel() {
 
   useEffect(() => {
     const initializePixel = async () => {
+      // Prevent duplicate initialization
       if (initialized.current || typeof window === 'undefined') return;
+      
+      // Check if fbq already exists (from another initialization)
+      if ((window as any).fbq) {
+        console.log('Meta Pixel already initialized, skipping');
+        initialized.current = true;
+        return;
+      }
 
       try {
         // Fetch pixel configuration from API
@@ -47,6 +55,7 @@ export function useMetaPixel() {
 
         // Load Meta Pixel script
         const script = document.createElement('script');
+        script.id = 'meta-pixel-script';
         script.innerHTML = `
           !function(f,b,e,v,n,t,s)
           {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -61,17 +70,36 @@ export function useMetaPixel() {
         `;
         document.head.appendChild(script);
 
-        // Add noscript fallback
-        const noscript = document.createElement('noscript');
-        const img = document.createElement('img');
-        img.height = 1;
-        img.width = 1;
-        img.style.display = 'none';
-        img.src = `https://www.facebook.com/tr?id=${config.pixelId}&ev=PageView&noscript=1`;
-        noscript.appendChild(img);
-        document.head.appendChild(noscript);
+        // Add noscript fallback only if it doesn't exist
+        if (!document.querySelector('noscript[data-meta-pixel]')) {
+          const noscript = document.createElement('noscript');
+          noscript.setAttribute('data-meta-pixel', 'true');
+          const img = document.createElement('img');
+          img.height = 1;
+          img.width = 1;
+          img.style.display = 'none';
+          img.src = `https://www.facebook.com/tr?id=${config.pixelId}&ev=PageView&noscript=1`;
+          noscript.appendChild(img);
+          document.head.appendChild(noscript);
+        }
 
         console.log('Meta Pixel initialized with ID:', config.pixelId);
+        
+        // Wait for fbq to be available and ensure PageView fires
+        const checkFbq = setInterval(() => {
+          if (window.fbq) {
+            clearInterval(checkFbq);
+            // Ensure PageView is tracked
+            try {
+              window.fbq('track', 'PageView');
+            } catch (e) {
+              console.error('Error tracking PageView:', e);
+            }
+          }
+        }, 100);
+        
+        // Clear interval after 5 seconds
+        setTimeout(() => clearInterval(checkFbq), 5000);
       } catch (error) {
         console.error('Failed to initialize Meta Pixel:', error);
       }
