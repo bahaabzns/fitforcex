@@ -2,21 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 
-interface MetaPixelConfig {
-  pixelId: string | null;
-  enabled: boolean;
-}
-
-interface MetaPixelEvent {
-  eventName: string;
-  parameters?: Record<string, any>;
-}
-
 declare global {
   interface Window {
     fbq: (action: string, eventName?: string, parameters?: Record<string, any>) => void;
   }
 }
+
+// Hardcoded Pixel ID
+const HARDCODED_PIXEL_ID = '748502508209787';
 
 export function useMetaPixel() {
   const initialized = useRef(false);
@@ -34,75 +27,72 @@ export function useMetaPixel() {
         return;
       }
 
-      try {
-        // Fetch pixel configuration from API
-        const response = await fetch('/api/meta/pixel-config');
-        
-        if (!response.ok) {
-          console.log('Meta Pixel API not available:', response.status);
-          return;
-        }
-        
-        const config: MetaPixelConfig = await response.json();
-
-        if (!config.enabled || !config.pixelId) {
-          console.log('Meta Pixel not configured or disabled');
-          return;
-        }
-
-        pixelId.current = config.pixelId;
-        initialized.current = true;
-
-        // Load Meta Pixel script
-        const script = document.createElement('script');
-        script.id = 'meta-pixel-script';
-        script.innerHTML = `
-          !function(f,b,e,v,n,t,s)
-          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-          n.queue=[];t=b.createElement(e);t.async=!0;
-          t.src=v;s=b.getElementsByTagName(e)[0];
-          s.parentNode.insertBefore(t,s)}(window, document,'script',
-          'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '${config.pixelId}');
-          fbq('track', 'PageView');
-        `;
-        document.head.appendChild(script);
-
-        // Add noscript fallback only if it doesn't exist
-        if (!document.querySelector('noscript[data-meta-pixel]')) {
-          const noscript = document.createElement('noscript');
-          noscript.setAttribute('data-meta-pixel', 'true');
-          const img = document.createElement('img');
-          img.height = 1;
-          img.width = 1;
-          img.style.display = 'none';
-          img.src = `https://www.facebook.com/tr?id=${config.pixelId}&ev=PageView&noscript=1`;
-          noscript.appendChild(img);
-          document.head.appendChild(noscript);
-        }
-
-        console.log('Meta Pixel initialized with ID:', config.pixelId);
-        
-        // Wait for fbq to be available and ensure PageView fires
-        const checkFbq = setInterval(() => {
-          if (window.fbq) {
-            clearInterval(checkFbq);
-            // Ensure PageView is tracked
-            try {
-              window.fbq('track', 'PageView');
-            } catch (e) {
-              console.error('Error tracking PageView:', e);
-            }
-          }
-        }, 100);
-        
-        // Clear interval after 5 seconds
-        setTimeout(() => clearInterval(checkFbq), 5000);
-      } catch (error) {
-        console.error('Failed to initialize Meta Pixel:', error);
+      // Use hardcoded Pixel ID
+      const pixelIdValue = HARDCODED_PIXEL_ID;
+      
+      if (!pixelIdValue || !/^\d{15,16}$/.test(pixelIdValue)) {
+        console.error('Invalid Pixel ID format:', pixelIdValue);
+        return;
       }
+
+      pixelId.current = pixelIdValue;
+      initialized.current = true;
+
+      // Escape pixel ID to prevent injection issues
+      const escapedPixelId = pixelIdValue.replace(/'/g, "\\'").replace(/"/g, '\\"');
+      
+      console.log('Initializing Meta Pixel with hardcoded ID:', pixelIdValue);
+
+      // Load Meta Pixel script
+      const script = document.createElement('script');
+      script.id = 'meta-pixel-script';
+      script.type = 'text/javascript';
+      script.innerHTML = `
+        !function(f,b,e,v,n,t,s)
+        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', '${escapedPixelId}');
+        fbq('track', 'PageView');
+      `;
+      document.head.appendChild(script);
+      
+      console.log('Meta Pixel script injected with Pixel ID:', pixelIdValue);
+
+      // Add noscript fallback only if it doesn't exist
+      if (!document.querySelector('noscript[data-meta-pixel]')) {
+        const noscript = document.createElement('noscript');
+        noscript.setAttribute('data-meta-pixel', 'true');
+        const img = document.createElement('img');
+        img.height = 1;
+        img.width = 1;
+        img.style.display = 'none';
+        img.src = `https://www.facebook.com/tr?id=${pixelIdValue}&ev=PageView&noscript=1`;
+        noscript.appendChild(img);
+        document.head.appendChild(noscript);
+      }
+
+      console.log('Meta Pixel initialized with ID:', pixelIdValue);
+      
+      // Wait for fbq to be available and ensure PageView fires
+      const checkFbq = setInterval(() => {
+        if (window.fbq) {
+          clearInterval(checkFbq);
+          // Ensure PageView is tracked
+          try {
+            window.fbq('track', 'PageView');
+          } catch (e) {
+            console.error('Error tracking PageView:', e);
+          }
+        }
+      }, 100);
+      
+      // Clear interval after 5 seconds
+      setTimeout(() => clearInterval(checkFbq), 5000);
     };
 
     initializePixel();
