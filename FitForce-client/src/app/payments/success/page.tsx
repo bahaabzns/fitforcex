@@ -6,11 +6,13 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { useFbPixel } from '@/lib/useFbPixel';
 
 export default function PaymentSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { trackPurchase } = useMetaPixel();
+  const { subscribe } = useFbPixel();
   
   const amount = searchParams.get('amount');
   const currency = searchParams.get('currency');
@@ -26,6 +28,8 @@ export default function PaymentSuccessPage() {
         currency,
         packageId ? [{ id: packageId, quantity: 1 }] : undefined
       );
+      // Track Subscribe event via client pixel
+      subscribe(packageId || 'workspace_package', purchaseAmount, false);
     }
   }, [amount, currency, packageId, trackPurchase]);
 

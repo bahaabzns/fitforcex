@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Box, Card, Stack, TextField, Typography, Button as MuiButton } from '@mui/material';
 import api from '@/utils/axios';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { useFbPixel } from '@/lib/useFbPixel';
 import useConfig from '@/hooks/useConfig';
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
@@ -14,6 +15,7 @@ const translations: Record<string, Record<string, string>> = { ar, en };
 export default function SeedClientSignupPage() {
   const router = useRouter();
   const { trackLead } = useMetaPixel();
+  const { signUp } = useFbPixel();
   const { i18n } = useConfig();
   const currentLang = i18n || 'en';
   const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
@@ -38,8 +40,9 @@ export default function SeedClientSignupPage() {
         try { await api.post('/api/auth/signup', { fullName, email, password }); } catch {}
       }
       
-      // Track Lead event on successful client registration
-      trackLead(undefined, 'EGP'); // No specific value, just track the lead
+      // Track Lead and CompleteRegistration on successful client registration
+      trackLead(undefined, 'EGP');
+      signUp();
       
       setSuccess(true);
     } catch (err) {

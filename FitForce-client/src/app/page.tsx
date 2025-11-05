@@ -23,6 +23,10 @@ import Loader from 'components/Loader';
 import { APP_CONFIG } from '@/lib/config';
 import dynamic from 'next/dynamic';
 import useConfig from '@/hooks/useConfig';
+import { ThemeDirection } from 'config';
+import { Alexandria } from 'next/font/google';
+
+const alexandria = Alexandria({ subsets: ['arabic'], weight: ['300', '400', '500', '700'], display: 'swap' });
 
 // Dynamically import WorkspaceLanding to avoid circular dependencies
 const WorkspaceLandingContent = dynamic(
@@ -34,7 +38,7 @@ const WorkspaceLandingContent = dynamic(
 
 export default function Landing() {
   const searchParams = useSearchParams();
-  const { i18n } = useConfig();
+  const { i18n, onChangeLocalization, onChangeDirection } = useConfig();
   const [showError, setShowError] = useState(false);
   const [errorType, setErrorType] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
@@ -43,6 +47,17 @@ export default function Landing() {
   // Fetch book-demo and support overrides (must be declared before any early returns)
   const [bookDemo, setBookDemo] = useState<{ title?: string; subtitle?: string } | null>(null);
   const [support, setSupport] = useState<{ title?: string; subtitle?: string } | null>(null);
+
+  useEffect(() => {
+    // Ensure Arabic is the default for landing and set RTL direction
+    if (i18n !== 'ar') {
+      onChangeLocalization('ar');
+      onChangeDirection(ThemeDirection.RTL);
+    } else {
+      onChangeDirection(ThemeDirection.RTL);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const checkWorkspace = async () => {
@@ -190,6 +205,7 @@ export default function Landing() {
 
   return (
     <SimpleLayout>
+      <Box className={i18n === 'ar' ? alexandria.className : undefined}>
       {/* Error Alert for Non-existent Workspace */}
       {showError && (
         <Box sx={{ position: 'sticky', top: 0, zIndex: 1200, width: '100%' }}>
@@ -281,6 +297,7 @@ export default function Landing() {
       </Box>
       <Subscribe />
       <Divider sx={{ borderColor: 'secondary.light' }} />
+      </Box>
     </SimpleLayout>
   );
 }
