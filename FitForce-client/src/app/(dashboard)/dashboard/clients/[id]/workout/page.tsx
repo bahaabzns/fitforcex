@@ -723,6 +723,8 @@ export default function ClientWorkoutPage() {
         setSelectedDayIndex(0);
         setNewPlanTitle('');
         setIsCreatePlanDialogOpen(false);
+        // Refresh saved plans list so it appears immediately
+        try { await loadSavedPlans(); } catch {}
       }
     } catch (e) {
       // Fallback toast can be added if snackbar util is available in this file

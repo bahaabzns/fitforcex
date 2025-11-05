@@ -233,8 +233,9 @@ export default function DashboardOverviewBlank() {
         setLoadingTeam(false);
       }
     };
-    if (tabIndex === 4) loadTeam();
-  }, [workspaceId, tabIndex]);
+    // Proactively load so team capacity appears without visiting the Team tab first
+    loadTeam();
+  }, [workspaceId]);
 
   useEffect(() => {
     const loadPackages = async () => {
