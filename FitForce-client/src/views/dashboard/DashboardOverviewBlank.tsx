@@ -31,7 +31,9 @@ export default function DashboardOverviewBlank() {
   const [clientStatusCounts, setClientStatusCounts] = useState<Record<string, number> | null>(null);
   const [subscriptionKinds, setSubscriptionKinds] = useState<{ firstPlan: number; renewal: number; total: number } | null>(null);
   const [growthData, setGrowthData] = useState<{ newClients: number; returningClients: number; expiredClients: number; total: number } | null>(null);
-  const [retentionSeries, setRetentionSeries] = useState<Array<{ date: string; retentionPct: number; cancellationPct: number }>>([]);
+  const [cancellationSeries, setCancellationSeries] = useState<Array<{ date: string; cancellationPct: number }>>([]);
+  const [retentionSeries, setRetentionSeries] = useState<Array<{ date: string; retentionPct: number }>>([]);
+  const [retentionRate, setRetentionRate] = useState<number | null>(null);
   const [formsData, setFormsData] = useState<any>(null);
   const [loadingForms, setLoadingForms] = useState(false);
   const [teamCapacity, setTeamCapacity] = useState<any>(null);
@@ -176,16 +178,21 @@ export default function DashboardOverviewBlank() {
         const counts = res.data?.clientsOverview || null;
         const subsKinds = res.data?.financeData?.subscriptions || null;
         const growth = res.data?.growthData || null;
-        const overTime = Array.isArray(res.data?.retentionCancellationOverTime) ? res.data.retentionCancellationOverTime : [];
+        const overTime = Array.isArray(res.data?.cancellationOverTime) ? res.data.cancellationOverTime : [];
+        const retentionOver = Array.isArray(res.data?.retentionOverTime) ? res.data.retentionOverTime : [];
         setClientStatusCounts(counts);
         setSubscriptionKinds(subsKinds);
         setGrowthData(growth);
-        setRetentionSeries(overTime);
+        setCancellationSeries(overTime);
+        setRetentionSeries(retentionOver);
+        setRetentionRate(typeof res.data?.retentionRate === 'number' ? Number(res.data.retentionRate) : null);
       } catch {
         setClientStatusCounts(null);
         setSubscriptionKinds(null);
         setGrowthData(null);
+        setCancellationSeries([]);
         setRetentionSeries([]);
+        setRetentionRate(null);
       } finally {
         setLoadingInsights(false);
       }
@@ -713,6 +720,43 @@ export default function DashboardOverviewBlank() {
                   {/* Right column 2/3 - cancellation/retention cards + retention chart */}
                   <Box sx={{ flex: 2, minHeight: { md: 420 }, display: 'flex' }}>
                     <Stack spacing={2} sx={{ flex: 1 }}>
+                      {/* Retention rate chart (new) */}
+                      <Card variant="outlined" sx={{ flex: 1, minHeight: 240, display: 'flex' }}>
+                        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                          <Typography variant="subtitle1" sx={{ mb: 1 }}>Retention rate</Typography>
+                          <Box sx={{ flex: 1 }}>
+                            {(() => {
+                              const fallbackSeries = (() => {
+                                const total = growthData?.total || 0;
+                                const returning = growthData?.returningClients || 0;
+                                const retentionPct = total > 0 ? (returning / total) * 100 : 0;
+                                const now = new Date();
+                                return Array.from({ length: 8 }).map((_, i) => {
+                                  const d = new Date(now.getTime() - (7 - i) * 24 * 60 * 60 * 1000);
+                                  const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                  return { date: dateKey, retention: Number(retentionPct.toFixed(1)) };
+                                });
+                              })();
+                              const series = (retentionSeries && retentionSeries.length > 0)
+                                ? retentionSeries.map((p) => ({ date: p.date, retention: Number(p.retentionPct.toFixed(1)) }))
+                                : fallbackSeries;
+                              return (
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <LineChart data={series}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                                    <RechartsTooltip formatter={(v: any) => `${v}%`} />
+                                    <Legend />
+                                    <Line type="monotone" dataKey="retention" stroke="#1976d2" strokeWidth={2} dot={false} name="Retention %" />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              );
+                            })()}
+                          </Box>
+                        </CardContent>
+                      </Card>
+
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="subtitle2" color="text.secondary">Client cancellation rate</Typography>
@@ -741,6 +785,8 @@ export default function DashboardOverviewBlank() {
                           <Typography variant="subtitle2" color="text.secondary">Client retention rate</Typography>
                           <Typography variant="h4">
                             {(() => {
+                              if (typeof retentionRate === 'number') return `${retentionRate.toFixed(1)}%`;
+                              // Fallback: approximate using returning/total if server metric not available
                               const total = growthData?.total || 0;
                               const returning = growthData?.returningClients || 0;
                               const pct = total > 0 ? (returning / total) * 100 : 0;
@@ -751,27 +797,23 @@ export default function DashboardOverviewBlank() {
                       </Card>
                       <Card variant="outlined" sx={{ flex: 1, minHeight: 280, display: 'flex' }}>
                         <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <Typography variant="subtitle1" sx={{ mb: 1 }}>Retention rate</Typography>
+                          <Typography variant="subtitle1" sx={{ mb: 1 }}>Cancellation rate</Typography>
                           <Box sx={{ flex: 1 }}>
                             {(() => {
                               const fallbackSeries = (() => {
                                 const totalAll = clientStatusCounts?.all || 0;
                                 const expiredAll = clientStatusCounts?.expired || 0;
                                 const cancelledAll = (clientStatusCounts as any)?.cancelled || 0;
-                                const cancelledSum = expiredAll + cancelledAll;
-                                const total = growthData?.total || 0;
-                                const returning = growthData?.returningClients || 0;
-                                const retentionPct = total > 0 ? (returning / total) * 100 : 0;
-                                const cancellationPct = (totalAll > 0 ? (cancelledSum / totalAll) * 100 : (total > 0 ? ( (growthData?.expiredClients || 0) / total) * 100 : 0));
+                                const cancellationPct = (totalAll > 0 ? ((expiredAll + cancelledAll) / totalAll) * 100 : 0);
                                 const now = new Date();
                                 return Array.from({ length: 8 }).map((_, i) => {
                                   const d = new Date(now.getTime() - (7 - i) * 24 * 60 * 60 * 1000);
                                   const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                  return { date: dateKey, retention: Number(retentionPct.toFixed(1)), cancellation: Number(cancellationPct.toFixed(1)) };
+                                  return { date: dateKey, cancellation: Number(cancellationPct.toFixed(1)) };
                                 });
                               })();
-                              const series = (retentionSeries && retentionSeries.length > 0)
-                                ? retentionSeries.map((p) => ({ date: p.date, retention: Number(p.retentionPct.toFixed(1)), cancellation: Number(p.cancellationPct.toFixed(1)) }))
+                              const series = (cancellationSeries && cancellationSeries.length > 0)
+                                ? cancellationSeries.map((p) => ({ date: p.date, cancellation: Number(p.cancellationPct.toFixed(1)) }))
                                 : fallbackSeries;
                               return (
                                 <ResponsiveContainer width="100%" height="100%">
@@ -781,7 +823,6 @@ export default function DashboardOverviewBlank() {
                                     <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                     <RechartsTooltip formatter={(v: any) => `${v}%`} />
                                     <Legend />
-                                    <Line type="monotone" dataKey="retention" stroke="#1976d2" strokeWidth={2} dot={false} name="Retention %" />
                                     <Line type="monotone" dataKey="cancellation" stroke="#ed6c02" strokeWidth={2} dot={false} name="Cancellation %" />
                                   </LineChart>
                                 </ResponsiveContainer>
