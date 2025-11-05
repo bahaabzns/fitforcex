@@ -702,18 +702,34 @@ export default function ClientWorkoutPage() {
   }, [selectedPlanId, savedPlans]);
 
   // Create new local workout plan
-  const createLocalPlan = () => {
-    const newPlan = {
-      id: `local_${Date.now()}`,
-      title: newPlanTitle,
-      days: []
-    };
-    setLocalWorkoutPlan(newPlan);
-    setSelectedPlanId(newPlan.id);
-    setIsPlanDirty(true);
-    setSelectedDayIndex(0);
-      setNewPlanTitle('');
-      setIsCreatePlanDialogOpen(false);
+  const createLocalPlan = async () => {
+    if (!newPlanTitle.trim() || !clientId) return;
+    try {
+      setSaving(true);
+      // Persist immediately so the plan is not only in memory
+      // Prefer workout module create endpoint
+      const res = await api.post('/api/workout/plans', { title: newPlanTitle.trim(), clientId });
+      const created = res.data?.plan || res.data;
+      if (created?.id) {
+        // Initialize local builder with the newly created server plan id
+        const newPlan = {
+          id: created.id,
+          title: created.title || newPlanTitle.trim(),
+          days: [] as any[]
+        };
+        setLocalWorkoutPlan(newPlan);
+        setSelectedPlanId(created.id);
+        setIsPlanDirty(true);
+        setSelectedDayIndex(0);
+        setNewPlanTitle('');
+        setIsCreatePlanDialogOpen(false);
+      }
+    } catch (e) {
+      // Fallback toast can be added if snackbar util is available in this file
+      console.error('Failed to create workout plan', e);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Add day to local plan

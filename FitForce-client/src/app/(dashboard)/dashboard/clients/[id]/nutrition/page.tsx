@@ -961,34 +961,44 @@ export default function ClientNutritionPage() {
   };
 
   const handleCreatePlan = async () => {
-    if (!newPlanTitle.trim()) return;
-    // In-memory create plan (draft)
-    const tempId = `tmp-${Date.now()}`;
-    const draftPlan: Plan = { 
-      id: tempId, 
-      title: newPlanTitle,
-      cycles: []
-    };
-    setPlans((prev) => [...prev, draftPlan]);
-    setSelectedPlanId(tempId);
-    // Create initial cycle for the new plan
-    const firstCycleId = `tmpc-${Date.now()}`;
-    const firstCycle: Cycle = { 
-      id: firstCycleId, 
-      title: 'Cycle 1', 
-      label: 'Cycle 1', 
-      dayIndex: 1,
-      meals: []
-    };
-    // Update the plan with the new cycle
-    setPlans((prev) => prev.map(p => 
-      p.id === tempId 
-        ? { ...p, cycles: [firstCycle] }
-        : p
-    ));
-    setNewPlanTitle('');
-    setIsCreatePlanDialogOpen(false);
-    setIsPlanDirty(true);
+    if (!newPlanTitle.trim() || !clientId) return;
+    try {
+      setSaving(true);
+      // Create on server immediately and get defaultCycle back
+      // Prefer client-scoped endpoint for consistent permissions and defaults
+      const res = await api.post(`/api/clients/${clientId}/nutrition/plans`, { title: newPlanTitle.trim() });
+      const created = res.data?.plan;
+      const defaultCycle = res.data?.defaultCycle;
+
+      if (created?.id) {
+        // Build plan object for UI with initial cycle (no meals yet)
+        const planForUi: any = {
+          id: created.id,
+          title: created.title,
+          createdAt: created.createdAt,
+          cycles: defaultCycle ? [
+            {
+              id: defaultCycle.id,
+              title: defaultCycle.label || `Cycle ${defaultCycle.dayIndex}`,
+              label: defaultCycle.label,
+              dayIndex: defaultCycle.dayIndex,
+              meals: []
+            }
+          ] : []
+        };
+
+        setPlans((prev) => [planForUi, ...prev]);
+        setSelectedPlanId(created.id);
+        setNewPlanTitle('');
+        setIsCreatePlanDialogOpen(false);
+        setIsPlanDirty(false);
+        openSnackbar({ open: true, message: 'Plan created', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+      }
+    } catch (err) {
+      openSnackbar({ open: true, message: 'Failed to create plan', variant: 'alert', alert: { color: 'error', variant: 'filled' } } as any);
+    } finally {
+      setSaving(false);
+    }
   };
 
 
