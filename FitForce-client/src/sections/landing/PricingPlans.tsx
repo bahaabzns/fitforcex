@@ -20,11 +20,33 @@ import AnimateButton from 'components/@extended/AnimateButton';
 // third-party
 import { motion } from 'framer-motion';
 import useTranslation from '@/utils/useTranslation';
+import { useEffect, useState } from 'react';
+import { APP_CONFIG } from '@/lib/config';
+import useConfig from '@/hooks/useConfig';
 
 // ==============================|| LANDING - PRICING PLANS ||============================== //
 
 export default function PricingPlans() {
   const { t } = useTranslation();
+  const { i18n } = useConfig();
+  const [pricing, setPricing] = useState<{ header?: string; subheader?: string; plans?: any[] } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const lang = (i18n as string) || 'en';
+        const tr = data?.landing?.translations?.[lang];
+        const sections = tr?.sections || {};
+        if (!isMounted) return;
+        setPricing(sections.pricing || null);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, [i18n]);
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default', position: 'relative' }}>
       {/* Background Pattern */}
@@ -50,16 +72,103 @@ export default function PricingPlans() {
             transition={{ duration: 0.6 }}
           >
             <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: 'text.primary' }}>
-              💼 {t('landing.pricing.header')}
+              💼 {pricing?.header || t('landing.pricing.header')}
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>
-              {t('landing.pricing.subheader')}
+              {pricing?.subheader || t('landing.pricing.subheader')}
             </Typography>
           </motion.div>
         </Box>
 
         {/* Pricing Cards Container */}
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {(pricing?.plans || []).length > 0 && (
+            <>
+              {(pricing?.plans || []).map((plan, idx) => (
+                <motion.div
+                  key={plan.id || idx}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: idx * 0.2 }}
+                  style={{ flex: '0 0 300px', maxWidth: '300px' }}
+                >
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3 }}>
+                    <CardContent sx={{ p: 3, textAlign: 'center', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                      <Stack spacing={2} sx={{ flexGrow: 1 }}>
+                        <Box>
+                          {plan.badge && <Chip label={plan.badge} size="small" sx={{ mb: 1 }} />}
+                          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                            {plan.title}
+                          </Typography>
+                          <Typography variant="h4" sx={{ fontWeight: 800, color: '#159bff', mb: 1 }}>
+                            {plan.price}
+                          </Typography>
+                        </Box>
+                        {plan.desc && (
+                          <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, mb: 2 }}>
+                            {plan.desc}
+                          </Typography>
+                        )}
+                        <Box sx={{ textAlign: 'left', mb: 3, flexGrow: 1 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                            {t('landing.pricing.includes')}
+                          </Typography>
+                          <Stack spacing={0.5}>
+                            {(plan.includes || []).map((inc: any, j: number) => (
+                              <Box key={j} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{inc.key}</Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Box>
+                        {plan.bestForDesc && (
+                          <Box sx={{ bgcolor: '#f8f9fa', p: 1.5, borderRadius: 2, mb: 2 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#159bff', mb: 0.5 }}>
+                              🚀 {t('landing.pricing.bestFor')}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                              {plan.bestForDesc}
+                            </Typography>
+                          </Box>
+                        )}
+                        <AnimateButton>
+                          <Button
+                            component="a"
+                            href="#book-demo"
+                            variant="outlined"
+                            size="large"
+                            fullWidth
+                            onClick={(e) => {
+                              e.preventDefault();
+                              document.getElementById('book-demo')?.scrollIntoView({ 
+                                behavior: 'smooth' 
+                              });
+                            }}
+                            sx={{
+                              borderColor: '#159bff',
+                              color: '#159bff',
+                              fontWeight: 600,
+                              py: 1.5,
+                              '&:hover': {
+                                borderColor: '#159bff',
+                                backgroundColor: 'rgba(21, 155, 255, 0.1)'
+                              }
+                            }}
+                          >
+                            {t('landing.cta.bookDemo')}
+                          </Button>
+                        </AnimateButton>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </>
+          )}
+          {!(pricing?.plans || []).length && (
+            <>
           {/* Solo Coach Plan */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -427,6 +536,8 @@ export default function PricingPlans() {
               </CardContent>
             </Card>
           </motion.div>
+            </>
+          )}
         </Box>
         
         {/* CTA Button Section */}

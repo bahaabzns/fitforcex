@@ -16,11 +16,42 @@ import AnimateButton from 'components/@extended/AnimateButton';
 // third-party
 import { motion } from 'framer-motion';
 import useTranslation from '@/utils/useTranslation';
+import { useEffect, useState } from 'react';
+import { APP_CONFIG } from '@/lib/config';
+import useConfig from '@/hooks/useConfig';
 
 // ==============================|| LANDING - HERO PAGE ||============================== //
 
 export default function HeroPage() {
   const { t } = useTranslation();
+  const { i18n } = useConfig();
+  const [heroImage, setHeroImage] = useState<string | null>(null);
+  const [title, setTitle] = useState<string | null>(null);
+  const [subtitle, setSubtitle] = useState<string | null>(null);
+  const [ctaText, setCtaText] = useState<string | null>(null);
+  const [ctaUrl, setCtaUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const landing = data?.landing;
+        if (!landing) return;
+        if (!isMounted) return;
+        setHeroImage(landing.heroImage || null);
+        const lang = (i18n as string) || 'en';
+        const content = landing.translations?.[lang] || {};
+        setTitle(content.title || null);
+        setSubtitle(content.subtitle || null);
+        setCtaText(content.ctaText || null);
+        setCtaUrl(content.ctaUrl || null);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, [i18n]);
 
   return (
     <Box 
@@ -31,7 +62,7 @@ export default function HeroPage() {
         pt: 10, 
         display: 'flex', 
         alignItems: 'center',
-        backgroundImage: 'url(/assets/hero.png)',
+        backgroundImage: `url(${heroImage || '/assets/hero.png'})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -61,6 +92,19 @@ export default function HeroPage() {
                     damping: 30
                   }}
                 >
+                  {title ? (
+                    <Typography
+                      variant="h1"
+                      sx={{
+                        fontSize: { xs: '1.825rem', sm: '2rem', md: '3.4375rem' },
+                        fontWeight: 700,
+                        lineHeight: 1.2,
+                        color: 'white'
+                      }}
+                    >
+                      {title}
+                    </Typography>
+                  ) : (
                   <Typography
                     variant="h1"
                     sx={{
@@ -88,6 +132,7 @@ export default function HeroPage() {
                     </Typography>{' '}
                     {t('landing.hero.title.part2')}
                   </Typography>
+                  )}
                 </motion.div>
               </Grid>
               <Grid container size={12} sx={{ justifyContent: 'center' }}>
@@ -111,7 +156,7 @@ export default function HeroPage() {
                         color: 'white'
                       }}
                     >
-                      {t('landing.hero.subtitle')}
+                      {subtitle || t('landing.hero.subtitle')}
                     </Typography>
                   </motion.div>
                 </Grid>
@@ -132,7 +177,7 @@ export default function HeroPage() {
                       <AnimateButton>
                         <Button
                           component={Link}
-                          href="/register"
+                          href={ctaUrl || '/register'}
                           size="large"
                           color="secondary"
                           variant="outlined"
@@ -145,7 +190,7 @@ export default function HeroPage() {
                             }
                           }}
                         >
-                          {t('landing.cta.bookDemoAndTrial')}
+                          {ctaText || t('landing.cta.bookDemoAndTrial')}
                         </Button>
                       </AnimateButton>
                     </Grid>

@@ -14,6 +14,7 @@ import ProblemSolution from 'sections/landing/ProblemSolution';
 import WhyFitForceWins from 'sections/landing/WhyFitForceWins';
 import PricingPlans from 'sections/landing/PricingPlans';
 import FinalCTA from 'sections/landing/FinalCTA';
+import VideoShowcase from 'sections/landing/VideoShowcase';
 import Subscribe from 'sections/landing/Subscribe';
 import SimpleLayout from 'layout/SimpleLayout';
 import { useSearchParams } from 'next/navigation';
@@ -21,6 +22,7 @@ import { useEffect, useState, Suspense } from 'react';
 import Loader from 'components/Loader';
 import { APP_CONFIG } from '@/lib/config';
 import dynamic from 'next/dynamic';
+import useConfig from '@/hooks/useConfig';
 
 // Dynamically import WorkspaceLanding to avoid circular dependencies
 const WorkspaceLandingContent = dynamic(
@@ -32,11 +34,15 @@ const WorkspaceLandingContent = dynamic(
 
 export default function Landing() {
   const searchParams = useSearchParams();
+  const { i18n } = useConfig();
   const [showError, setShowError] = useState(false);
   const [errorType, setErrorType] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [isCheckingWorkspace, setIsCheckingWorkspace] = useState(true);
   const [workspaceData, setWorkspaceData] = useState<{ id: string; subdomain: string } | null>(null);
+  // Fetch book-demo and support overrides (must be declared before any early returns)
+  const [bookDemo, setBookDemo] = useState<{ title?: string; subtitle?: string } | null>(null);
+  const [support, setSupport] = useState<{ title?: string; subtitle?: string } | null>(null);
 
   useEffect(() => {
     const checkWorkspace = async () => {
@@ -150,6 +156,24 @@ export default function Landing() {
     checkWorkspace();
   }, [searchParams]);
 
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const lang = (i18n as string) || 'en';
+        const tr = data?.landing?.translations?.[lang];
+        const sections = tr?.sections || {};
+        if (!isMounted) return;
+        setBookDemo(sections.bookDemo || null);
+        setSupport(sections.support || null);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, [i18n]);
+
   // Show loader while checking workspace context
   if (isCheckingWorkspace) {
     return <Loader />;
@@ -193,8 +217,8 @@ export default function Landing() {
           </Alert>
         </Box>
       )}
-      
       <Hero />
+      <VideoShowcase />
       <Box id="problem-solution">
         <ProblemSolution />
       </Box>
@@ -204,16 +228,15 @@ export default function Landing() {
       <Box id="pricing">
         <PricingPlans />
       </Box>
-      
       {/* Book Demo Section */}
       <Box id="book-demo" sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default' }}>
         <Container>
           <Box sx={{ textAlign: 'center', mb: 6 }}>
             <Typography variant="h2" sx={{ fontWeight: 800, mb: 2 }}>
-              Book Your Demo
+              {bookDemo?.title || 'Book Your Demo'}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-              See how FitForce can transform your coaching business. Schedule a personalized demo with our team.
+              {bookDemo?.subtitle || 'See how FitForce can transform your coaching business. Schedule a personalized demo with our team.'}
             </Typography>
           </Box>
           
@@ -242,8 +265,20 @@ export default function Landing() {
           </Box>
         </Container>
       </Box>
-      
       <FinalCTA />
+      {/* Support Section override */}
+      <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default' }}>
+        <Container>
+          <Box sx={{ textAlign: 'center', mb: 6 }}>
+            <Typography variant="h2" sx={{ fontWeight: 800, mb: 2 }}>
+              {support?.title || 'Need Support?'}
+            </Typography>
+            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
+              {support?.subtitle || "Have questions? Our expert support team is ready to help. Submit a ticket, and we'll assist you promptly."}
+            </Typography>
+          </Box>
+        </Container>
+      </Box>
       <Subscribe />
       <Divider sx={{ borderColor: 'secondary.light' }} />
     </SimpleLayout>

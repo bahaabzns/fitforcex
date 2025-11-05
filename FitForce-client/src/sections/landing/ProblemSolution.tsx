@@ -17,11 +17,35 @@ import AnimateButton from 'components/@extended/AnimateButton';
 // third-party
 import { motion } from 'framer-motion';
 import useTranslation from '@/utils/useTranslation';
+import { useEffect, useState } from 'react';
+import { APP_CONFIG } from '@/lib/config';
+import useConfig from '@/hooks/useConfig';
 
 // ==============================|| LANDING - PROBLEM SOLUTION ||============================== //
 
 export default function ProblemSolution() {
   const { t } = useTranslation();
+  const { i18n } = useConfig();
+  const [problem, setProblem] = useState<{ header?: string; subheader?: string; title?: string; pointIntro?: string; points?: string[] } | null>(null);
+  const [solution, setSolution] = useState<{ title?: string; subtitle?: string; intro?: string; features?: string[] } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const lang = (i18n as string) || 'en';
+        const tr = data?.landing?.translations?.[lang];
+        const sections = tr?.sections || {};
+        if (!isMounted) return;
+        setProblem(sections.problem || null);
+        setSolution(sections.solution || null);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, [i18n]);
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default', position: 'relative' }}>
       {/* Background Pattern */}
@@ -47,10 +71,10 @@ export default function ProblemSolution() {
             transition={{ duration: 0.6 }}
           >
             <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: 'text.primary' }}>
-              {t('landing.problem.header')}
+              {problem?.header || t('landing.problem.header')}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-              {t('landing.problem.subheader')}
+              {problem?.subheader || t('landing.problem.subheader')}
             </Typography>
           </motion.div>
         </Box>
@@ -114,31 +138,31 @@ export default function ProblemSolution() {
                         💥
                       </Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, fontSize: '1.75rem' }}>
-                        {t('landing.problem.title')}
+                        {problem?.title || t('landing.problem.title')}
                       </Typography>
                     </Box>
                     
                     <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: '1.4rem' }}>
-                      {t('landing.problem.pointIntro')}
+                      {problem?.pointIntro || t('landing.problem.pointIntro')}
                     </Typography>
                     
                     <Stack spacing={3}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.8)', mt: 1, flexShrink: 0 }} />
                         <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6 }}>
-                          {t('landing.problem.point1')}
+                          {(problem?.points && problem.points[0]) || t('landing.problem.point1')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.8)', mt: 1, flexShrink: 0 }} />
                         <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6 }}>
-                          {t('landing.problem.point2')}
+                          {(problem?.points && problem.points[1]) || t('landing.problem.point2')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.8)', mt: 1, flexShrink: 0 }} />
                         <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6, fontWeight: 600 }}>
-                          {t('landing.problem.point3')}
+                          {(problem?.points && problem.points[2]) || t('landing.problem.point3')}
                         </Typography>
                       </Box>
                     </Stack>
@@ -206,18 +230,18 @@ export default function ProblemSolution() {
                         💡
                       </Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, fontSize: '1.75rem' }}>
-                        {t('landing.solution.title')}
+                        {solution?.title || t('landing.solution.title')}
                       </Typography>
                     </Box>
                     
                     <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: '1.4rem' }}>
-                      {t('landing.solution.subtitle')}
+                      {solution?.subtitle || t('landing.solution.subtitle')}
                     </Typography>
                     
     
                     
                     <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6, fontWeight: 600, mb: 3 }}>
-                      {t('landing.solution.intro')}
+                      {solution?.intro || t('landing.solution.intro')}
                     </Typography>
                     
                     <Stack spacing={2}>
@@ -226,7 +250,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          {t('landing.solution.feature1')}
+                          {(solution?.features && solution.features[0]) || t('landing.solution.feature1')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -234,7 +258,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          {t('landing.solution.feature2')}
+                          {(solution?.features && solution.features[1]) || t('landing.solution.feature2')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -242,7 +266,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          {t('landing.solution.feature3')}
+                          {(solution?.features && solution.features[2]) || t('landing.solution.feature3')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -250,7 +274,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          {t('landing.solution.feature4')}
+                          {(solution?.features && solution.features[3]) || t('landing.solution.feature4')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -258,7 +282,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          {t('landing.solution.feature5')}
+                          {(solution?.features && solution.features[4]) || t('landing.solution.feature5')}
                         </Typography>
                       </Box>
                     </Stack>

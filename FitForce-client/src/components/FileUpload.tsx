@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button, Box, Typography, CircularProgress } from '@mui/material';
 import { DocumentUpload, CloseCircle, Image as ImageIcon } from '@wandersonalwes/iconsax-react';
 import { openSnackbar } from '@/api/snackbar';
@@ -27,17 +27,37 @@ export default function FileUpload({
 }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl || null);
+
+  // Keep local preview in sync when parent provides/changes currentImageUrl
+  useEffect(() => {
+    setPreviewUrl(currentImageUrl || null);
+  }, [currentImageUrl]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+    // Validate file type based on accept
+    const wantsImage = accept?.startsWith('image/');
+    const wantsVideo = accept?.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+
+    if (wantsImage && !isImage) {
       openSnackbar({
         open: true,
         message: 'Please select an image file',
+        variant: 'alert',
+        alert: { color: 'error' }
+      });
+      return;
+    }
+
+    if (wantsVideo && !isVideo) {
+      openSnackbar({
+        open: true,
+        message: 'Please select a video file',
         variant: 'alert',
         alert: { color: 'error' }
       });
@@ -112,6 +132,8 @@ export default function FileUpload({
     fileInputRef.current?.click();
   };
 
+  const isVideoPreview = (accept && accept.startsWith('video/')) || (!!previewUrl && /(\.mp4|\.webm|\.ogg)(\?|$)/i.test(previewUrl));
+
   return (
     <Box className={className}>
       <input
@@ -128,7 +150,7 @@ export default function FileUpload({
             sx={{
               position: 'relative',
               width: '100%',
-              height: 128,
+              height: isVideoPreview ? 220 : 128,
               bgcolor: 'grey.100',
               borderRadius: 1,
               overflow: 'hidden',
@@ -137,6 +159,13 @@ export default function FileUpload({
               }
             }}
           >
+            {isVideoPreview ? (
+              <video
+                src={previewUrl}
+                controls
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+            ) : (
             <img
               src={previewUrl}
               alt="Preview"
@@ -146,6 +175,7 @@ export default function FileUpload({
                 objectFit: 'cover'
               }}
             />
+            )}
             <Box
               className="upload-overlay"
               sx={{

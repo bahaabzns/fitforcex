@@ -100,6 +100,13 @@ export default function AdminHome() {
       chip: 'Content'
     },
     {
+      href: '/admin/landing',
+      title: 'Landing Page',
+      desc: 'Manage the global marketing landing page content.',
+      icon: <AutoAwesome color="primary" />,
+      chip: 'Content'
+    },
+    {
       href: '/admin/analytics',
       title: 'Payment Analytics',
       desc: 'Revenue, subscriptions, and package performance.',

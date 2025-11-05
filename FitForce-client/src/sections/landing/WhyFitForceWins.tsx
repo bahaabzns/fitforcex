@@ -16,11 +16,33 @@ import GroupIcon from '@mui/icons-material/Group';
 // third-party
 import { motion } from 'framer-motion';
 import useTranslation from '@/utils/useTranslation';
+import { useEffect, useState } from 'react';
+import { APP_CONFIG } from '@/lib/config';
+import useConfig from '@/hooks/useConfig';
 
 // ==============================|| LANDING - WHY FITFORCE WINS ||============================== //
 
 export default function WhyFitForceWins() {
   const { t } = useTranslation();
+  const { i18n } = useConfig();
+  const [why, setWhy] = useState<{ header?: string; subheader?: string; points?: { title: string; desc: string }[] } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const lang = (i18n as string) || 'en';
+        const tr = data?.landing?.translations?.[lang];
+        const sections = tr?.sections || {};
+        if (!isMounted) return;
+        setWhy(sections.why || null);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, [i18n]);
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: '#159bff', position: 'relative' }}>
       {/* Background Pattern */}
@@ -79,10 +101,10 @@ export default function WhyFitForceWins() {
                 {/* Header */}
                 <Box>
                   <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: '#121c23' }}>
-                    {t('landing.why.header')}
+                    {why?.header || t('landing.why.header')}
                   </Typography>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: 'white' }}>
-                    {t('landing.why.subheader')}
+                    {why?.subheader || t('landing.why.subheader')}
                   </Typography>
                 </Box>
 
@@ -114,10 +136,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          {t('landing.why.point1.title')}
+                          {(why?.points && why.points[0]?.title) || t('landing.why.point1.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          {t('landing.why.point1.desc')}
+                          {(why?.points && why.points[0]?.desc) || t('landing.why.point1.desc')}
                         </Typography>
                       </Box>
                     </Box>
@@ -149,10 +171,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          {t('landing.why.point2.title')}
+                          {(why?.points && why.points[1]?.title) || t('landing.why.point2.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          {t('landing.why.point2.desc')}
+                          {(why?.points && why.points[1]?.desc) || t('landing.why.point2.desc')}
                         </Typography>
                       </Box>
                     </Box>
@@ -184,10 +206,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          {t('landing.why.point3.title')}
+                          {(why?.points && why.points[2]?.title) || t('landing.why.point3.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          {t('landing.why.point3.desc')}
+                          {(why?.points && why.points[2]?.desc) || t('landing.why.point3.desc')}
                         </Typography>
                       </Box>
                     </Box>
@@ -219,10 +241,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          {t('landing.why.point4.title')}
+                          {(why?.points && why.points[3]?.title) || t('landing.why.point4.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          {t('landing.why.point4.desc')}
+                          {(why?.points && why.points[3]?.desc) || t('landing.why.point4.desc')}
                         </Typography>
                       </Box>
                     </Box>

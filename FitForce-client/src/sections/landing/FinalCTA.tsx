@@ -16,11 +16,33 @@ import AnimateButton from 'components/@extended/AnimateButton';
 // third-party
 import { motion } from 'framer-motion';
 import useTranslation from '@/utils/useTranslation';
+import { useEffect, useState } from 'react';
+import { APP_CONFIG } from '@/lib/config';
+import useConfig from '@/hooks/useConfig';
 
 // ==============================|| LANDING - FINAL CTA ||============================== //
 
 export default function FinalCTA() {
   const { t } = useTranslation();
+  const { i18n } = useConfig();
+  const [finalCta, setFinalCta] = useState<{ header?: string; subheader?: string } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const lang = (i18n as string) || 'en';
+        const tr = data?.landing?.translations?.[lang];
+        const sections = tr?.sections || {};
+        if (!isMounted) return;
+        setFinalCta(sections.finalCta || null);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, [i18n]);
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: '#159bff', position: 'relative', overflow: 'hidden' }}>
       {/* Background Pattern */}
@@ -55,7 +77,7 @@ export default function FinalCTA() {
                 lineHeight: 1.2
               }}
             >
-              🔥 {t('landing.final.header')}
+              🔥 {finalCta?.header || t('landing.final.header')}
             </Typography>
             
             {/* Subheadline */}
@@ -71,7 +93,7 @@ export default function FinalCTA() {
                 mx: 'auto'
               }}
             >
-              {t('landing.final.subheader')}
+              {finalCta?.subheader || t('landing.final.subheader')}
             </Typography>
             
             {/* CTA Buttons */}
