@@ -24,6 +24,7 @@ import Box from '@mui/material/Box';
 // project-imports
 import AnimateButton from 'components/@extended/AnimateButton';
 import IconButton from 'components/@extended/IconButton';
+import LanguageSwitcher from 'components/customization/LanguageSwitcher';
 
 // assets
 import { HambergerMenu, Minus } from '@wandersonalwes/iconsax-react';
@@ -171,6 +172,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                   Book Demo
                 </Links>
               </Box>
+              <LanguageSwitcher />
               
               <Box sx={{ display: 'inline-block' }}>
                 <AnimateButton>
@@ -213,6 +215,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                 </Link>
               </Box>
               <Stack direction="row" sx={{ gap: 2 }}>
+                <LanguageSwitcher />
                 <Button
                   variant={isScrolled ? "contained" : "outlined"}
                   component={Link}

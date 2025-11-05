@@ -16,10 +16,12 @@ import AnimateButton from 'components/@extended/AnimateButton';
 
 // third-party
 import { motion } from 'framer-motion';
+import useTranslation from '@/utils/useTranslation';
 
 // ==============================|| LANDING - PROBLEM SOLUTION ||============================== //
 
 export default function ProblemSolution() {
+  const { t } = useTranslation();
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default', position: 'relative' }}>
       {/* Background Pattern */}
@@ -45,10 +47,10 @@ export default function ProblemSolution() {
             transition={{ duration: 0.6 }}
           >
             <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: 'text.primary' }}>
-              The Coach's Dilemma
+              {t('landing.problem.header')}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-              Every fitness coach faces the same challenge: balancing client care with business management
+              {t('landing.problem.subheader')}
             </Typography>
           </motion.div>
         </Box>
@@ -112,31 +114,31 @@ export default function ProblemSolution() {
                         💥
                       </Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, fontSize: '1.75rem' }}>
-                        The Problem
+                        {t('landing.problem.title')}
                       </Typography>
                     </Box>
                     
                     <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: '1.4rem' }}>
-                      You became a coach to help people — not to drown in spreadsheets.
+                      {t('landing.problem.pointIntro')}
                     </Typography>
                     
                     <Stack spacing={3}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.8)', mt: 1, flexShrink: 0 }} />
                         <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6 }}>
-                          You're stuck juggling messages, scattered Google Sheets, and manual tracking.
+                          {t('landing.problem.point1')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.8)', mt: 1, flexShrink: 0 }} />
                         <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6 }}>
-                          Your time disappears into admin work instead of growing your business or helping clients.
+                          {t('landing.problem.point2')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.8)', mt: 1, flexShrink: 0 }} />
                         <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6, fontWeight: 600 }}>
-                          That chaos? It's killing your efficiency and costing you money.
+                          {t('landing.problem.point3')}
                         </Typography>
                       </Box>
                     </Stack>
@@ -204,18 +206,18 @@ export default function ProblemSolution() {
                         💡
                       </Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, fontSize: '1.75rem' }}>
-                        The Solution
+                        {t('landing.solution.title')}
                       </Typography>
                     </Box>
                     
                     <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: '1.4rem' }}>
-                      Meet FitForce — The System That Brings Order to Chaos.
+                      {t('landing.solution.subtitle')}
                     </Typography>
                     
     
                     
                     <Typography variant="body1" sx={{ fontSize: '1.1rem', lineHeight: 1.6, fontWeight: 600, mb: 3 }}>
-                      Everything you need to manage your coaching operations in one place:
+                      {t('landing.solution.intro')}
                     </Typography>
                     
                     <Stack spacing={2}>
@@ -224,7 +226,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          Handle clients, subscriptions, and renewals automatically
+                          {t('landing.solution.feature1')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -232,7 +234,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          Create nutrition and workout plans in minutes
+                          {t('landing.solution.feature2')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -240,7 +242,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          Track progress and client check-ins with zero effort
+                          {t('landing.solution.feature3')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -248,7 +250,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          Manage your team and assign plans efficiently
+                          {t('landing.solution.feature4')}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -256,7 +258,7 @@ export default function ProblemSolution() {
                           ✓
                         </Box>
                         <Typography variant="body2" sx={{ fontSize: '1rem', lineHeight: 1.5 }}>
-                          Get real-time reports on performance, retention, and revenue
+                          {t('landing.solution.feature5')}
                         </Typography>
                       </Box>
                     </Stack>
@@ -304,7 +306,7 @@ export default function ProblemSolution() {
                   transition: 'all 0.3s ease'
                 }}
               >
-                💻 Book a Live Demo — See How FitForce Saves You Hours Every Week
+                💻 {t('landing.cta.demoBenefit')}
               </Button>
             </AnimateButton>
           </motion.div>

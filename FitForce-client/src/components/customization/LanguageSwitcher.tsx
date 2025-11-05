@@ -20,7 +20,7 @@ import MainCard from 'components/MainCard';
 import useConfig from 'hooks/useConfig';
 
 // assets
-import { LanguageSquare } from '@wandersonalwes/iconsax-react';
+import LanguageIcon from '@mui/icons-material/Language';
 
 // types
 import { I18n } from 'types/config';
@@ -50,25 +50,30 @@ export default function LanguageSwitcher() {
     setOpen(false);
   };
 
+  const currentLabel = (i18n || 'en').toUpperCase();
+
   return (
     <Box sx={{ flexShrink: 0, ml: 0.5 }}>
       <IconButton
         color="secondary"
         variant="light"
-        aria-label="open localization"
+        aria-label={`open localization (${currentLabel})`}
         ref={anchorRef}
         aria-controls={open ? 'localization-grow' : undefined}
         aria-haspopup="true"
         onClick={handleToggle}
         size="large"
-        sx={(theme) => ({
-          p: 1,
+        sx={{
+          px: 1.25,
+          py: 0.75,
           color: 'secondary.main',
-          bgcolor: open ? 'secondary.200' : 'secondary.100',
-          ...theme.applyStyles('dark', { bgcolor: open ? 'background.paper' : 'background.default' })
-        })}
+          bgcolor: 'transparent'
+        }}
       >
-        <LanguageSquare variant="Bulk" size={26} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <LanguageIcon sx={{ fontSize: 22 }} />
+          <Typography sx={{ fontWeight: 700, fontSize: '0.8rem' }}>{currentLabel}</Typography>
+        </Box>
       </IconButton>
       <Popper
         placement={downMD ? 'bottom-start' : 'bottom'}
@@ -109,45 +114,6 @@ export default function LanguageSwitcher() {
                         primary={
                           <Grid container>
                             <Typography sx={{ color: 'text.primary' }}>English</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', ml: '8px' }}>
-                              (UK)
-                            </Typography>
-                          </Grid>
-                        }
-                      />
-                    </ListItemButton>
-                    <ListItemButton selected={i18n === 'fr'} onClick={() => handleListItemClick('fr')}>
-                      <ListItemText
-                        primary={
-                          <Grid container>
-                            <Typography sx={{ color: 'text.primary' }}>français</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', ml: '8px' }}>
-                              (French)
-                            </Typography>
-                          </Grid>
-                        }
-                      />
-                    </ListItemButton>
-                    <ListItemButton selected={i18n === 'ro'} onClick={() => handleListItemClick('ro')}>
-                      <ListItemText
-                        primary={
-                          <Grid container>
-                            <Typography sx={{ color: 'text.primary' }}>Română</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', ml: '8px' }}>
-                              (Romanian)
-                            </Typography>
-                          </Grid>
-                        }
-                      />
-                    </ListItemButton>
-                    <ListItemButton selected={i18n === 'zh'} onClick={() => handleListItemClick('zh')}>
-                      <ListItemText
-                        primary={
-                          <Grid container>
-                            <Typography sx={{ color: 'text.primary' }}>中国人</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', ml: '8px' }}>
-                              (Chinese)
-                            </Typography>
                           </Grid>
                         }
                       />
@@ -157,9 +123,6 @@ export default function LanguageSwitcher() {
                         primary={
                           <Grid container>
                             <Typography sx={{ color: 'text.primary' }}>العربية</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', ml: '8px' }}>
-                              (Arabic)
-                            </Typography>
                           </Grid>
                         }
                       />

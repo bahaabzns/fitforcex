@@ -15,10 +15,12 @@ import GroupIcon from '@mui/icons-material/Group';
 
 // third-party
 import { motion } from 'framer-motion';
+import useTranslation from '@/utils/useTranslation';
 
 // ==============================|| LANDING - WHY FITFORCE WINS ||============================== //
 
 export default function WhyFitForceWins() {
+  const { t } = useTranslation();
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: '#159bff', position: 'relative' }}>
       {/* Background Pattern */}
@@ -77,10 +79,10 @@ export default function WhyFitForceWins() {
                 {/* Header */}
                 <Box>
                   <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: '#121c23' }}>
-                    Why FitForce Wins
+                    {t('landing.why.header')}
                   </Typography>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: 'white' }}>
-                    Not Just Another "Tool" — A Full Coaching Ecosystem.
+                    {t('landing.why.subheader')}
                   </Typography>
                 </Box>
 
@@ -112,10 +114,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          Clean, intuitive interface built for coaches
+                          {t('landing.why.point1.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          Designed specifically for fitness professionals, not generic business tools
+                          {t('landing.why.point1.desc')}
                         </Typography>
                       </Box>
                     </Box>
@@ -147,10 +149,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          Smart automations that replaces repetitive work
+                          {t('landing.why.point2.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          Automate client onboarding, plan distribution, and progress tracking
+                          {t('landing.why.point2.desc')}
                         </Typography>
                       </Box>
                     </Box>
@@ -182,10 +184,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          Real-time analytics on client performance and business growth
+                          {t('landing.why.point3.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          Track client progress, retention rates, and revenue metrics in real-time
+                          {t('landing.why.point3.desc')}
                         </Typography>
                       </Box>
                     </Box>
@@ -217,10 +219,10 @@ export default function WhyFitForceWins() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                          Customizable for individual coaches or full teams
+                          {t('landing.why.point4.title')}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          Scale from solo coaching to multi-trainer gyms with role-based permissions
+                          {t('landing.why.point4.desc')}
                         </Typography>
                       </Box>
                     </Box>

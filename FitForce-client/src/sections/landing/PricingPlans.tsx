@@ -19,10 +19,12 @@ import AnimateButton from 'components/@extended/AnimateButton';
 
 // third-party
 import { motion } from 'framer-motion';
+import useTranslation from '@/utils/useTranslation';
 
 // ==============================|| LANDING - PRICING PLANS ||============================== //
 
 export default function PricingPlans() {
+  const { t } = useTranslation();
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default', position: 'relative' }}>
       {/* Background Pattern */}
@@ -48,10 +50,10 @@ export default function PricingPlans() {
             transition={{ duration: 0.6 }}
           >
             <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: 'text.primary' }}>
-              💼 Pricing Plans
+              💼 {t('landing.pricing.header')}
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', mb: 2 }}>
-              Choose the Plan That Fits Your Business
+              {t('landing.pricing.subheader')}
             </Typography>
           </motion.div>
         </Box>
@@ -87,13 +89,13 @@ export default function PricingPlans() {
                 <Stack spacing={2} sx={{ flexGrow: 1 }}>
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary', mb: 1 }}>
-                      🧍‍♂️ Solo Coach Plan
+                      🧍‍♂️ {t('landing.pricing.solo.title')}
                     </Typography>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: '#159bff', mb: 1 }}>
-                      EGP 999
+                      {t('landing.pricing.solo.price')}
                     </Typography>
                     <Chip 
-                      label="instead of ~2000~" 
+                      label={t('landing.pricing.solo.badge')}
                       size="small" 
                       sx={{ 
                         bgcolor: '#e3f2fd', 
@@ -105,48 +107,48 @@ export default function PricingPlans() {
                   </Box>
                   
                   <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, mb: 2 }}>
-                    Perfect for individual coaches who want full control and automation.
+                    {t('landing.pricing.solo.desc')}
                   </Typography>
                   
                   {/* Features List */}
                   <Box sx={{ textAlign: 'left', mb: 3, flexGrow: 1 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary', mb: 1 }}>
-                      Includes:
+                      {t('landing.pricing.includes')}
                     </Typography>
                     <Stack spacing={0.5}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Unlimited clients</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.unlimitedClients')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Unlimited plans</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.unlimitedPlans')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Smart forms</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.smartForms')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Payment tracking</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.paymentTracking')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Analytics dashboard</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.analyticsDashboard')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Multi-device access</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.multiDevice')}</Typography>
                       </Box>
                     </Stack>
                   </Box>
                   
                   <Box sx={{ bgcolor: '#f8f9fa', p: 1.5, borderRadius: 2, mb: 2 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: '#159bff', mb: 0.5 }}>
-                      🚀 Best for:
+                      🚀 {t('landing.pricing.bestFor')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                      Independent coaches who want to stop using spreadsheets and scale with structure.
+                      {t('landing.pricing.solo.bestForDesc')}
                     </Typography>
                   </Box>
                   
@@ -174,7 +176,7 @@ export default function PricingPlans() {
                         }
                       }}
                     >
-                      Book a Demo
+                      {t('landing.cta.bookDemo')}
                     </Button>
                   </AnimateButton>
                 </Stack>
@@ -222,7 +224,7 @@ export default function PricingPlans() {
                 <Stack spacing={2} sx={{ flexGrow: 1 }}>
                   <Box>
                     <Chip 
-                      label="Most Popular" 
+                      label={t('landing.pricing.team.badge')}
                       size="small" 
                       sx={{ 
                         bgcolor: 'rgba(255,255,255,0.2)', 
@@ -232,59 +234,59 @@ export default function PricingPlans() {
                       }} 
                     />
                     <Typography variant="h6" sx={{ fontWeight: 700, color: 'white', mb: 1 }}>
-                      👥 Coaching Team Plan
+                      👥 {t('landing.pricing.team.title')}
                     </Typography>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: 'white', mb: 1 }}>
-                      EGP 2500
+                      {t('landing.pricing.team.price')}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                      + EGP 500 per extra coach
+                      {t('landing.pricing.team.extra')}
                     </Typography>
                   </Box>
                   
                   <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', lineHeight: 1.6, mb: 2 }}>
-                    Ideal for teams or small studios managing multiple trainers and clients.
+                    {t('landing.pricing.team.desc')}
                   </Typography>
                   
                   {/* Features List */}
                   <Box sx={{ textAlign: 'left', mb: 3, flexGrow: 1 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'white', mb: 1 }}>
-                      Everything in Solo Coach, plus:
+                      {t('landing.pricing.team.includesMore')}
                     </Typography>
                     <Stack spacing={0.5}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Team dashboard</Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{t('landing.pricing.features.teamDashboard')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Client assignment</Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{t('landing.pricing.features.clientAssignment')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Performance tracking</Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{t('landing.pricing.features.performanceTracking')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Centralized communication</Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{t('landing.pricing.features.centralizedComms')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Shared templates</Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{t('landing.pricing.features.sharedTemplates')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Multi-admin roles</Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{t('landing.pricing.features.multiAdmin')}</Typography>
                       </Box>
                     </Stack>
                   </Box>
                   
                   <Box sx={{ bgcolor: 'rgba(255,255,255,0.1)', p: 1.5, borderRadius: 2, mb: 2 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'white', mb: 0.5 }}>
-                      ⚡ Best for:
+                      ⚡ {t('landing.pricing.bestFor')}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.8rem' }}>
-                      Growing teams that need structure, coordination, and full visibility.
+                      {t('landing.pricing.team.bestForDesc')}
                     </Typography>
                   </Box>
                   
@@ -312,7 +314,7 @@ export default function PricingPlans() {
                         }
                       }}
                     >
-                      Book a Demo
+                      {t('landing.cta.bookDemo')}
                     </Button>
                   </AnimateButton>
                 </Stack>
@@ -349,46 +351,46 @@ export default function PricingPlans() {
                 <Stack spacing={2} sx={{ flexGrow: 1 }}>
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary', mb: 1 }}>
-                      🏢 Enterprise Plan
+                      🏢 {t('landing.pricing.enterprise.title')}
                     </Typography>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: '#159bff', mb: 1 }}>
-                      Custom Pricing
+                      {t('landing.pricing.enterprise.price')}
                     </Typography>
                   </Box>
                   
                   <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6, mb: 2 }}>
-                    For fitness brands, gyms, or large coaching businesses that want a private system under their brand.
+                    {t('landing.pricing.enterprise.desc')}
                   </Typography>
                   
                   {/* Features List */}
                   <Box sx={{ textAlign: 'left', mb: 3, flexGrow: 1 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary', mb: 1 }}>
-                      Everything in Team Plan, plus:
+                      {t('landing.pricing.enterprise.includesMore')}
                     </Typography>
                     <Stack spacing={0.5}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>White-label branding</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.whiteLabel')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Custom integrations</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.customIntegrations')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Dedicated support</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.dedicatedSupport')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>API access</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.apiAccess')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Unlimited clients</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.unlimitedClients')}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                         <Typography variant="body2" sx={{ color: '#159bff', fontWeight: 600, mt: 0.1, fontSize: '0.8rem' }}>✓</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Priority onboarding</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>{t('landing.pricing.features.priorityOnboarding')}</Typography>
                       </Box>
                     </Stack>
                   </Box>
@@ -418,7 +420,7 @@ export default function PricingPlans() {
                         }
                       }}
                     >
-                      Contact Sales
+                      {t('landing.cta.contactSales')}
                     </Button>
                   </AnimateButton>
                 </Stack>

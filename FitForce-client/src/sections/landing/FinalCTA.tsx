@@ -15,10 +15,12 @@ import AnimateButton from 'components/@extended/AnimateButton';
 
 // third-party
 import { motion } from 'framer-motion';
+import useTranslation from '@/utils/useTranslation';
 
 // ==============================|| LANDING - FINAL CTA ||============================== //
 
 export default function FinalCTA() {
+  const { t } = useTranslation();
   return (
     <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: '#159bff', position: 'relative', overflow: 'hidden' }}>
       {/* Background Pattern */}
@@ -53,7 +55,7 @@ export default function FinalCTA() {
                 lineHeight: 1.2
               }}
             >
-              🔥 Stop Managing Chaos. Start Managing Results.
+              🔥 {t('landing.final.header')}
             </Typography>
             
             {/* Subheadline */}
@@ -69,7 +71,7 @@ export default function FinalCTA() {
                 mx: 'auto'
               }}
             >
-              FitForce gives you back control, time, and clarity — so you can scale your coaching business the smart way.
+              {t('landing.final.subheader')}
             </Typography>
             
             {/* CTA Buttons */}
@@ -92,16 +94,10 @@ export default function FinalCTA() {
               >
                 <AnimateButton>
                   <Button
-                    component="a"
-                    href="#book-demo"
+                    component={Link}
+                    href="/register"
                     size="large"
                     variant="contained"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      document.getElementById('book-demo')?.scrollIntoView({ 
-                        behavior: 'smooth' 
-                      });
-                    }}
                     sx={{
                       bgcolor: 'white',
                       color: '#159bff',
@@ -120,7 +116,7 @@ export default function FinalCTA() {
                       minWidth: 200
                     }}
                   >
-                    Book a Demo and Start your Free Trial
+                    {t('landing.cta.bookDemoAndTrial')}
                   </Button>
                 </AnimateButton>
               </motion.div>
@@ -163,7 +159,7 @@ export default function FinalCTA() {
                       minWidth: 200
                     }}
                   >
-                    💬 Book a Demo
+                    💬 {t('landing.cta.bookDemo')}
                   </Button>
                 </AnimateButton>
               </motion.div>

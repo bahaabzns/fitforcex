@@ -15,10 +15,12 @@ import AnimateButton from 'components/@extended/AnimateButton';
 
 // third-party
 import { motion } from 'framer-motion';
+import useTranslation from '@/utils/useTranslation';
 
 // ==============================|| LANDING - HERO PAGE ||============================== //
 
 export default function HeroPage() {
+  const { t } = useTranslation();
 
   return (
     <Box 
@@ -68,7 +70,7 @@ export default function HeroPage() {
                       color: 'white'
                     }}
                   >
-                    One System to Run Your{' '}
+                    {t('landing.hero.title.part1')}{' '}
                     <Typography
                       variant="h1"
                       component="span"
@@ -82,9 +84,9 @@ export default function HeroPage() {
                         '@keyframes move-bg': { '100%': { backgroundPosition: '400% 0' } }
                       }}
                     >
-                      Coaching Business
+                      {t('landing.hero.title.highlight')}
                     </Typography>{' '}
-                    — From First Message to Final Plan.
+                    {t('landing.hero.title.part2')}
                   </Typography>
                 </motion.div>
               </Grid>
@@ -109,7 +111,7 @@ export default function HeroPage() {
                         color: 'white'
                       }}
                     >
-                      FitForce is your all-in-one platform built for fitness coaches. Manage clients, plans, forms, payments, and progress — all from one clean dashboard.
+                      {t('landing.hero.subtitle')}
                     </Typography>
                   </motion.div>
                 </Grid>
@@ -129,17 +131,11 @@ export default function HeroPage() {
                     <Grid>
                       <AnimateButton>
                         <Button
-                          component="a"
-                          href="#book-demo"
+                          component={Link}
+                          href="/register"
                           size="large"
                           color="secondary"
                           variant="outlined"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            document.getElementById('book-demo')?.scrollIntoView({ 
-                              behavior: 'smooth' 
-                            });
-                          }}
                           sx={{
                             borderColor: 'white',
                             color: 'white',
@@ -149,7 +145,7 @@ export default function HeroPage() {
                             }
                           }}
                         >
-                          Book a Demo and Start your Free Trial
+                          {t('landing.cta.bookDemoAndTrial')}
                         </Button>
                       </AnimateButton>
                     </Grid>
@@ -168,7 +164,7 @@ export default function HeroPage() {
                             });
                           }}
                         >
-                          Book a Demo
+                          {t('landing.cta.bookDemo')}
                         </Button>
                       </AnimateButton>
                     </Grid>
