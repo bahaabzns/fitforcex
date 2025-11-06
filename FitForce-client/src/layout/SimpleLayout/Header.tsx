@@ -21,6 +21,9 @@ import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
 import Box from '@mui/material/Box';
 
+// third-party
+import { useIntl } from 'react-intl';
+
 // project-imports
 import AnimateButton from 'components/@extended/AnimateButton';
 import IconButton from 'components/@extended/IconButton';
@@ -59,6 +62,7 @@ interface Props {
 // ==============================|| COMPONENTS - APP BAR ||============================== //
 
 export default function Header({ layout = 'landing', ...others }: Props) {
+  const intl = useIntl();
   const downMD = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const [drawerToggle, setDrawerToggle] = useState<boolean>(false);
   
@@ -130,7 +134,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                     '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
                   }}
                 >
-                  Problem & Solution
+                  {intl.formatMessage({ id: 'header.problem-solution', defaultMessage: 'Problem & Solution' })}
                 </Links>
                 <Links
                   component="button"
@@ -143,7 +147,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                     '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
                   }}
                 >
-                  Why FitForce
+                  {intl.formatMessage({ id: 'header.why-fitforce', defaultMessage: 'Why FitForce' })}
                 </Links>
                 <Links
                   component="button"
@@ -156,7 +160,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                     '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
                   }}
                 >
-                  Pricing
+                  {intl.formatMessage({ id: 'header.pricing', defaultMessage: 'Pricing' })}
                 </Links>
                 <Links
                   component="button"
@@ -169,7 +173,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                     '&:hover': { color: isScrolled ? 'primary.main' : 'rgba(255,255,255,0.8)' }
                   }}
                 >
-                  Book Demo
+                  {intl.formatMessage({ id: 'header.book-demo', defaultMessage: 'Book Demo' })}
                 </Links>
               </Box>
               <LanguageSwitcher />
@@ -192,7 +196,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                       }
                     }}
                   >
-                    Login
+                    {intl.formatMessage({ id: 'header.login', defaultMessage: 'Login' })}
                   </Button>
                 </AnimateButton>
               </Box>
@@ -231,7 +235,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                     }
                   }}
                 >
-                  Login
+                  {intl.formatMessage({ id: 'header.login', defaultMessage: 'Login' })}
                 </Button>
 
                 <IconButton
@@ -265,32 +269,32 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                       <ListItemIcon>
                         <Minus />
                       </ListItemIcon>
-                      <ListItemText primary="Problem & Solution" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                      <ListItemText primary={intl.formatMessage({ id: 'header.problem-solution', defaultMessage: 'Problem & Solution' })} slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
                     </ListItemButton>
                     <ListItemButton onClick={() => scrollToSection('why-fitforce')}>
                       <ListItemIcon>
                         <Minus />
                       </ListItemIcon>
-                      <ListItemText primary="Why FitForce" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                      <ListItemText primary={intl.formatMessage({ id: 'header.why-fitforce', defaultMessage: 'Why FitForce' })} slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
                     </ListItemButton>
                     <ListItemButton onClick={() => scrollToSection('pricing')}>
                       <ListItemIcon>
                         <Minus />
                       </ListItemIcon>
-                      <ListItemText primary="Pricing" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                      <ListItemText primary={intl.formatMessage({ id: 'header.pricing', defaultMessage: 'Pricing' })} slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
                     </ListItemButton>
                     <ListItemButton onClick={() => scrollToSection('book-demo')}>
                       <ListItemIcon>
                         <Minus />
                       </ListItemIcon>
-                      <ListItemText primary="Book Demo" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                      <ListItemText primary={intl.formatMessage({ id: 'header.book-demo', defaultMessage: 'Book Demo' })} slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
                     </ListItemButton>
                     <Links style={{ textDecoration: 'none' }} component={Link} href="/login">
                       <ListItemButton>
                         <ListItemIcon>
                           <Minus />
                         </ListItemIcon>
-                        <ListItemText primary="Login" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                        <ListItemText primary={intl.formatMessage({ id: 'header.login', defaultMessage: 'Login' })} slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
                       </ListItemButton>
                     </Links>
                     <Links style={{ textDecoration: 'none' }} component={Link} href="/dashboard">
@@ -298,7 +302,7 @@ export default function Header({ layout = 'landing', ...others }: Props) {
                         <ListItemIcon>
                           <Minus />
                         </ListItemIcon>
-                        <ListItemText primary="Dashboard" slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
+                        <ListItemText primary={intl.formatMessage({ id: 'header.dashboard', defaultMessage: 'Dashboard' })} slotProps={{ primary: { variant: 'h6', color: 'secondary.main' } }} />
                       </ListItemButton>
                     </Links>
                   </List>

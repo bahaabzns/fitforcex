@@ -18,7 +18,7 @@ export default function VideoShowcase() {
 
   useEffect(() => {
     if (isInView) {
-      controls.start({ opacity: 1, y: 0, scale: 1, rotate: 0, transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] } });
+      controls.start({ opacity: 1, visibility: 'visible', maxHeight: '2000px', transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] } });
     }
   }, [isInView, controls]);
 
@@ -83,9 +83,14 @@ export default function VideoShowcase() {
   const ytEmbed = data?.videoUrl ? toYouTubeEmbed(data.videoUrl) : null;
 
   return (
-    <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default', position: 'relative' }}>
-      <Container>
-        <motion.div ref={ref} initial={{ opacity: 0, y: 60, scale: 0.95, rotate: -1 }} animate={controls}>
+    <Box sx={{ pt: 0, pb: { xs: 8, md: 12 }, bgcolor: 'background.default', position: 'relative' }}>
+      <Container sx={{ py: 0 }}>
+        <motion.div 
+          ref={ref} 
+          initial={{ opacity: 0, visibility: 'hidden', maxHeight: 0 }} 
+          animate={controls}
+          style={{ willChange: 'opacity, visibility, max-height', overflow: 'hidden' }}
+        >
           {data.title && (
             <Typography variant="h2" sx={{ fontWeight: 800, mb: 1, textAlign: 'center' }}>{data.title}</Typography>
           )}

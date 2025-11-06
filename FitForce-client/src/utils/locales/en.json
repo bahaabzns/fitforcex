@@ -862,5 +862,11 @@
   "landing.pricing.enterprise.desc": "For fitness brands, gyms, or large coaching businesses that want a private system under their brand.",
   "landing.pricing.enterprise.includesMore": "Everything in Team Plan, plus:",
   "landing.final.header": "Stop Managing Chaos. Start Managing Results.",
-  "landing.final.subheader": "FitForce gives you back control, time, and clarity — so you can scale your coaching business the smart way."
+  "landing.final.subheader": "FitForce gives you back control, time, and clarity — so you can scale your coaching business the smart way.",
+  "header.problem-solution": "Problem & Solution",
+  "header.why-fitforce": "Why FitForce",
+  "header.pricing": "Pricing",
+  "header.book-demo": "Book Demo",
+  "header.login": "Login",
+  "header.dashboard": "Dashboard"
 }

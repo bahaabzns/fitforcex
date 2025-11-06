@@ -123,6 +123,9 @@ export default function LanguageSwitcher() {
                         primary={
                           <Grid container>
                             <Typography sx={{ color: 'text.primary' }}>العربية</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', ml: '8px' }}>
+                              (Arabic)
+                            </Typography>
                           </Grid>
                         }
                       />

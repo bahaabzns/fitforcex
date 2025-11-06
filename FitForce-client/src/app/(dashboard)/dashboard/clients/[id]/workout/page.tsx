@@ -76,6 +76,8 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import { FormSchedulingPopup } from '@/components/forms/FormSchedulingPopup';
 import SortableExercise from '@/components/workout/SortableExercise';
+import { exportWorkoutPlanToPDF } from '@/utils/pdfExport';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 
 interface Exercise {
   id: string;
@@ -210,6 +212,10 @@ export default function ClientWorkoutPage() {
   
   // Client display name
   const [clientName, setClientName] = useState<string>('');
+  // Workspace branding
+  const { workspaceName } = useWorkspaceBranding();
+  // PDF export state
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const handleDayDrop = (toIndex: number) => {
     if (dragDayIndex === null || toIndex === dragDayIndex || !localWorkoutPlan) return;
@@ -1263,6 +1269,57 @@ export default function ClientWorkoutPage() {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!localWorkoutPlan || !localWorkoutPlan.days || localWorkoutPlan.days.length === 0) {
+      openSnackbar({
+        open: true,
+        message: 'Please select a plan with days first',
+        variant: 'alert',
+        alert: { color: 'warning' }
+      } as any);
+      return;
+    }
+
+    try {
+      setExportingPdf(true);
+      await exportWorkoutPlanToPDF({
+        workspaceName: workspaceName || 'Workspace',
+        clientName: clientName || 'Client',
+        planName: localWorkoutPlan.title,
+        days: localWorkoutPlan.days.map(day => ({
+          id: day.id,
+          title: day.title,
+          exercises: day.exercises.map(ex => ({
+            id: ex.id,
+            exercise: ex.exercise,
+            sets: ex.sets,
+            reps: ex.reps,
+            restSeconds: ex.restSeconds,
+            tempo: ex.tempo,
+            rir: ex.rir,
+            notes: ex.notes,
+            individualSets: (ex as any).individualSets
+          }))
+        }))
+      });
+      openSnackbar({
+        open: true,
+        message: 'PDF exported successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      } as any);
+    } catch (error: any) {
+      console.error('Failed to export PDF:', error);
+      openSnackbar({
+        open: true,
+        message: error?.message || 'Failed to export PDF',
+        variant: 'alert',
+        alert: { color: 'error' }
+      } as any);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   return (
     <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
@@ -1271,17 +1328,28 @@ export default function ClientWorkoutPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 1, md: 0 } }}>
         <Typography variant="h5">{clientName || 'Client'}</Typography>
         <Stack direction="row" spacing={1} sx={{ gap: { xs: 0.5, md: 1 } }}>
-            {localWorkoutPlan && isPlanDirty && (
+          {localWorkoutPlan && localWorkoutPlan.days && localWorkoutPlan.days.length > 0 && (
+            <Button 
+              variant="outlined" 
+              onClick={handleExportPDF} 
+              disabled={exportingPdf} 
+              size={isMobile ? 'small' : 'medium'}
+              startIcon={<DocumentText size={16} />}
+            >
+              {exportingPdf ? 'Exporting...' : 'Export PDF'}
+            </Button>
+          )}
+          {localWorkoutPlan && isPlanDirty && (
             <Button variant="outlined" onClick={saveLocalPlan} disabled={saving}>
               {saving ? 'Saving...' : 'Save'}
               </Button>
-            )}
-            {selectedPlanId && !String(selectedPlanId).startsWith('local_') && (
+          )}
+          {selectedPlanId && !String(selectedPlanId).startsWith('local_') && (
             <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={activating}>
-                {activating ? 'Activating…' : 'Activate'}
-              </Button>
-            )}
-          </Stack>
+              {activating ? 'Activating…' : 'Activate'}
+            </Button>
+          )}
+        </Stack>
       </Box>
 
       {/* Main Content */}

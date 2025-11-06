@@ -859,5 +859,11 @@
   "landing.pricing.enterprise.desc": "للعلامات الرياضية والصالات أو الأعمال الكبيرة التي تريد نظاماً خاصاً بعلامتها.",
   "landing.pricing.enterprise.includesMore": "كل ما في خطة الفريق، بالإضافة إلى:",
   "landing.final.header": "توقف عن إدارة الفوضى. ابدأ بإدارة النتائج.",
-  "landing.final.subheader": "يعيد لك فت فورس التحكم والوقت والوضوح — لتوسع عملك بذكاء."
+  "landing.final.subheader": "يعيد لك فت فورس التحكم والوقت والوضوح — لتوسع عملك بذكاء.",
+  "header.problem-solution": "المشكلة والحل",
+  "header.why-fitforce": "لماذا فت فورس",
+  "header.pricing": "التسعير",
+  "header.book-demo": "احجز عرض توضيحي",
+  "header.login": "تسجيل الدخول",
+  "header.dashboard": "لوحة التحكم"
 }

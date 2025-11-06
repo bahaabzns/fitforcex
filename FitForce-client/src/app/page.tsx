@@ -307,10 +307,10 @@ export default function Landing() {
       )}
       <Hero />
       {/* Landing video section with mini-player when scrolled away */}
-      <Box sx={{ py: { xs: 4, md: 6 }, display: 'flex', alignItems: 'stretch' }} ref={videoSectionRef}>
-        <Container sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+      <Box sx={{ pt: { xs: 2, md: 3 }, pb: 0, mb: 0 }} ref={videoSectionRef}>
+        <Container sx={{ px: { xs: 2, sm: 3 }, py: 0, pb: 0 }}>
           {/* Wrapper keeps layout height stable when video container becomes fixed */}
-          <Box sx={{ height: (hasStarted && !inView && videoHeight) ? `${videoHeight}px` : 'auto', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ height: (hasStarted && !inView && videoHeight) ? `${videoHeight}px` : 'auto', mb: 0, pb: 0, lineHeight: 0 }}>
             <Box
             sx={{
                 position: (hasStarted && !inView) ? 'fixed' : 'relative',
@@ -321,10 +321,11 @@ export default function Landing() {
                 bottom: (hasStarted && !inView) ? 16 : 'auto',
                 zIndex: (hasStarted && !inView) ? 1300 : 'auto',
                 width: (hasStarted && !inView) ? { xs: 220, sm: 280, md: 320 } as any : '100%',
-                display: 'flex',
-                flexDirection: 'column'
+                mb: 0,
+                pb: 0,
+                display: 'block'
               }}
-              ref={videoContainerRef}
+              ref={videoContainerRef} 
               onMouseEnter={() => setIsHoveringVideo(true)}
               onMouseLeave={() => setIsHoveringVideo(false)}
             >

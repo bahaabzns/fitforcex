@@ -61,6 +61,8 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Divider from '@mui/material/Divider';
 import { FormSchedulingPopup } from '@/components/forms/FormSchedulingPopup';
+import { exportNutritionPlanToPDF } from '@/utils/pdfExport';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 
 interface FoodItem {
   id: string;
@@ -195,6 +197,10 @@ export default function ClientNutritionPage() {
   const chatPollRef = useRef<number | null>(null);
   // Client display name
   const [clientName, setClientName] = useState<string>('');
+  // Workspace branding
+  const { workspaceName } = useWorkspaceBranding();
+  // PDF export state
+  const [exportingPdf, setExportingPdf] = useState(false);
   // Forms tab state
   const [formsLoading, setFormsLoading] = useState(false);
   const [formsError, setFormsError] = useState<string | null>(null);
@@ -1632,6 +1638,61 @@ export default function ClientNutritionPage() {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!selectedPlanId) {
+      openSnackbar({
+        open: true,
+        message: 'Please select a plan first',
+        variant: 'alert',
+        alert: { color: 'warning' }
+      } as any);
+      return;
+    }
+
+    const selectedPlan = plans.find(p => p.id === selectedPlanId);
+    if (!selectedPlan || !selectedPlan.cycles || selectedPlan.cycles.length === 0) {
+      openSnackbar({
+        open: true,
+        message: 'Plan has no cycles to export',
+        variant: 'alert',
+        alert: { color: 'warning' }
+      } as any);
+      return;
+    }
+
+    try {
+      setExportingPdf(true);
+      await exportNutritionPlanToPDF({
+        workspaceName: workspaceName || 'Workspace',
+        clientName: clientName || 'Client',
+        planName: selectedPlan.title,
+        cycles: selectedPlan.cycles.map(cycle => ({
+          id: cycle.id,
+          title: cycle.title,
+          label: cycle.label,
+          microTotals: cycle.microTotals,
+          meals: cycle.meals || []
+        }))
+      });
+      openSnackbar({
+        open: true,
+        message: 'PDF exported successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      } as any);
+    } catch (error: any) {
+      console.error('Failed to export PDF:', error);
+      openSnackbar({
+        open: true,
+        message: error?.message || 'Failed to export PDF',
+        variant: 'alert',
+        alert: { color: 'error' }
+      } as any);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
     <Stack spacing={1} sx={{ width: '100%', maxWidth: '100%' }}>
@@ -1639,6 +1700,17 @@ export default function ClientNutritionPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 1, md: 0 } }}>
         <Typography variant="h5">{clientName || 'Client'}</Typography>
         <Stack direction="row" spacing={1} sx={{ gap: { xs: 0.5, md: 1 } }}>
+          {selectedPlanId && (
+            <Button 
+              variant="outlined" 
+              onClick={handleExportPDF} 
+              disabled={exportingPdf} 
+              size={isMobile ? 'small' : 'medium'}
+              startIcon={<DocumentText size={16} />}
+            >
+              {exportingPdf ? 'Exporting...' : 'Export PDF'}
+            </Button>
+          )}
           <Button variant="outlined" onClick={handleSavePlan} disabled={saving} size={isMobile ? 'small' : 'medium'}>{saving ? 'Saving...' : 'Save'}</Button>
           <Button variant="contained" color="success" onClick={handleActivatePlan} disabled={!selectedPlanId || activating} size={isMobile ? 'small' : 'medium'}>
             {activating ? 'Activating…' : 'Activate'}

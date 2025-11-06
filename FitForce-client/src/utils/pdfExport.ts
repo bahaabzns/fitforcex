@@ -1,0 +1,466 @@
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+interface NutritionPlanData {
+  workspaceName: string;
+  clientName: string;
+  planName: string;
+  cycles: Array<{
+    id: string;
+    title: string;
+    label: string;
+    microTotals?: Record<string, number>;
+    meals: Array<{
+      id: string;
+      meal: string;
+      notes?: string;
+      recipeName?: string;
+      recipeNameArabic?: string;
+      recipeImageUrl?: string;
+      foodItems: Array<{
+        id: string;
+        quantity: number;
+        foodItem: {
+          id: string;
+          name: string;
+          servingSize: number;
+          unit: string;
+          calories: number;
+          protein: number;
+          carbs: number;
+          fat: number;
+        };
+      }>;
+    }>;
+  }>;
+}
+
+interface WorkoutPlanData {
+  workspaceName: string;
+  clientName: string;
+  planName: string;
+  days: Array<{
+    id: string;
+    title: string;
+    exercises: Array<{
+      id: string;
+      exercise: {
+        id: string;
+        name: string;
+        muscleGroup: string;
+        description?: string;
+        gifImage?: string;
+      };
+      sets: number;
+      reps: string;
+      restSeconds: number;
+      tempo: string;
+      rir: number;
+      notes?: string;
+      individualSets?: Array<{
+        id: string;
+        reps: string;
+        restSeconds: number;
+        tempo: string;
+        rir: number;
+        notes?: string;
+      }>;
+    }>;
+  }>;
+}
+
+// Helper to add image to PDF (with error handling)
+async function addImageToPdf(
+  doc: jsPDF,
+  imageUrl: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          doc.addImage(img, 'PNG', x, y, width, height);
+          resolve();
+        } catch (e) {
+          console.warn('Failed to add image to PDF:', e);
+          resolve();
+        }
+      };
+      img.onerror = () => {
+        console.warn('Failed to load image:', imageUrl);
+        resolve();
+      };
+      img.src = imageUrl;
+    } catch (e) {
+      console.warn('Error adding image:', e);
+      resolve();
+    }
+  });
+}
+
+// Helper to calculate meal totals
+function calculateMealTotals(meal: NutritionPlanData['cycles'][0]['meals'][0]) {
+  return meal.foodItems.reduce(
+    (acc, item) => {
+      const qty = Number(item.quantity) || 0;
+      const base = item.foodItem?.servingSize || 100;
+      const factor = base ? qty / base : 0;
+      acc.calories += Math.round((item.foodItem?.calories || 0) * factor);
+      acc.protein += Math.round((item.foodItem?.protein || 0) * factor);
+      acc.carbs += Math.round((item.foodItem?.carbs || 0) * factor);
+      acc.fat += Math.round((item.foodItem?.fat || 0) * factor);
+      return acc;
+    },
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+}
+
+export async function exportNutritionPlanToPDF(data: NutritionPlanData): Promise<void> {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  let yPos = margin;
+
+  // Cover Page
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.workspaceName, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 15;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Nutrition Plan', pageWidth / 2, yPos, { align: 'center' });
+  yPos += 20;
+
+  doc.setFontSize(14);
+  doc.text(`Client: ${data.clientName}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 10;
+  doc.text(`Plan: ${data.planName}`, pageWidth / 2, yPos, { align: 'center' });
+
+  // Add new page for cycles
+  doc.addPage();
+
+  // Process each cycle
+  for (let cycleIndex = 0; cycleIndex < data.cycles.length; cycleIndex++) {
+    const cycle = data.cycles[cycleIndex];
+    
+    // Check if we need a new page
+    if (yPos > pageHeight - 100) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    // Cycle Header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(
+      `Cycle ${cycleIndex + 1}: ${cycle.label || cycle.title || `Day ${cycleIndex + 1}`}`,
+      margin,
+      yPos
+    );
+    yPos += 15;
+
+    // Macros and Micros Section
+    if (cycle.microTotals) {
+      const macros = {
+        calories: Math.round(cycle.microTotals.calories || 0),
+        protein: Math.round(cycle.microTotals.protein || 0),
+        carbs: Math.round(cycle.microTotals.carbs || 0),
+        fat: Math.round(cycle.microTotals.fat || 0),
+      };
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Macronutrients:', margin, yPos);
+      yPos += 8;
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Calories: ${macros.calories} kcal`, margin + 10, yPos);
+      yPos += 6;
+      doc.text(`Protein: ${macros.protein} g (${Math.round(macros.protein * 4)} kcal)`, margin + 10, yPos);
+      yPos += 6;
+      doc.text(`Carbs: ${macros.carbs} g (${Math.round(macros.carbs * 4)} kcal)`, margin + 10, yPos);
+      yPos += 6;
+      doc.text(`Fat: ${macros.fat} g (${Math.round(macros.fat * 9)} kcal)`, margin + 10, yPos);
+      yPos += 10;
+
+      // Micronutrients
+      const microKeys = Object.keys(cycle.microTotals).filter(
+        (key) => !['calories', 'protein', 'carbs', 'fat'].includes(key)
+      );
+
+      if (microKeys.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Micronutrients:', margin, yPos);
+        yPos += 8;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const microsPerColumn = Math.ceil(microKeys.length / 2);
+        let col1Y = yPos;
+        let col2Y = yPos;
+
+        microKeys.forEach((key, idx) => {
+          const value = Math.round(cycle.microTotals![key] || 0);
+          const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+          
+          if (idx < microsPerColumn) {
+            doc.text(`${displayKey}: ${value}`, margin + 10, col1Y);
+            col1Y += 5;
+          } else {
+            doc.text(`${displayKey}: ${value}`, pageWidth / 2 + 10, col2Y);
+            col2Y += 5;
+          }
+        });
+
+        yPos = Math.max(col1Y, col2Y) + 10;
+      }
+    }
+
+    yPos += 5;
+
+    // Meals Section
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Meals:', margin, yPos);
+    yPos += 10;
+
+    for (const meal of cycle.meals) {
+      // Check if we need a new page
+      if (yPos > pageHeight - 80) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(meal.meal, margin, yPos);
+      yPos += 7;
+
+      if (meal.recipeName || meal.recipeNameArabic) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(10);
+        doc.text(
+          `Recipe: ${meal.recipeName || meal.recipeNameArabic || ''}`,
+          margin + 5,
+          yPos
+        );
+        yPos += 6;
+      }
+
+      if (meal.recipeImageUrl) {
+        try {
+          await addImageToPdf(doc, meal.recipeImageUrl, margin, yPos, 60, 40);
+          yPos += 45;
+        } catch (e) {
+          console.warn('Failed to add recipe image:', e);
+        }
+      }
+
+      // Meal totals
+      const mealTotals = calculateMealTotals(meal);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(
+        `Totals: ${mealTotals.calories} kcal | P: ${mealTotals.protein}g | C: ${mealTotals.carbs}g | F: ${mealTotals.fat}g`,
+        margin + 5,
+        yPos
+      );
+      yPos += 8;
+
+      // Food items table
+      if (meal.foodItems.length > 0) {
+        const tableData = meal.foodItems.map((item) => {
+          const qty = Number(item.quantity) || 0;
+          const base = item.foodItem?.servingSize || 100;
+          const factor = base ? qty / base : 0;
+          return [
+            item.foodItem?.name || 'Unknown',
+            `${qty} ${item.foodItem?.unit || 'g'}`,
+            `${Math.round((item.foodItem?.calories || 0) * factor)}`,
+            `${Math.round((item.foodItem?.protein || 0) * factor)}g`,
+            `${Math.round((item.foodItem?.carbs || 0) * factor)}g`,
+            `${Math.round((item.foodItem?.fat || 0) * factor)}g`,
+          ];
+        });
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Food Item', 'Quantity', 'Calories', 'Protein', 'Carbs', 'Fat']],
+          body: tableData,
+          theme: 'grid',
+          headStyles: { fillColor: [66, 165, 245], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 8 },
+          margin: { left: margin, right: margin },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (meal.notes) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        doc.text(`Notes: ${meal.notes}`, margin + 5, yPos);
+        yPos += 8;
+      }
+
+      yPos += 5;
+    }
+
+    // Add spacing before next cycle
+    yPos += 10;
+  }
+
+  // Save PDF
+  doc.save(`${data.planName}_Nutrition_Plan.pdf`);
+}
+
+export async function exportWorkoutPlanToPDF(data: WorkoutPlanData): Promise<void> {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  let yPos = margin;
+
+  // Cover Page
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.workspaceName, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 15;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Workout Plan', pageWidth / 2, yPos, { align: 'center' });
+  yPos += 20;
+
+  doc.setFontSize(14);
+  doc.text(`Client: ${data.clientName}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 10;
+  doc.text(`Plan: ${data.planName}`, pageWidth / 2, yPos, { align: 'center' });
+
+  // Add new page for days
+  doc.addPage();
+
+  // Process each day
+  for (let dayIndex = 0; dayIndex < data.days.length; dayIndex++) {
+    const day = data.days[dayIndex];
+    
+    // Check if we need a new page
+    if (yPos > pageHeight - 100) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    // Day Header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Day ${dayIndex + 1}: ${day.title}`, margin, yPos);
+    yPos += 15;
+
+    // Exercises
+    for (const exerciseItem of day.exercises) {
+      // Check if we need a new page
+      if (yPos > pageHeight - 120) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      const exercise = exerciseItem.exercise;
+
+      // Exercise name
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(exercise.name, margin, yPos);
+      yPos += 8;
+
+      // Muscle group
+      if (exercise.muscleGroup) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(`Muscle Group: ${exercise.muscleGroup}`, margin + 5, yPos);
+        yPos += 6;
+      }
+
+      // Exercise GIF
+      if (exercise.gifImage) {
+        try {
+          await addImageToPdf(doc, exercise.gifImage, margin, yPos, 80, 60);
+          yPos += 65;
+        } catch (e) {
+          console.warn('Failed to add exercise GIF:', e);
+        }
+      }
+
+      // Exercise details
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+
+      // Check if we have individual sets
+      if (exerciseItem.individualSets && exerciseItem.individualSets.length > 0) {
+        // Table for individual sets
+        const tableData = exerciseItem.individualSets.map((set, idx) => [
+          `Set ${idx + 1}`,
+          set.reps || exerciseItem.reps,
+          set.tempo || exerciseItem.tempo || '-',
+          `${set.rir !== undefined ? set.rir : exerciseItem.rir}`,
+          `${set.restSeconds || exerciseItem.restSeconds}s`,
+          set.notes || exerciseItem.notes || '-',
+        ]);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Set', 'Reps', 'Tempo', 'RIR', 'Rest', 'Notes']],
+          body: tableData,
+          theme: 'grid',
+          headStyles: { fillColor: [66, 165, 245], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 9 },
+          margin: { left: margin, right: margin },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      } else {
+        // Simple format for exercises without individual sets
+        doc.text(`Sets: ${exerciseItem.sets}`, margin + 5, yPos);
+        yPos += 6;
+        doc.text(`Reps: ${exerciseItem.reps}`, margin + 5, yPos);
+        yPos += 6;
+        if (exerciseItem.tempo) {
+          doc.text(`Tempo: ${exerciseItem.tempo}`, margin + 5, yPos);
+          yPos += 6;
+        }
+        doc.text(`RIR: ${exerciseItem.rir}`, margin + 5, yPos);
+        yPos += 6;
+        doc.text(`Rest: ${exerciseItem.restSeconds}s`, margin + 5, yPos);
+        yPos += 6;
+        if (exerciseItem.notes) {
+          doc.text(`Notes: ${exerciseItem.notes}`, margin + 5, yPos);
+          yPos += 6;
+        }
+      }
+
+      // Description if available
+      if (exercise.description) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        const splitDesc = doc.splitTextToSize(exercise.description, pageWidth - 2 * margin - 10);
+        doc.text(splitDesc, margin + 5, yPos);
+        yPos += splitDesc.length * 4 + 5;
+      }
+
+      yPos += 10;
+    }
+
+    // Add spacing before next day
+    yPos += 10;
+  }
+
+  // Save PDF
+  doc.save(`${data.planName}_Workout_Plan.pdf`);
+}
+
