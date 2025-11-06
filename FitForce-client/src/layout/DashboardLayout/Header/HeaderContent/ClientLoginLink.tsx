@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, Chip } from '@mui/material';
 import { Copy } from '@wandersonalwes/iconsax-react';
 import { useAppSelector } from '@/store';
 import { APP_CONFIG } from '@/lib/config';
 import { openSnackbar } from '@/api/snackbar';
 
-export default function ClientLoginLink() {
+export default function HeaderClientLoginLink() {
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
   const [clientLoginUrl, setClientLoginUrl] = useState<string>('');
 
@@ -75,59 +75,40 @@ export default function ClientLoginLink() {
   if (!clientLoginUrl) return null;
 
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        top: 64, // Below DashboardLayout header (typically 64px)
-        left: 0,
-        right: 0,
-        zIndex: 1100, // Above DashboardLayout content but below modals
-        bgcolor: 'transparent',
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        px: 2,
-        py: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: 'none'
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography
-          variant="body2"
-          component="a"
-          href={clientLoginUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{
-            fontFamily: 'monospace',
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 2 }}>
+      <Typography
+        variant="body2"
+        component="a"
+        href={clientLoginUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        sx={{
+          fontFamily: 'monospace',
+          color: 'text.secondary',
+          fontSize: '0.75rem',
+          textDecoration: 'none',
+          '&:hover': {
             color: 'primary.main',
-            fontSize: '0.875rem',
-            wordBreak: 'break-all',
-            textDecoration: 'none',
+            textDecoration: 'underline'
+          }
+        }}
+      >
+        {clientLoginUrl.replace(/^https?:\/\//, '')}
+      </Typography>
+      <Tooltip title="Copy link">
+        <IconButton
+          size="small"
+          onClick={handleCopy}
+          sx={{
+            p: 0.5,
             '&:hover': {
-              textDecoration: 'underline'
+              bgcolor: 'action.hover'
             }
           }}
         >
-          {clientLoginUrl}
-        </Typography>
-        <Tooltip title="Copy link">
-          <IconButton
-            size="small"
-            onClick={handleCopy}
-            sx={{
-              flexShrink: 0,
-              '&:hover': {
-                bgcolor: 'action.hover'
-              }
-            }}
-          >
-            <Copy size={18} />
-          </IconButton>
-        </Tooltip>
-      </Box>
+          <Copy size={14} />
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 }

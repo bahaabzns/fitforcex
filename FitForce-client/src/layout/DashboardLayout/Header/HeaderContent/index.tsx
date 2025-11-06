@@ -14,6 +14,8 @@ import Profile from './Profile';
 import WorkspaceNavigator from './WorkspaceNavigator';
 import ThemeToggle from './ThemeToggle';
 import ClientSidebarMobileToggle from '@/components/ClientSidebarMobileToggle';
+import ClientLoginLink from './ClientLoginLink';
+import SubscriptionDays from './SubscriptionDays';
 
 import { MenuOrientation } from 'config';
 import useConfig from 'hooks/useConfig';
@@ -37,7 +39,9 @@ export default function HeaderContent() {
       {menuOrientation === MenuOrientation.HORIZONTAL && !downLG && <DrawerHeader open={true} />}
       {!downLG && !isClientRoute && <WorkspaceNavigator />}
       {downLG && <ClientSidebarMobileToggle />}
+      {!downLG && <ClientLoginLink />}
       <Box sx={{ flexGrow: 1 }} />
+      {!downLG && <SubscriptionDays />}
       {!downLG && <ThemeToggle />}
       {!downLG && localization}
 
