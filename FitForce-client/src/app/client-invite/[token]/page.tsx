@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/utils/axios';
-import { useMetaPixel } from '@/hooks/useMetaPixel';
+// Meta Pixel removed
 
 // MUI
 import Box from '@mui/material/Box';
@@ -37,7 +37,7 @@ type FlowState = 'loading' | 'needs-signup' | 'ready' | 'accepting' | 'success' 
 export default function ClientInvitationPage() {
   const params = useParams();
   const router = useRouter();
-  const { trackLead } = useMetaPixel();
+  
   const token = params.token as string;
   
   const [flowState, setFlowState] = useState<FlowState>('loading');
@@ -127,8 +127,7 @@ export default function ClientInvitationPage() {
 
       setFlowState('success');
       
-      // Track Lead event on successful client registration
-      trackLead(undefined, 'EGP');
+      // No pixel tracking
       
       // Redirect to client dashboard
       setTimeout(() => {

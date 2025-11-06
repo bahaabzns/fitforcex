@@ -2,15 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button, Box, Typography, CircularProgress } from '@mui/material';
-import { DocumentUpload, CloseCircle, Image as ImageIcon } from '@wandersonalwes/iconsax-react';
+import { DocumentUpload, CloseCircle, Image as ImageIcon, Play } from '@wandersonalwes/iconsax-react';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
 
 interface FileUploadProps {
   onUploadComplete: (imageUrl: string) => void;
   currentImageUrl?: string;
-  workspaceId: string;
-  uploadType: 'branding' | 'landing';
+  workspaceId?: string; // Optional for tutorial-videos
+  uploadType: 'branding' | 'landing' | 'tutorial-videos';
   accept?: string;
   maxSize?: number; // in MB
   className?: string;
@@ -81,7 +81,9 @@ export default function FileUpload({
       // Create FormData
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('workspaceId', workspaceId);
+      if (workspaceId) {
+        formData.append('workspaceId', workspaceId);
+      }
 
       // Upload file
       const response = await api.post(`/api/upload/${uploadType}`, formData, {
@@ -96,7 +98,7 @@ export default function FileUpload({
         onUploadComplete(imageUrl);
         openSnackbar({
           open: true,
-          message: 'Image uploaded successfully!',
+          message: uploadType === 'tutorial-videos' ? 'Video uploaded successfully!' : 'Image uploaded successfully!',
           variant: 'alert',
           alert: { color: 'success' }
         });
@@ -107,7 +109,7 @@ export default function FileUpload({
       console.error('Upload error:', error);
       openSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Failed to upload image',
+        message: error.response?.data?.message || `Failed to upload ${uploadType === 'tutorial-videos' ? 'video' : 'image'}`,
         variant: 'alert',
         alert: { color: 'error' }
       });
@@ -239,12 +241,18 @@ export default function FileUpload({
             <CircularProgress size={32} />
           ) : (
             <>
-              <ImageIcon size={32} style={{ color: '#666', marginBottom: 8 }} />
+              {uploadType === 'tutorial-videos' ? (
+                <Play size={32} style={{ color: '#666', marginBottom: 8 }} />
+              ) : (
+                <ImageIcon size={32} style={{ color: '#666', marginBottom: 8 }} />
+              )}
               <Typography variant="body2" color="text.secondary">
-                Click to upload image
+                {uploadType === 'tutorial-videos' ? 'Click to upload video' : 'Click to upload image'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                PNG, JPG, or SVG (max {maxSize}MB)
+                {uploadType === 'tutorial-videos' 
+                  ? `MP4, WebM, or MOV (max ${maxSize}MB)`
+                  : `PNG, JPG, or SVG (max ${maxSize}MB)`}
               </Typography>
             </>
           )}

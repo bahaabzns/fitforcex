@@ -27,6 +27,7 @@ import { setWorkspace, clearWorkspace } from '@/store/slices/workspaceSlice';
 import { APP_CONFIG } from '@/lib/config';
 import MessengerBadgeSync from './MessengerBadgeSync';
 import QueueBadgeSync from './QueueBadgeSync';
+import TutorialVideoHelper from '@/components/TutorialVideoHelper';
 import { usePathname } from 'next/navigation';
 
 // ==============================|| MAIN LAYOUT ||============================== //
@@ -159,6 +160,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <Header />
       <MessengerBadgeSync />
       <QueueBadgeSync />
+      <TutorialVideoHelper />
       {!isHorizontal ? <Drawer /> : <HorizontalBar />}
       <ClientSidebarDrawer />
       <ClientSidebarMobileDrawer />

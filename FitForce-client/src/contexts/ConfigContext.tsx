@@ -47,7 +47,12 @@ function ConfigProvider({ children }: ConfigProviderProps) {
 
   const onChangeLocalization = useCallback(
     (lang: I18n) => {
-      setConfig((prev: DefaultConfigProps) => ({ ...prev, i18n: lang }));
+      setConfig((prev: DefaultConfigProps) => ({
+        ...prev,
+        i18n: lang,
+        // keep direction in sync with language so RTL applies immediately
+        themeDirection: lang === 'ar' ? ThemeDirection.RTL : ThemeDirection.LTR
+      }));
     },
     [setConfig]
   );

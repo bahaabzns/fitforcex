@@ -107,6 +107,13 @@ export default function AdminHome() {
       chip: 'Content'
     },
     {
+      href: '/admin/tutorial-videos',
+      title: 'Tutorial Videos',
+      desc: 'Manage tutorial videos for dashboard pages.',
+      icon: <AutoAwesome color="primary" />,
+      chip: 'Content'
+    },
+    {
       href: '/admin/analytics',
       title: 'Payment Analytics',
       desc: 'Revenue, subscriptions, and package performance.',

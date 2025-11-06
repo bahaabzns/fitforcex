@@ -10,9 +10,9 @@ import { Box, Card, Stack, TextField, Typography, Button as MuiButton } from '@m
 // project-imports
 import api from '@/utils/axios';
 import useConfig from '@/hooks/useConfig';
-import { useMetaPixel } from '@/hooks/useMetaPixel';
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
+import { track } from '@/lib/pixel';
 
 // ================================|| REGISTER ||================================ //
 
@@ -21,7 +21,6 @@ const translations: Record<string, Record<string, string>> = { ar, en };
 export default function RegisterPage() {
   const router = useRouter();
   const { i18n } = useConfig();
-  const { trackCompleteRegistration } = useMetaPixel();
   const currentLang = i18n || 'en';
   const t = (key: string): string => translations[currentLang]?.[key] || translations['en'][key] || key;
 
@@ -48,16 +47,15 @@ export default function RegisterPage() {
         email,
         password
       });
-      
-      // Track registration completion event
-      trackCompleteRegistration(true);
-      
+
+      // Client-only CompleteRegistration event (no PII)
+      const eventId = `cr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      track('CompleteRegistration', { method: 'email', event_id: eventId });
+
       router.replace('/dashboard');
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Registration failed';
       setError(msg);
-      // Track failed registration
-      trackCompleteRegistration(false);
     } finally {
       setLoading(false);
     }

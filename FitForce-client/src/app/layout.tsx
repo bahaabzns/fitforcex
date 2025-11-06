@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import './globals.css';
 import ClientLayout from './ClientLayout';
-import PixelTracker from './PixelTracker';
+import PixelProvider from './PixelProvider';
 
 export const metadata: Metadata = {
   title: 'FitForce',
@@ -17,12 +17,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        {/* Meta Pixel is initialized via useMetaPixel hook in ClientLayout */}
-      </head>
+      <head></head>
       <body>
-        <PixelTracker />
-        <ClientLayout>{children}</ClientLayout>
+        <PixelProvider>
+          <ClientLayout>{children}</ClientLayout>
+        </PixelProvider>
       </body>
     </html>
   );
