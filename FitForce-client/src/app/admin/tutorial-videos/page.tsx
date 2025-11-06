@@ -54,6 +54,10 @@ interface TutorialVideo {
 const PAGE_OPTIONS = [
   { value: 'dashboard', label: 'Dashboard / Overview', order: 0 },
   { value: 'clients', label: 'Clients', order: 1 },
+  { value: 'client-overview', label: 'Client - Overview', order: 12 },
+  { value: 'client-nutrition', label: 'Client - Nutrition', order: 13 },
+  { value: 'client-workout', label: 'Client - Workout', order: 14 },
+  { value: 'client-subscription', label: 'Client - Subscription', order: 15 },
   { value: 'finance', label: 'Finance', order: 2 },
   { value: 'forms', label: 'Forms', order: 3 },
   { value: 'queue', label: 'Queue', order: 4 },

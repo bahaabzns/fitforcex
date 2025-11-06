@@ -25,7 +25,7 @@ type ThemeCustomizationProps = {
 // ==============================|| DEFAULT THEME - MAIN  ||============================== //
 
 export default function ThemeCustomization({ children }: ThemeCustomizationProps) {
-  const { themeDirection, mode, presetColor, fontFamily, themeContrast } = useConfig();
+  const { themeDirection, mode, presetColor, fontFamily, themeContrast, i18n } = useConfig();
   let themeMode: any = mode;
   if (themeMode === ThemeMode.AUTO) {
     const autoMode = getWindowScheme();
@@ -39,8 +39,8 @@ export default function ThemeCustomization({ children }: ThemeCustomizationProps
   const theme: Theme = useMemo<Theme>(() => Palette(themeMode, presetColor, themeContrast), [themeMode, presetColor, themeContrast]);
 
   const themeTypography: TypographyVariantsOptions = useMemo<TypographyVariantsOptions>(
-    () => Typography(themeMode, fontFamily, theme),
-    [themeMode, fontFamily, theme]
+    () => Typography(themeMode, fontFamily, theme, i18n, themeDirection),
+    [themeMode, fontFamily, theme, i18n, themeDirection]
   );
   const themeCustomShadows: CustomShadowProps = useMemo<CustomShadowProps>(() => CustomShadows(theme), [theme]);
 

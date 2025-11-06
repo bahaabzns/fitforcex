@@ -202,7 +202,7 @@ export default function ClientWorkoutPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loadPlanDialogOpen, setLoadPlanDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'builder' | 'logs'>('builder');
-  const [plansTab, setPlansTab] = useState(0); // 0: Plans, 1: Forms, 2: Tools, 3: Chat
+  const [plansTab, setPlansTab] = useState(0); // 0: Plans, 1: Forms, 2: Tools, 3: Chat, 4: Logs
   const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null);
   // CaDay catalog and UI
   const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string; urls?: string[] }>>([]);
@@ -238,7 +238,7 @@ export default function ClientWorkoutPage() {
   );
   
   // Cardio tab state
-  const [cardioTab, setCardioTab] = useState(0); // 0: Days, 1: Cardio
+  const [cardioTab, setCardioTab] = useState(0); // 0: Days only
   const [cardioData, setCardioData] = useState({
     yearsOld: 0,
     heartRateMax: 0,
@@ -284,9 +284,9 @@ export default function ClientWorkoutPage() {
     setWorkoutLogDetailsOpen(true);
   };
 
-  // Load workout logs for this client (disabled for now)
+  // Load workout logs for this client
   const { data: logsData, isLoading: logsLoading, mutate: refreshLogs } = useSWR(
-    null, // Disabled
+    plansTab === 4 ? `client-workout-logs-${clientId}` : null,
     async () => {
       const params = new URLSearchParams();
       params.append('clientId', clientId);
@@ -1310,6 +1310,7 @@ export default function ClientWorkoutPage() {
                     <Tab key="forms-icon" label="" icon={<DocumentText size={20} />} iconPosition="top" />,
                     <Tab key="tools-icon" label="" icon={<Setting2 size={20} />} iconPosition="top" />,
                     <Tab key="chat-icon" label="" icon={<Messages2 size={20} />} iconPosition="top" />,
+                    <Tab key="logs-icon" label="" icon={<DocumentText size={20} />} iconPosition="top" />,
                   ]}
                 </Tabs>
               </Box>
@@ -1663,6 +1664,73 @@ export default function ClientWorkoutPage() {
                   )}
                 </Box>
               </Box>
+            ) : plansTab === 4 ? (
+              // Logs tab content
+              <Box sx={{ py: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 2 }}>Workout Logs</Typography>
+                {logsLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <>
+                    {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
+                      <Stack spacing={1.5}>
+                        {logsData!.workoutLogs.map((log: any) => (
+                          <Card 
+                            key={log.id} 
+                            variant="outlined" 
+                            sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} 
+                            onClick={() => handleViewWorkoutLogDetails(log)}
+                          >
+                            <CardContent>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                                <Box>
+                                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                    {log.workoutPlan?.title || 'Workout'}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Day {Number(log.dayIndex) + 1}
+                                  </Typography>
+                                </Box>
+                                <Chip 
+                                  label={log.completed ? 'Completed' : 'In Progress'} 
+                                  color={log.completed ? 'success' : 'warning'} 
+                                  size="small" 
+                                />
+                              </Stack>
+                              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ color: 'text.secondary' }}>
+                                <Typography variant="body2">
+                                  {new Date(log.date).toLocaleDateString()}
+                                </Typography>
+                                {log.startTime && log.endTime && (
+                                  <Typography variant="body2">
+                                    {log.startTime} - {log.endTime}
+                                  </Typography>
+                                )}
+                                <Typography variant="body2">
+                                  {Array.isArray(log.exercises) ? `${log.exercises.length} exercises` : '-'}
+                                </Typography>
+                              </Stack>
+                              {log.notes && (
+                                <Typography variant="body2" sx={{ mt: 1 }}>
+                                  {log.notes}
+                                </Typography>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 8 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No workout logs found for this client
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
+                )}
+              </Box>
             ) : (
               <Box sx={{ py: 3 }}>
                 <Typography variant="body2" color="text.secondary">
@@ -1677,9 +1745,10 @@ export default function ClientWorkoutPage() {
             <Card key="days" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardContent sx={{ pb: 0 }}>
               {/* Row 1: Plan name with close */}
+              {localWorkoutPlan && (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {editingPlanTitleId === localWorkoutPlan?.id ? (
+                  {localWorkoutPlan && editingPlanTitleId === localWorkoutPlan?.id ? (
                     <TextField
                       size="small"
                       value={editingPlanTitleValue}
@@ -1727,15 +1796,14 @@ export default function ClientWorkoutPage() {
                   <IconButton size="medium" onClick={clearLocalPlan} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
                 </Box>
               </Box>
+              )}
 
               {/* Tabs */}
-              {localWorkoutPlan && (
-                <Box>
-                  <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="fullWidth">
-                    <Tab label="Days" />
-                  </Tabs>
-                </Box>
-              )}
+              <Box>
+                <Tabs value={cardioTab} onChange={(_, v) => setCardioTab(v)} variant="fullWidth">
+                  <Tab label="Days" />
+                </Tabs>
+              </Box>
             </CardContent>
             <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', p: 0, '&:last-child': { pb: 0 } }}>
               {localWorkoutPlan ? (
@@ -2128,6 +2196,7 @@ export default function ClientWorkoutPage() {
                         <Tab label="Forms" />
                         <Tab label="Tools" />
                         <Tab label="Chat" />
+                        <Tab label="Logs" />
                   </Tabs>
                 </Box>
               }
@@ -2465,6 +2534,73 @@ export default function ClientWorkoutPage() {
                     )}
                   </Box>
                 </Box>
+              ) : plansTab === 4 ? (
+                // Logs tab content
+                <Box sx={{ py: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2 }}>Workout Logs</Typography>
+                  {logsLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : (
+                    <>
+                      {Array.isArray(logsData?.workoutLogs) && logsData!.workoutLogs.length > 0 ? (
+                        <Stack spacing={1.5}>
+                          {logsData!.workoutLogs.map((log: any) => (
+                            <Card 
+                              key={log.id} 
+                              variant="outlined" 
+                              sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} 
+                              onClick={() => handleViewWorkoutLogDetails(log)}
+                            >
+                              <CardContent>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                                  <Box>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                      {log.workoutPlan?.title || 'Workout'}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Day {Number(log.dayIndex) + 1}
+                                    </Typography>
+                                  </Box>
+                                  <Chip 
+                                    label={log.completed ? 'Completed' : 'In Progress'} 
+                                    color={log.completed ? 'success' : 'warning'} 
+                                    size="small" 
+                                  />
+                                </Stack>
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ color: 'text.secondary' }}>
+                                  <Typography variant="body2">
+                                    {new Date(log.date).toLocaleDateString()}
+                                  </Typography>
+                                  {log.startTime && log.endTime && (
+                                    <Typography variant="body2">
+                                      {log.startTime} - {log.endTime}
+                                    </Typography>
+                                  )}
+                                  <Typography variant="body2">
+                                    {Array.isArray(log.exercises) ? `${log.exercises.length} exercises` : '-'}
+                                  </Typography>
+                                </Stack>
+                                {log.notes && (
+                                  <Typography variant="body2" sx={{ mt: 1 }}>
+                                    {log.notes}
+                                  </Typography>
+                                )}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Box sx={{ textAlign: 'center', py: 8 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No workout logs found for this client
+                          </Typography>
+                        </Box>
+                      )}
+                    </>
+                  )}
+                </Box>
               ) : (
                 <Box sx={{ py: 3 }}>
                   <Typography variant="body2" color="text.secondary">
@@ -2480,56 +2616,58 @@ export default function ClientWorkoutPage() {
             <Card sx={{ flex: '1 1 0', minWidth: 0, height: '75vh', display: 'flex', flexDirection: 'column' }}>
               <CardContent sx={{ pb: 0 }}>
                 {/* Row 1: Plan name with close */}
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {editingPlanTitleId === localWorkoutPlan?.id ? (
-                      <TextField
+                {localWorkoutPlan && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {editingPlanTitleId === localWorkoutPlan?.id ? (
+                        <TextField
+                          size="small"
+                          value={editingPlanTitleValue}
+                          autoFocus
+                          onChange={(e) => setEditingPlanTitleValue(e.target.value)}
+                          onBlur={() => {
+                            if (localWorkoutPlan) {
+                              setLocalWorkoutPlan((prev) => prev ? { ...prev, title: editingPlanTitleValue || prev.title } : null);
+                              setIsPlanDirty(true);
+                            }
+                            setEditingPlanTitleId(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') setEditingPlanTitleId(null);
+                          }}
+                        />
+                      ) : (
+                        <Typography 
+                          variant="h6" 
+                          onClick={() => {
+                            if (localWorkoutPlan) {
+                              const t = localWorkoutPlan.title || '';
+                              setEditingPlanTitleId(localWorkoutPlan.id);
+                              setEditingPlanTitleValue(t);
+                            }
+                          }} 
+                          sx={{ cursor: 'text' }}
+                        >
+                          {localWorkoutPlan?.title || 'Plan'}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {cardioTab === 0 && (
+                      <Button
+                        variant="contained"
                         size="small"
-                        value={editingPlanTitleValue}
-                        autoFocus
-                        onChange={(e) => setEditingPlanTitleValue(e.target.value)}
-                        onBlur={() => {
-                          if (localWorkoutPlan) {
-                            setLocalWorkoutPlan((prev) => prev ? { ...prev, title: editingPlanTitleValue || prev.title } : null);
-                            setIsPlanDirty(true);
-                          }
-                          setEditingPlanTitleId(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                          if (e.key === 'Escape') setEditingPlanTitleId(null);
-                        }}
-                      />
-                    ) : (
-                      <Typography 
-                        variant="h6" 
-                        onClick={() => {
-                          if (localWorkoutPlan) {
-                            const t = localWorkoutPlan.title || '';
-                            setEditingPlanTitleId(localWorkoutPlan.id);
-                            setEditingPlanTitleValue(t);
-                          }
-                        }} 
-                        sx={{ cursor: 'text' }}
+                        startIcon={<Add size={16} />}
+                        onClick={() => setIsCreateDayDialogOpen(true)}
                       >
-                        {localWorkoutPlan?.title || 'Plan'}
-                      </Typography>
-                    )}
+                        Add Day
+                      </Button>
+                      )}
+                      <IconButton size="medium" onClick={clearLocalPlan} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
+                    </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {cardioTab === 0 && (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      startIcon={<Add size={16} />}
-                      onClick={() => setIsCreateDayDialogOpen(true)}
-                    >
-                      Add Day
-                    </Button>
-                    )}
-                    <IconButton size="medium" onClick={clearLocalPlan} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
-                  </Box>
-                </Box>
+                )}
 
                 {/* Tabs */}
                 <Box>
@@ -2539,7 +2677,7 @@ export default function ClientWorkoutPage() {
                 </Box>
               </CardContent>
               <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', p: 0, '&:last-child': { pb: 0 } }}>
-                {cardioTab === 0 ? (
+                {cardioTab === 0 && localWorkoutPlan ? (
                   // Days tab content
                   localWorkoutPlan.days.length > 0 ? (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDayDragEnd}>
@@ -2653,79 +2791,8 @@ export default function ClientWorkoutPage() {
                       </Typography>
                     </Box>
                   )
-                ) : (
-                  // Cardio tab content
-                  <Box sx={{ py: 2 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Cardio Settings</Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <TextField
-                        fullWidth
-                        label="Years Old"
-                        type="number"
-                        value={cardioData.yearsOld}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, yearsOld: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Heart Rate Max"
-                        type="number"
-                        value={cardioData.heartRateMax}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, heartRateMax: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Heart Rate Target"
-                        type="number"
-                        value={cardioData.heartRateTarget}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, heartRateTarget: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Start Cardio"
-                        type="number"
-                        value={cardioData.startCardio}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, startCardio: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Start Hit"
-                        type="number"
-                        value={cardioData.startHit}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          setCardioData(prev => ({ ...prev, startHit: value }));
-                          setIsPlanDirty(true);
-                        }}
-                        size="small"
-                        inputProps={{ min: 0 }}
-                      />
-                    </Box>
-                  </Box>
-                )}
+                ) : null
+              }
               </CardContent>
             </Card>
           )}

@@ -67,9 +67,21 @@ function getPageIdFromPath(pathname: string): string {
     if (parts[2] === 'client-packages') return 'workspace-client-packages';
   }
 
-  // Handle client detail pages - they should still show clients tutorial
-  if (parts[1] === 'clients' && parts.length >= 3) {
-    return 'clients';
+  // Handle client detail pages
+  if (parts[1] === 'clients' && parts.length >= 4) {
+    const clientPage = parts[3]; // e.g., 'overview', 'nutrition', 'workout', 'subscription'
+    const clientPageMap: Record<string, string> = {
+      'overview': 'client-overview',
+      'nutrition': 'client-nutrition',
+      'workout': 'client-workout',
+      'subscription': 'client-subscription',
+    };
+    return clientPageMap[clientPage] || 'clients';
+  }
+
+  // Handle client detail pages - fallback to clients if just /dashboard/clients/[id]
+  if (parts[1] === 'clients' && parts.length === 3) {
+    return 'client-overview'; // Default to overview when just viewing client
   }
 
   // Direct page mapping
@@ -103,7 +115,6 @@ export default function TutorialVideoHelper() {
   const [currentPageId, setCurrentPageId] = useState<string>('');
 
   useEffect(() => {
-    console.log('🎥 Page changed - pathname:', pathname, 'detected pageId:', pageId);
     // Reset when page changes
     setOpen(false);
     setMinimized(false);
@@ -119,22 +130,17 @@ export default function TutorialVideoHelper() {
       setLoading(true);
       setError(null);
       const lang = (i18n || 'en');
-      console.log('🎥 Fetching tutorial videos for pageId:', pageId, 'lang:', lang);
       const { data: responseData } = await api.get(`/api/tutorial-videos/${pageId}`, { params: { lang } });
-      console.log('🎥 Tutorial videos response:', responseData);
       setData(responseData);
       
       // Set current page video as selected by default
       if (responseData.currentPageVideo) {
-        console.log('🎥 Setting current page video:', responseData.currentPageVideo.pageId);
         setSelectedVideo(responseData.currentPageVideo);
       } else if (responseData.allVideos && responseData.allVideos.length > 0) {
         // If no video for current page, select first from list
-        console.log('🎥 No video for current page, selecting first from list');
         setSelectedVideo(responseData.allVideos[0]);
       }
     } catch (e: any) {
-      console.error('🎥 Error fetching tutorial videos:', e);
       setError(e?.response?.data?.error || 'Failed to load tutorial videos');
     } finally {
       setLoading(false);
@@ -280,15 +286,29 @@ export default function TutorialVideoHelper() {
               boxShadow: 8,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="body2" fontWeight={700} noWrap sx={{ maxWidth: 240 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+              <Typography variant="body2" fontWeight={700} noWrap sx={{ maxWidth: 200, flex: 1 }}>
                 {selectedVideo?.title || 'Tutorial'}
               </Typography>
-              <Box sx={{ flexGrow: 1 }} />
-              <IconButton size="small" onClick={handleOpen} title="Open videos sidebar">
+              <IconButton 
+                size="small" 
+                onClick={handleOpen} 
+                title="Open videos sidebar"
+                sx={{ 
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
                 <VideoLibrary fontSize="small" />
               </IconButton>
-              <IconButton size="small" onClick={handleClose} title="Close">
+              <IconButton 
+                size="small" 
+                onClick={handleClose} 
+                title="Close"
+                aria-label="Close tutorial video"
+                sx={{ 
+                  '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' }
+                }}
+              >
                 <Close fontSize="small" />
               </IconButton>
             </Box>
@@ -332,16 +352,32 @@ export default function TutorialVideoHelper() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              bgcolor: 'background.paper',
             }}
           >
             <Typography variant="h6" fontWeight={600}>
               Tutorial Videos
             </Typography>
-            <Box>
-              <IconButton onClick={handleMinimize} size="small" title="Minimize">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton 
+                onClick={handleMinimize} 
+                size="medium" 
+                title="Minimize"
+                sx={{ 
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
                 <Minimize />
               </IconButton>
-              <IconButton onClick={handleClose} size="small">
+              <IconButton 
+                onClick={handleClose} 
+                size="medium"
+                title="Close"
+                aria-label="Close tutorial videos"
+                sx={{ 
+                  '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' }
+                }}
+              >
                 <Close />
               </IconButton>
             </Box>

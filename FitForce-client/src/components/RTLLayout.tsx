@@ -18,11 +18,17 @@ interface Props {
 }
 
 export default function RTLLayout({ children }: Props) {
-  const { themeDirection } = useConfig();
+  const { themeDirection, i18n } = useConfig();
 
   useEffect(() => {
     document.dir = themeDirection;
-  }, [themeDirection]);
+    // Set lang attribute for Arabic
+    if (i18n === 'ar') {
+      document.documentElement.lang = 'ar';
+    } else {
+      document.documentElement.lang = 'en';
+    }
+  }, [themeDirection, i18n]);
 
   const cacheRtl = createCache({
     key: themeDirection === ThemeDirection.RTL ? 'rtl' : 'css',

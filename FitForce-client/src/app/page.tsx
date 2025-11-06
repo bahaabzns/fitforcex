@@ -307,10 +307,10 @@ export default function Landing() {
       )}
       <Hero />
       {/* Landing video section with mini-player when scrolled away */}
-      <Box sx={{ py: { xs: 4, md: 6 } }} ref={videoSectionRef}>
-        <Container>
+      <Box sx={{ py: { xs: 4, md: 6 }, display: 'flex', alignItems: 'stretch' }} ref={videoSectionRef}>
+        <Container sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
           {/* Wrapper keeps layout height stable when video container becomes fixed */}
-          <Box sx={{ height: (hasStarted && !inView && videoHeight) ? `${videoHeight}px` : 'auto' }}>
+          <Box sx={{ height: (hasStarted && !inView && videoHeight) ? `${videoHeight}px` : 'auto', display: 'flex', flexDirection: 'column' }}>
             <Box
             sx={{
                 position: (hasStarted && !inView) ? 'fixed' : 'relative',
@@ -320,7 +320,9 @@ export default function Landing() {
                 right: (hasStarted && !inView) ? 16 : 'auto',
                 bottom: (hasStarted && !inView) ? 16 : 'auto',
                 zIndex: (hasStarted && !inView) ? 1300 : 'auto',
-                width: (hasStarted && !inView) ? { xs: 220, sm: 280, md: 320 } as any : 'auto'
+                width: (hasStarted && !inView) ? { xs: 220, sm: 280, md: 320 } as any : '100%',
+                display: 'flex',
+                flexDirection: 'column'
               }}
               ref={videoContainerRef}
               onMouseEnter={() => setIsHoveringVideo(true)}
@@ -333,7 +335,7 @@ export default function Landing() {
                 playsInline
                 controls={false}
                 controlsList="nodownload noplaybackrate noremoteplayback"
-                style={{ width: '100%', height: 'auto', display: 'block' }}
+                style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
                 key={landingVideoUrl || 'fallback-video'}
                 src={landingVideoUrl || 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/global/landing/1762436014326-vid.mp4'}
               />

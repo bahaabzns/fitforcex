@@ -5,14 +5,17 @@ import { Theme, TypographyVariantsOptions } from '@mui/material/styles';
 import { ThemeMode } from 'config';
 
 // types
-import { FontFamily } from 'types/config';
+import { FontFamily, I18n } from 'types/config';
 
 // ==============================|| DEFAULT THEME - TYPOGRAPHY  ||============================== //
 
-export default function Typography(mode: ThemeMode, fontFamily: FontFamily, theme: Theme): TypographyVariantsOptions {
+export default function Typography(mode: ThemeMode, fontFamily: FontFamily, theme: Theme, i18n?: I18n, direction?: 'ltr' | 'rtl'): TypographyVariantsOptions {
+  // Use Alexandria font for Arabic text
+  const finalFontFamily = (i18n === 'ar' || direction === 'rtl') ? "'Alexandria', " + fontFamily : fontFamily;
+  
   return {
     htmlFontSize: 16,
-    fontFamily,
+    fontFamily: finalFontFamily,
     fontWeightLight: 300,
     fontWeightRegular: 400,
     fontWeightMedium: 500,

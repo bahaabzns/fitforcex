@@ -97,10 +97,8 @@ export default function LoadPlanDialog({
       
       const response = await api.get(endpoint);
       
-      // Filter out plans for the current client (no need to copy from themselves)
-      const workspacePlans = (response.data.plans || []).filter(
-        (plan: any) => plan.clientId !== currentClientId
-      );
+      // Show all plans (including plans for the current client)
+      const workspacePlans = response.data.plans || [];
       
       setPlans(workspacePlans);
       setFilteredPlans(workspacePlans);
