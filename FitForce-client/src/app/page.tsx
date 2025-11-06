@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
 
 // project-imports
 import Hero from 'sections/landing/Hero';
@@ -15,12 +17,10 @@ import WhyFitForceWins from 'sections/landing/WhyFitForceWins';
 import PricingPlans from 'sections/landing/PricingPlans';
 import FinalCTA from 'sections/landing/FinalCTA';
 import VideoShowcase from 'sections/landing/VideoShowcase';
-import Subscribe from 'sections/landing/Subscribe';
 import SimpleLayout from 'layout/SimpleLayout';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense, useRef } from 'react';
 import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
 import Replay10Icon from '@mui/icons-material/Replay10';
 import Forward10Icon from '@mui/icons-material/Forward10';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -453,17 +453,28 @@ export default function Landing() {
       {/* Support Section override */}
       <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default' }}>
         <Container>
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
+          <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h2" sx={{ fontWeight: 800, mb: 2 }}>
               {support?.title || 'Need Support?'}
             </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
+            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto', mb: 4 }}>
               {support?.subtitle || "Have questions? Our expert support team is ready to help. Submit a ticket, and we'll assist you promptly."}
             </Typography>
+            <Stack direction="row" justifyContent="center">
+              <Button
+                variant="contained"
+                color="primary"
+                size="large"
+                href="https://wa.me/201006206308"
+                target="_blank"
+                sx={{ px: 4 }}
+              >
+                Get Support
+              </Button>
+            </Stack>
           </Box>
         </Container>
       </Box>
-      <Subscribe />
       <Divider sx={{ borderColor: 'secondary.light' }} />
       </Box>
     </SimpleLayout>
