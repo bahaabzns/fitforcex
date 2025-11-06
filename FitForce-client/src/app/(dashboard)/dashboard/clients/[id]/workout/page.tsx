@@ -1301,6 +1301,9 @@ export default function ClientWorkoutPage() {
             individualSets: (ex as any).individualSets
           }))
         }))
+      }, (message) => {
+        // Progress callback - could show in snackbar or console
+        console.log('PDF Export:', message);
       });
       openSnackbar({
         open: true,

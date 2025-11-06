@@ -69,38 +69,142 @@ interface WorkoutPlanData {
   }>;
 }
 
-// Helper to add image to PDF (with error handling)
+// Helper to convert image to canvas (handles GIFs and other formats)
+function imageToCanvas(img: HTMLImageElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.drawImage(img, 0, 0);
+  }
+  return canvas;
+}
+
+// Helper to add image to PDF (with timeout and error handling)
 async function addImageToPdf(
   doc: jsPDF,
   imageUrl: string,
   x: number,
   y: number,
   width: number,
-  height: number
+  height: number,
+  timeout: number = 3000
 ): Promise<void> {
   return new Promise((resolve) => {
+    const timeoutId = setTimeout(() => {
+      console.warn(`Image load timeout: ${imageUrl}`);
+      resolve(); // Continue without image
+    }, timeout);
+
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      
       img.onload = () => {
+        clearTimeout(timeoutId);
         try {
-          doc.addImage(img, 'PNG', x, y, width, height);
+          // Convert to canvas first (handles GIFs better)
+          const canvas = imageToCanvas(img);
+          
+          // Calculate aspect ratio to maintain proportions
+          const aspectRatio = img.width / img.height;
+          let pdfWidth = width;
+          let pdfHeight = width / aspectRatio;
+          
+          if (pdfHeight > height) {
+            pdfHeight = height;
+            pdfWidth = height * aspectRatio;
+          }
+          
+          // Convert canvas to data URL and add to PDF
+          const imgData = canvas.toDataURL('image/png', 0.8); // Use PNG format, 80% quality
+          doc.addImage(imgData, 'PNG', x, y, pdfWidth, pdfHeight);
           resolve();
         } catch (e) {
           console.warn('Failed to add image to PDF:', e);
           resolve();
         }
       };
+      
       img.onerror = () => {
+        clearTimeout(timeoutId);
         console.warn('Failed to load image:', imageUrl);
         resolve();
       };
+      
       img.src = imageUrl;
     } catch (e) {
+      clearTimeout(timeoutId);
       console.warn('Error adding image:', e);
       resolve();
     }
   });
+}
+
+// Preload images in parallel with timeout and convert to canvas
+async function preloadImages(imageUrls: string[], timeout: number = 5000): Promise<Map<string, HTMLCanvasElement>> {
+  const imageMap = new Map<string, HTMLCanvasElement>();
+  
+  if (imageUrls.length === 0) return imageMap;
+  
+  const loadPromises = imageUrls.map((url) => {
+    return new Promise<void>((resolve) => {
+      const timeoutId = setTimeout(() => {
+        console.warn(`Image preload timeout: ${url}`);
+        resolve();
+      }, timeout);
+
+      // Try loading without CORS first (most common case)
+      const tryLoad = (useCors: boolean) => {
+        const img = new Image();
+        if (useCors) {
+          img.crossOrigin = 'anonymous';
+        }
+        
+        img.onload = () => {
+          clearTimeout(timeoutId);
+          try {
+            // Convert to canvas immediately for better PDF compatibility
+            const canvas = imageToCanvas(img);
+            if (canvas.width > 0 && canvas.height > 0) {
+              imageMap.set(url, canvas);
+            } else {
+              console.warn('Canvas has zero dimensions:', url);
+            }
+          } catch (e) {
+            console.warn('Failed to convert image to canvas:', e, url);
+          }
+          resolve();
+        };
+        
+        img.onerror = () => {
+          if (!useCors) {
+            // Already tried without CORS, give up
+            console.warn('Failed to preload image:', url);
+            resolve();
+          } else {
+            // Try without CORS
+            tryLoad(false);
+          }
+        };
+        
+        img.src = url;
+      };
+      
+      // Start with CORS
+      try {
+        tryLoad(true);
+      } catch (e) {
+        clearTimeout(timeoutId);
+        console.warn('Error preloading image:', e, url);
+        resolve();
+      }
+    });
+  });
+
+  await Promise.all(loadPromises);
+  return imageMap;
 }
 
 // Helper to calculate meal totals
@@ -256,7 +360,7 @@ export async function exportNutritionPlanToPDF(data: NutritionPlanData): Promise
 
       if (meal.recipeImageUrl) {
         try {
-          await addImageToPdf(doc, meal.recipeImageUrl, margin, yPos, 60, 40);
+          await addImageToPdf(doc, meal.recipeImageUrl, margin, yPos, 60, 40, 2000);
           yPos += 45;
         } catch (e) {
           console.warn('Failed to add recipe image:', e);
@@ -321,12 +425,32 @@ export async function exportNutritionPlanToPDF(data: NutritionPlanData): Promise
   doc.save(`${data.planName}_Nutrition_Plan.pdf`);
 }
 
-export async function exportWorkoutPlanToPDF(data: WorkoutPlanData): Promise<void> {
+export async function exportWorkoutPlanToPDF(
+  data: WorkoutPlanData,
+  onProgress?: (message: string) => void
+): Promise<void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
   let yPos = margin;
+
+  // Collect all GIF URLs first
+  const gifUrls: string[] = [];
+  data.days.forEach(day => {
+    day.exercises.forEach(ex => {
+      if (ex.exercise.gifImage) {
+        gifUrls.push(ex.exercise.gifImage);
+      }
+    });
+  });
+
+  // Preload all images in parallel (with shorter timeout for GIFs)
+  if (onProgress) onProgress(`Preloading ${gifUrls.length} exercise images...`);
+  console.log(`Preloading ${gifUrls.length} exercise images...`);
+  const imageMap = await preloadImages(gifUrls, 3000); // 3 second timeout - skip slow images
+  console.log(`Successfully preloaded ${imageMap.size} out of ${gifUrls.length} images`);
+  if (onProgress) onProgress(`Loaded ${imageMap.size}/${gifUrls.length} images. Generating PDF...`);
 
   // Cover Page
   doc.setFontSize(24);
@@ -387,13 +511,44 @@ export async function exportWorkoutPlanToPDF(data: WorkoutPlanData): Promise<voi
         yPos += 6;
       }
 
-      // Exercise GIF
+      // Exercise GIF - use preloaded image if available
       if (exercise.gifImage) {
-        try {
-          await addImageToPdf(doc, exercise.gifImage, margin, yPos, 80, 60);
-          yPos += 65;
-        } catch (e) {
-          console.warn('Failed to add exercise GIF:', e);
+        const preloadedCanvas = imageMap.get(exercise.gifImage);
+        if (preloadedCanvas && preloadedCanvas.width > 0 && preloadedCanvas.height > 0) {
+          try {
+            // Calculate aspect ratio
+            const aspectRatio = preloadedCanvas.width / preloadedCanvas.height;
+            let pdfWidth = 80;
+            let pdfHeight = 80 / aspectRatio;
+            
+            if (pdfHeight > 60) {
+              pdfHeight = 60;
+              pdfWidth = 60 * aspectRatio;
+            }
+            
+            // Convert canvas to data URL with error handling
+            let imgData: string;
+            try {
+              imgData = preloadedCanvas.toDataURL('image/png', 0.8);
+              if (imgData && imgData.length > 100) { // Ensure we have actual image data
+                doc.addImage(imgData, 'PNG', margin, yPos, pdfWidth, pdfHeight);
+                yPos += Math.max(pdfHeight, 60) + 5;
+              } else {
+                console.warn('Invalid image data for:', exercise.gifImage);
+                yPos += 5;
+              }
+            } catch (canvasError) {
+              console.warn('Failed to convert canvas to data URL:', canvasError, exercise.gifImage);
+              yPos += 5;
+            }
+          } catch (e) {
+            console.warn('Failed to add preloaded exercise GIF:', e, exercise.gifImage);
+            yPos += 5;
+          }
+        } else {
+          // Image not preloaded or invalid - skip it to save time
+          console.warn('Skipping image (not preloaded or invalid):', exercise.gifImage);
+          yPos += 5;
         }
       }
 

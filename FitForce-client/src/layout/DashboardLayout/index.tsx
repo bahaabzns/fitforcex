@@ -29,6 +29,7 @@ import MessengerBadgeSync from './MessengerBadgeSync';
 import QueueBadgeSync from './QueueBadgeSync';
 import TutorialVideoHelper from '@/components/TutorialVideoHelper';
 import { usePathname } from 'next/navigation';
+import SubscriptionBar from '@/components/SubscriptionBar';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
@@ -170,6 +171,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         p: 0,
         marginLeft: downLG ? 0 : `${ 0.5*totalSidebarWidth + extraClientMargin}px`,
         paddingLeft: downLG ? 2 : 0,
+        paddingBottom: '40px', // Space for subscription bar
         transition: theme.transitions.create(['margin-left'], {
           easing: theme.transitions.easing.sharp,
           duration: theme.transitions.duration.leavingScreen
@@ -189,6 +191,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           {children}
           <Footer />
         </Container>
+        <SubscriptionBar />
       </Box>
     </Box>
   );
