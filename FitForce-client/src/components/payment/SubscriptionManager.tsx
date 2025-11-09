@@ -32,7 +32,7 @@ import { PaymentModal } from './PaymentModal';
 import api from '@/utils/axios';
 import { PaymentComponent } from './PaymentComponent';
 import { useAppSelector } from '@/store';
-// Meta Pixel removed
+import { trackDual } from '@/lib/pixel';
 
 interface SubscriptionData {
   id: string;
@@ -90,8 +90,6 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     fetchPackages();
   }, [workspaceId, type, clientId]);
 
-  // No pixel tracking
-
   const fetchSubscription = async () => {
     try {
       const endpoint = type === 'workspace'
@@ -135,7 +133,29 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   };
 
   const handleSubscribe = (packageData: any) => {
-    // No pixel tracking
+    // Track InitiateCheckout event when user starts subscription process
+    trackDual(
+      'InitiateCheckout',
+      {
+        value: packageData.priceCents / 100,
+        currency: packageData.currency,
+        content_ids: [packageData.id],
+        content_type: 'subscription',
+        content_name: packageData.name,
+      },
+      {
+        custom_data: {
+          value: packageData.priceCents / 100,
+          currency: packageData.currency,
+          content_ids: [packageData.id],
+          content_type: 'subscription',
+          content_name: packageData.name,
+        },
+      }
+    ).catch(() => {
+      // Silently fail - tracking shouldn't block user experience
+    });
+    
     setSelectedPackage(packageData);
     setPaymentModalOpen(true);
   };
@@ -147,6 +167,34 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
 
   const handlePaymentComplete = (result: any) => {
     setPaymentIframeData(null);
+    
+    // Track Purchase event when payment completes successfully
+    if (selectedPackage && result) {
+      trackDual(
+        'Purchase',
+        {
+          value: selectedPackage.priceCents / 100,
+          currency: selectedPackage.currency,
+          content_ids: [selectedPackage.id],
+          content_type: 'subscription',
+          content_name: selectedPackage.name,
+          order_id: result.orderId || result.id,
+        },
+        {
+          custom_data: {
+            value: selectedPackage.priceCents / 100,
+            currency: selectedPackage.currency,
+            content_ids: [selectedPackage.id],
+            content_type: 'subscription',
+            content_name: selectedPackage.name,
+            order_id: result.orderId || result.id,
+          },
+        }
+      ).catch(() => {
+        // Silently fail - tracking shouldn't block user experience
+      });
+    }
+    
     fetchSubscription(); // Refresh subscription data
   };
 

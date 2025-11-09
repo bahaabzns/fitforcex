@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Card, Stack, TextField, Typography, Button as MuiButton, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import api from '@/utils/axios';
-// Meta Pixel removed
+import { trackDual } from '@/lib/pixel';
 import useConfig from '@/hooks/useConfig';
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
@@ -123,7 +123,21 @@ export default function SeedClientSignupPage() {
         try { await api.post('/api/auth/signup', { fullName, email, password }); } catch {}
       }
       
-      // No pixel tracking
+      // Track CompleteRegistration event on both client and server
+      await trackDual(
+        'CompleteRegistration',
+        { method: 'client_signup', event_id: `cs_${Date.now()}_${Math.random().toString(36).slice(2, 10)}` },
+        {
+          user_data: {
+            em: email ? [email] : undefined,
+            ph: fullPhone ? [fullPhone] : undefined,
+            fn: fullName ? [fullName.split(' ')[0]] : undefined,
+            ln: fullName ? [fullName.split(' ').slice(1).join(' ')] : undefined,
+          },
+        }
+      ).catch(() => {
+        // Silently fail - tracking shouldn't block user experience
+      });
       
       setSuccess(true);
     } catch (err) {

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/utils/axios';
-// Meta Pixel removed
+import { trackDual } from '@/lib/pixel';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -127,7 +127,21 @@ export default function ClientInvitationPage() {
 
       setFlowState('success');
       
-      // No pixel tracking
+      // Track CompleteRegistration event on both client and server
+      await trackDual(
+        'CompleteRegistration',
+        { method: 'client_invite', event_id: `ci_${Date.now()}_${Math.random().toString(36).slice(2, 10)}` },
+        {
+          user_data: {
+            em: email ? [email] : undefined,
+            ph: phoneNumber ? [phoneNumber] : undefined,
+            fn: fullName ? [fullName.split(' ')[0]] : undefined,
+            ln: fullName ? [fullName.split(' ').slice(1).join(' ')] : undefined,
+          },
+        }
+      ).catch(() => {
+        // Silently fail - tracking shouldn't block user experience
+      });
       
       // Redirect to client dashboard
       setTimeout(() => {

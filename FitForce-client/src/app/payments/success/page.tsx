@@ -5,7 +5,7 @@ import { Box, Button, Card, CardContent, Container, Stack, Typography } from '@m
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { useRouter, useSearchParams } from 'next/navigation';
-// Meta Pixel removed
+import { trackDual } from '@/lib/pixel';
 
 export default function PaymentSuccessPage() {
   const router = useRouter();
@@ -18,8 +18,34 @@ export default function PaymentSuccessPage() {
   const packageId = searchParams.get('packageId');
 
   useEffect(() => {
-    // No pixel tracking
-  }, [amount, currency, packageId]);
+    // Track Purchase event on both client and server when payment succeeds
+    if (amount && currency && orderId) {
+      const amountValue = parseFloat(amount);
+      const currencyCode = currency.toUpperCase();
+      
+      trackDual(
+        'Purchase',
+        {
+          value: amountValue,
+          currency: currencyCode,
+          content_ids: packageId ? [packageId] : undefined,
+          content_type: 'subscription',
+          order_id: orderId,
+        },
+        {
+          custom_data: {
+            value: amountValue,
+            currency: currencyCode,
+            content_ids: packageId ? [packageId] : undefined,
+            content_type: 'subscription',
+            order_id: orderId,
+          },
+        }
+      ).catch(() => {
+        // Silently fail - tracking shouldn't block user experience
+      });
+    }
+  }, [amount, currency, packageId, orderId]);
 
   const handleGoBack = () => {
     router.push('/client/subscription');

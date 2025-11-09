@@ -12,7 +12,7 @@ import api from '@/utils/axios';
 import useConfig from '@/hooks/useConfig';
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
-import { track } from '@/lib/pixel';
+import { trackDual } from '@/lib/pixel';
 import { APP_CONFIG } from '@/lib/config';
 
 // ================================|| REGISTER ||================================ //
@@ -65,9 +65,22 @@ export default function RegisterPage() {
         password
       });
 
-      // Client-only CompleteRegistration event (no PII)
+      // Track CompleteRegistration on both client and server
       const eventId = `cr_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-      track('CompleteRegistration', { method: 'email', event_id: eventId });
+      await trackDual(
+        'CompleteRegistration',
+        { method: 'email', event_id: eventId },
+        {
+          user_data: {
+            // Note: In production, emails should be hashed (SHA256) before sending
+            // For now, sending plain email - backend should hash it if needed
+            em: email ? [email] : undefined,
+            ph: phoneNumber ? [phoneNumber] : undefined,
+            fn: firstName ? [firstName] : undefined,
+            ln: lastName ? [lastName] : undefined,
+          },
+        }
+      );
 
       router.replace('/dashboard');
     } catch (err: any) {
