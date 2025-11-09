@@ -13,7 +13,9 @@ import Notification from './Notification';
 import Profile from './Profile';
 import WorkspaceNavigator from './WorkspaceNavigator';
 import ThemeToggle from './ThemeToggle';
+import FullScreen from './FullScreen';
 import ClientSidebarMobileToggle from '@/components/ClientSidebarMobileToggle';
+import ClientSidebarToggle from '@/components/ClientSidebarToggle';
 import ClientLoginLink from './ClientLoginLink';
 import SubscriptionDays from './SubscriptionDays';
 
@@ -31,6 +33,9 @@ export default function HeaderContent() {
   
   // Check if we're on a client route - don't show workspace navigator for client routes
   const isClientRoute = pathname?.startsWith('/client');
+  
+  // Check if we're on a client detail page
+  const isClientDetailPage = pathname?.match(/^\/dashboard\/clients\/([^/]+)/) !== null;
 
   const localization = useMemo(() => <Localization />, []);
 
@@ -39,10 +44,16 @@ export default function HeaderContent() {
       {menuOrientation === MenuOrientation.HORIZONTAL && !downLG && <DrawerHeader open={true} />}
       {!downLG && !isClientRoute && <WorkspaceNavigator />}
       {downLG && <ClientSidebarMobileToggle />}
-      {!downLG && <ClientLoginLink />}
+      {!downLG && !isClientRoute && <ClientLoginLink />}
+      {!downLG && isClientDetailPage && (
+        <Box sx={{ ml: 2 }}>
+          <ClientSidebarToggle />
+        </Box>
+      )}
       <Box sx={{ flexGrow: 1 }} />
-      {!downLG && <SubscriptionDays />}
+      {!downLG && !isClientRoute && <SubscriptionDays />}
       {!downLG && <ThemeToggle />}
+      {!downLG && <FullScreen />}
       {!downLG && localization}
 
       {!isClientRoute && <Notification />}

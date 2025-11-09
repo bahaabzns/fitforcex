@@ -130,7 +130,7 @@ export default function FinalCTA() {
                       borderRadius: 3,
                       boxShadow: '0 8px 25px rgba(255,255,255,0.3)',
                       '&:hover': {
-                        bgcolor: 'rgba(255,255,255,0.9)',
+                        bgcolor: 'white',
                         transform: 'translateY(-2px)',
                         boxShadow: '0 12px 35px rgba(255,255,255,0.4)'
                       },

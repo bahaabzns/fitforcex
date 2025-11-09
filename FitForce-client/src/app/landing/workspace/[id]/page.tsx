@@ -18,6 +18,9 @@ import TestimonialsWorkspace from '@/sections/landing/TestimonialsWorkspace';
 import { APP_CONFIG } from '@/lib/config';
 import Loader from 'components/Loader';
 import api from '@/utils/axios';
+import LanguageSwitcher from '@/components/customization/LanguageSwitcher';
+import ThemeToggle from '@/layout/DashboardLayout/Header/HeaderContent/ThemeToggle';
+import FullScreen from '@/layout/DashboardLayout/Header/HeaderContent/FullScreen';
 
 interface WorkspaceData {
   id: string;
@@ -220,33 +223,42 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <Box sx={{ 
+        borderBottom: 1, 
+        borderColor: 'divider', 
+        bgcolor: 'background.paper',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+      }}>
         <Container maxWidth="lg">
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               {workspace.brandingLogoUrl ? (
-                <img src={workspace.brandingLogoUrl} alt={`${workspace.name} logo`} style={{ width: 32, height: 32, borderRadius: 8 }} />
+                <img src={workspace.brandingLogoUrl} alt={`${workspace.name} logo`} style={{ width: 40, height: 40, borderRadius: 10 }} />
               ) : (
                 <Box
                   sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 1,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 1.5,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: primaryColor
+                    bgcolor: primaryColor,
+                    boxShadow: `0 4px 12px ${primaryColor}30`
                   }}
                 >
-                  <Typography sx={{ color: 'white', fontSize: 16 }}>🏋️</Typography>
+                  <Typography sx={{ color: 'white', fontSize: 20 }}>🏋️</Typography>
                 </Box>
               )}
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, fontSize: { xs: '1.1rem', sm: '1.5rem' } }}>
                 {workspace.name}
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <LanguageSwitcher />
+              <ThemeToggle />
+              <FullScreen />
               {apiLoggedIn ? (
                 <Button variant="outlined" size="small" href="/dashboard">
                   Go to Dashboard
@@ -326,11 +338,28 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
         {/* Features Section - Only show if workspace has custom landing config */}
         {hasCustomLanding && config.features && config.features.length > 0 && (
           <Container maxWidth="lg">
-            <Box sx={{ textAlign: 'center', mb: 6 }}>
-              <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 2 }}>
+            <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 10 } }}>
+              <Typography 
+                variant="h2" 
+                sx={{ 
+                  fontWeight: 900, 
+                  mb: 3,
+                  fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' },
+                  color: 'text.primary'
+                }}
+              >
                 What We Offer
               </Typography>
-              <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
+              <Typography 
+                variant="h5" 
+                color="text.secondary" 
+                sx={{ 
+                  maxWidth: 700, 
+                  mx: 'auto',
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                  lineHeight: 1.6
+                }}
+              >
                 Comprehensive fitness solutions tailored to your goals.
               </Typography>
             </Box>
@@ -341,11 +370,28 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
         {/* Testimonials Section - Only show if workspace has custom landing config */}
         {hasCustomLanding && config.testimonials && config.testimonials.length > 0 && (
           <Container maxWidth="lg">
-            <Box sx={{ textAlign: 'center', mb: 6 }}>
-              <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 2 }}>
+            <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 10 } }}>
+              <Typography 
+                variant="h2" 
+                sx={{ 
+                  fontWeight: 900, 
+                  mb: 3,
+                  fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' },
+                  color: 'text.primary'
+                }}
+              >
                 What Our Clients Say
               </Typography>
-              <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
+              <Typography 
+                variant="h5" 
+                color="text.secondary" 
+                sx={{ 
+                  maxWidth: 700, 
+                  mx: 'auto',
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                  lineHeight: 1.6
+                }}
+              >
                 Real stories from real people achieving their fitness goals.
               </Typography>
             </Box>

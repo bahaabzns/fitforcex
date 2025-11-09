@@ -103,7 +103,7 @@ export default function ClientWorkoutPlanDetail() {
   const plan = data.plan;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -179,15 +179,15 @@ export default function ClientWorkoutPlanDetail() {
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'background.paper' : 'rgba(255, 255, 255, 0.95)',
                         backdropFilter: 'blur(10px)',
-                        border: '2px solid rgba(255, 255, 255, 0.2)',
+                        border: (theme) => `2px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)'}`,
                         borderRadius: 3,
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                        boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 8px 32px rgba(0, 0, 0, 0.1)',
                         transition: 'all 0.3s ease',
                         '&:hover': {
                           transform: 'translateY(-4px)',
-                          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
+                          boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 12px 40px rgba(0, 0, 0, 0.4)' : '0 12px 40px rgba(0, 0, 0, 0.2)',
                         }
                       }}
                     >
@@ -254,7 +254,7 @@ export default function ClientWorkoutPlanDetail() {
                           sx={{ 
                             fontWeight: 700,
                             mb: 1,
-                            color: '#333',
+                            color: 'text.primary',
                             fontSize: '1.1rem',
                             lineHeight: 1.3
                           }}
@@ -265,29 +265,29 @@ export default function ClientWorkoutPlanDetail() {
                         {/* Exercise Details */}
                         <Stack spacing={1} sx={{ mt: 2 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                               {t('client.workout.sets')}:
                             </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
                               {it.sets || 'N/A'}
                             </Typography>
                           </Box>
                           
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                               {t('client.workout.reps')}:
                             </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
                               {it.reps || 'N/A'}
                             </Typography>
                           </Box>
                           
                           {it.planSets?.[0]?.weight && (
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: '#666' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                                 {t('client.workout.weight')}:
                               </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: '#333' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
                                 {it.planSets[0].weight}kg
                               </Typography>
                             </Box>
@@ -297,7 +297,7 @@ export default function ClientWorkoutPlanDetail() {
                         {/* Plan Sets */}
                         {Array.isArray(it.planSets) && it.planSets.length > 0 && (
                           <Box sx={{ mt: 2 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', mb: 1 }}>
                               {t('client.workout.setsDetails')}:
                             </Typography>
                             {it.planSets.map((s: any, setIndex: number) => (
@@ -314,10 +314,10 @@ export default function ClientWorkoutPlanDetail() {
                         
                         {/* Notes */}
                         {it.notes && (
-                          <Box sx={{ mt: 2, p: 1, backgroundColor: 'rgba(0, 0, 0, 0.05)', borderRadius: 1 }}>
+                          <Box sx={{ mt: 2, p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'action.hover' : 'rgba(0, 0, 0, 0.05)', borderRadius: 1 }}>
                             <Typography variant="body2" sx={{ 
                               fontStyle: 'italic', 
-                              color: '#555',
+                              color: 'text.secondary',
                               fontSize: '0.85rem'
                             }}>
                               {it.notes}

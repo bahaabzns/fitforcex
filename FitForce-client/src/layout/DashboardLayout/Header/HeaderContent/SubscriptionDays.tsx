@@ -22,11 +22,12 @@ export default function HeaderSubscriptionDays() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
 
-  // Don't show on subscription management pages
+  // Don't show on subscription management pages or client routes
   const isSubscriptionPage = pathname?.includes('/subscription') || pathname?.includes('/workspaces/subscription');
+  const isClientRoute = pathname?.startsWith('/client');
 
   useEffect(() => {
-    if (!workspaceId || isSubscriptionPage) {
+    if (!workspaceId || isSubscriptionPage || isClientRoute) {
       setDaysRemaining(null);
       return;
     }
@@ -54,7 +55,7 @@ export default function HeaderSubscriptionDays() {
     // Refresh every hour
     const interval = setInterval(fetchSubscription, 60 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [workspaceId, isSubscriptionPage]);
+  }, [workspaceId, isSubscriptionPage, isClientRoute]);
 
   const calculateRemainingDays = (sub: SubscriptionData) => {
     const startDateStr = sub.startDate || sub.createdAt;
@@ -73,8 +74,8 @@ export default function HeaderSubscriptionDays() {
     setDaysRemaining(days);
   };
 
-  // Don't show if no subscription or no remaining days info
-  if (!daysRemaining || daysRemaining === null || isSubscriptionPage) {
+  // Don't show if no subscription or no remaining days info, or on client routes
+  if (!daysRemaining || daysRemaining === null || isSubscriptionPage || isClientRoute) {
     return null;
   }
 
@@ -99,4 +100,6 @@ export default function HeaderSubscriptionDays() {
     />
   );
 }
+
+
 

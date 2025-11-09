@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import api from '@/utils/axios';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 import useConfig from '@/hooks/useConfig';
 import { 
   Box, 
@@ -58,6 +59,7 @@ type WorkoutPlan = {
 };
 
 export default function ClientPlansPage() {
+  const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const { i18n } = useConfig();
   const currentLang = i18n || 'en';
   const isArabic = currentLang === 'ar';
@@ -213,7 +215,7 @@ export default function ClientPlansPage() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -221,7 +223,7 @@ export default function ClientPlansPage() {
           p: 3, 
           mb: 3, 
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}CC 100%)`,
           color: 'white'
         }}
       >

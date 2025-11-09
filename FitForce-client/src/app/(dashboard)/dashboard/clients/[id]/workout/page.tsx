@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { useParams } from 'next/navigation';
 import {
@@ -108,11 +108,19 @@ interface Plan {
 function SortableDay({ 
   day, 
   index, 
-  children 
+  children,
+  isSelected,
+  onSelect,
+  onCopy,
+  onDelete
 }: { 
   day: any; 
   index: number;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  isSelected?: boolean;
+  onSelect?: () => void;
+  onCopy?: () => void;
+  onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
     id: day.id 
@@ -122,11 +130,104 @@ function SortableDay({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  };
+  } as React.CSSProperties;
+
+  // Drag handle component
+  const DragHandle = (
+    <Box 
+      sx={{ 
+        mr: 1, 
+        color: 'text.disabled', 
+        cursor: 'grab',
+        fontSize: 18, 
+        lineHeight: 1,
+        '&:active': { cursor: 'grabbing' }
+      }} 
+      title="Drag to reorder"
+      {...attributes}
+      {...listeners}
+    >
+      ≡
+    </Box>
+  );
 
   return (
     <Box ref={setNodeRef} style={style}>
-      {children}
+      {children ? (
+        // When children provided, clone and inject drag handle
+        React.cloneElement(children as React.ReactElement, {
+          children: (
+            <>
+              {React.Children.map((children as React.ReactElement).props.children, (child: any) => {
+                if (child?.type === CardContent && child?.props?.children) {
+                  return React.cloneElement(child, {
+                    children: (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                        {DragHandle}
+                        {child.props.children}
+                      </Box>
+                    )
+                  });
+                }
+                return child;
+              })}
+            </>
+          )
+        })
+      ) : (
+        <Card
+          sx={{ 
+            border: isSelected ? 2 : 1,
+            borderColor: isSelected ? 'primary.main' : 'divider',
+            bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+            cursor: 'pointer',
+            position: 'relative',
+            boxShadow: isDragging ? 6 : 'none',
+            '&:hover .day-actions': { opacity: 1 },
+            '&:hover': {
+              boxShadow: isDragging ? 6 : 2,
+              transform: isDragging ? undefined : 'translateY(-2px)'
+            },
+            transition: 'all 0.2s',
+          }}
+          onClick={onSelect}
+        >
+          <CardHeader title={day.title} />
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+              {DragHandle}
+              <Typography variant="body2" color="text.secondary">
+                {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
+              </Typography>
+            </Box>
+          </CardContent>
+          <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+            <IconButton 
+              size="small" 
+              title="Copy day"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopy?.();
+              }}
+              sx={{ '&:hover': { bgcolor: 'action.selected' } }}
+            >
+              <Copy size={16} />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              color="error" 
+              title="Delete day"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.();
+              }}
+              sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
+            >
+              <Trash size={16} />
+            </IconButton>
+          </Box>
+        </Card>
+      )}
     </Box>
   );
 }
@@ -1654,10 +1755,22 @@ export default function ClientWorkoutPage() {
                     {chatLoading && chatMessages.length === 0 ? (
                       <Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>
                     ) : (
-                      chatMessages.map((m: any) => (
-                        <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
-                          <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
-                            <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                      chatMessages.map((m: any) => {
+                        const isClient = m.senderType === 'client';
+                        return (
+                        <Box key={m.id} sx={{ display: 'flex', justifyContent: isClient ? 'flex-end' : 'flex-start', mb: 1 }}>
+                          <Box sx={{ 
+                            px: 2, 
+                            py: 1.5, 
+                            bgcolor: isClient ? 'primary.main' : 'background.paper',
+                            color: isClient ? 'white' : 'text.primary',
+                            borderRadius: 2,
+                            borderBottomRightRadius: isClient ? 0 : 2,
+                            borderBottomLeftRadius: isClient ? 2 : 0,
+                            maxWidth: '75%',
+                            boxShadow: 1
+                          }}>
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{m.body || m.message || m.text || ''}</Typography>
                             {m.attachments && m.attachments.length > 0 && (
                               <Box sx={{ mt: 1 }}>
                                 {m.attachments.map((attachment: any, index: number) => (
@@ -1677,10 +1790,18 @@ export default function ClientWorkoutPage() {
                                 ))}
                               </Box>
                             )}
-                            <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
+                            <Typography variant="caption" sx={{ 
+                              display: 'block', 
+                              mt: 0.5,
+                              opacity: isClient ? 0.8 : 0.6,
+                              fontSize: '0.7rem'
+                            }}>
+                              {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
+                            </Typography>
                           </Box>
                         </Box>
-                      ))
+                        );
+                      })
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
@@ -1880,45 +2001,26 @@ export default function ClientWorkoutPage() {
               {localWorkoutPlan ? (
                 cardioTab === 0 ? (
                   // Days tab content
-                  <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
-                    {localWorkoutPlan.days.map((day, index) => (
-                      <Card
-                      draggable
-                      onDragStart={() => setDragDayIndex(index)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => handleDayDrop(index)}
-                      key={day.id}
-                        sx={{ 
-                          border: selectedDayIndex === index ? 2 : 1,
-                          borderColor: selectedDayIndex === index ? 'primary.main' : 'divider',
-                          bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          '&:hover .day-actions': { opacity: 1 }
-                        }}
-                      onClick={() => {
-                        setSelectedDayIndex(index);
-                        // On mobile, automatically move to section 3 (exercises) when day is selected
-                        if (isMobile) {
-                          setMobileSection(2);
-                        }
-                      }}
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDayDragEnd}>
+                    <SortableContext 
+                      items={localWorkoutPlan.days.map(day => day.id)}
+                      strategy={verticalListSortingStrategy}
                     >
-                        <CardHeader title={day.title} />
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                            <Box sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} title="Drag to reorder">≡</Box>
-                            <Typography variant="body2" color="text.secondary">
-                              {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
-                            </Typography>
-                          </Box>
-                        </CardContent>
-                        <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: isMobile ? 1 : 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-                          <IconButton 
-                                size="small" 
-                            title="Copy day"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                      <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
+                        {localWorkoutPlan.days.map((day, index) => (
+                          <SortableDay
+                            key={day.id}
+                            day={day}
+                            index={index}
+                            isSelected={selectedDayIndex === index}
+                            onSelect={() => {
+                              setSelectedDayIndex(index);
+                              // On mobile, automatically move to section 3 (exercises) when day is selected
+                              if (isMobile) {
+                                setMobileSection(2);
+                              }
+                            }}
+                            onCopy={() => {
                               if (!localWorkoutPlan) return;
                               const newId = `day_${Date.now()}`;
                               const copiedDay = {
@@ -1935,16 +2037,7 @@ export default function ClientWorkoutPage() {
                               } : null);
                               setIsPlanDirty(true);
                             }}
-                            sx={{ '&:hover': { bgcolor: 'action.selected' } }}
-                          >
-                            <Copy size={16} />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            title="Delete day"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onDelete={() => {
                               if (!localWorkoutPlan) return;
                               if (window.confirm('Delete this day?')) {
                                 setLocalWorkoutPlan(prev => prev ? {
@@ -1959,44 +2052,40 @@ export default function ClientWorkoutPage() {
                                 setIsPlanDirty(true);
                               }
                             }}
-                            sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
+                          />
+                        ))}
+                        <Box>
+                          <Card
+                            sx={{
+                              border: '1px dashed',
+                              borderColor: 'divider',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onClick={() => setIsCreateDayDialogOpen(true)}
                           >
-                            <Trash size={16} />
-                          </IconButton>
+                            <Button startIcon={<Add size={16} />}>Add Day</Button>
+                          </Card>
+                        </Box>
+                        
+                        {localWorkoutPlan.days.length === 0 && (
+                          <Box sx={{ 
+                            textAlign: 'center', 
+                            py: 8,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 2
+                          }}>
+                            <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
+                              No days yet
+                            </Typography>
                           </Box>
-                      </Card>
-                  ))}
-                  
-                  <Box>
-                    <Card
-                      sx={{
-                        border: '1px dashed',
-                        borderColor: 'divider',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                      onClick={() => setIsCreateDayDialogOpen(true)}
-                    >
-                      <Button startIcon={<Add size={16} />}>Add Day</Button>
-                    </Card>
-                  </Box>
-                  
-                  {localWorkoutPlan.days.length === 0 && (
-                      <Box sx={{ 
-                        textAlign: 'center', 
-                        py: 8,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 2
-                      }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
-                          No days yet
-                        </Typography>
+                        )}
                       </Box>
-                    )}
-                  </Box>
+                    </SortableContext>
+                  </DndContext>
                 ) : null
               ) : (
                 <Box sx={{ 
@@ -2524,10 +2613,22 @@ export default function ClientWorkoutPage() {
                       {chatLoading && chatMessages.length === 0 ? (
                         <Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>
                       ) : (
-                        chatMessages.map((m: any) => (
-                          <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
-                            <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
-                              <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                        chatMessages.map((m: any) => {
+                          const isClient = m.senderType === 'client';
+                          return (
+                          <Box key={m.id} sx={{ display: 'flex', justifyContent: isClient ? 'flex-end' : 'flex-start', mb: 1 }}>
+                            <Box sx={{ 
+                              px: 2, 
+                              py: 1.5, 
+                              bgcolor: isClient ? 'primary.main' : 'background.paper',
+                              color: isClient ? 'white' : 'text.primary',
+                              borderRadius: 2,
+                              borderBottomRightRadius: isClient ? 0 : 2,
+                              borderBottomLeftRadius: isClient ? 2 : 0,
+                              maxWidth: '75%',
+                              boxShadow: 1
+                            }}>
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{m.body || m.message || m.text || ''}</Typography>
                               {m.attachments && m.attachments.length > 0 && (
                                 <Box sx={{ mt: 1 }}>
                                   {m.attachments.map((attachment: any, index: number) => (
@@ -2547,10 +2648,18 @@ export default function ClientWorkoutPage() {
                                   ))}
                                 </Box>
                               )}
-                              <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
+                              <Typography variant="caption" sx={{ 
+                                display: 'block', 
+                                mt: 0.5,
+                                opacity: isClient ? 0.8 : 0.6,
+                                fontSize: '0.7rem'
+                              }}>
+                                {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
+                              </Typography>
                             </Box>
                           </Box>
-                        ))
+                          );
+                        })
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
@@ -2758,77 +2867,45 @@ export default function ClientWorkoutPage() {
                       >
                         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2, px: 2, pt: 2 }}>
                           {localWorkoutPlan.days.map((day, index) => (
-                            <SortableDay key={day.id} day={day} index={index}>
-                              <Card
-                                sx={{ 
-                                  border: selectedDayIndex === index ? 2 : 1,
-                                  borderColor: selectedDayIndex === index ? 'primary.main' : 'divider',
-                                  bgcolor: selectedDayIndex === index ? 'primary.lighter' : 'background.paper',
-                                  cursor: 'pointer',
-                                  position: 'relative',
-                                  '&:hover .day-actions': { opacity: 1 }
-                                }}
-                                onClick={() => setSelectedDayIndex(index)}
-                              >
-                                <CardHeader title={day.title} />
-                                <CardContent>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
-                                  </Typography>
-                                </CardContent>
-                                <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-                                  <IconButton 
-                                    size="small" 
-                                    title="Copy day"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (!localWorkoutPlan) return;
-                                      const newId = `day_${Date.now()}`;
-                                      const copiedDay = {
-                                        ...day,
-                                        id: newId,
-                                        exercises: day.exercises.map((ex: any, idx: number) => ({
-                                          ...ex,
-                                          id: `exercise_${Date.now()}_${idx}_${Math.random()}`
-                                        }))
-                                      };
-                                      setLocalWorkoutPlan(prev => prev ? {
-                                        ...prev,
-                                        days: [...prev.days, copiedDay]
-                                      } : null);
-                                      setIsPlanDirty(true);
-                                    }}
-                                    sx={{ '&:hover': { bgcolor: 'action.selected' } }}
-                                  >
-                                    <Copy size={16} />
-                                  </IconButton>
-                                  <IconButton 
-                                    size="small" 
-                                    color="error" 
-                                    title="Delete day"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (!localWorkoutPlan) return;
-                                      if (window.confirm('Delete this day?')) {
-                                        setLocalWorkoutPlan(prev => prev ? {
-                                          ...prev,
-                                          days: prev.days.filter((_, i) => i !== index)
-                                        } : null);
-                                        if (selectedDayIndex === index) {
-                                          setSelectedDayIndex(0);
-                                        } else if (selectedDayIndex > index) {
-                                          setSelectedDayIndex(selectedDayIndex - 1);
-                                        }
-                                        setIsPlanDirty(true);
-                                      }
-                                    }}
-                                    sx={{ '&:hover': { bgcolor: 'error.lighter' } }}
-                                  >
-                                    <Trash size={16} />
-                                  </IconButton>
-                                </Box>
-                              </Card>
-                            </SortableDay>
+                            <SortableDay
+                              key={day.id}
+                              day={day}
+                              index={index}
+                              isSelected={selectedDayIndex === index}
+                              onSelect={() => setSelectedDayIndex(index)}
+                              onCopy={() => {
+                                if (!localWorkoutPlan) return;
+                                const newId = `day_${Date.now()}`;
+                                const copiedDay = {
+                                  ...day,
+                                  id: newId,
+                                  exercises: day.exercises.map((ex: any, idx: number) => ({
+                                    ...ex,
+                                    id: `exercise_${Date.now()}_${idx}_${Math.random()}`
+                                  }))
+                                };
+                                setLocalWorkoutPlan(prev => prev ? {
+                                  ...prev,
+                                  days: [...prev.days, copiedDay]
+                                } : null);
+                                setIsPlanDirty(true);
+                              }}
+                              onDelete={() => {
+                                if (!localWorkoutPlan) return;
+                                if (window.confirm('Delete this day?')) {
+                                  setLocalWorkoutPlan(prev => prev ? {
+                                    ...prev,
+                                    days: prev.days.filter((_, i) => i !== index)
+                                  } : null);
+                                  if (selectedDayIndex === index) {
+                                    setSelectedDayIndex(0);
+                                  } else if (selectedDayIndex > index) {
+                                    setSelectedDayIndex(selectedDayIndex - 1);
+                                  }
+                                  setIsPlanDirty(true);
+                                }
+                              }}
+                            />
                           ))}
                           
                           <Box>

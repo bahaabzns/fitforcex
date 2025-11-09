@@ -130,7 +130,7 @@ export default function SeedClientDashboard() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -412,7 +412,7 @@ export default function SeedClientDashboard() {
                       transition: 'all 0.2s ease',
                       '&:hover': {
                         borderColor: 'primary.main',
-                        bgcolor: 'primary.50'
+                        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'action.hover' : 'primary.50'
                       }
                     }}
                   >
@@ -517,7 +517,7 @@ export default function SeedClientDashboard() {
             </Card>
 
             {/* Help Card */}
-            <Card sx={{ borderRadius: 3, bgcolor: 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
+            <Card sx={{ borderRadius: 3, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={700} color="primary.main" sx={{ mb: 1 }}>
                   {t('need-help')}

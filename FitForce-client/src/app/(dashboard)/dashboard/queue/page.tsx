@@ -747,13 +747,20 @@ export default function QueuePage() {
                               variant="contained"
                               startIcon={<Assignment />}
                               onClick={() => {
-                                const path = row.formType === 'nutrition'
-                                  ? `/dashboard/clients/${row.clientId}/nutrition`
-                                  : `/dashboard/clients/${row.clientId}/workout`;
-                                window.location.href = path;
+                                if (row.formType === 'nutrition') {
+                                  window.location.href = `/dashboard/clients/${row.clientId}/nutrition`;
+                                } else if (row.formType === 'workout') {
+                                  window.location.href = `/dashboard/clients/${row.clientId}/workout`;
+                                } else {
+                                  // For "other" type, just go to client page
+                                  window.location.href = `/dashboard/clients/${row.clientId}`;
+                                }
                               }}
                             >
-                              {intl.formatMessage({ id: 'queue.makePlan', defaultMessage: 'Make {type} Plan' }, { type: row.formType === 'nutrition' ? intl.formatMessage({ id: 'queue.type.nutrition', defaultMessage: 'Nutrition' }) : intl.formatMessage({ id: 'queue.type.workout', defaultMessage: 'Workout' }) })}
+                              {row.formType === 'other' 
+                                ? intl.formatMessage({ id: 'queue.viewClient', defaultMessage: 'View Client' })
+                                : intl.formatMessage({ id: 'queue.makePlan', defaultMessage: 'Make {type} Plan' }, { type: row.formType === 'nutrition' ? intl.formatMessage({ id: 'queue.type.nutrition', defaultMessage: 'Nutrition' }) : intl.formatMessage({ id: 'queue.type.workout', defaultMessage: 'Workout' }) })
+                              }
                             </Button>
                           )}
                           
@@ -947,10 +954,14 @@ export default function QueuePage() {
                               variant="contained"
                               startIcon={<Assignment />}
                               onClick={() => {
-                                const path = row.formType === 'nutrition'
-                                  ? `/dashboard/clients/${row.clientId}/nutrition`
-                                  : `/dashboard/clients/${row.clientId}/workout`;
-                                window.location.href = path;
+                                if (row.formType === 'nutrition') {
+                                  window.location.href = `/dashboard/clients/${row.clientId}/nutrition`;
+                                } else if (row.formType === 'workout') {
+                                  window.location.href = `/dashboard/clients/${row.clientId}/workout`;
+                                } else {
+                                  // For "other" type, just go to client page
+                                  window.location.href = `/dashboard/clients/${row.clientId}`;
+                                }
                               }}
                             >
                               <FormattedMessage id="queue.makePlan.short" defaultMessage="Make Plan" />

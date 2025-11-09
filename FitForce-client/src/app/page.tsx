@@ -30,14 +30,7 @@ import { APP_CONFIG } from '@/lib/config';
 import dynamic from 'next/dynamic';
 import useConfig from '@/hooks/useConfig';
 import { ThemeDirection } from 'config';
-import localFont from 'next/font/local';
-const alexandria = localFont({
-  src: '../../public/assets/fonts/Alexandria,Baloo_Bhaijaan_2,Changa/Alexandria/Alexandria-VariableFont_wght.ttf',
-  display: 'swap'
-});
 import { track } from '@/lib/pixel';
-
-// Using local Alexandria font for Arabic
 
 // Dynamically import WorkspaceLanding to avoid circular dependencies
 const WorkspaceLandingContent = dynamic(
@@ -277,7 +270,7 @@ export default function Landing() {
 
   return (
     <SimpleLayout>
-      <Box className={i18n === 'ar' ? alexandria.className : undefined}>
+      <Box>
       {/* Error Alert for Non-existent Workspace */}
       {showError && (
         <Box sx={{ position: 'sticky', top: 0, zIndex: 1200, width: '100%' }}>

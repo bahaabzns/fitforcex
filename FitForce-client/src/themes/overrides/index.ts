@@ -2,7 +2,8 @@
 import { Theme } from '@mui/material/styles';
 
 // third-party
-import { merge } from 'lodash-es';
+// Use individual import to avoid loading entire lodash library
+import merge from 'lodash-es/merge';
 
 // project-imports
 import Accordion from './Accordion';

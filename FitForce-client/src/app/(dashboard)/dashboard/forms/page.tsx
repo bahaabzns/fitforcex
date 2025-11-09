@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // MUI
 import Box from '@mui/material/Box';
@@ -34,7 +37,17 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
-import { Trash, Copy } from '@wandersonalwes/iconsax-react';
+import { Trash, Copy, Add, CloseCircle } from '@wandersonalwes/iconsax-react';
+import Paper from '@mui/material/Paper';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Avatar from '@mui/material/Avatar';
+import { Visibility, Person } from '@mui/icons-material';
 
 type FormTemplate = {
   id: string;
@@ -68,14 +81,17 @@ export default function FormsPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editTitleArabic, setEditTitleArabic] = useState('');
-  const [editFormType, setEditFormType] = useState<'nutrition' | 'workout'>('nutrition');
-  const [editQuestions, setEditQuestions] = useState<Array<{ id: string; originalId?: string; label: string; labelArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>>([]);
+  const [editFormType, setEditFormType] = useState<'nutrition' | 'workout' | 'other'>('nutrition');
+  const [editQuestions, setEditQuestions] = useState<Array<{ id: string; originalId?: string; label: string; labelArabic?: string; description?: string; descriptionArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>>([]);
   // Add-question builder for edit dialog
   const [editCustomType, setEditCustomType] = useState<string>('text');
   const [editCustomLabel, setEditCustomLabel] = useState<string>('');
   const [editCustomLabelArabic, setEditCustomLabelArabic] = useState<string>('');
+  const [editCustomDescription, setEditCustomDescription] = useState<string>('');
+  const [editCustomDescriptionArabic, setEditCustomDescriptionArabic] = useState<string>('');
   const [editCustomRequired, setEditCustomRequired] = useState<boolean>(false);
-  const [editCustomOptions, setEditCustomOptions] = useState<string>('');
+  const [editCustomOptions, setEditCustomOptions] = useState<string[]>([]);
+  const [editCustomOptionsArabic, setEditCustomOptionsArabic] = useState<string[]>([]);
   const [editCustomError, setEditCustomError] = useState<string>('');
   const [updating, setUpdating] = useState(false);
   const [defaultQuestions, setDefaultQuestions] = useState<
@@ -84,21 +100,65 @@ export default function FormsPage() {
 
   // Create form
   const [showCreate, setShowCreate] = useState(false);
-  const [formType, setFormType] = useState<'nutrition' | 'workout'>('nutrition');
+  const [formType, setFormType] = useState<'nutrition' | 'workout' | 'other'>('nutrition');
   const [title, setTitle] = useState('');
   const [titleArabic, setTitleArabic] = useState('');
   const [newQuestions, setNewQuestions] = useState<
-    Array<{ id: string; originalId?: string; label: string; labelArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>
+    Array<{ id: string; originalId?: string; label: string; labelArabic?: string; description?: string; descriptionArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>
   >([]);
   const [creating, setCreating] = useState(false);
   // custom question builder
   const [customType, setCustomType] = useState<string>('text');
   const [customLabel, setCustomLabel] = useState<string>('');
   const [customLabelArabic, setCustomLabelArabic] = useState<string>('');
+  const [customDescription, setCustomDescription] = useState<string>('');
+  const [customDescriptionArabic, setCustomDescriptionArabic] = useState<string>('');
   const [customRequired, setCustomRequired] = useState<boolean>(false);
-  const [customOptions, setCustomOptions] = useState<string>('');
+  const [customOptions, setCustomOptions] = useState<string[]>([]);
+  const [customOptionsArabic, setCustomOptionsArabic] = useState<string[]>([]);
   const [customError, setCustomError] = useState<string>('');
   const [copying, setCopying] = useState<string | null>(null);
+
+  // Form Submissions tab state
+  const [activeTab, setActiveTab] = useState(0); // 0 = Templates, 1 = Submissions
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
+  const [submissionTypeFilter, setSubmissionTypeFilter] = useState<'all' | 'nutrition' | 'workout' | 'other'>('all');
+  const [viewSubmissionDetails, setViewSubmissionDetails] = useState<any | null>(null);
+  const [submissionDetailsOpen, setSubmissionDetailsOpen] = useState(false);
+  const [submissionDetailsLoading, setSubmissionDetailsLoading] = useState(false);
+
+  // Drag and drop handlers for questions
+  const handleEditQuestionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = editQuestions.findIndex((q) => q.id === active.id);
+    const newIndex = editQuestions.findIndex((q) => q.id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newQuestions = [...editQuestions];
+      const [moved] = newQuestions.splice(oldIndex, 1);
+      newQuestions.splice(newIndex, 0, moved);
+      setEditQuestions(newQuestions);
+    }
+  };
+
+  const handleNewQuestionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = newQuestions.findIndex((q) => q.id === active.id);
+    const newIndex = newQuestions.findIndex((q) => q.id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const updated = [...newQuestions];
+      const [moved] = updated.splice(oldIndex, 1);
+      updated.splice(newIndex, 0, moved);
+      setNewQuestions(updated);
+    }
+  };
 
   useEffect(() => {
     if (!effectiveWorkspaceId) {
@@ -146,6 +206,61 @@ export default function FormsPage() {
     fetchTemplates();
   }, [effectiveWorkspaceId]);
 
+  // Load form submissions
+  useEffect(() => {
+    if (activeTab === 1 && effectiveWorkspaceId) {
+      const loadSubmissions = async () => {
+        setSubmissionsLoading(true);
+        setSubmissionsError(null);
+        try {
+          const res = await api.get('/api/forms/submissions', { 
+            headers: { 'x-workspace-id': effectiveWorkspaceId } 
+          });
+          const rawSubmissions = Array.isArray(res.data?.submissions) ? res.data.submissions : [];
+          // Map submissions to ensure all fields are present
+          setSubmissions(rawSubmissions.map((s: any) => ({
+            id: s.id,
+            clientId: s.clientId || s.client?.id || '',
+            clientName: s.clientName || s.client?.fullName || '—',
+            clientEmail: s.clientEmail || s.client?.email || null,
+            formId: s.formId || s.form?.id || '',
+            formTitle: s.formTitle || s.form?.title || '—',
+            formTitleArabic: s.formTitleArabic || s.form?.titleArabic || null,
+            formType: s.formType || s.form?.type || null,
+            status: s.status || 'pending',
+            createdAt: s.createdAt,
+            completedAt: s.completedAt,
+            answers: s.answers,
+          })));
+        } catch (e: any) {
+          setSubmissionsError(e.response?.data?.error || 'Failed to load submissions');
+        } finally {
+          setSubmissionsLoading(false);
+        }
+      };
+      loadSubmissions();
+    }
+  }, [activeTab, effectiveWorkspaceId]);
+
+  const filteredSubmissions = useMemo(() => {
+    if (submissionTypeFilter === 'all') return submissions;
+    return submissions.filter((s: any) => s.formType === submissionTypeFilter);
+  }, [submissions, submissionTypeFilter]);
+
+  const handleViewSubmissionDetails = async (submissionId: string) => {
+    setSubmissionDetailsLoading(true);
+    try {
+      const res = await api.get(`/api/forms/submissions/${submissionId}`, {
+        headers: { 'x-workspace-id': effectiveWorkspaceId }
+      });
+      setViewSubmissionDetails(res.data?.submission);
+      setSubmissionDetailsOpen(true);
+    } catch (e: any) {
+      setSubmissionsError(e.response?.data?.error || 'Failed to load submission details');
+    } finally {
+      setSubmissionDetailsLoading(false);
+    }
+  };
 
   const createTemplate = async () => {
     console.log('createTemplate called - workspaceId:', workspaceId);
@@ -160,7 +275,7 @@ export default function FormsPage() {
     setCreating(true);
     setError(null);
     try {
-      const questions = newQuestions.map(({ id, label, labelArabic, type, required, options, optionsArabic }) => ({ id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, type, required, options, optionsArabic }));
+      const questions = newQuestions.map(({ id, label, labelArabic, description, descriptionArabic, type, required, options, optionsArabic }) => ({ id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, description: description || null, descriptionArabic: descriptionArabic || null, type, required, options, optionsArabic }));
       console.log('createTemplate - sending request with:', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions });
       await api.post('/api/forms/templates', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       console.log('createTemplate - request successful');
@@ -253,7 +368,7 @@ export default function FormsPage() {
     setUpdating(true);
     setError(null);
     try {
-      const questions = editQuestions.map(({ id, label, labelArabic, type, required, options, optionsArabic, originalId }) => ({ id: originalId || id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, type, required, options, optionsArabic }));
+      const questions = editQuestions.map(({ id, label, labelArabic, description, descriptionArabic, type, required, options, optionsArabic, originalId }) => ({ id: originalId || id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, description: description || null, descriptionArabic: descriptionArabic || null, type, required, options, optionsArabic }));
       await api.put(`/api/forms/templates/${editTemplate.id}`, { title: editTitle.trim(), titleArabic: editTitleArabic.trim() || undefined, type: editFormType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       setShowEdit(false);
       setEditTemplate(null);
@@ -320,6 +435,17 @@ export default function FormsPage() {
         error && <Alert severity="error">{error}</Alert>
       )}
 
+      {/* Tabs */}
+      <Card>
+        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
+          <Tab label="Templates" />
+          <Tab label="Form Submissions" />
+        </Tabs>
+      </Card>
+
+      {/* Templates Tab Content */}
+      {activeTab === 0 && (
+        <>
       <Dialog open={showCreate} onClose={() => setShowCreate(false)} fullWidth maxWidth="md">
         <DialogTitle><FormattedMessage id="new-form-template" /></DialogTitle>
         <DialogContent dividers>
@@ -331,6 +457,7 @@ export default function FormsPage() {
               <Select labelId="form-type-label" label={intl.formatMessage({ id: 'type' })} value={formType} onChange={(e) => setFormType(e.target.value as any)}>
                 <MenuItem value="nutrition">nutrition</MenuItem>
                 <MenuItem value="workout">workout</MenuItem>
+                <MenuItem value="other">other</MenuItem>
               </Select>
             </FormControl>
 
@@ -362,68 +489,35 @@ export default function FormsPage() {
               </Box>
             )}
 
-            {/* Added questions - editable */}
+            {/* Added questions - editable with drag and drop */}
             {newQuestions.length > 0 && (
               <Box>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Questions
+                  Questions ({newQuestions.length})
                 </Typography>
+                <DndContext collisionDetection={closestCenter} onDragEnd={handleNewQuestionDragEnd}>
+                  <SortableContext items={newQuestions.map(q => q.id)} strategy={verticalListSortingStrategy}>
                 <Stack spacing={1}>
                   {newQuestions.map((q, idx) => (
-                    <Box key={q.id} sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                      <Grid container spacing={1}>
-                        {/* Row 1: Type + Required */}
-                        <Grid item xs={12} sm={8} md={6}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel id={`qtype-${q.id}`}>Type</InputLabel>
-                            <Select
-                              labelId={`qtype-${q.id}`}
-                              label="Type"
-                              value={q.type}
-                              onChange={(e) => {
-                                const val = String(e.target.value);
-                                setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, type: val, options: ['select','checkbox','radio'].includes(val) ? (x.options||[]) : undefined } : x));
-                              }}
-                            >
-                              <MenuItem value="text">text</MenuItem>
-                              <MenuItem value="textarea">textarea</MenuItem>
-                              <MenuItem value="number">number</MenuItem>
-                              <MenuItem value="select">select</MenuItem>
-                              <MenuItem value="checkbox">checkbox</MenuItem>
-                              <MenuItem value="radio">radio</MenuItem>
-                              <MenuItem value="attachment">attachment</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </Grid>
-                        <Grid item xs={12} sm={4} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
-                          <FormControlLabel control={<Switch size="small" checked={!!q.required} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, required: e.target.checked } : x))} />} label="Required" />
-                        </Grid>
-
-                        {/* Row 2: Label + Arabic Label */}
-                        <Grid item xs={12} sm={6}>
-                          <TextField size="small" fullWidth label="Label" value={q.label} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, label: e.target.value } : x))} />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField size="small" fullWidth label="Label (Arabic)" value={q.labelArabic || ''} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, labelArabic: e.target.value } : x))} />
-                        </Grid>
-
-                        {/* Row 3: Options (if needed) + Delete */}
-                        {['select','checkbox','radio'].includes(q.type) ? (
-                          <Grid item xs={12} sm={9}>
-                            <TextField size="small" fullWidth label="Options (comma separated)" value={(q.options||[]).join(', ')} onChange={(e) => setNewQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))} />
-                          </Grid>
-                        ) : (
-                          <Grid item xs={12} sm={9} />
-                        )}
-                        <Grid item xs={12} sm={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                          <IconButton size="small" color="error" onClick={() => setNewQuestions((prev) => prev.filter((_, i) => i !== idx))}>
-                            <Trash />
-                          </IconButton>
-                        </Grid>
-                      </Grid>
-                    </Box>
+                        <SortableQuestion
+                          key={q.id}
+                          question={q}
+                          index={idx}
+                          onUpdate={(id, field, value) => {
+                            setNewQuestions((prev) => prev.map((x) => {
+                              if (x.id !== id) return x;
+                              if (field === 'type') {
+                                return { ...x, type: value, options: ['select','checkbox','radio'].includes(value) ? (x.options||[]) : undefined, optionsArabic: ['select','checkbox','radio'].includes(value) ? (x.optionsArabic||[]) : undefined };
+                              }
+                              return { ...x, [field]: value };
+                            }));
+                          }}
+                          onDelete={() => setNewQuestions((prev) => prev.filter((_, i) => i !== idx))}
+                        />
                   ))}
                 </Stack>
+                  </SortableContext>
+                </DndContext>
               </Box>
             )}
 
@@ -440,6 +534,7 @@ export default function FormsPage() {
                       <MenuItem value="text">text</MenuItem>
                       <MenuItem value="textarea">textarea</MenuItem>
                       <MenuItem value="number">number</MenuItem>
+                      <MenuItem value="date">date</MenuItem>
                       <MenuItem value="select">select</MenuItem>
                       <MenuItem value="checkbox">checkbox</MenuItem>
                       <MenuItem value="radio">radio</MenuItem>
@@ -453,15 +548,47 @@ export default function FormsPage() {
                 <Grid item xs={12} sm={4}>
                   <TextField fullWidth label="Question label (Arabic)" value={customLabelArabic} onChange={(e) => setCustomLabelArabic(e.target.value)} />
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    fullWidth 
+                    label="Description (optional)" 
+                    value={customDescription} 
+                    onChange={(e) => setCustomDescription(e.target.value)} 
+                    multiline
+                    minRows={2}
+                    placeholder="Help text or instructions"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    fullWidth 
+                    label="Description (Arabic, optional)" 
+                    value={customDescriptionArabic} 
+                    onChange={(e) => setCustomDescriptionArabic(e.target.value)} 
+                    multiline
+                    minRows={2}
+                    placeholder="نص المساعدة"
+                  />
+                </Grid>
                 <Grid item xs={12} sm={3}>
                   <FormControlLabel control={<Switch checked={customRequired} onChange={(e) => setCustomRequired(e.target.checked)} />} label="Required" />
                 </Grid>
-                <Grid item xs={12} sm={9}>
-                  <TextField fullWidth label="Options (comma separated)" value={customOptions} onChange={(e) => setCustomOptions(e.target.value)} disabled={!['select', 'checkbox', 'radio'].includes(customType)} />
                 </Grid>
-              </Grid>
+              {['select', 'checkbox', 'radio'].includes(customType) && (
+                <Box sx={{ mt: 2 }}>
+                  <OptionsEditor
+                    questionId={`custom-${Date.now()}`}
+                    options={customOptions}
+                    optionsArabic={customOptionsArabic}
+                    onUpdate={(options, optionsArabic) => {
+                      setCustomOptions(options);
+                      setCustomOptionsArabic(optionsArabic);
+                    }}
+                  />
+                </Box>
+              )}
               {customError && <Alert severity="error" sx={{ mt: 1 }}>{customError}</Alert>}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                 <Button
                   variant="contained"
                   onClick={() => {
@@ -470,25 +597,27 @@ export default function FormsPage() {
                       setCustomError('Question label is required');
                       return;
                     }
-                    const opts = customOptions
-                      .split(',')
-                      .map((s) => s.trim())
-                      .filter(Boolean);
                     setNewQuestions((prev) => [
                       ...prev,
                       {
                         id: `q_${Date.now()}`,
                         label: customLabel.trim(),
                         labelArabic: customLabelArabic.trim() || undefined,
+                        description: customDescription.trim() || undefined,
+                        descriptionArabic: customDescriptionArabic.trim() || undefined,
                         type: customType,
                         required: customRequired,
-                        options: opts.length ? opts : undefined,
+                        options: customOptions.length ? customOptions : undefined,
+                        optionsArabic: customOptionsArabic.length ? customOptionsArabic : undefined,
                       },
                     ]);
                     setCustomLabel('');
                     setCustomLabelArabic('');
+                    setCustomDescription('');
+                    setCustomDescriptionArabic('');
                     setCustomRequired(false);
-                    setCustomOptions('');
+                    setCustomOptions([]);
+                    setCustomOptionsArabic([]);
                   }}
                 >
                   Add
@@ -562,6 +691,11 @@ export default function FormsPage() {
                       <Typography variant="subtitle1" sx={{ mb: 1 }}>
                         {(isArabic ? (q as any).questionArabic || (q as any).labelArabic : undefined) || q.question || q.label || q.text || q.title || `Question ${idx + 1}`}
                       </Typography>
+                      {(q as any).description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                          {(isArabic && (q as any).descriptionArabic) ? (q as any).descriptionArabic : (q as any).description}
+                        </Typography>
+                      )}
                       <Typography variant="caption" color="text.secondary">
                         Type: {q.type}
                         {q.required ? ' • required' : ''}
@@ -597,67 +731,39 @@ export default function FormsPage() {
               <Select labelId="edit-form-type-label" label={intl.formatMessage({ id: 'type' })} value={editFormType} onChange={(e) => setEditFormType(e.target.value as any)}>
                 <MenuItem value="nutrition">nutrition</MenuItem>
                 <MenuItem value="workout">workout</MenuItem>
+                <MenuItem value="other">other</MenuItem>
               </Select>
             </FormControl>
 
             {editQuestions.length > 0 && (
               <Box>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Questions
+                  Questions ({editQuestions.length})
                 </Typography>
+                <DndContext collisionDetection={closestCenter} onDragEnd={handleEditQuestionDragEnd}>
+                  <SortableContext items={editQuestions.map(q => q.id)} strategy={verticalListSortingStrategy}>
                 <Stack spacing={1}>
                   {editQuestions.map((q, idx) => (
-                    <Box key={q.id} sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                      <Grid container spacing={1}>
-                        <Grid item xs={12} sm={8} md={6}>
-                          <FormControl fullWidth size="small">
-                            <InputLabel id={`edit-qtype-${q.id}`}>Type</InputLabel>
-                            <Select
-                              labelId={`edit-qtype-${q.id}`}
-                              label="Type"
-                              value={q.type}
-                              onChange={(e) => {
-                                const val = String(e.target.value);
-                                setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, type: val, options: ['select','checkbox','radio'].includes(val) ? (x.options||[]) : undefined } : x));
-                              }}
-                            >
-                              <MenuItem value="text">text</MenuItem>
-                              <MenuItem value="textarea">textarea</MenuItem>
-                              <MenuItem value="number">number</MenuItem>
-                              <MenuItem value="select">select</MenuItem>
-                              <MenuItem value="checkbox">checkbox</MenuItem>
-                              <MenuItem value="radio">radio</MenuItem>
-                              <MenuItem value="attachment">attachment</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </Grid>
-                        <Grid item xs={12} sm={4} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
-                          <FormControlLabel control={<Switch size="small" checked={!!q.required} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, required: e.target.checked } : x))} />} label="Required" />
-                        </Grid>
-
-                        <Grid item xs={12} sm={6}>
-                          <TextField size="small" fullWidth label="Label" value={q.label} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, label: e.target.value } : x))} />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField size="small" fullWidth label="Label (Arabic)" value={q.labelArabic || ''} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, labelArabic: e.target.value } : x))} />
-                        </Grid>
-
-                        {['select','checkbox','radio'].includes(q.type) ? (
-                          <Grid item xs={12} sm={9}>
-                            <TextField size="small" fullWidth label="Options (comma separated)" value={(q.options||[]).join(', ')} onChange={(e) => setEditQuestions((prev) => prev.map((x) => x.id === q.id ? { ...x, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))} />
-                          </Grid>
-                        ) : (
-                          <Grid item xs={12} sm={9} />
-                        )}
-                        <Grid item xs={12} sm={3} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                          <IconButton size="small" color="error" onClick={() => setEditQuestions((prev) => prev.filter((_, i) => i !== idx))}>
-                            <Trash />
-                          </IconButton>
-                        </Grid>
-                      </Grid>
-                    </Box>
+                        <SortableQuestion
+                          key={q.id}
+                          question={q}
+                          index={idx}
+                          onUpdate={(id, field, value) => {
+                            setEditQuestions((prev) => prev.map((x) => {
+                              if (x.id !== id) return x;
+                              if (field === 'type') {
+                                return { ...x, type: value, options: ['select','checkbox','radio'].includes(value) ? (x.options||[]) : undefined, optionsArabic: ['select','checkbox','radio'].includes(value) ? (x.optionsArabic||[]) : undefined };
+                              }
+                              return { ...x, [field]: value };
+                            }));
+                          }}
+                          onDelete={() => setEditQuestions((prev) => prev.filter((_, i) => i !== idx))}
+                          isEditMode={true}
+                        />
                   ))}
                 </Stack>
+                  </SortableContext>
+                </DndContext>
               </Box>
             )}
 
@@ -674,6 +780,7 @@ export default function FormsPage() {
                       <MenuItem value="text">text</MenuItem>
                       <MenuItem value="textarea">textarea</MenuItem>
                       <MenuItem value="number">number</MenuItem>
+                      <MenuItem value="date">date</MenuItem>
                       <MenuItem value="select">select</MenuItem>
                       <MenuItem value="checkbox">checkbox</MenuItem>
                       <MenuItem value="radio">radio</MenuItem>
@@ -687,15 +794,47 @@ export default function FormsPage() {
                 <Grid item xs={12} sm={4}>
                   <TextField fullWidth label="Question label (Arabic)" value={editCustomLabelArabic} onChange={(e) => setEditCustomLabelArabic(e.target.value)} />
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    fullWidth 
+                    label="Description (optional)" 
+                    value={editCustomDescription} 
+                    onChange={(e) => setEditCustomDescription(e.target.value)} 
+                    multiline
+                    minRows={2}
+                    placeholder="Help text or instructions"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    fullWidth 
+                    label="Description (Arabic, optional)" 
+                    value={editCustomDescriptionArabic} 
+                    onChange={(e) => setEditCustomDescriptionArabic(e.target.value)} 
+                    multiline
+                    minRows={2}
+                    placeholder="نص المساعدة"
+                  />
+                </Grid>
                 <Grid item xs={12} sm={3}>
                   <FormControlLabel control={<Switch checked={editCustomRequired} onChange={(e) => setEditCustomRequired(e.target.checked)} />} label="Required" />
                 </Grid>
-                <Grid item xs={12} sm={9}>
-                  <TextField fullWidth label="Options (comma separated)" value={editCustomOptions} onChange={(e) => setEditCustomOptions(e.target.value)} disabled={!['select', 'checkbox', 'radio'].includes(editCustomType)} />
                 </Grid>
-              </Grid>
+              {['select', 'checkbox', 'radio'].includes(editCustomType) && (
+                <Box sx={{ mt: 2 }}>
+                  <OptionsEditor
+                    questionId={`edit-custom-${Date.now()}`}
+                    options={editCustomOptions}
+                    optionsArabic={editCustomOptionsArabic}
+                    onUpdate={(options, optionsArabic) => {
+                      setEditCustomOptions(options);
+                      setEditCustomOptionsArabic(optionsArabic);
+                    }}
+                  />
+                </Box>
+              )}
               {editCustomError && <Alert severity="error" sx={{ mt: 1 }}>{editCustomError}</Alert>}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                 <Button
                   variant="outlined"
                   onClick={() => {
@@ -704,25 +843,27 @@ export default function FormsPage() {
                       setEditCustomError('Question label is required');
                       return;
                     }
-                    const opts = editCustomOptions
-                      .split(',')
-                      .map((s) => s.trim())
-                      .filter(Boolean);
                     setEditQuestions((prev) => [
                       ...prev,
                       {
                         id: `eq_${Date.now()}`,
                         label: editCustomLabel.trim(),
                         labelArabic: editCustomLabelArabic.trim() || undefined,
+                        description: editCustomDescription.trim() || undefined,
+                        descriptionArabic: editCustomDescriptionArabic.trim() || undefined,
                         type: editCustomType,
                         required: editCustomRequired,
-                        options: opts.length ? opts : undefined,
+                        options: editCustomOptions.length ? editCustomOptions : undefined,
+                        optionsArabic: editCustomOptionsArabic.length ? editCustomOptionsArabic : undefined,
                       },
                     ]);
                     setEditCustomLabel('');
                     setEditCustomLabelArabic('');
+                    setEditCustomDescription('');
+                    setEditCustomDescriptionArabic('');
                     setEditCustomRequired(false);
-                    setEditCustomOptions('');
+                    setEditCustomOptions([]);
+                    setEditCustomOptionsArabic([]);
                   }}
                 >
                   Add question
@@ -738,8 +879,528 @@ export default function FormsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+        </>
+      )}
+
+      {/* Form Submissions Tab */}
+      {activeTab === 1 && (
+        <Box>
+          {submissionsError && <Alert severity="error" sx={{ mb: 2 }}>{submissionsError}</Alert>}
+          
+          {/* Type Filter Tabs */}
+          <Card sx={{ mb: 2 }}>
+            <Tabs 
+              value={submissionTypeFilter} 
+              onChange={(_, v) => setSubmissionTypeFilter(v)}
+              sx={{ borderBottom: 1, borderColor: 'divider' }}
+            >
+              <Tab label="All" value="all" />
+              <Tab label="Nutrition" value="nutrition" />
+              <Tab label="Workout" value="workout" />
+              <Tab label="Other" value="other" />
+            </Tabs>
+          </Card>
+
+          {submissionsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+    </Box>
+          ) : filteredSubmissions.length === 0 ? (
+            <Card>
+              <CardContent>
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="h6" color="text.secondary">
+                    No submissions found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {submissionTypeFilter === 'all' 
+                      ? 'No form submissions yet.' 
+                      : `No ${submissionTypeFilter} form submissions yet.`}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Client</TableCell>
+                    <TableCell>Form</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Submitted</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredSubmissions.map((submission: any) => (
+                    <TableRow key={submission.id} hover>
+                      <TableCell>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                            <Person fontSize="small" />
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body2" fontWeight={500}>
+                              {submission.clientName || '—'}
+                            </Typography>
+                            {submission.clientEmail && (
+                              <Typography variant="caption" color="text.secondary">
+                                {submission.clientEmail}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {isArabic && submission.formTitleArabic 
+                            ? submission.formTitleArabic 
+                            : submission.formTitle || '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={submission.formType || '—'} 
+                          size="small"
+                          color={
+                            submission.formType === 'nutrition' ? 'success' :
+                            submission.formType === 'workout' ? 'primary' :
+                            'default'
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={submission.status || 'pending'}
+                          size="small"
+                          color={
+                            submission.status === 'completed' ? 'success' :
+                            submission.status === 'pending' ? 'warning' :
+                            submission.status === 'archived' ? 'default' :
+                            'info'
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {submission.completedAt 
+                            ? new Date(submission.completedAt).toLocaleDateString()
+                            : submission.sentAt
+                            ? new Date(submission.sentAt).toLocaleDateString()
+                            : submission.createdAt
+                            ? new Date(submission.createdAt).toLocaleDateString()
+                            : '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewSubmissionDetails(submission.id)}
+                          title="View details"
+                        >
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+        </Box>
+      )}
+
+      {/* Submission Details Dialog */}
+      <Dialog 
+        open={submissionDetailsOpen} 
+        onClose={() => {
+          setSubmissionDetailsOpen(false);
+          setViewSubmissionDetails(null);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Form Submission Details
+          {viewSubmissionDetails && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              {viewSubmissionDetails.formTitle || '—'}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent dividers>
+          {submissionDetailsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : viewSubmissionDetails ? (
+            <Stack spacing={3}>
+              {/* Client Info */}
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Client
+                </Typography>
+                <Typography variant="body1">
+                  {viewSubmissionDetails.clientName || '—'}
+                </Typography>
+                {viewSubmissionDetails.clientEmail && (
+                  <Typography variant="body2" color="text.secondary">
+                    {viewSubmissionDetails.clientEmail}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Form Info */}
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Form
+                </Typography>
+                <Typography variant="body1">
+                  {isArabic && viewSubmissionDetails.formTitleArabic 
+                    ? viewSubmissionDetails.formTitleArabic 
+                    : viewSubmissionDetails.formTitle || '—'}
+                </Typography>
+                <Chip 
+                  label={viewSubmissionDetails.formType || '—'} 
+                  size="small"
+                  sx={{ mt: 1 }}
+                  color={
+                    viewSubmissionDetails.formType === 'nutrition' ? 'success' :
+                    viewSubmissionDetails.formType === 'workout' ? 'primary' :
+                    'default'
+                  }
+                />
+              </Box>
+
+              {/* Status */}
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Status
+                </Typography>
+                <Chip
+                  label={viewSubmissionDetails.status || 'pending'}
+                  size="small"
+                  color={
+                    viewSubmissionDetails.status === 'completed' ? 'success' :
+                    viewSubmissionDetails.status === 'pending' ? 'warning' :
+                    viewSubmissionDetails.status === 'archived' ? 'default' :
+                    'info'
+                  }
+                />
+              </Box>
+
+              {/* Answers */}
+              {viewSubmissionDetails.answers && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Answers
+                  </Typography>
+                  {viewSubmissionDetails.form?.questions && Array.isArray(viewSubmissionDetails.form.questions) && (
+                    <Stack spacing={2}>
+                      {viewSubmissionDetails.form.questions.map((q: any, idx: number) => {
+                        const answer = viewSubmissionDetails.answers?.[q.id || `q_${idx}`];
+                        const label = isArabic && q.questionArabic ? q.questionArabic : (q.question || q.label || `Question ${idx + 1}`);
+                        const description = isArabic && q.descriptionArabic ? q.descriptionArabic : (q.description || '');
+                        
+                        return (
+                          <Card key={q.id || idx} variant="outlined">
+                            <CardContent>
+                              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                                {label}
+                                {q.required && <span style={{ color: 'red' }}> *</span>}
+                              </Typography>
+                              {description && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                                  {description}
+                                </Typography>
+                              )}
+                              <Typography variant="body1">
+                                {answer !== null && answer !== undefined 
+                                  ? (Array.isArray(answer) 
+                                      ? answer.join(', ') 
+                                      : typeof answer === 'object' && answer.originalName
+                                      ? `📎 ${answer.originalName} (${(answer.size / 1024).toFixed(1)} KB)`
+                                      : String(answer))
+                                  : <span style={{ color: '#999', fontStyle: 'italic' }}>No answer</span>}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </Stack>
+                  )}
+                </Box>
+              )}
+            </Stack>
+          ) : (
+            <Typography color="text.secondary">No details available</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setSubmissionDetailsOpen(false);
+            setViewSubmissionDetails(null);
+          }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
+  );
+}
+
+// Sortable Question Component
+function SortableQuestion({ 
+  question, 
+  index, 
+  onUpdate, 
+  onDelete,
+  isEditMode = false 
+}: { 
+  question: { id: string; label: string; labelArabic?: string; description?: string; descriptionArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }; 
+  index: number;
+  onUpdate: (id: string, field: string, value: any) => void;
+  onDelete: () => void;
+  isEditMode?: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: question.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Box
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        p: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        mb: 1,
+        bgcolor: isDragging ? 'action.hover' : 'background.paper',
+        cursor: isDragging ? 'grabbing' : 'grab',
+      }}
+    >
+      <Grid container spacing={1} alignItems="center">
+        <Grid item xs={12} sm={1} sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box
+            {...attributes}
+            {...listeners}
+            sx={{
+              cursor: 'grab',
+              color: 'text.secondary',
+              fontSize: 20,
+              '&:active': { cursor: 'grabbing' }
+            }}
+          >
+            ≡
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={8} md={5}>
+          <FormControl fullWidth size="small">
+            <InputLabel id={`qtype-${question.id}`}>Type</InputLabel>
+            <Select
+              labelId={`qtype-${question.id}`}
+              label="Type"
+              value={question.type}
+              onChange={(e) => onUpdate(question.id, 'type', e.target.value)}
+            >
+              <MenuItem value="text">text</MenuItem>
+              <MenuItem value="textarea">textarea</MenuItem>
+              <MenuItem value="number">number</MenuItem>
+              <MenuItem value="date">date</MenuItem>
+              <MenuItem value="select">select</MenuItem>
+              <MenuItem value="checkbox">checkbox</MenuItem>
+              <MenuItem value="radio">radio</MenuItem>
+              <MenuItem value="attachment">attachment</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4} md={1} sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel 
+            control={
+              <Switch 
+                size="small" 
+                checked={!!question.required} 
+                onChange={(e) => onUpdate(question.id, 'required', e.target.checked)} 
+              />
+            } 
+            label="Required" 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <TextField 
+            size="small" 
+            fullWidth 
+            label="Label" 
+            value={question.label} 
+            onChange={(e) => onUpdate(question.id, 'label', e.target.value)} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <TextField 
+            size="small" 
+            fullWidth 
+            label="Label (Arabic)" 
+            value={question.labelArabic || ''} 
+            onChange={(e) => onUpdate(question.id, 'labelArabic', e.target.value)} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField 
+            size="small" 
+            fullWidth 
+            label="Description (optional)" 
+            value={question.description || ''} 
+            onChange={(e) => onUpdate(question.id, 'description', e.target.value)} 
+            multiline
+            minRows={2}
+            placeholder="Help text or instructions"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField 
+            size="small" 
+            fullWidth 
+            label="Description (Arabic, optional)" 
+            value={question.descriptionArabic || ''} 
+            onChange={(e) => onUpdate(question.id, 'descriptionArabic', e.target.value)} 
+            multiline
+            minRows={2}
+            placeholder="نص المساعدة"
+          />
+        </Grid>
+        {['select','checkbox','radio'].includes(question.type) && (
+          <Grid item xs={12}>
+            <OptionsEditor
+              questionId={question.id}
+              options={question.options || []}
+              optionsArabic={question.optionsArabic || []}
+              onUpdate={(options, optionsArabic) => {
+                onUpdate(question.id, 'options', options);
+                onUpdate(question.id, 'optionsArabic', optionsArabic);
+              }}
+            />
+          </Grid>
+        )}
+        <Grid item xs={12} sm={1} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <IconButton size="small" color="error" onClick={onDelete}>
+            <Trash />
+          </IconButton>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+}
+
+// Options Editor Component - Better UI for managing options with Arabic
+function OptionsEditor({
+  questionId,
+  options,
+  optionsArabic,
+  onUpdate
+}: {
+  questionId: string;
+  options: string[];
+  optionsArabic: string[];
+  onUpdate: (options: string[], optionsArabic: string[]) => void;
+}) {
+  const [localOptions, setLocalOptions] = useState<Array<{ en: string; ar: string }>>(() => {
+    const maxLen = Math.max(options.length, optionsArabic.length);
+    return Array.from({ length: maxLen }, (_, i) => ({
+      en: options[i] || '',
+      ar: optionsArabic[i] || ''
+    }));
+  });
+
+  useEffect(() => {
+    const maxLen = Math.max(options.length, optionsArabic.length);
+    setLocalOptions(Array.from({ length: maxLen }, (_, i) => ({
+      en: options[i] || '',
+      ar: optionsArabic[i] || ''
+    })));
+  }, [questionId]);
+
+  const updateOption = (index: number, field: 'en' | 'ar', value: string) => {
+    const updated = [...localOptions];
+    updated[index] = { ...updated[index], [field]: value };
+    setLocalOptions(updated);
+    onUpdate(
+      updated.map(o => o.en).filter(Boolean),
+      updated.map(o => o.ar).filter(Boolean)
+    );
+  };
+
+  const addOption = () => {
+    setLocalOptions([...localOptions, { en: '', ar: '' }]);
+  };
+
+  const removeOption = (index: number) => {
+    const updated = localOptions.filter((_, i) => i !== index);
+    setLocalOptions(updated);
+    onUpdate(
+      updated.map(o => o.en).filter(Boolean),
+      updated.map(o => o.ar).filter(Boolean)
+    );
+  };
+
+  return (
+    <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>Options</Typography>
+      <Stack spacing={1}>
+        {localOptions.map((opt, idx) => (
+          <Grid container spacing={1} key={idx} alignItems="center">
+            <Grid item xs={12} sm={5}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Option (English)"
+                value={opt.en}
+                onChange={(e) => updateOption(idx, 'en', e.target.value)}
+                placeholder="Option name"
+              />
+            </Grid>
+            <Grid item xs={12} sm={5}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Option (Arabic)"
+                value={opt.ar}
+                onChange={(e) => updateOption(idx, 'ar', e.target.value)}
+                placeholder="اسم الخيار"
+              />
+            </Grid>
+            <Grid item xs={12} sm={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <IconButton size="small" color="error" onClick={() => removeOption(idx)}>
+                <CloseCircle size={16} />
+              </IconButton>
+            </Grid>
+          </Grid>
+        ))}
+        <Button
+          size="small"
+          startIcon={<Add size={16} />}
+          onClick={addOption}
+          variant="outlined"
+        >
+          Add Option
+        </Button>
+      </Stack>
+    </Paper>
   );
 }
 

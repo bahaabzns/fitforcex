@@ -6,6 +6,9 @@ import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
+// assets
+import { Home, Document, Category, Card, Messages2, Setting2 } from '@wandersonalwes/iconsax-react';
+
 // project-imports
 import NavGroup from './NavGroup';
 import NavItem from './NavItem';
@@ -42,13 +45,14 @@ export default function Navigation() {
         id: 'group-client',
         title: 'Client',
         type: 'group',
+        icon: Home,
         children: [
-          { id: 'client-overview', title: 'Overview', type: 'item', url: '/client/dashboard' },
-          { id: 'client-forms', title: 'Forms', type: 'item', url: '/client/forms' },
-          { id: 'client-plans', title: 'Plans', type: 'item', url: '/client/plans' },
-          { id: 'client-subscription', title: 'Subscription', type: 'item', url: '/client/subscription' },
-          { id: 'client-support', title: 'Support', type: 'item', url: '/client/support' },
-          { id: 'client-settings', title: 'Settings', type: 'item', url: '/client/settings' }
+          { id: 'client-overview', title: 'Overview', type: 'item', url: '/client/dashboard', icon: Home },
+          { id: 'client-forms', title: 'Forms', type: 'item', url: '/client/forms', icon: Document },
+          { id: 'client-plans', title: 'Plans', type: 'item', url: '/client/plans', icon: Category },
+          { id: 'client-subscription', title: 'Subscription', type: 'item', url: '/client/subscription', icon: Card },
+          { id: 'client-support', title: 'Support', type: 'item', url: '/client/support', icon: Messages2 },
+          { id: 'client-settings', title: 'Settings', type: 'item', url: '/client/settings', icon: Setting2 }
         ]
       } as unknown as NavItemType;
       return { items: [clientMenu] };

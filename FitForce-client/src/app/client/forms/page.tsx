@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import api from '@/utils/axios';
+import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
 import useConfig from '@/hooks/useConfig';
 import { 
   Box, 
@@ -51,6 +52,7 @@ import en from '@/utils/locales/en.json';
 const translations: Record<string, Record<string, string>> = { ar, en };
 
 export default function ClientFormsPage() {
+  const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const { i18n } = useConfig();
   const currentLang = i18n || 'en';
   const isArabic = currentLang === 'ar';
@@ -133,11 +135,18 @@ export default function ClientFormsPage() {
     }
   };
 
-  const handleFileUpload = async (submissionId: string, questionId: string, file: File) => {
+  const handleFileUpload = async (submissionId: string, questionId: string, files: File[]) => {
     const uploadKey = `${submissionId}-${questionId}`;
     setUploadingFiles(prev => ({ ...prev, [uploadKey]: true }));
     
     try {
+      // Get current attachments (could be single file or array)
+      const currentValue = getAnswers(submissionId)[questionId];
+      const currentAttachments = Array.isArray(currentValue) ? currentValue : (currentValue ? [currentValue] : []);
+      
+      // Upload all new files
+      const uploadedAttachments = [];
+      for (const file of files) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('submissionId', submissionId);
@@ -147,12 +156,16 @@ export default function ClientFormsPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       
-      const attachment = response.data.attachment;
-      setAnswer(submissionId, questionId, attachment);
+        uploadedAttachments.push(response.data.attachment);
+      }
+      
+      // Combine existing and new attachments
+      const allAttachments = [...currentAttachments, ...uploadedAttachments];
+      setAnswer(submissionId, questionId, allAttachments.length === 1 ? allAttachments[0] : allAttachments);
       
       openSnackbar({
         open: true,
-        message: 'File uploaded successfully!',
+        message: `${files.length} file(s) uploaded successfully!`,
         variant: 'alert',
         alert: { color: 'success', variant: 'filled' }
       } as any);
@@ -160,7 +173,7 @@ export default function ClientFormsPage() {
       console.error('File upload error:', error);
       openSnackbar({
         open: true,
-        message: error?.response?.data?.error || 'Failed to upload file',
+        message: error?.response?.data?.error || 'Failed to upload file(s)',
         variant: 'alert',
         alert: { color: 'error', variant: 'filled' }
       } as any);
@@ -169,8 +182,20 @@ export default function ClientFormsPage() {
     }
   };
 
-  const handleFileRemove = (submissionId: string, questionId: string) => {
+  const handleFileRemove = (submissionId: string, questionId: string, fileIndex?: number) => {
+    const currentValue = getAnswers(submissionId)[questionId];
+    if (Array.isArray(currentValue)) {
+      // Multiple files - remove specific file
+      if (fileIndex !== undefined) {
+        const updated = currentValue.filter((_, i) => i !== fileIndex);
+        setAnswer(submissionId, questionId, updated.length === 0 ? null : (updated.length === 1 ? updated[0] : updated));
+      } else {
+        setAnswer(submissionId, questionId, null);
+      }
+    } else {
+      // Single file
     setAnswer(submissionId, questionId, null);
+    }
   };
 
   if (isLoading || loadingArchived) {
@@ -199,7 +224,18 @@ export default function ClientFormsPage() {
 
   const renderQuestion = (q: any, idx: number, s: any) => {
     const qid = q.id || `q_${idx}`;
-    const label = q.question || q.label || `Question ${idx + 1}`;
+    // Use Arabic label if available and user is in Arabic mode
+    const label = isArabic 
+      ? (q.questionArabic || q.labelArabic || q.question || q.label || `Question ${idx + 1}`)
+      : (q.question || q.label || q.questionArabic || q.labelArabic || `Question ${idx + 1}`);
+    // Use Arabic description if available and user is in Arabic mode
+    const description = isArabic 
+      ? (q.descriptionArabic || q.description) 
+      : (q.description || q.descriptionArabic);
+    // Use Arabic placeholder if available and user is in Arabic mode
+    const placeholder = isArabic 
+      ? (q.placeholderArabic || q.placeholder || '')
+      : (q.placeholder || q.placeholderArabic || '');
     const required = !!q.required;
     const qtype = q.type || 'text';
     const options = Array.isArray(q.options) ? q.options : [];
@@ -208,10 +244,16 @@ export default function ClientFormsPage() {
     switch (qtype) {
       case 'textarea':
         return (
+          <Box key={qid}>
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
           <TextField 
-            key={qid} 
             fullWidth 
             label={label} 
+              placeholder={placeholder}
             required={required} 
             value={value || ''} 
             onChange={(e) => setAnswer(s.id, qid, e.target.value)} 
@@ -219,23 +261,60 @@ export default function ClientFormsPage() {
             minRows={3}
             variant="outlined"
           />
+          </Box>
         );
       case 'number':
         return (
+          <Box key={qid}>
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
           <TextField 
-            key={qid} 
             fullWidth 
             type="number" 
             label={label} 
+              placeholder={placeholder}
             required={required} 
             value={value ?? ''} 
             onChange={(e) => setAnswer(s.id, qid, e.target.value)}
             variant="outlined"
           />
+          </Box>
+        );
+      case 'date':
+        return (
+          <Box key={qid}>
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
+            <TextField 
+              fullWidth 
+              type="date" 
+              label={label} 
+              placeholder={placeholder}
+              required={required} 
+              value={value || ''} 
+              onChange={(e) => setAnswer(s.id, qid, e.target.value)}
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
         );
       case 'select':
+        const selectOptions = Array.isArray(q.options) ? q.options : [];
+        const selectOptionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
         return (
-          <FormControl key={qid} fullWidth variant="outlined">
+          <Box key={qid}>
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
+            <FormControl fullWidth variant="outlined">
             <InputLabel id={`sel-${qid}`}>{label}{required ? ' *' : ''}</InputLabel>
             <Select 
               labelId={`sel-${qid}`} 
@@ -243,35 +322,63 @@ export default function ClientFormsPage() {
               value={value ?? ''} 
               onChange={(e) => setAnswer(s.id, qid, e.target.value)}
             >
-              <MenuItem value=""><em>Select an option</em></MenuItem>
-              {options.map((opt: string, i: number) => (
-                <MenuItem key={i} value={opt}>{opt}</MenuItem>
-              ))}
+                <MenuItem value=""><em>{isArabic ? 'اختر خياراً' : 'Select an option'}</em></MenuItem>
+                {selectOptions.map((opt: string, i: number) => {
+                  const optAr = selectOptionsArabic[i] || '';
+                  // Show Arabic option if available, otherwise show English
+                  const displayText = isArabic && optAr ? optAr : opt;
+                  return (
+                    <MenuItem key={i} value={opt}>{displayText}</MenuItem>
+                  );
+                })}
             </Select>
           </FormControl>
+          </Box>
         );
       case 'radio':
+        const radioOptions = Array.isArray(q.options) ? q.options : [];
+        const radioOptionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
         return (
           <FormControl key={qid} component="fieldset">
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
               {label}{required ? ' *' : ''}
             </Typography>
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
             <RadioGroup value={value ?? ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)}>
-              {options.map((opt: string, i: number) => (
-                <FormControlLabel key={i} value={opt} control={<Radio />} label={opt} />
-              ))}
+              {radioOptions.map((opt: string, i: number) => {
+                const optAr = radioOptionsArabic[i] || '';
+                // Show Arabic option if available, otherwise show English
+                const displayText = isArabic && optAr ? optAr : opt;
+                return (
+                  <FormControlLabel key={i} value={opt} control={<Radio />} label={displayText} />
+                );
+              })}
             </RadioGroup>
           </FormControl>
         );
       case 'checkbox':
+        const checkboxOptions = Array.isArray(q.options) ? q.options : [];
+        const checkboxOptionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
         return (
           <FormGroup key={qid}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
               {label}{required ? ' *' : ''}
             </Typography>
-            {options.map((opt: string, i: number) => {
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
+            {checkboxOptions.map((opt: string, i: number) => {
               const arr = Array.isArray(value) ? value : [];
               const checked = arr.includes(opt);
+              const optAr = checkboxOptionsArabic[i] || '';
+              // Show Arabic option if available, otherwise show English
+              const displayText = isArabic && optAr ? optAr : opt;
               return (
                 <FormControlLabel 
                   key={i} 
@@ -285,7 +392,7 @@ export default function ClientFormsPage() {
                       }} 
                     />
                   } 
-                  label={opt} 
+                  label={displayText} 
                 />
               );
             })}
@@ -294,24 +401,32 @@ export default function ClientFormsPage() {
       case 'attachment':
         const uploadKey = `${s.id}-${qid}`;
         const isUploading = uploadingFiles[uploadKey];
-        const attachment = value;
+        const attachments = Array.isArray(value) ? value : (value ? [value] : []);
         
         return (
           <Box key={qid} sx={{ width: '100%' }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
               {label}{required ? ' *' : ''}
             </Typography>
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
             
-            {attachment ? (
+            {attachments.length > 0 && (
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                {attachments.map((attachment: any, fileIdx: number) => (
               <Paper 
+                    key={fileIdx}
                 elevation={1} 
                 sx={{ 
                   p: 2, 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'space-between',
-                  bgcolor: 'success.light',
-                  color: 'success.contrastText'
+                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'success.dark' : 'success.light',
+                  color: (theme) => theme.palette.mode === 'dark' ? 'success.contrastText' : 'success.contrastText'
                 }}
               >
                 <Stack direction="row" alignItems="center" spacing={2}>
@@ -328,13 +443,16 @@ export default function ClientFormsPage() {
                 <MuiButton
                   size="small"
                   color="inherit"
-                  onClick={() => handleFileRemove(s.id, qid)}
+                      onClick={() => handleFileRemove(s.id, qid, fileIdx)}
                   startIcon={<Delete />}
                 >
                   Remove
                 </MuiButton>
               </Paper>
-            ) : (
+                ))}
+              </Stack>
+            )}
+            
               <Paper 
                 elevation={1} 
                 sx={{ 
@@ -342,7 +460,7 @@ export default function ClientFormsPage() {
                   textAlign: 'center',
                   border: '2px dashed',
                   borderColor: 'primary.main',
-                  bgcolor: 'primary.light',
+                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.light',
                   color: 'primary.contrastText',
                   cursor: 'pointer',
                   '&:hover': {
@@ -352,11 +470,12 @@ export default function ClientFormsPage() {
                 onClick={() => {
                   const input = document.createElement('input');
                   input.type = 'file';
-                  input.accept = 'image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx';
+                input.multiple = true; // Allow multiple files
+                input.accept = 'image/*,video/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx';
                   input.onchange = (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) {
-                      handleFileUpload(s.id, qid, file);
+                  const files = Array.from((e.target as HTMLInputElement).files || []);
+                  if (files.length > 0) {
+                    handleFileUpload(s.id, qid, files);
                     }
                   };
                   input.click();
@@ -371,35 +490,46 @@ export default function ClientFormsPage() {
                   <Stack alignItems="center" spacing={1}>
                     <CloudUpload sx={{ fontSize: 32 }} />
                     <Typography variant="body2" fontWeight={600}>
-                      Click to upload file
+                    Click to upload file(s)
                     </Typography>
                     <Typography variant="caption">
-                      Images, PDFs, Documents (max 10MB)
+                    Images, Videos, PDFs, Documents (max 10MB per file)
+                  </Typography>
+                  {attachments.length > 0 && (
+                    <Typography variant="caption" sx={{ mt: 0.5 }}>
+                      {attachments.length} file(s) uploaded
                     </Typography>
+                  )}
                   </Stack>
                 )}
               </Paper>
-            )}
           </Box>
         );
       case 'text':
       default:
         return (
+          <Box key={qid}>
+            {description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
+                {description}
+              </Typography>
+            )}
           <TextField 
-            key={qid} 
             fullWidth 
             label={label} 
+              placeholder={placeholder}
             required={required} 
             value={value || ''} 
             onChange={(e) => setAnswer(s.id, qid, e.target.value)}
             variant="outlined"
           />
+          </Box>
         );
     }
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -407,7 +537,7 @@ export default function ClientFormsPage() {
           p: 3, 
           mb: 3, 
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}CC 100%)`,
           color: 'white'
         }}
       >
@@ -539,8 +669,8 @@ export default function ClientFormsPage() {
                         onClick={() => setExpandedId(open ? null : s.id)}
                         color="primary"
                         sx={{ 
-                          bgcolor: 'primary.50',
-                          '&:hover': { bgcolor: 'primary.100' }
+                          bgcolor: (theme) => theme.palette.mode === 'dark' ? 'action.hover' : 'primary.50',
+                          '&:hover': { bgcolor: (theme) => theme.palette.mode === 'dark' ? 'action.selected' : 'primary.100' }
                         }}
                       >
                         {open ? <ExpandLess /> : <ExpandMore />}

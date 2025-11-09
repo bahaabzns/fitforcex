@@ -99,7 +99,7 @@ export default function ClientSubscriptionPage() {
   const statusInfo = profile?.client?.status ? getStatusInfo(profile.client.status) : null;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -253,7 +253,7 @@ export default function ClientSubscriptionPage() {
       )}
 
       {/* Help Section */}
-      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
+      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
         <CardContent>
           <Typography variant="h6" fontWeight={700} color="primary.main" gutterBottom>
             {t('need-help')}

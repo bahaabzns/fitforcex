@@ -43,6 +43,7 @@ interface FormSchedulingPopupProps {
   clientId: string;
   formType: 'workout' | 'nutrition';
   clientName?: string;
+  onlyScheduled?: boolean; // When true, hide immediate assignment option
 }
 
 export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
@@ -52,10 +53,11 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
   clientId,
   formType,
   clientName,
+  onlyScheduled = false,
 }) => {
   const [availableForms, setAvailableForms] = useState<FormTemplate[]>([]);
   const [selectedFormId, setSelectedFormId] = useState<string>('');
-  const [scheduleType, setScheduleType] = useState<'immediate' | 'scheduled'>('immediate');
+  const [scheduleType, setScheduleType] = useState<'immediate' | 'scheduled'>(onlyScheduled ? 'scheduled' : 'immediate');
   const [scheduledDate, setScheduledDate] = useState<string>('');
   const [durationDays, setDurationDays] = useState<number>(7);
   const [loading, setLoading] = useState(false);
@@ -120,7 +122,7 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
       
       // Reset form
       setSelectedFormId('');
-      setScheduleType('immediate');
+      setScheduleType(onlyScheduled ? 'scheduled' : 'immediate');
       setScheduledDate('');
       setDurationDays(7);
       onClose();
@@ -133,7 +135,7 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
 
   const handleSkip = () => {
     setSelectedFormId('');
-    setScheduleType('immediate');
+    setScheduleType(onlyScheduled ? 'scheduled' : 'immediate');
     setScheduledDate('');
     setDurationDays(7);
     setError(null);
@@ -241,7 +243,9 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
                 value={scheduleType}
                 onChange={(e) => setScheduleType(e.target.value as 'immediate' | 'scheduled')}
                 label="Assignment Type"
+                disabled={onlyScheduled}
               >
+                {!onlyScheduled && (
                 <MenuItem value="immediate">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Assignment fontSize="small" />
@@ -253,6 +257,7 @@ export const FormSchedulingPopup: React.FC<FormSchedulingPopupProps> = ({
                     </Box>
                   </Box>
                 </MenuItem>
+                )}
                 <MenuItem value="scheduled">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Schedule fontSize="small" />

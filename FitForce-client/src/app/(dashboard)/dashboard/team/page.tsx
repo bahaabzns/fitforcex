@@ -82,6 +82,17 @@ interface TeamMember {
   createdAt: string;
 }
 
+interface PendingInvitation {
+  id: string;
+  email: string;
+  role: {
+    id: string;
+    name: string;
+  };
+  expiresAt: string;
+  createdAt: string;
+}
+
 interface Role {
   id: string;
   name: string;
@@ -218,7 +229,9 @@ export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Table states
@@ -302,6 +315,24 @@ export default function TeamPage() {
     fetchData();
   }, [workspaceId]);
 
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    const fetchInvitations = async () => {
+      setLoadingInvitations(true);
+      try {
+        const response = await api.get('/api/team/invitations');
+        setPendingInvitations(response.data.invitations || []);
+      } catch {
+        // Silently fail - invitations are optional
+      } finally {
+        setLoadingInvitations(false);
+      }
+    };
+
+    fetchInvitations();
+  }, [workspaceId]);
+
   const handleInvite = async () => {
     if (!inviteEmail.trim() || !selectedRoleId) {
       setError('Please provide email and select a role');
@@ -331,8 +362,12 @@ export default function TeamPage() {
       setInviteEmail('');
       setSelectedRoleId('');
       // Refresh the list
-      const response = await api.get('/api/team/members');
-      setMembers(response.data.members || []);
+      const [membersRes, invitationsRes] = await Promise.all([
+        api.get('/api/team/members'),
+        api.get('/api/team/invitations')
+      ]);
+      setMembers(membersRes.data.members || []);
+      setPendingInvitations(invitationsRes.data.invitations || []);
     } catch {
       setError('Failed to send invitation');
     } finally {
@@ -562,6 +597,20 @@ export default function TeamPage() {
     handleMenuClose();
   };
 
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (!confirm('Are you sure you want to cancel this invitation?')) return;
+
+    setError(null);
+    try {
+      await api.post(`/api/team/invitations/${invitationId}/cancel`);
+      // Refresh the list
+      const response = await api.get('/api/team/invitations');
+      setPendingInvitations(response.data.invitations || []);
+    } catch {
+      setError('Failed to cancel invitation');
+    }
+  };
+
   const getRoleIcon = (roleName: string) => {
     switch (roleName.toLowerCase()) {
       case 'owner':
@@ -659,6 +708,139 @@ export default function TeamPage() {
       </Stack>
 
       {error && <Alert severity="error">{error}</Alert>}
+
+      {/* Pending Invitations Section */}
+      {pendingInvitations.length > 0 && (
+        <MainCard
+          title={`Pending Invitations (${pendingInvitations.length})`}
+        >
+          {isMobile ? (
+            <Grid container spacing={2}>
+              {pendingInvitations.map((invitation) => {
+                const isExpired = new Date(invitation.expiresAt) < new Date();
+                return (
+                  <Grid item xs={12} key={invitation.id}>
+                    <Card
+                      sx={{
+                        border: isExpired ? '1px solid' : '1px solid',
+                        borderColor: isExpired ? 'error.main' : 'divider',
+                        bgcolor: isExpired ? 'error.lighter' : 'background.paper',
+                      }}
+                    >
+                      <CardContent>
+                        <Stack spacing={2}>
+                          <Box>
+                            <Typography variant="h6">
+                              {invitation.email}
+                            </Typography>
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                              {getRoleIcon(invitation.role.name)}
+                              <Chip
+                                label={invitation.role.name}
+                                variant="outlined"
+                                size="small"
+                                color={getRoleColor(invitation.role.name) as any}
+                              />
+                            </Stack>
+                          </Box>
+                          <Divider />
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Invited
+                            </Typography>
+                            <Typography variant="body2">
+                              {formatDate(invitation.createdAt)}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Expires
+                            </Typography>
+                            <Typography variant="body2" color={isExpired ? 'error.main' : 'text.primary'}>
+                              {formatDate(invitation.expiresAt)}
+                              {isExpired && ' (Expired)'}
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button
+                              size="small"
+                              color="error"
+                              startIcon={<Trash size={16} />}
+                              onClick={() => handleCancelInvitation(invitation.id)}
+                            >
+                              Cancel
+                            </Button>
+                          </Stack>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Role</TableCell>
+                    <TableCell>Invited</TableCell>
+                    <TableCell>Expires</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pendingInvitations.map((invitation) => {
+                    const isExpired = new Date(invitation.expiresAt) < new Date();
+                    return (
+                      <TableRow key={invitation.id} sx={{ bgcolor: isExpired ? 'error.lighter' : 'background.paper' }}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600}>
+                            {invitation.email}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            {getRoleIcon(invitation.role.name)}
+                            <Chip
+                              label={invitation.role.name}
+                              variant="outlined"
+                              size="small"
+                              color={getRoleColor(invitation.role.name) as any}
+                            />
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {formatDate(invitation.createdAt)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color={isExpired ? 'error.main' : 'text.secondary'}>
+                            {formatDate(invitation.expiresAt)}
+                            {isExpired && ' (Expired)'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleCancelInvitation(invitation.id)}
+                            title="Cancel invitation"
+                          >
+                            <Trash size={16} />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </MainCard>
+      )}
 
       {/* Team Members Table */}
       {members.length === 0 ? (

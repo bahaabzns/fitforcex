@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { DndContext, closestCenter, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useParams } from 'next/navigation';
 import {
@@ -328,6 +328,14 @@ export default function ClientNutritionPage() {
     return next;
   };
 
+  // Sensors for drag and drop (like workout page)
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // Smooth drag-and-drop (like workout maker) for food items
   const Sortable: React.FC<{ id: string; children: (args: { attributes: any; listeners: any; setNodeRef: any; style: any }) => React.ReactNode }> = ({ id, children }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -368,6 +376,105 @@ export default function ClientNutritionPage() {
     })));
 
     setIsPlanDirty(true);
+  };
+
+  // Handle meal drag end with mirror effect
+  const handleMealDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !selectedPlanId || !selectedCycleId) return;
+
+    const oldIndex = currentMeals.findIndex((m) => m.id === active.id);
+    const newIndex = currentMeals.findIndex((m) => m.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newMeals = arrayMove(currentMeals, oldIndex, newIndex);
+    
+    setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+      ...p,
+      cycles: (p.cycles || []).map((c: any) => c.id !== selectedCycleId ? c : ({
+        ...c,
+        meals: newMeals
+      }))
+    })));
+
+    setCurrentMeals(newMeals);
+    setIsPlanDirty(true);
+  };
+
+  // Sortable meal component for mirror drag effect
+  const SortableMeal: React.FC<{ 
+    meal: Meal; 
+    isSelected: boolean;
+    onSelect: () => void;
+    onCopy: () => void;
+    onDelete: () => void;
+  }> = ({ meal, isSelected, onSelect, onCopy, onDelete }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: meal.id });
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    } as React.CSSProperties;
+    const totals = computeMealTotals(meal);
+
+    return (
+      <Card
+        ref={setNodeRef}
+        style={style}
+        onClick={onSelect}
+        sx={{
+          cursor: 'pointer',
+          border: '1px solid',
+          borderColor: isSelected ? 'primary.main' : 'divider',
+          bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+          position: 'relative',
+          boxShadow: isDragging ? 6 : 'none',
+          '&:hover .meal-actions': { opacity: 1 },
+          '&:hover': {
+            boxShadow: isDragging ? 6 : 2,
+            transform: isDragging ? undefined : 'translateY(-2px)'
+          },
+          transition: 'all 0.2s',
+        }}
+      >
+        <CardContent sx={{ py: 1.25 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+              <Box 
+                sx={{ 
+                  mr: 1, 
+                  color: 'text.disabled', 
+                  cursor: 'grab',
+                  fontSize: 18, 
+                  lineHeight: 1,
+                  '&:active': { cursor: 'grabbing' }
+                }} 
+                title="Drag to reorder"
+                {...attributes}
+                {...listeners}
+              >
+                ≡
+              </Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>{meal.meal}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary' }}>
+              <Typography variant="caption" sx={{ fontSize: 12 }}>{totals.calories} kcal</Typography>
+              <Typography variant="caption" sx={{ fontSize: 12 }}>P: {totals.protein}g</Typography>
+              <Typography variant="caption" sx={{ fontSize: 12 }}>C: {totals.carbs}g</Typography>
+              <Typography variant="caption" sx={{ fontSize: 12 }}>F: {totals.fat}g</Typography>
+            </Box>
+          </Box>
+        </CardContent>
+        <Box className="meal-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
+          <IconButton size="small" title="Copy meal" onClick={onCopy}>
+            <Copy size={16} />
+          </IconButton>
+          <IconButton size="small" color="error" title="Delete meal" onClick={onDelete}>
+            <Trash size={16} />
+          </IconButton>
+        </Box>
+      </Card>
+    );
   };
 
   const handleFoodDrop = (toIndex: number) => {
@@ -657,49 +764,14 @@ export default function ClientNutritionPage() {
       };
     }
     
-    // Use microTotals from API if available, otherwise calculate from meals
-    if (currentCycle.microTotals) {
-      const microTotals = currentCycle.microTotals;
-      // Server now returns correctly scaled totals; no UI normalization required
-      const calories = Math.round(microTotals.calories || 0);
-      const protein = Math.round(microTotals.protein || 0);
-      const carbs = Math.round(microTotals.carbs || 0);
-      const fat = Math.round(microTotals.fat || 0);
-      
-      return {
-        cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
-        calories: calories,
-        protein: protein,
-        carbs: carbs,
-        fat: fat,
-        proteinKcal: Math.round(protein * 4),
-        carbsKcal: Math.round(carbs * 4),
-        fatKcal: Math.round(fat * 9),
-        micronutrients: Object.fromEntries(
-          Object.entries(microTotals).filter(([key]) => 
-            !['calories', 'protein', 'carbs', 'fat'].includes(key)
-          )
-        )
-      };
-    }
+    // PRIORITY: Always calculate from currentMeals if available (real-time calculation)
+    // This ensures the analysis updates immediately as user makes changes, not just after saving
+    // Also fallback to cycle.meals if currentMeals is empty but cycle has meals
+    const mealsToCalculate = (currentMeals && currentMeals.length > 0) ? currentMeals : (currentCycle.meals || []);
     
-    // Fallback: calculate from meals if microTotals not available
-    if (!currentMeals || currentMeals.length === 0) {
-      return {
-        cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-        proteinKcal: 0,
-        carbsKcal: 0,
-        fatKcal: 0,
-        micronutrients: {}
-      };
-    }
-    
+    if (mealsToCalculate && mealsToCalculate.length > 0) {
     // Calculate basic macros
-    const totals = currentMeals.reduce((acc, m) => {
+      const totals = mealsToCalculate.reduce((acc, m) => {
       const mt = computeMealTotals(m);
       acc.calories += mt.calories;
       acc.protein += mt.protein;
@@ -718,7 +790,7 @@ export default function ClientNutritionPage() {
       "choline", "betaine"
     ];
     
-    currentMeals.forEach(meal => {
+      mealsToCalculate.forEach(meal => {
       meal.foodItems?.forEach(fi => {
         const qty = Number(fi.quantity ?? 1);
         const foodItem = fi.foodItem;
@@ -750,6 +822,46 @@ export default function ClientNutritionPage() {
       carbsKcal: Math.round(carbs * 4),
       fatKcal: Math.round(fat * 9),
       micronutrients
+    };
+    }
+    
+    // FALLBACK: Use microTotals from API if currentMeals not available (e.g., initial load)
+    if (currentCycle.microTotals) {
+      const microTotals = currentCycle.microTotals;
+      // Server now returns correctly scaled totals; no UI normalization required
+      const calories = Math.round(microTotals.calories || 0);
+      const protein = Math.round(microTotals.protein || 0);
+      const carbs = Math.round(microTotals.carbs || 0);
+      const fat = Math.round(microTotals.fat || 0);
+      
+      return {
+        cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
+        calories: calories,
+        protein: protein,
+        carbs: carbs,
+        fat: fat,
+        proteinKcal: Math.round(protein * 4),
+        carbsKcal: Math.round(carbs * 4),
+        fatKcal: Math.round(fat * 9),
+        micronutrients: Object.fromEntries(
+          Object.entries(microTotals).filter(([key]) => 
+            !['calories', 'protein', 'carbs', 'fat'].includes(key)
+          )
+        )
+      };
+    }
+    
+    // Final fallback: return zeros if no data available
+    return {
+      cycleName: currentCycle.label || currentCycle.title || 'Current Cycle',
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      proteinKcal: 0,
+      carbsKcal: 0,
+      fatKcal: 0,
+      micronutrients: {}
     };
   };
 
@@ -1054,6 +1166,13 @@ export default function ClientNutritionPage() {
       })
       .filter(Boolean) as MealFoodItem[];
     
+    // Update currentMeals immediately for real-time calculation
+    setCurrentMeals((prev) => prev.map(meal =>
+      meal.id === baseMeal.id
+        ? { ...meal, foodItems: [...(meal.foodItems || []), ...added] }
+        : meal
+    ));
+    
     // Update the plan's meal with the new food items
     setPlans((prev) => prev.map(plan => 
       plan.id === selectedPlanId 
@@ -1195,6 +1314,21 @@ export default function ClientNutritionPage() {
               recipeName: (currentMeal as any)?.recipeName || '',
               recipeNameArabic: (currentMeal as any)?.recipeNameArabic || '',
               recipeImageUrl: (currentMeal as any)?.recipeImageUrl || ''
+            });
+          }
+          
+          // Always include the meal, even if it's empty (no food items and no recipe)
+          // This ensures empty meals are preserved when saving
+          if (mealItems.length === 0) {
+            mealItems.push({
+              foodItemId: null,
+              quantity: 0,
+              mealKey: meal.id,
+              meal: meal.meal || '',
+              notes: meal.notes || '',
+              recipeName: (currentMeal as any)?.recipeName || null,
+              recipeNameArabic: (currentMeal as any)?.recipeNameArabic || null,
+              recipeImageUrl: (currentMeal as any)?.recipeImageUrl || null
             });
           }
           
@@ -1792,10 +1926,22 @@ export default function ClientNutritionPage() {
                     {chatLoading && chatMessages.length === 0 ? (
                       <Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>
                     ) : (
-                      chatMessages.map((m: any) => (
-                        <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
-                          <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
-                            <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                      chatMessages.map((m: any) => {
+                        const isClient = m.senderType === 'client';
+                        return (
+                        <Box key={m.id} sx={{ display: 'flex', justifyContent: isClient ? 'flex-end' : 'flex-start', mb: 1 }}>
+                          <Box sx={{ 
+                            px: 2, 
+                            py: 1.5, 
+                            bgcolor: isClient ? 'primary.main' : 'background.paper',
+                            color: isClient ? 'white' : 'text.primary',
+                            borderRadius: 2,
+                            borderBottomRightRadius: isClient ? 0 : 2,
+                            borderBottomLeftRadius: isClient ? 2 : 0,
+                            maxWidth: '75%',
+                            boxShadow: 1
+                          }}>
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{m.body || m.message || m.text || ''}</Typography>
                             {m.attachments && m.attachments.length > 0 && (
                               <Box sx={{ mt: 1 }}>
                                 {m.attachments.map((attachment: any, index: number) => (
@@ -1815,10 +1961,18 @@ export default function ClientNutritionPage() {
                                 ))}
                               </Box>
                             )}
-                            <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
+                            <Typography variant="caption" sx={{ 
+                              display: 'block', 
+                              mt: 0.5,
+                              opacity: isClient ? 0.8 : 0.6,
+                              fontSize: '0.7rem'
+                            }}>
+                              {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
+                            </Typography>
                           </Box>
                         </Box>
-                      ))
+                        );
+                      })
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
@@ -2140,108 +2294,155 @@ export default function ClientNutritionPage() {
                         <Box />
                       </Box>
                       
+                      {/* Calories Display - Prominent */}
+                      {currentCycle && (() => {
+                        const cycleTotals = computeCycleTotals(currentCycle);
+                        return (
+                          <Box sx={{ 
+                            mb: 2, 
+                            display: 'flex', 
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                          }}>
+                            <Card 
+                              sx={{ 
+                                bgcolor: 'primary.main',
+                                color: 'primary.contrastText',
+                                px: 3,
+                                py: 2,
+                                borderRadius: 3,
+                                boxShadow: 3,
+                                width: '100%',
+                                maxWidth: 320,
+                                textAlign: 'center',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                '&::before': {
+                                  content: '""',
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
+                                  pointerEvents: 'none'
+                                }
+                              }}
+                            >
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  opacity: 0.9,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 500,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: 1,
+                                  mb: 0.5,
+                                  position: 'relative',
+                                  zIndex: 1
+                                }}
+                              >
+                                Total Calories
+                              </Typography>
+                              <Typography 
+                                variant="h3" 
+                                sx={{ 
+                                  fontWeight: 700,
+                                  fontSize: '2rem',
+                                  lineHeight: 1.2,
+                                  position: 'relative',
+                                  zIndex: 1
+                                }}
+                              >
+                                {cycleTotals.calories.toLocaleString()}
+                              </Typography>
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  opacity: 0.8,
+                                  fontSize: '0.65rem',
+                                  mt: 0.5,
+                                  position: 'relative',
+                                  zIndex: 1
+                                }}
+                              >
+                                kcal
+                              </Typography>
+                            </Card>
+                          </Box>
+                        );
+                      })()}
+                      
                       {/* Macros bar */}
                       <Box sx={{ mb: 2 }}>
                         <CycleMacroBar cycle={currentCycle} meals={currentMeals} />
                       </Box>
                       
                       {/* Meals under current cycle stacked vertically */}
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {currentMeals.map((meal) => (
-                          <Box key={meal.id}>
-                            <Card
-                              draggable
-                              onDragStart={() => setDragMealIndex(currentMeals.findIndex(m => m.id === meal.id))}
-                              onDragOver={(e) => e.preventDefault()}
-                              onDrop={() => handleMealDrop(currentMeals.findIndex(m => m.id === meal.id))}
-                              sx={{
-                                border: selectedMealId === meal.id ? 2 : 1,
-                                borderColor: selectedMealId === meal.id ? 'secondary.main' : 'divider',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => {
-                                setSelectedMealId(meal.id);
-                                // On mobile, automatically move to section 3 (meal details) when meal is selected
-                                if (isMobile) {
-                                  setMobileSection(2);
-                                }
-                              }}
-                            >
-                              <CardHeader 
-                                title={meal.meal}
-                                action={
-                                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }} onClick={(e: any) => e.stopPropagation()}>
-                                    <IconButton size="small" title="Copy meal" onClick={() => {
-                                      if (!selectedPlanId || !selectedCycleId) return;
-                                      const newId = `tmpm-${Date.now()}-${Math.random()}`;
-                                      const copiedFoodItems = (meal.foodItems || []).map((fi: any, idx: number) => ({
-                                        ...fi,
-                                        id: `tmpfi-${newId}-${fi.foodItemId || fi.foodItem?.id || idx}-${Date.now()}`,
-                                        mealId: newId
-                                      }));
-                                      const copy = { ...meal, id: newId, foodItems: copiedFoodItems } as any;
-                                      setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                                        ...p,
-                                        cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
-                                          ...c,
-                                          meals: [ ...(c.meals || []), copy ]
-                                        }))
-                                      })));
-                                      setIsPlanDirty(true);
-                                    }}>
-                                      <Copy size={16} />
-                                    </IconButton>
-                                    <IconButton size="small" color="error" title="Delete meal" onClick={() => {
-                                      if (!selectedPlanId || !selectedCycleId) return;
-                                      setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                                        ...p,
-                                        cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
-                                          ...c,
-                                          meals: (c.meals || []).filter((m) => m.id !== meal.id)
-                                        }))
-                                      })));
-                                      if (selectedMealId === meal.id) setSelectedMealId(null);
-                                      setIsPlanDirty(true);
-                                    }}>
-                                      <Trash size={16} />
-                                    </IconButton>
-                                  </Stack>
-                                }
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMealDragEnd}>
+                        <SortableContext items={currentMeals.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {currentMeals.map((meal) => (
+                              <SortableMeal
+                                key={meal.id}
+                                meal={meal}
+                                isSelected={selectedMealId === meal.id}
+                                onSelect={() => {
+                                  setSelectedMealId(meal.id);
+                                  // On mobile, automatically move to section 3 (meal details) when meal is selected
+                                  if (isMobile) {
+                                    setMobileSection(2);
+                                  }
+                                }}
+                                onCopy={() => {
+                                  if (!selectedPlanId || !selectedCycleId) return;
+                                  const newId = `tmpm-${Date.now()}-${Math.random()}`;
+                                  const copiedFoodItems = (meal.foodItems || []).map((fi: any, idx: number) => ({
+                                    ...fi,
+                                    id: `tmpfi-${newId}-${fi.foodItemId || fi.foodItem?.id || idx}-${Date.now()}`,
+                                    mealId: newId
+                                  }));
+                                  const copy = { ...meal, id: newId, foodItems: copiedFoodItems } as any;
+                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                    ...p,
+                                    cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                      ...c,
+                                      meals: [ ...(c.meals || []), copy ]
+                                    }))
+                                  })));
+                                  setIsPlanDirty(true);
+                                }}
+                                onDelete={() => {
+                                  if (!selectedPlanId || !selectedCycleId) return;
+                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                    ...p,
+                                    cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                      ...c,
+                                      meals: (c.meals || []).filter((m) => m.id !== meal.id)
+                                    }))
+                                  })));
+                                  if (selectedMealId === meal.id) setSelectedMealId(null);
+                                  setIsPlanDirty(true);
+                                }}
                               />
-                              <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                                  <Box sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} title="Drag to reorder">≡</Box>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {(meal.foodItems?.length || 0)} food item(s)
-                                  </Typography>
-                                </Box>
-                                {(() => {
-                                  const t = computeMealTotals(meal);
-                                  return (
-                                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                      {t.calories} cal • {t.protein}g P • {t.carbs}g C • {t.fat}g F
-                                    </Typography>
-                                  );
-                                })()}
-                              </CardContent>
-                            </Card>
+                            ))}
+                            <Box>
+                              <Card
+                                sx={{
+                                  border: '1px dashed',
+                                  borderColor: 'divider',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                onClick={() => setIsCreateMealDialogOpen(true)}
+                              >
+                                <Button startIcon={<Add size={16} />}>Add Meal</Button>
+                              </Card>
+                            </Box>
                           </Box>
-                        ))}
-                        <Box>
-                          <Card
-                            sx={{
-                              border: '1px dashed',
-                              borderColor: 'divider',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            onClick={() => setIsCreateMealDialogOpen(true)}
-                          >
-                            <Button startIcon={<Add size={16} />}>Add Meal</Button>
-                          </Card>
-                        </Box>
-                      </Box>
+                        </SortableContext>
+                      </DndContext>
                     </Box>
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -2331,10 +2532,24 @@ export default function ClientNutritionPage() {
                               startIcon={<Trash size={16} />}
                               onClick={() => {
                                 const ids = new Set(selectedFoodItems);
+                                // Update currentMeals immediately for real-time calculation
                                 setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
                                   ...m,
                                   foodItems: m.foodItems.filter(fi => !ids.has(fi.foodItem.id))
                                 }));
+                                // Also update plans state to keep everything in sync
+                                if (selectedPlanId && selectedCycleId) {
+                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                    ...p,
+                                    cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                      ...c,
+                                      meals: (c.meals || []).map((m) => m.id !== selectedMealId ? m : ({
+                                        ...m,
+                                        foodItems: (m.foodItems || []).filter((fi) => !ids.has(fi.foodItem.id))
+                                      }))
+                                    }))
+                                  })));
+                                }
                                 setSelectedFoodItems([]);
                                 setIsPlanDirty(true);
                               }}
@@ -2555,10 +2770,22 @@ export default function ClientNutritionPage() {
                       {chatLoading && chatMessages.length === 0 ? (
                         <Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>
                       ) : (
-                        chatMessages.map((m: any) => (
-                          <Box key={m.id} sx={{ display: 'flex', justifyContent: (m.isMine || m.mine || m.sender?.isMe) ? 'flex-end' : 'flex-start', mb: 1 }}>
-                            <Box sx={{ px: 1, py: 0.5, bgcolor: (m.isMine || m.mine || m.sender?.isMe) ? 'primary.light' : 'action.hover', borderRadius: 1, maxWidth: '70%' }}>
-                              <Typography variant="body2">{m.body || m.message || m.text || ''}</Typography>
+                        chatMessages.map((m: any) => {
+                          const isClient = m.senderType === 'client';
+                          return (
+                          <Box key={m.id} sx={{ display: 'flex', justifyContent: isClient ? 'flex-end' : 'flex-start', mb: 1 }}>
+                            <Box sx={{ 
+                              px: 2, 
+                              py: 1.5, 
+                              bgcolor: isClient ? 'primary.main' : 'background.paper',
+                              color: isClient ? 'white' : 'text.primary',
+                              borderRadius: 2,
+                              borderBottomRightRadius: isClient ? 0 : 2,
+                              borderBottomLeftRadius: isClient ? 2 : 0,
+                              maxWidth: '75%',
+                              boxShadow: 1
+                            }}>
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{m.body || m.message || m.text || ''}</Typography>
                               {m.attachments && m.attachments.length > 0 && (
                                 <Box sx={{ mt: 1 }}>
                                   {m.attachments.map((attachment: any, index: number) => (
@@ -2578,10 +2805,18 @@ export default function ClientNutritionPage() {
                                   ))}
                                 </Box>
                               )}
-                              <Typography variant="caption" color="text.secondary">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</Typography>
+                              <Typography variant="caption" sx={{ 
+                                display: 'block', 
+                                mt: 0.5,
+                                opacity: isClient ? 0.8 : 0.6,
+                                fontSize: '0.7rem'
+                              }}>
+                                {m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}
+                              </Typography>
                             </Box>
                           </Box>
-                        ))
+                          );
+                        })
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
@@ -2847,6 +3082,84 @@ export default function ClientNutritionPage() {
                   </Box>
                     </Box>
                     
+                {/* Row 2a: Calories Display - Prominent */}
+                {currentCycle && (() => {
+                  const cycleTotals = computeCycleTotals(currentCycle);
+                  return (
+                    <Box sx={{ 
+                      mb: 2, 
+                      display: 'flex', 
+                      justifyContent: 'center',
+                      alignItems: 'center'
+                    }}>
+                      <Card 
+                        sx={{ 
+                          bgcolor: 'primary.main',
+                          color: 'primary.contrastText',
+                          px: 4,
+                          py: 2.5,
+                          borderRadius: 3,
+                          boxShadow: 3,
+                          minWidth: { xs: '100%', sm: 280 },
+                          textAlign: 'center',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
+                            pointerEvents: 'none'
+                          }
+                        }}
+                      >
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            opacity: 0.9,
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                            mb: 0.5,
+                            position: 'relative',
+                            zIndex: 1
+                          }}
+                        >
+                          Total Calories
+                        </Typography>
+                        <Typography 
+                          variant="h3" 
+                          sx={{ 
+                            fontWeight: 700,
+                            fontSize: { xs: '2rem', sm: '2.5rem' },
+                            lineHeight: 1.2,
+                            position: 'relative',
+                            zIndex: 1
+                          }}
+                        >
+                          {cycleTotals.calories.toLocaleString()}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            opacity: 0.8,
+                            fontSize: '0.7rem',
+                            mt: 0.5,
+                            position: 'relative',
+                            zIndex: 1
+                          }}
+                        >
+                          kcal
+                        </Typography>
+                      </Card>
+                    </Box>
+                  );
+                })()}
+                    
                 {/* Row 2b: Macros horizontal bar */}
                 <Box sx={{ mb: 1, textAlign: 'center', position: 'relative' }}>
                   {currentCycle ? (
@@ -2876,81 +3189,50 @@ export default function ClientNutritionPage() {
 
                     {/* Meals list */}
                     {currentCycle ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {currentMeals.map((meal) => (
-                            <Box key={meal.id}>
-                              <Card
-                                draggable
-                                onDragStart={() => setDragMealIndex(currentMeals.findIndex(m => m.id === meal.id))}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={() => handleMealDrop(currentMeals.findIndex(m => m.id === meal.id))}
-                              onClick={() => setSelectedMealId(meal.id)}
-                                sx={{
-                                cursor: 'pointer',
-                                border: '1px solid',
-                                borderColor: selectedMealId === meal.id ? 'primary.main' : 'divider',
-                                bgcolor: selectedMealId === meal.id ? 'primary.lighter' : 'background.paper',
-                                position: 'relative',
-                                boxShadow: 'none',
-                                '&:hover .meal-actions': { opacity: 1 }
-                              }}
-                            >
-                              <CardContent sx={{ py: 1.25 }}>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                                    <Box sx={{ mr: 1, color: 'text.disabled', cursor: 'grab', fontSize: 18, lineHeight: 1 }} title="Drag to reorder">≡</Box>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: selectedMealId === meal.id ? 'primary.main' : undefined }}>{meal.meal}</Typography>
-                                  </Box>
-                                  {(() => { const t = computeMealTotals(meal); return (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary' }}>
-                                      <Typography variant="caption" sx={{ fontSize: 12 }}>{t.calories} kcal</Typography>
-                                      <Typography variant="caption" sx={{ fontSize: 12 }}>P: {t.protein}g</Typography>
-                                      <Typography variant="caption" sx={{ fontSize: 12 }}>C: {t.carbs}g</Typography>
-                                      <Typography variant="caption" sx={{ fontSize: 12 }}>F: {t.fat}g</Typography>
-                                  </Box>
-                                  ); })()}
-                                </Box>
-                                </CardContent>
-                              <Box className="meal-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
-                                <IconButton size="small" title="Copy meal" onClick={() => {
-                                  if (!selectedPlanId || !selectedCycleId) return;
-                                  const newId = `tmpm-${Date.now()}-${Math.random()}`;
-                                  const copiedFoodItems = (meal.foodItems || []).map((fi: any, idx: number) => ({
-                                    ...fi,
-                                    id: `tmpfi-${newId}-${fi.foodItemId || fi.foodItem?.id || idx}-${Date.now()}`,
-                                    mealId: newId
-                                  }));
-                                  const copy = { ...meal, id: newId, foodItems: copiedFoodItems } as any;
-                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                                    ...p,
-                                    cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
-                                      ...c,
-                                      meals: [ ...(c.meals || []), copy ]
-                                    }))
-                                  })));
-                                  setIsPlanDirty(true);
-                                }}>
-                                  <Copy size={16} />
-                                </IconButton>
-                                <IconButton size="small" color="error" title="Delete meal" onClick={() => {
-                                  if (!selectedPlanId || !selectedCycleId) return;
-                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                                    ...p,
-                                    cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
-                                      ...c,
-                                      meals: (c.meals || []).filter((m) => m.id !== meal.id)
-                                    }))
-                                  })));
-                                  if (selectedMealId === meal.id) setSelectedMealId(null);
-                                  setIsPlanDirty(true);
-                                }}>
-                                  <Trash size={16} />
-                                </IconButton>
-                              </Box>
-                              </Card>
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMealDragEnd}>
+                          <SortableContext items={currentMeals.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              {currentMeals.map((meal) => (
+                                <SortableMeal
+                                  key={meal.id}
+                                  meal={meal}
+                                  isSelected={selectedMealId === meal.id}
+                                  onSelect={() => setSelectedMealId(meal.id)}
+                                  onCopy={() => {
+                                    if (!selectedPlanId || !selectedCycleId) return;
+                                    const newId = `tmpm-${Date.now()}-${Math.random()}`;
+                                    const copiedFoodItems = (meal.foodItems || []).map((fi: any, idx: number) => ({
+                                      ...fi,
+                                      id: `tmpfi-${newId}-${fi.foodItemId || fi.foodItem?.id || idx}-${Date.now()}`,
+                                      mealId: newId
+                                    }));
+                                    const copy = { ...meal, id: newId, foodItems: copiedFoodItems } as any;
+                                    setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                      ...p,
+                                      cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                        ...c,
+                                        meals: [ ...(c.meals || []), copy ]
+                                      }))
+                                    })));
+                                    setIsPlanDirty(true);
+                                  }}
+                                  onDelete={() => {
+                                    if (!selectedPlanId || !selectedCycleId) return;
+                                    setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                      ...p,
+                                      cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                        ...c,
+                                        meals: (c.meals || []).filter((m) => m.id !== meal.id)
+                                      }))
+                                    })));
+                                    if (selectedMealId === meal.id) setSelectedMealId(null);
+                                    setIsPlanDirty(true);
+                                  }}
+                                />
+                              ))}
                             </Box>
-                          ))}
-                        </Box>
+                          </SortableContext>
+                        </DndContext>
                     ) : (
                       <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">No cycle selected</Typography></Box>
                     )}
@@ -3544,6 +3826,7 @@ export default function ClientNutritionPage() {
         clientId={clientId}
         formType="nutrition"
         clientName={clientName}
+        onlyScheduled={true}
       />
 
       {/* Macros Overview Dialog */}

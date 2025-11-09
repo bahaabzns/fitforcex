@@ -19,6 +19,10 @@ const nextConfig = {
       transform: '@mui/lab/{{member}}'
     }
   },
+  experimental: {
+    // Optimize package imports for better dev mode performance
+    optimizePackageImports: ['@mui/material', '@mui/icons-material', '@mui/lab'],
+  },
   eslint: {
     ignoreDuringBuilds: true
   },

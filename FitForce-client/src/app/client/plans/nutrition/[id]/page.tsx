@@ -145,7 +145,7 @@ export default function ClientNutritionPlanDetail() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -251,12 +251,17 @@ export default function ClientNutritionPlanDetail() {
                     p: 2, 
                     mb: 3, 
                     borderRadius: 2,
-                    bgcolor: 'primary.50',
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'background.paper' : 'primary.50',
                     border: '1px solid',
-                    borderColor: 'primary.200'
+                    borderColor: (theme) => theme.palette.mode === 'dark' ? 'divider' : 'primary.200'
                   }}
                 >
-                  <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>
+                  <Typography 
+                    variant="subtitle2" 
+                    fontWeight={700} 
+                    color={(theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main'} 
+                    gutterBottom
+                  >
                     {t('client.nutrition.dailySummary')}
                     <Tooltip title={t('client.nutrition.viewMicros')} arrow>
                       <IconButton 
@@ -265,7 +270,10 @@ export default function ClientNutritionPlanDetail() {
                           setSelectedDayIndex(idx);
                           setMicrosDialogOpen(true);
                         }}
-                        sx={{ ml: 1 }}
+                        sx={{ 
+                          ml: 1,
+                          color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main'
+                        }}
                       >
                         <Info fontSize="small" />
                       </IconButton>
@@ -274,7 +282,11 @@ export default function ClientNutritionPlanDetail() {
                   <Grid container spacing={2}>
                     <Grid item xs={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={700} color="error.main">
+                        <Typography 
+                          variant="h6" 
+                          fontWeight={700} 
+                          color={(theme) => theme.palette.mode === 'dark' ? 'error.light' : 'error.main'}
+                        >
                           {dayTotals.calories}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">{t('calories')}</Typography>
@@ -282,7 +294,11 @@ export default function ClientNutritionPlanDetail() {
                     </Grid>
                     <Grid item xs={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={700} color="info.main">
+                        <Typography 
+                          variant="h6" 
+                          fontWeight={700} 
+                          color={(theme) => theme.palette.mode === 'dark' ? 'info.light' : 'info.main'}
+                        >
                           {dayTotals.protein}g
                         </Typography>
                         <Typography variant="caption" color="text.secondary">{t('protein')}</Typography>
@@ -290,7 +306,11 @@ export default function ClientNutritionPlanDetail() {
                     </Grid>
                     <Grid item xs={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={700} color="warning.main">
+                        <Typography 
+                          variant="h6" 
+                          fontWeight={700} 
+                          color={(theme) => theme.palette.mode === 'dark' ? 'warning.light' : 'warning.main'}
+                        >
                           {dayTotals.carbs}g
                         </Typography>
                         <Typography variant="caption" color="text.secondary">{t('carbs')}</Typography>
@@ -298,7 +318,11 @@ export default function ClientNutritionPlanDetail() {
                     </Grid>
                     <Grid item xs={3}>
                       <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={700} color="success.main">
+                        <Typography 
+                          variant="h6" 
+                          fontWeight={700} 
+                          color={(theme) => theme.palette.mode === 'dark' ? 'success.light' : 'success.main'}
+                        >
                           {dayTotals.fat}g
                         </Typography>
                         <Typography variant="caption" color="text.secondary">{t('fat')}</Typography>
@@ -401,17 +425,21 @@ export default function ClientNutritionPlanDetail() {
                                   </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                  {meal.foodItems.map((fi, fiIdx) => (
+                                  {meal.foodItems.map((fi, fiIdx) => {
+                                    const unit = (isArabic && fi.foodItem?.unitArabic) || fi.foodItem?.unit || 'g';
+                                    const quantityDisplay = `${fi.quantity}${unit ? ` ${unit}` : ''}`;
+                                    return (
                                     <TableRow key={fiIdx} hover>
                                       <TableCell>{(isArabic && fi.foodItem?.nameArabic) || fi.foodItem?.name || t('unknown')}</TableCell>
                                       <TableCell align="center">
-                                        <Chip label={fi.quantity} size="small" variant="outlined" />
+                                          <Chip label={quantityDisplay} size="small" variant="outlined" />
                                       </TableCell>
                                       <TableCell align="right">
                                         {Math.round((fi.foodItem?.calories || 0) * ((Number(fi.quantity ?? 0)) / (Number(fi.foodItem?.servingSize ?? 100) || 100)))}
                                       </TableCell>
                                     </TableRow>
-                                  ))}
+                                    );
+                                  })}
                                 </TableBody>
                               </Table>
                             </TableContainer>

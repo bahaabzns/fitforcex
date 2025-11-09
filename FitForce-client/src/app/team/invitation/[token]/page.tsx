@@ -245,10 +245,11 @@ export default function TeamInvitationPage() {
     try {
       await api.post('/api/auth/logout');
       dispatch(setCredentials({ user: null as any }));
-      // Refresh to show signup/login options
-      window.location.reload();
     } catch (err) {
       console.error('Logout failed:', err);
+    } finally {
+      // Force redirect using window.location to ensure it works
+      window.location.href = '/login';
     }
   };
 

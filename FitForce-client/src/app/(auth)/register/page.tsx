@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -13,6 +13,7 @@ import useConfig from '@/hooks/useConfig';
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
 import { track } from '@/lib/pixel';
+import { APP_CONFIG } from '@/lib/config';
 
 // ================================|| REGISTER ||================================ //
 
@@ -31,6 +32,22 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authBackgroundImage, setAuthBackgroundImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const landing = data?.landing;
+        if (!landing || !isMounted) return;
+        setAuthBackgroundImage(landing.authBackgroundImage || null);
+      } catch {}
+    })();
+    return () => { isMounted = false; };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,15 +79,41 @@ export default function RegisterPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-      <Card sx={{ p: 4, width: '100%', maxWidth: 520 }}>
+    <Box 
+      sx={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        p: 2,
+        position: 'relative',
+        ...(authBackgroundImage && {
+          backgroundImage: `url(${authBackgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backdropFilter: 'blur(10px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 0
+          }
+        })
+      }}
+    >
+      <Card sx={{ p: 4, width: '100%', maxWidth: 520, position: 'relative', zIndex: 1 }}>
         <Stack spacing={2} component="form" onSubmit={handleSubmit}>
           <Typography variant="h5" fontWeight={700} textAlign="center">{t('register')}</Typography>
-          <TextField label={t('first-name') || 'First Name'} value={firstName} onChange={(e) => setFirstName(e.target.value)} required fullWidth />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField label={t('first-name') || 'First Name'} value={firstName} onChange={(e) => setFirstName(e.target.value)} required fullWidth />
             <TextField label={t('last-name') || 'Last Name'} value={lastName} onChange={(e) => setLastName(e.target.value)} fullWidth />
-            <TextField label={t('phone-number')} value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} fullWidth />
           </Stack>
+          <TextField label={t('phone-number')} value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} fullWidth />
           <TextField label={t('email-address')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
           <TextField label={t('password')} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth />
           {error && <Typography color="error" variant="body2" textAlign="center">{error}</Typography>}

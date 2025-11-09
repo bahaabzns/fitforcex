@@ -33,7 +33,7 @@ export default function SeedClientMockPaymentPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2, bgcolor: 'background.default' }}>
       <Card sx={{ p: 4, width: '100%', maxWidth: 420 }}>
         <form onSubmit={handleSubmit}>
           <Stack spacing={2}>

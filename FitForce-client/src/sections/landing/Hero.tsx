@@ -30,6 +30,12 @@ export default function HeroPage() {
   const [subtitle, setSubtitle] = useState<string | null>(null);
   const [ctaText, setCtaText] = useState<string | null>(null);
   const [ctaUrl, setCtaUrl] = useState<string | null>(null);
+  const [bookDemoText, setBookDemoText] = useState<string | null>(null);
+  const [bookDemoUrl, setBookDemoUrl] = useState<string | null>(null);
+  const [heroCtaEnabled, setHeroCtaEnabled] = useState<boolean>(true);
+  const [heroBookDemoEnabled, setHeroBookDemoEnabled] = useState<boolean>(true);
+  const [heroAlignment, setHeroAlignment] = useState<'left' | 'center' | 'right'>('center');
+  const [heroSideImage, setHeroSideImage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,6 +54,12 @@ export default function HeroPage() {
         setSubtitle(content.subtitle || null);
         setCtaText(content.ctaText || null);
         setCtaUrl(content.ctaUrl || null);
+        setBookDemoText(content.bookDemoText || null);
+        setBookDemoUrl(content.bookDemoUrl || null);
+        setHeroCtaEnabled(content.heroCtaEnabled !== false);
+        setHeroBookDemoEnabled(content.heroBookDemoEnabled !== false);
+        setHeroAlignment(content.heroAlignment || 'center');
+        setHeroSideImage(content.heroSideImage || null);
       } catch {}
     })();
     return () => { isMounted = false; };
@@ -79,9 +91,36 @@ export default function HeroPage() {
       }}
     >
       <Container sx={{ position: 'relative', zIndex: 2 }}>
-        <Grid container spacing={2} sx={{ alignItems: 'center', justifyContent: 'center', pt: { md: 0, xs: 10 }, pb: { md: 0, xs: 22 } }}>
-          <Grid size={{ xs: 12, md: 9 }}>
-            <Grid container spacing={3} sx={{ textAlign: 'center' }}>
+        <Grid container spacing={4} sx={{ alignItems: 'center', pt: { md: 0, xs: 10 }, pb: { md: 0, xs: 22 } }}>
+          {/* Hero Side Image - Show on right when alignment is left, on left when alignment is right */}
+          {heroSideImage && heroAlignment !== 'center' && (
+            <Grid size={{ xs: 12, md: 5 }} sx={{ order: { xs: 2, md: heroAlignment === 'left' ? 2 : 1 } }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: heroAlignment === 'left' ? 'flex-start' : 'flex-end',
+                  alignItems: 'center',
+                  height: '100%'
+                }}
+              >
+                <Box
+                  component="img"
+                  src={heroSideImage}
+                  alt="Hero"
+                  sx={{
+                    maxWidth: '100%',
+                    height: 'auto',
+                    borderRadius: 2,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                  }}
+                />
+              </Box>
+            </Grid>
+          )}
+          
+          {/* Hero Content */}
+          <Grid size={{ xs: 12, md: heroSideImage && heroAlignment !== 'center' ? 7 : (heroAlignment === 'center' ? 9 : 12) }} sx={{ order: { xs: 1, md: heroAlignment === 'left' ? 1 : 2 } }}>
+            <Grid container spacing={3} sx={{ textAlign: heroAlignment === 'center' ? 'center' : heroAlignment === 'left' ? 'left' : 'right' }}>
               <Grid size={12}>
                 <motion.div
                   initial={{ opacity: 0, y: 550 }}
@@ -135,8 +174,8 @@ export default function HeroPage() {
                   )}
                 </motion.div>
               </Grid>
-              <Grid container size={12} sx={{ justifyContent: 'center' }}>
-                <Grid size={8}>
+              <Grid container size={12} sx={{ justifyContent: heroAlignment === 'center' ? 'center' : heroAlignment === 'left' ? 'flex-start' : 'flex-end' }}>
+                <Grid size={heroAlignment === 'center' ? 8 : 12}>
                   <motion.div
                     initial={{ opacity: 0, y: 550 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -172,7 +211,8 @@ export default function HeroPage() {
                     delay: 0.4
                   }}
                 >
-                  <Grid container spacing={2} sx={{ justifyContent: 'center' }}>
+                  <Grid container spacing={2} sx={{ justifyContent: heroAlignment === 'center' ? 'center' : heroAlignment === 'left' ? 'flex-start' : 'flex-end' }}>
+                    {heroCtaEnabled && (
                     <Grid>
                       <AnimateButton>
                         <Button
@@ -194,25 +234,28 @@ export default function HeroPage() {
                         </Button>
                       </AnimateButton>
                     </Grid>
+                    )}
+                    {heroBookDemoEnabled && (
                     <Grid>
                       <AnimateButton>
                         <Button
-                          component="a"
-                          href="#book-demo"
+                            component={bookDemoUrl ? Link : "a"}
+                            href={bookDemoUrl || "#book-demo"}
                           size="large"
                           color="primary"
                           variant="contained"
-                          onClick={(e) => {
+                            onClick={!bookDemoUrl ? (e) => {
                             e.preventDefault();
                             document.getElementById('book-demo')?.scrollIntoView({ 
                               behavior: 'smooth' 
                             });
-                          }}
+                            } : undefined}
                         >
-                          {t('landing.cta.bookDemo')}
+                            {bookDemoText || t('landing.cta.bookDemo')}
                         </Button>
                       </AnimateButton>
                     </Grid>
+                    )}
                   </Grid>
                 </motion.div>
               </Grid>

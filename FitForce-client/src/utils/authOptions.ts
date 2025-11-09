@@ -84,6 +84,16 @@ export const authOptions: NextAuthOptions = {
         token.accessToken = user.accessToken;
         token.id = user.id;
         token.provider = account?.provider;
+        // Store user name if available (could be fullName, name, or extracted from email)
+        if ((user as any).fullName) {
+          token.name = (user as any).fullName;
+        } else if (user.name) {
+          token.name = user.name;
+        } else if (user.email) {
+          // Extract name from email as fallback
+          const emailParts = user.email.split('@');
+          token.name = emailParts[0] ? emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1) : 'User';
+        }
       }
       return token;
     },
@@ -92,6 +102,10 @@ export const authOptions: NextAuthOptions = {
         session.id = token.id;
         session.provider = token.provider;
         session.token = token;
+        // Ensure user name is set in session
+        if (token.name && session.user) {
+          session.user.name = token.name as string;
+        }
       }
       return session;
     },

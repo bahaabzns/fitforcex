@@ -1,8 +1,7 @@
 import { useState, MouseEvent } from 'react';
 
 // next
-import { useRouter } from 'next/navigation';
-import { signOut, useSession } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 
 // material-ui
@@ -20,6 +19,7 @@ import Box from '@mui/material/Box';
 import { useGetMenuMaster } from 'api/menu';
 import Avatar from 'components/@extended/Avatar';
 import useUser from 'hooks/useUser';
+import { logoutUser } from '@/lib/auth';
 
 // assets
 import { ArrowRight2 } from '@wandersonalwes/iconsax-react';
@@ -46,28 +46,28 @@ const ExpandMore = styled(IconButton, {
 // ==============================|| LIST - USER ||============================== //
 
 export default function UserList() {
-  const router = useRouter();
   const user = useUser();
 
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
 
-  const { data: session } = useSession();
-  const provider = session?.provider;
-
-  const handleLogout = () => {
-    switch (provider) {
-      case 'auth0':
-        signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/auth0` });
-        break;
-      case 'cognito':
-        signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/cognito` });
-        break;
-      default:
-        signOut({ redirect: false });
+  const handleLogout = async () => {
+    // Ensure backend httpOnly cookie is cleared first
+    try {
+      await logoutUser();
+    } catch {
+      // ignore
+    }
+    // Always use redirect: false to prevent automatic redirects
+    // We'll handle the redirect manually
+    try {
+      await signOut({ redirect: false });
+    } catch {
+      // ignore
     }
 
-    router.push('/login');
+    // Force redirect using window.location to ensure it works
+    window.location.href = '/login';
   };
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -106,10 +106,18 @@ export default function UserList() {
           }}
         >
           <ListItemAvatar>
-            <Avatar alt="Avatar" src={avatar1} sx={{ ...(drawerOpen && { width: 46, height: 46 }) }} />
+            <Avatar 
+              alt="Avatar" 
+              src={(user && typeof user === 'object' ? user?.avatar : null) || avatar1} 
+              sx={{ ...(drawerOpen && { width: 46, height: 46 }) }} 
+            />
           </ListItemAvatar>
           <ListItemText
-            primary={user ? user?.name : ''}
+            primary={
+              user && typeof user === 'object' 
+                ? (user?.name?.trim() || user?.email?.split('@')[0] || 'User')
+                : 'User'
+            }
             sx={{ ...(!drawerOpen && { display: 'none' }) }}
             secondary={user?.role || undefined}
           />

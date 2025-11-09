@@ -248,7 +248,7 @@ export default function ClientSupportPage() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'grey.50' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -319,7 +319,7 @@ export default function ClientSupportPage() {
         }}
       >
         {/* Messages Area */}
-        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3, bgcolor: 'grey.50' }}>
+        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3, bgcolor: 'background.default' }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <Stack alignItems="center" spacing={2}>
@@ -363,7 +363,7 @@ export default function ClientSupportPage() {
                       sx={{
                         p: 2,
                         maxWidth: '75%',
-                        bgcolor: isClient ? 'primary.main' : 'white',
+                        bgcolor: isClient ? 'primary.main' : 'background.paper',
                         color: isClient ? 'white' : 'text.primary',
                         borderRadius: 3,
                         borderBottomRightRadius: isClient ? 0 : 3,
@@ -427,7 +427,7 @@ export default function ClientSupportPage() {
                     sx={{ 
                       p: 1.5, 
                       borderRadius: 2,
-                      bgcolor: 'grey.100'
+                      bgcolor: (theme) => theme.palette.mode === 'dark' ? 'action.hover' : 'grey.100'
                     }}
                   >
                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
@@ -444,7 +444,7 @@ export default function ClientSupportPage() {
         <Divider />
 
         {/* Message Input Area */}
-        <Box sx={{ p: 2.5, bgcolor: 'white' }}>
+        <Box sx={{ p: 2.5, bgcolor: 'background.paper' }}>
           {/* Attachments Preview */}
           {attachments.length > 0 && (
             <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -481,8 +481,8 @@ export default function ClientSupportPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || sending}
               sx={{ 
-                bgcolor: 'grey.100',
-                '&:hover': { bgcolor: 'grey.200' }
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'action.hover' : 'grey.100',
+                '&:hover': { bgcolor: (theme) => theme.palette.mode === 'dark' ? 'action.selected' : 'grey.200' }
               }}
             >
               <AttachFile />
@@ -547,7 +547,7 @@ export default function ClientSupportPage() {
       </Card>
 
       {/* Help Tips Card */}
-      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: 'info.50', border: '2px solid', borderColor: 'info.main' }}>
+      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'info.dark' : 'info.50', border: '2px solid', borderColor: 'info.main' }}>
         <CardContent>
           <Typography variant="h6" fontWeight={700} color="info.main" gutterBottom>
             {t('client.support.tipsTitle')}

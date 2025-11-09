@@ -267,6 +267,8 @@ export default function ClientInvitationPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  error={password.length > 0 && password.length < 6}
+                  helperText={password.length > 0 && password.length < 6 ? 'Password must be at least 6 characters' : 'Minimum 6 characters'}
                   required
                 />
                 
@@ -276,6 +278,8 @@ export default function ClientInvitationPage() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  error={confirmPassword.length > 0 && password !== confirmPassword}
+                  helperText={confirmPassword.length > 0 && password !== confirmPassword ? 'Passwords do not match' : ''}
                   required
                 />
                 

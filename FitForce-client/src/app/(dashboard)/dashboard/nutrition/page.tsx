@@ -233,7 +233,7 @@ export default function NutritionPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
 
-  const [tabIndex, setTabIndex] = useState(0); // 0: Food, 1: Recipes
+  // Removed Recipes tab - only Food Items now
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -259,7 +259,6 @@ export default function NutritionPage() {
     name: '',
     nameArabic: '',
     category: '',
-    categoryArabic: '',
     unit: '',
     unitArabic: '',
     servingSize: undefined as number | undefined,
@@ -309,17 +308,11 @@ export default function NutritionPage() {
   const [loadingDefaults, setLoadingDefaults] = useState(false);
   const [nutritionImportSearchTerm, setNutritionImportSearchTerm] = useState('');
   const [selectedNutritionCategory, setSelectedNutritionCategory] = useState<string>('all');
+  // Pagination for import dialog
+  const [importPage, setImportPage] = useState(0);
+  const [importRowsPerPage, setImportRowsPerPage] = useState(20);
 
-  // Recipes state
-  type Recipe = { id: string; name: string; nameArabic?: string; imageUrl?: string; youtubeUrl?: string };
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [recipesLoading, setRecipesLoading] = useState(false);
-  const [isCreateRecipeOpen, setIsCreateRecipeOpen] = useState(false);
-  const [newRecipeName, setNewRecipeName] = useState('');
-  const [newRecipeNameAr, setNewRecipeNameAr] = useState('');
-  const [newRecipeImageFile, setNewRecipeImageFile] = useState<File | null>(null);
-  const [creatingRecipe, setCreatingRecipe] = useState(false);
-  const [newRecipeYoutubeUrl, setNewRecipeYoutubeUrl] = useState('');
+  // Recipes removed
 
   useEffect(() => {
     if (!workspaceId) {
@@ -343,22 +336,7 @@ export default function NutritionPage() {
     fetchFoodItems();
   }, [workspaceId]);
 
-  useEffect(() => {
-    // Load recipes when entering the Recipes tab
-    const loadRecipes = async () => {
-      if (!workspaceId) return;
-      setRecipesLoading(true);
-      try {
-        const res = await api.get('/api/nutrition/recipes');
-        setRecipes(res.data.recipes || []);
-      } catch {
-        setError('Failed to load recipes');
-      } finally {
-        setRecipesLoading(false);
-      }
-    };
-    if (tabIndex === 1) loadRecipes();
-  }, [tabIndex, workspaceId]);
+  // Recipes loading removed
 
   const handleCreate = async () => {
     if (!newFoodItem.name.trim() || newFoodItem.calories <= 0) {
@@ -369,9 +347,14 @@ export default function NutritionPage() {
     setCreating(true);
     setError(null);
     try {
-      await api.post('/api/nutrition/food-items', newFoodItem);
+      // Auto-determine category if not provided - set default to "Other"
+      const foodItemToCreate = {
+        ...newFoodItem,
+        category: newFoodItem.category || 'Other'
+      };
+      await api.post('/api/nutrition/food-items', foodItemToCreate);
       setIsCreateDialogOpen(false);
-      setNewFoodItem({ name: '', calories: 0, protein: 0, carbs: 0, fat: 0 });
+      setNewFoodItem({ name: '', nameArabic: '', category: '', unit: '', unitArabic: '', servingSize: undefined, calories: 0, protein: 0, carbs: 0, fat: 0, water: undefined, ash: undefined, fiber: undefined, sodium: undefined, potassium: undefined, calcium: undefined, phosphorous: undefined, magnesium: undefined, iron: undefined, zinc: undefined, copper: undefined, manganese: undefined, fluoride: undefined, selenium: undefined, vitamin_a: undefined, vitamin_c: undefined, vitamin_b1: undefined, vitamin_b2: undefined, vitamin_b5: undefined, vitamin_b6: undefined, vitamin_b12: undefined, vitamin_d: undefined, vitamin_e: undefined, vitamin_k: undefined, niacin: undefined, folic_acid: undefined, choline: undefined, betaine: undefined });
       // Refresh the list
       const response = await api.get('/api/nutrition/food-items');
       setFoodItems(response.data.foodItems || []);
@@ -393,6 +376,10 @@ export default function NutritionPage() {
     setError(null);
     try {
       const { id, createdAt, updatedAt, workspaceId: _ws, ...payload } = selectedFoodItem as any;
+      // Auto-determine category if not provided - set default to "Other"
+      if (!payload.category) {
+        payload.category = 'Other';
+      }
       await api.put(`/api/nutrition/food-items/${selectedFoodItem.id}`, payload);
       setIsEditDialogOpen(false);
       setSelectedFoodItem(null);
@@ -556,24 +543,25 @@ export default function NutritionPage() {
 
   const handleNutritionCategoryChange = (event: SyntheticEvent, newValue: string) => {
     setSelectedNutritionCategory(newValue);
+    setImportPage(0); // Reset to first page when category changes
   };
 
   const handleSelectAllInNutritionCategory = () => {
-    // Check if all filtered items are selected
-    const allFilteredSelected = filteredNutritionNames.size > 0 && Array.from(filteredNutritionNames).every(name => selectedItems.has(name));
+    // Check if all paginated items are selected
+    const allPaginatedSelected = paginatedNutritionNames.size > 0 && Array.from(paginatedNutritionNames).every(name => selectedItems.has(name));
     
-    if (allFilteredSelected) {
-      // Deselect all filtered items
+    if (allPaginatedSelected) {
+      // Deselect all paginated items
       setSelectedItems(prev => {
         const newSet = new Set(prev);
-        filteredNutritionNames.forEach(name => newSet.delete(name));
+        paginatedNutritionNames.forEach(name => newSet.delete(name));
         return newSet;
       });
     } else {
-      // Select all filtered items
+      // Select all paginated items
       setSelectedItems(prev => {
         const newSet = new Set(prev);
-        filteredNutritionNames.forEach(name => newSet.add(name));
+        paginatedNutritionNames.forEach(name => newSet.add(name));
         return newSet;
       });
     }
@@ -583,6 +571,8 @@ export default function NutritionPage() {
     setNutritionImportSearchTerm('');
     setSelectedNutritionCategory('all');
     setSelectedItems(new Set());
+    setImportPage(0);
+    setImportRowsPerPage(20);
   };
 
   // Memoized values to prevent infinite re-renders
@@ -612,7 +602,15 @@ export default function NutritionPage() {
     return filtered;
   }, [defaultItems, selectedNutritionCategory, nutritionImportSearchTerm]);
   
+  // Paginated items for import dialog
+  const paginatedNutritionItems = useMemo(() => {
+    const start = importPage * importRowsPerPage;
+    const end = start + importRowsPerPage;
+    return filteredNutritionItems.slice(start, end);
+  }, [filteredNutritionItems, importPage, importRowsPerPage]);
+  
   const filteredNutritionNames = useMemo(() => new Set(filteredNutritionItems.map(item => item.name)), [filteredNutritionItems]);
+  const paginatedNutritionNames = useMemo(() => new Set(paginatedNutritionItems.map(item => item.name)), [paginatedNutritionItems]);
 
   if (!workspaceId) {
     return (
@@ -625,7 +623,7 @@ export default function NutritionPage() {
     );
   }
 
-  if (loading && tabIndex === 0) {
+  if (loading) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
@@ -653,21 +651,14 @@ export default function NutritionPage() {
           <Typography variant="h4" gutterBottom>
             Nutrition
           </Typography>
-          <Typography color="text.secondary">Manage food items, recipes, and nutrition plans</Typography>
-        </Box>
-        <Box sx={{ width: '100%', mt: { xs: 1, sm: 0 } }}>
-          <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)}>
-            <Tab label="Food Items" />
-            <Tab label="Recipes" />
-          </Tabs>
+          <Typography color="text.secondary">Manage food items and nutrition plans</Typography>
         </Box>
       </Stack>
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {tabIndex === 0 && (
-      // Food Items Table
-      foodItems.length === 0 ? (
+      {/* Food Items Table */}
+      {foodItems.length === 0 ? (
         <MainCard>
           <Box sx={{ textAlign: 'center', py: 12 }}>
             <Typography variant="h6" gutterBottom>
@@ -774,7 +765,7 @@ export default function NutritionPage() {
                             <Grid container spacing={2}>
                               <Grid item xs={6}>
                                 <Typography variant="caption" color="text.secondary">
-                                  <FormattedMessage id="nutrition.col.calories" defaultMessage="Calories (per 100g)" />
+                                  <FormattedMessage id="nutrition.col.calories" defaultMessage="Calories (per serving)" />
                                 </Typography>
                                 <Typography variant="body2" fontWeight="medium">
                                   {row.calories} kcal
@@ -915,88 +906,8 @@ export default function NutritionPage() {
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
         </MainCard>
-      )
       )}
 
-      {tabIndex === 1 && (
-        <MainCard content={false} title="Recipes">
-          <Box sx={{ p: 2 }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
-              <Typography color="text.secondary">Create and manage your recipe cards</Typography>
-              <Button variant="contained" startIcon={<Add />} onClick={() => setIsCreateRecipeOpen(true)}>
-                Add Recipe
-              </Button>
-            </Stack>
-          </Box>
-          {recipesLoading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            isMobile ? (
-              <Grid container spacing={2} sx={{ p: 2, pt: 0 }}>
-                {recipes.map((r) => (
-                  <Grid item xs={12} key={r.id}>
-                    <Card>
-                      <CardContent>
-                        <Stack direction="row" spacing={2} alignItems="center">
-                          <Avatar src={r.imageUrl || undefined} variant="rounded" sx={{ width: 64, height: 64 }} />
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="subtitle1">{r.name}</Typography>
-                            {r.nameArabic && <Typography variant="body2" color="text.secondary">{r.nameArabic}</Typography>}
-                          </Box>
-                          <IconButton color="error" onClick={async () => {
-                            if (!confirm('Delete this recipe?')) return;
-                            await api.delete(`/api/nutrition/recipes/${r.id}`);
-                            const res = await api.get('/api/nutrition/recipes');
-                            setRecipes(res.data.recipes || []);
-                          }}>
-                            <Trash size={18} />
-                          </IconButton>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            ) : (
-              <TableContainer sx={{ p: 2, pt: 0 }}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Arabic Name</TableCell>
-                      <TableCell>Image</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {recipes.map((r) => (
-                      <TableRow key={r.id} hover>
-                        <TableCell>{r.name}</TableCell>
-                        <TableCell>{r.nameArabic || '-'}</TableCell>
-                        <TableCell>
-                          {r.imageUrl ? <Avatar src={r.imageUrl} variant="rounded" /> : <Typography color="text.secondary">No image</Typography>}
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton color="error" onClick={async () => {
-                            if (!confirm('Delete this recipe?')) return;
-                            await api.delete(`/api/nutrition/recipes/${r.id}`);
-                            const res = await api.get('/api/nutrition/recipes');
-                            setRecipes(res.data.recipes || []);
-                          }}>
-                            <Trash size={18} />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )
-          )}
-        </MainCard>
-      )}
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -1046,12 +957,6 @@ export default function NutritionPage() {
                   <MenuItem value="Other">Other</MenuItem>
                 </Select>
               </FormControl>
-              <TextField
-                fullWidth
-                label="Category (Arabic)"
-                value={newFoodItem.categoryArabic}
-                onChange={(e) => setNewFoodItem((prev) => ({ ...prev, categoryArabic: e.target.value }))}
-              />
               <Stack direction="row" spacing={2}>
                 <TextField
                   fullWidth
@@ -1075,53 +980,44 @@ export default function NutritionPage() {
                 value={newFoodItem.unitArabic}
                 onChange={(e) => setNewFoodItem((prev) => ({ ...prev, unitArabic: e.target.value }))}
               />
-              <Box sx={{ mb: 2, p: 2, bgcolor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Information size={16} color="#1976d2" />
-                  <Typography variant="caption" color="info.dark">
-                    <strong>Note:</strong> All nutrition values should be entered per 100g of the food item. 
-                    The system will automatically calculate the correct values based on the serving size and quantity used in meal plans.
-                  </Typography>
-                </Stack>
-              </Box>
               <Stack direction="row" spacing={2}>
                 <TextField
                   fullWidth
-                  label="Calories (per 100g)"
+                  label="Calories (per serving)"
                   type="number"
                   value={newFoodItem.calories}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, calories: parseInt(e.target.value) || 0 }))}
                   placeholder="165"
-                  helperText="Calories per 100g of food"
+                  helperText="Calories per serving"
                 />
                 <TextField
                   fullWidth
-                  label="Protein (g per 100g)"
+                  label="Protein (g per serving)"
                   type="number"
                   value={newFoodItem.protein}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, protein: parseFloat(e.target.value) || 0 }))}
                   placeholder="31"
-                  helperText="Protein grams per 100g"
+                  helperText="Protein grams per serving"
                 />
               </Stack>
               <Stack direction="row" spacing={2}>
                 <TextField
                   fullWidth
-                  label="Carbs (g per 100g)"
+                  label="Carbs (g per serving)"
                   type="number"
                   value={newFoodItem.carbs}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, carbs: parseFloat(e.target.value) || 0 }))}
                   placeholder="0"
-                  helperText="Carbohydrates grams per 100g"
+                  helperText="Carbohydrates grams per serving"
                 />
                 <TextField
                   fullWidth
-                  label="Fat (g per 100g)"
+                  label="Fat (g per serving)"
                   type="number"
                   value={newFoodItem.fat}
                   onChange={(e) => setNewFoodItem((prev) => ({ ...prev, fat: parseFloat(e.target.value) || 0 }))}
                   placeholder="3.6"
-                  helperText="Fat grams per 100g"
+                  helperText="Fat grams per serving"
                 />
               </Stack>
             </Stack>
@@ -1163,58 +1059,6 @@ export default function NutritionPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Create Recipe Dialog */}
-      <Dialog open={isCreateRecipeOpen} onClose={() => setIsCreateRecipeOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Recipe</DialogTitle>
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 1 }}>
-            <TextField label="Recipe Name" value={newRecipeName} onChange={(e) => setNewRecipeName(e.target.value)} fullWidth />
-            <TextField label="Recipe Name (Arabic)" value={newRecipeNameAr} onChange={(e) => setNewRecipeNameAr(e.target.value)} fullWidth />
-            <TextField label="YouTube URL" value={newRecipeYoutubeUrl} onChange={(e) => setNewRecipeYoutubeUrl(e.target.value)} fullWidth placeholder="https://youtu.be/VIDEO_ID or https://www.youtube.com/watch?v=VIDEO_ID" />
-            <Button component="label" variant="outlined" startIcon={<DocumentUpload />}>
-              {newRecipeImageFile ? `Selected: ${newRecipeImageFile.name}` : 'Upload Image'}
-              <input type="file" accept="image/*" hidden onChange={(e) => {
-                const f = e.target.files?.[0] || null;
-                setNewRecipeImageFile(f);
-              }} />
-            </Button>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsCreateRecipeOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={creatingRecipe} startIcon={creatingRecipe ? <CircularProgress size={16} /> : <Add />} onClick={async () => {
-            if (!newRecipeName.trim()) { setError('Please enter recipe name'); return; }
-            setCreatingRecipe(true);
-            try {
-              let imageUrl: string | undefined = undefined;
-              if (newRecipeImageFile) {
-                const pres = await api.post('/api/upload/recipes/presigned', {
-                  workspaceId,
-                  filename: newRecipeImageFile.name,
-                  contentType: newRecipeImageFile.type || 'image/jpeg'
-                });
-                const { uploadUrl, publicUrl } = pres.data;
-                await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': newRecipeImageFile.type || 'image/jpeg' }, body: newRecipeImageFile });
-                imageUrl = publicUrl;
-              }
-              await api.post('/api/nutrition/recipes', {
-                name: newRecipeName,
-                nameArabic: newRecipeNameAr || undefined,
-                imageUrl,
-                youtubeUrl: newRecipeYoutubeUrl || undefined
-              });
-              setIsCreateRecipeOpen(false);
-              setNewRecipeName(''); setNewRecipeNameAr(''); setNewRecipeImageFile(null); setNewRecipeYoutubeUrl('');
-              const res = await api.get('/api/nutrition/recipes');
-              setRecipes(res.data.recipes || []);
-            } catch {
-              setError('Failed to create recipe');
-            } finally {
-              setCreatingRecipe(false);
-            }
-          }}>Create</Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -1265,12 +1109,6 @@ export default function NutritionPage() {
                       <MenuItem value="Other">Other</MenuItem>
                     </Select>
                   </FormControl>
-                  <TextField
-                    fullWidth
-                    label="Category (Arabic)"
-                    value={selectedFoodItem.categoryArabic || ''}
-                    onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, categoryArabic: e.target.value } : null))}
-                  />
                   <Stack direction="row" spacing={2}>
                     <TextField
                       fullWidth
@@ -1295,7 +1133,7 @@ export default function NutritionPage() {
                   <Stack direction="row" spacing={2}>
                     <TextField
                       fullWidth
-                      label="Calories (per 100g)"
+                      label="Calories (per serving)"
                       type="number"
                       value={selectedFoodItem.calories}
                       onChange={(e) => setSelectedFoodItem((prev) => (prev ? { ...prev, calories: parseInt(e.target.value) || 0 } : null))}
@@ -1391,7 +1229,10 @@ export default function NutritionPage() {
                 fullWidth
                 placeholder="Search food items by name, Arabic name, or category..."
                 value={nutritionImportSearchTerm}
-                onChange={(e) => setNutritionImportSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setNutritionImportSearchTerm(e.target.value);
+                  setImportPage(0); // Reset to first page when search changes
+                }}
                 sx={{ mb: 3 }}
                 InputProps={{
                   startAdornment: (
@@ -1423,13 +1264,13 @@ export default function NutritionPage() {
                 <Typography variant="body2" color="text.secondary">
                   {selectedItems.size} of {defaultItems.length} selected
                   {filteredNutritionItems.length !== defaultItems.length && (
-                    <span> ({filteredNutritionItems.length} shown)</span>
+                    <span> ({filteredNutritionItems.length} filtered, showing {paginatedNutritionItems.length} on this page)</span>
                   )}
                 </Typography>
                 <Button variant="outlined" size="small" onClick={handleSelectAllInNutritionCategory}>
                   {(() => {
-                    const allFilteredSelected = filteredNutritionNames.size > 0 && Array.from(filteredNutritionNames).every(name => selectedItems.has(name));
-                    return allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredNutritionItems.length})`;
+                    const allPaginatedSelected = paginatedNutritionNames.size > 0 && Array.from(paginatedNutritionNames).every(name => selectedItems.has(name));
+                    return allPaginatedSelected ? 'Deselect All Shown' : `Select All Shown (${paginatedNutritionItems.length})`;
                   })()}
                 </Button>
                 <Button variant="outlined" size="small" onClick={handleSelectAllImport}>
@@ -1438,9 +1279,9 @@ export default function NutritionPage() {
               </Stack>
 
               {/* Food Items Grid */}
-              <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <Box>
                 <Stack spacing={2}>
-                  {filteredNutritionItems.map((item) => {
+                  {paginatedNutritionItems.map((item) => {
                     const isSelected = selectedItems.has(item.name);
                     return (
                       <Box
@@ -1504,7 +1345,7 @@ export default function NutritionPage() {
                       </Box>
                     );
                   })}
-                  {filteredNutritionItems.length === 0 && (
+                  {paginatedNutritionItems.length === 0 && (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                       <Typography color="text.secondary">
                         No food items found matching your criteria
@@ -1513,6 +1354,24 @@ export default function NutritionPage() {
                   )}
                 </Stack>
               </Box>
+              
+              {/* Pagination */}
+              {filteredNutritionItems.length > importRowsPerPage && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <TablePagination
+                    component="div"
+                    count={filteredNutritionItems.length}
+                    page={importPage}
+                    onPageChange={(_, newPage) => setImportPage(newPage)}
+                    rowsPerPage={importRowsPerPage}
+                    onRowsPerPageChange={(e) => {
+                      setImportRowsPerPage(parseInt(e.target.value, 10));
+                      setImportPage(0);
+                    }}
+                    rowsPerPageOptions={[10, 20, 50, 100]}
+                  />
+                </Box>
+              )}
             </>
           )}
         </DialogContent>

@@ -16,7 +16,14 @@ import {
   Typography,
   Alert,
   Tabs,
-  Tab
+  Tab,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Switch,
+  FormControlLabel,
+  Divider
 } from '@mui/material';
 import { Add, Trash } from '@wandersonalwes/iconsax-react';
 import api from '@/utils/axios';
@@ -37,8 +44,27 @@ interface BookDemoSection { title?: string; subtitle?: string }
 interface SupportSection { title?: string; subtitle?: string }
 interface VideoSection { title?: string; subtitle?: string; videoUrl?: string; posterUrl?: string }
 interface Sections { problem?: ProblemSection; solution?: SolutionSection; why?: WhySection; pricing?: PricingSection; finalCta?: FinalCtaSection; bookDemo?: BookDemoSection; support?: SupportSection; video?: VideoSection }
-interface PerLangContent { title?: string; subtitle?: string; ctaText?: string; ctaUrl?: string; features?: FeatureItem[]; testimonials?: TestimonialItem[]; sections?: Sections }
-interface LandingConfig { heroImage?: string; allowNewSubscriptions?: boolean; translations: { en: PerLangContent; ar: PerLangContent } }
+interface PerLangContent { 
+  title?: string; 
+  subtitle?: string; 
+  ctaText?: string; 
+  ctaUrl?: string; 
+  bookDemoText?: string;
+  bookDemoUrl?: string;
+  heroCtaEnabled?: boolean;
+  heroBookDemoEnabled?: boolean;
+  heroAlignment?: 'left' | 'center' | 'right';
+  heroSideImage?: string;
+  features?: FeatureItem[]; 
+  testimonials?: TestimonialItem[]; 
+  sections?: Sections 
+}
+interface LandingConfig { 
+  heroImage?: string; 
+  authBackgroundImage?: string;
+  allowNewSubscriptions?: boolean; 
+  translations: { en: PerLangContent; ar: PerLangContent } 
+}
 
 export default function AdminLandingPage() {
   const [config, setConfig] = useState<LandingConfig>({ translations: { en: {}, ar: {} } });
@@ -59,6 +85,7 @@ export default function AdminLandingPage() {
         const initial: LandingConfig = res.data?.landing || { translations: { en: {}, ar: {} } };
         setConfig({
           heroImage: initial.heroImage || '',
+          authBackgroundImage: initial.authBackgroundImage || '',
           allowNewSubscriptions: initial.allowNewSubscriptions ?? true,
           translations: {
             en: {
@@ -66,6 +93,12 @@ export default function AdminLandingPage() {
               subtitle: initial.translations?.en?.subtitle || '',
               ctaText: initial.translations?.en?.ctaText || '',
               ctaUrl: initial.translations?.en?.ctaUrl || '',
+              bookDemoText: initial.translations?.en?.bookDemoText || '',
+              bookDemoUrl: initial.translations?.en?.bookDemoUrl || '',
+              heroCtaEnabled: initial.translations?.en?.heroCtaEnabled !== false,
+              heroBookDemoEnabled: initial.translations?.en?.heroBookDemoEnabled !== false,
+              heroAlignment: initial.translations?.en?.heroAlignment || 'center',
+              heroSideImage: initial.translations?.en?.heroSideImage || '',
               features: initial.translations?.en?.features || [],
               testimonials: initial.translations?.en?.testimonials || [],
               sections: initial.translations?.en?.sections || {}
@@ -75,6 +108,12 @@ export default function AdminLandingPage() {
               subtitle: initial.translations?.ar?.subtitle || '',
               ctaText: initial.translations?.ar?.ctaText || '',
               ctaUrl: initial.translations?.ar?.ctaUrl || '',
+              bookDemoText: initial.translations?.ar?.bookDemoText || '',
+              bookDemoUrl: initial.translations?.ar?.bookDemoUrl || '',
+              heroCtaEnabled: initial.translations?.ar?.heroCtaEnabled !== false,
+              heroBookDemoEnabled: initial.translations?.ar?.heroBookDemoEnabled !== false,
+              heroAlignment: initial.translations?.ar?.heroAlignment || 'center',
+              heroSideImage: initial.translations?.ar?.heroSideImage || '',
               features: initial.translations?.ar?.features || [],
               testimonials: initial.translations?.ar?.testimonials || [],
               sections: initial.translations?.ar?.sections || {}
@@ -282,8 +321,24 @@ export default function AdminLandingPage() {
               <Stack spacing={3}>
                 <TextField label="Title" fullWidth value={config.translations[activeLang].title || ''} onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), title: e.target.value } } }))} />
                 <TextField label="Subtitle" fullWidth multiline rows={3} value={config.translations[activeLang].subtitle || ''} onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), subtitle: e.target.value } } }))} />
+                
+                {/* Alignment */}
+                <FormControl fullWidth>
+                  <InputLabel>Content Alignment</InputLabel>
+                  <Select
+                    value={config.translations[activeLang].heroAlignment || 'center'}
+                    label="Content Alignment"
+                    onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), heroAlignment: e.target.value as 'left' | 'center' | 'right' } } }))}
+                  >
+                    <MenuItem value="left">Left</MenuItem>
+                    <MenuItem value="center">Center</MenuItem>
+                    <MenuItem value="right">Right</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {/* Hero Background Image */}
                 <Box>
-                  <Typography variant="subtitle2" gutterBottom>Hero Image</Typography>
+                  <Typography variant="subtitle2" gutterBottom>Hero Background Image</Typography>
                   <FileUpload
                     onUploadComplete={(url) => setConfig(p => ({ ...p, heroImage: url }))}
                     currentImageUrl={config.heroImage}
@@ -292,7 +347,37 @@ export default function AdminLandingPage() {
                     maxSize={5}
                   />
                 </Box>
-                <Grid container spacing={2}>
+
+                {/* Hero Side Image */}
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>Hero Side Image (optional)</Typography>
+                  <FileUpload
+                    onUploadComplete={(url) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), heroSideImage: url } } }))}
+                    currentImageUrl={config.translations[activeLang].heroSideImage || ''}
+                    workspaceId={'global'}
+                    uploadType="landing"
+                    maxSize={5}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Image that appears beside the hero content (left or right depending on alignment)
+                  </Typography>
+                </Box>
+
+                <Divider />
+
+                {/* CTA Button */}
+                <Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={config.translations[activeLang].heroCtaEnabled !== false}
+                        onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), heroCtaEnabled: e.target.checked } } }))}
+                      />
+                    }
+                    label="Enable CTA Button (Get Started)"
+                  />
+                  {config.translations[activeLang].heroCtaEnabled !== false && (
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
                   <Grid item xs={12} md={6}>
                     <TextField label="CTA Text" fullWidth value={config.translations[activeLang].ctaText || ''} onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), ctaText: e.target.value } } }))} />
                   </Grid>
@@ -300,6 +385,55 @@ export default function AdminLandingPage() {
                     <TextField label="CTA URL" fullWidth value={config.translations[activeLang].ctaUrl || ''} onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), ctaUrl: e.target.value } } }))} />
                   </Grid>
                 </Grid>
+                  )}
+                </Box>
+
+                {/* Book Demo Button */}
+                <Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={config.translations[activeLang].heroBookDemoEnabled !== false}
+                        onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), heroBookDemoEnabled: e.target.checked } } }))}
+                      />
+                    }
+                    label="Enable Book a Demo Button"
+                  />
+                  {config.translations[activeLang].heroBookDemoEnabled !== false && (
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid item xs={12} md={6}>
+                        <TextField label="Book Demo Text" fullWidth value={config.translations[activeLang].bookDemoText || ''} onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), bookDemoText: e.target.value } } }))} />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField label="Book Demo URL" fullWidth value={config.translations[activeLang].bookDemoUrl || ''} onChange={(e) => setConfig(p => ({ ...p, translations: { ...p.translations, [activeLang]: { ...(p.translations[activeLang] || {}), bookDemoUrl: e.target.value } } }))} />
+                      </Grid>
+                    </Grid>
+                  )}
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Auth Background Image */}
+        <Grid item xs={12} md={12}>
+          <Card>
+            <CardHeader title="Authentication Pages Background" />
+            <CardContent>
+              <Stack spacing={3}>
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>Auth Background Image</Typography>
+                  <FileUpload
+                    onUploadComplete={(url) => setConfig(p => ({ ...p, authBackgroundImage: url }))}
+                    currentImageUrl={config.authBackgroundImage}
+                    workspaceId={'global'}
+                    uploadType="landing"
+                    maxSize={5}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Background image for register/login pages (will be blurred)
+                  </Typography>
+                </Box>
               </Stack>
             </CardContent>
           </Card>

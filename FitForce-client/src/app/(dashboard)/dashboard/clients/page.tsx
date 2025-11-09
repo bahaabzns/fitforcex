@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, Fragment, MouseEvent } from 'react';
+import { useEffect, useMemo, useState, Fragment, MouseEvent, useCallback } from 'react';
 import Link from 'next/link';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
@@ -36,6 +36,8 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
 
 // Third-party
 import { LabelKeyObject } from 'react-csv/lib/core';
@@ -72,6 +74,8 @@ import {
 
 // Assets
 import { Add, Edit, Eye, Trash, Grid3, Menu } from '@wandersonalwes/iconsax-react';
+import PauseCircleIcon from '@mui/icons-material/PauseCircle';
+import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import useConfig from '@/hooks/useConfig';
 
 // Import translations
@@ -118,6 +122,7 @@ export default function ClientsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [tableDensity, setTableDensity] = useState<TableDensity>('compact');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<number>(0); // 0 = Active, 1 = Archived
 
   const statusOptions = [
     { value: 'all', label: 'All' },
@@ -205,7 +210,10 @@ export default function ClientsPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await api.get('/api/clients');
+        const isArchived = activeTab === 1;
+        const res = await api.get('/api/clients', {
+          params: isArchived ? { archived: 'true' } : {}
+        });
         setClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
       } catch (e: any) {
         const status = e?.response?.status;
@@ -222,7 +230,7 @@ export default function ClientsPage() {
       }
     };
     fetchClients();
-  }, [workspaceId]);
+  }, [workspaceId, activeTab]);
 
   // Load packages and forms
   useEffect(() => {
@@ -296,7 +304,10 @@ export default function ClientsPage() {
   const refreshClients = async () => {
     try {
       console.log('Refreshing clients...');
-      const res = await api.get('/api/clients');
+      const isArchived = activeTab === 1;
+      const res = await api.get('/api/clients', {
+        params: isArchived ? { archived: 'true' } : {}
+      });
       const clients = Array.isArray(res.data?.clients) ? res.data.clients : [];
       console.log('Refreshed clients:', clients.length);
       setClients(clients);
@@ -460,6 +471,49 @@ export default function ClientsPage() {
     }
   };
 
+  const handleFreezeClient = useCallback(async (client: Client) => {
+    if (!client.id) return;
+    
+    if (!confirm(`Are you sure you want to freeze ${client.fullName || client.name || 'this client'}?`)) {
+      return;
+    }
+
+    try {
+      await api.post(`/api/clients/${client.id}/freeze`);
+      // Update client status locally
+      setClients(prev => prev.map(c => 
+        c.id === client.id ? { ...c, status: 'frozen' } : c
+      ));
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to freeze client');
+    }
+  }, []);
+
+  const handleUnfreezeClient = useCallback(async (client: Client) => {
+    if (!client.id) return;
+    
+    if (!confirm(`Are you sure you want to unfreeze ${client.fullName || client.name || 'this client'}?`)) {
+      return;
+    }
+
+    try {
+      await api.post(`/api/clients/${client.id}/unfreeze`);
+      // Update client status locally
+      setClients(prev => prev.map(c => 
+        c.id === client.id ? { ...c, status: 'active' } : c
+      ));
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to unfreeze client');
+    }
+  }, []);
+
+  const handleDeleteClient = useCallback((client: Client) => {
+    setClientToDelete(client);
+    setDeleteDialogOpen(true);
+  }, []);
+
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
       case 'active':
@@ -622,40 +676,72 @@ export default function ClientsPage() {
                   <Eye />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Edit">
-                <IconButton
-                  color="primary"
-                  sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
-                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    setSelectedClient(row.original);
-                    setEditFullName(row.original.fullName || row.original.name || '');
-                    setEditEmail(row.original.email || '');
-                    setEditPhone(row.original.phone || '');
-                    setEditOpen(true);
-                  }}
-                >
-                  <Edit />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Archive">
-                <IconButton
-                  color="error"
-                  sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
-                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    handleDeleteClient(row.original);
-                  }}
-                >
-                  <Trash />
-                </IconButton>
-              </Tooltip>
+              {activeTab === 0 && (
+                <Tooltip title="Edit">
+                  <IconButton
+                    color="primary"
+                    sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
+                    onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      setSelectedClient(row.original);
+                      setEditFullName(row.original.fullName || row.original.name || '');
+                      setEditEmail(row.original.email || '');
+                      setEditPhone(row.original.phone || '');
+                      setEditOpen(true);
+                    }}
+                  >
+                    <Edit />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {activeTab === 0 && row.original.status?.toLowerCase() === 'active' && (
+                <Tooltip title="Freeze">
+                  <IconButton
+                    color="warning"
+                    sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
+                    onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleFreezeClient(row.original);
+                    }}
+                  >
+                    <PauseCircleIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {activeTab === 0 && row.original.status?.toLowerCase() === 'frozen' && (
+                <Tooltip title="Unfreeze">
+                  <IconButton
+                    color="success"
+                    sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
+                    onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleUnfreezeClient(row.original);
+                    }}
+                  >
+                    <PlayCircleIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {activeTab === 0 && (
+                <Tooltip title="Archive">
+                  <IconButton
+                    color="error"
+                    sx={(theme) => ({ ':hover': { ...theme.applyStyles('dark', { color: 'text.primary' }) } })}
+                    onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleDeleteClient(row.original);
+                    }}
+                  >
+                    <Trash />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Stack>
           );
         }
       }
     ],
-    []
+    [activeTab, handleFreezeClient, handleUnfreezeClient, setSelectedClient, setViewOpen, setEditOpen, setEditFullName, setEditEmail, setEditPhone, handleDeleteClient, t]
   );
 
   // Table configuration
@@ -763,10 +849,6 @@ export default function ClientsPage() {
     }
   };
 
-  const handleDeleteClient = (client: Client) => {
-    setClientToDelete(client);
-    setDeleteDialogOpen(true);
-  };
 
   const confirmDeleteClient = async () => {
     if (!clientToDelete) return;
@@ -1000,12 +1082,13 @@ export default function ClientsPage() {
             />
             <CardContent>
               <Stack spacing={2}>
+                {/* Status, Package, and Joined in one row */}
+                <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start' }}>
                 {c.status && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    <Box sx={{ flex: '0 0 auto' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       {t('status')}
                     </Typography>
-                    <Box sx={{ mt: 0.5 }}>
                       <Chip 
                         label={c.status} 
                         size="small"
@@ -1015,40 +1098,71 @@ export default function ClientsPage() {
                           'default'
                         }
                       />
-                    </Box>
                   </Box>
                 )}
                 {c.packageName && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       {t('package')}
                     </Typography>
-                    <Typography variant="body2">
+                      <Typography variant="body2" sx={{ lineHeight: 1.3 }}>
                       {c.packageName}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                       {c.packageDuration} month{c.packageDuration !== 1 ? 's' : ''}
                     </Typography>
                   </Box>
                 )}
                 {c.createdAt && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
+                    <Box sx={{ flex: '0 0 auto' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                       {t('joined')}
                     </Typography>
-                    <Typography variant="body2">
+                      <Typography variant="body2" sx={{ lineHeight: 1.3 }}>
                       {new Date(c.createdAt).toLocaleDateString()}
                     </Typography>
                   </Box>
                 )}
+                </Stack>
                 <Divider />
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  {c.status?.toLowerCase() === 'active' && (
+                    <Button 
+                      size="small" 
+                      variant="outlined" 
+                      color="warning"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFreezeClient(c);
+                      }}
+                      sx={{ flex: isMobile ? '1 1 auto' : '0 0 auto' }}
+                      startIcon={<PauseCircleIcon sx={{ fontSize: 16 }} />}
+                    >
+                      {t('freeze') || 'Freeze'}
+                    </Button>
+                  )}
+                  {c.status?.toLowerCase() === 'frozen' && (
+                    <Button 
+                      size="small" 
+                      variant="outlined" 
+                      color="success"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUnfreezeClient(c);
+                      }}
+                      sx={{ flex: isMobile ? '1 1 auto' : '0 0 auto' }}
+                      startIcon={<PlayCircleIcon sx={{ fontSize: 16 }} />}
+                    >
+                      {t('unfreeze') || 'Unfreeze'}
+                    </Button>
+                  )}
                   <Button 
                     size="small" 
                     variant="outlined" 
                     href={`/dashboard/clients/${c.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    fullWidth={isMobile}
+                    fullWidth={isMobile && c.status?.toLowerCase() !== 'active' && c.status?.toLowerCase() !== 'frozen'}
+                    sx={{ flex: isMobile && (c.status?.toLowerCase() === 'active' || c.status?.toLowerCase() === 'frozen') ? '1 1 auto' : '0 0 auto' }}
                   >
                     <Eye style={{ marginRight: 4 }} />
                     {t('details')}
@@ -1097,7 +1211,7 @@ export default function ClientsPage() {
             ))}
           </Select>
           <TextField size="small" placeholder={t('search-by-client-name')} value={search} onChange={(e) => setSearch(e.target.value)} />
-          {Object.keys(rowSelection).length > 0 && viewMode === 'table' && (
+          {activeTab === 0 && Object.keys(rowSelection).length > 0 && viewMode === 'table' && (
             <Button
               variant="outlined"
               color="primary"
@@ -1107,9 +1221,11 @@ export default function ClientsPage() {
               Assign Form ({Object.keys(rowSelection).length})
             </Button>
           )}
-          <Button variant="contained" onClick={() => setCreateWizardOpen(true)}>
-            Create Client
-          </Button>
+          {activeTab === 0 && (
+            <Button variant="contained" onClick={() => setCreateWizardOpen(true)}>
+              Create Client
+            </Button>
+          )}
           <CSVExport
             {...{
               data: filtered,
@@ -1119,6 +1235,21 @@ export default function ClientsPage() {
           />
         </Stack>
       </Stack>
+
+      {/* Tabs */}
+      <Card>
+        <Tabs 
+          value={activeTab} 
+          onChange={(_, newValue) => {
+            setActiveTab(newValue);
+            setRowSelection({}); // Reset row selection when switching tabs
+          }}
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab label="Active" />
+          <Tab label="Archived" />
+        </Tabs>
+      </Card>
 
       {/* Status filters row */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

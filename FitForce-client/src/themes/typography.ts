@@ -10,8 +10,8 @@ import { FontFamily, I18n } from 'types/config';
 // ==============================|| DEFAULT THEME - TYPOGRAPHY  ||============================== //
 
 export default function Typography(mode: ThemeMode, fontFamily: FontFamily, theme: Theme, i18n?: I18n, direction?: 'ltr' | 'rtl'): TypographyVariantsOptions {
-  // Use Alexandria font for Arabic text
-  const finalFontFamily = (i18n === 'ar' || direction === 'rtl') ? "'Alexandria', " + fontFamily : fontFamily;
+  // Use Alexandria font for both Arabic and English
+  const finalFontFamily = "'Alexandria', " + fontFamily;
   
   return {
     htmlFontSize: 16,

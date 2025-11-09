@@ -32,6 +32,58 @@ import { CheckCircle } from '@mui/icons-material';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
 
+// Common country codes
+const COUNTRY_CODES = [
+  { code: '+1', name: 'US/CA', flag: '🇺🇸' },
+  { code: '+44', name: 'UK', flag: '🇬🇧' },
+  { code: '+971', name: 'UAE', flag: '🇦🇪' },
+  { code: '+966', name: 'Saudi Arabia', flag: '🇸🇦' },
+  { code: '+20', name: 'Egypt', flag: '🇪🇬' },
+  { code: '+212', name: 'Morocco', flag: '🇲🇦' },
+  { code: '+213', name: 'Algeria', flag: '🇩🇿' },
+  { code: '+33', name: 'France', flag: '🇫🇷' },
+  { code: '+49', name: 'Germany', flag: '🇩🇪' },
+  { code: '+39', name: 'Italy', flag: '🇮🇹' },
+  { code: '+34', name: 'Spain', flag: '🇪🇸' },
+  { code: '+31', name: 'Netherlands', flag: '🇳🇱' },
+  { code: '+32', name: 'Belgium', flag: '🇧🇪' },
+  { code: '+41', name: 'Switzerland', flag: '🇨🇭' },
+  { code: '+43', name: 'Austria', flag: '🇦🇹' },
+  { code: '+46', name: 'Sweden', flag: '🇸🇪' },
+  { code: '+47', name: 'Norway', flag: '🇳🇴' },
+  { code: '+45', name: 'Denmark', flag: '🇩🇰' },
+  { code: '+358', name: 'Finland', flag: '🇫🇮' },
+  { code: '+7', name: 'Russia', flag: '🇷🇺' },
+  { code: '+81', name: 'Japan', flag: '🇯🇵' },
+  { code: '+82', name: 'South Korea', flag: '🇰🇷' },
+  { code: '+86', name: 'China', flag: '🇨🇳' },
+  { code: '+91', name: 'India', flag: '🇮🇳' },
+  { code: '+61', name: 'Australia', flag: '🇦🇺' },
+  { code: '+64', name: 'New Zealand', flag: '🇳🇿' },
+  { code: '+27', name: 'South Africa', flag: '🇿🇦' },
+  { code: '+52', name: 'Mexico', flag: '🇲🇽' },
+  { code: '+55', name: 'Brazil', flag: '🇧🇷' },
+  { code: '+54', name: 'Argentina', flag: '🇦🇷' },
+  { code: '+90', name: 'Turkey', flag: '🇹🇷' },
+  { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
+  { code: '+65', name: 'Singapore', flag: '🇸🇬' },
+  { code: '+66', name: 'Thailand', flag: '🇹🇭' },
+  { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
+  { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
+  { code: '+63', name: 'Philippines', flag: '🇵🇭' },
+  { code: '+92', name: 'Pakistan', flag: '🇵🇰' },
+  { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
+  { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
+  { code: '+961', name: 'Lebanon', flag: '🇱🇧' },
+  { code: '+962', name: 'Jordan', flag: '🇯🇴' },
+  { code: '+964', name: 'Iraq', flag: '🇮🇶' },
+  { code: '+965', name: 'Kuwait', flag: '🇰🇼' },
+  { code: '+973', name: 'Bahrain', flag: '🇧🇭' },
+  { code: '+974', name: 'Qatar', flag: '🇶🇦' },
+  { code: '+968', name: 'Oman', flag: '🇴🇲' },
+  { code: '+972', name: 'Israel', flag: '🇮🇱' },
+];
+
 interface Package {
   id: string;
   name: string;
@@ -65,6 +117,7 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+1'); // Default to US
   const [password, setPassword] = useState('');
   const [createdClientId, setCreatedClientId] = useState<string | null>(null);
 
@@ -82,6 +135,7 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   // Validation states
   const [emailError, setEmailError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isValidatingEmail, setIsValidatingEmail] = useState(false);
   const [isValidatingPhone, setIsValidatingPhone] = useState(false);
 
@@ -136,8 +190,15 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   };
 
   const validatePhone = async (phoneValue: string) => {
-    if (!phoneValue || phoneValue.trim().length < 5) {
+    if (!phoneValue || phoneValue.trim().length === 0) {
       setPhoneError(null);
+      return;
+    }
+
+    // Basic phone number validation - should be digits only, 7-15 digits
+    const phoneDigits = phoneValue.replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setPhoneError('Phone number must be between 7 and 15 digits');
       return;
     }
 
@@ -145,8 +206,9 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
     try {
       const res = await api.get('/api/clients');
       const clients = res.data.clients || [];
+      const fullPhone = phoneCountryCode + phoneDigits;
       const existingClient = clients.find((client: any) => 
-        client.phone && client.phone === phoneValue
+        client.phone && client.phone === fullPhone
       );
       
       if (existingClient) {
@@ -162,10 +224,23 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
     }
   };
 
+  const validatePassword = (passwordValue: string) => {
+    if (!passwordValue || passwordValue.trim().length === 0) {
+      setPasswordError('Password is required');
+      return;
+    }
+
+    if (passwordValue.trim().length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+    } else {
+      setPasswordError(null);
+    }
+  };
+
   const handleNext = async () => {
     if (activeStep === 0) {
       // Check for validation errors before proceeding
-      if (emailError || phoneError) {
+      if (emailError || phoneError || passwordError) {
         setError('Please fix the validation errors before proceeding');
         return;
       }
@@ -202,6 +277,7 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
     setFullName('');
     setEmail('');
     setPhone('');
+    setPhoneCountryCode('+1');
     setPassword('');
     setCreatedClientId(null);
     setSelectedPackageId('');
@@ -210,6 +286,9 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
     setAssignSubscription(true);
     setAssignForms(true);
     setError(null);
+    setEmailError(null);
+    setPhoneError(null);
+    setPasswordError(null);
   };
 
   const createClient = async () => {
@@ -229,27 +308,43 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
         return;
       }
 
+      if (!password.trim()) {
+        setError('Password is required');
+        setLoading(false);
+        return;
+      }
+
+      if (password.trim().length < 6) {
+        setError('Password must be at least 6 characters');
+        setLoading(false);
+        return;
+      }
+
       // Create client
+      const phoneDigits = phone.trim().replace(/\D/g, '');
+      const fullPhone = phoneDigits ? phoneCountryCode + phoneDigits : undefined;
+      
       const clientRes = await api.post('/api/clients', {
         fullName: fullName.trim(),
         email: email.trim(),
-        phone: phone.trim() || undefined,
+        phone: fullPhone,
+        phoneCountryCode: phoneDigits ? phoneCountryCode : undefined,
       });
 
       const clientId = clientRes.data.client.id;
       setCreatedClientId(clientId);
 
-      // Create password for client if provided
-      if (password.trim()) {
-        try {
-          await api.post('/api/clients/set-password', {
-            clientId,
-            password: password.trim(),
-          });
-        } catch (err) {
-          console.error('Error setting client password:', err);
-          // Don't fail the whole process if password setting fails
-        }
+      // Create password for client (required)
+      try {
+        await api.post('/api/clients/set-password', {
+          clientId,
+          password: password.trim(),
+        });
+      } catch (err) {
+        console.error('Error setting client password:', err);
+        setError('Failed to set client password');
+        setLoading(false);
+        return;
       }
 
       setActiveStep(1);
@@ -333,25 +428,54 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
               helperText={emailError || (isValidatingEmail ? 'Checking...' : '')}
               required
             />
+            <Stack direction="row" spacing={1}>
+              <FormControl sx={{ minWidth: 140 }}>
+                <InputLabel>Country Code</InputLabel>
+                <Select
+                  value={phoneCountryCode}
+                  label="Country Code"
+                  onChange={(e) => {
+                    setPhoneCountryCode(e.target.value);
+                    if (phone.trim()) {
+                      setTimeout(() => validatePhone(phone), 100);
+                    }
+                  }}
+                >
+                  {COUNTRY_CODES.map((country) => (
+                    <MenuItem key={country.code} value={country.code}>
+                      {country.flag} {country.code} {country.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Phone Number"
+                value={phone}
+                onChange={(e) => {
+                  // Only allow digits
+                  const digitsOnly = e.target.value.replace(/\D/g, '');
+                  setPhone(digitsOnly);
+                  // Debounce validation
+                  setTimeout(() => validatePhone(digitsOnly), 500);
+                }}
+                error={!!phoneError}
+                helperText={phoneError || (isValidatingPhone ? 'Checking...' : 'Enter phone number (digits only, 7-15 digits)')}
+                inputProps={{ maxLength: 15 }}
+              />
+            </Stack>
             <TextField
               fullWidth
-              label="Phone Number"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                // Debounce validation
-                setTimeout(() => validatePhone(e.target.value), 500);
-              }}
-              error={!!phoneError}
-              helperText={phoneError || (isValidatingPhone ? 'Checking...' : '')}
-            />
-            <TextField
-              fullWidth
-              label="Password (Optional)"
+              label="Password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              helperText="Set a password so the client can login to their portal"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                validatePassword(e.target.value);
+              }}
+              error={!!passwordError}
+              helperText={passwordError || "Set a password so the client can login to their portal (minimum 6 characters)"}
+              required
             />
           </Stack>
         );
@@ -553,7 +677,7 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   const canProceed = () => {
     switch (activeStep) {
       case 0:
-        return fullName.trim() && email.trim() && !emailError && !phoneError;
+        return fullName.trim() && email.trim() && password.trim() && password.trim().length >= 6 && !emailError && !phoneError && !passwordError;
       case 1:
         return !assignSubscription || selectedPackageId;
       case 2:

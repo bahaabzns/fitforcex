@@ -37,7 +37,7 @@ import {
   InputLabel,
   Switch,
 } from '@mui/material';
-import { Add, Delete, ArrowForward, ArrowBack, CheckCircle } from '@mui/icons-material';
+import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Edit } from '@mui/icons-material';
 import FileUpload from './FileUpload';
 import api from '@/utils/axios';
 
@@ -112,6 +112,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
   const [customQuestionOptions, setCustomQuestionOptions] = useState<string>('');
   const [customQuestionError, setCustomQuestionError] = useState<string>('');
   const [defaultQuestions, setDefaultQuestions] = useState<any[]>([]);
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
 
   // Step 3: Packages
   const [packages, setPackages] = useState<Package[]>([
@@ -169,22 +170,6 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setActiveStep((prev) => prev - 1);
   };
 
-  const handleSkip = async () => {
-    try {
-      setCompleting(true);
-      await api.post('/api/workspaces/onboarding/skip');
-      // Hard reload so the dashboard re-mounts and re-checks onboarding status
-      if (typeof window !== 'undefined') {
-        window.location.reload();
-      } else {
-        router.refresh();
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to skip onboarding');
-    } finally {
-      setCompleting(false);
-    }
-  };
 
   const handleComplete = async () => {
     try {
@@ -418,7 +403,53 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
         : undefined,
     };
 
+    if (editingQuestionIndex !== null) {
+      // Update existing question
+      const updated = [...newFormQuestions];
+      updated[editingQuestionIndex] = newQuestion;
+      setNewFormQuestions(updated);
+      setEditingQuestionIndex(null);
+    } else {
+      // Add new question
     setNewFormQuestions([...newFormQuestions, newQuestion]);
+    }
+    
+    setCustomQuestionLabel('');
+    setCustomQuestionLabelArabic('');
+    setCustomQuestionRequired(false);
+    setCustomQuestionOptions('');
+    setCustomQuestionError('');
+  };
+
+  const editCustomQuestion = (index: number) => {
+    const question = newFormQuestions[index];
+    if (question) {
+      setEditingQuestionIndex(index);
+      setCustomQuestionType(question.type || 'text');
+      setCustomQuestionLabel(question.question || '');
+      setCustomQuestionLabelArabic(question.questionArabic || '');
+      setCustomQuestionRequired(question.required || false);
+      // Handle options - could be in options or optionsArabic field
+      const options = question.options || question.optionsArabic || [];
+      setCustomQuestionOptions(
+        Array.isArray(options) 
+          ? options.join(', ') 
+          : (typeof options === 'string' ? options : '')
+      );
+      setCustomQuestionError('');
+      
+      // Scroll to question builder section after a short delay to ensure DOM is updated
+      setTimeout(() => {
+        const questionBuilder = document.querySelector('[data-question-builder]');
+        if (questionBuilder) {
+          questionBuilder.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 100);
+    }
+  };
+
+  const cancelEditQuestion = () => {
+    setEditingQuestionIndex(null);
     setCustomQuestionLabel('');
     setCustomQuestionLabelArabic('');
     setCustomQuestionRequired(false);
@@ -478,6 +509,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setCustomQuestionRequired(false);
     setCustomQuestionOptions('');
     setCustomQuestionError('');
+    setEditingQuestionIndex(null);
   };
 
   const removeCustomForm = (index: number) => {
@@ -490,6 +522,12 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setNewFormTitle(form.title || '');
     setNewFormType((form.type === 'workout' ? 'workout' : 'nutrition'));
     setNewFormQuestions(Array.isArray(form.questions) ? form.questions : []);
+    setEditingQuestionIndex(null); // Reset question editing state
+    setCustomQuestionLabel('');
+    setCustomQuestionLabelArabic('');
+    setCustomQuestionRequired(false);
+    setCustomQuestionOptions('');
+    setCustomQuestionError('');
     setShowAddCustomForm(true);
   };
 
@@ -556,9 +594,19 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
 
                   {/* Preview */}
                   {(logoUrl || primaryColor) && (
-                    <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'grey.50' }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Preview
+                    <Box sx={{ 
+                      p: 2, 
+                      border: 1, 
+                      borderColor: 'divider', 
+                      borderRadius: 1, 
+                      bgcolor: (theme) => theme.palette.mode === 'dark' ? 'background.paper' : 'grey.50' 
+                    }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        gutterBottom
+                        sx={{ color: 'text.primary' }}
+                      >
+                        Preview Your Workspace
                       </Typography>
                       <Stack direction="row" spacing={2} alignItems="center">
                         {logoUrl ? (
@@ -583,7 +631,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                             <Typography sx={{ color: 'white', fontSize: 24 }}>🏋️</Typography>
                           </Box>
                         )}
-                        <Typography variant="h6">Your Workspace</Typography>
+                        <Typography variant="h6" sx={{ color: 'text.primary' }}>Your Workspace</Typography>
                       </Stack>
                     </Box>
                   )}
@@ -1045,8 +1093,18 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                       </Typography>
                       <Stack spacing={1}>
                         {newFormQuestions.map((question, index) => (
-                          <Box key={question.id} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                            <Grid container spacing={1}>
+                          <Box 
+                            key={question.id} 
+                            sx={{ 
+                              p: 2, 
+                              border: '1px solid', 
+                              borderColor: editingQuestionIndex === index ? 'primary.main' : 'divider', 
+                              borderRadius: 1,
+                              bgcolor: editingQuestionIndex === index ? 'primary.lighter' : 'background.paper',
+                              borderWidth: editingQuestionIndex === index ? 2 : 1
+                            }}
+                          >
+                            <Grid container spacing={1} alignItems="center">
                               <Grid item xs={12} sm={6}>
                                 <Typography variant="body2" fontWeight="medium">
                                   {question.question}
@@ -1054,9 +1112,39 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                                 <Typography variant="caption" color="text.secondary">
                                   Type: {question.type} {question.required ? '(Required)' : '(Optional)'}
                                 </Typography>
+                                {Array.isArray(question.options) && question.options.length > 0 && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                    Options: {question.options.join(', ')}
+                                  </Typography>
+                                )}
+                                {Array.isArray(question.optionsArabic) && question.optionsArabic.length > 0 && !Array.isArray(question.options) && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                    Options: {question.optionsArabic.join(', ')}
+                                  </Typography>
+                                )}
                               </Grid>
-                              <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                <IconButton size="small" color="error" onClick={() => removeCustomQuestion(index)}>
+                              <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color={editingQuestionIndex === index ? "secondary" : "primary"}
+                                  startIcon={<Edit />}
+                                  onClick={() => editCustomQuestion(index)}
+                                  disabled={editingQuestionIndex === index}
+                                >
+                                  {editingQuestionIndex === index ? 'Editing...' : 'Edit'}
+                                </Button>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => {
+                                    removeCustomQuestion(index);
+                                    if (editingQuestionIndex === index) {
+                                      cancelEditQuestion();
+                                    }
+                                  }}
+                                  title="Delete question"
+                                >
                                   <Delete />
                                 </IconButton>
                               </Grid>
@@ -1068,10 +1156,15 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                   )}
 
                   {/* Question Builder */}
-                  <Box>
+                  <Box data-question-builder>
                     <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                      Add Question
+                      {editingQuestionIndex !== null ? `Edit Question ${editingQuestionIndex + 1}` : 'Add Question'}
                     </Typography>
+                    {editingQuestionIndex !== null && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        Editing: {newFormQuestions[editingQuestionIndex]?.question || 'Question'}
+                      </Alert>
+                    )}
                     {defaultQuestions.length > 0 && (
                       <Box sx={{ mb: 2 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -1168,13 +1261,21 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                         {customQuestionError}
                       </Alert>
                     )}
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+                      {editingQuestionIndex !== null && (
+                        <Button
+                          variant="outlined"
+                          onClick={cancelEditQuestion}
+                        >
+                          Cancel Edit
+                        </Button>
+                      )}
                       <Button
                         variant="outlined"
                         onClick={addCustomQuestion}
                         disabled={!customQuestionLabel.trim()}
                       >
-                        Add Question
+                        {editingQuestionIndex !== null ? 'Update Question' : 'Add Question'}
                       </Button>
                     </Box>
                   </Box>
@@ -1475,15 +1576,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               {renderStepContent(activeStep)}
             </Box>
 
-            <Stack direction="row" spacing={2} justifyContent="space-between">
-              <Button
-                onClick={handleSkip}
-                disabled={completing}
-                variant="text"
-              >
-                Skip Onboarding
-              </Button>
-
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
               <Stack direction="row" spacing={2}>
                 <Button
                   disabled={activeStep === 0 || completing}

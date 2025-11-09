@@ -28,7 +28,6 @@ import useConfig from 'hooks/useConfig';
 // types
 import { LinkTarget, NavItemType } from 'types/menu';
 import { useAppSelector } from '@/store';
-import ClientSidebarToggle from '@/components/ClientSidebarToggle';
 
 // ==============================|| NAVIGATION - ITEM ||============================== //
 
@@ -189,11 +188,6 @@ export default function NavItem({ item, level, isParents = false, setSelectedID 
                   />
                 )
               )
-            )}
-            {item.id === 'clients' && drawerOpen && !downLG && (
-              <Box sx={{ ml: 'auto' }}>
-                <ClientSidebarToggle />
-              </Box>
             )}
           </ListItemButton>
 

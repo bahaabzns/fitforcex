@@ -1,8 +1,7 @@
 import { useRef, useState, ReactNode, SyntheticEvent } from 'react';
 
 // next
-import { useRouter } from 'next/navigation';
-import { signOut, useSession } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -27,6 +26,7 @@ import Transitions from 'components/@extended/Transitions';
 import MainCard from 'components/MainCard';
 
 import useUser from 'hooks/useUser';
+import { usePermissions } from 'hooks/usePermissions';
 import { logoutUser } from '@/lib/auth';
 
 // assets
@@ -76,11 +76,8 @@ const tabStyle = {
 
 export default function ProfilePage() {
   const theme = useTheme();
-  const router = useRouter();
   const user = useUser();
-
-  const { data: session } = useSession();
-  const provider = session?.provider;
+  const { role: workspaceRole } = usePermissions();
 
   const handleLogout = async () => {
     // Ensure backend httpOnly cookie is cleared first
@@ -89,18 +86,16 @@ export default function ProfilePage() {
     } catch {
       // ignore
     }
-    switch (provider) {
-      case 'auth0':
-        await signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/auth0` });
-        break;
-      case 'cognito':
-        await signOut({ callbackUrl: `${process.env.NEXTAUTH_URL}/api/auth/logout/cognito` });
-        break;
-      default:
-        await signOut({ redirect: false });
+    // Always use redirect: false to prevent automatic redirects
+    // We'll handle the redirect manually
+    try {
+      await signOut({ redirect: false });
+    } catch {
+      // ignore
     }
 
-    router.push('/login');
+    // Force redirect using window.location to ensure it works
+    window.location.href = '/login';
   };
 
   const anchorRef = useRef<any>(null);
@@ -169,12 +164,16 @@ export default function ProfilePage() {
                     <Grid container sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                       <Grid>
                         <Stack direction="row" sx={{ gap: 1.25, alignItems: 'center' }}>
-                          <Avatar alt="profile user" src={avatar1} />
+                          <Avatar alt="profile user" src={(user && typeof user === 'object' ? user?.avatar : null) || avatar1} />
                           <Stack>
-                            <Typography variant="subtitle1">{user ? user?.name : ''}</Typography>
-                            {user && typeof user === 'object' && 'role' in user && (user as any).role ? (
-                              <Typography variant="body2" color="secondary">{(user as any).role}</Typography>
-                            ) : null}
+                            <Typography variant="subtitle1">
+                              {user && typeof user === 'object' 
+                                ? (user?.name?.trim() || user?.email?.split('@')[0] || 'User')
+                                : 'User'}
+                            </Typography>
+                            <Typography variant="body2" color="secondary">
+                              {workspaceRole || 'N/A'}
+                            </Typography>
                           </Stack>
                         </Stack>
                       </Grid>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent } from 'react';
+import { useState, useEffect, ChangeEvent, MouseEvent, SyntheticEvent, useMemo } from 'react';
 import { useIntl, FormattedMessage } from 'react-intl';
 import useSWR from 'swr';
 import { useAppSelector } from '@/store';
@@ -248,6 +248,25 @@ export default function WorkoutPage() {
   const [importSearchTerm, setImportSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'builder' | 'logs' | 'ca_day'>('builder');
+  // Pagination for import dialog
+  const [importPage, setImportPage] = useState(0);
+  const [importRowsPerPage, setImportRowsPerPage] = useState(20);
+  // Filters for main search
+  const [searchEquipmentFilter, setSearchEquipmentFilter] = useState<string>('all');
+  const [searchCategoryFilter, setSearchCategoryFilter] = useState<string>('all');
+  const [searchMuscleGroupFilter, setSearchMuscleGroupFilter] = useState<string>('all');
+  // Equipment and category options (with "Other" support)
+  const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [newEquipmentValue, setNewEquipmentValue] = useState('');
+  const [newCategoryValue, setNewCategoryValue] = useState('');
+  const [equipmentIsOther, setEquipmentIsOther] = useState(false);
+  const [categoryIsOther, setCategoryIsOther] = useState(false);
+  // Edit dialog "Other" states
+  const [editEquipmentIsOther, setEditEquipmentIsOther] = useState(false);
+  const [editCategoryIsOther, setEditCategoryIsOther] = useState(false);
+  const [editNewEquipmentValue, setEditNewEquipmentValue] = useState('');
+  const [editNewCategoryValue, setEditNewCategoryValue] = useState('');
   // CaDay catalog state
   const [caDays, setCaDays] = useState<Array<{ id: string; name: string; imageUrl?: string; url?: string; urls?: string[] }>>([]);
   const [loadingCaDays, setLoadingCaDays] = useState(false);
@@ -307,6 +326,20 @@ export default function WorkoutPage() {
       })();
     }
   }, [workspaceId, activeTab]);
+  
+  // Always show exercises (builder tab is hidden but content is always visible)
+
+  // Extract unique equipment and category options from exercises
+  useEffect(() => {
+    const equipmentSet = new Set<string>();
+    const categorySet = new Set<string>();
+    exercises.forEach(ex => {
+      if (ex.equipmentNeeded) equipmentSet.add(ex.equipmentNeeded);
+      if (ex.category) categorySet.add(ex.category);
+    });
+    setEquipmentOptions(Array.from(equipmentSet).sort());
+    setCategoryOptions(Array.from(categorySet).sort());
+  }, [exercises]);
 
   const handleCreate = async () => {
     if (!newExercise.name.trim() || !newExercise.muscleGroup) {
@@ -317,9 +350,18 @@ export default function WorkoutPage() {
     setCreating(true);
     setError(null);
     try {
-      await api.post('/api/workout/exercises', newExercise);
+      const exerciseToCreate = {
+        ...newExercise,
+        equipmentNeeded: equipmentIsOther ? newEquipmentValue : newExercise.equipmentNeeded,
+        category: categoryIsOther ? newCategoryValue : newExercise.category
+      };
+      await api.post('/api/workout/exercises', exerciseToCreate);
       setIsCreateDialogOpen(false);
       setNewExercise({ name: '', nameArabic: '', muscleGroup: '', gifImage: '', videoUrl: '', instructions: '', notes: '', category: '', equipmentNeeded: '' });
+      setNewEquipmentValue('');
+      setNewCategoryValue('');
+      setEquipmentIsOther(false);
+      setCategoryIsOther(false);
       // Refresh the list
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
@@ -340,9 +382,18 @@ export default function WorkoutPage() {
     setUpdating(true);
     setError(null);
     try {
-      await api.put(`/api/workout/exercises/${selectedExercise.id}`, selectedExercise);
+      const exerciseToUpdate = {
+        ...selectedExercise,
+        equipmentNeeded: editEquipmentIsOther ? editNewEquipmentValue : (selectedExercise as any).equipmentNeeded,
+        category: editCategoryIsOther ? editNewCategoryValue : (selectedExercise as any).category
+      };
+      await api.put(`/api/workout/exercises/${selectedExercise.id}`, exerciseToUpdate);
       setIsEditDialogOpen(false);
       setSelectedExercise(null);
+      setEditEquipmentIsOther(false);
+      setEditCategoryIsOther(false);
+      setEditNewEquipmentValue('');
+      setEditNewCategoryValue('');
       // Refresh the list
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
@@ -386,6 +437,14 @@ export default function WorkoutPage() {
 
   const handleEdit = (exercise: Exercise) => {
     setSelectedExercise({ ...exercise });
+    // Check if category/equipment are in options, if not, set as "Other"
+    const ex = exercise as any;
+    const hasCategoryInOptions = ex.category && categoryOptions.includes(ex.category);
+    const hasEquipmentInOptions = ex.equipmentNeeded && equipmentOptions.includes(ex.equipmentNeeded);
+    setEditCategoryIsOther(!hasCategoryInOptions && !!ex.category);
+    setEditEquipmentIsOther(!hasEquipmentInOptions && !!ex.equipmentNeeded);
+    setEditNewCategoryValue(!hasCategoryInOptions && ex.category ? ex.category : '');
+    setEditNewEquipmentValue(!hasEquipmentInOptions && ex.equipmentNeeded ? ex.equipmentNeeded : '');
     setIsEditDialogOpen(true);
   };
 
@@ -436,12 +495,28 @@ export default function WorkoutPage() {
 
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
 
-  // Search filtering
-  const filteredExercises = exercises.filter((exercise) =>
+  // Search filtering with equipment, category, and muscle group filters
+  const filteredExercises = exercises.filter((exercise) => {
+    // Text search
+    const matchesSearch = !searchTerm.trim() || 
     exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     exercise.nameArabic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exercise.muscleGroup.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      exercise.muscleGroup.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Equipment filter
+    const matchesEquipment = searchEquipmentFilter === 'all' || 
+      exercise.equipmentNeeded === searchEquipmentFilter;
+    
+    // Category filter
+    const matchesCategory = searchCategoryFilter === 'all' || 
+      exercise.category === searchCategoryFilter;
+    
+    // Muscle group filter
+    const matchesMuscleGroup = searchMuscleGroupFilter === 'all' || 
+      exercise.muscleGroup === searchMuscleGroupFilter;
+    
+    return matchesSearch && matchesEquipment && matchesCategory && matchesMuscleGroup;
+  });
 
   // Import handlers
   const handleOpenImport = async () => {
@@ -529,25 +604,32 @@ export default function WorkoutPage() {
     return filtered;
   };
 
+  // Paginated items for import dialog
+  const paginatedImportExercises = useMemo(() => {
+    const filtered = getFilteredExercises();
+    const start = importPage * importRowsPerPage;
+    const end = start + importRowsPerPage;
+    return filtered.slice(start, end);
+  }, [defaultItems, selectedCategory, importSearchTerm, importPage, importRowsPerPage]);
+
   const handleSelectAllInCategory = () => {
-    const filteredExercises = getFilteredExercises();
-    const filteredNames = new Set(filteredExercises.map(item => item.name));
+    const paginatedNames = new Set(paginatedImportExercises.map(item => item.name));
     
-    // Check if all filtered exercises are selected
-    const allSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
+    // Check if all paginated exercises are selected
+    const allSelected = paginatedNames.size > 0 && Array.from(paginatedNames).every(name => selectedItems.has(name));
     
     if (allSelected) {
-      // Deselect all filtered exercises
+      // Deselect all paginated exercises
       setSelectedItems(prev => {
         const newSet = new Set(prev);
-        filteredNames.forEach(name => newSet.delete(name));
+        paginatedNames.forEach(name => newSet.delete(name));
         return newSet;
       });
     } else {
-      // Select all filtered exercises
+      // Select all paginated exercises
       setSelectedItems(prev => {
         const newSet = new Set(prev);
-        filteredNames.forEach(name => newSet.add(name));
+        paginatedNames.forEach(name => newSet.add(name));
         return newSet;
       });
     }
@@ -555,12 +637,15 @@ export default function WorkoutPage() {
 
   const handleCategoryChange = (event: SyntheticEvent, newValue: string) => {
     setSelectedCategory(newValue);
+    setImportPage(0); // Reset to first page when category changes
   };
 
   const resetImportDialog = () => {
     setImportSearchTerm('');
     setSelectedCategory('all');
     setSelectedItems(new Set());
+    setImportPage(0);
+    setImportRowsPerPage(20);
   };
 
   if (!workspaceId) {
@@ -623,14 +708,8 @@ export default function WorkoutPage() {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {/* Tabs */}
-      <Stack direction="row" spacing={1}>
-        <Button variant={activeTab === 'builder' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('builder')}>Builder</Button>
-        {/* <Button variant={activeTab === 'logs' ? 'contained' : 'outlined'} size="small" onClick={() => setActiveTab('logs')}>Logs</Button> */}
-      </Stack>
-
       {/* Exercises Table */}
-      {activeTab === 'builder' && (exercises.length === 0 ? (
+      {exercises.length === 0 ? (
         <MainCard>
           <Box sx={{ textAlign: 'center', py: 12 }}>
             <Typography variant="h6" gutterBottom>
@@ -652,12 +731,12 @@ export default function WorkoutPage() {
       ) : (
         <MainCard
           content={false}
-          title="Exercises"
         >
           <RowSelection selected={selected.length} />
 
-          {/* Search Input */}
+          {/* Search Input with Filters */}
           <Box sx={{ mb: 2 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
             <TextField
               fullWidth
               placeholder="Search exercises by name, Arabic name, or muscle group..."
@@ -665,7 +744,54 @@ export default function WorkoutPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
               size="small"
               sx={{ maxWidth: 400 }}
-            />
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchNormal1 size={20} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Equipment</InputLabel>
+                <Select
+                  value={searchEquipmentFilter}
+                  label="Equipment"
+                  onChange={(e) => setSearchEquipmentFilter(e.target.value)}
+                >
+                  <MenuItem value="all">All Equipment</MenuItem>
+                  {Array.from(new Set(exercises.map(e => e.equipmentNeeded).filter(Boolean))).sort().map((eq) => (
+                    <MenuItem key={eq} value={eq}>{eq}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={searchCategoryFilter}
+                  label="Category"
+                  onChange={(e) => setSearchCategoryFilter(e.target.value)}
+                >
+                  <MenuItem value="all">All Categories</MenuItem>
+                  {Array.from(new Set(exercises.map(e => e.category).filter(Boolean))).sort().map((cat) => (
+                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Muscle Group</InputLabel>
+                <Select
+                  value={searchMuscleGroupFilter}
+                  label="Muscle Group"
+                  onChange={(e) => setSearchMuscleGroupFilter(e.target.value)}
+                >
+                  <MenuItem value="all">All Groups</MenuItem>
+                  {MUSCLE_GROUPS.map((group) => (
+                    <MenuItem key={group} value={group}>{group}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
           </Box>
 
           {/* table */}
@@ -858,7 +984,7 @@ export default function WorkoutPage() {
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
         </MainCard>
-      ))}
+      )}
 
       {/* {activeTab === 'logs' && (
         <MainCard title="Workout Logs" secondary={<Button variant="outlined" size="small" onClick={() => refreshLogs()}>Refresh</Button>}>
@@ -985,20 +1111,68 @@ export default function WorkoutPage() {
                 ))}
               </Select>
             </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={categoryIsOther ? 'other' : (newExercise.category || '')}
+                label="Category"
+                onChange={(e) => {
+                  if (e.target.value === 'other') {
+                    setCategoryIsOther(true);
+                    setNewExercise((prev) => ({ ...prev, category: '' }));
+                  } else {
+                    setCategoryIsOther(false);
+                    setNewExercise((prev) => ({ ...prev, category: e.target.value }));
+                  }
+                }}
+              >
+                <MenuItem value="">None</MenuItem>
+                {categoryOptions.map((cat) => (
+                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                ))}
+                <MenuItem value="other">Other</MenuItem>
+              </Select>
+            </FormControl>
+            {categoryIsOther && (
             <TextField
               fullWidth
-              label="Category"
-              value={newExercise.category}
-              onChange={(e) => setNewExercise((prev) => ({ ...prev, category: e.target.value }))}
-              placeholder="e.g., Strength, Cardio"
-            />
+                label="Category (Other)"
+                value={newCategoryValue}
+                onChange={(e) => setNewCategoryValue(e.target.value)}
+                placeholder="Enter new category"
+              />
+            )}
+            <FormControl fullWidth>
+              <InputLabel>Equipment Needed</InputLabel>
+              <Select
+                value={equipmentIsOther ? 'other' : (newExercise.equipmentNeeded || '')}
+                label="Equipment Needed"
+                onChange={(e) => {
+                  if (e.target.value === 'other') {
+                    setEquipmentIsOther(true);
+                    setNewExercise((prev) => ({ ...prev, equipmentNeeded: '' }));
+                  } else {
+                    setEquipmentIsOther(false);
+                    setNewExercise((prev) => ({ ...prev, equipmentNeeded: e.target.value }));
+                  }
+                }}
+              >
+                <MenuItem value="">None</MenuItem>
+                {equipmentOptions.map((eq) => (
+                  <MenuItem key={eq} value={eq}>{eq}</MenuItem>
+                ))}
+                <MenuItem value="other">Other</MenuItem>
+              </Select>
+            </FormControl>
+            {equipmentIsOther && (
             <TextField
               fullWidth
-              label="Equipment Needed"
-              value={newExercise.equipmentNeeded}
-              onChange={(e) => setNewExercise((prev) => ({ ...prev, equipmentNeeded: e.target.value }))}
-              placeholder="e.g., Dumbbells, Bodyweight"
+                label="Equipment Needed (Other)"
+                value={newEquipmentValue}
+                onChange={(e) => setNewEquipmentValue(e.target.value)}
+                placeholder="Enter new equipment"
             />
+            )}
             <TextField
               fullWidth
               label="YouTube URL"
@@ -1083,20 +1257,68 @@ export default function WorkoutPage() {
                   ))}
                 </Select>
               </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={editCategoryIsOther ? 'other' : ((selectedExercise as any).category || '')}
+                  label="Category"
+                  onChange={(e) => {
+                    if (e.target.value === 'other') {
+                      setEditCategoryIsOther(true);
+                      setSelectedExercise((prev) => (prev ? ({ ...prev, category: '' } as any) : null));
+                    } else {
+                      setEditCategoryIsOther(false);
+                      setSelectedExercise((prev) => (prev ? ({ ...prev, category: e.target.value } as any) : null));
+                    }
+                  }}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {categoryOptions.map((cat) => (
+                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                  ))}
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
+              {editCategoryIsOther && (
               <TextField
                 fullWidth
-                label="Category"
-                value={(selectedExercise as any).category || ''}
-                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, category: e.target.value } as any) : null))}
-                placeholder="e.g., Strength, Cardio"
-              />
+                  label="Category (Other)"
+                  value={editNewCategoryValue}
+                  onChange={(e) => setEditNewCategoryValue(e.target.value)}
+                  placeholder="Enter new category"
+                />
+              )}
+              <FormControl fullWidth>
+                <InputLabel>Equipment Needed</InputLabel>
+                <Select
+                  value={editEquipmentIsOther ? 'other' : ((selectedExercise as any).equipmentNeeded || '')}
+                  label="Equipment Needed"
+                  onChange={(e) => {
+                    if (e.target.value === 'other') {
+                      setEditEquipmentIsOther(true);
+                      setSelectedExercise((prev) => (prev ? ({ ...prev, equipmentNeeded: '' } as any) : null));
+                    } else {
+                      setEditEquipmentIsOther(false);
+                      setSelectedExercise((prev) => (prev ? ({ ...prev, equipmentNeeded: e.target.value } as any) : null));
+                    }
+                  }}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {equipmentOptions.map((eq) => (
+                    <MenuItem key={eq} value={eq}>{eq}</MenuItem>
+                  ))}
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
+              {editEquipmentIsOther && (
               <TextField
                 fullWidth
-                label="Equipment Needed"
-                value={(selectedExercise as any).equipmentNeeded || ''}
-                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, equipmentNeeded: e.target.value } as any) : null))}
-                placeholder="e.g., Dumbbells, Bodyweight"
+                  label="Equipment Needed (Other)"
+                  value={editNewEquipmentValue}
+                  onChange={(e) => setEditNewEquipmentValue(e.target.value)}
+                  placeholder="Enter new equipment"
               />
+              )}
               <TextField
                 fullWidth
                 label="YouTube URL"
@@ -1167,7 +1389,10 @@ export default function WorkoutPage() {
                 fullWidth
                 placeholder="Search exercises by name, muscle group, or category..."
                 value={importSearchTerm}
-                onChange={(e) => setImportSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setImportSearchTerm(e.target.value);
+                  setImportPage(0); // Reset to first page when search changes
+                }}
                 sx={{ mb: 3 }}
                 InputProps={{
                   startAdornment: (
@@ -1199,15 +1424,14 @@ export default function WorkoutPage() {
                 <Typography variant="body2" color="text.secondary">
                   {selectedItems.size} of {defaultItems.length} selected
                   {getFilteredExercises().length !== defaultItems.length && (
-                    <span> ({getFilteredExercises().length} shown)</span>
+                    <span> ({getFilteredExercises().length} filtered, showing {paginatedImportExercises.length} on this page)</span>
                   )}
                 </Typography>
                 <Button variant="outlined" size="small" onClick={handleSelectAllInCategory}>
                   {(() => {
-                    const filteredExercises = getFilteredExercises();
-                    const filteredNames = new Set(filteredExercises.map(item => item.name));
-                    const allFilteredSelected = filteredNames.size > 0 && Array.from(filteredNames).every(name => selectedItems.has(name));
-                    return allFilteredSelected ? 'Deselect All Shown' : `Select All Shown (${filteredExercises.length})`;
+                    const paginatedNames = new Set(paginatedImportExercises.map(item => item.name));
+                    const allPaginatedSelected = paginatedNames.size > 0 && Array.from(paginatedNames).every(name => selectedItems.has(name));
+                    return allPaginatedSelected ? 'Deselect All Shown' : `Select All Shown (${paginatedImportExercises.length})`;
                   })()}
                 </Button>
                 <Button variant="outlined" size="small" onClick={handleSelectAllImport}>
@@ -1216,9 +1440,9 @@ export default function WorkoutPage() {
               </Stack>
 
               {/* Exercises Grid */}
-              <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              <Box>
                 <Stack spacing={2}>
-                  {getFilteredExercises().map((item) => {
+                  {paginatedImportExercises.map((item) => {
                     const isSelected = selectedItems.has(item.name);
                     return (
                       <Box
@@ -1281,7 +1505,7 @@ export default function WorkoutPage() {
                       </Box>
                     );
                   })}
-                  {getFilteredExercises().length === 0 && (
+                  {paginatedImportExercises.length === 0 && (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                       <Typography color="text.secondary">
                         No exercises found matching your criteria
@@ -1290,6 +1514,24 @@ export default function WorkoutPage() {
                   )}
                 </Stack>
               </Box>
+              
+              {/* Pagination */}
+              {getFilteredExercises().length > importRowsPerPage && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <TablePagination
+                    component="div"
+                    count={getFilteredExercises().length}
+                    page={importPage}
+                    onPageChange={(_, newPage) => setImportPage(newPage)}
+                    rowsPerPage={importRowsPerPage}
+                    onRowsPerPageChange={(e) => {
+                      setImportRowsPerPage(parseInt(e.target.value, 10));
+                      setImportPage(0);
+                    }}
+                    rowsPerPageOptions={[10, 20, 50, 100]}
+                  />
+                </Box>
+              )}
             </>
           )}
         </DialogContent>

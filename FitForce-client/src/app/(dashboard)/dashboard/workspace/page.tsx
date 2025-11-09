@@ -439,7 +439,7 @@ export default function WorkspacePage() {
             <Tab label={intl.formatMessage({ id: 'workspace.tab.general', defaultMessage: 'General' })} />
             <Tab label={intl.formatMessage({ id: 'workspace.tab.branding', defaultMessage: 'Branding' })} />
             <Tab label={intl.formatMessage({ id: 'workspace.tab.landing', defaultMessage: 'Landing Page' })} />
-            <Tab label={intl.formatMessage({ id: 'workspace.tab.pdf', defaultMessage: 'PDF Templates' })} />
+            {/* PDF Templates tab hidden */}
             <Tab label={intl.formatMessage({ id: 'workspace.tab.payment', defaultMessage: 'Payment Settings' })} />
           </Tabs>
         </Box>
@@ -641,7 +641,8 @@ export default function WorkspacePage() {
           )}
         </TabPanel>
 
-        {/* PDF Templates Tab */}
+        {/* PDF Templates Tab - Hidden */}
+        {false && (
         <TabPanel value={activeTab} index={3}>
           <Stack spacing={3}>
             <Card>
@@ -952,9 +953,10 @@ export default function WorkspacePage() {
             </Card>
           </Stack>
         </TabPanel>
+        )}
 
         {/* Payment Settings Tab */}
-        <TabPanel value={activeTab} index={4}>
+        <TabPanel value={activeTab} index={3}>
           <Stack spacing={3}>
             {paymentError && <Alert severity="error">{paymentError}</Alert>}
             {paymentSuccess && <Alert severity="success">{paymentSuccess}</Alert>}

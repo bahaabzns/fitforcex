@@ -254,6 +254,11 @@ export function usePerformanceMonitor() {
   const monitorRef = useRef<PerformanceMonitor | null>(null);
 
   useEffect(() => {
+    // Skip performance monitoring in development mode to improve dev server performance
+    if (process.env.NODE_ENV === 'development') {
+      return;
+    }
+
     monitorRef.current = new PerformanceMonitor();
 
     // Report metrics on page unload
