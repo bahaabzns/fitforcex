@@ -424,30 +424,45 @@ export default function ClientNutritionPage() {
         onClick={onSelect}
         sx={{
           cursor: 'pointer',
-          border: '1px solid',
+          border: '2px solid',
           borderColor: isSelected ? 'primary.main' : 'divider',
-          bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+          bgcolor: isSelected 
+            ? theme.palette.mode === 'dark' 
+              ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
+              : 'primary.lighter' 
+            : 'background.paper',
           position: 'relative',
-          boxShadow: isDragging ? 6 : 'none',
+          boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : 'none',
+          borderRadius: 2,
+          transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          overflow: 'hidden',
           '&:hover .meal-actions': { opacity: 1 },
           '&:hover': {
-            boxShadow: isDragging ? 6 : 2,
-            transform: isDragging ? undefined : 'translateY(-2px)'
+            borderColor: isSelected ? 'primary.dark' : 'primary.main',
+            boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+            transform: isDragging ? undefined : 'translateY(-2px)',
+            bgcolor: isSelected 
+              ? theme.palette.mode === 'dark'
+                ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
+                : 'primary.lighter'
+              : 'action.hover'
           },
-          transition: 'all 0.2s',
         }}
       >
-        <CardContent sx={{ py: 1.25 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+        <CardContent sx={{ py: 1.75, px: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 85 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Box 
                 sx={{ 
-                  mr: 1, 
+                  mr: 1.5, 
                   color: 'text.disabled', 
                   cursor: 'grab',
-                  fontSize: 18, 
+                  fontSize: 20, 
                   lineHeight: 1,
-                  '&:active': { cursor: 'grabbing' }
+                  opacity: 0.6,
+                  transition: 'opacity 0.2s',
+                  '&:hover': { opacity: 1 },
+                  '&:active': { cursor: 'grabbing', opacity: 0.8 }
                 }} 
                 title="Drag to reorder"
                 {...attributes}
@@ -455,17 +470,17 @@ export default function ClientNutritionPage() {
               >
                 ≡
               </Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>{meal.meal}</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0, color: isSelected ? 'primary.main' : 'text.primary', fontSize: '0.95rem', transition: 'color 0.2s' }}>{meal.meal}</Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary' }}>
-              <Typography variant="caption" sx={{ fontSize: 12 }}>{totals.calories} kcal</Typography>
-              <Typography variant="caption" sx={{ fontSize: 12 }}>P: {totals.protein}g</Typography>
-              <Typography variant="caption" sx={{ fontSize: 12 }}>C: {totals.carbs}g</Typography>
-              <Typography variant="caption" sx={{ fontSize: 12 }}>F: {totals.fat}g</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', color: 'text.secondary', mt: 0.5 }}>
+              <Typography variant="caption" sx={{ fontSize: 12, fontWeight: 500, color: 'text.primary' }}>{totals.calories} kcal</Typography>
+              <Typography variant="caption" sx={{ fontSize: 12, fontWeight: 500 }}>P: {Math.round(totals.protein)}g</Typography>
+              <Typography variant="caption" sx={{ fontSize: 12, fontWeight: 500 }}>C: {Math.round(totals.carbs)}g</Typography>
+              <Typography variant="caption" sx={{ fontSize: 12, fontWeight: 500 }}>F: {Math.round(totals.fat)}g</Typography>
             </Box>
           </Box>
         </CardContent>
-        <Box className="meal-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
+        <Box className="meal-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
           <IconButton size="small" title="Copy meal" onClick={onCopy}>
             <Copy size={16} />
           </IconButton>
@@ -623,10 +638,17 @@ export default function ClientNutritionPage() {
 
   const MacroDonut: React.FC<{ cycle?: Cycle }> = ({ cycle }) => {
     const { calories, proteinKcal, carbsKcal, fatKcal, proteinG, carbsG, fatG } = computeCycleMacroEnergy(cycle);
+    // Theme-aware colors for light and dark modes
+    const isDark = theme.palette.mode === 'dark';
+    const macroColors = {
+      protein: isDark ? '#64b5f6' : '#1976d2',
+      carbs: isDark ? '#81c784' : '#388e3c',
+      fat: isDark ? '#ffb74d' : '#f57c00'
+    };
     const data = [
-      { key: 'Protein', kcal: proteinKcal, grams: proteinG, color: '#42a5f5' },
-      { key: 'Carbs', kcal: carbsKcal, grams: carbsG, color: '#66bb6a' },
-      { key: 'Fat', kcal: fatKcal, grams: fatG, color: '#ef5350' }
+      { key: 'Protein', kcal: proteinKcal, grams: proteinG, color: macroColors.protein },
+      { key: 'Carbs', kcal: carbsKcal, grams: carbsG, color: macroColors.carbs },
+      { key: 'Fat', kcal: fatKcal, grams: fatG, color: macroColors.fat }
     ];
     const total = data.reduce((acc, d) => acc + d.kcal, 0) || 1;
     // Donut SVG settings
@@ -704,11 +726,20 @@ export default function ClientNutritionPage() {
     const cKcal = Math.round(cG * 4);
     const totalG = Math.max(1, pG + fG + cG);
     const pctG = (g: number) => `${Math.round((g / totalG) * 1000) / 10}%`;
-    const colors = { p: '#42a5f5', f: '#ef5350', c: '#66bb6a' } as const;
+    
+    // Theme-aware colors for light and dark modes
+    const isDark = theme.palette.mode === 'dark';
+    const colors = {
+      p: isDark ? '#ffc107' : '#f57c00',      // Protein: yellow (lighter in dark, darker in light)
+      c: isDark ? '#64b5f6' : '#1565c0',      // Carbs: blue (lighter in dark, darker in light)
+      f: isDark ? '#ef5350' : '#c62828'       // Fat: red (lighter in dark, darker in light)
+    };
+    
     const tooltip = (label: string, grams: number) => `${label}: ${Math.round((grams / totalG) * 1000) / 10}% • ${Math.round(grams)} g`;
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ width: '100%', maxWidth: 600 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%' }}>
+        {/* Full width bar */}
+        <Box sx={{ width: '100%' }}>
           <Box sx={{ height: 14, borderRadius: 8, overflow: 'hidden', display: 'flex', boxShadow: 0.5 }}>
             <Tooltip title={tooltip('P', pG)} arrow>
               <Box sx={{ width: pctG(pG), bgcolor: colors.p }} />
@@ -721,27 +752,27 @@ export default function ClientNutritionPage() {
             </Tooltip>
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 4, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.p, mt: 0.5 }} />
-            <Box>
-              <Typography variant="body2" sx={{ color: colors.p, fontWeight: 600 }}>Protein</Typography>
-              <Typography variant="caption" color="text.secondary">{pKcal} kcal • {Math.round(pG)} g</Typography>
-            </Box>
+        {/* Protein | Carbs | Fat layout */}
+        <Box sx={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ color: colors.p, fontWeight: 600, mb: 0.5 }}>Protein</Typography>
+            <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+              {Math.round(pG)}g
+            </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.c, mt: 0.5 }} />
-            <Box>
-              <Typography variant="body2" sx={{ color: colors.c, fontWeight: 600 }}>Carbs</Typography>
-              <Typography variant="caption" color="text.secondary">{cKcal} kcal • {Math.round(cG)} g</Typography>
-            </Box>
+          <Typography sx={{ color: 'text.primary', fontSize: '1rem', mx: 1, userSelect: 'none', opacity: 0.6 }}>|</Typography>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ color: colors.c, fontWeight: 600, mb: 0.5 }}>Carbs</Typography>
+            <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+              {Math.round(cG)}g
+            </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: colors.f, mt: 0.5 }} />
-            <Box>
-              <Typography variant="body2" sx={{ color: colors.f, fontWeight: 600 }}>Fat</Typography>
-              <Typography variant="caption" color="text.secondary">{fKcal} kcal • {Math.round(fG)} g</Typography>
-            </Box>
+          <Typography sx={{ color: 'text.primary', fontSize: '1rem', mx: 1, userSelect: 'none', opacity: 0.6 }}>|</Typography>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ color: colors.f, fontWeight: 600, mb: 0.5 }}>Fat</Typography>
+            <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+              {Math.round(fG)}g
+            </Typography>
           </Box>
         </Box>
       </Box>
@@ -1570,6 +1601,30 @@ export default function ClientNutritionPage() {
     setIsPlanDirty(true);
   };
 
+  const handleAddCycle = () => {
+    if (!selectedPlanId) return;
+    const newId = `tmpc-${Date.now()}`;
+    const newCycle: Cycle = {
+      id: newId,
+      title: `Day ${currentCycles.length + 1}`,
+      label: `Day ${currentCycles.length + 1}`,
+      dayIndex: currentCycles.length + 1,
+      meals: []
+    };
+    
+    // Update the plan with the new cycle
+    setPlans((prev) => prev.map(plan => 
+      plan.id === selectedPlanId 
+        ? { ...plan, cycles: [...(plan.cycles || []), newCycle] }
+        : plan
+    ));
+    
+    setCurrentCycleIndex(currentCycles.length);
+    setSelectedCycleId(newId);
+    setSelectedMealId(null);
+    setIsPlanDirty(true);
+  };
+
   const handleDeleteCycle = () => {
     if (currentCycles.length <= 1 || !selectedCycleId || !selectedPlanId) return; // cannot delete last cycle
     
@@ -1857,7 +1912,7 @@ export default function ClientNutritionPage() {
         <MobileSwipeableSections
           sections={[
             // Section 1: Plans
-            <Card key="plans" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card key="plans" elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column', boxShadow: 'none' }}>
           <CardHeader
             title={
               <Box sx={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin' }}>
@@ -2109,26 +2164,43 @@ export default function ClientNutritionPage() {
                         }}
                         sx={{
                           cursor: 'pointer',
-                          border: '1px solid',
+                          border: '2px solid',
                           borderColor: isSelected ? 'primary.main' : 'divider',
-                          bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+                          bgcolor: isSelected 
+                            ? theme.palette.mode === 'dark' 
+                              ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
+                              : 'primary.lighter' 
+                            : 'background.paper',
                           position: 'relative',
                           boxShadow: 'none',
+                          borderRadius: 2,
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          overflow: 'hidden',
+                          '&:hover': {
+                            borderColor: isSelected ? 'primary.dark' : 'primary.main',
+                            transform: 'translateY(-2px)',
+                            boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+                            bgcolor: isSelected 
+                              ? theme.palette.mode === 'dark'
+                                ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
+                                : 'primary.lighter'
+                              : 'action.hover'
+                          },
                           '&:hover .plan-actions': { opacity: 1 }
                         }}
                       >
-                        <CardContent sx={{ py: 2, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>{plan.title}</Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        <CardContent sx={{ py: 2.5, px: 2.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 90 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: isSelected ? 'primary.main' : 'text.primary', fontSize: '0.95rem', transition: 'color 0.2s' }}>{plan.title}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
                               {createdDate ? `Last Edited: ${createdDate}` : 'Last Edited: —'}{plan.createdBy ? `, By: ${plan.createdBy}` : ''}
                                   </Typography>
                             {plan.status && (
-                              <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} />
+                              <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} sx={{ height: 20, fontSize: '0.65rem', fontWeight: 500 }} />
                             )}
                           </Box>
                         </CardContent>
-                        <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: isMobile ? 1 : 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
+                        <Box className="plan-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: isMobile ? 1 : 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                           <IconButton size="small" onClick={() => handleCopyPlanCard(plan.id)} disabled={copyingPlanId === plan.id} title="Copy plan" sx={{ '&:hover': { bgcolor: 'action.selected' } }}>
                             <Copy size={16} />
                           </IconButton>
@@ -2146,34 +2218,9 @@ export default function ClientNutritionPage() {
         </Card>,
             
             // Section 2: Current Cycle & Meals
-            <Card key="cycles" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card key="cycles" elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column', boxShadow: 'none' }}>
             <CardHeader
-              title={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="h6">Current Cycle & Meals</Typography>
-                  {currentCycles.length > 1 && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <IconButton
-                        size="small"
-                        onClick={handlePreviousCycle}
-                        disabled={!canGoPrevious}
-                      >
-                        <ArrowLeft2 size={16} />
-                      </IconButton>
-                      <Typography variant="body2" color="text.secondary">
-                        {currentCycleIndex + 1} of {currentCycles.length}
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={handleNextCycle}
-                        disabled={!canGoNext}
-                      >
-                        <ArrowRight2 size={16} />
-                      </IconButton>
-                    </Box>
-                  )}
-                </Box>
-              }
+              title={<Typography variant="h6">Current Cycle & Meals</Typography>}
               action={
                 <Stack direction="row" spacing={0.5}>
                   {selectedCycleId && (
@@ -2253,13 +2300,100 @@ export default function ClientNutritionPage() {
                 <>
                   {currentCycle ? (
                     <Box>
-                      {/* Current Cycle Header - editable on mobile */}
-                      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', mb: 1, columnGap: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <IconButton size="small" onClick={handlePreviousCycle} disabled={!canGoPrevious}><ArrowLeft2 size={16} /></IconButton>
-                          <IconButton size="small" onClick={handleNextCycle} disabled={!canGoNext}><ArrowRight2 size={16} /></IconButton>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {/* Calories Display - Left aligned, above macro bar */}
+                      {currentCycle && (() => {
+                        const cycleTotals = computeCycleTotals(currentCycle);
+                        return (
+                          <Box sx={{ 
+                            mb: 2, 
+                            display: 'flex', 
+                            justifyContent: 'flex-start',
+                            alignItems: 'center'
+                          }}>
+                            <Box>
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  fontSize: '0.7rem',
+                                  fontWeight: 500,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: 1,
+                                  mb: 0.5,
+                                  color: 'text.secondary'
+                                }}
+                              >
+                                Total Calories
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                                <Typography 
+                                  variant="h4" 
+                                  sx={{ 
+                                    fontWeight: 700,
+                                    fontSize: '1.75rem',
+                                    lineHeight: 1.2
+                                  }}
+                                >
+                                  {cycleTotals.calories.toLocaleString()}
+                                </Typography>
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    fontSize: '0.75rem',
+                                    color: 'text.secondary'
+                                  }}
+                                >
+                                  kcal
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                        );
+                      })()}
+                      
+                      {/* Macros bar */}
+                      <Box sx={{ mb: 2 }}>
+                        <CycleMacroBar cycle={currentCycle} meals={currentMeals} />
+                      </Box>
+                      
+                      {/* Cycle Navigator: (-) ( <     [cycle name]       >) (+) */}
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        gap: 1,
+                        mb: 2,
+                        px: 2
+                      }}>
+                        {/* Minus button */}
+                        <IconButton
+                          size="small"
+                          onClick={handleDeleteCycle}
+                          disabled={currentCycles.length <= 1 || saving}
+                          color="error"
+                          sx={{ minWidth: 32, height: 32 }}
+                        >
+                          <Typography variant="h6" sx={{ fontSize: '1.2rem', lineHeight: 1 }}>−</Typography>
+                        </IconButton>
+                        
+                        {/* Left arrow */}
+                        <IconButton
+                          size="small"
+                          onClick={handlePreviousCycle}
+                          disabled={!canGoPrevious}
+                          sx={{ minWidth: 32, height: 32 }}
+                        >
+                          <ArrowLeft2 size={18} />
+                        </IconButton>
+                        
+                        {/* Cycle name (editable) */}
+                        <Box sx={{ 
+                          flex: 1, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          minWidth: 0,
+                          px: 1
+                        }}>
                           {editingCycleId === selectedCycleId ? (
                             <TextField
                               size="small"
@@ -2280,102 +2414,61 @@ export default function ClientNutritionPage() {
                                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                                 if (e.key === 'Escape') setEditingCycleId(null);
                               }}
+                              sx={{ 
+                                width: '100%',
+                                maxWidth: 200,
+                                '& .MuiInputBase-input': { 
+                                  textAlign: 'center',
+                                  fontSize: '0.95rem',
+                                  fontWeight: 500
+                                }
+                              }}
                             />
                           ) : (
-                            <Typography variant="subtitle1" sx={{ textAlign: 'center', cursor: 'text' }} onClick={() => {
-                              const t = currentCycle ? (currentCycle.label || currentCycle.title || '') : '';
-                              setEditingCycleId(selectedCycleId || null);
-                              setEditingCycleValue(t);
-                            }}>
+                            <Typography 
+                              variant="subtitle1" 
+                              sx={{ 
+                                textAlign: 'center', 
+                                cursor: 'text',
+                                fontWeight: 500,
+                                fontSize: '0.95rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                width: '100%',
+                                maxWidth: 200
+                              }} 
+                              onClick={() => {
+                                const t = currentCycle ? (currentCycle.label || currentCycle.title || '') : '';
+                                setEditingCycleId(selectedCycleId || null);
+                                setEditingCycleValue(t);
+                              }}
+                            >
                               {currentCycle ? (currentCycle.label || `Day ${currentCycle.dayIndex}`) : 'Cycle'}
                             </Typography>
                           )}
                         </Box>
-                        <Box />
-                      </Box>
-                      
-                      {/* Calories Display - Prominent */}
-                      {currentCycle && (() => {
-                        const cycleTotals = computeCycleTotals(currentCycle);
-                        return (
-                          <Box sx={{ 
-                            mb: 2, 
-                            display: 'flex', 
-                            justifyContent: 'center',
-                            alignItems: 'center'
-                          }}>
-                            <Card 
-                              sx={{ 
-                                bgcolor: 'primary.main',
-                                color: 'primary.contrastText',
-                                px: 3,
-                                py: 2,
-                                borderRadius: 3,
-                                boxShadow: 3,
-                                width: '100%',
-                                maxWidth: 320,
-                                textAlign: 'center',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                '&::before': {
-                                  content: '""',
-                                  position: 'absolute',
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
-                                  pointerEvents: 'none'
-                                }
-                              }}
-                            >
-                              <Typography 
-                                variant="caption" 
-                                sx={{ 
-                                  opacity: 0.9,
-                                  fontSize: '0.7rem',
-                                  fontWeight: 500,
-                                  textTransform: 'uppercase',
-                                  letterSpacing: 1,
-                                  mb: 0.5,
-                                  position: 'relative',
-                                  zIndex: 1
-                                }}
-                              >
-                                Total Calories
-                              </Typography>
-                              <Typography 
-                                variant="h3" 
-                                sx={{ 
-                                  fontWeight: 700,
-                                  fontSize: '2rem',
-                                  lineHeight: 1.2,
-                                  position: 'relative',
-                                  zIndex: 1
-                                }}
-                              >
-                                {cycleTotals.calories.toLocaleString()}
-                              </Typography>
-                              <Typography 
-                                variant="caption" 
-                                sx={{ 
-                                  opacity: 0.8,
-                                  fontSize: '0.65rem',
-                                  mt: 0.5,
-                                  position: 'relative',
-                                  zIndex: 1
-                                }}
-                              >
-                                kcal
-                              </Typography>
-                            </Card>
-                          </Box>
-                        );
-                      })()}
-                      
-                      {/* Macros bar */}
-                      <Box sx={{ mb: 2 }}>
-                        <CycleMacroBar cycle={currentCycle} meals={currentMeals} />
+                        
+                        {/* Right arrow */}
+                        <IconButton
+                          size="small"
+                          onClick={handleNextCycle}
+                          disabled={!canGoNext}
+                          sx={{ minWidth: 32, height: 32 }}
+                        >
+                          <ArrowRight2 size={18} />
+                        </IconButton>
+                        
+                        {/* Plus button */}
+                        <IconButton
+                          size="small"
+                          onClick={handleAddCycle}
+                          disabled={saving}
+                          color="primary"
+                          sx={{ minWidth: 32, height: 32 }}
+                        >
+                          <Add size={18} />
+                        </IconButton>
                       </Box>
                       
                       {/* Meals under current cycle stacked vertically */}
@@ -2455,7 +2548,7 @@ export default function ClientNutritionPage() {
           </Card>,
             
             // Section 3: Food Items
-            <Card key="food-items" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card key="food-items" elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column', boxShadow: 'none' }}>
             <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {selectedMealId && currentMeals.find(m => m.id === selectedMealId) ? (
                 <Box>
@@ -2502,13 +2595,90 @@ export default function ClientNutritionPage() {
                     )}
                     <IconButton size="medium" onClick={() => setSelectedMealId(null)} title="Close" sx={{ fontSize: 18, lineHeight: 1 }}>✕</IconButton>
                   </Box>
-                  {/* Row 2: Macros center */}
-                  {(() => { const m = currentMeals.find(me => me.id === selectedMealId)!; const t = computeMealTotals(m); return (
-                    <Box sx={{ textAlign: 'center', mb: 1, color: 'text.secondary' }}>
-                      <Typography variant="caption" sx={{ fontSize: 12 }}>{t.calories} kcal  P: {t.protein}g  C: {t.carbs}g  F: {t.fat}g</Typography>
-                    </Box>
-                  ); })()}
-                  <Divider sx={{ mb: 1 }} />
+                  {/* Calories Display - Left aligned */}
+                  {(() => { 
+                    const m = currentMeals.find(me => me.id === selectedMealId)!; 
+                    const t = computeMealTotals(m);
+                    const isDark = theme.palette.mode === 'dark';
+                    const colors = {
+                      p: isDark ? '#ffc107' : '#f57c00',      // Protein: yellow (lighter in dark, darker in light)
+                      c: isDark ? '#64b5f6' : '#1565c0',      // Carbs: blue (lighter in dark, darker in light)
+                      f: isDark ? '#ef5350' : '#c62828'       // Fat: red (lighter in dark, darker in light)
+                    };
+                    return (
+                      <>
+                        <Box sx={{ 
+                          mb: 2, 
+                          display: 'flex', 
+                          justifyContent: 'flex-start',
+                          alignItems: 'center'
+                        }}>
+                          <Box>
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                textTransform: 'uppercase',
+                                letterSpacing: 1,
+                                mb: 0.5,
+                                color: 'text.secondary'
+                              }}
+                            >
+                              Total Calories
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                              <Typography 
+                                variant="h4" 
+                                sx={{ 
+                                  fontWeight: 700,
+                                  fontSize: '1.75rem',
+                                  lineHeight: 1.2
+                                }}
+                              >
+                                {t.calories.toLocaleString()}
+                              </Typography>
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  fontSize: '0.75rem',
+                                  color: 'text.secondary'
+                                }}
+                              >
+                                kcal
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+                        
+                        {/* Protein | Carbs | Fat layout (without bar) */}
+                        <Box sx={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center', mb: 2 }}>
+                          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <Typography variant="body2" sx={{ color: colors.p, fontWeight: 600, mb: 0.5 }}>Protein</Typography>
+                            <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                              {Math.round(t.protein)}g
+                            </Typography>
+                          </Box>
+                          <Typography sx={{ color: 'text.secondary', fontSize: '1.2rem', mx: 1, userSelect: 'none' }}>|</Typography>
+                          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <Typography variant="body2" sx={{ color: colors.c, fontWeight: 600, mb: 0.5 }}>Carbs</Typography>
+                            <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                              {Math.round(t.carbs)}g
+                            </Typography>
+                          </Box>
+                          <Typography sx={{ color: 'text.secondary', fontSize: '1.2rem', mx: 1, userSelect: 'none' }}>|</Typography>
+                          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <Typography variant="body2" sx={{ color: colors.f, fontWeight: 600, mb: 0.5 }}>Fat</Typography>
+                            <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                              {Math.round(t.fat)}g
+                            </Typography>
+                          </Box>
+                        </Box>
+                        
+                        <Divider sx={{ mb: 2 }} />
+                      </>
+                    );
+                  })()}
                   {currentMeals.find(m => m.id === selectedMealId)?.foodItems && currentMeals.find(m => m.id === selectedMealId)?.foodItems.length > 0 ? (
                     <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1, flexWrap: 'wrap' }}>
@@ -2693,6 +2863,103 @@ export default function ClientNutritionPage() {
                       </Button>
                     </Box>
                   )}
+                  
+                  {/* Animated Notes Section */}
+                  <Box
+                    sx={{
+                      overflow: 'hidden',
+                      transition: 'all 0.3s ease-in-out',
+                      maxHeight: showMealNotesSection ? '200px' : '0px',
+                      opacity: showMealNotesSection ? 1 : 0,
+                      transform: showMealNotesSection ? 'translateY(0)' : 'translateY(-10px)',
+                      mt: showMealNotesSection ? 2 : 0,
+                      mb: showMealNotesSection ? 2 : 0
+                    }}
+                  >
+                    <Box sx={{ 
+                      p: 2, 
+                      backgroundColor: 'background.paper', 
+                      border: '1px solid', 
+                      borderColor: 'divider', 
+                      borderRadius: 2,
+                      boxShadow: 1
+                    }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          Meal Notes
+                        </Typography>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setShowMealNotesSection(false)}
+                          sx={{ fontSize: 16 }}
+                        >
+                          ✕
+                        </IconButton>
+                      </Box>
+                      <TextField
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        maxRows={6}
+                        value={(() => {
+                          const selectedMeal = currentMeals.find(m => m.id === selectedMealId);
+                          return selectedMeal?.notes || '';
+                        })()}
+                        onChange={(e) => {
+                          const notes = e.target.value;
+                          // Update current meals
+                          setCurrentMeals((prev) => prev.map((m) => m.id !== (selectedMealId as string) ? m : ({ ...m, notes })));
+                          // Update plans tree
+                          if (selectedPlanId && selectedCycleId) {
+                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                              ...p,
+                              cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                ...c,
+                                meals: (c.meals || []).map((m) => m.id !== (selectedMealId as string) ? m : ({ ...m, notes }))
+                              }))
+                            })));
+                          }
+                          setIsPlanDirty(true);
+                        }}
+                        placeholder="Add notes about this meal..."
+                        variant="outlined"
+                        size="small"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            fontSize: '0.875rem'
+                          }
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                  
+                  {/* Notes Button - At the end */}
+                  {selectedMealId && currentMeals.find(m => m.id === selectedMealId) && (
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-start' }}>
+                      <Button
+                        variant="contained"
+                        size="medium"
+                        startIcon={<DocumentText size={18} />}
+                        onClick={() => {
+                          setShowMealNotesSection(!showMealNotesSection);
+                        }}
+                        sx={{
+                          borderRadius: 2,
+                          boxShadow: 2,
+                          textTransform: 'none',
+                          px: 2,
+                          py: 1,
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            boxShadow: 3,
+                            transform: 'translateY(-1px)'
+                          }
+                        }}
+                      >
+                        Notes
+                      </Button>
+                    </Box>
+                  )}
                 </Box>
               ) : (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -2708,7 +2975,7 @@ export default function ClientNutritionPage() {
       ) : (
         <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto' }}>
           {/* Section 1: Plans */}
-          <Card sx={{ flex: showSection2 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection2 ? '50%' : '100%', height: '75vh', display: 'flex', flexDirection: 'column' }}>
+          <Card elevation={0} sx={{ flex: showSection2 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection2 ? '50%' : '100%', height: '75vh', display: 'flex', flexDirection: 'column', boxShadow: 'none' }}>
             <CardHeader
               title={
                 <Box sx={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin' }}>
@@ -2952,28 +3219,43 @@ export default function ClientNutritionPage() {
                           }}
                           sx={{
                             cursor: 'pointer',
-                            border: '1px solid',
+                            border: '2px solid',
                             borderColor: isSelected ? 'primary.main' : 'divider',
-                            bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+                            bgcolor: isSelected 
+                              ? theme.palette.mode === 'dark' 
+                                ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
+                                : 'primary.lighter' 
+                              : 'background.paper',
                             position: 'relative',
                             boxShadow: 'none',
+                            borderRadius: 2,
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            overflow: 'hidden',
+                            '&:hover': {
+                              borderColor: isSelected ? 'primary.dark' : 'primary.main',
+                              transform: 'translateY(-2px)',
+                              boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+                              bgcolor: isSelected 
+                                ? theme.palette.mode === 'dark'
+                                  ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
+                                  : 'primary.lighter'
+                                : 'action.hover'
+                            },
                             '&:hover .plan-actions': { opacity: 1 }
                           }}
                         >
-                          <CardContent sx={{ py: 1.25 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>{plan.title}</Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                  {createdDate ? `Last Edited: ${createdDate}` : 'Last Edited: —'}{plan.createdBy ? `, By: ${plan.createdBy}` : ''}
-                                    </Typography>
-                                {plan.status && (
-                                  <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} />
-                                )}
-                              </Box>
+                          <CardContent sx={{ py: 2.5, px: 2.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 90 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: isSelected ? 'primary.main' : 'text.primary', fontSize: '0.95rem', transition: 'color 0.2s' }}>{plan.title}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                                {createdDate ? `Last Edited: ${createdDate}` : 'Last Edited: —'}{plan.createdBy ? `, By: ${plan.createdBy}` : ''}
+                                  </Typography>
+                              {plan.status && (
+                                <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} sx={{ height: 20, fontSize: '0.65rem', fontWeight: 500 }} />
+                              )}
                             </Box>
                           </CardContent>
-                          <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5, bgcolor: 'background.paper', borderRadius: 1, boxShadow: 0, p: 0.25 }} onClick={(e) => e.stopPropagation()}>
+                          <Box className="plan-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                             <IconButton size="small" onClick={() => handleCopyPlanCard(plan.id)} disabled={copyingPlanId === plan.id} title="Copy plan" sx={{ '&:hover': { bgcolor: 'action.selected' } }}>
                               <Copy size={16} />
                             </IconButton>
@@ -2992,7 +3274,7 @@ export default function ClientNutritionPage() {
 
           {/* Section 2: Current Cycle & Meals */}
           {showSection2 && (
-            <Card sx={{ flex: showSection3 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection3 ? '50%' : '100%', height: '75vh', display: 'flex', flexDirection: 'column' }}>
+            <Card elevation={0} sx={{ flex: showSection3 ? '1 1 0' : '1 1 0', minWidth: 0, width: showSection3 ? '50%' : '100%', height: '75vh', display: 'flex', flexDirection: 'column', boxShadow: 'none' }}>
               <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                 {/* Row 1: Plan name with close */}
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -3037,125 +3319,52 @@ export default function ClientNutritionPage() {
                 {/* Content based on selected tab (Water tab removed) */}
                 {planTab === 0 ? (
                   <>
-                    {/* Row 2: Cycle header */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', mb: 1, columnGap: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <IconButton size="small" onClick={handlePreviousCycle} disabled={!canGoPrevious}><ArrowLeft2 size={16} /></IconButton>
-                    <IconButton size="small" onClick={handleNextCycle} disabled={!canGoNext}><ArrowRight2 size={16} /></IconButton>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {editingCycleId === selectedCycleId ? (
-                      <TextField
-                        size="small"
-                        value={editingCycleValue}
-                        autoFocus
-                        onChange={(e) => setEditingCycleValue(e.target.value)}
-                        onBlur={() => {
-                          if (!selectedCycleId || !selectedPlanId) { setEditingCycleId(null); return; }
-                          // update currentCycles and plans tree
-                          setCurrentCycles((prev) => prev.map((c) => c.id !== selectedCycleId ? c : ({ ...c, label: editingCycleValue || c.label, title: editingCycleValue || c.title })));
-                          setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                            ...p,
-                            cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({ ...c, label: editingCycleValue || c.label, title: editingCycleValue || c.title }))
-                          })));
-                          setEditingCycleId(null);
-                          setIsPlanDirty(true);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                          if (e.key === 'Escape') setEditingCycleId(null);
-                        }}
-                      />
-                    ) : (
-                      <Typography variant="subtitle1" sx={{ textAlign: 'center', cursor: 'text' }} onClick={() => {
-                        const t = currentCycle ? (currentCycle.label || currentCycle.title || '') : '';
-                        setEditingCycleId(selectedCycleId || null);
-                        setEditingCycleValue(t);
-                      }}>
-                        {currentCycle ? currentCycle.label : 'Cycle'}
-                          </Typography>
-                    )}
-                  </Box>
-                  <Box sx={{ justifySelf: 'end' }}>
-                    <IconButton size="small" onClick={handleCopyCycle} disabled={!selectedCycleId || saving} title="Copy"><Copy size={16} /></IconButton>
-                    <IconButton size="small" color="error" onClick={handleDeleteCycle} disabled={saving || currentCycles.length <= 1} title="Delete"><Trash size={16} /></IconButton>
-                  </Box>
-                    </Box>
-                    
-                {/* Row 2a: Calories Display - Prominent */}
+                {/* Row 2a: Calories Display - Left aligned, above macro bar */}
                 {currentCycle && (() => {
                   const cycleTotals = computeCycleTotals(currentCycle);
                   return (
                     <Box sx={{ 
                       mb: 2, 
                       display: 'flex', 
-                      justifyContent: 'center',
+                      justifyContent: 'flex-start',
                       alignItems: 'center'
                     }}>
-                      <Card 
-                        sx={{ 
-                          bgcolor: 'primary.main',
-                          color: 'primary.contrastText',
-                          px: 4,
-                          py: 2.5,
-                          borderRadius: 3,
-                          boxShadow: 3,
-                          minWidth: { xs: '100%', sm: 280 },
-                          textAlign: 'center',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
-                            pointerEvents: 'none'
-                          }
-                        }}
-                      >
+                      <Box>
                         <Typography 
                           variant="caption" 
                           sx={{ 
-                            opacity: 0.9,
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             fontWeight: 500,
                             textTransform: 'uppercase',
                             letterSpacing: 1,
                             mb: 0.5,
-                            position: 'relative',
-                            zIndex: 1
+                            color: 'text.secondary'
                           }}
                         >
                           Total Calories
                         </Typography>
-                        <Typography 
-                          variant="h3" 
-                          sx={{ 
-                            fontWeight: 700,
-                            fontSize: { xs: '2rem', sm: '2.5rem' },
-                            lineHeight: 1.2,
-                            position: 'relative',
-                            zIndex: 1
-                          }}
-                        >
-                          {cycleTotals.calories.toLocaleString()}
-                        </Typography>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            opacity: 0.8,
-                            fontSize: '0.7rem',
-                            mt: 0.5,
-                            position: 'relative',
-                            zIndex: 1
-                          }}
-                        >
-                          kcal
-                        </Typography>
-                      </Card>
+                        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                          <Typography 
+                            variant="h4" 
+                            sx={{ 
+                              fontWeight: 700,
+                              fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                              lineHeight: 1.2
+                            }}
+                          >
+                            {cycleTotals.calories.toLocaleString()}
+                          </Typography>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: 'text.secondary'
+                            }}
+                          >
+                            kcal
+                          </Typography>
+                        </Box>
+                      </Box>
                     </Box>
                   );
                 })()}
@@ -3179,6 +3388,124 @@ export default function ClientNutritionPage() {
                     <Typography variant="body2" color="text.secondary">—</Typography>
                   )}
                 </Box>
+                
+                {/* Cycle Navigator: (-) ( <     [cycle name]       >) (+) */}
+                {currentCycle && (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    gap: 1,
+                    mb: 2,
+                    px: 2
+                  }}>
+                    {/* Minus button */}
+                    <IconButton
+                      size="small"
+                      onClick={handleDeleteCycle}
+                      disabled={currentCycles.length <= 1 || saving}
+                      color="error"
+                      sx={{ minWidth: 32, height: 32 }}
+                    >
+                      <Typography variant="h6" sx={{ fontSize: '1.2rem', lineHeight: 1 }}>−</Typography>
+                    </IconButton>
+                    
+                    {/* Left arrow */}
+                    <IconButton
+                      size="small"
+                      onClick={handlePreviousCycle}
+                      disabled={!canGoPrevious}
+                      sx={{ minWidth: 32, height: 32 }}
+                    >
+                      <ArrowLeft2 size={18} />
+                    </IconButton>
+                    
+                    {/* Cycle name (editable) */}
+                    <Box sx={{ 
+                      flex: 1, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      minWidth: 0,
+                      px: 1
+                    }}>
+                      {editingCycleId === selectedCycleId ? (
+                        <TextField
+                          size="small"
+                          value={editingCycleValue}
+                          autoFocus
+                          onChange={(e) => setEditingCycleValue(e.target.value)}
+                          onBlur={() => {
+                            if (!selectedCycleId || !selectedPlanId) { setEditingCycleId(null); return; }
+                            setCurrentCycles((prev) => prev.map((c) => c.id !== selectedCycleId ? c : ({ ...c, label: editingCycleValue || c.label, title: editingCycleValue || c.title })));
+                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                              ...p,
+                              cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({ ...c, label: editingCycleValue || c.label, title: editingCycleValue || c.title }))
+                            })));
+                            setEditingCycleId(null);
+                            setIsPlanDirty(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') setEditingCycleId(null);
+                          }}
+                          sx={{ 
+                            width: '100%',
+                            maxWidth: 200,
+                            '& .MuiInputBase-input': { 
+                              textAlign: 'center',
+                              fontSize: '0.95rem',
+                              fontWeight: 500
+                            }
+                          }}
+                        />
+                      ) : (
+                        <Typography 
+                          variant="subtitle1" 
+                          sx={{ 
+                            textAlign: 'center', 
+                            cursor: 'text',
+                            fontWeight: 500,
+                            fontSize: '0.95rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            width: '100%',
+                            maxWidth: 200
+                          }} 
+                          onClick={() => {
+                            const t = currentCycle ? (currentCycle.label || currentCycle.title || '') : '';
+                            setEditingCycleId(selectedCycleId || null);
+                            setEditingCycleValue(t);
+                          }}
+                        >
+                          {currentCycle ? (currentCycle.label || `Day ${currentCycle.dayIndex}`) : 'Cycle'}
+                        </Typography>
+                      )}
+                    </Box>
+                    
+                    {/* Right arrow */}
+                    <IconButton
+                      size="small"
+                      onClick={handleNextCycle}
+                      disabled={!canGoNext}
+                      sx={{ minWidth: 32, height: 32 }}
+                    >
+                      <ArrowRight2 size={18} />
+                    </IconButton>
+                    
+                    {/* Plus button */}
+                    <IconButton
+                      size="small"
+                      onClick={handleAddCycle}
+                      disabled={saving}
+                      color="primary"
+                      sx={{ minWidth: 32, height: 32 }}
+                    >
+                      <Add size={18} />
+                    </IconButton>
+                  </Box>
+                )}
                 <Divider sx={{ mb: 1 }} />
 
                     {/* Meals header */}
@@ -3244,7 +3571,7 @@ export default function ClientNutritionPage() {
 
           {/* Section 3: Food Items */}
           {showSection3 && (
-            <Card sx={{ flex: '1 1 0', minWidth: 0, width: '50%', height: '75vh', display: 'flex', flexDirection: 'column' }}>
+            <Card elevation={0} sx={{ flex: '1 1 0', minWidth: 0, width: '50%', height: '75vh', display: 'flex', flexDirection: 'column', boxShadow: 'none' }}>
               <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                 {selectedMealId && currentMeals.find(m => m.id === selectedMealId) ? (
                   <Box>
@@ -3332,13 +3659,90 @@ export default function ClientNutritionPage() {
                       }
                       return null;
                     })()}
-                    {/* Row 3: Macros center */}
-                    {(() => { const m = currentMeals.find(me => me.id === selectedMealId)!; const t = computeMealTotals(m); return (
-                      <Box sx={{ textAlign: 'center', mb: 1, color: 'text.secondary' }}>
-                        <Typography variant="caption" sx={{ fontSize: 12 }}>{t.calories} kcal  P: {t.protein}g  C: {t.carbs}g  F: {t.fat}g</Typography>
-                      </Box>
-                    ); })()}
-                    <Divider sx={{ mb: 1 }} />
+                    {/* Calories Display - Left aligned */}
+                    {(() => { 
+                      const m = currentMeals.find(me => me.id === selectedMealId)!; 
+                      const t = computeMealTotals(m);
+                      const isDark = theme.palette.mode === 'dark';
+                      const colors = {
+                        p: isDark ? '#64b5f6' : '#1976d2',
+                        c: isDark ? '#81c784' : '#388e3c',
+                        f: isDark ? '#ffb74d' : '#f57c00'
+                      };
+                      return (
+                        <>
+                          <Box sx={{ 
+                            mb: 2, 
+                            display: 'flex', 
+                            justifyContent: 'flex-start',
+                            alignItems: 'center'
+                          }}>
+                            <Box>
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  fontSize: '0.7rem',
+                                  fontWeight: 500,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: 1,
+                                  mb: 0.5,
+                                  color: 'text.secondary'
+                                }}
+                              >
+                                Total Calories
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                                <Typography 
+                                  variant="h4" 
+                                  sx={{ 
+                                    fontWeight: 700,
+                                    fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                                    lineHeight: 1.2
+                                  }}
+                                >
+                                  {t.calories.toLocaleString()}
+                                </Typography>
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    fontSize: '0.75rem',
+                                    color: 'text.secondary'
+                                  }}
+                                >
+                                  kcal
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                          
+                          {/* Protein | Carbs | Fat layout (without bar) */}
+                          <Box sx={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center', mb: 2 }}>
+                            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ color: colors.p, fontWeight: 600, mb: 0.5 }}>Protein</Typography>
+                              <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                                {Math.round(t.protein)}g
+                              </Typography>
+                            </Box>
+                            <Typography sx={{ color: 'text.primary', fontSize: '1rem', mx: 1, userSelect: 'none', opacity: 0.6 }}>|</Typography>
+                            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ color: colors.c, fontWeight: 600, mb: 0.5 }}>Carbs</Typography>
+                              <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                                {Math.round(t.carbs)}g
+                              </Typography>
+                            </Box>
+                            <Typography sx={{ color: 'text.primary', fontSize: '1rem', mx: 1, userSelect: 'none', opacity: 0.6 }}>|</Typography>
+                            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ color: colors.f, fontWeight: 600, mb: 0.5 }}>Fat</Typography>
+                              <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+                                {Math.round(t.fat)}g
+                              </Typography>
+                            </Box>
+                          </Box>
+                          
+                          <Divider sx={{ mb: 2 }} />
+                        </>
+                      );
+                    })()}
                     {(() => {
                       const selectedMeal = currentMeals.find(m => m.id === selectedMealId)!;
                       const items = selectedMeal?.foodItems || [];
@@ -3444,27 +3848,6 @@ export default function ClientNutritionPage() {
                             </Box>
                           )}
                           
-                          {/* Notes Button */}
-                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={() => {
-                                setShowMealNotesSection(!showMealNotesSection);
-                              }}
-                              sx={{ 
-                                minWidth: 100,
-                                transition: 'all 0.2s ease',
-                                '&:hover': {
-                                  backgroundColor: 'primary.lighter',
-                                  transform: 'translateY(-1px)'
-                                }
-                              }}
-                            >
-                              Notes
-                            </Button>
-                          </Box>
-                          
                           {/* Animated Notes Section */}
                           <Box
                             sx={{
@@ -3536,6 +3919,34 @@ export default function ClientNutritionPage() {
                         </Box>
                       );
                     })()}
+                  
+                  {/* Notes Button - At the end */}
+                  {selectedMealId && currentMeals.find(m => m.id === selectedMealId) && (
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-start' }}>
+                      <Button
+                        variant="contained"
+                        size="medium"
+                        startIcon={<DocumentText size={18} />}
+                        onClick={() => {
+                          setShowMealNotesSection(!showMealNotesSection);
+                        }}
+                        sx={{
+                          borderRadius: 2,
+                          boxShadow: 2,
+                          textTransform: 'none',
+                          px: 2,
+                          py: 1,
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            boxShadow: 3,
+                            transform: 'translateY(-1px)'
+                          }
+                        }}
+                      >
+                        Notes
+                      </Button>
+                    </Box>
+                  )}
                   </Box>
                 ) : (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -3847,6 +4258,13 @@ export default function ClientNutritionPage() {
             <Box sx={{ mt: 2 }}>
               {(() => {
                 const cycleMacros = calculateCurrentCycleMacros();
+                // Theme-aware colors for light and dark modes
+                const isDark = theme.palette.mode === 'dark';
+                const macroColors = {
+                  protein: isDark ? '#64b5f6' : '#1976d2',
+                  carbs: isDark ? '#81c784' : '#388e3c',
+                  fat: isDark ? '#ffb74d' : '#f57c00'
+                };
                 return (
                   <Card sx={{ p: 2 }}>
                     {/* Total Calories */}
@@ -3861,7 +4279,7 @@ export default function ClientNutritionPage() {
                     <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>Macronutrients</Typography>
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                       <Grid item xs={4}>
-                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#42a5f5', borderRadius: 1, color: 'white' }}>
+                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: macroColors.protein, borderRadius: 1, color: 'white' }}>
                           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                             {cycleMacros.protein}g
                           </Typography>
@@ -3872,7 +4290,7 @@ export default function ClientNutritionPage() {
                         </Box>
                       </Grid>
                       <Grid item xs={4}>
-                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#66bb6a', borderRadius: 1, color: 'white' }}>
+                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: macroColors.carbs, borderRadius: 1, color: 'white' }}>
                           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                             {cycleMacros.carbs}g
                           </Typography>
@@ -3883,7 +4301,7 @@ export default function ClientNutritionPage() {
                         </Box>
                       </Grid>
                       <Grid item xs={4}>
-                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#ef5350', borderRadius: 1, color: 'white' }}>
+                        <Box sx={{ textAlign: 'center', p: 1, bgcolor: macroColors.fat, borderRadius: 1, color: 'white' }}>
                           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                             {cycleMacros.fat}g
                           </Typography>
@@ -3902,17 +4320,17 @@ export default function ClientNutritionPage() {
                         <Chip 
                           label={`Protein: ${cycleMacros.calories > 0 ? Math.round((cycleMacros.proteinKcal / cycleMacros.calories) * 100) : 0}%`}
                           size="small"
-                          sx={{ bgcolor: '#42a5f5', color: 'white' }}
+                          sx={{ bgcolor: macroColors.protein, color: 'white' }}
                         />
                         <Chip 
                           label={`Carbs: ${cycleMacros.calories > 0 ? Math.round((cycleMacros.carbsKcal / cycleMacros.calories) * 100) : 0}%`}
                           size="small"
-                          sx={{ bgcolor: '#66bb6a', color: 'white' }}
+                          sx={{ bgcolor: macroColors.carbs, color: 'white' }}
                         />
                         <Chip 
                           label={`Fat: ${cycleMacros.calories > 0 ? Math.round((cycleMacros.fatKcal / cycleMacros.calories) * 100) : 0}%`}
                           size="small"
-                          sx={{ bgcolor: '#ef5350', color: 'white' }}
+                          sx={{ bgcolor: macroColors.fat, color: 'white' }}
                         />
                       </Box>
                     </Box>

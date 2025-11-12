@@ -47,7 +47,14 @@ import {
   Alert,
   Checkbox,
   FormControlLabel,
-  Grid
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper
 } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
@@ -122,6 +129,7 @@ function SortableDay({
   onCopy?: () => void;
   onDelete?: () => void;
 }) {
+  const theme = useTheme();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
     id: day.id 
   });
@@ -177,31 +185,43 @@ function SortableDay({
       ) : (
         <Card
           sx={{ 
-            border: isSelected ? 2 : 1,
-            borderColor: isSelected ? 'primary.main' : 'divider',
-            bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
             cursor: 'pointer',
+            border: '2px solid',
+            borderColor: isSelected ? 'primary.main' : 'divider',
+            bgcolor: isSelected 
+              ? theme.palette.mode === 'dark' 
+                ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
+                : 'primary.lighter' 
+              : 'background.paper',
             position: 'relative',
-            boxShadow: isDragging ? 6 : 'none',
+            boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : 'none',
+            borderRadius: 2,
+            transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            overflow: 'hidden',
             '&:hover .day-actions': { opacity: 1 },
             '&:hover': {
-              boxShadow: isDragging ? 6 : 2,
-              transform: isDragging ? undefined : 'translateY(-2px)'
+              borderColor: isSelected ? 'primary.dark' : 'primary.main',
+              boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+              transform: isDragging ? undefined : 'translateY(-2px)',
+              bgcolor: isSelected 
+                ? theme.palette.mode === 'dark'
+                  ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
+                  : 'primary.lighter'
+                : 'action.hover'
             },
-            transition: 'all 0.2s',
           }}
           onClick={onSelect}
         >
           <CardHeader title={day.title} />
-          <CardContent>
+          <CardContent sx={{ py: 1.75, px: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
               {DragHandle}
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
                 {day.exercises.length} {day.exercises.length === 1 ? 'exercise' : 'exercises'}
               </Typography>
             </Box>
           </CardContent>
-          <Box className="day-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+          <Box className="day-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
             <IconButton 
               size="small" 
               title="Copy day"
@@ -871,23 +891,42 @@ export default function ClientWorkoutPage() {
     
     const newExercises = selectedExercises.map(exerciseId => {
       const exercise = workspaceExercises.find(e => e.id === exerciseId);
-      return {
-        id: `exercise_${Date.now()}_${Math.random()}`,
-        exercise: exercise!,
-                      sets: 3,
-                      reps: "8-12",
-                      restSeconds: 60,
-                      tempo: "",
-                      rir: 0,
-                      notes: "",
+      const isCardio = exercise?.category?.toLowerCase() === 'cardio';
+      
+      if (isCardio) {
+        return {
+          id: `exercise_${Date.now()}_${Math.random()}`,
+          exercise: exercise!,
+          sets: 1,
+          reps: "",
+          restSeconds: 0,
+          tempo: "",
+          rir: 0,
+          notes: "",
           videoUrl: "",
           thumbnailUrl: "",
-                      individualSets: [
-                        { id: 'set_1', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
-                        { id: 'set_2', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
-                        { id: 'set_3', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 }
-                      ]
-      };
+          durationMinutes: 10, // Default 10 minutes for cardio
+          individualSets: []
+        };
+      } else {
+        return {
+          id: `exercise_${Date.now()}_${Math.random()}`,
+          exercise: exercise!,
+          sets: 3,
+          reps: "8-12",
+          restSeconds: 60,
+          tempo: "",
+          rir: 0,
+          notes: "",
+          videoUrl: "",
+          thumbnailUrl: "",
+          individualSets: [
+            { id: 'set_1', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
+            { id: 'set_2', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
+            { id: 'set_3', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 }
+          ]
+        };
+      }
     });
     
     setLocalWorkoutPlan(prev => prev ? {
@@ -936,17 +975,26 @@ export default function ClientWorkoutPage() {
           caDayImageUrl: (day as any).caDay?.imageUrl || null,
           caDayUrl: (day as any).caDay?.url || null,
           caDayUrls: (day as any).caDay?.urls || null,
-          items: day.exercises.map((exercise) => ({
-            exerciseId: exercise.exercise.id,
-            sets: exercise.sets,
-            reps: exercise.reps, // Keep as string (e.g., "8-12")
-            restSeconds: exercise.restSeconds,
-            tempo: exercise.tempo,
-            rir: exercise.rir,
-            notes: exercise.notes || "",
-            // Persist per-set data if available
-            planSets: (exercise as any).individualSets && Array.isArray((exercise as any).individualSets)
-              ? (exercise as any).individualSets.map((s: any, index: number) => {
+          items: day.exercises.map((exercise) => {
+            const isCardio = exercise.exercise?.category?.toLowerCase() === 'cardio';
+            const baseItem: any = {
+              exerciseId: exercise.exercise.id,
+              sets: exercise.sets,
+              reps: exercise.reps, // Keep as string (e.g., "8-12")
+              restSeconds: exercise.restSeconds,
+              tempo: exercise.tempo,
+              rir: exercise.rir,
+              notes: exercise.notes || "",
+            };
+            
+            // Add durationMinutes for cardio exercises
+            if (isCardio && (exercise as any).durationMinutes) {
+              baseItem.durationMinutes = (exercise as any).durationMinutes;
+            }
+            
+            // Persist per-set data if available (only for non-cardio)
+            if (!isCardio && (exercise as any).individualSets && Array.isArray((exercise as any).individualSets)) {
+              baseItem.planSets = (exercise as any).individualSets.map((s: any, index: number) => {
                   const { repMin, repMax } = parseRepRange(s?.reps ?? exercise.reps);
                   const set: any = { setIndex: index + 1 };
                   if (typeof repMin === 'number') set.repMin = repMin;
@@ -957,9 +1005,11 @@ export default function ClientWorkoutPage() {
                   if (typeof s?.restSeconds === 'number') set.restSeconds = s.restSeconds; else if (typeof exercise.restSeconds === 'number') set.restSeconds = exercise.restSeconds;
                   if (s?.notes) set.notes = s.notes;
                   return set;
-                })
-              : undefined
-          }))
+                });
+            }
+            
+            return baseItem;
+          })
         }))
       };
 
@@ -1216,19 +1266,47 @@ export default function ClientWorkoutPage() {
   };
 
   const openEditExerciseDialog = (exercise: any) => {
-    // Initialize individualSets if they don't exist
-    const exerciseWithSets = {
-      ...exercise,
-      individualSets: exercise.individualSets || Array.from({ length: exercise.sets || 1 }, (_, index) => ({
-        id: `set_${index + 1}`,
-        reps: exercise.reps || "8-12",
-        restSeconds: exercise.restSeconds || 60,
-        tempo: exercise.tempo || "",
-        rir: exercise.rir || 0
-      }))
-    };
+    // Check if exercise is cardio (case-insensitive) or has durationMinutes set
+    // Also check muscle group for cardiovascular exercises
+    const category = exercise.exercise?.category?.toLowerCase() || '';
+    const muscleGroup = exercise.exercise?.muscleGroup?.toLowerCase() || '';
+    const isCardio = category === 'cardio' || 
+                    muscleGroup.includes('cardiovascular') || 
+                    !!(exercise as any).durationMinutes;
     
-    setEditingExercise(exerciseWithSets);
+    if (isCardio) {
+      // For cardio, just set the exercise with duration
+      // If it has individualSets from before, convert to durationMinutes if not already set
+      let durationMinutes = (exercise as any).durationMinutes;
+      if (!durationMinutes && (exercise as any).individualSets && (exercise as any).individualSets.length > 0) {
+        // Default to 10 minutes if converting from sets
+        durationMinutes = 10;
+      }
+      setEditingExercise({
+        ...exercise,
+        durationMinutes: durationMinutes || 10,
+        individualSets: [],
+        sets: 1,
+        reps: "",
+        restSeconds: 0,
+        tempo: "",
+        rir: 0
+      });
+    } else {
+      // Initialize individualSets if they don't exist
+      const exerciseWithSets = {
+        ...exercise,
+        individualSets: exercise.individualSets || Array.from({ length: exercise.sets || 1 }, (_, index) => ({
+          id: `set_${index + 1}`,
+          reps: exercise.reps || "8-12",
+          restSeconds: exercise.restSeconds || 60,
+          tempo: exercise.tempo || "",
+          rir: exercise.rir || 0
+        }))
+      };
+      setEditingExercise(exerciseWithSets);
+    }
+    
     setIsEditExerciseDialogOpen(true);
   };
 
@@ -1242,8 +1320,25 @@ export default function ClientWorkoutPage() {
   const saveExerciseChanges = () => {
     if (!editingExercise || !localWorkoutPlan) return;
     
-    // Update the summary values based on individual sets
-    const updatedExercise = {
+    // Check if exercise is cardio (case-insensitive) or has durationMinutes set
+    // Also check muscle group for cardiovascular exercises
+    const category = editingExercise.exercise?.category?.toLowerCase() || '';
+    const muscleGroup = editingExercise.exercise?.muscleGroup?.toLowerCase() || '';
+    const isCardio = category === 'cardio' || 
+                    muscleGroup.includes('cardiovascular') || 
+                    !!(editingExercise as any).durationMinutes;
+    
+    // Update the summary values based on individual sets (for non-cardio) or duration (for cardio)
+    const updatedExercise = isCardio ? {
+      ...editingExercise,
+      sets: 1,
+      reps: "",
+      restSeconds: 0,
+      tempo: "",
+      rir: 0,
+      durationMinutes: (editingExercise as any).durationMinutes || 30,
+      individualSets: []
+    } : {
       ...editingExercise,
       sets: editingExercise.individualSets?.length || 0,
       reps: editingExercise.individualSets?.[0]?.reps || "8-12",
@@ -1293,6 +1388,23 @@ export default function ClientWorkoutPage() {
     }));
   };
 
+  // Parse tempo string "x-x-x-x" to array of 4 numbers
+  const parseTempo = (tempo: string): [number, number, number, number] => {
+    if (!tempo) return [0, 0, 0, 0];
+    const parts = tempo.split('-').map(p => parseInt(p.trim()) || 0);
+    return [
+      parts[0] || 0,
+      parts[1] || 0,
+      parts[2] || 0,
+      parts[3] || 0
+    ];
+  };
+
+  // Format tempo array to "x-x-x-x" string
+  const formatTempo = (values: [number, number, number, number]): string => {
+    return values.map(v => v || 0).join('-');
+  };
+
   // Update individual set
   const updateIndividualSet = (setId: string, field: string, value: any) => {
     setEditingExercise((prev: any) => ({
@@ -1301,6 +1413,24 @@ export default function ClientWorkoutPage() {
         set.id === setId ? { ...set, [field]: value } : set
       )
     }));
+  };
+
+  // Update tempo value for a specific set and position
+  const updateTempoValue = (setId: string, position: 0 | 1 | 2 | 3, value: string) => {
+    setEditingExercise((prev: any) => {
+      const updatedSets = (prev.individualSets || []).map((set: any) => {
+        if (set.id === setId) {
+          const currentTempo = set.tempo || "";
+          const tempoValues = parseTempo(currentTempo);
+          // Ensure value is >= 0, default to 0 if empty or invalid
+          const numValue = value === "" ? 0 : Math.max(0, Math.floor(parseFloat(value) || 0));
+          tempoValues[position] = numValue;
+          return { ...set, tempo: formatTempo(tempoValues) };
+        }
+        return set;
+      });
+      return { ...prev, individualSets: updatedSets };
+    });
   };
 
   // Delete a workout plan
@@ -1618,16 +1748,34 @@ export default function ClientWorkoutPage() {
                     }}
                           sx={{
                             cursor: 'pointer',
-                            border: '1px solid',
+                            border: '2px solid',
                             borderColor: isSelected ? 'primary.main' : 'divider',
-                            bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
+                            bgcolor: isSelected 
+                              ? theme.palette.mode === 'dark' 
+                                ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
+                                : 'primary.lighter' 
+                              : 'background.paper',
                             position: 'relative',
+                            boxShadow: 'none',
+                            borderRadius: 2,
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            overflow: 'hidden',
+                            '&:hover': {
+                              borderColor: isSelected ? 'primary.dark' : 'primary.main',
+                              transform: 'translateY(-2px)',
+                              boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+                              bgcolor: isSelected 
+                                ? theme.palette.mode === 'dark'
+                                  ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
+                                  : 'primary.lighter'
+                                : 'action.hover'
+                            },
                             '&:hover .plan-actions': { opacity: 1 }
                           }}
                         >
-                          <CardContent sx={{ py: 1.25 }}>
+                          <CardContent sx={{ py: 2.5, px: 2.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 90 }}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 60 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: isSelected ? 'primary.main' : 'text.primary', fontSize: '0.95rem', transition: 'color 0.2s' }}>
                                 {plan.title}
                               </Typography>
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1642,7 +1790,7 @@ export default function ClientWorkoutPage() {
                               </Box>
                             </Box>
                           </CardContent>
-                          <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: isMobile ? 1 : 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                          <Box className="plan-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: isMobile ? 1 : 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                               <IconButton 
                                 size="small" 
                                 onClick={async (e) => {
@@ -2179,6 +2327,13 @@ export default function ClientWorkoutPage() {
                 {localWorkoutPlan.days[selectedDayIndex].exercises.map((exercise, index) => {
                   // Calculate rep range visualization
                   const repRange = formatRepRange(exercise.reps, exercise.sets);
+                  // Check if exercise is cardio (case-insensitive) or has durationMinutes set
+                  // Also check muscle group for cardiovascular exercises
+                  const category = exercise.exercise?.category?.toLowerCase() || '';
+                  const muscleGroup = exercise.exercise?.muscleGroup?.toLowerCase() || '';
+                  const isCardio = category === 'cardio' || 
+                                  muscleGroup.includes('cardiovascular') || 
+                                  !!(exercise as any).durationMinutes;
                   
                   return (
                     <Card 
@@ -2187,15 +2342,20 @@ export default function ClientWorkoutPage() {
                         mb: 2, 
                         cursor: 'pointer',
                         transition: 'all 0.2s',
+                        borderRadius: 2,
+                        boxShadow: 1,
+                        border: 1,
+                        borderColor: 'divider',
                         '&:hover': {
-                          boxShadow: 3,
-                          transform: 'translateY(-2px)'
+                          boxShadow: 4,
+                          transform: 'translateY(-2px)',
+                          borderColor: 'primary.light'
                         }
                       }}
                       onClick={() => openEditExerciseDialog(exercise)}
                     >
-                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, overflow: 'visible' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                               <Chip 
@@ -2211,35 +2371,22 @@ export default function ClientWorkoutPage() {
                             <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
                               {exercise.exercise.muscleGroup}
                             </Typography>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 0.5 }}>
+                            {!isCardio && exercise.tempo && (
                               <Chip 
-                                label={repRange} 
+                                label={`Tempo: ${exercise.tempo}`} 
                                 size="small" 
                                 variant="outlined"
-                                sx={{ fontWeight: 500 }}
+                                sx={{ mb: 0.5 }}
                               />
-                              {exercise.restSeconds > 0 && (
-                                <Chip 
-                                  label={`Rest: ${exercise.restSeconds}s`} 
-                                  size="small" 
-                                  variant="outlined"
-                                />
-                              )}
-                              {exercise.tempo && (
-                                <Chip 
-                                  label={`Tempo: ${exercise.tempo}`} 
-                                  size="small" 
-                                  variant="outlined"
-                                />
-                              )}
-                              {exercise.rir > 0 && (
-                                <Chip 
-                                  label={`RIR: ${exercise.rir}`} 
-                                  size="small" 
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
+                            )}
+                            {!isCardio && exercise.rir > 0 && (
+                              <Chip 
+                                label={`RIR: ${exercise.rir}`} 
+                                size="small" 
+                                variant="outlined"
+                                sx={{ mb: 0.5 }}
+                              />
+                            )}
                             {exercise.notes && (
                               <Typography 
                                 variant="body2" 
@@ -2291,6 +2438,183 @@ export default function ClientWorkoutPage() {
                           </Box>
                         </Box>
                       </CardContent>
+                      
+                      {/* Cardio: Show Duration/Time selector */}
+                      {isCardio ? (
+                        <Box sx={{ px: 2, pb: 2, width: '100%' }}>
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            gap: 1,
+                            py: 1.5,
+                            borderRadius: 2,
+                            bgcolor: 'action.hover',
+                            border: '2px solid',
+                            borderColor: 'primary.main',
+                            position: 'relative'
+                          }}>
+                            <Box sx={{ 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              alignItems: 'center',
+                              gap: 0.5
+                            }}>
+                              <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                Duration
+                              </Typography>
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'baseline', 
+                                gap: 0.5,
+                                position: 'relative'
+                              }}>
+                                <Typography variant="h4" sx={{ 
+                                  fontWeight: 700, 
+                                  color: 'primary.main',
+                                  lineHeight: 1,
+                                  fontFamily: 'monospace'
+                                }}>
+                                  {(exercise as any).durationMinutes || 10}
+                                </Typography>
+                                <Typography variant="h6" sx={{ 
+                                  fontWeight: 500, 
+                                  color: 'text.secondary',
+                                  fontSize: '1rem',
+                                  ml: 0.5
+                                }}>
+                                  min
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                        </Box>
+                      ) : (
+                        // Regular Exercise: Minimized Sets Table
+                        (exercise as any).individualSets && Array.isArray((exercise as any).individualSets) && (exercise as any).individualSets.length > 0 ? (
+                        <Box sx={{ px: 2, pb: 2, width: '100%', overflow: 'hidden' }}>
+                          <TableContainer 
+                            component={Paper} 
+                            elevation={0} 
+                            sx={{ 
+                              bgcolor: 'transparent', 
+                              boxShadow: 'none',
+                              width: '100%',
+                              maxWidth: '100%',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            <Table 
+                              size="small" 
+                              sx={{ 
+                                width: '100%',
+                                tableLayout: 'auto',
+                                border: 'none',
+                                '& .MuiTableCell-root': { 
+                                  border: 'none',
+                                  py: 0.35, 
+                                  px: 0.5, 
+                                  fontSize: '0.65rem',
+                                  lineHeight: 1.2,
+                                  whiteSpace: 'nowrap',
+                                  bgcolor: 'transparent'
+                                },
+                                '& .MuiTableHead-root .MuiTableCell-root': {
+                                  bgcolor: 'transparent',
+                                  pb: 0.5
+                                },
+                                '& .MuiTableRow-root': {
+                                  bgcolor: 'transparent'
+                                }
+                              }}
+                            >
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4, width: '8%' }}>Set</TableCell>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Reps</TableCell>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Rest</TableCell>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Tempo</TableCell>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>RIR</TableCell>
+                                  {(exercise as any).individualSets.some((set: any) => set.notes) && (
+                                    <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Notes</TableCell>
+                                  )}
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {(exercise as any).individualSets.map((set: any, setIndex: number) => (
+                                  <TableRow key={set.id || setIndex}>
+                                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35, fontWeight: 500 }}>{setIndex + 1}</TableCell>
+                                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.reps || '-'}</TableCell>
+                                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.restSeconds ? `${set.restSeconds}s` : '-'}</TableCell>
+                                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.tempo || '-'}</TableCell>
+                                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.rir !== undefined && set.rir !== null ? set.rir : '-'}</TableCell>
+                                    {(exercise as any).individualSets.some((s: any) => s.notes) && (
+                                      <TableCell sx={{ fontSize: '0.65rem', color: 'text.secondary', py: 0.35 }}>
+                                        {set.notes || '-'}
+                                      </TableCell>
+                                    )}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Box>
+                      ) : (
+                        <Box sx={{ px: 2, pb: 2, width: '100%', overflow: 'hidden' }}>
+                          <TableContainer 
+                            component={Paper} 
+                            elevation={0} 
+                            sx={{ 
+                              bgcolor: 'transparent', 
+                              boxShadow: 'none',
+                              width: '100%',
+                              maxWidth: '100%',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            <Table 
+                              size="small" 
+                              sx={{ 
+                                width: '100%',
+                                tableLayout: 'auto',
+                                border: 'none',
+                                '& .MuiTableCell-root': { 
+                                  border: 'none',
+                                  py: 0.35, 
+                                  px: 0.5, 
+                                  fontSize: '0.65rem',
+                                  lineHeight: 1.2,
+                                  whiteSpace: 'nowrap',
+                                  bgcolor: 'transparent'
+                                },
+                                '& .MuiTableHead-root .MuiTableCell-root': {
+                                  bgcolor: 'transparent',
+                                  pb: 0.5
+                                },
+                                '& .MuiTableRow-root': {
+                                  bgcolor: 'transparent'
+                                }
+                              }}
+                            >
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Sets</TableCell>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Reps</TableCell>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Rest</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{exercise.sets || '-'}</TableCell>
+                                  <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{repRange || '-'}</TableCell>
+                                  <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{exercise.restSeconds ? `${exercise.restSeconds}s` : '-'}</TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                            </TableContainer>
+                          </Box>
+                        )
+                      )}
                     </Card>
                   );
                 })}
@@ -2476,16 +2800,34 @@ export default function ClientWorkoutPage() {
                       }}
                       sx={{
                         cursor: 'pointer',
-                              border: '1px solid',
-                              borderColor: isSelected ? 'primary.main' : 'divider',
-                              bgcolor: isSelected ? 'primary.lighter' : 'background.paper',
-                              position: 'relative',
-                              '&:hover .plan-actions': { opacity: 1 }
-                            }}
+                        border: '2px solid',
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        bgcolor: isSelected 
+                          ? theme.palette.mode === 'dark' 
+                            ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
+                            : 'primary.lighter' 
+                          : 'background.paper',
+                        position: 'relative',
+                        boxShadow: 'none',
+                        borderRadius: 2,
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        overflow: 'hidden',
+                        '&:hover': {
+                          borderColor: isSelected ? 'primary.dark' : 'primary.main',
+                          transform: 'translateY(-2px)',
+                          boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+                          bgcolor: isSelected 
+                            ? theme.palette.mode === 'dark'
+                              ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
+                              : 'primary.lighter'
+                            : 'action.hover'
+                        },
+                        '&:hover .plan-actions': { opacity: 1 }
+                      }}
                           >
-                            <CardContent sx={{ py: 1.25 }}>
+                            <CardContent sx={{ py: 2.5, px: 2.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 90 }}>
                               <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 60 }}>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.25, color: isSelected ? 'primary.main' : undefined }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: isSelected ? 'primary.main' : 'text.primary', fontSize: '0.95rem', transition: 'color 0.2s' }}>
                                   {plan.title}
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2500,7 +2842,7 @@ export default function ClientWorkoutPage() {
                                 </Box>
                               </Box>
                             </CardContent>
-                            <Box className="plan-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .2s', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                            <Box className="plan-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                                 <IconButton
                           size="small"
                           onClick={async (e) => {
@@ -3412,11 +3754,49 @@ export default function ClientWorkoutPage() {
         <DialogContent>
           {editingExercise && (
             <Stack spacing={3} sx={{ mt: 1 }}>
-              {/* Individual Sets Table */}
-              <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
-                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                  Individual Sets
-                </Typography>
+              {/* Cardio: Duration selector */}
+              {(() => {
+                const category = editingExercise.exercise?.category?.toLowerCase() || '';
+                const muscleGroup = editingExercise.exercise?.muscleGroup?.toLowerCase() || '';
+                return category === 'cardio' || 
+                       muscleGroup.includes('cardiovascular') || 
+                       !!(editingExercise as any).durationMinutes;
+              })() ? (
+                <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                    Duration
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <FormControl sx={{ minWidth: 200 }}>
+                      <InputLabel>Minutes</InputLabel>
+                      <Select
+                        value={(editingExercise as any).durationMinutes || 10}
+                        label="Minutes"
+                        onChange={(e) => {
+                          setEditingExercise((prev: any) => ({
+                            ...prev,
+                            durationMinutes: e.target.value as number
+                          }));
+                        }}
+                      >
+                        {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((min) => (
+                          <MenuItem key={min} value={min}>
+                            {min} {min === 1 ? 'minute' : 'minutes'}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Typography variant="body2" color="textSecondary">
+                      Select the duration for this cardio exercise
+                    </Typography>
+                  </Box>
+                </Box>
+              ) : (
+                <>
+                <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                    Individual Sets
+                  </Typography>
                 <Box sx={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', border: `1px solid ${theme.palette.divider}` }}>
                     <thead>
@@ -3424,7 +3804,7 @@ export default function ClientWorkoutPage() {
                         <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Set</th>
                         <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Reps</th>
                         <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Rest (sec)</th>
-                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Tempo</th>
+                        <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}`, minWidth: '220px' }}>Tempo</th>
                         <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>RIR</th>
                         <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600, color: `${theme.palette.text.primary}` }}>Actions</th>
                       </tr>
@@ -3451,13 +3831,46 @@ export default function ClientWorkoutPage() {
                             />
                           </td>
                           <td style={{ padding: '8px' }}>
-                            <TextField
-                              size="small"
-                              value={set.tempo}
-                              onChange={(e) => updateIndividualSet(set.id, 'tempo', e.target.value)}
-                              sx={{ width: '100px' }}
-                              placeholder="e.g. 2-1-2"
-                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              {[0, 1, 2, 3].map((pos) => {
+                                const tempoValues = parseTempo(set.tempo || "");
+                                return (
+                                  <React.Fragment key={pos}>
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      value={tempoValues[pos] || ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        updateTempoValue(set.id, pos as 0 | 1 | 2 | 3, val);
+                                      }}
+                                      onBlur={(e) => {
+                                        if (e.target.value === "") {
+                                          updateTempoValue(set.id, pos as 0 | 1 | 2 | 3, "0");
+                                        }
+                                      }}
+                                      sx={{ 
+                                        width: '50px',
+                                        '& .MuiInputBase-input': {
+                                          textAlign: 'center',
+                                          padding: '8px 4px'
+                                        }
+                                      }}
+                                      InputProps={{
+                                        inputProps: { 
+                                          min: 0,
+                                          step: 1
+                                        }
+                                      }}
+                                      placeholder="0"
+                                    />
+                                    {pos < 3 && (
+                                      <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>-</Typography>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </Box>
                           </td>
                           <td style={{ padding: '8px' }}>
                             <TextField
@@ -3485,7 +3898,7 @@ export default function ClientWorkoutPage() {
                 </Box>
               </Box>
 
-              {/* Quick Actions */}
+              {/* Quick Actions - Only for non-cardio exercises */}
               <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
                   Quick Actions
@@ -3514,12 +3927,14 @@ export default function ClientWorkoutPage() {
                 </Stack>
               </Box>
 
-              {/* Preview */}
+              {/* Preview - Only for non-cardio exercises */}
               <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
                   Preview: {formatRepRange(editingExercise.reps, editingExercise.sets)}
                 </Typography>
-      </Box>
+              </Box>
+                </>
+              )}
     </Stack>
           )}
         </DialogContent>

@@ -133,10 +133,10 @@ export default function UserList() {
         transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <MenuItem onClick={handleLogout}>Logout</MenuItem>
-        <MenuItem component={Link} href="#!" onClick={handleClose}>
+        <MenuItem component={Link} href="/profile" onClick={handleClose}>
           Profile
         </MenuItem>
-        <MenuItem component={Link} href="#!" onClick={handleClose}>
+        <MenuItem component={Link} href="/dashboard/settings" onClick={handleClose}>
           My account
         </MenuItem>
       </Menu>

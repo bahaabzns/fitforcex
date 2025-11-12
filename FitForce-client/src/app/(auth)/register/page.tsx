@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 // material-ui
-import { Box, Card, Stack, TextField, Typography, Button as MuiButton } from '@mui/material';
+import { Box, Card, Stack, TextField, Typography, Button as MuiButton, CircularProgress, InputAdornment } from '@mui/material';
+import { CheckCircleOutline, ErrorOutline } from '@mui/icons-material';
 
 // project-imports
 import api from '@/utils/axios';
@@ -30,6 +31,9 @@ export default function RegisterPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [promoStatus, setPromoStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
+  const [promoValidation, setPromoValidation] = useState<{ discount: number; commission: number; ownerName?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authBackgroundImage, setAuthBackgroundImage] = useState<string | null>(null);
@@ -49,6 +53,52 @@ export default function RegisterPage() {
     return () => { isMounted = false; };
   }, []);
 
+
+  useEffect(() => {
+    const trimmed = promoCode.trim();
+    if (!trimmed) {
+      setPromoStatus('idle');
+      setPromoValidation(null);
+      return;
+    }
+
+    let isActive = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      try {
+        setPromoStatus('loading');
+        const { data } = await api.get('/api/promo/validate', {
+          params: { code: trimmed },
+          signal: controller.signal
+        });
+        if (!isActive) return;
+
+        if (data?.valid) {
+          const ownerName = data?.promoCode?.owner?.fullName || data?.promoCode?.owner?.email || undefined;
+          setPromoValidation({
+            discount: data?.promoCode?.discountPercentage ?? 0,
+            commission: data?.promoCode?.commissionPercentage ?? 0,
+            ownerName
+          });
+          setPromoStatus('valid');
+        } else {
+          setPromoValidation(null);
+          setPromoStatus('invalid');
+        }
+      } catch (err: any) {
+        if (!isActive || controller.signal.aborted) return;
+        setPromoValidation(null);
+        setPromoStatus('invalid');
+      }
+    }, 300);
+
+    return () => {
+      isActive = false;
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [promoCode]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -57,12 +107,19 @@ export default function RegisterPage() {
       if (!firstName || !email || !password) {
         throw new Error(t('email-is-required'));
       }
+
+      const normalizedPromo = promoCode.trim().toUpperCase();
+      if (normalizedPromo && promoStatus === 'invalid') {
+        throw new Error('Invalid promo code');
+      }
+
       await api.post('/api/auth/signup', {
         fullName: firstName,
         lastName: lastName || undefined,
         phoneNumber: phoneNumber || undefined,
         email,
-        password
+        password,
+        promoCode: normalizedPromo || undefined
       });
 
       // Track CompleteRegistration on both client and server
@@ -129,6 +186,30 @@ export default function RegisterPage() {
           <TextField label={t('phone-number')} value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} fullWidth />
           <TextField label={t('email-address')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
           <TextField label={t('password')} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth />
+          <TextField
+            label="Promo Code (Optional)"
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+            fullWidth
+            inputProps={{ maxLength: 32 }}
+            error={promoStatus === 'invalid'}
+            helperText={
+              promoStatus === 'valid'
+                ? `Promo applied — ${promoValidation?.discount ?? 0}% discount${promoValidation?.ownerName ? ` referred by ${promoValidation.ownerName}` : ''}.`
+                : promoStatus === 'invalid'
+                  ? 'Promo code not found or inactive.'
+                  : 'Optional: enter a referral promo code.'
+            }
+            InputProps={{
+              endAdornment: promoStatus === 'idle' ? undefined : (
+                <InputAdornment position="end">
+                  {promoStatus === 'loading' && <CircularProgress size={18} />}
+                  {promoStatus === 'valid' && <CheckCircleOutline color="success" fontSize="small" />}
+                  {promoStatus === 'invalid' && <ErrorOutline color="error" fontSize="small" />}
+                </InputAdornment>
+              )
+            }}
+          />
           {error && <Typography color="error" variant="body2" textAlign="center">{error}</Typography>}
           <MuiButton type="submit" variant="contained" fullWidth disabled={loading}>
             {loading ? t('processing') : t('register')}

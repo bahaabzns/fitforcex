@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Box, Grid, Card, CardActionArea, CardContent, Typography, Chip, Button, Stack, Divider, Skeleton } from '@mui/material';
-import { Inventory2, Restaurant, FitnessCenter, ShoppingCart, AutoAwesome, Insights, People, Logout } from '@mui/icons-material';
+import { Inventory2, Restaurant, FitnessCenter, ShoppingCart, AutoAwesome, Insights, People, Logout, CardGiftcard } from '@mui/icons-material';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import api from '@/utils/axios';
 
@@ -83,6 +83,13 @@ export default function AdminHome() {
       title: 'Free Trial',
       desc: 'Configure and issue workspace free trials.',
       icon: <AutoAwesome color="primary" />,
+      chip: 'Growth'
+    },
+    {
+      href: '/admin/promo-codes',
+      title: 'Promo Codes',
+      desc: 'Manage referral promo codes, discounts, and commissions.',
+      icon: <CardGiftcard color="primary" />,
       chip: 'Growth'
     },
     {

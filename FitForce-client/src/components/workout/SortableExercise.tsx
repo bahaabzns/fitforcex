@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, Box, Tooltip, Typography, Chip, IconButton } from '@mui/material';
+import { Card, CardContent, Box, Tooltip, Typography, Chip, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Edit, Trash, Category } from '@wandersonalwes/iconsax-react';
@@ -48,17 +48,20 @@ export default function SortableExercise({
         border: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
+        borderRadius: 2,
+        boxShadow: 1,
         '&:hover': {
-          boxShadow: 6,
-          transform: 'translateY(-2px)'
+          boxShadow: 4,
+          transform: 'translateY(-2px)',
+          borderColor: 'primary.light'
         },
         '&:active': {
           cursor: 'grabbing'
         }
       }}
     >
-      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, overflow: 'visible' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
           {/* Drag Handle */}
           <Box
             {...attributes}
@@ -147,29 +150,15 @@ export default function SortableExercise({
                     {exercise.exercise.name}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="body2" color="textSecondary" sx={{ mr: 1 }}>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
                     {exercise.exercise.muscleGroup}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, p: 0.5, px: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Chip
-                      label={repRange}
-                      size="small"
-                      variant="outlined"
-                      sx={{ fontWeight: 500 }}
-                    />
-                    {exercise.restSeconds > 0 && (
-                      <Chip
-                        label={`Rest: ${exercise.restSeconds}s`}
-                        size="small"
-                        variant="outlined"
-                      />
-                    )}
                     {exercise.tempo && (
                       <Chip
                         label={`Tempo: ${exercise.tempo}`}
                         size="small"
                         variant="outlined"
+                    sx={{ mb: 0.5 }}
                       />
                     )}
                     {exercise.rir > 0 && (
@@ -177,10 +166,9 @@ export default function SortableExercise({
                         label={`RIR: ${exercise.rir}`}
                         size="small"
                         variant="outlined"
+                    sx={{ mb: 0.5 }}
                       />
                     )}
-                  </Box>
-                </Box>
               </Box>
             </Box>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5, mt: 0.5 }}>
@@ -248,6 +236,131 @@ export default function SortableExercise({
           </Box>
         </Box>
       </CardContent>
+      
+      {/* Minimized Sets Table - Outside CardContent for full width */}
+      {(exercise as any).individualSets && Array.isArray((exercise as any).individualSets) && (exercise as any).individualSets.length > 0 ? (
+        <Box sx={{ px: 2, pb: 2, width: '100%', overflow: 'hidden' }}>
+          <TableContainer 
+            component={Paper} 
+            elevation={0} 
+            sx={{ 
+              bgcolor: 'transparent', 
+              boxShadow: 'none',
+              width: '100%',
+              maxWidth: '100%',
+              overflow: 'hidden'
+            }}
+          >
+            <Table 
+              size="small" 
+              sx={{ 
+                width: '100%',
+                tableLayout: 'auto',
+                border: 'none',
+                '& .MuiTableCell-root': { 
+                  border: 'none',
+                  py: 0.35, 
+                  px: 0.5, 
+                  fontSize: '0.65rem',
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                  bgcolor: 'transparent'
+                },
+                '& .MuiTableHead-root .MuiTableCell-root': {
+                  bgcolor: 'transparent',
+                  pb: 0.5
+                },
+                '& .MuiTableRow-root': {
+                  bgcolor: 'transparent'
+                }
+              }}
+            >
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4, width: '8%' }}>Set</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Reps</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Rest</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Tempo</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>RIR</TableCell>
+                  {(exercise as any).individualSets.some((set: any) => set.notes) && (
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Notes</TableCell>
+                  )}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(exercise as any).individualSets.map((set: any, setIndex: number) => (
+                  <TableRow key={set.id || setIndex}>
+                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35, fontWeight: 500 }}>{setIndex + 1}</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.reps || '-'}</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.restSeconds ? `${set.restSeconds}s` : '-'}</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.tempo || '-'}</TableCell>
+                    <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{set.rir !== undefined && set.rir !== null ? set.rir : '-'}</TableCell>
+                    {(exercise as any).individualSets.some((s: any) => s.notes) && (
+                      <TableCell sx={{ fontSize: '0.65rem', color: 'text.secondary', py: 0.35 }}>
+                        {set.notes || '-'}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      ) : (
+        <Box sx={{ px: 2, pb: 2, width: '100%', overflow: 'hidden' }}>
+          <TableContainer 
+            component={Paper} 
+            elevation={0} 
+            sx={{ 
+              bgcolor: 'transparent', 
+              boxShadow: 'none',
+              width: '100%',
+              maxWidth: '100%',
+              overflow: 'hidden'
+            }}
+          >
+            <Table 
+              size="small" 
+              sx={{ 
+                width: '100%',
+                tableLayout: 'auto',
+                border: 'none',
+                '& .MuiTableCell-root': { 
+                  border: 'none',
+                  py: 0.35, 
+                  px: 0.5, 
+                  fontSize: '0.65rem',
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                  bgcolor: 'transparent'
+                },
+                '& .MuiTableHead-root .MuiTableCell-root': {
+                  bgcolor: 'transparent',
+                  pb: 0.5
+                },
+                '& .MuiTableRow-root': {
+                  bgcolor: 'transparent'
+                }
+              }}
+            >
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Sets</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Reps</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.65rem', py: 0.4 }}>Rest</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{exercise.sets || '-'}</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{repRange || '-'}</TableCell>
+                  <TableCell sx={{ fontSize: '0.65rem', py: 0.35 }}>{exercise.restSeconds ? `${exercise.restSeconds}s` : '-'}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
     </Card>
   );
 }

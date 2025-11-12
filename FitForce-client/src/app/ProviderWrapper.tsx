@@ -16,6 +16,7 @@ import Snackbar from 'components/@extended/Snackbar';
 import { Provider as ReduxProvider } from 'react-redux';
 import { store } from '@/store';
 import Customization from 'components/customization';
+import { TourProvider } from '@/contexts/TourContext';
 
 // ==============================|| PROVIDER WRAPPER  ||============================== //
 
@@ -29,8 +30,10 @@ export default function ProviderWrapper({ children }: { children: ReactNode }) {
               <SessionProvider refetchInterval={0}>
                 <ReduxProvider store={store}>
                   <Snackbar />
-                  {children}
-                  <Customization />
+                  <TourProvider>
+                    {children}
+                    <Customization />
+                  </TourProvider>
                 </ReduxProvider>
               </SessionProvider>
             </ScrollTop>

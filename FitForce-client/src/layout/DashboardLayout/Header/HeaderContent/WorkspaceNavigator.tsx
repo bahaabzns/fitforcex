@@ -178,6 +178,7 @@ export default function WorkspaceNavigator() {
           <Box sx={{ minWidth: 0 }}>
             <Typography
               variant="subtitle1"
+              color="text.primary"
               sx={{
                 fontWeight: 600,
                 lineHeight: 1.2,
@@ -200,13 +201,18 @@ export default function WorkspaceNavigator() {
               @{currentWorkspace.subdomain}
             </Typography>
           </Box>
-          <ArrowDown2
-            size={16}
-            style={{
+          <Box
+            component="span"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              color: 'text.secondary',
               transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.2s ease-in-out'
             }}
-          />
+          >
+            <ArrowDown2 size={16} />
+          </Box>
         </Stack>
       </ButtonBase>
       <Popper

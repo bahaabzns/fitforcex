@@ -440,7 +440,8 @@ export default function WorkspacePage() {
             <Tab label={intl.formatMessage({ id: 'workspace.tab.branding', defaultMessage: 'Branding' })} />
             <Tab label={intl.formatMessage({ id: 'workspace.tab.landing', defaultMessage: 'Landing Page' })} />
             {/* PDF Templates tab hidden */}
-            <Tab label={intl.formatMessage({ id: 'workspace.tab.payment', defaultMessage: 'Payment Settings' })} />
+            {/* Payment Settings tab hidden */}
+            {/* <Tab label={intl.formatMessage({ id: 'workspace.tab.payment', defaultMessage: 'Payment Settings' })} /> */}
           </Tabs>
         </Box>
 
@@ -955,7 +956,8 @@ export default function WorkspacePage() {
         </TabPanel>
         )}
 
-        {/* Payment Settings Tab */}
+        {/* Payment Settings Tab - Hidden */}
+        {false && (
         <TabPanel value={activeTab} index={3}>
           <Stack spacing={3}>
             {paymentError && <Alert severity="error">{paymentError}</Alert>}
@@ -1156,6 +1158,7 @@ export default function WorkspacePage() {
             </Card>
           </Stack>
         </TabPanel>
+        )}
 
         <Dialog fullScreen open={builderOpen} onClose={() => setBuilderOpen(false)}>
           <DialogContent sx={{ p: 2 }}>

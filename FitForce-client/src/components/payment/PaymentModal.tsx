@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -75,7 +75,92 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     state: '',
   });
   const [loading, setLoading] = useState(false);
+  const [loadingUserData, setLoadingUserData] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch and pre-fill user data when modal opens
+  useEffect(() => {
+    if (!open) {
+      // Reset form when modal closes
+      setBillingData({
+        email: '',
+        first_name: '',
+        last_name: '',
+        phone_number: '',
+        apartment: '',
+        floor: '',
+        street: '',
+        building: '',
+        shipping_method: 'PKG',
+        postal_code: '',
+        city: '',
+        country: 'EG',
+        state: '',
+      });
+      return;
+    }
+
+    setLoadingUserData(true);
+    const fetchUserData = async () => {
+      try {
+        if (type === 'workspace') {
+          // For workspace subscriptions, get the workspace owner's data
+          const { data: workspaceData } = await api.get(`/api/workspaces/${workspaceId}`);
+          const owner = workspaceData.workspace?.owner;
+          if (owner) {
+            const nameParts = (owner.fullName || '').split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            setBillingData(prev => ({
+              ...prev,
+              email: owner.email || '',
+              first_name: firstName,
+              last_name: lastName,
+              phone_number: owner.phoneNumber || '',
+            }));
+          }
+        } else if (type === 'client' && clientId) {
+          // For client subscriptions, get the client's data
+          const { data: clientData } = await api.get(`/api/clients/${workspaceId}/${clientId}`);
+          const client = clientData.client;
+          if (client) {
+            const nameParts = (client.fullName || '').split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            setBillingData(prev => ({
+              ...prev,
+              email: client.email || '',
+              first_name: firstName,
+              last_name: lastName,
+              phone_number: client.phone || '',
+            }));
+          }
+        } else {
+          // Fallback: get current logged-in user data
+          const { data: userData } = await api.get('/api/auth/me');
+          const user = userData.user;
+          if (user) {
+            const nameParts = (user.fullName || '').split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            setBillingData(prev => ({
+              ...prev,
+              email: user.email || '',
+              first_name: firstName,
+              last_name: lastName,
+              phone_number: user.phoneNumber || '',
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch user data:', err);
+        // Silently fail - user can still fill manually
+      } finally {
+        setLoadingUserData(false);
+      }
+    };
+    fetchUserData();
+  }, [open, type, workspaceId, clientId]);
 
   const handleInputChange = (field: keyof BillingData) => (
     event: React.ChangeEvent<HTMLInputElement>
@@ -166,101 +251,53 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           Billing Information
         </Typography>
 
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="First Name"
-              value={billingData.first_name}
-              onChange={handleInputChange('first_name')}
-              required
-            />
+        {loadingUserData ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress size={24} />
+            <Typography variant="body2" sx={{ ml: 2 }}>
+              Loading your information...
+            </Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="First Name"
+                value={billingData.first_name}
+                onChange={handleInputChange('first_name')}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Last Name"
+                value={billingData.last_name}
+                onChange={handleInputChange('last_name')}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={billingData.email}
+                onChange={handleInputChange('email')}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Phone Number"
+                value={billingData.phone_number}
+                onChange={handleInputChange('phone_number')}
+                required
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Last Name"
-              value={billingData.last_name}
-              onChange={handleInputChange('last_name')}
-              
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={billingData.email}
-              onChange={handleInputChange('email')}
-              
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Phone Number"
-              value={billingData.phone_number}
-              onChange={handleInputChange('phone_number')}
-              
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Street"
-              value={billingData.street}
-              onChange={handleInputChange('street')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Building"
-              value={billingData.building}
-              onChange={handleInputChange('building')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              label="Apartment"
-              value={billingData.apartment}
-              onChange={handleInputChange('apartment')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              label="Floor"
-              value={billingData.floor}
-              onChange={handleInputChange('floor')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              label="Postal Code"
-              value={billingData.postal_code}
-              onChange={handleInputChange('postal_code')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="City"
-              value={billingData.city}
-              onChange={handleInputChange('city')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="State"
-              value={billingData.state}
-              onChange={handleInputChange('state')}
-            />
-          </Grid>
-        </Grid>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>
@@ -270,7 +307,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           onClick={handleSubmit}
           loading={loading}
           variant="contained"
-          disabled={!packageData || !billingData.first_name}
+          disabled={!packageData || !billingData.first_name || !billingData.email || !billingData.phone_number || loadingUserData}
         >
           Proceed to Payment
         </LoadingButton>

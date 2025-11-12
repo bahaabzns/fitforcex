@@ -49,7 +49,25 @@ const nextConfig = {
     NEXT_APP_JWT_TIMEOUT: '86400',
     NEXTAUTH_SECRET_KEY: 'LlKq6ZtYbr+hTC073mAmAh9/h2HwMfsFo4hrfCx5mLg='
   },
-  outputFileTracingRoot: path.join(__dirname, './')
+  outputFileTracingRoot: path.join(__dirname, './'),
+  webpack: (config, { isServer, webpack }) => {
+    if (!isServer) {
+      // Fix react-joyride compatibility with React 19
+      // Only replace react-dom imports within react-joyride package
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(
+          /^react-dom$/,
+          (resource) => {
+            // Only apply to react-joyride
+            if (resource.context && resource.context.includes('react-joyride')) {
+              resource.request = path.resolve(__dirname, './src/lib/react-dom-compat-wrapper.ts');
+            }
+          }
+        )
+      );
+    }
+    return config;
+  }
 };
 
 module.exports = nextConfig;
