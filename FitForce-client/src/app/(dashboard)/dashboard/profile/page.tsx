@@ -2,7 +2,7 @@
 
 import ProfileOverview from 'components/profile/ProfileOverview';
 
-export default function ProfilePage() {
+export default function DashboardProfilePage() {
   return <ProfileOverview />;
 }
 

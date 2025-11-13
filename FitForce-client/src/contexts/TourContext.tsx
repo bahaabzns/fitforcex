@@ -274,6 +274,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     previousTourStep,
     activeTour?.tourId,
     activeTour?.stepIndex,
+    activeTour?.run,
   ]);
 
   return (

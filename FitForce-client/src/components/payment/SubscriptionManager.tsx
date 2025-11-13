@@ -33,6 +33,7 @@ import api from '@/utils/axios';
 import { PaymentComponent } from './PaymentComponent';
 import { useAppSelector } from '@/store';
 import { trackDual } from '@/lib/pixel';
+import AppliedPromoCard from '@/components/promo/AppliedPromoCard';
 
 interface SubscriptionData {
   id: string;
@@ -80,6 +81,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
   const [paymentIframeData, setPaymentIframeData] = useState<any>(null);
@@ -156,12 +158,20 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
       // Silently fail - tracking shouldn't block user experience
     });
     
+    setError(null);
+    setInfoMessage(null);
     setSelectedPackage(packageData);
     setPaymentModalOpen(true);
   };
 
   const handlePaymentSuccess = (paymentData: any) => {
     setPaymentModalOpen(false);
+    if (paymentData?.autoCompleted) {
+      setPaymentIframeData(null);
+      setInfoMessage(paymentData.message || 'Subscription activated using commission credit.');
+      fetchSubscription();
+      return;
+    }
     setPaymentIframeData(paymentData);
   };
 
@@ -196,11 +206,13 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     }
     
     fetchSubscription(); // Refresh subscription data
+    setInfoMessage('Payment completed successfully.');
   };
 
   const handlePaymentError = (error: string) => {
     setPaymentIframeData(null);
     setError(error);
+    setInfoMessage(null);
   };
 
   const handlePaymentCancel = () => {
@@ -304,6 +316,11 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+      {infoMessage && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setInfoMessage(null)}>
+          {infoMessage}
         </Alert>
       )}
 
@@ -475,6 +492,10 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
         </Alert>
       )}
 
+    <Box sx={{ mb: 3 }}>
+      <AppliedPromoCard onPromoUpdated={fetchSubscription} />
+    </Box>
+
       <Typography variant="h5" gutterBottom>
         Available Packages
       </Typography>
@@ -534,6 +555,10 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
           onCancel={handlePaymentCancel}
           amount={paymentIframeData.amount}
           currency={paymentIframeData.currency}
+          discountCents={paymentIframeData.discountCents}
+          commissionCreditCents={paymentIframeData.commissionCreditCents}
+          originalAmountCents={paymentIframeData.originalAmountCents}
+          promoCode={paymentIframeData.promoCode}
         />
       )}
 

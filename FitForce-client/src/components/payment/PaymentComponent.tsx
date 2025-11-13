@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Stack,
 } from '@mui/material';
 
 interface PaymentComponentProps {
@@ -19,6 +20,14 @@ interface PaymentComponentProps {
   onCancel: () => void;
   amount: number;
   currency: string;
+  discountCents?: number;
+  commissionCreditCents?: number;
+  originalAmountCents?: number;
+  promoCode?: {
+    id: string;
+    code: string;
+    discountPercentage: number;
+  } | null;
 }
 
 export const PaymentComponent: React.FC<PaymentComponentProps> = ({
@@ -29,6 +38,10 @@ export const PaymentComponent: React.FC<PaymentComponentProps> = ({
   onCancel,
   amount,
   currency,
+  discountCents = 0,
+  commissionCreditCents = 0,
+  originalAmountCents,
+  promoCode,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
@@ -136,6 +149,37 @@ export const PaymentComponent: React.FC<PaymentComponentProps> = ({
     return `${(cents / 100).toFixed(2)} ${currency}`;
   };
 
+  const paymentSummary = (
+    <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+        Payment Summary
+      </Typography>
+      <Stack spacing={0.5}>
+        <Typography variant="body2" color="text.secondary">
+          Original Amount: {formatPrice(originalAmountCents ?? amount, currency)}
+        </Typography>
+        {discountCents > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            Promo Discount: −{formatPrice(discountCents, currency)}
+          </Typography>
+        )}
+        {commissionCreditCents > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            Commission Credit: −{formatPrice(commissionCreditCents, currency)}
+          </Typography>
+        )}
+        <Typography variant="body1" fontWeight={700}>
+          Amount Due: {formatPrice(amount, currency)}
+        </Typography>
+        {promoCode && (
+          <Typography variant="caption" color="text.secondary">
+            Promo `{promoCode.code}` ({promoCode.discountPercentage}%)
+          </Typography>
+        )}
+      </Stack>
+    </Box>
+  );
+
   const renderPaymentContent = () => {
     if (paymentType === 'redirect') {
       return (
@@ -195,6 +239,7 @@ export const PaymentComponent: React.FC<PaymentComponentProps> = ({
         Complete Payment - {formatPrice(amount, currency)}
       </DialogTitle>
       <DialogContent>
+        {paymentSummary}
         {loading && paymentType === 'iframe' && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
             <CircularProgress />

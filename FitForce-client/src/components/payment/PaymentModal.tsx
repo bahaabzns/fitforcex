@@ -12,6 +12,12 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
+  Radio,
+  RadioGroup,
+  Stack,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import api from '@/utils/axios';
@@ -50,6 +56,25 @@ interface PaymentModalProps {
   clientId?: string;
 }
 
+interface PromoPreviewResponse {
+  currency: string;
+  priceCents: number;
+  discountCents: number;
+  finalAmountCents: number;
+  commissionCreditCents: number;
+  availableCommissionCreditCents: number;
+  amountDueCents: number;
+  promoCode?: {
+    id: string;
+    code: string;
+    discountPercentage: number;
+    commissionPercentage: number;
+    allowDiscount: boolean;
+    allowCommission: boolean;
+    expiresAt?: string | null;
+  } | null;
+}
+
 export const PaymentModal: React.FC<PaymentModalProps> = ({
   open,
   onClose,
@@ -77,6 +102,43 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingUserData, setLoadingUserData] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promoPreview, setPromoPreview] = useState<PromoPreviewResponse | null>(null);
+  const [promoPreviewLoading, setPromoPreviewLoading] = useState(false);
+  const [creditMode, setCreditMode] = useState<'none' | 'all' | 'custom'>('none');
+  const [customCreditValue, setCustomCreditValue] = useState('');
+  const [creditError, setCreditError] = useState<string | null>(null);
+
+  const summaryCurrency = promoPreview?.currency || packageData?.currency || 'EGP';
+  const originalPriceCents = packageData?.priceCents ?? 0;
+  const discountCents = Math.max(promoPreview?.discountCents ?? 0, 0);
+  const finalAmountAfterDiscountCents = promoPreview?.finalAmountCents ?? originalPriceCents;
+  const availableCreditCents =
+    type === 'workspace' ? Math.max(promoPreview?.availableCommissionCreditCents ?? 0, 0) : 0;
+  const maxCreditApplicable =
+    type === 'workspace' ? Math.min(availableCreditCents, finalAmountAfterDiscountCents) : 0;
+
+  const sanitizeCustomCreditCents = (): number => {
+    const sanitized = customCreditValue.replace(/,/g, '').trim();
+    if (!sanitized) return 0;
+    const parsed = Number(sanitized);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return NaN;
+    }
+    return Math.round(parsed * 100);
+  };
+
+  const rawCustomCreditCents = sanitizeCustomCreditCents();
+  const selectedCreditCents =
+    type === 'workspace'
+      ? creditMode === 'all'
+        ? maxCreditApplicable
+        : creditMode === 'custom'
+          ? (Number.isNaN(rawCustomCreditCents)
+              ? 0
+              : Math.min(rawCustomCreditCents, maxCreditApplicable))
+          : 0
+      : 0;
+  const amountDueCents = Math.max(finalAmountAfterDiscountCents - selectedCreditCents, 0);
 
   // Fetch and pre-fill user data when modal opens
   useEffect(() => {
@@ -97,6 +159,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         country: 'EG',
         state: '',
       });
+      setPromoPreview(null);
+      setPromoPreviewLoading(false);
+      setCreditMode('none');
+      setCustomCreditValue('');
+      setCreditError(null);
       return;
     }
 
@@ -162,6 +229,68 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     fetchUserData();
   }, [open, type, workspaceId, clientId]);
 
+  useEffect(() => {
+    if (!open || type !== 'workspace' || !packageData) {
+      setPromoPreview(null);
+      setPromoPreviewLoading(false);
+      setCreditMode('none');
+      setCustomCreditValue('');
+      setCreditError(null);
+      return;
+    }
+
+    setPromoPreviewLoading(true);
+    const controller = new AbortController();
+
+    api
+      .get<PromoPreviewResponse>(`/api/workspaces/${workspaceId}/promo-preview`, {
+        params: { packageId: packageData.id },
+        signal: controller.signal,
+      })
+      .then(({ data }) => {
+        setPromoPreview(data);
+        setCreditMode('none');
+        setCustomCreditValue('');
+        setCreditError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error('Failed to fetch promo preview:', err);
+        setPromoPreview(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setPromoPreviewLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [open, type, workspaceId, packageData?.id]);
+
+  useEffect(() => {
+    if (type !== 'workspace') {
+      setCreditError(null);
+      return;
+    }
+
+    if (creditMode !== 'custom') {
+      setCreditError(null);
+      return;
+    }
+
+    const cents = sanitizeCustomCreditCents();
+    if (Number.isNaN(cents)) {
+      setCreditError('Enter a valid credit amount');
+      return;
+    }
+
+    if (cents > maxCreditApplicable) {
+      setCreditError(`Maximum credit you can use is ${(maxCreditApplicable / 100).toFixed(2)} ${summaryCurrency}`);
+    } else {
+      setCreditError(null);
+    }
+  }, [creditMode, customCreditValue, maxCreditApplicable, summaryCurrency, type]);
+
   const handleInputChange = (field: keyof BillingData) => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -176,6 +305,25 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setError('Please select a package first.');
       return;
     }
+
+    if (type === 'workspace') {
+      if (creditMode === 'custom') {
+        const cents = sanitizeCustomCreditCents();
+        if (Number.isNaN(cents)) {
+          setError('Enter a valid credit amount');
+          return;
+        }
+        if (cents > maxCreditApplicable) {
+          setError(`Maximum credit you can use is ${(maxCreditApplicable / 100).toFixed(2)} ${summaryCurrency}`);
+          return;
+        }
+      }
+      if (creditError) {
+        setError(creditError);
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
 
@@ -188,6 +336,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         ? {
             packageId: packageData.id,
             billingData,
+            creditUsageCents: selectedCreditCents,
           }
         : {
             clientId,
@@ -243,6 +392,91 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <Alert severity="info" sx={{ mb: 3 }}>
             No package selected. Please close this dialog and choose a package.
           </Alert>
+        )}
+
+        {type === 'workspace' && packageData && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Promo & Commission Credit
+            </Typography>
+            {promoPreviewLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="text.secondary">
+                  Calculating discounts and available credit…
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, mb: 2 }}>
+                  <Stack spacing={0.75}>
+                    <Typography variant="body2" color="text.secondary">
+                      Original Price: {formatPrice(originalPriceCents, summaryCurrency)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Discount: -{formatPrice(discountCents, summaryCurrency)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Credit to Apply: -{formatPrice(selectedCreditCents, summaryCurrency)}
+                    </Typography>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="body1" fontWeight={700}>
+                      Amount Due: {formatPrice(amountDueCents, summaryCurrency)}
+                    </Typography>
+                  </Stack>
+                </Box>
+
+                {promoPreview && promoPreview.availableCommissionCreditCents > 0 ? (
+                  <Stack spacing={1.5}>
+                    <FormControl>
+                      <RadioGroup
+                        value={creditMode}
+                        onChange={(event) => setCreditMode(event.target.value as 'none' | 'all' | 'custom')}
+                      >
+                        <FormControlLabel
+                          value="none"
+                          control={<Radio />}
+                          label="Don't use credits (pay full remaining amount)"
+                        />
+                        <FormControlLabel
+                          value="all"
+                          control={<Radio />}
+                          label={`Use full credit (${formatPrice(maxCreditApplicable, summaryCurrency)})`}
+                          disabled={maxCreditApplicable <= 0}
+                        />
+                        <FormControlLabel
+                          value="custom"
+                          control={<Radio />}
+                          label="Use a custom credit amount"
+                          disabled={maxCreditApplicable <= 0}
+                        />
+                      </RadioGroup>
+                      <FormHelperText>
+                        Available credit: {formatPrice(promoPreview.availableCommissionCreditCents, summaryCurrency)}
+                      </FormHelperText>
+                    </FormControl>
+                    {creditMode === 'custom' && (
+                      <TextField
+                        label={`Credit amount (${summaryCurrency})`}
+                        value={customCreditValue}
+                        onChange={(event) => setCustomCreditValue(event.target.value)}
+                        inputProps={{ inputMode: 'decimal' }}
+                        helperText={
+                          creditError ??
+                          `Maximum credit usable right now: ${(maxCreditApplicable / 100).toFixed(2)}`
+                        }
+                        error={Boolean(creditError)}
+                      />
+                    )}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No commission credit available. Any eligible discounts are already applied above.
+                  </Typography>
+                )}
+              </>
+            )}
+          </Box>
         )}
 
         <Divider sx={{ my: 2 }} />
@@ -307,7 +541,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           onClick={handleSubmit}
           loading={loading}
           variant="contained"
-          disabled={!packageData || !billingData.first_name || !billingData.email || !billingData.phone_number || loadingUserData}
+          disabled={
+            !packageData ||
+            !billingData.first_name ||
+            !billingData.email ||
+            !billingData.phone_number ||
+            loadingUserData ||
+            (type === 'workspace' && promoPreviewLoading) ||
+            (type === 'workspace' && creditMode === 'custom' && Boolean(creditError))
+          }
         >
           Proceed to Payment
         </LoadingButton>

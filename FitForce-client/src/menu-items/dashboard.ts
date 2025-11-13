@@ -27,6 +27,20 @@ const mainDomainMenu: NavItemType = {
   icon: icons.home,
   children: [
     {
+      id: 'profile',
+      title: 'Profile',
+      type: 'item',
+      url: '/dashboard/profile',
+      icon: icons.settings
+    },
+    {
+      id: 'promo',
+      title: 'Promo Earnings',
+      type: 'item',
+      url: '/dashboard/promo',
+      icon: icons.finance
+    },
+    {
       id: 'workspaces',
       title: 'Workspaces',
       type: 'item',
@@ -112,6 +126,20 @@ const workspaceMenu: NavItemType = {
       type: 'item',
       url: '/dashboard/workspace',
       icon: icons.workspace
+    },
+    {
+      id: 'profile',
+      title: 'Profile',
+      type: 'item',
+      url: '/dashboard/profile',
+      icon: icons.settings
+    },
+    {
+      id: 'promo',
+      title: 'Promo Earnings',
+      type: 'item',
+      url: '/dashboard/promo',
+      icon: icons.finance
     },
     // {
     //   id: 'workspace-pdf-templates',
