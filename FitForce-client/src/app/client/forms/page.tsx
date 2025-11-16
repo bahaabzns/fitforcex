@@ -92,6 +92,11 @@ export default function ClientFormsPage() {
         const val = a[q.id];
         if (q.type === 'checkbox') {
           if (!Array.isArray(val) || val.length === 0) missing.push(q.id);
+        } else if (q.type === 'select' && typeof val === 'object' && val !== null && 'other' in val) {
+          // Handle "Other" option - check if other text is provided
+          if (!val.other || String(val.other).trim() === '') {
+            missing.push(q.id);
+          }
         } else if (val === undefined || val === null || String(val).trim() === '') {
           missing.push(q.id);
         }
@@ -241,60 +246,104 @@ export default function ClientFormsPage() {
     const options = Array.isArray(q.options) ? q.options : [];
     const value = getAnswers(s.id)[qid];
     
+    // Enhanced question header component
+    const QuestionHeader = () => (
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          bgcolor: 'background.paper',
+          py: 2,
+          px: 1,
+          mb: 2,
+          borderBottom: '2px solid',
+          borderColor: 'divider',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+        }}
+      >
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 700,
+            mb: description ? 1 : 0,
+            fontSize: { xs: '1.1rem', sm: '1.25rem' },
+            lineHeight: 1.4,
+            color: 'text.primary',
+            wordBreak: 'break-word',
+          }}
+        >
+          {label}
+          {required && (
+            <Typography 
+              component="span" 
+              sx={{ 
+                color: 'error.main', 
+                ml: 0.5,
+                fontSize: 'inherit',
+              }}
+            >
+              *
+            </Typography>
+          )}
+        </Typography>
+        {description && (
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              color: 'text.secondary',
+              fontSize: { xs: '0.9rem', sm: '1rem' },
+              lineHeight: 1.6,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              mt: 0.5,
+            }}
+          >
+            {description}
+          </Typography>
+        )}
+      </Box>
+    );
+    
     switch (qtype) {
       case 'textarea':
         return (
-          <Box key={qid}>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
-          <TextField 
-            fullWidth 
-            label={label} 
-              placeholder={placeholder}
-            required={required} 
-            value={value || ''} 
-            onChange={(e) => setAnswer(s.id, qid, e.target.value)} 
-            multiline 
-            minRows={3}
-            variant="outlined"
-          />
+          <Box key={qid} sx={{ mb: 4 }}>
+            <QuestionHeader />
+            <TextField 
+              fullWidth 
+              placeholder={placeholder || (isArabic ? 'أدخل إجابتك هنا' : 'Enter your answer here')}
+              required={required} 
+              value={value || ''} 
+              onChange={(e) => setAnswer(s.id, qid, e.target.value)} 
+              multiline 
+              minRows={3}
+              variant="outlined"
+            />
           </Box>
         );
       case 'number':
         return (
-          <Box key={qid}>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
-          <TextField 
-            fullWidth 
-            type="number" 
-            label={label} 
-              placeholder={placeholder}
-            required={required} 
-            value={value ?? ''} 
-            onChange={(e) => setAnswer(s.id, qid, e.target.value)}
-            variant="outlined"
-          />
+          <Box key={qid} sx={{ mb: 4 }}>
+            <QuestionHeader />
+            <TextField 
+              fullWidth 
+              type="number" 
+              placeholder={placeholder || (isArabic ? 'أدخل الرقم' : 'Enter number')}
+              required={required} 
+              value={value ?? ''} 
+              onChange={(e) => setAnswer(s.id, qid, e.target.value)}
+              variant="outlined"
+            />
           </Box>
         );
       case 'date':
         return (
-          <Box key={qid}>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
+          <Box key={qid} sx={{ mb: 4 }}>
+            <QuestionHeader />
             <TextField 
               fullWidth 
               type="date" 
-              label={label} 
               placeholder={placeholder}
               required={required} 
               value={value || ''} 
@@ -307,20 +356,27 @@ export default function ClientFormsPage() {
       case 'select':
         const selectOptions = Array.isArray(q.options) ? q.options : [];
         const selectOptionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
+        const allowOther = q.allowOther || false;
+        const isOtherSelected = typeof value === 'object' && value !== null && 'other' in value;
+        const otherValue = isOtherSelected ? (value as any).other : '';
+        const selectValue = isOtherSelected ? '__other__' : (typeof value === 'string' ? value : '');
+        
         return (
-          <Box key={qid}>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
+          <Box key={qid} sx={{ mb: 4 }}>
+            <QuestionHeader />
             <FormControl fullWidth variant="outlined">
-            <InputLabel id={`sel-${qid}`}>{label}{required ? ' *' : ''}</InputLabel>
+            <InputLabel id={`sel-${qid}`}>{isArabic ? 'اختر خياراً' : 'Select an option'}</InputLabel>
             <Select 
               labelId={`sel-${qid}`} 
-              label={label} 
-              value={value ?? ''} 
-              onChange={(e) => setAnswer(s.id, qid, e.target.value)}
+              label={isArabic ? 'اختر خياراً' : 'Select an option'}
+              value={selectValue} 
+              onChange={(e) => {
+                if (e.target.value === '__other__') {
+                  setAnswer(s.id, qid, { other: '' });
+                } else {
+                  setAnswer(s.id, qid, e.target.value);
+                }
+              }}
             >
                 <MenuItem value=""><em>{isArabic ? 'اختر خياراً' : 'Select an option'}</em></MenuItem>
                 {selectOptions.map((opt: string, i: number) => {
@@ -331,23 +387,33 @@ export default function ClientFormsPage() {
                     <MenuItem key={i} value={opt}>{displayText}</MenuItem>
                   );
                 })}
+                {allowOther && (
+                  <MenuItem value="__other__">
+                    {isArabic ? 'أخرى' : 'Other'}
+                  </MenuItem>
+                )}
             </Select>
           </FormControl>
+          {isOtherSelected && (
+            <TextField
+              fullWidth
+              variant="outlined"
+              label={isArabic ? 'يرجى تحديد الإجابة' : 'Please specify'}
+              value={otherValue}
+              onChange={(e) => setAnswer(s.id, qid, { other: e.target.value })}
+              sx={{ mt: 2 }}
+              required={required}
+            />
+          )}
           </Box>
         );
       case 'radio':
         const radioOptions = Array.isArray(q.options) ? q.options : [];
         const radioOptionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
         return (
-          <FormControl key={qid} component="fieldset">
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              {label}{required ? ' *' : ''}
-            </Typography>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
+          <Box key={qid} sx={{ mb: 4 }}>
+            <QuestionHeader />
+            <FormControl component="fieldset" fullWidth>
             <RadioGroup value={value ?? ''} onChange={(e) => setAnswer(s.id, qid, e.target.value)}>
               {radioOptions.map((opt: string, i: number) => {
                 const optAr = radioOptionsArabic[i] || '';
@@ -359,20 +425,15 @@ export default function ClientFormsPage() {
               })}
             </RadioGroup>
           </FormControl>
+          </Box>
         );
       case 'checkbox':
         const checkboxOptions = Array.isArray(q.options) ? q.options : [];
         const checkboxOptionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
         return (
-          <FormGroup key={qid}>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              {label}{required ? ' *' : ''}
-            </Typography>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
+          <Box key={qid} sx={{ mb: 4 }}>
+            <QuestionHeader />
+            <FormGroup>
             {checkboxOptions.map((opt: string, i: number) => {
               const arr = Array.isArray(value) ? value : [];
               const checked = arr.includes(opt);
@@ -397,6 +458,7 @@ export default function ClientFormsPage() {
               );
             })}
           </FormGroup>
+          </Box>
         );
       case 'attachment':
         const uploadKey = `${s.id}-${qid}`;
@@ -404,15 +466,8 @@ export default function ClientFormsPage() {
         const attachments = Array.isArray(value) ? value : (value ? [value] : []);
         
         return (
-          <Box key={qid} sx={{ width: '100%' }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              {label}{required ? ' *' : ''}
-            </Typography>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
+          <Box key={qid} sx={{ width: '100%', mb: 4 }}>
+            <QuestionHeader />
             
             {attachments.length > 0 && (
               <Stack spacing={1} sx={{ mb: 2 }}>
@@ -508,21 +563,16 @@ export default function ClientFormsPage() {
       case 'text':
       default:
         return (
-          <Box key={qid}>
-            {description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                {description}
-              </Typography>
-            )}
-          <TextField 
-            fullWidth 
-            label={label} 
-              placeholder={placeholder}
-            required={required} 
-            value={value || ''} 
-            onChange={(e) => setAnswer(s.id, qid, e.target.value)}
-            variant="outlined"
-          />
+          <Box key={qid} sx={{ mb: 4 }}>
+            <QuestionHeader />
+            <TextField 
+              fullWidth 
+              placeholder={placeholder || (isArabic ? 'أدخل إجابتك هنا' : 'Enter your answer here')}
+              required={required} 
+              value={value || ''} 
+              onChange={(e) => setAnswer(s.id, qid, e.target.value)}
+              variant="outlined"
+            />
           </Box>
         );
     }

@@ -37,6 +37,13 @@ export default function SortableExercise({
   } as React.CSSProperties;
 
   const repRange = formatRepRange(exercise.reps, exercise.sets);
+  
+  // Check if exercise is cardio
+  const category = exercise.exercise?.category?.toLowerCase() || '';
+  const muscleGroup = exercise.exercise?.muscleGroup?.toLowerCase() || '';
+  const isCardio = category === 'cardio' || 
+                  muscleGroup.includes('cardiovascular') || 
+                  !!(exercise as any).durationMinutes;
 
   return (
     <Card
@@ -153,7 +160,7 @@ export default function SortableExercise({
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
                     {exercise.exercise.muscleGroup}
                   </Typography>
-                    {exercise.tempo && (
+                    {!isCardio && exercise.tempo && (
                       <Chip
                         label={`Tempo: ${exercise.tempo}`}
                         size="small"
@@ -161,7 +168,7 @@ export default function SortableExercise({
                     sx={{ mb: 0.5 }}
                       />
                     )}
-                    {exercise.rir > 0 && (
+                    {!isCardio && exercise.rir > 0 && (
                       <Chip
                         label={`RIR: ${exercise.rir}`}
                         size="small"
@@ -237,8 +244,81 @@ export default function SortableExercise({
         </Box>
       </CardContent>
       
-      {/* Minimized Sets Table - Outside CardContent for full width */}
-      {(exercise as any).individualSets && Array.isArray((exercise as any).individualSets) && (exercise as any).individualSets.length > 0 ? (
+      {/* Cardio: Show Duration/Time */}
+      {isCardio ? (
+        <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: { xs: 1.5, sm: 2 }, width: '100%' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: 1,
+            py: { xs: 1, sm: 1.5 },
+            px: { xs: 1, sm: 2 },
+            borderRadius: 2,
+            bgcolor: 'action.hover',
+            border: '2px solid',
+            borderColor: 'primary.main',
+            position: 'relative'
+          }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              gap: 0.5
+            }}>
+              <Typography variant="caption" sx={{ 
+                fontSize: { xs: '0.65rem', sm: '0.7rem' }, 
+                color: 'text.secondary', 
+                textTransform: 'uppercase', 
+                letterSpacing: 1 
+              }}>
+                Duration
+              </Typography>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'baseline', 
+                gap: 0.5,
+                position: 'relative'
+              }}>
+                {(() => {
+                  const totalSeconds = (exercise as any).durationSeconds || ((exercise as any).durationMinutes || 10) * 60;
+                  const hours = Math.floor(totalSeconds / 3600);
+                  const minutes = Math.floor((totalSeconds % 3600) / 60);
+                  const seconds = totalSeconds % 60;
+                  const hasHours = hours > 0;
+                  
+                  return (
+                    <>
+                      <Typography variant="h4" sx={{ 
+                        fontWeight: 700, 
+                        color: 'primary.main',
+                        lineHeight: 1,
+                        fontFamily: 'monospace',
+                        fontSize: { xs: '1.75rem', sm: '2rem' }
+                      }}>
+                        {hasHours && `${hours}:`}
+                        {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                      </Typography>
+                      {!hasHours && (
+                        <Typography variant="h6" sx={{ 
+                          fontWeight: 500, 
+                          color: 'text.secondary',
+                          fontSize: { xs: '0.875rem', sm: '1rem' },
+                          ml: 0.5
+                        }}>
+                          min
+                        </Typography>
+                      )}
+                    </>
+                  );
+                })()}
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      ) : (
+        /* Regular Exercise: Minimized Sets Table - Outside CardContent for full width */
+        (exercise as any).individualSets && Array.isArray((exercise as any).individualSets) && (exercise as any).individualSets.length > 0 ? (
         <Box sx={{ px: 2, pb: 2, width: '100%', overflow: 'hidden' }}>
           <TableContainer 
             component={Paper} 
@@ -360,6 +440,7 @@ export default function SortableExercise({
             </Table>
           </TableContainer>
         </Box>
+      )
       )}
     </Card>
   );

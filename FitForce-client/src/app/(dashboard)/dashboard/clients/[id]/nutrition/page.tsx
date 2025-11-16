@@ -33,7 +33,8 @@ import {
   MenuItem,
   Tooltip,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Pagination
 } from '@mui/material';
 import {
   Add,
@@ -155,6 +156,8 @@ export default function ClientNutritionPage() {
   const [isEditingQuantities, setIsEditingQuantities] = useState(false);
   const [isPlanDirty, setIsPlanDirty] = useState(false);
   const [foodSearchTerm, setFoodSearchTerm] = useState('');
+  const [foodPage, setFoodPage] = useState(1);
+  const foodItemsPerPage = 10;
   
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -259,7 +262,7 @@ export default function ClientNutritionPage() {
     const paddingLeft = depth * 12;
     if (value === null || value === undefined) return <Typography component="span" color="text.secondary">—</Typography> as any;
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      return <Typography component="span">{String(value)}</Typography> as any;
+      return <Typography component="span" sx={{ color: 'success.main', fontWeight: 500 }}>{String(value)}</Typography> as any;
     }
     if (Array.isArray(value)) {
       if (value.length === 0) return <Typography component="span" color="text.secondary">[]</Typography> as any;
@@ -308,9 +311,9 @@ export default function ClientNutritionPage() {
             return (
               <ListItem key={k} sx={{ alignItems: 'flex-start', py: 0.25 }}>
                 <Box sx={{ width: '100%', pl: paddingLeft }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mr: 1, display: 'inline' }}>{questionTitle}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mr: 1, display: 'inline', color: 'primary.main' }}>{questionTitle}</Typography>
                   <Typography variant="body2" sx={{ display: 'inline', color: 'text.secondary', mx: 0.5 }}>:</Typography>
-                  <Box component="span">{renderAnswerValue(v, questions, depth + 1)}</Box>
+                  <Box component="span" sx={{ color: 'success.main', fontWeight: 500 }}>{renderAnswerValue(v, questions, depth + 1)}</Box>
                 </Box>
               </ListItem>
             );
@@ -318,7 +321,7 @@ export default function ClientNutritionPage() {
         </List>
       );
     }
-    return <Typography component="span">{String(value)}</Typography> as any;
+    return <Typography component="span" sx={{ color: 'success.main', fontWeight: 500 }}>{String(value)}</Typography> as any;
   };
 
   const reorderArray = <T,>(arr: T[], from: number, to: number): T[] => {
@@ -4073,6 +4076,7 @@ export default function ClientNutritionPage() {
       <Dialog open={isAddFoodDialogOpen} onClose={() => {
         setIsAddFoodDialogOpen(false);
         setFoodSearchTerm('');
+        setFoodPage(1);
       }} maxWidth="md" fullWidth>
         <DialogTitle>Add Food Items to Meal</DialogTitle>
         <DialogContent>
@@ -4081,21 +4085,29 @@ export default function ClientNutritionPage() {
               fullWidth
               placeholder="Search food items..."
               value={foodSearchTerm}
-              onChange={(e) => setFoodSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setFoodSearchTerm(e.target.value);
+                setFoodPage(1);
+              }}
               sx={{ mb: 2 }}
               autoFocus
             />
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {workspaceFood.filter((food) => 
+            {(() => {
+              const filteredFood = workspaceFood.filter((food) => 
                 food.name.toLowerCase().includes(foodSearchTerm.toLowerCase())
-              ).length} item(s) found
-            </Typography>
-            <List>
-              {workspaceFood
-                .filter((food) => 
-                  food.name.toLowerCase().includes(foodSearchTerm.toLowerCase())
-                )
-                .map((food) => {
+              );
+              const totalPages = Math.ceil(filteredFood.length / foodItemsPerPage);
+              const startIndex = (foodPage - 1) * foodItemsPerPage;
+              const endIndex = startIndex + foodItemsPerPage;
+              const paginatedFood = filteredFood.slice(startIndex, endIndex);
+              
+              return (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {filteredFood.length} item(s) found
+                  </Typography>
+                  <List>
+                    {paginatedFood.map((food) => {
                 const isSelected = selectedFoodItems.includes(food.id);
                 
                 return (
@@ -4129,8 +4141,22 @@ export default function ClientNutritionPage() {
                     />
                   </ListItem>
                 );
-              })}
-            </List>
+                    })}
+                  </List>
+                  {totalPages > 1 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
+                      <Pagination
+                        count={totalPages}
+                        page={foodPage}
+                        onChange={(_, page) => setFoodPage(page)}
+                        color="primary"
+                        size="large"
+                      />
+                    </Box>
+                  )}
+                </>
+              );
+            })()}
           </Box>
         </DialogContent>
         <DialogActions>

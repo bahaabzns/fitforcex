@@ -44,12 +44,10 @@ export default function HeaderContent() {
       {menuOrientation === MenuOrientation.HORIZONTAL && !downLG && <DrawerHeader open={true} />}
       {!downLG && !isClientRoute && <WorkspaceNavigator />}
       {downLG && <ClientSidebarMobileToggle />}
-      {!downLG && !isClientRoute && <ClientLoginLink />}
       {!downLG && isClientDetailPage && (
-        <Box sx={{ ml: 2 }}>
-          <ClientSidebarToggle />
-        </Box>
+        <ClientSidebarToggle />
       )}
+      {!downLG && !isClientRoute && <ClientLoginLink />}
       <Box sx={{ flexGrow: 1 }} />
       {!downLG && !isClientRoute && <SubscriptionDays />}
       {!downLG && <ThemeToggle />}

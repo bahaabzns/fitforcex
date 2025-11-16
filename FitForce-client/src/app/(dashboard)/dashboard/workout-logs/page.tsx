@@ -561,9 +561,42 @@ export default function WorkoutLogsPage() {
                         </Stack>
                         
                         {exercise.notes && (
-                          <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                            Exercise Notes: {exercise.notes}
-                          </Typography>
+                          <Box
+                            sx={{
+                              mt: 2,
+                              p: 2,
+                              borderRadius: 2,
+                              bgcolor: 'info.lighter',
+                              border: '2px solid',
+                              borderColor: 'info.main',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                            }}
+                          >
+                            <Typography 
+                              variant="subtitle2" 
+                              sx={{ 
+                                fontWeight: 700,
+                                color: 'info.dark',
+                                mb: 0.5,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5
+                              }}
+                            >
+                              💡 Exercise Notes
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: 'info.darker',
+                                lineHeight: 1.6,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {exercise.notes}
+                            </Typography>
+                          </Box>
                         )}
                       </CardContent>
                     </Card>

@@ -54,7 +54,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper
+  Paper,
+  Pagination
 } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
@@ -110,6 +111,203 @@ interface Plan {
 }
 
 // SortableExercise moved to components/workout/SortableExercise
+
+// Cardio Duration Selector Component
+function CardioDurationSelector({ 
+  totalSeconds, 
+  onChange 
+}: { 
+  totalSeconds: number; 
+  onChange: (totalSeconds: number) => void;
+}) {
+  const theme = useTheme();
+  
+  // Convert total seconds to hours, minutes, seconds
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const handleHoursChange = (value: number) => {
+    const newTotalSeconds = value * 3600 + minutes * 60 + seconds;
+    onChange(Math.max(0, newTotalSeconds));
+  };
+
+  const handleMinutesChange = (value: number) => {
+    const newTotalSeconds = hours * 3600 + value * 60 + seconds;
+    onChange(Math.max(0, newTotalSeconds));
+  };
+
+  const handleSecondsChange = (value: number) => {
+    const newTotalSeconds = hours * 3600 + minutes * 60 + value;
+    onChange(Math.max(0, newTotalSeconds));
+  };
+
+  return (
+    <Box sx={{ 
+      p: 3,
+      borderRadius: 2,
+      bgcolor: theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.08)' : 'primary.lighter',
+      border: '2px solid',
+      borderColor: 'primary.main',
+    }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'stretch', sm: 'center' },
+        gap: { xs: 2, sm: 3 },
+        justifyContent: 'center'
+      }}>
+        {/* Hours */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, flex: 1 }}>
+          <Typography variant="caption" sx={{ 
+            fontSize: '0.75rem', 
+            color: 'text.secondary', 
+            textTransform: 'uppercase', 
+            letterSpacing: 1,
+            fontWeight: 600
+          }}>
+            Hours
+          </Typography>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 120 } }}>
+            <Select
+              value={hours}
+              onChange={(e) => handleHoursChange(Number(e.target.value))}
+              sx={{
+                bgcolor: 'background.paper',
+                '& .MuiSelect-select': {
+                  py: 1.5,
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  textAlign: 'center'
+                }
+              }}
+            >
+              {Array.from({ length: 5 }, (_, i) => i).map((h) => (
+                <MenuItem key={h} value={h}>
+                  {h} {h === 1 ? 'hour' : 'hours'}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Separator */}
+        <Typography variant="h4" sx={{ 
+          color: 'primary.main',
+          fontWeight: 700,
+          display: { xs: 'none', sm: 'block' },
+          alignSelf: 'center',
+          mt: 3
+        }}>
+          :
+        </Typography>
+
+        {/* Minutes */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, flex: 1 }}>
+          <Typography variant="caption" sx={{ 
+            fontSize: '0.75rem', 
+            color: 'text.secondary', 
+            textTransform: 'uppercase', 
+            letterSpacing: 1,
+            fontWeight: 600
+          }}>
+            Minutes
+          </Typography>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 120 } }}>
+            <Select
+              value={minutes}
+              onChange={(e) => handleMinutesChange(Number(e.target.value))}
+              sx={{
+                bgcolor: 'background.paper',
+                '& .MuiSelect-select': {
+                  py: 1.5,
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  textAlign: 'center'
+                }
+              }}
+            >
+              {Array.from({ length: 60 }, (_, i) => i).map((m) => (
+                <MenuItem key={m} value={m}>
+                  {m} {m === 1 ? 'minute' : 'minutes'}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Separator */}
+        <Typography variant="h4" sx={{ 
+          color: 'primary.main',
+          fontWeight: 700,
+          display: { xs: 'none', sm: 'block' },
+          alignSelf: 'center',
+          mt: 3
+        }}>
+          :
+        </Typography>
+
+        {/* Seconds */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, flex: 1 }}>
+          <Typography variant="caption" sx={{ 
+            fontSize: '0.75rem', 
+            color: 'text.secondary', 
+            textTransform: 'uppercase', 
+            letterSpacing: 1,
+            fontWeight: 600
+          }}>
+            Seconds
+          </Typography>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 120 } }}>
+            <Select
+              value={seconds}
+              onChange={(e) => handleSecondsChange(Number(e.target.value))}
+              sx={{
+                bgcolor: 'background.paper',
+                '& .MuiSelect-select': {
+                  py: 1.5,
+                  fontSize: '1.25rem',
+                  fontWeight: 600,
+                  textAlign: 'center'
+                }
+              }}
+            >
+              {Array.from({ length: 60 }, (_, i) => i).map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s} {s === 1 ? 'second' : 'seconds'}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      </Box>
+
+      {/* Total Duration Display */}
+      <Box sx={{ 
+        mt: 3,
+        pt: 2,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        textAlign: 'center'
+      }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          Total Duration
+        </Typography>
+        <Typography variant="h5" sx={{ 
+          fontWeight: 700,
+          color: 'primary.main',
+          fontFamily: 'monospace'
+        }}>
+          {hours > 0 && `${hours}:`}
+          {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+          ({totalSeconds} {totalSeconds === 1 ? 'second' : 'seconds'} total)
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
 
 // SortableDay Component
 function SortableDay({ 
@@ -307,6 +505,8 @@ export default function ClientWorkoutPage() {
   const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<string[]>([]);
   const [exerciseEquipmentFilter, setExerciseEquipmentFilter] = useState<string[]>([]);
   const [imagePreviewSrc, setImagePreviewSrc] = useState<string | null>(null);
+  const [exercisePage, setExercisePage] = useState(1);
+  const exercisesPerPage = 10;
   
   // UI states
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
@@ -587,10 +787,10 @@ export default function ClientWorkoutPage() {
           
           return (
             <Box key={questionId} sx={{ borderBottom: '1px solid', borderColor: 'divider', pb: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5, color: 'primary.main' }}>
                 {questionText}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 500 }}>
                 {Array.isArray(answer) ? answer.join(', ') : String(answer || 'No answer')}
               </Typography>
             </Box>
@@ -905,7 +1105,8 @@ export default function ClientWorkoutPage() {
           notes: "",
           videoUrl: "",
           thumbnailUrl: "",
-          durationMinutes: 10, // Default 10 minutes for cardio
+          durationSeconds: 600, // Default 10 minutes (600 seconds) for cardio
+          durationMinutes: 10, // Keep for backward compatibility
           individualSets: []
         };
       } else {
@@ -987,9 +1188,16 @@ export default function ClientWorkoutPage() {
               notes: exercise.notes || "",
             };
             
-            // Add durationMinutes for cardio exercises
-            if (isCardio && (exercise as any).durationMinutes) {
-              baseItem.durationMinutes = (exercise as any).durationMinutes;
+            // Add duration for cardio exercises
+            if (isCardio) {
+              if ((exercise as any).durationSeconds) {
+                baseItem.durationSeconds = (exercise as any).durationSeconds;
+              } else if ((exercise as any).durationMinutes) {
+                // Convert minutes to seconds for backward compatibility
+                baseItem.durationSeconds = (exercise as any).durationMinutes * 60;
+              }
+              // For cardio exercises, we'll store durationSeconds in notes as JSON on the backend
+              // The backend will handle this conversion
             }
             
             // Persist per-set data if available (only for non-cardio)
@@ -1081,23 +1289,53 @@ export default function ClientWorkoutPage() {
             days: newSavedPlan.days.map((day: any) => ({
               id: day.id,
               title: day.label || `Day ${day.dayIndex}`,
-              exercises: day.items?.map((item: any) => ({
-                id: item.id,
-                exercise: item.exercise,
-                sets: item.sets,
-                reps: String(item.reps),
-                restSeconds: item.restSeconds || 60,
-                tempo: item.tempo || "",
-                rir: item.rir || 0,
-                notes: item.notes || "",
-                individualSets: Array.from({ length: item.sets || 1 }, (_, index) => ({
-                  id: `set_${index + 1}`,
+              exercises: day.items?.map((item: any) => {
+                const isCardio = item.exercise?.category?.toLowerCase() === 'cardio';
+                
+                // Parse notes to extract durationSeconds if stored as JSON
+                let notes = item.notes || "";
+                let durationSeconds: number | undefined = undefined;
+                if (isCardio && item.notes) {
+                  try {
+                    const notesData = JSON.parse(item.notes);
+                    if (notesData.durationSeconds) {
+                      durationSeconds = notesData.durationSeconds;
+                      notes = notesData.originalNotes || "";
+                    }
+                  } catch (e) {
+                    // Not JSON, use notes as-is
+                  }
+                }
+                
+                // Fallback to durationMinutes if available
+                if (!durationSeconds && isCardio) {
+                  if (item.durationSeconds) {
+                    durationSeconds = item.durationSeconds;
+                  } else if (item.durationMinutes) {
+                    durationSeconds = item.durationMinutes * 60;
+                  }
+                }
+                
+                return {
+                  id: item.id,
+                  exercise: item.exercise,
+                  sets: item.sets,
                   reps: String(item.reps),
                   restSeconds: item.restSeconds || 60,
                   tempo: item.tempo || "",
-                  rir: item.rir || 0
-                }))
-              })) || []
+                  rir: item.rir || 0,
+                  notes: notes,
+                  durationSeconds: durationSeconds,
+                  durationMinutes: durationSeconds ? Math.round(durationSeconds / 60) : undefined,
+                  individualSets: isCardio ? [] : Array.from({ length: item.sets || 1 }, (_, index) => ({
+                    id: `set_${index + 1}`,
+                    reps: String(item.reps),
+                    restSeconds: item.restSeconds || 60,
+                    tempo: item.tempo || "",
+                    rir: item.rir || 0
+                  }))
+                };
+              }) || []
             }))
           });
           
@@ -1276,15 +1514,24 @@ export default function ClientWorkoutPage() {
     
     if (isCardio) {
       // For cardio, just set the exercise with duration
-      // If it has individualSets from before, convert to durationMinutes if not already set
-      let durationMinutes = (exercise as any).durationMinutes;
-      if (!durationMinutes && (exercise as any).individualSets && (exercise as any).individualSets.length > 0) {
-        // Default to 10 minutes if converting from sets
-        durationMinutes = 10;
+      // If it has individualSets from before, convert to durationSeconds if not already set
+      let durationSeconds = (exercise as any).durationSeconds;
+      if (!durationSeconds && (exercise as any).durationMinutes) {
+        // Convert minutes to seconds
+        durationSeconds = (exercise as any).durationMinutes * 60;
+      }
+      if (!durationSeconds && (exercise as any).individualSets && (exercise as any).individualSets.length > 0) {
+        // Default to 10 minutes (600 seconds) if converting from sets
+        durationSeconds = 600;
+      }
+      if (!durationSeconds) {
+        // Default to 10 minutes (600 seconds)
+        durationSeconds = 600;
       }
       setEditingExercise({
         ...exercise,
-        durationMinutes: durationMinutes || 10,
+        durationSeconds: durationSeconds,
+        durationMinutes: Math.round(durationSeconds / 60), // Keep for backward compatibility
         individualSets: [],
         sets: 1,
         reps: "",
@@ -1296,6 +1543,7 @@ export default function ClientWorkoutPage() {
       // Initialize individualSets if they don't exist
       const exerciseWithSets = {
         ...exercise,
+        notes: exercise.notes || "",
         individualSets: exercise.individualSets || Array.from({ length: exercise.sets || 1 }, (_, index) => ({
           id: `set_${index + 1}`,
           reps: exercise.reps || "8-12",
@@ -1336,7 +1584,8 @@ export default function ClientWorkoutPage() {
       restSeconds: 0,
       tempo: "",
       rir: 0,
-      durationMinutes: (editingExercise as any).durationMinutes || 30,
+      durationSeconds: (editingExercise as any).durationSeconds || ((editingExercise as any).durationMinutes || 30) * 60,
+      durationMinutes: Math.round(((editingExercise as any).durationSeconds || ((editingExercise as any).durationMinutes || 30) * 60) / 60), // Keep for backward compatibility
       individualSets: []
     } : {
       ...editingExercise,
@@ -1344,7 +1593,8 @@ export default function ClientWorkoutPage() {
       reps: editingExercise.individualSets?.[0]?.reps || "8-12",
       restSeconds: editingExercise.individualSets?.[0]?.restSeconds || 60,
       tempo: editingExercise.individualSets?.[0]?.tempo || "",
-      rir: editingExercise.individualSets?.[0]?.rir || 0
+      rir: editingExercise.individualSets?.[0]?.rir || 0,
+      notes: editingExercise.notes || ""
     };
     
     setLocalWorkoutPlan(prev => prev ? {
@@ -2388,20 +2638,42 @@ export default function ClientWorkoutPage() {
                               />
                             )}
                             {exercise.notes && (
-                              <Typography 
-                                variant="body2" 
-                                color="textSecondary" 
-                                sx={{ 
-                                  mt: 1, 
-                                  fontSize: '0.875rem',
-                                  fontStyle: 'italic',
-                                  pl: 1,
-                                  borderLeft: '3px solid',
-                                  borderColor: 'primary.main'
+                              <Box
+                                sx={{
+                                  mt: 2,
+                                  p: 2,
+                                  borderRadius: 2,
+                                  bgcolor: 'info.lighter',
+                                  border: '2px solid',
+                                  borderColor: 'info.main',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
                                 }}
                               >
-                                💡 {exercise.notes}
-                              </Typography>
+                                <Typography 
+                                  variant="subtitle2" 
+                                  sx={{ 
+                                    fontWeight: 700,
+                                    color: 'info.dark',
+                                    mb: 0.5,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5
+                                  }}
+                                >
+                                  💡 Exercise Notes
+                                </Typography>
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    color: 'info.darker',
+                                    lineHeight: 1.6,
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word'
+                                  }}
+                                >
+                                  {exercise.notes}
+                                </Typography>
+                              </Box>
                             )}
                           </Box>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -2441,13 +2713,14 @@ export default function ClientWorkoutPage() {
                       
                       {/* Cardio: Show Duration/Time selector */}
                       {isCardio ? (
-                        <Box sx={{ px: 2, pb: 2, width: '100%' }}>
+                        <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: { xs: 1.5, sm: 2 }, width: '100%' }}>
                           <Box sx={{ 
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'center',
                             gap: 1,
-                            py: 1.5,
+                            py: { xs: 1, sm: 1.5 },
+                            px: { xs: 1, sm: 2 },
                             borderRadius: 2,
                             bgcolor: 'action.hover',
                             border: '2px solid',
@@ -2460,7 +2733,12 @@ export default function ClientWorkoutPage() {
                               alignItems: 'center',
                               gap: 0.5
                             }}>
-                              <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1 }}>
+                              <Typography variant="caption" sx={{ 
+                                fontSize: { xs: '0.65rem', sm: '0.7rem' }, 
+                                color: 'text.secondary', 
+                                textTransform: 'uppercase', 
+                                letterSpacing: 1 
+                              }}>
                                 Duration
                               </Typography>
                               <Box sx={{ 
@@ -2469,22 +2747,38 @@ export default function ClientWorkoutPage() {
                                 gap: 0.5,
                                 position: 'relative'
                               }}>
-                                <Typography variant="h4" sx={{ 
-                                  fontWeight: 700, 
-                                  color: 'primary.main',
-                                  lineHeight: 1,
-                                  fontFamily: 'monospace'
-                                }}>
-                                  {(exercise as any).durationMinutes || 10}
-                                </Typography>
-                                <Typography variant="h6" sx={{ 
-                                  fontWeight: 500, 
-                                  color: 'text.secondary',
-                                  fontSize: '1rem',
-                                  ml: 0.5
-                                }}>
-                                  min
-                                </Typography>
+                                {(() => {
+                                  const totalSeconds = (exercise as any).durationSeconds || ((exercise as any).durationMinutes || 10) * 60;
+                                  const hours = Math.floor(totalSeconds / 3600);
+                                  const minutes = Math.floor((totalSeconds % 3600) / 60);
+                                  const seconds = totalSeconds % 60;
+                                  const hasHours = hours > 0;
+                                  
+                                  return (
+                                    <>
+                                      <Typography variant="h4" sx={{ 
+                                        fontWeight: 700, 
+                                        color: 'primary.main',
+                                        lineHeight: 1,
+                                        fontFamily: 'monospace',
+                                        fontSize: { xs: '1.75rem', sm: '2rem' }
+                                      }}>
+                                        {hasHours && `${hours}:`}
+                                        {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+                                      </Typography>
+                                      {!hasHours && (
+                                        <Typography variant="h6" sx={{ 
+                                          fontWeight: 500, 
+                                          color: 'text.secondary',
+                                          fontSize: { xs: '0.875rem', sm: '1rem' },
+                                          ml: 0.5
+                                        }}>
+                                          min
+                                        </Typography>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </Box>
                             </Box>
                           </Box>
@@ -3620,6 +3914,7 @@ export default function ClientWorkoutPage() {
         setExerciseSearchTerm('');
         setExerciseCategoryFilter([]);
         setExerciseEquipmentFilter([]);
+        setExercisePage(1);
       }} maxWidth="md" fullWidth>
         <DialogTitle>Add Exercises to Workout Day</DialogTitle>
         <DialogContent>
@@ -3628,18 +3923,24 @@ export default function ClientWorkoutPage() {
               fullWidth
               placeholder="Search exercises by name, muscle group, or category..."
               value={exerciseSearchTerm}
-              onChange={(e) => setExerciseSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setExerciseSearchTerm(e.target.value);
+                setExercisePage(1);
+              }}
               sx={{ mb: 2 }}
               autoFocus
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Category</InputLabel>
-                <Select
-                  multiple
-                  label="Category"
-                  value={exerciseCategoryFilter}
-                  onChange={(e) => setExerciseCategoryFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
+                  <Select
+                    multiple
+                    label="Category"
+                    value={exerciseCategoryFilter}
+                    onChange={(e) => {
+                      setExerciseCategoryFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]));
+                      setExercisePage(1);
+                    }}
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(selected as string[]).map((value) => (
@@ -3657,11 +3958,14 @@ export default function ClientWorkoutPage() {
               </FormControl>
               <FormControl fullWidth size="small">
                 <InputLabel>Equipment</InputLabel>
-                <Select
-                  multiple
-                  label="Equipment"
-                  value={exerciseEquipmentFilter}
-                  onChange={(e) => setExerciseEquipmentFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
+                  <Select
+                    multiple
+                    label="Equipment"
+                    value={exerciseEquipmentFilter}
+                    onChange={(e) => {
+                      setExerciseEquipmentFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]));
+                      setExercisePage(1);
+                    }}
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(selected as string[]).map((value) => (
@@ -3678,8 +3982,8 @@ export default function ClientWorkoutPage() {
                 </Select>
               </FormControl>
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {workspaceExercises.filter((exercise) => {
+            {(() => {
+              const filteredExercises = workspaceExercises.filter((exercise) => {
                 const matchesSearch =
                   exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
                   exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
@@ -3687,21 +3991,19 @@ export default function ClientWorkoutPage() {
                 const matchesCategory = exerciseCategoryFilter.length === 0 || exerciseCategoryFilter.includes((exercise.category || ''));
                 const matchesEquipment = exerciseEquipmentFilter.length === 0 || exerciseEquipmentFilter.includes((exercise.equipmentNeeded || ''));
                 return matchesSearch && matchesCategory && matchesEquipment;
-              }).length} exercise(s) found
-            </Typography>
-          </Box>
-          <List>
-            {workspaceExercises
-              .filter((exercise) => {
-                const matchesSearch =
-                  exercise.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
-                  exercise.muscleGroup.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
-                  (exercise.description && exercise.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()));
-                const matchesCategory = exerciseCategoryFilter.length === 0 || exerciseCategoryFilter.includes((exercise.category || ''));
-                const matchesEquipment = exerciseEquipmentFilter.length === 0 || exerciseEquipmentFilter.includes((exercise.equipmentNeeded || ''));
-                return matchesSearch && matchesCategory && matchesEquipment;
-              })
-              .map((exercise) => {
+              });
+              const totalPages = Math.ceil(filteredExercises.length / exercisesPerPage);
+              const startIndex = (exercisePage - 1) * exercisesPerPage;
+              const endIndex = startIndex + exercisesPerPage;
+              const paginatedExercises = filteredExercises.slice(startIndex, endIndex);
+              
+              return (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {filteredExercises.length} exercise(s) found
+                  </Typography>
+                  <List>
+                    {paginatedExercises.map((exercise) => {
               const isSelected = selectedExercises.includes(exercise.id);
               
             return (
@@ -3737,8 +4039,23 @@ export default function ClientWorkoutPage() {
                   </ListItemSecondaryAction>
                 </ListItem>
               );
-            })}
-          </List>
+                    })}
+                  </List>
+                  {totalPages > 1 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
+                      <Pagination
+                        count={totalPages}
+                        page={exercisePage}
+                        onChange={(_, page) => setExercisePage(page)}
+                        color="primary"
+                        size="large"
+                      />
+                    </Box>
+                  )}
+                </>
+              );
+            })()}
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsAddExerciseDialogOpen(false)}>Cancel</Button>
@@ -3762,35 +4079,40 @@ export default function ClientWorkoutPage() {
                        muscleGroup.includes('cardiovascular') || 
                        !!(editingExercise as any).durationMinutes;
               })() ? (
+                <>
                 <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
                   <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
                     Duration
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <FormControl sx={{ minWidth: 200 }}>
-                      <InputLabel>Minutes</InputLabel>
-                      <Select
-                        value={(editingExercise as any).durationMinutes || 10}
-                        label="Minutes"
-                        onChange={(e) => {
-                          setEditingExercise((prev: any) => ({
-                            ...prev,
-                            durationMinutes: e.target.value as number
-                          }));
-                        }}
-                      >
-                        {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((min) => (
-                          <MenuItem key={min} value={min}>
-                            {min} {min === 1 ? 'minute' : 'minutes'}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <Typography variant="body2" color="textSecondary">
-                      Select the duration for this cardio exercise
-                    </Typography>
-                  </Box>
+                  <CardioDurationSelector
+                    totalSeconds={(editingExercise as any).durationSeconds || ((editingExercise as any).durationMinutes || 10) * 60}
+                    onChange={(totalSeconds) => {
+                      setEditingExercise((prev: any) => ({
+                        ...prev,
+                        durationSeconds: totalSeconds,
+                        durationMinutes: Math.round(totalSeconds / 60) // Keep for backward compatibility
+                      }));
+                    }}
+                  />
                 </Box>
+
+                {/* Exercise Notes for Cardio */}
+                <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                    Exercise Notes
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Notes for this exercise"
+                    value={editingExercise.notes || ''}
+                    onChange={(e) => setEditingExercise((prev: any) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Add any specific notes, cues, or instructions for this exercise..."
+                    helperText="These notes will be visible to the client when viewing their workout plan"
+                  />
+                </Box>
+                </>
               ) : (
                 <>
                 <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
@@ -3817,8 +4139,20 @@ export default function ClientWorkoutPage() {
                             <TextField
                               size="small"
                               value={set.reps}
-                              onChange={(e) => updateIndividualSet(set.id, 'reps', e.target.value)}
+                              onChange={(e) => {
+                                // Only allow numbers and "-" character
+                                const filteredValue = e.target.value.replace(/[^0-9\-]/g, '');
+                                updateIndividualSet(set.id, 'reps', filteredValue);
+                              }}
+                              onKeyPress={(e) => {
+                                // Prevent typing characters that aren't numbers or "-"
+                                const char = e.key;
+                                if (char && !/[0-9\-]/.test(char) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(char)) {
+                                  e.preventDefault();
+                                }
+                              }}
                               sx={{ width: '120px' }}
+                              placeholder="e.g. 8-12"
                             />
                           </td>
                           <td style={{ padding: '8px' }}>
@@ -3925,6 +4259,23 @@ export default function ClientWorkoutPage() {
         </Button>
                   )}
                 </Stack>
+              </Box>
+
+              {/* Exercise Notes */}
+              <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                  Exercise Notes
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Notes for this exercise"
+                  value={editingExercise.notes || ''}
+                  onChange={(e) => setEditingExercise((prev: any) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Add any specific notes, cues, or instructions for this exercise..."
+                  helperText="These notes will be visible to the client when viewing their workout plan"
+                />
               </Box>
 
               {/* Preview - Only for non-cardio exercises */}
@@ -4209,9 +4560,42 @@ export default function ClientWorkoutPage() {
                         </Stack>
                         
                         {exercise.notes && (
-                          <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                            Notes: {exercise.notes}
-                          </Typography>
+                          <Box
+                            sx={{
+                              mt: 2,
+                              p: 2,
+                              borderRadius: 2,
+                              bgcolor: 'info.lighter',
+                              border: '2px solid',
+                              borderColor: 'info.main',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                            }}
+                          >
+                            <Typography 
+                              variant="subtitle2" 
+                              sx={{ 
+                                fontWeight: 700,
+                                color: 'info.dark',
+                                mb: 0.5,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5
+                              }}
+                            >
+                              💡 Exercise Notes
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: 'info.darker',
+                                lineHeight: 1.6,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {exercise.notes}
+                            </Typography>
+                          </Box>
                         )}
                       </CardContent>
                     </Card>

@@ -18,6 +18,10 @@ import {
   Radio,
   RadioGroup,
   Stack,
+  Card,
+  CardContent,
+  Chip,
+  useTheme,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import api from '@/utils/axios';
@@ -357,37 +361,81 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     return `${(cents / 100).toFixed(2)} ${currency}`;
   };
 
+  const theme = useTheme();
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {packageData ? `Subscribe to ${packageData.name}` : 'Select a Package'}
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          bgcolor: 'background.paper',
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        pb: 2,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}>
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          {packageData ? `Subscribe to ${packageData.name}` : 'Select a Package'}
+        </Typography>
       </DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ bgcolor: 'background.paper' }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
 
         {packageData ? (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Package Details
-            </Typography>
-            <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="h5" color="primary" gutterBottom>
+          <Card 
+            sx={{ 
+              mb: 3,
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.08)' : 'primary.lighter',
+              border: '2px solid',
+              borderColor: 'primary.main',
+              boxShadow: theme.shadows[2],
+            }}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  Package Details
+                </Typography>
+                <Chip 
+                  label={`${packageData.durationMonths} month${packageData.durationMonths > 1 ? 's' : ''}`}
+                  color="primary"
+                  size="small"
+                />
+              </Box>
+              <Typography 
+                variant="h3" 
+                sx={{ 
+                  fontWeight: 700,
+                  color: 'primary.main',
+                  mb: 1.5,
+                }}
+              >
                 {formatPrice(packageData.priceCents, packageData.currency)}
               </Typography>
-              <Typography variant="body1" gutterBottom>
-                Duration: {packageData.durationMonths} month{packageData.durationMonths > 1 ? 's' : ''}
-              </Typography>
               {packageData.description && (
-                <Typography variant="body2" color="text.secondary">
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    color: 'text.secondary',
+                    lineHeight: 1.6,
+                  }}
+                >
                   {packageData.description}
                 </Typography>
               )}
-            </Box>
-          </Box>
+            </CardContent>
+          </Card>
         ) : (
           <Alert severity="info" sx={{ mb: 3 }}>
             No package selected. Please close this dialog and choose a package.
@@ -395,152 +443,270 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         )}
 
         {type === 'workspace' && packageData && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Promo & Commission Credit
+          <Card 
+            sx={{ 
+              mb: 3,
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: theme.shadows[1],
+            }}
+          >
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                Promo & Commission Credit
+              </Typography>
+              {promoPreviewLoading ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
+                  <CircularProgress size={20} />
+                  <Typography variant="body2" color="text.secondary">
+                    Calculating discounts and available credit…
+                  </Typography>
+                </Box>
+              ) : (
+                <>
+                  <Box 
+                    sx={{ 
+                      p: 2.5, 
+                      borderRadius: 2,
+                      bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'action.hover',
+                      mb: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Stack spacing={1.5}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Original Price:
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {formatPrice(originalPriceCents, summaryCurrency)}
+                        </Typography>
+                      </Box>
+                      {discountCents > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="success.main">
+                            Discount:
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: 'success.main' }}>
+                            -{formatPrice(discountCents, summaryCurrency)}
+                          </Typography>
+                        </Box>
+                      )}
+                      {selectedCreditCents > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="info.main">
+                            Credit to Apply:
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: 'info.main' }}>
+                            -{formatPrice(selectedCreditCents, summaryCurrency)}
+                          </Typography>
+                        </Box>
+                      )}
+                      <Divider sx={{ my: 0.5 }} />
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.5 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                          Amount Due:
+                        </Typography>
+                        <Typography 
+                          variant="h5" 
+                          sx={{ 
+                            fontWeight: 700,
+                            color: 'primary.main',
+                          }}
+                        >
+                          {formatPrice(amountDueCents, summaryCurrency)}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+
+                  {promoPreview && promoPreview.availableCommissionCreditCents > 0 ? (
+                    <Stack spacing={2}>
+                      <FormControl>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                          Credit Usage Options
+                        </Typography>
+                        <RadioGroup
+                          value={creditMode}
+                          onChange={(event) => setCreditMode(event.target.value as 'none' | 'all' | 'custom')}
+                          sx={{
+                            '& .MuiFormControlLabel-root': {
+                              mb: 1,
+                              p: 1.5,
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'background.paper',
+                              '&:hover': {
+                                bgcolor: 'action.hover',
+                              },
+                            },
+                          }}
+                        >
+                          <FormControlLabel
+                            value="none"
+                            control={<Radio />}
+                            label="Don't use credits (pay full remaining amount)"
+                          />
+                          <FormControlLabel
+                            value="all"
+                            control={<Radio />}
+                            label={`Use full credit (${formatPrice(maxCreditApplicable, summaryCurrency)})`}
+                            disabled={maxCreditApplicable <= 0}
+                          />
+                          <FormControlLabel
+                            value="custom"
+                            control={<Radio />}
+                            label="Use a custom credit amount"
+                            disabled={maxCreditApplicable <= 0}
+                          />
+                        </RadioGroup>
+                        <FormHelperText sx={{ mt: 1 }}>
+                          Available credit: <strong>{formatPrice(promoPreview.availableCommissionCreditCents, summaryCurrency)}</strong>
+                        </FormHelperText>
+                      </FormControl>
+                      {creditMode === 'custom' && (
+                        <TextField
+                          fullWidth
+                          label={`Credit amount (${summaryCurrency})`}
+                          value={customCreditValue}
+                          onChange={(event) => setCustomCreditValue(event.target.value)}
+                          inputProps={{ inputMode: 'decimal' }}
+                          helperText={
+                            creditError ??
+                            `Maximum credit usable right now: ${(maxCreditApplicable / 100).toFixed(2)}`
+                          }
+                          error={Boolean(creditError)}
+                        />
+                      )}
+                    </Stack>
+                  ) : (
+                    <Box 
+                      sx={{ 
+                        p: 2,
+                        borderRadius: 1,
+                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'action.hover',
+                        border: '1px dashed',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                        No commission credit available. Any eligible discounts are already applied above.
+                      </Typography>
+                    </Box>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <Divider sx={{ my: 3 }} />
+
+        <Card 
+          sx={{ 
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: theme.shadows[1],
+          }}
+        >
+          <CardContent>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Billing Information
             </Typography>
-            {promoPreviewLoading ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
-                <CircularProgress size={20} />
-                <Typography variant="body2" color="text.secondary">
-                  Calculating discounts and available credit…
+
+            {loadingUserData ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                <CircularProgress size={24} />
+                <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
+                  Loading your information...
                 </Typography>
               </Box>
             ) : (
-              <>
-                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, mb: 2 }}>
-                  <Stack spacing={0.75}>
-                    <Typography variant="body2" color="text.secondary">
-                      Original Price: {formatPrice(originalPriceCents, summaryCurrency)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Discount: -{formatPrice(discountCents, summaryCurrency)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Credit to Apply: -{formatPrice(selectedCreditCents, summaryCurrency)}
-                    </Typography>
-                    <Divider sx={{ my: 1 }} />
-                    <Typography variant="body1" fontWeight={700}>
-                      Amount Due: {formatPrice(amountDueCents, summaryCurrency)}
-                    </Typography>
-                  </Stack>
-                </Box>
-
-                {promoPreview && promoPreview.availableCommissionCreditCents > 0 ? (
-                  <Stack spacing={1.5}>
-                    <FormControl>
-                      <RadioGroup
-                        value={creditMode}
-                        onChange={(event) => setCreditMode(event.target.value as 'none' | 'all' | 'custom')}
-                      >
-                        <FormControlLabel
-                          value="none"
-                          control={<Radio />}
-                          label="Don't use credits (pay full remaining amount)"
-                        />
-                        <FormControlLabel
-                          value="all"
-                          control={<Radio />}
-                          label={`Use full credit (${formatPrice(maxCreditApplicable, summaryCurrency)})`}
-                          disabled={maxCreditApplicable <= 0}
-                        />
-                        <FormControlLabel
-                          value="custom"
-                          control={<Radio />}
-                          label="Use a custom credit amount"
-                          disabled={maxCreditApplicable <= 0}
-                        />
-                      </RadioGroup>
-                      <FormHelperText>
-                        Available credit: {formatPrice(promoPreview.availableCommissionCreditCents, summaryCurrency)}
-                      </FormHelperText>
-                    </FormControl>
-                    {creditMode === 'custom' && (
-                      <TextField
-                        label={`Credit amount (${summaryCurrency})`}
-                        value={customCreditValue}
-                        onChange={(event) => setCustomCreditValue(event.target.value)}
-                        inputProps={{ inputMode: 'decimal' }}
-                        helperText={
-                          creditError ??
-                          `Maximum credit usable right now: ${(maxCreditApplicable / 100).toFixed(2)}`
-                        }
-                        error={Boolean(creditError)}
-                      />
-                    )}
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    No commission credit available. Any eligible discounts are already applied above.
-                  </Typography>
-                )}
-              </>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="First Name"
+                    value={billingData.first_name}
+                    onChange={handleInputChange('first_name')}
+                    required
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                      },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Last Name"
+                    value={billingData.last_name}
+                    onChange={handleInputChange('last_name')}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                      },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    type="email"
+                    value={billingData.email}
+                    onChange={handleInputChange('email')}
+                    required
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                      },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Phone Number"
+                    value={billingData.phone_number}
+                    onChange={handleInputChange('phone_number')}
+                    required
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
+                      },
+                    }}
+                  />
+                </Grid>
+              </Grid>
             )}
-          </Box>
-        )}
-
-        <Divider sx={{ my: 2 }} />
-
-        <Typography variant="h6" gutterBottom>
-          Billing Information
-        </Typography>
-
-        {loadingUserData ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={24} />
-            <Typography variant="body2" sx={{ ml: 2 }}>
-              Loading your information...
-            </Typography>
-          </Box>
-        ) : (
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="First Name"
-                value={billingData.first_name}
-                onChange={handleInputChange('first_name')}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Last Name"
-                value={billingData.last_name}
-                onChange={handleInputChange('last_name')}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={billingData.email}
-                onChange={handleInputChange('email')}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={billingData.phone_number}
-                onChange={handleInputChange('phone_number')}
-                required
-              />
-            </Grid>
-          </Grid>
-        )}
+          </CardContent>
+        </Card>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
+      <DialogActions sx={{ 
+        px: 3,
+        py: 2,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}>
+        <Button 
+          onClick={onClose} 
+          disabled={loading}
+          sx={{ minWidth: 100 }}
+        >
           Cancel
         </Button>
         <LoadingButton
           onClick={handleSubmit}
           loading={loading}
           variant="contained"
+          size="large"
           disabled={
             !packageData ||
             !billingData.first_name ||
@@ -550,6 +716,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             (type === 'workspace' && promoPreviewLoading) ||
             (type === 'workspace' && creditMode === 'custom' && Boolean(creditError))
           }
+          sx={{ minWidth: 180 }}
         >
           Proceed to Payment
         </LoadingButton>

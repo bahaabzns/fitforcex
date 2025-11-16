@@ -37,7 +37,9 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
-import { Trash, Copy, Add, CloseCircle } from '@wandersonalwes/iconsax-react';
+import { Trash, Copy, Add, CloseCircle, ArrowDown2, ArrowUp2 } from '@wandersonalwes/iconsax-react';
+import Collapse from '@mui/material/Collapse';
+import { useTheme } from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -82,7 +84,7 @@ export default function FormsPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editTitleArabic, setEditTitleArabic] = useState('');
   const [editFormType, setEditFormType] = useState<'nutrition' | 'workout' | 'other'>('nutrition');
-  const [editQuestions, setEditQuestions] = useState<Array<{ id: string; originalId?: string; label: string; labelArabic?: string; description?: string; descriptionArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[] }>>([]);
+  const [editQuestions, setEditQuestions] = useState<Array<{ id: string; originalId?: string; label: string; labelArabic?: string; description?: string; descriptionArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[]; allowOther?: boolean }>>([]);
   // Add-question builder for edit dialog
   const [editCustomType, setEditCustomType] = useState<string>('text');
   const [editCustomLabel, setEditCustomLabel] = useState<string>('');
@@ -92,6 +94,7 @@ export default function FormsPage() {
   const [editCustomRequired, setEditCustomRequired] = useState<boolean>(false);
   const [editCustomOptions, setEditCustomOptions] = useState<string[]>([]);
   const [editCustomOptionsArabic, setEditCustomOptionsArabic] = useState<string[]>([]);
+  const [editCustomAllowOther, setEditCustomAllowOther] = useState<boolean>(false);
   const [editCustomError, setEditCustomError] = useState<string>('');
   const [updating, setUpdating] = useState(false);
   const [defaultQuestions, setDefaultQuestions] = useState<
@@ -116,6 +119,7 @@ export default function FormsPage() {
   const [customRequired, setCustomRequired] = useState<boolean>(false);
   const [customOptions, setCustomOptions] = useState<string[]>([]);
   const [customOptionsArabic, setCustomOptionsArabic] = useState<string[]>([]);
+  const [customAllowOther, setCustomAllowOther] = useState<boolean>(false);
   const [customError, setCustomError] = useState<string>('');
   const [copying, setCopying] = useState<string | null>(null);
 
@@ -275,7 +279,7 @@ export default function FormsPage() {
     setCreating(true);
     setError(null);
     try {
-      const questions = newQuestions.map(({ id, label, labelArabic, description, descriptionArabic, type, required, options, optionsArabic }) => ({ id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, description: description || null, descriptionArabic: descriptionArabic || null, type, required, options, optionsArabic }));
+      const questions = newQuestions.map(({ id, label, labelArabic, description, descriptionArabic, type, required, options, optionsArabic, allowOther }) => ({ id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, description: description || null, descriptionArabic: descriptionArabic || null, type, required, options, optionsArabic, allowOther }));
       console.log('createTemplate - sending request with:', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions });
       await api.post('/api/forms/templates', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       console.log('createTemplate - request successful');
@@ -311,7 +315,8 @@ export default function FormsPage() {
       type: q.type || 'text',
       required: !!q.required,
       options: q.options,
-      optionsArabic: q.optionsArabic
+      optionsArabic: q.optionsArabic,
+      allowOther: q.allowOther || false
     })) : [];
     setEditQuestions(mapped);
     setShowEdit(true);
@@ -364,26 +369,41 @@ export default function FormsPage() {
 
   const updateTemplate = async () => {
     if (!editTemplate) return;
-    if (!editTitle.trim()) return;
     setUpdating(true);
     setError(null);
     try {
-      const questions = editQuestions.map(({ id, label, labelArabic, description, descriptionArabic, type, required, options, optionsArabic, originalId }) => ({ id: originalId || id, name: label, nameArabic: labelArabic, question: label, questionArabic: labelArabic, description: description || null, descriptionArabic: descriptionArabic || null, type, required, options, optionsArabic }));
+      const questions = editQuestions.map(({ id, originalId, label, labelArabic, description, descriptionArabic, type, required, options, optionsArabic, allowOther }) => ({ 
+        id: originalId || id, 
+        name: label, 
+        nameArabic: labelArabic, 
+        question: label, 
+        questionArabic: labelArabic, 
+        description: description || null, 
+        descriptionArabic: descriptionArabic || null, 
+        type, 
+        required, 
+        options, 
+        optionsArabic,
+        allowOther
+      }));
       await api.put(`/api/forms/templates/${editTemplate.id}`, { title: editTitle.trim(), titleArabic: editTitleArabic.trim() || undefined, type: editFormType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       setShowEdit(false);
       setEditTemplate(null);
       setEditTitle('');
       setEditTitleArabic('');
+      setEditFormType('nutrition');
       setEditQuestions([]);
       const res = await api.get('/api/forms/templates', { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       setTemplates(Array.isArray(res.data?.templates) ? res.data.templates : []);
-      openSnackbar({ open: true, message: 'Template updated', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
-    } catch {
-      setError('Failed to update template');
+      openSnackbar({ open: true, message: 'Template updated successfully', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+    } catch (err: any) {
+      console.error('updateTemplate error:', err);
+      setError(err?.response?.data?.error || 'Failed to update template');
     } finally {
       setUpdating(false);
     }
   };
+
 
   if (!effectiveWorkspaceId) {
     return (
@@ -446,9 +466,37 @@ export default function FormsPage() {
       {/* Templates Tab Content */}
       {activeTab === 0 && (
         <>
-      <Dialog open={showCreate} onClose={() => setShowCreate(false)} fullWidth maxWidth="md">
-        <DialogTitle><FormattedMessage id="new-form-template" /></DialogTitle>
-        <DialogContent dividers>
+      <Dialog 
+        open={showCreate} 
+        onClose={() => setShowCreate(false)} 
+        fullWidth 
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            bgcolor: 'background.paper',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: 1.5,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <FormattedMessage id="new-form-template" />
+            </Typography>
+            {newQuestions.length > 0 && (
+              <Chip
+                label={`${newQuestions.length} ${newQuestions.length === 1 ? 'question' : 'questions'}`}
+                size="small"
+                color="primary"
+              />
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ bgcolor: 'background.paper' }}>
           <Stack spacing={3}>
             <TextField fullWidth label={intl.formatMessage({ id: 'title' })} value={title} onChange={(e) => setTitle(e.target.value)} />
             <TextField fullWidth label={intl.formatMessage({ id: 'title-arabic' })} value={titleArabic} onChange={(e) => setTitleArabic(e.target.value)} />
@@ -492,13 +540,21 @@ export default function FormsPage() {
             {/* Added questions - editable with drag and drop */}
             {newQuestions.length > 0 && (
               <Box>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Questions ({newQuestions.length})
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Questions ({newQuestions.length})
+                  </Typography>
+                  <Chip
+                    label={`${newQuestions.length} ${newQuestions.length === 1 ? 'question' : 'questions'}`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                </Box>
                 <DndContext collisionDetection={closestCenter} onDragEnd={handleNewQuestionDragEnd}>
                   <SortableContext items={newQuestions.map(q => q.id)} strategy={verticalListSortingStrategy}>
-                <Stack spacing={1}>
-                  {newQuestions.map((q, idx) => (
+                    <Box>
+                      {newQuestions.map((q, idx) => (
                         <SortableQuestion
                           key={q.id}
                           question={q}
@@ -514,17 +570,25 @@ export default function FormsPage() {
                           }}
                           onDelete={() => setNewQuestions((prev) => prev.filter((_, i) => i !== idx))}
                         />
-                  ))}
-                </Stack>
+                      ))}
+                    </Box>
                   </SortableContext>
                 </DndContext>
               </Box>
             )}
 
             {/* Custom question builder */}
-            <Box>
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                Add custom question
+            <Box sx={{ 
+              mt: 3,
+              p: 2.5,
+              borderRadius: 2,
+              border: '2px dashed',
+              borderColor: 'divider',
+              bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'action.hover',
+            }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Add size={20} />
+                Add Custom Question
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={3}>
@@ -585,12 +649,41 @@ export default function FormsPage() {
                       setCustomOptionsArabic(optionsArabic);
                     }}
                   />
+                  {customType === 'select' && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={customAllowOther}
+                          onChange={(e) => setCustomAllowOther(e.target.checked)}
+                        />
+                      }
+                      label="Allow 'Other' option"
+                      sx={{ mt: 2 }}
+                    />
+                  )}
                 </Box>
               )}
-              {customError && <Alert severity="error" sx={{ mt: 1 }}>{customError}</Alert>}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+              {customError && <Alert severity="error" sx={{ mt: 2 }}>{customError}</Alert>}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setCustomLabel('');
+                    setCustomLabelArabic('');
+                    setCustomDescription('');
+                    setCustomDescriptionArabic('');
+                    setCustomRequired(false);
+                    setCustomOptions([]);
+                    setCustomOptionsArabic([]);
+                    setCustomAllowOther(false);
+                    setCustomError('');
+                  }}
+                >
+                  Clear
+                </Button>
                 <Button
                   variant="contained"
+                  startIcon={<Add size={18} />}
                   onClick={() => {
                     setCustomError('');
                     if (!customLabel.trim()) {
@@ -609,6 +702,7 @@ export default function FormsPage() {
                         required: customRequired,
                         options: customOptions.length ? customOptions : undefined,
                         optionsArabic: customOptionsArabic.length ? customOptionsArabic : undefined,
+                        allowOther: customType === 'select' ? customAllowOther : undefined,
                       },
                     ]);
                     setCustomLabel('');
@@ -618,6 +712,7 @@ export default function FormsPage() {
                     setCustomRequired(false);
                     setCustomOptions([]);
                     setCustomOptionsArabic([]);
+                    setCustomAllowOther(false);
                   }}
                 >
                   Add
@@ -720,8 +815,36 @@ export default function FormsPage() {
       </Dialog>
 
       {/* Edit Template Dialog */}
-      <Dialog open={showEdit} onClose={() => setShowEdit(false)} fullWidth maxWidth="md">
-        <DialogTitle>Edit form template</DialogTitle>
+      <Dialog 
+        open={showEdit} 
+        onClose={() => setShowEdit(false)} 
+        fullWidth 
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            bgcolor: 'background.paper',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: 1.5,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Edit Form Template
+            </Typography>
+            {editQuestions.length > 0 && (
+              <Chip
+                label={`${editQuestions.length} ${editQuestions.length === 1 ? 'question' : 'questions'}`}
+                size="small"
+                color="primary"
+              />
+            )}
+          </Box>
+        </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={3}>
             <TextField fullWidth label={intl.formatMessage({ id: 'title' })} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
@@ -737,13 +860,21 @@ export default function FormsPage() {
 
             {editQuestions.length > 0 && (
               <Box>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  Questions ({editQuestions.length})
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Questions ({editQuestions.length})
+                  </Typography>
+                  <Chip
+                    label={`${editQuestions.length} ${editQuestions.length === 1 ? 'question' : 'questions'}`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                </Box>
                 <DndContext collisionDetection={closestCenter} onDragEnd={handleEditQuestionDragEnd}>
                   <SortableContext items={editQuestions.map(q => q.id)} strategy={verticalListSortingStrategy}>
-                <Stack spacing={1}>
-                  {editQuestions.map((q, idx) => (
+                    <Box>
+                      {editQuestions.map((q, idx) => (
                         <SortableQuestion
                           key={q.id}
                           question={q}
@@ -760,17 +891,25 @@ export default function FormsPage() {
                           onDelete={() => setEditQuestions((prev) => prev.filter((_, i) => i !== idx))}
                           isEditMode={true}
                         />
-                  ))}
-                </Stack>
+                      ))}
+                    </Box>
                   </SortableContext>
                 </DndContext>
               </Box>
             )}
 
             {/* Add new question in edit mode */}
-            <Box>
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                Add question
+            <Box sx={{ 
+              mt: 3,
+              p: 2.5,
+              borderRadius: 2,
+              border: '2px dashed',
+              borderColor: 'divider',
+              bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'action.hover',
+            }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Add size={20} />
+                Add Question
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={3}>
@@ -831,12 +970,41 @@ export default function FormsPage() {
                       setEditCustomOptionsArabic(optionsArabic);
                     }}
                   />
+                  {editCustomType === 'select' && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={editCustomAllowOther}
+                          onChange={(e) => setEditCustomAllowOther(e.target.checked)}
+                        />
+                      }
+                      label="Allow 'Other' option"
+                      sx={{ mt: 2 }}
+                    />
+                  )}
                 </Box>
               )}
-              {editCustomError && <Alert severity="error" sx={{ mt: 1 }}>{editCustomError}</Alert>}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+              {editCustomError && <Alert severity="error" sx={{ mt: 2 }}>{editCustomError}</Alert>}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
                 <Button
                   variant="outlined"
+                  onClick={() => {
+                    setEditCustomLabel('');
+                    setEditCustomLabelArabic('');
+                    setEditCustomDescription('');
+                    setEditCustomDescriptionArabic('');
+                    setEditCustomRequired(false);
+                    setEditCustomOptions([]);
+                    setEditCustomOptionsArabic([]);
+                    setEditCustomAllowOther(false);
+                    setEditCustomError('');
+                  }}
+                >
+                  Clear
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<Add size={18} />}
                   onClick={() => {
                     setEditCustomError('');
                     if (!editCustomLabel.trim()) {
@@ -855,6 +1023,7 @@ export default function FormsPage() {
                         required: editCustomRequired,
                         options: editCustomOptions.length ? editCustomOptions : undefined,
                         optionsArabic: editCustomOptionsArabic.length ? editCustomOptionsArabic : undefined,
+                        allowOther: editCustomType === 'select' ? editCustomAllowOther : undefined,
                       },
                     ]);
                     setEditCustomLabel('');
@@ -864,6 +1033,7 @@ export default function FormsPage() {
                     setEditCustomRequired(false);
                     setEditCustomOptions([]);
                     setEditCustomOptionsArabic([]);
+                    setEditCustomAllowOther(false);
                   }}
                 >
                   Add question
@@ -1166,6 +1336,8 @@ function SortableQuestion({
   onDelete: () => void;
   isEditMode?: boolean;
 }) {
+  const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const {
     attributes,
     listeners,
@@ -1181,129 +1353,276 @@ function SortableQuestion({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const questionLabel = question.label || `Question ${index + 1}`;
+  const questionType = question.type || 'text';
+
   return (
-    <Box
+    <Card
       ref={setNodeRef}
       style={style}
       sx={{
-        p: 1,
+        mb: 2,
         border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
-        mb: 1,
-        bgcolor: isDragging ? 'action.hover' : 'background.paper',
-        cursor: isDragging ? 'grabbing' : 'grab',
+        borderColor: isDragging ? 'primary.main' : 'divider',
+        borderRadius: 2,
+        bgcolor: isDragging 
+          ? (theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.08)' : 'rgba(25, 118, 210, 0.04)')
+          : (theme.palette.mode === 'dark' ? 'background.paper' : 'background.paper'),
+        boxShadow: isDragging 
+          ? theme.shadows[4] 
+          : (theme.palette.mode === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.05)'),
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          boxShadow: theme.shadows[2],
+          borderColor: 'primary.light',
+        },
       }}
     >
-      <Grid container spacing={1} alignItems="center">
-        <Grid item xs={12} sm={1} sx={{ display: 'flex', justifyContent: 'center' }}>
+      {/* Question Header - Always Visible */}
+      <CardContent sx={{ pb: expanded ? 1 : '16px !important', pt: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Drag Handle */}
           <Box
             {...attributes}
             {...listeners}
             sx={{
-              cursor: 'grab',
+              cursor: isDragging ? 'grabbing' : 'grab',
               color: 'text.secondary',
               fontSize: 20,
+              display: 'flex',
+              alignItems: 'center',
+              p: 0.5,
+              borderRadius: 1,
+              '&:hover': {
+                bgcolor: 'action.hover',
+                color: 'primary.main',
+              },
               '&:active': { cursor: 'grabbing' }
             }}
           >
             ≡
           </Box>
-        </Grid>
-        <Grid item xs={12} sm={8} md={5}>
-          <FormControl fullWidth size="small">
-            <InputLabel id={`qtype-${question.id}`}>Type</InputLabel>
-            <Select
-              labelId={`qtype-${question.id}`}
-              label="Type"
-              value={question.type}
-              onChange={(e) => onUpdate(question.id, 'type', e.target.value)}
-            >
-              <MenuItem value="text">text</MenuItem>
-              <MenuItem value="textarea">textarea</MenuItem>
-              <MenuItem value="number">number</MenuItem>
-              <MenuItem value="date">date</MenuItem>
-              <MenuItem value="select">select</MenuItem>
-              <MenuItem value="checkbox">checkbox</MenuItem>
-              <MenuItem value="radio">radio</MenuItem>
-              <MenuItem value="attachment">attachment</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} sm={4} md={1} sx={{ display: 'flex', alignItems: 'center' }}>
-          <FormControlLabel 
-            control={
-              <Switch 
-                size="small" 
-                checked={!!question.required} 
-                onChange={(e) => onUpdate(question.id, 'required', e.target.checked)} 
-              />
-            } 
-            label="Required" 
+
+          {/* Question Number Badge */}
+          <Chip
+            label={`#${index + 1}`}
+            size="small"
+            sx={{
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.16)' : 'primary.lighter',
+              color: 'primary.main',
+              fontWeight: 600,
+              minWidth: 40,
+            }}
           />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField 
-            size="small" 
-            fullWidth 
-            label="Label" 
-            value={question.label} 
-            onChange={(e) => onUpdate(question.id, 'label', e.target.value)} 
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2}>
-          <TextField 
-            size="small" 
-            fullWidth 
-            label="Label (Arabic)" 
-            value={question.labelArabic || ''} 
-            onChange={(e) => onUpdate(question.id, 'labelArabic', e.target.value)} 
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField 
-            size="small" 
-            fullWidth 
-            label="Description (optional)" 
-            value={question.description || ''} 
-            onChange={(e) => onUpdate(question.id, 'description', e.target.value)} 
-            multiline
-            minRows={2}
-            placeholder="Help text or instructions"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField 
-            size="small" 
-            fullWidth 
-            label="Description (Arabic, optional)" 
-            value={question.descriptionArabic || ''} 
-            onChange={(e) => onUpdate(question.id, 'descriptionArabic', e.target.value)} 
-            multiline
-            minRows={2}
-            placeholder="نص المساعدة"
-          />
-        </Grid>
-        {['select','checkbox','radio'].includes(question.type) && (
-          <Grid item xs={12}>
-            <OptionsEditor
-              questionId={question.id}
-              options={question.options || []}
-              optionsArabic={question.optionsArabic || []}
-              onUpdate={(options, optionsArabic) => {
-                onUpdate(question.id, 'options', options);
-                onUpdate(question.id, 'optionsArabic', optionsArabic);
+
+          {/* Question Info */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 600,
+                color: 'text.primary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
-            />
-          </Grid>
-        )}
-        <Grid item xs={12} sm={1} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-          <IconButton size="small" color="error" onClick={onDelete}>
-            <Trash />
+            >
+              {questionLabel}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+              <Chip
+                label={questionType}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.7rem',
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'action.hover',
+                }}
+              />
+              {question.required && (
+                <Chip
+                  label="Required"
+                  size="small"
+                  color="error"
+                  sx={{ height: 20, fontSize: '0.7rem' }}
+                />
+              )}
+              {question.description && (
+                <Chip
+                  label="Has Description"
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.16)' : 'success.lighter',
+                    color: 'success.main',
+                  }}
+                />
+              )}
+              {['select', 'checkbox', 'radio'].includes(questionType) && question.options && question.options.length > 0 && (
+                <Chip
+                  label={`${question.options.length} options`}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(156, 39, 176, 0.16)' : 'secondary.lighter',
+                    color: 'secondary.main',
+                  }}
+                />
+              )}
+            </Box>
+          </Box>
+
+          {/* Expand/Collapse Button */}
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                bgcolor: 'action.hover',
+                color: 'primary.main',
+              },
+            }}
+          >
+            {expanded ? <ArrowUp2 size={18} /> : <ArrowDown2 size={18} />}
           </IconButton>
-        </Grid>
-      </Grid>
-    </Box>
+
+          {/* Delete Button */}
+          <IconButton
+            size="small"
+            color="error"
+            onClick={onDelete}
+            sx={{
+              '&:hover': {
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.16)' : 'error.lighter',
+              },
+            }}
+          >
+            <Trash size={18} />
+          </IconButton>
+        </Box>
+      </CardContent>
+
+      {/* Collapsible Content */}
+      <Collapse in={expanded}>
+        <CardContent sx={{ pt: 0, bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'action.hover' }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id={`qtype-${question.id}`}>Type</InputLabel>
+                <Select
+                  labelId={`qtype-${question.id}`}
+                  label="Type"
+                  value={question.type}
+                  onChange={(e) => onUpdate(question.id, 'type', e.target.value)}
+                >
+                  <MenuItem value="text">text</MenuItem>
+                  <MenuItem value="textarea">textarea</MenuItem>
+                  <MenuItem value="number">number</MenuItem>
+                  <MenuItem value="date">date</MenuItem>
+                  <MenuItem value="select">select</MenuItem>
+                  <MenuItem value="checkbox">checkbox</MenuItem>
+                  <MenuItem value="radio">radio</MenuItem>
+                  <MenuItem value="attachment">attachment</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
+              <FormControlLabel 
+                control={
+                  <Switch 
+                    size="small" 
+                    checked={!!question.required} 
+                    onChange={(e) => onUpdate(question.id, 'required', e.target.checked)} 
+                  />
+                } 
+                label="Required" 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Label" 
+                value={question.label} 
+                onChange={(e) => onUpdate(question.id, 'label', e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Label (Arabic)" 
+                value={question.labelArabic || ''} 
+                onChange={(e) => onUpdate(question.id, 'labelArabic', e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Description (optional)" 
+                value={question.description || ''} 
+                onChange={(e) => onUpdate(question.id, 'description', e.target.value)} 
+                multiline
+                minRows={2}
+                placeholder="Help text or instructions"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Description (Arabic, optional)" 
+                value={question.descriptionArabic || ''} 
+                onChange={(e) => onUpdate(question.id, 'descriptionArabic', e.target.value)} 
+                multiline
+                minRows={2}
+                placeholder="نص المساعدة"
+              />
+            </Grid>
+            {['select','checkbox','radio'].includes(question.type) && (
+              <Grid item xs={12}>
+                <Box sx={{ 
+                  p: 2, 
+                  borderRadius: 1, 
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                    Options
+                  </Typography>
+                  <OptionsEditor
+                    questionId={question.id}
+                    options={question.options || []}
+                    optionsArabic={question.optionsArabic || []}
+                    onUpdate={(options, optionsArabic) => {
+                      onUpdate(question.id, 'options', options);
+                      onUpdate(question.id, 'optionsArabic', optionsArabic);
+                    }}
+                  />
+                  {question.type === 'select' && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={question.allowOther || false}
+                          onChange={(e) => onUpdate(question.id, 'allowOther', e.target.checked)}
+                        />
+                      }
+                      label="Allow 'Other' option"
+                      sx={{ mt: 2 }}
+                    />
+                  )}
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+        </CardContent>
+      </Collapse>
+    </Card>
   );
 }
 

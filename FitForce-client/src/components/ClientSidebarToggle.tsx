@@ -1,6 +1,6 @@
 'use client';
 
-import { IconButton, Tooltip, Button, useMediaQuery } from '@mui/material';
+import { IconButton, Tooltip, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { ArrowRight2, ArrowLeft2 } from '@wandersonalwes/iconsax-react';
 import { useClientSidebar } from '@/contexts/ClientSidebarContext';
@@ -27,70 +27,32 @@ export default function ClientSidebarToggle() {
     toggleSidebar();
   };
 
-  // On desktop, use a Button instead of IconButton for better accessibility
-  if (!downLG) {
-    return (
-      <Tooltip title={isOpen ? 'Hide Client Sidebar' : 'Show Client Sidebar'} placement="bottom">
-        <Button
-          onClick={handleClick}
-          variant="outlined"
-          size="small"
-          startIcon={isOpen ? <ArrowLeft2 size={18} /> : <ArrowRight2 size={18} />}
-          sx={(theme) => ({
-            minWidth: 'auto',
-            px: 1.5,
-            py: 0.75,
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            borderColor: 'primary.main',
-            color: 'primary.main',
-            '&:hover': {
-              bgcolor: 'primary.lighter',
-              borderColor: 'primary.dark',
-              ...theme.applyStyles('dark', {
-                bgcolor: 'primary.darker',
-                borderColor: 'primary.light'
-              })
-            },
-            ...theme.applyStyles('dark', {
-              borderColor: 'primary.light',
-              color: 'primary.light',
-              '&:hover': {
-                borderColor: 'primary.main',
-                color: 'primary.main'
-              }
-            })
-          })}
-        >
-          {isOpen ? 'Hide' : 'Show'}
-        </Button>
-      </Tooltip>
-    );
-  }
-
-  // On mobile, keep the small IconButton
+  // Use IconButton for both desktop and mobile (like phone layout)
   return (
-    <Tooltip title={isOpen ? 'Hide Client Sidebar' : 'Show Client Sidebar'} placement="right">
+    <Tooltip title={isOpen ? 'Hide Client Sidebar' : 'Show Client Sidebar'} placement={downLG ? "right" : "bottom"}>
       <IconButton
         onClick={handleClick}
-        size="small"
+        size="large"
         sx={(theme) => ({
-          width: 28,
-          height: 28,
-          p: 0.5,
           color: 'primary.main',
+          bgcolor: 'primary.lighter',
+          ml: downLG ? 1 : 1,
+          p: 1,
           '&:hover': {
-            bgcolor: 'primary.lighter'
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText'
           },
           ...theme.applyStyles('dark', {
+            bgcolor: 'primary.darker',
             color: 'primary.light',
             '&:hover': {
-              bgcolor: 'primary.darker'
+              bgcolor: 'primary.light',
+              color: 'primary.darker'
             }
           })
         })}
       >
-        {isOpen ? <ArrowLeft2 size={18} /> : <ArrowRight2 size={18} />}
+        {isOpen ? <ArrowLeft2 size={20} variant="Bulk" /> : <ArrowRight2 size={20} variant="Bulk" />}
       </IconButton>
     </Tooltip>
   );

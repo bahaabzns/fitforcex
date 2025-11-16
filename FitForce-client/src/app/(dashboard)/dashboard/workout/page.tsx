@@ -50,6 +50,7 @@ import MainCard from 'components/MainCard';
 import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { RowSelection } from 'components/third-party/react-table';
+import { openSnackbar } from '@/api/snackbar';
 
 // Icons
 import { Add, Edit, Trash, DocumentUpload, Warning2, SearchNormal1 } from '@wandersonalwes/iconsax-react';
@@ -405,7 +406,9 @@ export default function WorkoutPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this exercise?')) return;
+    const exercise = exercises.find(e => e.id === id);
+    const exerciseName = exercise?.name || 'this exercise';
+    if (!confirm(`Are you sure you want to delete "${exerciseName}"? The exercise will be hidden but can be restored if needed.`)) return;
 
     setDeleting(id);
     setError(null);
@@ -414,8 +417,21 @@ export default function WorkoutPage() {
       // Refresh the list
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
-    } catch {
-      setError('Cannot delete exercise because it is used in workout plans. Remove it from plans first.');
+      openSnackbar({
+        open: true,
+        message: `Exercise "${exerciseName}" has been deleted successfully`,
+        variant: 'alert',
+        alert: { color: 'success', variant: 'filled' }
+      } as any);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'Cannot delete exercise because it is used in workout plans. Remove it from plans first.';
+      setError(errorMessage);
+      openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' }
+      } as any);
     } finally {
       setDeleting(null);
     }
@@ -423,15 +439,32 @@ export default function WorkoutPage() {
 
   const handleDeleteSelected = async () => {
     if (selected.length === 0) return;
-    if (!confirm(`Delete ${selected.length} selected exercise(s)?`)) return;
+    if (!confirm(`Delete ${selected.length} selected exercise(s)? They will be hidden but can be restored if needed.`)) return;
+    setDeleting('multiple');
+    setError(null);
     try {
       await Promise.all(selected.map((id) => api.delete(`/api/workout/exercises/${id}`)));
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
       setSelected([]);
       setSelectedValue([]);
-    } catch {
-      setError('Some exercises could not be deleted because they are used in workout plans. Remove them from plans first.');
+      openSnackbar({
+        open: true,
+        message: `${selected.length} exercise(s) deleted successfully`,
+        variant: 'alert',
+        alert: { color: 'success', variant: 'filled' }
+      } as any);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'Some exercises could not be deleted because they are used in workout plans. Remove them from plans first.';
+      setError(errorMessage);
+      openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' }
+      } as any);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -1770,9 +1803,42 @@ export default function WorkoutPage() {
                         </Stack>
                         
                         {exercise.notes && (
-                          <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                            Notes: {exercise.notes}
-                          </Typography>
+                          <Box
+                            sx={{
+                              mt: 2,
+                              p: 2,
+                              borderRadius: 2,
+                              bgcolor: 'info.lighter',
+                              border: '2px solid',
+                              borderColor: 'info.main',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                            }}
+                          >
+                            <Typography 
+                              variant="subtitle2" 
+                              sx={{ 
+                                fontWeight: 700,
+                                color: 'info.dark',
+                                mb: 0.5,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5
+                              }}
+                            >
+                              💡 Exercise Notes
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: 'info.darker',
+                                lineHeight: 1.6,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {exercise.notes}
+                            </Typography>
+                          </Box>
                         )}
                       </CardContent>
                     </Card>
