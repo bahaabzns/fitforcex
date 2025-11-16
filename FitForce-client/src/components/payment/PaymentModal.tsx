@@ -117,9 +117,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const discountCents = Math.max(promoPreview?.discountCents ?? 0, 0);
   const finalAmountAfterDiscountCents = promoPreview?.finalAmountCents ?? originalPriceCents;
   const availableCreditCents =
-    type === 'workspace' ? Math.max(promoPreview?.availableCommissionCreditCents ?? 0, 0) : 0;
+    type === 'workspace' ? Math.max(Number(promoPreview?.availableCommissionCreditCents) || 0, 0) : 0;
   const maxCreditApplicable =
     type === 'workspace' ? Math.min(availableCreditCents, finalAmountAfterDiscountCents) : 0;
+  
+  // Debug logging
+  if (type === 'workspace' && open) {
+    console.log('[PaymentModal] Commission credit calculation:', {
+      availableCreditCents,
+      maxCreditApplicable,
+      finalAmountAfterDiscountCents,
+      promoPreviewAvailable: promoPreview?.availableCommissionCreditCents,
+      hasPromoPreview: !!promoPreview,
+    });
+  }
 
   const sanitizeCustomCreditCents = (): number => {
     const sanitized = customCreditValue.replace(/,/g, '').trim();
@@ -252,6 +263,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         signal: controller.signal,
       })
       .then(({ data }) => {
+        console.log('[PaymentModal] Promo preview data:', data);
         setPromoPreview(data);
         setCreditMode('none');
         setCustomCreditValue('');
@@ -522,7 +534,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </Stack>
                   </Box>
 
-                  {promoPreview && promoPreview.availableCommissionCreditCents > 0 ? (
+                  {promoPreview && (Number(promoPreview.availableCommissionCreditCents) || 0) > 0 ? (
                     <Stack spacing={2}>
                       <FormControl>
                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
