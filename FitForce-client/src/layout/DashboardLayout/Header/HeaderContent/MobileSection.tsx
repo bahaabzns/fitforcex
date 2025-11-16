@@ -15,6 +15,8 @@ import Profile from './Profile';
 import Search from './Search';
 import WorkspaceNavigator from './WorkspaceNavigator';
 import ThemeToggle from './ThemeToggle';
+import SubscriptionDays from './SubscriptionDays';
+import ClientLoginLinkMobile from './ClientLoginLinkMobile';
 import IconButton from 'components/@extended/IconButton';
 import Transitions from 'components/@extended/Transitions';
 
@@ -100,9 +102,11 @@ export default function MobileSection() {
                 <AppBar color="inherit">
                   <Toolbar>
                     {!isClientRoute && <WorkspaceNavigator />}
+                    {!isClientRoute && <ClientLoginLinkMobile />}
                     <Search />
                     <Localization />
                     <ThemeToggle />
+                    {!isClientRoute && <SubscriptionDays />}
                     {!isClientRoute && <Profile />}
                   </Toolbar>
                 </AppBar>

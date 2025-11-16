@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, Box, Tooltip, Typography, Chip, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -25,7 +26,12 @@ export default function SortableExercise({
   onPreviewGif
 }: SortableExerciseProps) {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const isLongPressingRef = useRef(false);
+  const dragHandleRef = useRef<HTMLDivElement>(null);
+  
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: exercise.id
   });
@@ -45,37 +51,98 @@ export default function SortableExercise({
                   muscleGroup.includes('cardiovascular') || 
                   !!(exercise as any).durationMinutes;
 
+  // Track when dragging starts to show visual feedback
+  useEffect(() => {
+    if (isDragging) {
+      setIsLongPressing(true);
+    } else {
+      // Reset after a short delay to allow smooth transition
+      const timer = setTimeout(() => {
+        setIsLongPressing(false);
+        isLongPressingRef.current = false;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isDragging]);
+
+  // On mobile, apply drag listeners directly to the card (TouchSensor will handle the delay)
+  // On desktop, use drag handle
+  const cardListeners = isMobile 
+    ? { ...attributes, ...listeners }
+    : {};
+  const handleListeners = isMobile ? {} : { ...attributes, ...listeners };
+
+
   return (
     <Card
       ref={setNodeRef}
       style={style}
       sx={{
-        cursor: 'grab',
+        cursor: isMobile && isLongPressing ? 'grabbing' : isMobile ? 'default' : 'grab',
         transition: 'all 0.2s',
         border: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
+        borderColor: isLongPressing ? 'primary.main' : 'divider',
+        bgcolor: isLongPressing ? 'action.selected' : 'background.paper',
         borderRadius: 2,
-        boxShadow: 1,
+        boxShadow: isLongPressing ? 4 : 1,
+        position: 'relative',
         '&:hover': {
           boxShadow: 4,
-          transform: 'translateY(-2px)',
+          transform: isDragging ? undefined : 'translateY(-2px)',
           borderColor: 'primary.light'
         },
         '&:active': {
-          cursor: 'grabbing'
+          cursor: isMobile && isLongPressing ? 'grabbing' : isMobile ? 'default' : 'grabbing'
+        },
+        ...(isMobile && {
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none', // Prevent iOS callout menu
+          touchAction: 'pan-y', // Allow vertical scrolling, TouchSensor will handle drag
+          WebkitTapHighlightColor: 'transparent'
+        })
+      }}
+      {...cardListeners}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onClick={(e) => {
+        // On mobile, prevent click during drag, allow normal click otherwise
+        if (isMobile && !isDragging && !isLongPressing) {
+          onEdit(exercise);
         }
       }}
     >
+      {isMobile && isLongPressing && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 1,
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            zIndex: 10,
+            pointerEvents: 'none'
+          }}
+        >
+          Drag to reorder
+        </Box>
+      )}
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, overflow: 'visible' }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
-          {/* Drag Handle */}
+          {/* Drag Handle - Hidden on mobile, visible on desktop */}
           <Box
-            {...attributes}
-            {...listeners}
+            ref={dragHandleRef}
+            {...handleListeners}
             sx={{
               cursor: 'grab',
-              display: 'flex',
+              display: isMobile ? 'none' : 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               width: 40,
@@ -215,7 +282,9 @@ export default function SortableExercise({
               color="primary"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit(exercise);
+                if (!isLongPressing) {
+                  onEdit(exercise);
+                }
               }}
               sx={{
                 bgcolor: 'primary.lighter',
@@ -229,7 +298,7 @@ export default function SortableExercise({
               color="error"
               onClick={(e) => {
                 e.stopPropagation();
-                if (window.confirm(`Remove ${exercise.exercise.name} from this day?`)) {
+                if (!isLongPressing && window.confirm(`Remove ${exercise.exercise.name} from this day?`)) {
                   onDelete(exercise.id);
                 }
               }}

@@ -21,7 +21,9 @@ import {
   DialogContent,
   Chip,
   Paper,
-  Avatar
+  Avatar,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { PlayArrow, FitnessCenter } from '@mui/icons-material';
 import WorkoutTracking from '@/components/workout/WorkoutTracking';
@@ -59,6 +61,8 @@ export default function ClientWorkoutPlanDetail() {
   const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const { data, isLoading, error } = useSWR(() => (id ? `client-workout-plan-${id}` : null), async () => {
     const wsRes = await api.get('/api/clients/profile');
@@ -171,6 +175,7 @@ export default function ClientWorkoutPlanDetail() {
                   // Priority: GIF > YouTube thumbnail > nothing (GIFs are better for exercise demos)
                   const mediaUrl = gifUrl || youtubeThumbnailUrl;
                   const isYouTube = !!youtubeThumbnailUrl && !gifUrl;
+                  const hasGif = !!gifUrl;
                   
                   return (
                     <Card 
@@ -185,25 +190,66 @@ export default function ClientWorkoutPlanDetail() {
                         borderRadius: 3,
                         boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 8px 32px rgba(0, 0, 0, 0.1)',
                         transition: 'all 0.3s ease',
+                        overflow: 'hidden',
                         '&:hover': {
                           transform: 'translateY(-4px)',
                           boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 12px 40px rgba(0, 0, 0, 0.4)' : '0 12px 40px rgba(0, 0, 0, 0.2)',
                         }
                       }}
                     >
-                      {/* Exercise Media */}
-                      {mediaUrl && (
-                        <Box sx={{ position: 'relative', height: 200 }}>
-                          <CardMedia
-                            component="img"
-                            height="200"
-                            image={mediaUrl}
+                      {/* Exercise Media - Always show if available, especially on mobile */}
+                      {mediaUrl ? (
+                        <Box 
+                          sx={{ 
+                            position: 'relative', 
+                            width: '100%',
+                            height: isMobile ? 220 : 200,
+                            minHeight: isMobile ? 220 : 200,
+                            maxHeight: isMobile ? 220 : 200,
+                            overflow: 'hidden',
+                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={mediaUrl}
                             alt={it.exercise?.name || 'Exercise'}
-                            sx={{
+                            style={{
+                              width: '100%',
+                              height: '100%',
                               objectFit: 'cover',
-                              cursor: isYouTube ? 'pointer' : 'default'
+                              display: 'block',
+                              cursor: isYouTube ? 'pointer' : 'default',
+                              minHeight: '100%',
+                              minWidth: '100%'
                             }}
                             onClick={() => isYouTube && openYouTubeVideo(it.exercise.videoUrl)}
+                            onError={(e) => {
+                              // Fallback if image fails to load - hide image and show placeholder
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent && !parent.querySelector('.image-placeholder')) {
+                                const placeholder = document.createElement('div');
+                                placeholder.className = 'image-placeholder';
+                                placeholder.style.cssText = `
+                                  width: 100%;
+                                  height: 100%;
+                                  display: flex;
+                                  align-items: center;
+                                  justify-content: center;
+                                  background: ${theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'};
+                                  color: ${theme.palette.text.secondary};
+                                  font-size: 0.875rem;
+                                `;
+                                placeholder.textContent = hasGif ? 'GIF not available' : 'Image not available';
+                                parent.appendChild(placeholder);
+                              }
+                            }}
+                            loading="lazy"
                           />
                           {/* Play Button Overlay - only for YouTube videos */}
                           {isYouTube && (
@@ -215,23 +261,42 @@ export default function ClientWorkoutPlanDetail() {
                                 transform: 'translate(-50%, -50%)',
                                 backgroundColor: 'rgba(0, 0, 0, 0.7)',
                                 borderRadius: '50%',
-                                width: 60,
-                                height: 60,
+                                width: isMobile ? 56 : 60,
+                                height: isMobile ? 56 : 60,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 cursor: 'pointer',
                                 transition: 'all 0.3s ease',
+                                zIndex: 1,
                                 '&:hover': {
                                   backgroundColor: 'rgba(255, 0, 0, 0.8)',
                                   transform: 'translate(-50%, -50%) scale(1.1)',
+                                },
+                                '&:active': {
+                                  transform: 'translate(-50%, -50%) scale(0.95)',
                                 }
                               }}
                               onClick={() => openYouTubeVideo(it.exercise.videoUrl)}
                             >
-                              <PlayArrow sx={{ color: 'white', fontSize: 30 }} />
+                              <PlayArrow sx={{ color: 'white', fontSize: isMobile ? 28 : 30 }} />
                             </Box>
                           )}
+                        </Box>
+                      ) : (
+                        // Placeholder when no media is available
+                        <Box 
+                          sx={{ 
+                            width: '100%',
+                            height: isMobile ? 220 : 200,
+                            minHeight: isMobile ? 220 : 200,
+                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <FitnessCenter sx={{ fontSize: 48, color: 'text.secondary', opacity: 0.3 }} />
                         </Box>
                       )}
                       

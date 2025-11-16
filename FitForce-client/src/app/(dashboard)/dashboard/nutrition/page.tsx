@@ -37,6 +37,10 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Chip from '@mui/material/Chip';
+import Autocomplete from '@mui/material/Autocomplete';
+import Paper from '@mui/material/Paper';
+import Collapse from '@mui/material/Collapse';
+import CardHeader from '@mui/material/CardHeader';
 import Avatar from '@mui/material/Avatar';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -51,7 +55,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { RowSelection } from 'components/third-party/react-table';
 
 // Icons
-import { Add, Edit, Trash, DocumentUpload, SearchNormal1, Information } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, DocumentUpload, SearchNormal1, Information, Filter, CloseCircle, ArrowUp2 } from '@wandersonalwes/iconsax-react';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -238,6 +242,11 @@ export default function NutritionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filters for main search - Multiselect arrays
+  const [searchCategoryFilter, setSearchCategoryFilter] = useState<string[]>([]);
+  const [searchUnitFilter, setSearchUnitFilter] = useState<string[]>([]);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
 
   // Table states
   const [order, setOrder] = useState<ArrangementOrder>('asc');
@@ -476,11 +485,33 @@ export default function NutritionPage() {
 
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
 
-  // Search filtering
-  const filteredFoodItems = foodItems.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.nameArabic?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Search filtering with category and unit filters (multiselect)
+  const filteredFoodItems = foodItems.filter((item) => {
+    // Text search
+    const matchesSearch = !searchTerm.trim() || 
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.nameArabic && item.nameArabic.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Category filter (multiselect)
+    const matchesCategory = searchCategoryFilter.length === 0 || 
+      (item.category && searchCategoryFilter.includes(item.category));
+    
+    // Unit filter (multiselect)
+    const matchesUnit = searchUnitFilter.length === 0 || 
+      (item.unit && searchUnitFilter.includes(item.unit));
+    
+    return matchesSearch && matchesCategory && matchesUnit;
+  });
+
+  // Count active filters
+  const activeFiltersCount = searchCategoryFilter.length + searchUnitFilter.length;
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchCategoryFilter([]);
+    setSearchUnitFilter([]);
+    setSearchTerm('');
+  };
 
   // Import handlers
   const handleOpenImport = async () => {
@@ -707,17 +738,229 @@ export default function NutritionPage() {
           </Stack>
           <RowSelection selected={selected.length} />
 
-          {/* Search Input */}
-          <Box sx={{ mb: 2 }}>
-            <TextField
-              fullWidth
-              placeholder="Search food items by name or Arabic name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              sx={{ maxWidth: 400 }}
+          {/* Enhanced Search and Filters Section */}
+          <Card 
+            variant="outlined" 
+            sx={{ 
+              mb: 2,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            <CardHeader
+              avatar={
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 1,
+                    bgcolor: 'primary.lighter',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Filter size={20} />
+                </Box>
+              }
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Filters
+                  </Typography>
+                  {activeFiltersCount > 0 && (
+                    <Chip 
+                      label={activeFiltersCount} 
+                      size="small" 
+                      color="primary"
+                      sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }}
+                    />
+                  )}
+                </Box>
+              }
+              subheader={
+                <Typography variant="body2" color="text.secondary">
+                  {activeFiltersCount > 0 
+                    ? `${activeFiltersCount} filter${activeFiltersCount > 1 ? 's' : ''} active • ${filteredFoodItems.length} food item${filteredFoodItems.length !== 1 ? 's' : ''} found`
+                    : `Showing all ${filteredFoodItems.length} food item${filteredFoodItems.length !== 1 ? 's' : ''}`
+                  }
+                </Typography>
+              }
+              action={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {activeFiltersCount > 0 && (
+                    <Button
+                      size="small"
+                      startIcon={<CloseCircle size={16} />}
+                      onClick={clearAllFilters}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                  <IconButton
+                    size="small"
+                    onClick={() => setFiltersExpanded(!filtersExpanded)}
+                    sx={{ 
+                      transform: filtersExpanded ? 'rotate(0deg)' : 'rotate(180deg)',
+                      transition: 'transform 0.3s'
+                    }}
+                  >
+                    <ArrowUp2 size={20} />
+                  </IconButton>
+                </Stack>
+              }
+              sx={{ pb: filtersExpanded ? 1 : 0 }}
             />
-          </Box>
+            <Collapse in={filtersExpanded}>
+              <CardContent>
+                <Stack spacing={3}>
+                  {/* Search Bar */}
+                  <TextField
+                    fullWidth
+                    placeholder="Search food items by name or Arabic name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    size="small"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchNormal1 size={20} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchTerm && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchTerm('')}
+                            edge="end"
+                          >
+                            <CloseCircle size={18} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ 
+                      bgcolor: 'background.default',
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2
+                      }
+                    }}
+                  />
+
+                  {/* Active Filter Chips */}
+                  {activeFiltersCount > 0 && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                        Active Filters:
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {searchCategoryFilter.map((cat) => (
+                          <Chip
+                            key={cat}
+                            label={`Category: ${cat}`}
+                            size="small"
+                            onDelete={() => setSearchCategoryFilter(prev => prev.filter(f => f !== cat))}
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                        {searchUnitFilter.map((unit) => (
+                          <Chip
+                            key={unit}
+                            label={`Unit: ${unit}`}
+                            size="small"
+                            onDelete={() => setSearchUnitFilter(prev => prev.filter(f => f !== unit))}
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {/* Filter Dropdowns */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Autocomplete
+                        multiple
+                        size="small"
+                        options={Array.from(new Set(foodItems.map(f => f.category).filter(Boolean))).sort()}
+                        value={searchCategoryFilter}
+                        onChange={(_, newValue) => setSearchCategoryFilter(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Category"
+                            placeholder="Select categories..."
+                            sx={{
+                              bgcolor: 'background.default',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2
+                              }
+                            }}
+                          />
+                        )}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              {...getTagProps({ index })}
+                              key={option}
+                              label={option}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))
+                        }
+                        PaperComponent={(props) => (
+                          <Paper {...props} sx={{ borderRadius: 2, mt: 1 }} />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Autocomplete
+                        multiple
+                        size="small"
+                        options={Array.from(new Set(foodItems.map(f => f.unit).filter(Boolean))).sort()}
+                        value={searchUnitFilter}
+                        onChange={(_, newValue) => setSearchUnitFilter(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Unit"
+                            placeholder="Select units..."
+                            sx={{
+                              bgcolor: 'background.default',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2
+                              }
+                            }}
+                          />
+                        )}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              {...getTagProps({ index })}
+                              key={option}
+                              label={option}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))
+                        }
+                        PaperComponent={(props) => (
+                          <Paper {...props} sx={{ borderRadius: 2, mt: 1 }} />
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                </Stack>
+              </CardContent>
+            </Collapse>
+          </Card>
 
           {/* table */}
           {isMobile ? (

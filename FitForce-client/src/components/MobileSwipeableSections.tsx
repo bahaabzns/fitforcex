@@ -180,7 +180,7 @@ export default function MobileSwipeableSections({
           scrollSnapType: 'x mandatory',
           scrollBehavior: 'smooth',
           WebkitOverflowScrolling: 'touch',
-          '-ms-overflow-style': 'none',
+          msOverflowStyle: 'none',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': {
             display: 'none'

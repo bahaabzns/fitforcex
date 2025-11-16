@@ -35,6 +35,10 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Chip from '@mui/material/Chip';
+import Autocomplete from '@mui/material/Autocomplete';
+import Paper from '@mui/material/Paper';
+import Collapse from '@mui/material/Collapse';
+import CardHeader from '@mui/material/CardHeader';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
@@ -53,7 +57,7 @@ import { RowSelection } from 'components/third-party/react-table';
 import { openSnackbar } from '@/api/snackbar';
 
 // Icons
-import { Add, Edit, Trash, DocumentUpload, Warning2, SearchNormal1 } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, DocumentUpload, Warning2, SearchNormal1, Filter, CloseCircle, ArrowDown2, ArrowUp2 } from '@wandersonalwes/iconsax-react';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -252,10 +256,11 @@ export default function WorkoutPage() {
   // Pagination for import dialog
   const [importPage, setImportPage] = useState(0);
   const [importRowsPerPage, setImportRowsPerPage] = useState(20);
-  // Filters for main search
-  const [searchEquipmentFilter, setSearchEquipmentFilter] = useState<string>('all');
-  const [searchCategoryFilter, setSearchCategoryFilter] = useState<string>('all');
-  const [searchMuscleGroupFilter, setSearchMuscleGroupFilter] = useState<string>('all');
+  // Filters for main search - Changed to multiselect arrays
+  const [searchEquipmentFilter, setSearchEquipmentFilter] = useState<string[]>([]);
+  const [searchCategoryFilter, setSearchCategoryFilter] = useState<string[]>([]);
+  const [searchMuscleGroupFilter, setSearchMuscleGroupFilter] = useState<string[]>([]);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   // Equipment and category options (with "Other" support)
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
@@ -528,28 +533,39 @@ export default function WorkoutPage() {
 
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
 
-  // Search filtering with equipment, category, and muscle group filters
+  // Search filtering with equipment, category, and muscle group filters (multiselect)
   const filteredExercises = exercises.filter((exercise) => {
     // Text search
     const matchesSearch = !searchTerm.trim() || 
-    exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exercise.nameArabic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      exercise.nameArabic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exercise.muscleGroup.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Equipment filter
-    const matchesEquipment = searchEquipmentFilter === 'all' || 
-      exercise.equipmentNeeded === searchEquipmentFilter;
+    // Equipment filter (multiselect)
+    const matchesEquipment = searchEquipmentFilter.length === 0 || 
+      (exercise.equipmentNeeded && searchEquipmentFilter.includes(exercise.equipmentNeeded));
     
-    // Category filter
-    const matchesCategory = searchCategoryFilter === 'all' || 
-      exercise.category === searchCategoryFilter;
+    // Category filter (multiselect)
+    const matchesCategory = searchCategoryFilter.length === 0 || 
+      (exercise.category && searchCategoryFilter.includes(exercise.category));
     
-    // Muscle group filter
-    const matchesMuscleGroup = searchMuscleGroupFilter === 'all' || 
-      exercise.muscleGroup === searchMuscleGroupFilter;
+    // Muscle group filter (multiselect)
+    const matchesMuscleGroup = searchMuscleGroupFilter.length === 0 || 
+      searchMuscleGroupFilter.includes(exercise.muscleGroup);
     
     return matchesSearch && matchesEquipment && matchesCategory && matchesMuscleGroup;
   });
+
+  // Count active filters
+  const activeFiltersCount = searchEquipmentFilter.length + searchCategoryFilter.length + searchMuscleGroupFilter.length;
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchEquipmentFilter([]);
+    setSearchCategoryFilter([]);
+    setSearchMuscleGroupFilter([]);
+    setSearchTerm('');
+  };
 
   // Import handlers
   const handleOpenImport = async () => {
@@ -767,65 +783,276 @@ export default function WorkoutPage() {
         >
           <RowSelection selected={selected.length} />
 
-          {/* Search Input with Filters */}
-          <Box sx={{ mb: 2 }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-            <TextField
-              fullWidth
-              placeholder="Search exercises by name, Arabic name, or muscle group..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              sx={{ maxWidth: 400 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchNormal1 size={20} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Equipment</InputLabel>
-                <Select
-                  value={searchEquipmentFilter}
-                  label="Equipment"
-                  onChange={(e) => setSearchEquipmentFilter(e.target.value)}
+          {/* Enhanced Search and Filters Section */}
+          <Card 
+            variant="outlined" 
+            sx={{ 
+              mb: 2,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            <CardHeader
+              avatar={
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 1,
+                    bgcolor: 'primary.lighter',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
-                  <MenuItem value="all">All Equipment</MenuItem>
-                  {Array.from(new Set(exercises.map(e => e.equipmentNeeded).filter(Boolean))).sort().map((eq) => (
-                    <MenuItem key={eq} value={eq}>{eq}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={searchCategoryFilter}
-                  label="Category"
-                  onChange={(e) => setSearchCategoryFilter(e.target.value)}
-                >
-                  <MenuItem value="all">All Categories</MenuItem>
-                  {Array.from(new Set(exercises.map(e => e.category).filter(Boolean))).sort().map((cat) => (
-                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Muscle Group</InputLabel>
-                <Select
-                  value={searchMuscleGroupFilter}
-                  label="Muscle Group"
-                  onChange={(e) => setSearchMuscleGroupFilter(e.target.value)}
-                >
-                  <MenuItem value="all">All Groups</MenuItem>
-                  {MUSCLE_GROUPS.map((group) => (
-                    <MenuItem key={group} value={group}>{group}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
-          </Box>
+                  <Filter size={20} />
+                </Box>
+              }
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Filters
+                  </Typography>
+                  {activeFiltersCount > 0 && (
+                    <Chip 
+                      label={activeFiltersCount} 
+                      size="small" 
+                      color="primary"
+                      sx={{ height: 20, fontSize: '0.75rem', fontWeight: 600 }}
+                    />
+                  )}
+                </Box>
+              }
+              subheader={
+                <Typography variant="body2" color="text.secondary">
+                  {activeFiltersCount > 0 
+                    ? `${activeFiltersCount} filter${activeFiltersCount > 1 ? 's' : ''} active • ${filteredExercises.length} exercise${filteredExercises.length !== 1 ? 's' : ''} found`
+                    : `Showing all ${filteredExercises.length} exercise${filteredExercises.length !== 1 ? 's' : ''}`
+                  }
+                </Typography>
+              }
+              action={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {activeFiltersCount > 0 && (
+                    <Button
+                      size="small"
+                      startIcon={<CloseCircle size={16} />}
+                      onClick={clearAllFilters}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                  <IconButton
+                    size="small"
+                    onClick={() => setFiltersExpanded(!filtersExpanded)}
+                    sx={{ 
+                      transform: filtersExpanded ? 'rotate(0deg)' : 'rotate(180deg)',
+                      transition: 'transform 0.3s'
+                    }}
+                  >
+                    <ArrowUp2 size={20} />
+                  </IconButton>
+                </Stack>
+              }
+              sx={{ pb: filtersExpanded ? 1 : 0 }}
+            />
+            <Collapse in={filtersExpanded}>
+              <CardContent>
+                <Stack spacing={3}>
+                  {/* Search Bar */}
+                  <TextField
+                    fullWidth
+                    placeholder="Search exercises by name, Arabic name, or muscle group..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    size="small"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchNormal1 size={20} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchTerm && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchTerm('')}
+                            edge="end"
+                          >
+                            <CloseCircle size={18} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ 
+                      bgcolor: 'background.default',
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2
+                      }
+                    }}
+                  />
+
+                  {/* Active Filter Chips */}
+                  {activeFiltersCount > 0 && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                        Active Filters:
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {searchEquipmentFilter.map((eq) => (
+                          <Chip
+                            key={eq}
+                            label={`Equipment: ${eq}`}
+                            size="small"
+                            onDelete={() => setSearchEquipmentFilter(prev => prev.filter(f => f !== eq))}
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                        {searchCategoryFilter.map((cat) => (
+                          <Chip
+                            key={cat}
+                            label={`Category: ${cat}`}
+                            size="small"
+                            onDelete={() => setSearchCategoryFilter(prev => prev.filter(f => f !== cat))}
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                        {searchMuscleGroupFilter.map((group) => (
+                          <Chip
+                            key={group}
+                            label={`Muscle: ${group}`}
+                            size="small"
+                            onDelete={() => setSearchMuscleGroupFilter(prev => prev.filter(f => f !== group))}
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {/* Filter Dropdowns */}
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <Autocomplete
+                        multiple
+                        size="small"
+                        options={Array.from(new Set(exercises.map(e => e.equipmentNeeded).filter(Boolean))).sort()}
+                        value={searchEquipmentFilter}
+                        onChange={(_, newValue) => setSearchEquipmentFilter(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Equipment"
+                            placeholder="Select equipment..."
+                            sx={{
+                              bgcolor: 'background.default',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2
+                              }
+                            }}
+                          />
+                        )}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              {...getTagProps({ index })}
+                              key={option}
+                              label={option}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))
+                        }
+                        PaperComponent={(props) => (
+                          <Paper {...props} sx={{ borderRadius: 2, mt: 1 }} />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <Autocomplete
+                        multiple
+                        size="small"
+                        options={Array.from(new Set(exercises.map(e => e.category).filter(Boolean))).sort()}
+                        value={searchCategoryFilter}
+                        onChange={(_, newValue) => setSearchCategoryFilter(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Category"
+                            placeholder="Select categories..."
+                            sx={{
+                              bgcolor: 'background.default',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2
+                              }
+                            }}
+                          />
+                        )}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              {...getTagProps({ index })}
+                              key={option}
+                              label={option}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))
+                        }
+                        PaperComponent={(props) => (
+                          <Paper {...props} sx={{ borderRadius: 2, mt: 1 }} />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <Autocomplete
+                        multiple
+                        size="small"
+                        options={MUSCLE_GROUPS}
+                        value={searchMuscleGroupFilter}
+                        onChange={(_, newValue) => setSearchMuscleGroupFilter(newValue)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Muscle Group"
+                            placeholder="Select muscle groups..."
+                            sx={{
+                              bgcolor: 'background.default',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2
+                              }
+                            }}
+                          />
+                        )}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              {...getTagProps({ index })}
+                              key={option}
+                              label={option}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))
+                        }
+                        PaperComponent={(props) => (
+                          <Paper {...props} sx={{ borderRadius: 2, mt: 1 }} />
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                </Stack>
+              </CardContent>
+            </Collapse>
+          </Card>
 
           {/* table */}
           {isMobile ? (

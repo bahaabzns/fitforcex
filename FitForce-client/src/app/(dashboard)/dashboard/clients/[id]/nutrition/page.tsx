@@ -262,7 +262,7 @@ export default function ClientNutritionPage() {
     const paddingLeft = depth * 12;
     if (value === null || value === undefined) return <Typography component="span" color="text.secondary">—</Typography> as any;
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      return <Typography component="span" sx={{ color: 'success.main', fontWeight: 500 }}>{String(value)}</Typography> as any;
+      return <Typography component="span" sx={{ color: 'text.primary', fontWeight: 500 }}>{String(value)}</Typography> as any;
     }
     if (Array.isArray(value)) {
       if (value.length === 0) return <Typography component="span" color="text.secondary">[]</Typography> as any;
@@ -313,7 +313,7 @@ export default function ClientNutritionPage() {
                 <Box sx={{ width: '100%', pl: paddingLeft }}>
                   <Typography variant="body2" sx={{ fontWeight: 600, mr: 1, display: 'inline', color: 'primary.main' }}>{questionTitle}</Typography>
                   <Typography variant="body2" sx={{ display: 'inline', color: 'text.secondary', mx: 0.5 }}>:</Typography>
-                  <Box component="span" sx={{ color: 'success.main', fontWeight: 500 }}>{renderAnswerValue(v, questions, depth + 1)}</Box>
+                  <Box component="span" sx={{ color: 'text.primary', fontWeight: 500 }}>{renderAnswerValue(v, questions, depth + 1)}</Box>
                 </Box>
               </ListItem>
             );
@@ -321,7 +321,7 @@ export default function ClientNutritionPage() {
         </List>
       );
     }
-    return <Typography component="span" sx={{ color: 'success.main', fontWeight: 500 }}>{String(value)}</Typography> as any;
+    return <Typography component="span" sx={{ color: 'text.primary', fontWeight: 500 }}>{String(value)}</Typography> as any;
   };
 
   const reorderArray = <T,>(arr: T[], from: number, to: number): T[] => {
