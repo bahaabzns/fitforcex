@@ -66,7 +66,6 @@ const formatDuration = (totalSeconds: number) => {
 
 const getCardioMeta = (item: any) => {
   const exercise = item?.exercise || {};
-  const explicitCardio = item?.isCardio ?? exercise?.isCardio;
   const category = exercise?.category?.toLowerCase() || '';
   const muscleGroup = exercise?.muscleGroup?.toLowerCase() || '';
   let notes = item?.notes || '';
@@ -93,12 +92,14 @@ const getCardioMeta = (item: any) => {
     }
   }
 
+  const hasDuration = Boolean(durationSeconds);
+  const explicitCardio = item?.isCardio ?? exercise?.isCardio;
   const isCardio =
-    explicitCardio !== undefined
+    hasDuration ||
+    (explicitCardio !== undefined
       ? Boolean(explicitCardio)
       : category === 'cardio' ||
-        muscleGroup.includes('cardio') ||
-        Boolean(durationSeconds);
+        muscleGroup.includes('cardio'));
 
   return {
     isCardio,
