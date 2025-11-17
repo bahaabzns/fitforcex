@@ -1,17 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import api from '@/utils/axios';
 import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
-import { 
-  Box, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Stack, 
-  CircularProgress, 
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Stack,
+  CircularProgress,
   Divider,
   Paper,
   Grid,
@@ -19,32 +19,101 @@ import {
   Avatar,
   IconButton,
   Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Tooltip
+  Chip as MuiChip
 } from '@mui/material';
-import { 
-  Restaurant, 
+import {
+  Restaurant,
   ArrowBack,
   LocalFireDepartment,
   Opacity,
   FitnessCenter,
-  Info
+  EmojiFoodBeverage,
+  Grain,
+  Bento,
+  EmojiNature,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import useConfig from '@/hooks/useConfig';
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
 
 const translations: Record<string, Record<string, string>> = { ar, en };
+
+const nutrientKeys = [
+  'water',
+  'ash',
+  'fiber',
+  'sodium',
+  'potassium',
+  'calcium',
+  'phosphorous',
+  'magnesium',
+  'iron',
+  'zinc',
+  'copper',
+  'manganese',
+  'fluoride',
+  'selenium',
+  'vitamin_a',
+  'vitamin_c',
+  'vitamin_b1',
+  'vitamin_b2',
+  'vitamin_b5',
+  'vitamin_b6',
+  'vitamin_b12',
+  'vitamin_d',
+  'vitamin_e',
+  'vitamin_k',
+  'niacin',
+  'folic_acid',
+  'choline',
+  'betaine'
+] as const;
+
+const nutrientLabels: Record<string, string> = {
+  water: 'Water (g)',
+  ash: 'Ash (g)',
+  fiber: 'Fiber (g)',
+  sodium: 'Sodium (mg)',
+  potassium: 'Potassium (mg)',
+  calcium: 'Calcium (mg)',
+  phosphorous: 'Phosphorous (mg)',
+  magnesium: 'Magnesium (mg)',
+  iron: 'Iron (mg)',
+  zinc: 'Zinc (mg)',
+  copper: 'Copper (mg)',
+  manganese: 'Manganese (mg)',
+  fluoride: 'Fluoride (mg)',
+  selenium: 'Selenium (mg)',
+  vitamin_a: 'Vitamin A (IU)',
+  vitamin_c: 'Vitamin C (mg)',
+  vitamin_b1: 'Vitamin B1 (mg)',
+  vitamin_b2: 'Vitamin B2 (mg)',
+  vitamin_b5: 'Vitamin B5 (mg)',
+  vitamin_b6: 'Vitamin B6 (mg)',
+  vitamin_b12: 'Vitamin B12 (mg)',
+  vitamin_d: 'Vitamin D (IU)',
+  vitamin_e: 'Vitamin E (mg)',
+  vitamin_k: 'Vitamin K (mg)',
+  niacin: 'Niacin (mg)',
+  folic_acid: 'Folic Acid (mg)',
+  choline: 'Choline (mg)',
+  betaine: 'Betaine (mg)'
+};
+
+type MacroTotals = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
+type SelectedEntity =
+  | { type: 'cycle'; dayIndex: number }
+  | { type: 'meal'; dayIndex: number; mealIndex: number }
+  | { type: 'food'; dayIndex: number; mealIndex: number; foodIndex: number };
+
+const formatMacro = (value: number, suffix = 'g') => `${Math.round(value)}${suffix}`;
 
 export default function ClientNutritionPlanDetail() {
   const { i18n } = useConfig();
@@ -56,9 +125,7 @@ export default function ClientNutritionPlanDetail() {
   const id = params?.id as string;
   const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
 
-  // State for micros dialog
-  const [microsDialogOpen, setMicrosDialogOpen] = useState(false);
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null);
 
   const { data, isLoading, error } = useSWR(() => (id ? `client-nutrition-plan-${id}` : null), async () => {
     // Get plan with cycles/items
@@ -94,41 +161,39 @@ export default function ClientNutritionPlanDetail() {
     };
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8, minHeight: '60vh' }}>
-        <Stack alignItems="center" spacing={2}>
-          <CircularProgress size={60} />
-          <Typography color="text.secondary" variant="h6">{t('client.nutrition.loading')}</Typography>
-        </Stack>
-      </Box>
-    );
-  }
+  const planData = data?.plan;
+  const cycles = planData?.cycles || [];
+  const totalDays = cycles.length;
 
-  if (error || !data?.plan) {
-    return (
-      <Box sx={{ p: { xs: 2, md: 4 } }}>
-        <Alert severity="error" sx={{ borderRadius: 2 }}>
-          {t('client.nutrition.loadError')}
-        </Alert>
-      </Box>
-    );
-  }
+  useEffect(() => {
+    if (!cycles.length) {
+      if (selectedEntity) {
+        setSelectedEntity(null);
+      }
+      return;
+    }
 
-  const { plan } = data;
-  const totalDays = plan.cycles?.length || 0;
+    const isEntityValid =
+      selectedEntity &&
+      selectedEntity.dayIndex >= 0 &&
+      selectedEntity.dayIndex < cycles.length;
+
+    if (!isEntityValid && selectedEntity) {
+      setSelectedEntity(null);
+    }
+  }, [cycles, selectedEntity]);
 
   // Calculate total daily nutrition across all meals for each day
-  const getDayTotals = (day: typeof plan.cycles[0]) => {
+  const getDayTotals = (day: (typeof cycles)[number]) => {
     let totalCalories = 0;
     let totalProtein = 0;
     let totalCarbs = 0;
     let totalFat = 0;
 
-    day.meals?.forEach(meal => {
-      meal.foodItems?.forEach(fi => {
+    day?.meals?.forEach((meal) => {
+      meal.foodItems?.forEach((fi) => {
         const serving = Number(fi.foodItem?.servingSize ?? 100) || 100;
-        const factor = serving > 0 ? (Number(fi.quantity ?? 0) / serving) : 0;
+        const factor = serving > 0 ? Number(fi.quantity ?? 0) / serving : 0;
         totalCalories += (fi.foodItem?.calories || 0) * factor;
         totalProtein += (fi.foodItem?.protein || 0) * factor;
         totalCarbs += (fi.foodItem?.carbs || 0) * factor;
@@ -143,6 +208,149 @@ export default function ClientNutritionPlanDetail() {
       fat: Math.round(totalFat)
     };
   };
+
+  const calculateFoodItemMacros = (fi: { quantity: number; foodItem: any }): MacroTotals => {
+    const serving = Number(fi.foodItem?.servingSize ?? 100) || 100;
+    const factor = serving > 0 ? Number(fi.quantity ?? 0) / serving : 0;
+    return {
+      calories: (fi.foodItem?.calories || 0) * factor,
+      protein: (fi.foodItem?.protein || 0) * factor,
+      carbs: (fi.foodItem?.carbs || 0) * factor,
+      fat: (fi.foodItem?.fat || 0) * factor
+    };
+  };
+
+  const aggregateMacros = (items: MacroTotals[]): MacroTotals => {
+    return items.reduce(
+      (totals, current) => ({
+        calories: totals.calories + current.calories,
+        protein: totals.protein + current.protein,
+        carbs: totals.carbs + current.carbs,
+        fat: totals.fat + current.fat
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+  };
+
+  const calculateMealMacros = (meal: any): MacroTotals => {
+    const itemTotals = (meal.foodItems || []).map(calculateFoodItemMacros);
+    return aggregateMacros(itemTotals);
+  };
+
+  const calculateCycleMacros = (day: any): MacroTotals => {
+    const mealTotals = (day.meals || []).map(calculateMealMacros);
+    return aggregateMacros(mealTotals);
+  };
+
+  const calculateMicros = (entity: SelectedEntity | null) => {
+    if (!entity) return [];
+    const day = cycles[entity.dayIndex];
+    if (!day) return [];
+
+    const formatEntries = (totals: Record<string, number> = {}) =>
+      nutrientKeys
+        .map((key) => ({
+          key,
+          label: nutrientLabels[key] || key.replace(/_/g, ' '),
+          value: Math.round((Number(totals[key]) || 0) * 100) / 100
+        }))
+        .filter((entry) => entry.value > 0);
+
+    if (entity.type === 'cycle' && day.microTotals) {
+      const entries = formatEntries(day.microTotals);
+      if (entries.length) return entries;
+    }
+
+    const microTotals: Record<string, number> = {};
+    const accumulate = (foodItem: any, quantity: number) => {
+      const qty = Number(quantity ?? 0);
+      if (!qty) return;
+      nutrientKeys.forEach((key) => {
+        const base = Number(foodItem?.[key] ?? 0);
+        if (!base) return;
+        microTotals[key] = (microTotals[key] || 0) + base * (qty / 100);
+      });
+    };
+
+    const addMealItems = (meal?: any) => {
+      meal?.foodItems?.forEach((fi: any) => accumulate(fi.foodItem || {}, fi.quantity));
+    };
+
+    if (entity.type === 'cycle') {
+      (day.meals || []).forEach(addMealItems);
+    } else if (entity.type === 'meal') {
+      addMealItems(day.meals?.[entity.mealIndex]);
+    } else if (entity.type === 'food') {
+      const meal = day.meals?.[entity.mealIndex];
+      const food = meal?.foodItems?.[entity.foodIndex];
+      if (food) accumulate(food.foodItem || {}, food.quantity);
+    }
+
+    return formatEntries(microTotals);
+  };
+
+  const selectedSummary = useMemo(() => {
+    if (!cycles.length || !selectedEntity) return null;
+    const day = cycles[selectedEntity.dayIndex];
+    if (!day) return null;
+
+    if (selectedEntity.type === 'cycle') {
+      return {
+        title: day.label || `${t('client.nutrition.day')} ${day.dayIndex + 1}`,
+        subtitle: t('client.nutrition.dailySummary'),
+        macros: calculateCycleMacros(day),
+        micros: calculateMicros(selectedEntity),
+        icon: <Bento sx={{ fontSize: 32 }} color="primary" />
+      };
+    }
+
+    if (selectedEntity.type === 'meal') {
+      const meal = day.meals?.[selectedEntity.mealIndex];
+      if (!meal) return null;
+      return {
+        title: meal.meal || `${t('client.nutrition.meal')} ${selectedEntity.mealIndex + 1}`,
+        subtitle: t('client.nutrition.mealSummary'),
+        macros: calculateMealMacros(meal),
+        micros: calculateMicros(selectedEntity),
+        icon: <Restaurant sx={{ fontSize: 32 }} color="success" />
+      };
+    }
+
+    const meal = day.meals?.[selectedEntity.mealIndex];
+    const food = meal?.foodItems?.[selectedEntity.foodIndex];
+    if (!food) return null;
+    return {
+      title: (isArabic && food.foodItem?.nameArabic) || food.foodItem?.name || t('client.nutrition.food'),
+      subtitle: t('client.nutrition.foodSummary'),
+      macros: calculateFoodItemMacros(food),
+      micros: calculateMicros(selectedEntity),
+      icon: <EmojiNature sx={{ fontSize: 32 }} color="warning" />
+    };
+  }, [cycles, selectedEntity, isArabic, t]);
+
+  const showDetailsPanel = Boolean(selectedSummary);
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8, minHeight: '60vh' }}>
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress size={60} />
+          <Typography color="text.secondary" variant="h6">{t('client.nutrition.loading')}</Typography>
+        </Stack>
+      </Box>
+    );
+  }
+
+  if (error || !planData) {
+    return (
+      <Box sx={{ p: { xs: 2, md: 4 } }}>
+        <Alert severity="error" sx={{ borderRadius: 2 }}>
+          {t('client.nutrition.loadError')}
+        </Alert>
+      </Box>
+    );
+  }
+
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -180,7 +388,7 @@ export default function ClientNutritionPlanDetail() {
           )}
           <Box flex={1}>
             <Typography variant="h4" fontWeight={700}>
-              {(isArabic && (plan.plan as any).titleArabic) || plan.plan.title}
+        {(isArabic && (planData.plan as any).titleArabic) || planData.plan.title}
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
               {t('client.nutrition.subtitle')}
@@ -189,23 +397,23 @@ export default function ClientNutritionPlanDetail() {
         </Stack>
 
         {/* Water Intake Info */}
-        {(plan.plan.waterForDay || plan.plan.waterForTraining) && (
+        {(planData.plan.waterForDay || planData.plan.waterForTraining) && (
           <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-            {plan.plan.waterForDay && (
+            {planData.plan.waterForDay && (
               <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Opacity />
                 <Box>
                   <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.nutrition.dailyWater')}</Typography>
-                  <Typography variant="h6" fontWeight={700}>{plan.plan.waterForDay}L</Typography>
+                  <Typography variant="h6" fontWeight={700}>{planData.plan.waterForDay}L</Typography>
                 </Box>
               </Paper>
             )}
-            {plan.plan.waterForTraining && (
+            {planData.plan.waterForTraining && (
               <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FitnessCenter />
                 <Box>
                   <Typography variant="caption" sx={{ opacity: 0.8 }}>{t('client.nutrition.trainingWater')}</Typography>
-                  <Typography variant="h6" fontWeight={700}>{plan.plan.waterForTraining}L</Typography>
+                  <Typography variant="h6" fontWeight={700}>{planData.plan.waterForTraining}L</Typography>
                 </Box>
               </Paper>
             )}
@@ -220,9 +428,17 @@ export default function ClientNutritionPlanDetail() {
         )}
       </Paper>
 
-      {/* Days/Cycles */}
-      <Stack spacing={3}>
-        {plan.cycles?.map((day, idx) => {
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: 'flex-start',
+          gap: { xs: 3, md: 4 }
+        }}
+      >
+        <Box sx={{ flexGrow: 1, width: '100%' }}>
+          <Stack spacing={3}>
+        {planData.cycles?.map((day, idx) => {
           const dayTotals = getDayTotals(day);
           
           return (
@@ -230,7 +446,12 @@ export default function ClientNutritionPlanDetail() {
               <CardContent>
                 {/* Day Header */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                  <Typography variant="h5" fontWeight={700}>
+                  <Typography
+                    variant="h5"
+                    fontWeight={700}
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedEntity({ type: 'cycle', dayIndex: idx })}
+                  >
                     {day.label || `${t('client.nutrition.day')} ${day.dayIndex + 1}`}
                   </Typography>
                   <Stack direction="row" spacing={1}>
@@ -245,90 +466,32 @@ export default function ClientNutritionPlanDetail() {
                 </Stack>
 
                 {/* Daily Macros Summary */}
-                <Paper 
+                <Paper
                   elevation={0}
-                  sx={{ 
-                    p: 2, 
-                    mb: 3, 
+                  sx={{
+                    p: 2,
+                    mb: 3,
                     borderRadius: 2,
-                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'background.paper' : 'primary.50',
+                    bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'background.paper' : 'primary.50'),
                     border: '1px solid',
-                    borderColor: (theme) => theme.palette.mode === 'dark' ? 'divider' : 'primary.200'
+                    borderColor: (theme) => (theme.palette.mode === 'dark' ? 'divider' : 'primary.200')
                   }}
                 >
-                  <Typography 
-                    variant="subtitle2" 
-                    fontWeight={700} 
-                    color={(theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main'} 
-                    gutterBottom
-                  >
-                    {t('client.nutrition.dailySummary')}
-                    <Tooltip title={t('client.nutrition.viewMicros')} arrow>
-                      <IconButton 
-                        size="small" 
-                        onClick={() => {
-                          setSelectedDayIndex(idx);
-                          setMicrosDialogOpen(true);
-                        }}
-                        sx={{ 
-                          ml: 1,
-                          color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main'
-                        }}
-                      >
-                        <Info fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={3}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography 
-                          variant="h6" 
-                          fontWeight={700} 
-                          color={(theme) => theme.palette.mode === 'dark' ? 'error.light' : 'error.main'}
-                        >
-                          {dayTotals.calories}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">{t('calories')}</Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={3}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography 
-                          variant="h6" 
-                          fontWeight={700} 
-                          color={(theme) => theme.palette.mode === 'dark' ? 'info.light' : 'info.main'}
-                        >
-                          {dayTotals.protein}g
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">{t('protein')}</Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={3}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography 
-                          variant="h6" 
-                          fontWeight={700} 
-                          color={(theme) => theme.palette.mode === 'dark' ? 'warning.light' : 'warning.main'}
-                        >
-                          {dayTotals.carbs}g
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">{t('carbs')}</Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={3}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography 
-                          variant="h6" 
-                          fontWeight={700} 
-                          color={(theme) => theme.palette.mode === 'dark' ? 'success.light' : 'success.main'}
-                        >
-                          {dayTotals.fat}g
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">{t('fat')}</Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={700}
+                      color={(theme) => (theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main')}
+                    >
+                      {t('client.nutrition.dailySummary')}
+                    </Typography>
+                    <Stack direction="row" spacing={1}>
+                      <MacroChip icon={<LocalFireDepartment fontSize="inherit" />} label={`${dayTotals.calories} kcal`} color="error" />
+                      <MacroChip icon={<FitnessCenter fontSize="inherit" />} label={`${dayTotals.protein}g`} color="info" />
+                      <MacroChip icon={<Grain fontSize="inherit" />} label={`${dayTotals.carbs}g`} color="warning" />
+                      <MacroChip icon={<Opacity fontSize="inherit" />} label={`${dayTotals.fat}g`} color="success" />
+                    </Stack>
+                  </Stack>
                 </Paper>
 
                 <Divider sx={{ mb: 3 }} />
@@ -360,8 +523,8 @@ export default function ClientNutritionPlanDetail() {
                     };
 
                     return (
-                      <Grid key={mealIdx} item xs={12} md={6}>
-                        <Paper 
+                      <Grid key={mealIdx} item xs={12}>
+                        <Paper
                           elevation={2}
                           sx={{ 
                             p: 2.5, 
@@ -371,7 +534,16 @@ export default function ClientNutritionPlanDetail() {
                             '&:hover': {
                               transform: 'translateY(-4px)',
                               boxShadow: 6
-                            }
+                            },
+                            border: selectedEntity?.type === 'meal' && selectedEntity.dayIndex === idx && selectedEntity.mealIndex === mealIdx
+                              ? '2px solid'
+                              : '1px solid transparent',
+                            borderColor:
+                              selectedEntity?.type === 'meal' &&
+                              selectedEntity.dayIndex === idx &&
+                              selectedEntity.mealIndex === mealIdx
+                                ? 'primary.main'
+                                : 'transparent'
                           }}
                         >
                           {/* Meal Header */}
@@ -380,7 +552,12 @@ export default function ClientNutritionPlanDetail() {
                               <Restaurant />
                             </Avatar>
                             <Box flex={1}>
-                              <Typography variant="h6" fontWeight={700}>
+                              <Typography
+                                variant="h6"
+                                fontWeight={700}
+                                sx={{ cursor: 'pointer' }}
+                                onClick={() => setSelectedEntity({ type: 'meal', dayIndex: idx, mealIndex: mealIdx })}
+                              >
                                 {meal.meal || `${t('client.nutrition.meal')} ${mealIdx + 1}`}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
@@ -413,36 +590,85 @@ export default function ClientNutritionPlanDetail() {
                             </Typography>
                           )}
 
-                          {/* Food Items Table */}
+                          {/* Food Items */}
                           {meal.foodItems && meal.foodItems.length > 0 && (
-                            <TableContainer>
-                              <Table size="small">
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell><strong>{t('client.nutrition.food')}</strong></TableCell>
-                                    <TableCell align="center"><strong>{t('qty')}</strong></TableCell>
-                                    <TableCell align="right"><strong>{t('cal-short')}</strong></TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {meal.foodItems.map((fi, fiIdx) => {
-                                    const unit = (isArabic && fi.foodItem?.unitArabic) || fi.foodItem?.unit || 'g';
-                                    const quantityDisplay = `${fi.quantity}${unit ? ` ${unit}` : ''}`;
-                                    return (
-                                    <TableRow key={fiIdx} hover>
-                                      <TableCell>{(isArabic && fi.foodItem?.nameArabic) || fi.foodItem?.name || t('unknown')}</TableCell>
-                                      <TableCell align="center">
-                                          <Chip label={quantityDisplay} size="small" variant="outlined" />
-                                      </TableCell>
-                                      <TableCell align="right">
-                                        {Math.round((fi.foodItem?.calories || 0) * ((Number(fi.quantity ?? 0)) / (Number(fi.foodItem?.servingSize ?? 100) || 100)))}
-                                      </TableCell>
-                                    </TableRow>
-                                    );
-                                  })}
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
+                            <Stack spacing={1.5}>
+                              {meal.foodItems.map((fi, fiIdx) => {
+                                const unit = (isArabic && fi.foodItem?.unitArabic) || fi.foodItem?.unit || 'g';
+                                const quantityDisplay = `${fi.quantity}${unit ? ` ${unit}` : ''}`;
+                                const macros = calculateFoodItemMacros(fi);
+                                const isSelected =
+                                  selectedEntity?.type === 'food' &&
+                                  selectedEntity.dayIndex === idx &&
+                                  selectedEntity.mealIndex === mealIdx &&
+                                  selectedEntity.foodIndex === fiIdx;
+                                const foodType =
+                                  fi.foodItem?.type ||
+                                  fi.foodItem?.category ||
+                                  fi.foodItem?.group ||
+                                  fi.foodItem?.foodType ||
+                                  null;
+                                return (
+                                  <Paper
+                                    key={fiIdx}
+                                    variant="outlined"
+                                    sx={{
+                                      p: 1.5,
+                                      borderRadius: 2,
+                                      borderColor: isSelected ? 'primary.main' : 'divider',
+                                      backgroundColor: isSelected ? 'primary.50' : 'background.paper',
+                                      transition: 'all 0.2s ease',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() =>
+                                      setSelectedEntity({
+                                        type: 'food',
+                                        dayIndex: idx,
+                                        mealIndex: mealIdx,
+                                        foodIndex: fiIdx
+                                      })
+                                    }
+                                  >
+                                    <Stack direction="row" spacing={2} alignItems="center">
+                                      <Avatar
+                                        sx={{
+                                          bgcolor: 'primary.light',
+                                          color: 'primary.dark',
+                                          width: 48,
+                                          height: 48,
+                                          fontWeight: 700
+                                        }}
+                                      >
+                                        {(fi.foodItem?.name || fi.foodItem?.nameArabic || 'F')[0]}
+                                      </Avatar>
+                                      <Box flex={1}>
+                                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                          <Typography variant="subtitle1" fontWeight={600}>
+                                            {(isArabic && fi.foodItem?.nameArabic) || fi.foodItem?.name || t('unknown')}
+                                          </Typography>
+                                          {foodType && (
+                                            <MuiChip
+                                              size="small"
+                                              label={foodType}
+                                              sx={{ fontSize: '0.65rem', height: 20 }}
+                                            />
+                                          )}
+                                        </Stack>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {quantityDisplay}
+                                        </Typography>
+                                        <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                                          <InlineMacro label="kcal" value={Math.round(macros.calories)} />
+                                          <InlineMacro label={t('protein-short')} value={`${Math.round(macros.protein)}g`} />
+                                          <InlineMacro label={t('carbs-short')} value={`${Math.round(macros.carbs)}g`} />
+                                          <InlineMacro label={t('fat-short')} value={`${Math.round(macros.fat)}g`} />
+                                        </Stack>
+                                      </Box>
+                                    </Stack>
+                                  </Paper>
+                                );
+                              })}
+                            </Stack>
                           )}
 
                           {(!meal.foodItems || meal.foodItems.length === 0) && (
@@ -466,9 +692,102 @@ export default function ClientNutritionPlanDetail() {
             </Card>
           );
         })}
-      </Stack>
+          </Stack>
+        </Box>
+        {showDetailsPanel && selectedSummary && (
+          <Box
+            sx={{
+              width: { xs: '100%', md: 360, lg: 420 },
+              flexShrink: 0,
+              alignSelf: { md: 'stretch' }
+            }}
+          >
+            <Card
+              sx={{
+                borderRadius: 3,
+                p: 3,
+                minHeight: 320,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                position: 'relative'
+              }}
+            >
+              <IconButton
+                size="small"
+                aria-label="Close nutrition summary"
+                onClick={() => setSelectedEntity(null)}
+                sx={{ position: 'absolute', top: 8, right: 8 }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Avatar
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    bgcolor: 'primary.lighter'
+                  }}
+                >
+                  {selectedSummary.icon}
+                </Avatar>
+                <Box>
+                  <Typography variant="h5" fontWeight={700}>
+                    {selectedSummary.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedSummary.subtitle}
+                  </Typography>
+                </Box>
+              </Stack>
+              <Divider />
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('client.nutrition.macros')}
+              </Typography>
+              <Grid container spacing={2}>
+                <MacroStat icon={<LocalFireDepartment />} label={t('calories')} value={`${Math.round(selectedSummary.macros.calories)} kcal`} color="error" />
+                <MacroStat icon={<FitnessCenter />} label={t('protein')} value={formatMacro(selectedSummary.macros.protein)} color="info" />
+                <MacroStat icon={<Grain />} label={t('carbs')} value={formatMacro(selectedSummary.macros.carbs)} color="warning" />
+                <MacroStat icon={<Opacity />} label={t('fat')} value={formatMacro(selectedSummary.macros.fat)} color="success" />
+              </Grid>
+              <Divider />
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('client.nutrition.microsTitle')}
+              </Typography>
+              {selectedSummary.micros.length > 0 ? (
+                <Stack spacing={1.2} maxHeight={260} sx={{ overflowY: 'auto', pr: 1 }}>
+                  {selectedSummary.micros.map((micro) => (
+                    <Box
+                      key={micro.key}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1,
+                        borderRadius: 2,
+                        bgcolor: 'action.hover'
+                      }}
+                    >
+                      <Typography variant="body2" fontWeight={600}>
+                        {micro.label}
+                      </Typography>
+                      <Typography variant="body2" color="primary.main">
+                        {micro.value}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {t('client.nutrition.noMicros')}
+                </Typography>
+              )}
+            </Card>
+          </Box>
+        )}
+      </Box>
 
-      {plan.cycles?.length === 0 && (
+      {planData.cycles?.length === 0 && (
         <Card sx={{ borderRadius: 3 }}>
           <Box sx={{ p: 6, textAlign: 'center' }}>
             <Restaurant sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
@@ -479,127 +798,86 @@ export default function ClientNutritionPlanDetail() {
         </Card>
       )}
 
-      {/* Micronutrients Dialog */}
-      <Dialog 
-        open={microsDialogOpen} 
-        onClose={() => setMicrosDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Info />
-            <Typography variant="h6">
-              {t('client.nutrition.microsTitle')} - {plan.cycles?.[selectedDayIndex]?.label || `${t('client.nutrition.day')} ${selectedDayIndex + 1}`}
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {plan.cycles?.[selectedDayIndex] && (() => {
-            const selectedDay = plan.cycles[selectedDayIndex];
-            
-            // Calculate micronutrients for the selected day (prefer server-provided totals)
-            const microTotals: Record<string, number> = {};
-            const add = (k: string, v: number) => {
-              microTotals[k] = (microTotals[k] || 0) + v;
-            };
-            
-            const nutrientKeys = [
-              "water","ash","fiber","sodium","potassium","calcium","phosphorous","magnesium","iron","zinc","copper","manganese","fluoride","selenium",
-              "vitamin_a","vitamin_c","vitamin_b1","vitamin_b2","vitamin_b5","vitamin_b6","vitamin_b12","vitamin_d","vitamin_e","vitamin_k",
-              "niacin","folic_acid","choline","betaine"
-            ];
-            
-            for (const meal of selectedDay.meals || []) {
-              for (const fi of meal.foodItems || []) {
-                const qty = Number(fi.quantity ?? 1);
-                const f: any = fi.foodItem || {};
-                for (const key of nutrientKeys) {
-                  const base = Number(f[key] ?? 0);
-                  if (!isNaN(base)) add(key, base * qty);
-                }
-              }
-            }
-            
-            const labels: Record<string, string> = {
-              water: "Water (g)",
-              ash: "Ash (g)",
-              fiber: "Fiber (g)",
-              sodium: "Sodium (mg)",
-              potassium: "Potassium (mg)",
-              calcium: "Calcium (mg)",
-              phosphorous: "Phosphorous (mg)",
-              magnesium: "Magnesium (mg)",
-              iron: "Iron (mg)",
-              zinc: "Zinc (mg)",
-              copper: "Copper (mg)",
-              manganese: "Manganese (mg)",
-              fluoride: "Fluoride (mg)",
-              selenium: "Selenium (mg)",
-              vitamin_a: "Vitamin A (IU)",
-              vitamin_c: "Vitamin C (mg)",
-              vitamin_b1: "Vitamin B1 (mg)",
-              vitamin_b2: "Vitamin B2 (mg)",
-              vitamin_b5: "Vitamin B5 (mg)",
-              vitamin_b6: "Vitamin B6 (mg)",
-              vitamin_b12: "Vitamin B12 (mg)",
-              vitamin_d: "Vitamin D (IU)",
-              vitamin_e: "Vitamin E (mg)",
-              vitamin_k: "Vitamin K (mg)",
-              niacin: "Niacin (mg)",
-              folic_acid: "Folic Acid (mg)",
-              choline: "Choline (mg)",
-              betaine: "Betaine (mg)"
-            };
-            
-            const order = [
-              "water","ash","fiber","sodium","potassium","calcium","phosphorous","magnesium","iron","zinc","copper","manganese","fluoride","selenium",
-              "vitamin_a","vitamin_c","vitamin_b1","vitamin_b2","vitamin_b5","vitamin_b6","vitamin_b12","vitamin_d","vitamin_e","vitamin_k",
-              "niacin","folic_acid","choline","betaine"
-            ];
-            
-            // If server provided microTotals on the day, use it directly
-            const serverTotals = (selectedDay as any).microTotals as Record<string, number> | undefined;
-            const microEntries = serverTotals
-              ? order.map((k) => [k, Number(serverTotals[k] ?? 0)] as [string, number])
-              : order.map((k) => [k, Number(microTotals[k] ?? 0)] as [string, number]);
-            
-            return (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  {t('client.nutrition.microsNote')}
-                </Typography>
-                <Grid container spacing={2}>
-                  {microEntries.map(([key, val]) => (
-                    <Grid key={key} item xs={6} sm={4} md={3}>
-                      <Box sx={{ 
-                        p: 2, 
-                        border: '1px solid', 
-                        borderColor: 'divider', 
-                        borderRadius: 1,
-                        textAlign: 'center',
-                        bgcolor: 'background.paper'
-                      }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                          {labels[key] || key.replace(/_/g, ' ')}
-                        </Typography>
-                        <Typography variant="h6" color="primary.main">
-                          {Math.round(val * 100) / 100}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-            );
-          })()}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMicrosDialogOpen(false)}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }
+
+type MacroChipProps = {
+  icon: React.ReactNode;
+  label: string;
+  color: 'primary' | 'secondary' | 'error' | 'info' | 'warning' | 'success' | 'default';
+};
+
+const MacroChip = ({ icon, label, color }: MacroChipProps) => (
+  <MuiChip
+    icon={icon}
+    label={label}
+    color={color}
+    size="small"
+    sx={{ fontWeight: 600 }}
+  />
+);
+
+type MacroStatProps = {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: 'primary' | 'secondary' | 'error' | 'info' | 'warning' | 'success';
+};
+
+const MacroStat = ({ icon, label, value, color }: MacroStatProps) => (
+  <Grid item xs={6}>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 1.5,
+        borderRadius: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5
+      }}
+    >
+      <Avatar
+        sx={{
+          bgcolor: `${color}.50`,
+          color: `${color}.main`,
+          width: 40,
+          height: 40
+        }}
+      >
+        {icon}
+      </Avatar>
+      <Box>
+        <Typography variant="caption" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="subtitle1" fontWeight={700}>
+          {value}
+        </Typography>
+      </Box>
+    </Paper>
+  </Grid>
+);
+
+type InlineMacroProps = {
+  label: string;
+  value: string | number;
+};
+
+const InlineMacro = ({ label, value }: InlineMacroProps) => (
+  <Typography
+    variant="caption"
+    sx={{
+      fontWeight: 600,
+      color: 'text.secondary',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 0.25
+    }}
+  >
+    {label}:{' '}
+    <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
+      {value}
+    </Box>
+  </Typography>
+);

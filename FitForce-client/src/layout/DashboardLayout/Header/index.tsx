@@ -5,11 +5,13 @@ import { alpha } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import AppBar, { AppBarProps } from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
+import Box from '@mui/material/Box';
 
 // project-imports
 import AppBarStyled from './AppBarStyled';
 import HeaderContent from './HeaderContent';
 import IconButton from 'components/@extended/IconButton';
+import ClientSidebarToggle from '@/components/ClientSidebarToggle';
 
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH, MenuOrientation } from 'config';
@@ -57,23 +59,26 @@ export default function Header() {
 const mainHeader: ReactNode = (
     <Toolbar sx={{ px: { xs: 2, sm: 2.5, md: 4.5, lg: 8 } }}>
       {!isHorizontal ? (
-        <IconButton
-          onClick={() => handlerDrawerOpen(!drawerOpen)}
-          edge="start"
-          color="secondary"
-          variant="light"
-          size="large"
-          sx={(theme) => ({
-            color: 'secondary.main',
-            ...(drawerOpen
-              ? { bgcolor: 'background.default' }
-              : { bgcolor: 'secondary.200', ...theme.applyStyles('dark', { bgcolor: 'background.paper' }) }),
-            ml: { xs: 0, lg: -2 },
-            p: 1
-          })}
-        >
-          <HambergerMenu />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton
+            onClick={() => handlerDrawerOpen(!drawerOpen)}
+            edge="start"
+            color="secondary"
+            variant="light"
+            size="large"
+            sx={(theme) => ({
+              color: 'secondary.main',
+              ...(drawerOpen
+                ? { bgcolor: 'background.default' }
+                : { bgcolor: 'secondary.200', ...theme.applyStyles('dark', { bgcolor: 'background.paper' }) }),
+              ml: { xs: 0, lg: -2 },
+              p: 1
+            })}
+          >
+            <HambergerMenu />
+          </IconButton>
+          {!downLG && <ClientSidebarToggle />}
+        </Box>
       ) : null}
       {headerContent}
       <div style={{ marginLeft: 'auto' }}>

@@ -56,7 +56,8 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Pagination
+  Pagination,
+  LinearProgress,
 } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
@@ -73,7 +74,8 @@ import {
   Category,
   DocumentText,
   Setting2,
-  Messages2
+  Messages2,
+  PlayCircle
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -100,6 +102,8 @@ interface Exercise {
   equipmentNeeded?: string;
   createdAt: string;
   updatedAt: string;
+  isCardio?: boolean;
+  defaultDurationSeconds?: number | null;
 }
 
 interface Plan {
@@ -110,6 +114,24 @@ interface Plan {
   status?: string;
   days?: any[];
 }
+
+const isCardioExercise = (exercise: any): boolean => {
+  const exerciseNode = exercise?.exercise ? exercise.exercise : exercise;
+  if (exercise?.isCardio !== undefined) return Boolean(exercise.isCardio);
+  if (exerciseNode?.isCardio !== undefined) return Boolean(exerciseNode.isCardio);
+  const category = exerciseNode?.category?.toLowerCase() || "";
+  const muscleGroup = exerciseNode?.muscleGroup?.toLowerCase() || "";
+  return (
+    category === "cardio" ||
+    muscleGroup.includes("cardio") ||
+    Boolean(
+      exercise?.durationSeconds ||
+        exercise?.durationMinutes ||
+        exercise?.targetDurationSeconds ||
+        exerciseNode?.defaultDurationSeconds,
+    )
+  );
+};
 
 // SortableExercise moved to components/workout/SortableExercise
 
@@ -308,6 +330,33 @@ function CardioDurationSelector({
       </Box>
     </Box>
   );
+}
+
+const getDefaultCardioDurationSeconds = (exercise: any, fallback = 600): number => {
+  const exerciseNode = exercise?.exercise ? exercise.exercise : exercise;
+  const explicitDuration =
+    exercise?.durationSeconds ??
+    exerciseNode?.defaultDurationSeconds ??
+    exercise?.defaultDurationSeconds;
+  return explicitDuration && explicitDuration > 0 ? explicitDuration : fallback;
+};
+
+const formatDurationLabel = (seconds?: number | null) => {
+  if (!seconds || seconds <= 0) return '00:00';
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  const parts: string[] = [];
+  if (hrs > 0) parts.push(`${hrs}h`);
+  parts.push(`${String(mins).padStart(2, '0')}m`);
+  parts.push(`${String(secs).padStart(2, '0')}s`);
+  return parts.join(' ');
+};
+
+function extractYouTubeId(url: string): string | null {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return match && match[2].length === 11 ? match[2] : null;
 }
 
 // SortableDay Component
@@ -572,6 +621,8 @@ export default function ClientWorkoutPage() {
   const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<string[]>([]);
   const [exerciseEquipmentFilter, setExerciseEquipmentFilter] = useState<string[]>([]);
   const [imagePreviewSrc, setImagePreviewSrc] = useState<string | null>(null);
+  const [videoPlayerUrl, setVideoPlayerUrl] = useState<string | null>(null);
+  const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
   const [exercisePage, setExercisePage] = useState(1);
   const exercisesPerPage = 10;
   
@@ -1168,9 +1219,10 @@ export default function ClientWorkoutPage() {
     
     const newExercises = selectedExercises.map(exerciseId => {
       const exercise = workspaceExercises.find(e => e.id === exerciseId);
-      const isCardio = exercise?.category?.toLowerCase() === 'cardio';
+      const isCardio = isCardioExercise(exercise);
       
       if (isCardio) {
+        const defaultCardioDuration = getDefaultCardioDurationSeconds(exercise, 600);
         return {
           id: `exercise_${Date.now()}_${Math.random()}`,
           exercise: exercise!,
@@ -1182,9 +1234,10 @@ export default function ClientWorkoutPage() {
           notes: "",
           videoUrl: "",
           thumbnailUrl: "",
-          durationSeconds: 600, // Default 10 minutes (600 seconds) for cardio
-          durationMinutes: 10, // Keep for backward compatibility
-          individualSets: []
+          durationSeconds: defaultCardioDuration,
+          durationMinutes: Math.round(defaultCardioDuration / 60),
+          individualSets: [],
+          isCardio: true,
         };
       } else {
         return {
@@ -1202,7 +1255,8 @@ export default function ClientWorkoutPage() {
             { id: 'set_1', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
             { id: 'set_2', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
             { id: 'set_3', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 }
-          ]
+          ],
+          isCardio: false,
         };
       }
     });
@@ -1254,7 +1308,7 @@ export default function ClientWorkoutPage() {
           caDayUrl: (day as any).caDay?.url || null,
           caDayUrls: (day as any).caDay?.urls || null,
           items: day.exercises.map((exercise) => {
-            const isCardio = exercise.exercise?.category?.toLowerCase() === 'cardio';
+            const isCardio = isCardioExercise(exercise);
             const baseItem: any = {
               exerciseId: exercise.exercise.id,
               sets: exercise.sets,
@@ -1264,6 +1318,7 @@ export default function ClientWorkoutPage() {
               rir: exercise.rir,
               notes: exercise.notes || "",
             };
+            baseItem.isCardio = Boolean(exercise.isCardio ?? isCardio);
             
             // Add duration for cardio exercises
             if (isCardio) {
@@ -1273,8 +1328,7 @@ export default function ClientWorkoutPage() {
                 // Convert minutes to seconds for backward compatibility
                 baseItem.durationSeconds = (exercise as any).durationMinutes * 60;
               }
-              // For cardio exercises, we'll store durationSeconds in notes as JSON on the backend
-              // The backend will handle this conversion
+              // Backend persists durationSeconds directly on the workout item
             }
             
             // Persist per-set data if available (only for non-cardio)
@@ -1330,7 +1384,9 @@ export default function ClientWorkoutPage() {
               restSeconds: it.restSeconds,
               tempo: it.tempo,
               rir: it.rir,
-              notes: it.notes
+              notes: it.notes,
+              durationSeconds: it.durationSeconds || (it.durationMinutes ? it.durationMinutes * 60 : null),
+              isCardio: Boolean(it.isCardio),
             }))
           }))
         });
@@ -1367,29 +1423,28 @@ export default function ClientWorkoutPage() {
               id: day.id,
               title: day.label || `Day ${day.dayIndex}`,
               exercises: day.items?.map((item: any) => {
-                const isCardio = item.exercise?.category?.toLowerCase() === 'cardio';
+                const isCardio = isCardioExercise(item);
                 
                 // Parse notes to extract durationSeconds if stored as JSON
                 let notes = item.notes || "";
-                let durationSeconds: number | undefined = undefined;
-                if (isCardio && item.notes) {
+                let durationSeconds: number | undefined =
+                  item.durationSeconds ||
+                  (item.durationMinutes ? item.durationMinutes * 60 : undefined);
+
+                if (
+                  (!durationSeconds || durationSeconds <= 0) &&
+                  isCardio &&
+                  typeof item.notes === "string" &&
+                  item.notes.trim().startsWith("{")
+                ) {
                   try {
                     const notesData = JSON.parse(item.notes);
                     if (notesData.durationSeconds) {
                       durationSeconds = notesData.durationSeconds;
                       notes = notesData.originalNotes || "";
                     }
-                  } catch (e) {
-                    // Not JSON, use notes as-is
-                  }
-                }
-                
-                // Fallback to durationMinutes if available
-                if (!durationSeconds && isCardio) {
-                  if (item.durationSeconds) {
-                    durationSeconds = item.durationSeconds;
-                  } else if (item.durationMinutes) {
-                    durationSeconds = item.durationMinutes * 60;
+                  } catch (_err) {
+                    // Not JSON, keep original notes
                   }
                 }
                 
@@ -1585,9 +1640,7 @@ export default function ClientWorkoutPage() {
     // Also check muscle group for cardiovascular exercises
     const category = exercise.exercise?.category?.toLowerCase() || '';
     const muscleGroup = exercise.exercise?.muscleGroup?.toLowerCase() || '';
-    const isCardio = category === 'cardio' || 
-                    muscleGroup.includes('cardiovascular') || 
-                    !!(exercise as any).durationMinutes;
+    const isCardio = isCardioExercise(exercise);
     
     if (isCardio) {
       // For cardio, just set the exercise with duration
@@ -1599,22 +1652,23 @@ export default function ClientWorkoutPage() {
       }
       if (!durationSeconds && (exercise as any).individualSets && (exercise as any).individualSets.length > 0) {
         // Default to 10 minutes (600 seconds) if converting from sets
-        durationSeconds = 600;
+      durationSeconds = getDefaultCardioDurationSeconds(exercise, 600);
       }
       if (!durationSeconds) {
         // Default to 10 minutes (600 seconds)
-        durationSeconds = 600;
+      durationSeconds = getDefaultCardioDurationSeconds(exercise, 600);
       }
       setEditingExercise({
         ...exercise,
         durationSeconds: durationSeconds,
-        durationMinutes: Math.round(durationSeconds / 60), // Keep for backward compatibility
+      durationMinutes: Math.round(durationSeconds / 60), // Keep for backward compatibility
         individualSets: [],
         sets: 1,
         reps: "",
         restSeconds: 0,
         tempo: "",
-        rir: 0
+      rir: 0,
+      isCardio: true,
       });
     } else {
       // Initialize individualSets if they don't exist
@@ -1627,7 +1681,8 @@ export default function ClientWorkoutPage() {
           restSeconds: exercise.restSeconds || 60,
           tempo: exercise.tempo || "",
           rir: exercise.rir || 0
-        }))
+      })),
+      isCardio: false,
       };
       setEditingExercise(exerciseWithSets);
     }
@@ -1649,30 +1704,38 @@ export default function ClientWorkoutPage() {
     // Also check muscle group for cardiovascular exercises
     const category = editingExercise.exercise?.category?.toLowerCase() || '';
     const muscleGroup = editingExercise.exercise?.muscleGroup?.toLowerCase() || '';
-    const isCardio = category === 'cardio' || 
-                    muscleGroup.includes('cardiovascular') || 
-                    !!(editingExercise as any).durationMinutes;
+    const isCardio = isCardioExercise(editingExercise);
     
     // Update the summary values based on individual sets (for non-cardio) or duration (for cardio)
-    const updatedExercise = isCardio ? {
-      ...editingExercise,
-      sets: 1,
-      reps: "",
-      restSeconds: 0,
-      tempo: "",
-      rir: 0,
-      durationSeconds: (editingExercise as any).durationSeconds || ((editingExercise as any).durationMinutes || 30) * 60,
-      durationMinutes: Math.round(((editingExercise as any).durationSeconds || ((editingExercise as any).durationMinutes || 30) * 60) / 60), // Keep for backward compatibility
-      individualSets: []
-    } : {
-      ...editingExercise,
-      sets: editingExercise.individualSets?.length || 0,
-      reps: editingExercise.individualSets?.[0]?.reps || "8-12",
-      restSeconds: editingExercise.individualSets?.[0]?.restSeconds || 60,
-      tempo: editingExercise.individualSets?.[0]?.tempo || "",
-      rir: editingExercise.individualSets?.[0]?.rir || 0,
-      notes: editingExercise.notes || ""
-    };
+    const fallbackDurationSeconds =
+      (editingExercise as any).exercise?.defaultDurationSeconds ??
+      ((editingExercise as any).durationMinutes || 30) * 60;
+    const resolvedDurationSeconds =
+      (editingExercise as any).durationSeconds || fallbackDurationSeconds;
+
+    const updatedExercise = isCardio
+      ? {
+          ...editingExercise,
+          sets: 1,
+          reps: "",
+          restSeconds: 0,
+          tempo: "",
+          rir: 0,
+          durationSeconds: resolvedDurationSeconds,
+          durationMinutes: Math.round(resolvedDurationSeconds / 60),
+          individualSets: [],
+          isCardio: true,
+        }
+      : {
+          ...editingExercise,
+          sets: editingExercise.individualSets?.length || 0,
+          reps: editingExercise.individualSets?.[0]?.reps || "8-12",
+          restSeconds: editingExercise.individualSets?.[0]?.restSeconds || 60,
+          tempo: editingExercise.individualSets?.[0]?.tempo || "",
+          rir: editingExercise.individualSets?.[0]?.rir || 0,
+          notes: editingExercise.notes || "",
+          isCardio: false,
+        };
     
     setLocalWorkoutPlan(prev => prev ? {
       ...prev,
@@ -2035,37 +2098,91 @@ export default function ClientWorkoutPage() {
                               urls: day.caDayUrls || []
                             } : undefined,
                             exercises: (day.items || []).map((item: any) => {
-                              const individualSets = (item.planSets && item.planSets.length > 0)
-                                ? item.planSets
-                                    .sort((a: any, b: any) => (a.setIndex || 0) - (b.setIndex || 0))
-                                    .map((s: any, idx: number) => ({
-                                      id: `set_${s.setIndex || idx + 1}`,
-                                      reps: (typeof s.repMin === 'number' && typeof s.repMax === 'number' && s.repMin !== s.repMax)
-                                        ? `${s.repMin}-${s.repMax}`
-                                        : (typeof s.repMin === 'number' ? String(s.repMin) : String(item.reps)),
-                                      restSeconds: typeof s.restSeconds === 'number' ? s.restSeconds : (item.restSeconds || 60),
-                                      tempo: s.tempo || item.tempo || "",
-                                      rir: typeof s.rir === 'number' ? s.rir : (item.rir || 0),
-                                      notes: s.notes || undefined
-                                    }))
-                                : Array.from({ length: item.sets || 1 }, (_, index) => ({
-                                    id: `set_${index + 1}`,
-                                    reps: String(item.reps),
-                                    restSeconds: item.restSeconds || 60,
-                                    tempo: item.tempo || "",
-                                    rir: item.rir || 0
-                                  }));
-                              const exFull = (workspaceExercises || []).find((e) => e.id === (item.exercise?.id || item.exerciseId)) || item.exercise;
+                            const explicitCardioFlag = item.isCardio ?? item.exercise?.isCardio;
+                            const isCardioItem =
+                              explicitCardioFlag !== undefined
+                                ? Boolean(explicitCardioFlag)
+                                : isCardioExercise(item);
+                              let notes = item.notes || "";
+                              let durationSeconds =
+                                item.durationSeconds ||
+                                (item.durationMinutes ? item.durationMinutes * 60 : undefined);
+                              
+                              if (
+                                isCardioItem &&
+                                (!durationSeconds || durationSeconds <= 0) &&
+                                typeof item.notes === "string" &&
+                                item.notes.trim().startsWith("{")
+                              ) {
+                                try {
+                                  const parsed = JSON.parse(item.notes);
+                                  if (parsed && typeof parsed === "object" && parsed.durationSeconds) {
+                                    durationSeconds = parsed.durationSeconds;
+                                    notes = parsed.originalNotes || "";
+                                  }
+                                } catch (_err) {
+                                  // Notes not JSON; ignore
+                                }
+                              }
+
+                              const normalizedDurationSeconds =
+                              isCardioItem && durationSeconds && durationSeconds > 0
+                                ? durationSeconds
+                                : isCardioItem
+                                  ? getDefaultCardioDurationSeconds(item, 600)
+                                  : undefined;
+
+                              const individualSets = !isCardioItem
+                                ? (item.planSets && item.planSets.length > 0
+                                    ? item.planSets
+                                        .sort((a: any, b: any) => (a.setIndex || 0) - (b.setIndex || 0))
+                                        .map((s: any, idx: number) => ({
+                                          id: `set_${s.setIndex || idx + 1}`,
+                                          reps:
+                                            typeof s.repMin === 'number' &&
+                                            typeof s.repMax === 'number' &&
+                                            s.repMin !== s.repMax
+                                              ? `${s.repMin}-${s.repMax}`
+                                              : (typeof s.repMin === 'number'
+                                                  ? String(s.repMin)
+                                                  : String(item.reps)),
+                                          restSeconds:
+                                            typeof s.restSeconds === 'number'
+                                              ? s.restSeconds
+                                              : (item.restSeconds || 60),
+                                          tempo: s.tempo || item.tempo || "",
+                                          rir: typeof s.rir === 'number' ? s.rir : (item.rir || 0),
+                                          notes: s.notes || undefined
+                                        }))
+                                    : Array.from({ length: item.sets || 1 }, (_, index) => ({
+                                        id: `set_${index + 1}`,
+                                        reps: String(item.reps),
+                                        restSeconds: item.restSeconds || 60,
+                                        tempo: item.tempo || "",
+                                        rir: item.rir || 0
+                                      })))
+                                : [];
+
+                              const exFull =
+                                (workspaceExercises || []).find(
+                                  (exercise) => exercise.id === (item.exercise?.id || item.exerciseId)
+                                ) || item.exercise;
+
                               return {
                                 id: item.id,
                                 exercise: exFull,
-                                sets: item.sets,
-                                reps: String(item.reps),
-                                restSeconds: item.restSeconds || 60,
-                                tempo: item.tempo || "",
-                                rir: item.rir || 0,
-                                notes: item.notes || "",
-                                individualSets
+                                sets: isCardioItem ? 1 : item.sets,
+                                reps: isCardioItem ? "" : String(item.reps),
+                                restSeconds: isCardioItem ? 0 : item.restSeconds || 60,
+                                tempo: isCardioItem ? "" : item.tempo || "",
+                                rir: isCardioItem ? 0 : item.rir || 0,
+                                notes,
+                                durationSeconds: normalizedDurationSeconds,
+                                durationMinutes: normalizedDurationSeconds
+                                  ? Math.round(normalizedDurationSeconds / 60)
+                                  : undefined,
+                                individualSets,
+                                isCardio: Boolean(item.isCardio ?? isCardioItem),
                               };
                             })
                           }))
@@ -2664,9 +2781,7 @@ export default function ClientWorkoutPage() {
                           // Also check muscle group for cardiovascular exercises
                           const category = exercise.exercise?.category?.toLowerCase() || '';
                           const muscleGroup = exercise.exercise?.muscleGroup?.toLowerCase() || '';
-                          const isCardio = category === 'cardio' || 
-                                          muscleGroup.includes('cardiovascular') || 
-                                          !!(exercise as any).durationMinutes;
+                          const isCardio = isCardioExercise(exercise);
                           
                           return (
                             <SortableExercise
@@ -2842,16 +2957,34 @@ export default function ClientWorkoutPage() {
                                       tempo: item.tempo || "",
                                       rir: item.rir || 0
                                     }));
+                                const explicitCardioFlag = item.isCardio ?? item.exercise?.isCardio;
+                                const isCardioItem =
+                                  explicitCardioFlag !== undefined
+                                    ? Boolean(explicitCardioFlag)
+                                    : isCardioExercise(item);
+                                let durationSeconds = item.durationSeconds;
+                                if (
+                                  isCardioItem &&
+                                  (!durationSeconds || durationSeconds <= 0)
+                                ) {
+                                  durationSeconds = getDefaultCardioDurationSeconds(item, 600);
+                                }
                                 return {
                                   id: item.id,
                                   exercise: item.exercise,
-                                  sets: item.sets,
-                                  reps: String(item.reps),
-                                  restSeconds: item.restSeconds || 60,
-                                  tempo: item.tempo || "",
-                                  rir: item.rir || 0,
+                                  sets: isCardioItem ? 1 : item.sets,
+                                  reps: isCardioItem ? "" : String(item.reps),
+                                  restSeconds: isCardioItem ? 0 : item.restSeconds || 60,
+                                  tempo: isCardioItem ? "" : item.tempo || "",
+                                  rir: isCardioItem ? 0 : item.rir || 0,
                                   notes: item.notes || "",
-                                  individualSets
+                                  individualSets: isCardioItem ? [] : individualSets,
+                                  durationSeconds: isCardioItem ? durationSeconds : undefined,
+                                  durationMinutes:
+                                    isCardioItem && durationSeconds
+                                      ? Math.round(durationSeconds / 60)
+                                      : undefined,
+                                  isCardio: isCardioItem,
                                 };
                               })
                             }))
@@ -3833,7 +3966,43 @@ export default function ClientWorkoutPage() {
 
       {/* Edit Exercise Dialog */}
       <Dialog open={isEditExerciseDialogOpen} onClose={closeEditExerciseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>Edit Exercise: {editingExercise?.exercise?.name}</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Box>
+              Edit Exercise: {editingExercise?.exercise?.name}
+              <Typography variant="body2" color="text.secondary">
+                {editingExercise?.exercise?.muscleGroup}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {editingExercise?.exercise?.gifImage && (
+                <IconButton
+                  onClick={() => setImagePreviewSrc(editingExercise.exercise.gifImage)}
+                  sx={{ borderRadius: 2, p: 0.5, border: '1px solid', borderColor: 'divider' }}
+                >
+                  <Box
+                    component="img"
+                    src={editingExercise.exercise.gifImage}
+                    alt="Exercise GIF"
+                    sx={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 1 }}
+                  />
+                </IconButton>
+              )}
+              {editingExercise?.exercise?.videoUrl && (
+                <Button
+                  variant="outlined"
+                  startIcon={<PlayCircle size={18} />}
+                  onClick={() => {
+                    setVideoPlayerUrl(editingExercise.exercise.videoUrl);
+                    setVideoPlayerOpen(true);
+                  }}
+                >
+                  Play Video
+                </Button>
+              )}
+            </Stack>
+          </Box>
+        </DialogTitle>
         <DialogContent>
           {editingExercise && (
             <Stack spacing={3} sx={{ mt: 1 }}>
@@ -3851,7 +4020,13 @@ export default function ClientWorkoutPage() {
                     Duration
                   </Typography>
                   <CardioDurationSelector
-                    totalSeconds={(editingExercise as any).durationSeconds || ((editingExercise as any).durationMinutes || 10) * 60}
+                    totalSeconds={
+                      (editingExercise as any).durationSeconds ||
+                      getDefaultCardioDurationSeconds(
+                        editingExercise,
+                        ((editingExercise as any).durationMinutes || 10) * 60
+                      )
+                    }
                     onChange={(totalSeconds) => {
                       setEditingExercise((prev: any) => ({
                         ...prev,
@@ -4098,6 +4273,44 @@ export default function ClientWorkoutPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Video Player Dialog */}
+      <Dialog
+        open={videoPlayerOpen}
+        onClose={() => {
+          setVideoPlayerOpen(false);
+          setVideoPlayerUrl(null);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Exercise Video</DialogTitle>
+        <DialogContent>
+          {videoPlayerUrl && (
+            <Box sx={{ height: 0, paddingTop: '56.25%', position: 'relative' }}>
+              <iframe
+                src={videoPlayerUrl.includes('youtube.com') || videoPlayerUrl.includes('youtu.be')
+                  ? `https://www.youtube.com/embed/${extractYouTubeId(videoPlayerUrl)}`
+                  : videoPlayerUrl}
+                title="Exercise Video"
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setVideoPlayerOpen(false);
+              setVideoPlayerUrl(null);
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Generate PDF Dialog */}
       <Dialog open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Select PDF Template</DialogTitle>
@@ -4286,86 +4499,168 @@ export default function ClientWorkoutPage() {
                   Exercises ({selectedWorkoutLog.exercises?.length || 0})
                 </Typography>
                 <Stack spacing={2}>
-                  {selectedWorkoutLog.exercises?.map((exercise: any, index: number) => (
-                    <Card key={index} variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle1" fontWeight={500}>
-                          {exercise.exerciseName}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          Target: {exercise.targetSets} sets x {exercise.targetReps} reps
-                          {exercise.targetWeight && ` @ ${exercise.targetWeight}kg`}
-                        </Typography>
-                        
-                        {/* Sets */}
-                        <Stack spacing={1}>
-                          {exercise.sets?.map((set: any, setIndex: number) => (
-                            <Box key={setIndex} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                              <Typography variant="body2" sx={{ minWidth: '60px' }}>
-                                Set {setIndex + 1}:
-                              </Typography>
-                              {set.reps && (
-                                <Chip label={`${set.reps} reps`} size="small" variant="outlined" />
-                              )}
-                              {set.weight && (
-                                <Chip label={`${set.weight}kg`} size="small" variant="outlined" />
-                              )}
-                              {set.restTime && (
-                                <Chip label={`${set.restTime}s rest`} size="small" variant="outlined" />
-                              )}
-                              {set.completed && (
-                                <Chip label="Completed" size="small" color="success" />
-                              )}
-                              {set.completedAt && (
-                                <Typography variant="caption" color="text.secondary">
-                                  {new Date(set.completedAt).toLocaleTimeString()}
-                                </Typography>
+                  {selectedWorkoutLog.exercises?.map((exercise: any, index: number) => {
+                    const isCardioLog = isCardioExercise(exercise);
+                    const targetDurationSeconds = exercise.targetDurationSeconds ?? null;
+                    const actualDurationSeconds = exercise.actualDurationSeconds ?? null;
+                    const completionPercent =
+                      targetDurationSeconds && targetDurationSeconds > 0
+                        ? Math.min(
+                            100,
+                            Math.round(
+                              ((actualDurationSeconds ?? 0) / targetDurationSeconds) * 100
+                            )
+                          )
+                        : null;
+
+                    return (
+                      <Card key={index} variant="outlined">
+                        <CardContent>
+                          <Typography variant="subtitle1" fontWeight={500}>
+                            {exercise.exerciseName}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            {isCardioLog ? (
+                              <>
+                                Target: {targetDurationSeconds ? formatDurationLabel(targetDurationSeconds) : 'Cardio'}
+                              </>
+                            ) : (
+                              <>
+                                Target: {exercise.targetSets} sets x {exercise.targetReps} reps
+                                {exercise.targetWeight && ` @ ${exercise.targetWeight}kg`}
+                              </>
+                            )}
+                          </Typography>
+
+                          {isCardioLog && (
+                            <Box
+                              sx={{
+                                p: 2,
+                                mb: 2,
+                                borderRadius: 2,
+                                bgcolor: 'primary.lighter',
+                                border: '1px solid',
+                                borderColor: 'primary.main',
+                                boxShadow: '0 4px 14px rgba(25, 118, 210, 0.15)'
+                              }}
+                            >
+                              <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                spacing={2}
+                                alignItems="center"
+                                justifyContent="space-between"
+                              >
+                                <Box sx={{ textAlign: 'center', flex: 1 }}>
+                                  <Typography variant="caption" sx={{ letterSpacing: 1, textTransform: 'uppercase', color: 'text.secondary' }}>
+                                    Target Duration
+                                  </Typography>
+                                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.dark' }}>
+                                    {targetDurationSeconds ? formatDurationLabel(targetDurationSeconds) : '—'}
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ textAlign: 'center', flex: 1 }}>
+                                  <Typography variant="caption" sx={{ letterSpacing: 1, textTransform: 'uppercase', color: 'text.secondary' }}>
+                                    Actual Duration
+                                  </Typography>
+                                  <Typography variant="h6" sx={{ fontWeight: 700, color: actualDurationSeconds ? 'success.dark' : 'warning.dark' }}>
+                                    {actualDurationSeconds && actualDurationSeconds > 0
+                                      ? formatDurationLabel(actualDurationSeconds)
+                                      : 'Not logged'}
+                                  </Typography>
+                                </Box>
+                              </Stack>
+                              {completionPercent !== null && (
+                                <Box sx={{ mt: 2 }}>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={completionPercent}
+                                    sx={{
+                                      height: 10,
+                                      borderRadius: 5,
+                                      bgcolor: 'primary.light',
+                                      '& .MuiLinearProgress-bar': {
+                                        borderRadius: 5,
+                                      },
+                                    }}
+                                  />
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, textAlign: 'right' }}>
+                                    {completionPercent}% of target
+                                  </Typography>
+                                </Box>
                               )}
                             </Box>
-                          ))}
-                        </Stack>
-                        
-                        {exercise.notes && (
-                          <Box
-                            sx={{
-                              mt: 2,
-                              p: 2,
-                              borderRadius: 2,
-                              bgcolor: 'info.lighter',
-                              border: '2px solid',
-                              borderColor: 'info.main',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-                            }}
-                          >
-                            <Typography 
-                              variant="subtitle2" 
-                              sx={{ 
-                                fontWeight: 700,
-                                color: 'info.dark',
-                                mb: 0.5,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5
+                          )}
+                          
+                          {/* Sets */}
+                          <Stack spacing={1}>
+                            {exercise.sets?.map((set: any, setIndex: number) => (
+                              <Box key={setIndex} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                <Typography variant="body2" sx={{ minWidth: '60px' }}>
+                                  Set {setIndex + 1}:
+                                </Typography>
+                                {set.reps && (
+                                  <Chip label={`${set.reps} reps`} size="small" variant="outlined" />
+                                )}
+                                {set.weight && (
+                                  <Chip label={`${set.weight}kg`} size="small" variant="outlined" />
+                                )}
+                                {set.restTime && (
+                                  <Chip label={`${set.restTime}s rest`} size="small" variant="outlined" />
+                                )}
+                                {set.completed && (
+                                  <Chip label="Completed" size="small" color="success" />
+                                )}
+                                {set.completedAt && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {new Date(set.completedAt).toLocaleTimeString()}
+                                  </Typography>
+                                )}
+                              </Box>
+                            ))}
+                          </Stack>
+                          
+                          {exercise.notes && (
+                            <Box
+                              sx={{
+                                mt: 2,
+                                p: 2,
+                                borderRadius: 2,
+                                bgcolor: 'info.lighter',
+                                border: '2px solid',
+                                borderColor: 'info.main',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
                               }}
                             >
-                              💡 Exercise Notes
-                            </Typography>
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                color: 'info.darker',
-                                lineHeight: 1.6,
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word'
-                              }}
-                            >
-                              {exercise.notes}
-                            </Typography>
-                          </Box>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+                              <Typography 
+                                variant="subtitle2" 
+                                sx={{ 
+                                  fontWeight: 700,
+                                  color: 'info.dark',
+                                  mb: 0.5,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5
+                                }}
+                              >
+                                💡 Exercise Notes
+                              </Typography>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  color: 'info.darker',
+                                  lineHeight: 1.6,
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word'
+                                }}
+                              >
+                                {exercise.notes}
+                              </Typography>
+                            </Box>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </Stack>
               </Box>
 

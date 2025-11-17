@@ -47,6 +47,9 @@ interface ExerciseTracking {
   sets: WorkoutSet[];
   notes: string;
   completed: boolean;
+  isCardio?: boolean;
+  targetDurationSeconds?: number;
+  actualDurationSeconds?: number;
 }
 
 interface WorkoutTrackingData {
@@ -97,6 +100,69 @@ interface WorkoutTrackingProps {
   onWorkoutSubmitted?: (data: WorkoutTrackingData) => void;
 }
 
+const isCardioExercise = (item: any) => {
+  const exerciseNode = item?.exercise ? item.exercise : item;
+  if (item?.isCardio !== undefined) return Boolean(item.isCardio);
+  if (exerciseNode?.isCardio !== undefined) return Boolean(exerciseNode.isCardio);
+  const category = exerciseNode?.category?.toLowerCase() || '';
+  const muscleGroup = exerciseNode?.muscleGroup?.toLowerCase() || '';
+  return (
+    category === 'cardio' ||
+    muscleGroup.includes('cardio') ||
+    Boolean(
+      item?.durationSeconds ||
+        item?.durationMinutes ||
+        item?.targetDurationSeconds ||
+        exerciseNode?.defaultDurationSeconds,
+    )
+  );
+};
+
+const extractCardioMeta = (item: any) => {
+  let notes = item?.notes || '';
+  let durationSeconds =
+    item?.durationSeconds ||
+    (item?.durationMinutes ? item.durationMinutes * 60 : undefined);
+  if ((!durationSeconds || durationSeconds <= 0) && item?.exercise?.defaultDurationSeconds) {
+    durationSeconds = item.exercise.defaultDurationSeconds;
+  }
+
+  if (
+    (!durationSeconds || durationSeconds <= 0) &&
+    typeof notes === 'string' &&
+    notes.trim().startsWith('{')
+  ) {
+    try {
+      const parsed = JSON.parse(notes);
+      if (parsed?.durationSeconds) {
+        durationSeconds = parsed.durationSeconds;
+        notes = parsed.originalNotes || '';
+      }
+    } catch (_err) {
+      // Notes were plain text; leave as-is
+    }
+  }
+
+  return {
+    durationSeconds: durationSeconds ?? null,
+    notes: notes || '',
+  };
+};
+
+const formatTimerValue = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds || 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const secs = safeSeconds % 60;
+  const parts = [];
+  if (hours > 0) {
+    parts.push(String(hours).padStart(2, '0'));
+  }
+  parts.push(String(minutes).padStart(2, '0'));
+  parts.push(String(secs).padStart(2, '0'));
+  return parts.join(':');
+};
+
 export default function WorkoutTracking({
   planId,
   dayIndex,
@@ -110,8 +176,8 @@ export default function WorkoutTracking({
   const [workoutDate] = useState(new Date().toISOString().split('T')[0]);
   const [workoutStartTime] = useState(new Date().toTimeString().slice(0, 5));
   const [workoutEndTime, setWorkoutEndTime] = useState('');
-  const [workoutNotes, setWorkoutNotes] = useState('');
   const [showSummary, setShowSummary] = useState(false);
+  const [cardioTimers, setCardioTimers] = useState<Record<string, { elapsed: number; running: boolean }>>({});
   
   // Exercise-by-exercise tracking state
   const [exerciseByExerciseState, setExerciseByExerciseState] = useState<ExerciseByExerciseState>({
@@ -127,23 +193,36 @@ export default function WorkoutTracking({
 
   useEffect(() => {
     if (currentDay) {
-      const exercises: ExerciseTracking[] = currentDay.items.map((item, index) => ({
-        id: `exercise_${index}`,
-        exerciseId: item.id,
-        exerciseName: item.exercise?.name || 'Exercise',
-        targetSets: item.sets || 1,
-        targetReps: String(item.reps || '8-12'),
-        targetWeight: item.planSets?.[0]?.weight,
-        sets: Array.from({ length: item.sets || 1 }, (_, setIndex) => ({
+      const exercises: ExerciseTracking[] = currentDay.items.map((item, index) => {
+        const isCardio = isCardioExercise(item);
+        const { durationSeconds, notes } = extractCardioMeta(item);
+        const targetDuration = isCardio
+          ? durationSeconds || item.exercise?.defaultDurationSeconds || 600
+          : undefined;
+
+        const baseSets = Array.from({ length: item.sets || 1 }, (_, setIndex) => ({
           id: `set_${index}_${setIndex}`,
           reps: null,
           weight: null,
           restTime: null,
           completed: false
-        })),
-        notes: item.notes || '',
-        completed: false
-      }));
+        }));
+
+        return {
+          id: `exercise_${index}`,
+          exerciseId: item.id,
+          exerciseName: item.exercise?.name || 'Exercise',
+          targetSets: item.sets || 1,
+          targetReps: String(item.reps || '8-12'),
+          targetWeight: item.planSets?.[0]?.weight,
+          sets: isCardio ? baseSets.slice(0, 1) : baseSets,
+          notes: notes,
+          completed: false,
+          isCardio,
+          targetDurationSeconds: targetDuration,
+          actualDurationSeconds: isCardio ? item.actualDurationSeconds ?? 0 : undefined,
+        };
+      });
 
       setTrackingData({
         planId,
@@ -151,19 +230,51 @@ export default function WorkoutTracking({
         date: workoutDate,
         startTime: workoutStartTime,
         exercises,
-        notes: workoutNotes,
+        notes: '',
         completed: false
       });
 
-      // Initialize exercise-by-exercise state
       setExerciseByExerciseState({
         currentPosition: { exerciseIndex: 0 },
         totalExercises: exercises.length,
         completedExercises: 0,
         isWorkoutComplete: false
       });
+
+      setCardioTimers(() => {
+        const timers: Record<string, { elapsed: number; running: boolean }> = {};
+        exercises.forEach((exercise) => {
+          if (exercise.isCardio) {
+            timers[exercise.id] = {
+              elapsed: exercise.actualDurationSeconds ?? 0,
+              running: false,
+            };
+          }
+        });
+        return timers;
+      });
     }
-  }, [planId, dayIndex, currentDay, workoutNotes]);
+  }, [planId, dayIndex, currentDay, workoutDate, workoutStartTime]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCardioTimers((prev) => {
+        let changed = false;
+        const next: typeof prev = {};
+        Object.entries(prev).forEach(([key, timer]) => {
+          if (timer.running) {
+            next[key] = { running: true, elapsed: timer.elapsed + 1 };
+            changed = true;
+          } else {
+            next[key] = timer;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Check for incomplete workout on component mount using localStorage
   useEffect(() => {
@@ -178,15 +289,16 @@ export default function WorkoutTracking({
       if (incompleteWorkoutData) {
         const parsedData = JSON.parse(incompleteWorkoutData);
         const today = new Date().toDateString();
-        const workoutDate = new Date(parsedData.date).toDateString();
+        const storedDate = parsedData.trackingData?.date || parsedData.date;
         
-        // Only show continue dialog if it's from today
-        if (workoutDate === today) {
-          setIncompleteWorkout(parsedData);
-          setShowContinueDialog(true);
-        } else {
-          // Clear old workout data
-          localStorage.removeItem(storageKey);
+        if (storedDate) {
+          const workoutDate = new Date(storedDate).toDateString();
+          if (workoutDate === today) {
+            setIncompleteWorkout(parsedData);
+            setShowContinueDialog(true);
+          } else {
+            localStorage.removeItem(storageKey);
+          }
         }
       }
     } catch (error) {
@@ -200,8 +312,9 @@ export default function WorkoutTracking({
     try {
       const storageKey = `incomplete_workout_${planId}_${dayIndex}`;
       const incompleteData = {
-        ...trackingData,
+        trackingData,
         exerciseByExerciseState,
+        cardioTimers,
         timestamp: new Date().toISOString()
       };
       
@@ -258,6 +371,62 @@ export default function WorkoutTracking({
     }
   };
 
+  const updateExerciseNotes = (value: string) => {
+    if (!trackingData) return;
+
+    const newTrackingData = { ...trackingData };
+    const { exerciseIndex } = exerciseByExerciseState.currentPosition;
+    if (newTrackingData.exercises[exerciseIndex]) {
+      newTrackingData.exercises[exerciseIndex].notes = value;
+      setTrackingData(newTrackingData);
+    }
+  };
+
+  const getCardioTimer = (exerciseId: string) =>
+    cardioTimers[exerciseId] || { elapsed: 0, running: false };
+
+  const toggleCardioTimer = (exerciseId: string) => {
+    setCardioTimers((prev) => {
+      const timer = prev[exerciseId] || { elapsed: 0, running: false };
+      return {
+        ...prev,
+        [exerciseId]: { ...timer, running: !timer.running },
+      };
+    });
+  };
+
+  const resetCardioTimer = (exerciseId: string) => {
+    setCardioTimers((prev) => ({
+      ...prev,
+      [exerciseId]: { elapsed: 0, running: false },
+    }));
+    if (trackingData) {
+      const newTrackingData = { ...trackingData };
+      const exerciseIndex = newTrackingData.exercises.findIndex((ex) => ex.id === exerciseId);
+      if (exerciseIndex >= 0) {
+        newTrackingData.exercises[exerciseIndex].actualDurationSeconds = 0;
+        setTrackingData(newTrackingData);
+      }
+    }
+  };
+
+  const stopCardioTimer = (exerciseId: string) => {
+    setCardioTimers((prev) => {
+      if (!prev[exerciseId] || !prev[exerciseId].running) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [exerciseId]: { ...prev[exerciseId], running: false },
+      };
+    });
+  };
+
+  const getCardioElapsed = (exercise: ExerciseTracking) => {
+    const timer = cardioTimers[exercise.id];
+    return timer ? timer.elapsed : exercise.actualDurationSeconds ?? 0;
+  };
+
   const completeExercise = async () => {
     if (!trackingData) return;
 
@@ -265,6 +434,21 @@ export default function WorkoutTracking({
     const { exerciseIndex } = exerciseByExerciseState.currentPosition;
     const exercise = newTrackingData.exercises[exerciseIndex];
     
+    if (exercise.isCardio) {
+      const elapsed = getCardioElapsed(exercise);
+      exercise.actualDurationSeconds = elapsed;
+      stopCardioTimer(exercise.id);
+      if (!exercise.sets || exercise.sets.length === 0) {
+        exercise.sets = [{
+          id: `set_${exerciseIndex}_0`,
+          reps: null,
+          weight: null,
+          restTime: null,
+          completed: false,
+        }];
+      }
+    }
+
     // Mark all sets as completed
     exercise.sets.forEach(set => {
       if (!set.completed) {
@@ -294,6 +478,20 @@ export default function WorkoutTracking({
     const newTrackingData = { ...trackingData };
     const { exerciseIndex } = exerciseByExerciseState.currentPosition;
     const exercise = newTrackingData.exercises[exerciseIndex];
+
+    if (exercise.isCardio) {
+      stopCardioTimer(exercise.id);
+      exercise.actualDurationSeconds = 0;
+      if (!exercise.sets || exercise.sets.length === 0) {
+        exercise.sets = [{
+          id: `set_${exerciseIndex}_0`,
+          reps: null,
+          weight: null,
+          restTime: null,
+          completed: false,
+        }];
+      }
+    }
     
     // Mark all sets as completed with 0 reps (skipped)
     exercise.sets.forEach(set => {
@@ -359,16 +557,22 @@ export default function WorkoutTracking({
       const currentTime = new Date().toTimeString().slice(0, 5);
       
       // Transform data to remove id fields
-      const transformedExercises = trackingData.exercises.map(({ id, ...exercise }) => ({
-        ...exercise,
-        sets: exercise.sets.map(({ id, ...set }) => set)
-      }));
+      const transformedExercises = trackingData.exercises.map((exercise) => {
+        const { id, sets, ...rest } = exercise;
+        const actualDurationSeconds = exercise.isCardio
+          ? cardioTimers[exercise.id]?.elapsed ?? exercise.actualDurationSeconds ?? 0
+          : undefined;
+        return {
+          ...rest,
+          actualDurationSeconds: exercise.isCardio ? actualDurationSeconds : rest.actualDurationSeconds,
+          sets: sets.map(({ id: setId, ...setRest }) => setRest),
+        };
+      });
       
       const progressData = {
         ...trackingData,
         endTime: currentTime, // Update end time when saving progress
         completed: false,
-        notes: workoutNotes,
         exercises: transformedExercises
       };
       
@@ -424,16 +628,22 @@ export default function WorkoutTracking({
       const endTime = new Date().toTimeString().slice(0, 5); // Auto-calculate end time
       
       // Transform data to remove id fields
-      const transformedExercises = trackingData.exercises.map(({ id, ...exercise }) => ({
-        ...exercise,
-        sets: exercise.sets.map(({ id, ...set }) => set) // Remove id field from sets
-      }));
+      const transformedExercises = trackingData.exercises.map((exercise) => {
+        const { id, sets, ...rest } = exercise;
+        const actualDurationSeconds = exercise.isCardio
+          ? cardioTimers[exercise.id]?.elapsed ?? exercise.actualDurationSeconds ?? 0
+          : undefined;
+        return {
+          ...rest,
+          actualDurationSeconds: exercise.isCardio ? actualDurationSeconds : rest.actualDurationSeconds,
+          sets: sets.map(({ id: setId, ...setRest }) => setRest),
+        };
+      });
       
       const completedData = {
         ...trackingData,
         endTime,
         completed: true,
-        notes: workoutNotes,
         exercises: transformedExercises
       };
 
@@ -467,6 +677,11 @@ export default function WorkoutTracking({
   }
 
   const stats = calculateWorkoutStats();
+  const activeExercise = getCurrentExercise();
+  const activeCardioTimer = activeExercise ? getCardioTimer(activeExercise.id) : { elapsed: 0, running: false };
+  const activeCardioTarget = activeExercise?.targetDurationSeconds ?? 0;
+  const hasReachedCardioTarget =
+    Boolean(activeExercise?.isCardio && activeCardioTarget > 0 && activeCardioTimer.elapsed >= activeCardioTarget);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -480,10 +695,10 @@ export default function WorkoutTracking({
           {incompleteWorkout && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
               <Typography variant="body2" color="text.secondary">
-                Previous workout: {incompleteWorkout.planId} - Day {incompleteWorkout.dayIndex + 1}
+                Previous workout: {(incompleteWorkout.trackingData?.planId ?? incompleteWorkout.planId) || planData.title} - Day {((incompleteWorkout.trackingData?.dayIndex ?? incompleteWorkout.dayIndex) ?? 0) + 1}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Started: {incompleteWorkout.startTime} on {new Date(incompleteWorkout.date).toLocaleDateString()}
+                Started: {(incompleteWorkout.trackingData?.startTime ?? incompleteWorkout.startTime) || '—'} on {(incompleteWorkout.trackingData?.date || incompleteWorkout.date) ? new Date(incompleteWorkout.trackingData?.date || incompleteWorkout.date).toLocaleDateString() : ''}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Progress: Exercise {incompleteWorkout.exerciseByExerciseState?.currentPosition?.exerciseIndex + 1} of {incompleteWorkout.exerciseByExerciseState?.totalExercises}
@@ -500,8 +715,10 @@ export default function WorkoutTracking({
             setShowContinueDialog(false);
             // Load previous workout data
             if (incompleteWorkout) {
-              setTrackingData(incompleteWorkout);
+              const trackingPayload = incompleteWorkout.trackingData || incompleteWorkout;
+              setTrackingData(trackingPayload);
               setExerciseByExerciseState(incompleteWorkout.exerciseByExerciseState);
+              setCardioTimers(incompleteWorkout.cardioTimers || {});
               console.log('Loaded incomplete workout:', incompleteWorkout);
             }
           }}>Continue Previous Workout</Button>
@@ -577,97 +794,175 @@ export default function WorkoutTracking({
       </Card>
 
       {/* Current Exercise Display */}
-      {getCurrentExercise() && (
+      {activeExercise && (
         <Card sx={{ mb: 3 }}>
           <CardHeader
-            title={getCurrentExercise()?.exerciseName}
+            title={activeExercise.exerciseName}
             subheader={`Exercise ${exerciseByExerciseState.currentPosition.exerciseIndex + 1} of ${trackingData?.exercises.length}`}
             action={
-              <Chip 
-                label={`Target: ${getCurrentExercise()?.targetReps} reps`}
-                color="primary"
-                variant="outlined"
-              />
+              !activeExercise.isCardio && (
+                <Chip 
+                  label={`Target: ${activeExercise.targetReps} reps`}
+                  color="primary"
+                  variant="outlined"
+                />
+              )
             }
           />
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              All Sets ({getCurrentExercise()?.sets.length}) - Fill all sets before completing exercise
-            </Typography>
-            
-            {/* Debug Info */}
-            {process.env.NODE_ENV === 'development' && (
-              <Box sx={{ mb: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
-                <Typography variant="caption">
-                  Debug: Exercise {exerciseByExerciseState.currentPosition.exerciseIndex + 1}, 
-                  Sets: {getCurrentExercise()?.sets.length}, 
-                  Current Exercise: {getCurrentExercise()?.exerciseName}
-                </Typography>
-              </Box>
-            )}
-            
-            {/* All Sets Display */}
-            <Stack spacing={2}>
-              {getCurrentExercise()?.sets.map((set, setIndex) => (
-                <Card key={setIndex} variant="outlined" sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <Typography variant="h6" sx={{ minWidth: '80px', fontWeight: 'bold' }}>
-                      Set {setIndex + 1}
+            {activeExercise.isCardio ? (
+              <Box
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  bgcolor: hasReachedCardioTarget ? 'success.lighter' : 'action.hover',
+                  border: '1px solid',
+                  borderColor: hasReachedCardioTarget ? 'success.main' : 'primary.main',
+                }}
+              >
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}>
+                      {intl.formatMessage({ id: 'client.workout.targetDuration' })}
                     </Typography>
-                    
-                    <TextField
-                      label="Reps"
-                      type="number"
-                      value={set.reps || ''}
-                      onChange={(e) => updateSetData(setIndex, 'reps', parseInt(e.target.value) || null)}
-                      sx={{ width: '120px' }}
-                      InputProps={{
-                        inputProps: { min: 0, max: 100 }
-                      }}
-                      placeholder="0"
-                    />
-                    
-                    <TextField
-                      label="Weight (kg)"
-                      type="number"
-                      value={set.weight || ''}
-                      onChange={(e) => updateSetData(setIndex, 'weight', parseFloat(e.target.value) || null)}
-                      sx={{ width: '140px' }}
-                      InputProps={{
-                        inputProps: { min: 0, step: 0.5 }
-                      }}
-                      placeholder="0"
-                    />
-                    
-                    <TextField
-                      label="Rest Time (sec)"
-                      type="number"
-                      value={set.restTime || ''}
-                      onChange={(e) => updateSetData(setIndex, 'restTime', parseInt(e.target.value) || null)}
-                      sx={{ width: '140px' }}
-                      InputProps={{
-                        inputProps: { min: 0, max: 600 }
-                      }}
-                      placeholder="0"
-                    />
-                    
-                    <Chip 
-                      label={set.completed ? '✓ Completed' : '⏳ Pending'}
-                      color={set.completed ? 'success' : 'default'}
-                      size="small"
-                      sx={{ minWidth: '100px' }}
-                    />
+                    <Typography variant="h4" sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main' }}>
+                      {formatTimerValue(activeCardioTarget)}
+                    </Typography>
                   </Box>
-                </Card>
-              ))}
-            </Stack>
-            
-            {/* Instructions */}
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}>
+                      {intl.formatMessage({ id: 'client.workout.elapsedTime' })}
+                    </Typography>
+                    <Typography
+                      variant="h4"
+                      sx={{
+                        fontFamily: 'monospace',
+                        fontWeight: 700,
+                        color: hasReachedCardioTarget ? 'success.main' : 'text.primary',
+                      }}
+                    >
+                      {formatTimerValue(activeCardioTimer.elapsed)}
+                    </Typography>
+                  </Box>
+                </Stack>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 3 }}>
+                  <Button
+                    variant="contained"
+                    color={activeCardioTimer.running ? 'warning' : 'primary'}
+                    onClick={() => toggleCardioTimer(activeExercise.id)}
+                  >
+                    {activeCardioTimer.running
+                      ? intl.formatMessage({ id: 'client.workout.pauseTimer' })
+                      : activeCardioTimer.elapsed > 0
+                        ? intl.formatMessage({ id: 'client.workout.resumeTimer' })
+                        : intl.formatMessage({ id: 'client.workout.startTimer' })}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => resetCardioTimer(activeExercise.id)}
+                    disabled={activeCardioTimer.elapsed === 0}
+                  >
+                    {intl.formatMessage({ id: 'client.workout.resetTimer' })}
+                  </Button>
+                </Stack>
+
+                {hasReachedCardioTarget && (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    {intl.formatMessage({ id: 'client.workout.targetHit' })}
+                  </Alert>
+                )}
+              </Box>
+            ) : (
+              <>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  All Sets ({activeExercise.sets.length}) - Fill all sets before completing exercise
+                </Typography>
+
+                {process.env.NODE_ENV === 'development' && (
+                  <Box sx={{ mb: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
+                    <Typography variant="caption">
+                      Debug: Exercise {exerciseByExerciseState.currentPosition.exerciseIndex + 1}, Sets: {activeExercise.sets.length}, Current Exercise: {activeExercise.exerciseName}
+                    </Typography>
+                  </Box>
+                )}
+
+                <Stack spacing={2}>
+                  {activeExercise.sets.map((set, setIndex) => (
+                    <Card key={setIndex} variant="outlined" sx={{ p: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Typography variant="h6" sx={{ minWidth: '80px', fontWeight: 'bold' }}>
+                          Set {setIndex + 1}
+                        </Typography>
+
+                        <TextField
+                          label="Reps"
+                          type="number"
+                          value={set.reps || ''}
+                          onChange={(e) => updateSetData(setIndex, 'reps', parseInt(e.target.value) || null)}
+                          sx={{ width: '120px' }}
+                          InputProps={{
+                            inputProps: { min: 0, max: 100 }
+                          }}
+                          placeholder="0"
+                        />
+
+                        <TextField
+                          label="Weight (kg)"
+                          type="number"
+                          value={set.weight || ''}
+                          onChange={(e) => updateSetData(setIndex, 'weight', parseFloat(e.target.value) || null)}
+                          sx={{ width: '140px' }}
+                          InputProps={{
+                            inputProps: { min: 0, step: 0.5 }
+                          }}
+                          placeholder="0"
+                        />
+
+                        <TextField
+                          label="Rest Time (sec)"
+                          type="number"
+                          value={set.restTime || ''}
+                          onChange={(e) => updateSetData(setIndex, 'restTime', parseInt(e.target.value) || null)}
+                          sx={{ width: '140px' }}
+                          InputProps={{
+                            inputProps: { min: 0, max: 600 }
+                          }}
+                          placeholder="0"
+                        />
+
+                        <Chip 
+                          label={set.completed ? '✓ Completed' : '⏳ Pending'}
+                          color={set.completed ? 'success' : 'default'}
+                          size="small"
+                          sx={{ minWidth: '100px' }}
+                        />
+                      </Box>
+                    </Card>
+                  ))}
+                </Stack>
+              </>
+            )}
+
             <Box sx={{ mt: 2, p: 2, bgcolor: 'info.50', borderRadius: 1, border: '1px solid', borderColor: 'info.200' }}>
               <Typography variant="body2" color="info.dark" sx={{ fontWeight: 500 }}>
-                📝 Instructions: Fill in reps, weight, and rest time for ALL sets above, then click "Complete Exercise" to move to the next exercise.
+                {activeExercise.isCardio
+                  ? '📝 Use the timer to log your cardio duration. Tap "Complete Exercise" once finished.'
+                  : '📝 Fill in reps, weight, and rest time for ALL sets above, then click "Complete Exercise" to move to the next exercise.'}
               </Typography>
             </Box>
+
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              sx={{ mt: 2 }}
+              label="Exercise Notes"
+              placeholder="Add notes for this exercise..."
+              value={activeExercise.notes || ''}
+              onChange={(e) => updateExerciseNotes(e.target.value)}
+            />
             
             {/* Action Buttons */}
             <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
@@ -704,21 +999,6 @@ export default function WorkoutTracking({
           </CardContent>
         </Card>
       )}
-
-      {/* Workout Notes */}
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label={intl.formatMessage({ id: 'notes' })}
-            value={workoutNotes}
-            onChange={(e) => setWorkoutNotes(e.target.value)}
-            placeholder="Add any notes about your workout..."
-          />
-        </CardContent>
-      </Card>
 
       {/* Action Buttons */}
       <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>

@@ -36,8 +36,6 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
 
 // Third-party
 import { LabelKeyObject } from 'react-csv/lib/core';
@@ -76,6 +74,7 @@ import {
 import { Add, Edit, Eye, Trash, Grid3, Menu } from '@wandersonalwes/iconsax-react';
 import PauseCircleIcon from '@mui/icons-material/PauseCircle';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
+import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import useConfig from '@/hooks/useConfig';
 
 // Import translations
@@ -1236,41 +1235,64 @@ export default function ClientsPage() {
         </Stack>
       </Stack>
 
-      {/* Tabs */}
-      <Card>
-        <Tabs 
-          value={activeTab} 
-          onChange={(_, newValue) => {
-            setActiveTab(newValue);
-            setRowSelection({}); // Reset row selection when switching tabs
-          }}
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab label="Active" />
-          <Tab label="Archived" />
-        </Tabs>
-      </Card>
-
-      {/* Status filters row */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ px: 1 }}>
-          Filter by Status
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {statusOptions.map((option) => (
-            <Chip
-              key={option.value}
-              label={option.label}
-              onClick={() => setStatusFilter(option.value)}
-              color={statusFilter === option.value ? (option.color as any) : undefined}
-              variant={statusFilter === option.value ? 'filled' : 'outlined'}
-              size="small"
-              sx={{
-                cursor: 'pointer',
-                fontWeight: statusFilter === option.value ? 600 : 400,
+      {/* Status filters row + Archive toggle */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          alignItems: { xs: 'flex-start', md: 'center' },
+          justifyContent: 'space-between'
+        }}
+      >
+        <Box sx={{ flexGrow: 1, width: '100%' }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ px: 1, mb: 0.5 }}>
+            Filter by Status
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {statusOptions.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                onClick={() => setStatusFilter(option.value)}
+                color={statusFilter === option.value ? (option.color as any) : undefined}
+                variant={statusFilter === option.value ? 'filled' : 'outlined'}
+                size="small"
+                sx={{
+                  cursor: 'pointer',
+                  fontWeight: statusFilter === option.value ? 600 : 400,
+                  transition: 'transform 0.15s ease',
+                  '&:hover': {
+                    transform: 'translateY(-1px)'
+                  }
+                }}
+              />
+            ))}
+          </Box>
+        </Box>
+        <Box sx={{ alignSelf: { xs: 'stretch', md: 'flex-end' } }}>
+          <Tooltip title={activeTab === 1 ? 'Show Active Clients' : 'View Archived Clients'}>
+            <Button
+              variant={activeTab === 1 ? 'contained' : 'outlined'}
+              color="secondary"
+              startIcon={<ArchiveOutlinedIcon />}
+              onClick={() => {
+                setActiveTab((prev) => {
+                  const next = prev === 1 ? 0 : 1;
+                  setRowSelection({});
+                  return next;
+                });
               }}
-            />
-          ))}
+              sx={{
+                width: { xs: '100%', md: 'auto' },
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                boxShadow: activeTab === 1 ? '0 10px 25px rgba(88, 86, 214, 0.3)' : 'none'
+              }}
+            >
+              {activeTab === 1 ? 'Viewing Archived' : 'Archived Clients'}
+            </Button>
+          </Tooltip>
         </Box>
       </Box>
 

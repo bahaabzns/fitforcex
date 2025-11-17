@@ -17,6 +17,7 @@ import {
   Chip,
   Button
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { 
   CreditCard,
   Schedule,
@@ -253,16 +254,46 @@ export default function ClientSubscriptionPage() {
       )}
 
       {/* Help Section */}
-      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.50', border: '2px solid', borderColor: 'primary.main' }}>
+      <Card
+        sx={(theme) => {
+          const isDark = theme.palette.mode === 'dark';
+          return {
+            borderRadius: 3,
+            mt: 3,
+            border: '1px solid',
+            borderColor: alpha(theme.palette.primary.main, isDark ? 0.5 : 0.25),
+            backgroundColor: alpha(theme.palette.primary.main, isDark ? 0.18 : 0.08),
+            boxShadow: `0 12px 24px ${alpha(theme.palette.primary.main, isDark ? 0.25 : 0.15)}`,
+            backdropFilter: 'blur(4px)',
+          };
+        }}
+      >
         <CardContent>
-          <Typography variant="h6" fontWeight={700} color="primary.main" gutterBottom>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            gutterBottom
+            sx={(theme) => ({
+              color: theme.palette.mode === 'dark'
+                ? theme.palette.primary.light
+                : theme.palette.primary.main,
+            })}
+          >
             {t('need-help')}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={(theme) => ({
+              color: theme.palette.mode === 'dark'
+                ? alpha(theme.palette.common.white, 0.85)
+                : theme.palette.text.secondary,
+            })}
+          >
             {t('client.subscription.helpText')}
           </Typography>
           <Button 
             variant="contained" 
+            color="primary"
             sx={{ mt: 2 }}
             href="/client/support"
           >

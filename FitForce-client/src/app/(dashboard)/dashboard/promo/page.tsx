@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import useSWR from 'swr';
 import {
   Alert,
   Box,
+  Button,
   Chip,
   Divider,
   Grid,
@@ -21,7 +23,8 @@ import { format } from 'date-fns';
 import Loader from 'components/Loader';
 import MainCard from 'components/MainCard';
 import AppliedPromoCard from 'components/promo/AppliedPromoCard';
-import { fetcher } from '@/utils/axios';
+import api, { fetcher } from '@/utils/axios';
+import { openSnackbar } from '@/api/snackbar';
 
 interface PromoSummaryResponse {
   promoCode: {
@@ -65,6 +68,8 @@ export default function OwnedPromoPage() {
   const { data, error, isLoading, mutate } = useSWR<PromoSummaryResponse>('/api/promo', fetcher, {
     revalidateOnFocus: false,
   });
+  const [creatingPromo, setCreatingPromo] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -85,6 +90,34 @@ export default function OwnedPromoPage() {
   const promo = data?.promoCode ?? null;
   const summary = data?.summary;
   const commissionCredit = data?.commissionCredit;
+
+  const handleCreatePromo = async () => {
+    if (creatingPromo) return;
+
+    setCreatingPromo(true);
+    setCreateError(null);
+    try {
+      await api.post('/api/promo');
+      openSnackbar({
+        open: true,
+        message: 'Promo code generated successfully',
+        variant: 'alert',
+        alert: { color: 'success', variant: 'filled' }
+      });
+      await mutate();
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Failed to create promo code';
+      setCreateError(message);
+      openSnackbar({
+        open: true,
+        message,
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' }
+      });
+    } finally {
+      setCreatingPromo(false);
+    }
+  };
 
   return (
     <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: { xs: 2, md: 3 }, maxWidth: 1280, mx: 'auto', width: '100%' }}>
@@ -215,20 +248,73 @@ export default function OwnedPromoPage() {
             )}
           </>
         ) : (
-          <Alert severity="info">
-            You don’t have a promo code assigned yet. Once an admin issues a promo code to you, you’ll see its performance here.
-          </Alert>
+          <MainCard title="Create Your Workspace Promo Code" contentSX={{ p: 3 }}>
+            <Stack spacing={2}>
+              <Typography color="text.secondary">
+                Generate a unique promo code for this workspace. Each code grants <strong>10% discount</strong> to your referrals and earns you a <strong>10% commission</strong> on their payments.
+              </Typography>
+              <Stack spacing={1}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Highlights
+                </Typography>
+                <Stack spacing={0.5}>
+                  <Typography variant="body2">• Automatic tracking of referrals and payouts.</Typography>
+                  <Typography variant="body2">• Works instantly across onboarding and subscription flows.</Typography>
+                  <Typography variant="body2">• You can apply earned commission as workspace credit.</Typography>
+                </Stack>
+              </Stack>
+              {createError && <Alert severity="error">{createError}</Alert>}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleCreatePromo}
+                  disabled={creatingPromo}
+                  sx={{ minWidth: 220 }}
+                >
+                  {creatingPromo ? 'Generating Promo Code…' : 'Generate Promo Code'}
+                </Button>
+                <Typography variant="caption" color="text.secondary">
+                  Only one promo code can exist per workspace owner.
+                </Typography>
+              </Stack>
+            </Stack>
+          </MainCard>
         )}
       </Stack>
     </Box>
   );
 }
 
+type MetricTone = 'primary' | 'secondary' | 'success' | 'warning' | 'info';
+
 interface MetricCardProps {
   title: string;
   value: string;
-  tone?: 'primary' | 'secondary' | 'success' | 'warning' | 'info';
+  tone?: MetricTone;
 }
+
+const getMetricColors = (theme: any, tone?: MetricTone) => {
+  const isDark = theme.palette.mode === 'dark';
+
+  if (!tone) {
+    return {
+      background: isDark ? theme.palette.background.paper : theme.palette.grey[50],
+      value: theme.palette.text.primary
+    };
+  }
+
+  const paletteTone = theme.palette[tone] || theme.palette.primary;
+
+  return {
+    background: isDark
+      ? paletteTone.dark || paletteTone.main
+      : paletteTone.lighter || paletteTone.light || paletteTone.main,
+    value: isDark
+      ? paletteTone.contrastText || theme.palette.common.white
+      : paletteTone.main
+  };
+};
 
 function MetricCard({ title, value, tone }: MetricCardProps) {
   return (
@@ -236,14 +322,29 @@ function MetricCard({ title, value, tone }: MetricCardProps) {
       variant="outlined"
       sx={{
         p: 2,
-        bgcolor: tone ? `${tone}.50` : 'grey.50',
+        bgcolor: (theme) => getMetricColors(theme, tone).background,
+        color: (theme) =>
+          tone && theme.palette.mode === 'dark'
+            ? getMetricColors(theme, tone).value
+            : 'inherit',
         borderRadius: 2,
       }}
     >
-      <Typography variant="subtitle2" color="text.secondary">
+      <Typography
+        variant="subtitle2"
+        color={(theme) =>
+          theme.palette.mode === 'dark'
+            ? theme.palette.text.secondary
+            : 'text.secondary'
+        }
+      >
         {title}
       </Typography>
-      <Typography variant="h5" fontWeight={700} color={tone ? `${tone}.main` : 'text.primary'}>
+      <Typography
+        variant="h5"
+        fontWeight={700}
+        color={(theme) => getMetricColors(theme, tone).value}
+      >
         {value}
       </Typography>
     </Paper>

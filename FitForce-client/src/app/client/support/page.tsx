@@ -546,28 +546,6 @@ export default function ClientSupportPage() {
         </Box>
       </Card>
 
-      {/* Help Tips Card */}
-      <Card sx={{ borderRadius: 3, mt: 3, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'info.dark' : 'info.50', border: '2px solid', borderColor: 'info.main' }}>
-        <CardContent>
-          <Typography variant="h6" fontWeight={700} color="info.main" gutterBottom>
-            {t('client.support.tipsTitle')}
-          </Typography>
-          <Stack spacing={1}>
-            <Typography variant="body2" color="text.secondary">
-              • {t('client.support.tip1')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              • {t('client.support.tip2')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              • {t('client.support.tip3')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              • {t('client.support.tip4')}
-            </Typography>
-          </Stack>
-        </CardContent>
-      </Card>
     </Box>
   );
 }

@@ -19,6 +19,7 @@ import useTranslation from '@/utils/useTranslation';
 import { useEffect, useState } from 'react';
 import { APP_CONFIG } from '@/lib/config';
 import useConfig from '@/hooks/useConfig';
+import { SxProps, Theme } from '@mui/material/styles';
 
 // ==============================|| LANDING - HERO PAGE ||============================== //
 
@@ -64,6 +65,16 @@ export default function HeroPage() {
     })();
     return () => { isMounted = false; };
   }, [i18n]);
+
+  const sharedButtonStyles: SxProps<Theme> = {
+    minWidth: { xs: '100%', sm: 220 },
+    px: 4,
+    py: 1.5,
+    fontWeight: 600,
+    height: 56,
+    fontSize: '1rem',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+  };
 
   return (
     <Box 
@@ -119,7 +130,13 @@ export default function HeroPage() {
           )}
           
           {/* Hero Content */}
-          <Grid size={{ xs: 12, md: heroSideImage && heroAlignment !== 'center' ? 7 : (heroAlignment === 'center' ? 9 : 12) }} sx={{ order: { xs: 1, md: heroAlignment === 'left' ? 1 : 2 } }}>
+          <Grid
+            size={{ xs: 12, md: heroSideImage && heroAlignment !== 'center' ? 7 : (heroAlignment === 'center' ? 9 : 12) }}
+            sx={{
+              order: { xs: 1, md: heroAlignment === 'left' ? 1 : 2 },
+              mx: heroAlignment === 'center' ? 'auto' : undefined
+            }}
+          >
             <Grid container spacing={3} sx={{ textAlign: heroAlignment === 'center' ? 'center' : heroAlignment === 'left' ? 'left' : 'right' }}>
               <Grid size={12}>
                 <motion.div
@@ -213,7 +230,7 @@ export default function HeroPage() {
                 >
                   <Grid container spacing={2} sx={{ justifyContent: heroAlignment === 'center' ? 'center' : heroAlignment === 'left' ? 'flex-start' : 'flex-end' }}>
                     {heroCtaEnabled && (
-                    <Grid>
+                    <Grid sx={{ minWidth: { xs: '100%', sm: 'auto' } }}>
                       <AnimateButton>
                         <Button
                           component={Link}
@@ -222,15 +239,12 @@ export default function HeroPage() {
                           color="secondary"
                           variant="outlined"
                           sx={{
+                            ...sharedButtonStyles,
                             borderColor: 'white',
                             color: 'white',
                             borderWidth: 2,
-                            fontWeight: 600,
-                            px: 4,
-                            py: 1.5,
                             position: 'relative',
                             overflow: 'hidden',
-                            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                             '&::before': {
                               content: '""',
                               position: 'absolute',
@@ -261,7 +275,7 @@ export default function HeroPage() {
                     </Grid>
                     )}
                     {heroBookDemoEnabled && (
-                    <Grid>
+                    <Grid sx={{ minWidth: { xs: '100%', sm: 'auto' } }}>
                       <AnimateButton>
                         <Button
                             component={bookDemoUrl ? Link : "a"}
@@ -269,6 +283,18 @@ export default function HeroPage() {
                           size="large"
                           color="primary"
                           variant="contained"
+                          sx={{
+                            ...sharedButtonStyles,
+                            color: 'white',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                            '&:hover': {
+                              transform: 'translateY(-3px) scale(1.05)',
+                              boxShadow: '0 15px 35px rgba(0,0,0,0.35)'
+                            },
+                            '&:active': {
+                              transform: 'translateY(-1px) scale(1.02)'
+                            }
+                          }}
                             onClick={!bookDemoUrl ? (e) => {
                             e.preventDefault();
                             document.getElementById('book-demo')?.scrollIntoView({ 

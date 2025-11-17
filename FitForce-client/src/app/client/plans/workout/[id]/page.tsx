@@ -22,9 +22,9 @@ import {
   Chip,
   Paper,
   Avatar,
-  useTheme,
   useMediaQuery
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { PlayArrow, FitnessCenter } from '@mui/icons-material';
 import WorkoutTracking from '@/components/workout/WorkoutTracking';
 import useConfig from '@/hooks/useConfig';
@@ -48,6 +48,63 @@ const getYouTubeThumbnail = (videoId: string, quality: 'default' | 'medium' | 'h
 // Helper function to open YouTube video
 const openYouTubeVideo = (url: string) => {
   window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+const formatDuration = (totalSeconds: number) => {
+  if (!totalSeconds || totalSeconds <= 0) return '00:00';
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [];
+  if (hours > 0) {
+    parts.push(String(hours).padStart(2, '0'));
+  }
+  parts.push(String(minutes).padStart(2, '0'));
+  parts.push(String(seconds).padStart(2, '0'));
+  return parts.join(':');
+};
+
+const getCardioMeta = (item: any) => {
+  const exercise = item?.exercise || {};
+  const explicitCardio = item?.isCardio ?? exercise?.isCardio;
+  const category = exercise?.category?.toLowerCase() || '';
+  const muscleGroup = exercise?.muscleGroup?.toLowerCase() || '';
+  let notes = item?.notes || '';
+  let durationSeconds =
+    item?.durationSeconds ||
+    (item?.durationMinutes ? item.durationMinutes * 60 : undefined);
+  if ((!durationSeconds || durationSeconds <= 0) && exercise?.defaultDurationSeconds) {
+    durationSeconds = exercise.defaultDurationSeconds;
+  }
+
+  if (
+    (!durationSeconds || durationSeconds <= 0) &&
+    typeof notes === 'string' &&
+    notes.trim().startsWith('{')
+  ) {
+    try {
+      const parsed = JSON.parse(notes);
+      if (parsed?.durationSeconds) {
+        durationSeconds = parsed.durationSeconds;
+        notes = parsed.originalNotes || '';
+      }
+    } catch (_err) {
+      // Notes were plain text; leave as-is
+    }
+  }
+
+  const isCardio =
+    explicitCardio !== undefined
+      ? Boolean(explicitCardio)
+      : category === 'cardio' ||
+        muscleGroup.includes('cardio') ||
+        Boolean(durationSeconds);
+
+  return {
+    isCardio,
+    durationSeconds: isCardio ? durationSeconds ?? null : null,
+    notes: notes || '',
+  };
 };
 
 export default function ClientWorkoutPlanDetail() {
@@ -157,150 +214,211 @@ export default function ClientWorkoutPlanDetail() {
                 </Button>
               </Box>
               <Divider sx={{ my: 1.5 }} />
-              <Box sx={{ 
-                display: 'grid', 
-                gridTemplateColumns: { 
-                  xs: '1fr', 
-                  sm: 'repeat(2, 1fr)', 
-                  md: 'repeat(3, 1fr)' 
-                }, 
-                gap: 2,
-                width: '100%'
-              }}>
+              <Stack spacing={2} sx={{ width: '100%' }}>
                 {d.items.map((it, i) => {
                   const videoId = it?.exercise?.videoUrl ? getYouTubeVideoId(it.exercise.videoUrl) : null;
                   const youtubeThumbnailUrl = videoId ? getYouTubeThumbnail(videoId, 'medium') : null;
                   const gifUrl = it?.exercise?.gifImage || null;
-                  
-                  // Priority: GIF > YouTube thumbnail > nothing (GIFs are better for exercise demos)
+
                   const mediaUrl = gifUrl || youtubeThumbnailUrl;
                   const isYouTube = !!youtubeThumbnailUrl && !gifUrl;
                   const hasGif = !!gifUrl;
+                  const cardioMeta = getCardioMeta(it);
+                  const isCardio = cardioMeta.isCardio;
+                  const cardioDurationSeconds = cardioMeta.durationSeconds;
+                  const notesContent = cardioMeta.notes || it?.notes;
                   
                   return (
-                    <Card 
-                      key={i}
-                      sx={{ 
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'background.paper' : 'rgba(255, 255, 255, 0.95)',
-                        backdropFilter: 'blur(10px)',
-                        border: (theme) => `2px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)'}`,
-                        borderRadius: 3,
-                        boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 8px 32px rgba(0, 0, 0, 0.3)' : '0 8px 32px rgba(0, 0, 0, 0.1)',
-                        transition: 'all 0.3s ease',
-                        overflow: 'hidden',
-                        '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 12px 40px rgba(0, 0, 0, 0.4)' : '0 12px 40px rgba(0, 0, 0, 0.2)',
-                        }
-                      }}
-                    >
-                      {/* Exercise Media - Always show if available, especially on mobile */}
-                      {mediaUrl ? (
-                        <Box 
-                          sx={{ 
-                            position: 'relative', 
-                            width: '100%',
-                            height: isMobile ? 220 : 200,
-                            minHeight: isMobile ? 220 : 200,
-                            maxHeight: isMobile ? 220 : 200,
-                            overflow: 'hidden',
-                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
+                    <Box key={i} sx={{ display: 'flex', alignItems: 'stretch', gap: 2 }}>
+                      <Box
+                        sx={(theme) => ({
+                          display: { xs: 'none', sm: 'flex' },
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          minWidth: 48,
+                          pt: 1
+                        })}
+                      >
+                        <Box
+                          sx={(theme) => ({
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
+                            justifyContent: 'center',
+                            fontWeight: 700,
+                            color: 'white',
+                            background: primaryColor || theme.palette.primary.main,
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+                          })}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={mediaUrl}
-                            alt={it.exercise?.name || 'Exercise'}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              display: 'block',
-                              cursor: isYouTube ? 'pointer' : 'default',
-                              minHeight: '100%',
-                              minWidth: '100%'
-                            }}
-                            onClick={() => isYouTube && openYouTubeVideo(it.exercise.videoUrl)}
-                            onError={(e) => {
-                              // Fallback if image fails to load - hide image and show placeholder
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent && !parent.querySelector('.image-placeholder')) {
-                                const placeholder = document.createElement('div');
-                                placeholder.className = 'image-placeholder';
-                                placeholder.style.cssText = `
-                                  width: 100%;
-                                  height: 100%;
-                                  display: flex;
-                                  align-items: center;
-                                  justify-content: center;
-                                  background: ${theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)'};
-                                  color: ${theme.palette.text.secondary};
-                                  font-size: 0.875rem;
-                                `;
-                                placeholder.textContent = hasGif ? 'GIF not available' : 'Image not available';
-                                parent.appendChild(placeholder);
-                              }
-                            }}
-                            loading="lazy"
+                          {i + 1}
+                        </Box>
+                        {i !== d.items.length - 1 && (
+                          <Box
+                            sx={(theme) => ({
+                              width: 4,
+                              flexGrow: 1,
+                              mt: 0.75,
+                              borderRadius: 999,
+                              background: `linear-gradient(180deg, ${(primaryColor || theme.palette.primary.main)} 0%, transparent 100%)`
+                            })}
                           />
-                          {/* Play Button Overlay - only for YouTube videos */}
-                          {isYouTube && (
+                        )}
+                      </Box>
+                      <Card
+                        sx={{
+                          flexGrow: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          backgroundColor: (theme) =>
+                            theme.palette.mode === 'dark'
+                              ? 'background.paper'
+                              : 'rgba(255, 255, 255, 0.95)',
+                          borderRadius: 3,
+                          boxShadow: (theme) =>
+                            theme.palette.mode === 'dark'
+                              ? '0 8px 32px rgba(0, 0, 0, 0.4)'
+                              : '0 8px 32px rgba(15, 23, 42, 0.12)',
+                          overflow: 'hidden',
+                          borderLeft: (theme) =>
+                            `4px solid ${primaryColor || theme.palette.primary.main}`,
+                          transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: (theme) =>
+                              theme.palette.mode === 'dark'
+                                ? '0 12px 40px rgba(0,0,0,0.5)'
+                                : '0 16px 45px rgba(15,23,42,0.18)',
+                          },
+                        }}
+                      >
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          alignItems="stretch"
+                          sx={{ width: '100%' }}
+                        >
+                          {/* Exercise Media - Always show if available, especially on mobile */}
+                          {mediaUrl ? (
                             <Box
                               sx={{
-                                position: 'absolute',
-                                top: '50%',
-                                left: '50%',
-                                transform: 'translate(-50%, -50%)',
-                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                borderRadius: '50%',
-                                width: isMobile ? 56 : 60,
-                                height: isMobile ? 56 : 60,
+                                position: 'relative',
+                                width: { xs: '100%', sm: 280 },
+                                flexShrink: 0,
+                                minHeight: { xs: 220, sm: '100%' },
+                                overflow: 'hidden',
+                                alignSelf: 'stretch',
+                                backgroundColor: (theme) =>
+                                  theme.palette.mode === 'dark'
+                                    ? 'rgba(0, 0, 0, 0.2)'
+                                    : 'rgba(0, 0, 0, 0.05)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s ease',
-                                zIndex: 1,
-                                '&:hover': {
-                                  backgroundColor: 'rgba(255, 0, 0, 0.8)',
-                                  transform: 'translate(-50%, -50%) scale(1.1)',
-                                },
-                                '&:active': {
-                                  transform: 'translate(-50%, -50%) scale(0.95)',
-                                }
                               }}
-                              onClick={() => openYouTubeVideo(it.exercise.videoUrl)}
                             >
-                              <PlayArrow sx={{ color: 'white', fontSize: isMobile ? 28 : 30 }} />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={mediaUrl}
+                                alt={it.exercise?.name || 'Exercise'}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                  cursor: isYouTube ? 'pointer' : 'default',
+                                  minHeight: '100%',
+                                  minWidth: '100%',
+                                }}
+                                onClick={() => isYouTube && openYouTubeVideo(it.exercise.videoUrl)}
+                                onError={(e) => {
+                                  // Fallback if image fails to load - hide image and show placeholder
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent && !parent.querySelector('.image-placeholder')) {
+                                    const placeholder = document.createElement('div');
+                                    placeholder.className = 'image-placeholder';
+                                    placeholder.style.cssText = `
+                                      width: 100%;
+                                      height: 100%;
+                                      display: flex;
+                                      align-items: center;
+                                      justify-content: center;
+                                      background: ${theme.palette.mode === 'dark'
+                                        ? 'rgba(0, 0, 0, 0.3)'
+                                        : 'rgba(0, 0, 0, 0.05)'};
+                                      color: ${theme.palette.text.secondary};
+                                      font-size: 0.875rem;
+                                    `;
+                                    placeholder.textContent = hasGif ? 'GIF not available' : 'Image not available';
+                                    parent.appendChild(placeholder);
+                                  }
+                                }}
+                                loading="lazy"
+                              />
+                              {/* Play Button Overlay - only for YouTube videos */}
+                              {isYouTube && (
+                                <Box
+                                  sx={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                    borderRadius: '50%',
+                                    width: 60,
+                                    height: 60,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    zIndex: 1,
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(255, 0, 0, 0.8)',
+                                      transform: 'translate(-50%, -50%) scale(1.08)',
+                                    },
+                                    '&:active': {
+                                      transform: 'translate(-50%, -50%) scale(0.95)',
+                                    }
+                                  }}
+                                  onClick={() => openYouTubeVideo(it.exercise.videoUrl)}
+                                >
+                                  <PlayArrow sx={{ color: 'white', fontSize: 30 }} />
+                                </Box>
+                              )}
+                            </Box>
+                          ) : (
+                            // Placeholder when no media is available
+                            <Box
+                              sx={{
+                                width: { xs: '100%', sm: 280 },
+                                flexShrink: 0,
+                                minHeight: { xs: 220, sm: '100%' },
+                                alignSelf: 'stretch',
+                                backgroundColor: (theme) =>
+                                  theme.palette.mode === 'dark'
+                                    ? 'rgba(0, 0, 0, 0.2)'
+                                    : 'rgba(0, 0, 0, 0.05)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <FitnessCenter sx={{ fontSize: 48, color: 'text.secondary', opacity: 0.3 }} />
                             </Box>
                           )}
-                        </Box>
-                      ) : (
-                        // Placeholder when no media is available
-                        <Box 
-                          sx={{ 
-                            width: '100%',
-                            height: isMobile ? 220 : 200,
-                            minHeight: isMobile ? 220 : 200,
-                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <FitnessCenter sx={{ fontSize: 48, color: 'text.secondary', opacity: 0.3 }} />
-                        </Box>
-                      )}
-                      
-                      <CardContent sx={{ flexGrow: 1, p: 2 }}>
+                          
+                          <CardContent
+                            sx={{
+                              flexGrow: 1,
+                              p: { xs: 2, sm: 3 },
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}
+                          >
                         {/* Muscle Group Chip */}
                         <Chip
                           label={(isArabic && it.exercise?.muscleGroupArabic) || it.exercise?.muscleGroup || t('unknown')}
@@ -359,35 +477,65 @@ export default function ClientWorkoutPlanDetail() {
                           )}
                         </Stack>
                         
-                        {/* Plan Sets */}
-                        {Array.isArray(it.planSets) && it.planSets.length > 0 && (
-                          <Box sx={{ mt: 2 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', mb: 1 }}>
-                              {t('client.workout.setsDetails')}:
+                        {isCardio ? (
+                          <Box
+                            sx={{
+                              mt: 2,
+                              p: 2,
+                              borderRadius: 2,
+                              bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.1)' : 'success.lighter'),
+                              border: '1px solid',
+                              borderColor: 'success.light',
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{ textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}
+                            >
+                              {t('client.workout.duration')}
                             </Typography>
-                            {it.planSets.map((s: any, setIndex: number) => (
-                              <Chip
-                                key={setIndex}
-                                label={`${intl.formatMessage({ id: 'set' })} ${setIndex + 1}: ${s.repMin ?? s.reps ?? ''}${s.repMax ? '-' + s.repMax : ''}${s.weight ? ` @ ${s.weight}kg` : ''}`}
-                                size="small"
-                                variant="outlined"
-                                sx={{ mr: 1, mb: 0.5 }}
-                              />
-                            ))}
-                          </Box>
-                        )}
-                        
-                        {/* Notes */}
-                        {it.notes && (
-                          <Box sx={{ mt: 2, p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'action.hover' : 'rgba(0, 0, 0, 0.05)', borderRadius: 1 }}>
-                            <Typography variant="body2" sx={{ 
-                              fontStyle: 'italic', 
-                              color: 'text.secondary',
-                              fontSize: '0.85rem'
-                            }}>
-                              {it.notes}
+                            <Typography
+                              variant="h4"
+                              sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'success.main' }}
+                            >
+                              {formatDuration(cardioDurationSeconds || 0)}
                             </Typography>
+                            {notesContent && (
+                              <Typography
+                                variant="body2"
+                                sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}
+                              >
+                                {notesContent}
+                              </Typography>
+                            )}
                           </Box>
+                        ) : (
+                          <>
+                            {Array.isArray(it.planSets) && it.planSets.length > 0 && (
+                              <Box sx={{ mt: 2 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', mb: 1 }}>
+                                  {t('client.workout.setsDetails')}:
+                                </Typography>
+                                {it.planSets.map((s: any, setIndex: number) => (
+                                  <Chip
+                                    key={setIndex}
+                                    label={`${intl.formatMessage({ id: 'set' })} ${setIndex + 1}: ${s.repMin ?? s.reps ?? ''}${s.repMax ? '-' + s.repMax : ''}${s.weight ? ` @ ${s.weight}kg` : ''}`}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ mr: 1, mb: 0.5 }}
+                                  />
+                                ))}
+                              </Box>
+                            )}
+
+                            {notesContent && (
+                              <Box sx={{ mt: 2, p: 1, backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'action.hover' : 'rgba(0, 0, 0, 0.05)', borderRadius: 1 }}>
+                                <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary', fontSize: '0.85rem' }}>
+                                  {notesContent}
+                                </Typography>
+                              </Box>
+                            )}
+                          </>
                         )}
                         
                         {/* YouTube Link Button */}
@@ -407,16 +555,18 @@ export default function ClientWorkoutPlanDetail() {
                             {t('client.workout.watchVideo')}
                           </Button>
                         )}
-                      </CardContent>
+                        </CardContent>
+                      </Stack>
                     </Card>
+                  </Box>
                   );
                 })}
                 {d.items.length === 0 && (
-                  <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4 }}>
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Typography color="text.secondary">{t('client.workout.noExercises')}</Typography>
                   </Box>
                 )}
-              </Box>
+              </Stack>
             </CardContent>
           </Card>
         ))}

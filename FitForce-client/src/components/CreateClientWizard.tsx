@@ -15,8 +15,6 @@ import {
   Typography,
   FormControl,
   InputLabel,
-  Select,
-  MenuItem,
   Checkbox,
   FormControlLabel,
   Box,
@@ -27,7 +25,11 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  Autocomplete,
+  Select,
+  MenuItem,
 } from '@mui/material';
+import { createFilterOptions } from '@mui/material/Autocomplete';
 import { CheckCircle } from '@mui/icons-material';
 import { useAppSelector } from '@/store';
 import api from '@/utils/axios';
@@ -106,6 +108,12 @@ interface CreateClientWizardProps {
 }
 
 const steps = ['Client Details', 'Subscription', 'Forms', 'Complete'];
+
+const filterCountryOptions = createFilterOptions({
+  matchFrom: 'any',
+  stringify: (option: typeof COUNTRY_CODES[number]) =>
+    `${option.name} ${option.code} ${option.flag}`.toLowerCase(),
+});
 
 export default function CreateClientWizard({ open, onClose, onSuccess }: CreateClientWizardProps) {
   const workspaceId = useAppSelector((s) => s.workspace.id);
@@ -428,25 +436,39 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
               helperText={emailError || (isValidatingEmail ? 'Checking...' : '')}
               required
             />
-            <Stack direction="row" spacing={1}>
-              <FormControl sx={{ minWidth: 140 }}>
-                <InputLabel>Country Code</InputLabel>
-                <Select
-                  value={phoneCountryCode}
-                  label="Country Code"
-                  onChange={(e) => {
-                    setPhoneCountryCode(e.target.value);
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <FormControl sx={{ minWidth: 220, flex: 1 }}>
+                <Autocomplete
+                  value={COUNTRY_CODES.find((country) => country.code === phoneCountryCode) ?? COUNTRY_CODES[0]}
+                  onChange={(_event, newValue) => {
+                    const nextCode = newValue?.code || COUNTRY_CODES[0].code;
+                    setPhoneCountryCode(nextCode);
                     if (phone.trim()) {
                       setTimeout(() => validatePhone(phone), 100);
                     }
                   }}
-                >
-                  {COUNTRY_CODES.map((country) => (
-                    <MenuItem key={country.code} value={country.code}>
-                      {country.flag} {country.code} {country.name}
-                    </MenuItem>
-                  ))}
-                </Select>
+                  options={COUNTRY_CODES}
+                  filterOptions={filterCountryOptions}
+                  getOptionLabel={(option) => `${option.flag} ${option.name} (${option.code})`}
+                  isOptionEqualToValue={(option, value) => option.code === value.code}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Country Code"
+                      placeholder="Search by name or code"
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <span>{option.flag}</span>
+                        <Typography variant="body2">
+                          {option.name} ({option.code})
+                        </Typography>
+                      </Stack>
+                    </li>
+                  )}
+                />
               </FormControl>
               <TextField
                 fullWidth

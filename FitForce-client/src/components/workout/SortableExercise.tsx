@@ -47,9 +47,16 @@ export default function SortableExercise({
   // Check if exercise is cardio
   const category = exercise.exercise?.category?.toLowerCase() || '';
   const muscleGroup = exercise.exercise?.muscleGroup?.toLowerCase() || '';
-  const isCardio = category === 'cardio' || 
-                  muscleGroup.includes('cardiovascular') || 
-                  !!(exercise as any).durationMinutes;
+  const explicitCardio =
+    (exercise as any).isCardio ?? exercise.exercise?.isCardio;
+  const isCardio =
+    explicitCardio !== undefined
+      ? Boolean(explicitCardio)
+      : category === 'cardio' ||
+        muscleGroup.includes('cardiovascular') ||
+        !!(exercise as any).durationSeconds ||
+        !!(exercise as any).durationMinutes ||
+        !!exercise.exercise?.defaultDurationSeconds;
 
   // Track when dragging starts to show visual feedback
   useEffect(() => {
