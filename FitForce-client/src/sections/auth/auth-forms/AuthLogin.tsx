@@ -39,6 +39,7 @@ import { loginUser } from '@/lib/auth';
 
 // assets
 import { Eye, EyeSlash } from '@wandersonalwes/iconsax-react';
+import { ArrowForward } from '@mui/icons-material';
 
 const Auth0 = '/assets/images/icons/auth0.svg';
 const Cognito = '/assets/images/icons/aws-cognito.svg';
@@ -191,6 +192,21 @@ export default function AuthLogin({ providers, csrfToken }: any) {
                   </Button>
                 </AnimateButton>
               </Grid>
+            <Grid size={12}>
+              <Stack spacing={1}>
+                <Divider />
+                <Button
+                  fullWidth
+                  color="secondary"
+                  size="large"
+                  variant="outlined"
+                  onClick={() => router.push('/register')}
+                  endIcon={<ArrowForward />}
+                >
+                  <FormattedMessage id="create-account" defaultMessage="Create account" />
+                </Button>
+              </Stack>
+            </Grid>
             </Grid>
           </form>
         )}

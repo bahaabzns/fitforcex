@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -36,13 +36,10 @@ import {
   FormControl,
   InputLabel,
   Switch,
-  Tooltip,
 } from '@mui/material';
-import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Edit, HelpOutline } from '@mui/icons-material';
+import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Edit } from '@mui/icons-material';
 import FileUpload from './FileUpload';
 import api from '@/utils/axios';
-import { useTour } from '@/contexts/TourContext';
-import type { Step } from 'react-joyride';
 
 interface DefaultFormTemplate {
   id: string;
@@ -73,16 +70,6 @@ const steps = [
 
 export default function OnboardingWizard({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
-  const {
-    registerTour,
-    startTour,
-    resetTour,
-    isTourCompleted,
-    goToTourStep,
-    nextTourStep,
-    previousTourStep,
-    activeTourStepIndex,
-  } = useTour();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +111,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
   const [customQuestionRequired, setCustomQuestionRequired] = useState<boolean>(false);
   const [customQuestionOptions, setCustomQuestionOptions] = useState<string>('');
   const [customQuestionError, setCustomQuestionError] = useState<string>('');
+  const [confirmCustomFormDiscard, setConfirmCustomFormDiscard] = useState(false);
   const [defaultQuestions, setDefaultQuestions] = useState<any[]>([]);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
 
@@ -175,237 +163,14 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     loadDefaultQuestions();
   }, []);
 
-  const tourFlow = useMemo(() => ([
-    {
-      wizardStep: 0,
-      step: {
-        target: '[data-tour="onboarding-welcome"]',
-        content: 'Welcome to your new workspace! This wizard will help you launch quickly.',
-        disableBeacon: true,
-        placement: 'bottom',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 0,
-      step: {
-        target: '[data-tour="onboarding-stepper"]',
-        content: 'Follow each step to customize branding, forms, packages, and imports.',
-        placement: 'bottom',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 0,
-      step: {
-        target: '[data-tour="onboarding-logo-upload"]',
-        content: 'Upload your logo so every client interaction reflects your brand.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 0,
-      step: {
-        target: '[data-tour="onboarding-primary-color"]',
-        content: 'Pick a primary color that matches your visual identity.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 0,
-      step: {
-        target: '[data-tour="onboarding-landing-title"]',
-        content: 'Craft a landing page headline to welcome prospective clients.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 0,
-      step: {
-        target: '[data-tour="onboarding-next-button"]',
-        content: 'All set here—click Next to configure your client forms.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 1,
-      step: {
-        target: '[data-tour="onboarding-forms-intro"]',
-        content: 'Select default templates to cover the most common client needs.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 1,
-      step: {
-        target: '[data-tour="onboarding-custom-forms"]',
-        content: 'Create custom forms when you need to gather unique information.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 1,
-      step: {
-        target: '[data-tour="onboarding-next-button"]',
-        content: 'Great! Next, let’s set up your client packages.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 2,
-      step: {
-        target: '[data-tour="onboarding-packages"]',
-        content: 'Define package pricing, duration, and availability.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 2,
-      step: {
-        target: '[data-tour="onboarding-next-button"]',
-        content: 'When packages look good, continue to import helpful defaults.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 3,
-      step: {
-        target: '[data-tour="onboarding-import-options"]',
-        content: 'Import our exercise and food libraries to get started faster.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 3,
-      step: {
-        target: '[data-tour="onboarding-next-button"]',
-        content: 'Almost done! Advance to review your setup summary.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 4,
-      step: {
-        target: '[data-tour="onboarding-summary"]',
-        content: 'Confirm everything looks right before launching.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    },
-    {
-      wizardStep: 4,
-      step: {
-        target: '[data-tour="onboarding-complete-button"]',
-        content: 'Click here whenever you’re ready to launch your workspace.',
-        placement: 'top',
-        spotlightClicks: true
-      }
-    }
-  ]), []);
-
-  const tourSteps = useMemo<Step[]>(() => tourFlow.map((item) => item.step as Step), [tourFlow]);
-
-  const syncTourToWizardStep = useCallback(
-    (targetWizardStep: number, direction: 'forward' | 'backward') => {
-      if (!tourFlow.length) return;
-      if (direction === 'forward') {
-        let forwardIndex = tourFlow.findIndex(
-          (meta, idx) => idx > activeTourStepIndex && meta.wizardStep === targetWizardStep
-        );
-        if (forwardIndex === -1) {
-          forwardIndex = tourFlow.findIndex((meta) => meta.wizardStep === targetWizardStep);
-        }
-        if (forwardIndex !== -1) {
-          goToTourStep(onboardingTourId, forwardIndex);
-        } else {
-          nextTourStep(onboardingTourId);
-        }
-      } else {
-        let backwardIndex = -1;
-        for (let i = activeTourStepIndex - 1; i >= 0; i -= 1) {
-          if (tourFlow[i].wizardStep === targetWizardStep) {
-            backwardIndex = i;
-            break;
-          }
-        }
-        if (backwardIndex === -1) {
-          for (let i = tourFlow.length - 1; i >= 0; i -= 1) {
-            if (tourFlow[i].wizardStep === targetWizardStep) {
-              backwardIndex = i;
-              break;
-            }
-          }
-        }
-        if (backwardIndex !== -1) {
-          goToTourStep(onboardingTourId, backwardIndex);
-        } else {
-          previousTourStep(onboardingTourId);
-        }
-      }
-    },
-    [tourFlow, activeTourStepIndex, goToTourStep, nextTourStep, previousTourStep]
-  );
 
   const handleNext = () => {
-    const next = Math.min(activeStep + 1, steps.length - 1);
-    if (next === activeStep) {
-      nextTourStep(onboardingTourId);
-      return;
-    }
-    setActiveStep(next);
-    syncTourToWizardStep(next, 'forward');
+    setActiveStep((prev) => Math.min(prev + 1, steps.length - 1));
   };
 
   const handleBack = () => {
-    const prevStep = Math.max(activeStep - 1, 0);
-    if (prevStep === activeStep) {
-      previousTourStep(onboardingTourId);
-      return;
-    }
-    setActiveStep(prevStep);
-    syncTourToWizardStep(prevStep, 'backward');
+    setActiveStep((prev) => Math.max(prev - 1, 0));
   };
-
-  const onboardingTourId = 'onboarding-main';
-
-
-  const handleTourStepChange = useCallback((index: number) => {
-    const meta = tourFlow[index];
-    if (!meta) return;
-    setActiveStep((current) => (current === meta.wizardStep ? current : meta.wizardStep));
-  }, [tourFlow]);
-
-  useEffect(() => {
-    if (!workspaceId) return;
-    registerTour(onboardingTourId, {
-      steps: tourSteps,
-      workspaceId,
-      autoStart: true,
-      disableOverlayClose: true,
-      spotlightClicks: true,
-      scrollOffset: 120,
-      spotlightPadding: 12,
-      disableScrolling: false,
-      onStepChange: handleTourStepChange,
-    });
-  }, [registerTour, tourSteps, workspaceId, handleTourStepChange]);
-
-  const handleReplayTour = useCallback(() => {
-    resetTour(onboardingTourId);
-    startTour(onboardingTourId);
-  }, [resetTour, startTour]);
-
 
   const handleComplete = async () => {
     try {
@@ -735,6 +500,15 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setEditingFormIndex(null);
   };
 
+  const customFormDialogDirty = useMemo(() => {
+    return Boolean(
+      newFormTitle.trim() ||
+      newFormQuestions.length > 0 ||
+      editingFormIndex !== null ||
+      newFormType !== 'nutrition'
+    );
+  }, [newFormTitle, newFormQuestions, editingFormIndex, newFormType]);
+
   const handleCloseCustomFormDialog = () => {
     setShowAddCustomForm(false);
     setEditingFormIndex(null);
@@ -746,6 +520,23 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setCustomQuestionOptions('');
     setCustomQuestionError('');
     setEditingQuestionIndex(null);
+  };
+
+  const handleRequestCloseCustomFormDialog = () => {
+    if (customFormDialogDirty) {
+      setConfirmCustomFormDiscard(true);
+    } else {
+      handleCloseCustomFormDialog();
+    }
+  };
+
+  const confirmCustomFormDiscardClose = () => {
+    setConfirmCustomFormDiscard(false);
+    handleCloseCustomFormDialog();
+  };
+
+  const cancelCustomFormDiscardClose = () => {
+    setConfirmCustomFormDiscard(false);
   };
 
   const removeCustomForm = (index: number) => {
@@ -801,11 +592,11 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               Add branding and prepare your landing page to make your workspace unique.
             </Typography>
 
-            <Card data-tour="onboarding-branding-card">
+            <Card>
               <CardHeader title="Branding" />
               <CardContent>
                 <Stack spacing={3}>
-                  <Box data-tour="onboarding-logo-upload">
+                  <Box>
                     <Typography variant="subtitle2" gutterBottom>
                       Workspace Logo
                     </Typography>
@@ -819,7 +610,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                     />
                   </Box>
 
-                  <Box data-tour="onboarding-primary-color">
+                  <Box>
                     <TextField
                       fullWidth
                       label="Primary Color"
@@ -877,11 +668,11 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               </CardContent>
             </Card>
 
-            <Card data-tour="onboarding-landing-card">
+            <Card>
               <CardHeader title="Landing Page" />
               <CardContent>
                 <Stack spacing={3}>
-                  <Box data-tour="onboarding-landing-title">
+                  <Box>
                     <TextField
                       fullWidth
                       label="Landing Page Title"
@@ -1048,7 +839,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               Import form templates, customize questions, or create custom forms for your clients.
             </Typography>
 
-            <Card data-tour="onboarding-forms-intro">
+            <Card>
               <CardHeader title="Default Form Templates" subheader="Select and customize templates" />
               <CardContent>
                 {defaultTemplates.length === 0 ? (
@@ -1247,7 +1038,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               </CardContent>
             </Card>
 
-            <Card data-tour="onboarding-custom-forms">
+            <Card>
               <CardHeader 
                 title="Custom Forms" 
                 subheader="Create your own forms"
@@ -1302,7 +1093,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
             </Alert>
 
             {/* Add Custom Form Dialog */}
-            <Dialog open={showAddCustomForm} onClose={handleCloseCustomFormDialog} maxWidth="md" fullWidth>
+            <Dialog open={showAddCustomForm} onClose={handleRequestCloseCustomFormDialog} maxWidth="md" fullWidth>
               <DialogTitle>Create Custom Form</DialogTitle>
               <DialogContent>
                 <Stack spacing={3} sx={{ mt: 1 }}>
@@ -1522,13 +1313,27 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                 </Stack>
               </DialogContent>
               <DialogActions>
-                <Button onClick={handleCloseCustomFormDialog}>Cancel</Button>
+                <Button onClick={handleRequestCloseCustomFormDialog}>Cancel</Button>
                 <Button 
                   onClick={addCustomForm} 
                   variant="contained"
                   disabled={!newFormTitle.trim() || newFormQuestions.length === 0}
                 >
                   Create Form
+                </Button>
+              </DialogActions>
+            </Dialog>
+            <Dialog open={confirmCustomFormDiscard} onClose={cancelCustomFormDiscardClose} maxWidth="xs" fullWidth>
+              <DialogTitle>Discard changes?</DialogTitle>
+              <DialogContent>
+                <Typography color="text.secondary">
+                  You have unsaved changes in this custom form. Do you want to discard them?
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={cancelCustomFormDiscardClose}>Keep editing</Button>
+                <Button color="error" onClick={confirmCustomFormDiscardClose}>
+                  Discard
                 </Button>
               </DialogActions>
             </Dialog>
@@ -1544,7 +1349,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
             </Typography>
 
             {packages.map((pkg, index) => (
-              <Card key={index} data-tour={index === 0 ? 'onboarding-packages' : undefined}>
+              <Card key={index}>
                 <CardHeader
                   title={`Package ${index + 1}`}
                   action={
@@ -1636,7 +1441,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               Import default food items and exercises to quickly start creating plans.
             </Typography>
 
-            <Card data-tour="onboarding-import-options">
+            <Card>
               <CardContent>
                 <Stack spacing={3}>
                   <Box>
@@ -1689,7 +1494,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
         return (
           <Stack spacing={3} alignItems="center" textAlign="center">
             <CheckCircle sx={{ fontSize: 80, color: 'success.main' }} />
-            <Typography variant="h5" data-tour="onboarding-summary">You're All Set!</Typography>
+            <Typography variant="h5">You're All Set!</Typography>
             <Typography variant="body1" color="text.secondary">
               Your workspace is ready. Click "Complete" to start using FitForce.
             </Typography>
@@ -1791,7 +1596,6 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
           <Stack spacing={4}>
             <Box
               sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
-              data-tour="onboarding-welcome"
             >
               <Box>
                 <Typography variant="h4" gutterBottom>
@@ -1801,21 +1605,9 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                   Let's set up your workspace in a few simple steps.
                 </Typography>
               </Box>
-              <Tooltip title={isTourCompleted(onboardingTourId, workspaceId) ? 'Replay guided tour' : 'Start guided tour'}>
-                <span>
-                  <IconButton
-                    color="primary"
-                    onClick={handleReplayTour}
-                    size="large"
-                    aria-label="Replay onboarding tour"
-                  >
-                    <HelpOutline />
-                  </IconButton>
-                </span>
-              </Tooltip>
             </Box>
 
-            <Box data-tour="onboarding-stepper">
+            <Box>
               <Stepper activeStep={activeStep} alternativeLabel>
                 {steps.map((label) => (
                   <Step key={label}>
@@ -1850,7 +1642,6 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                     variant="contained"
                     onClick={handleComplete}
                     disabled={completing}
-                    data-tour="onboarding-complete-button"
                     endIcon={completing ? <CircularProgress size={20} /> : <CheckCircle />}
                   >
                     {completing ? 'Completing...' : 'Complete Onboarding'}
@@ -1860,7 +1651,6 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                     variant="contained"
                     onClick={handleNext}
                     endIcon={<ArrowForward />}
-                    data-tour="onboarding-next-button"
                   >
                     Next
                   </Button>

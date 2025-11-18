@@ -122,6 +122,8 @@ export default function FormsPage() {
   const [customAllowOther, setCustomAllowOther] = useState<boolean>(false);
   const [customError, setCustomError] = useState<string>('');
   const [copying, setCopying] = useState<string | null>(null);
+  const [confirmDiscardTarget, setConfirmDiscardTarget] = useState<null | 'create' | 'edit'>(null);
+  const [editInitialSnapshot, setEditInitialSnapshot] = useState<string>('');
 
   // Form Submissions tab state
   const [activeTab, setActiveTab] = useState(0); // 0 = Templates, 1 = Submissions
@@ -132,6 +134,93 @@ export default function FormsPage() {
   const [viewSubmissionDetails, setViewSubmissionDetails] = useState<any | null>(null);
   const [submissionDetailsOpen, setSubmissionDetailsOpen] = useState(false);
   const [submissionDetailsLoading, setSubmissionDetailsLoading] = useState(false);
+
+  const resetCreateState = () => {
+    setShowCreate(false);
+    setTitle('');
+    setTitleArabic('');
+    setFormType('nutrition');
+    setNewQuestions([]);
+    setCustomType('text');
+    setCustomLabel('');
+    setCustomLabelArabic('');
+    setCustomDescription('');
+    setCustomDescriptionArabic('');
+    setCustomRequired(false);
+    setCustomOptions([]);
+    setCustomOptionsArabic([]);
+    setCustomAllowOther(false);
+    setCustomError('');
+  };
+
+  const resetEditState = () => {
+    setShowEdit(false);
+    setEditTemplate(null);
+    setEditTitle('');
+    setEditTitleArabic('');
+    setEditFormType('nutrition');
+    setEditQuestions([]);
+    setEditCustomType('text');
+    setEditCustomLabel('');
+    setEditCustomLabelArabic('');
+    setEditCustomDescription('');
+    setEditCustomDescriptionArabic('');
+    setEditCustomRequired(false);
+    setEditCustomOptions([]);
+    setEditCustomOptionsArabic([]);
+    setEditCustomAllowOther(false);
+    setEditCustomError('');
+    setEditInitialSnapshot('');
+  };
+
+  const createDialogDirty = useMemo(() => {
+    return Boolean(
+      title.trim() ||
+      titleArabic.trim() ||
+      formType !== 'nutrition' ||
+      newQuestions.length > 0
+    );
+  }, [title, titleArabic, formType, newQuestions.length]);
+
+  const editDialogDirty = useMemo(() => {
+    if (!showEdit || !editInitialSnapshot) return false;
+    const snapshot = JSON.stringify({
+      title: editTitle,
+      titleArabic: editTitleArabic,
+      type: editFormType,
+      questions: editQuestions,
+    });
+    return snapshot !== editInitialSnapshot;
+  }, [showEdit, editInitialSnapshot, editTitle, editTitleArabic, editFormType, editQuestions]);
+
+  const handleCloseCreateDialog = () => {
+    if (createDialogDirty) {
+      setConfirmDiscardTarget('create');
+    } else {
+      resetCreateState();
+    }
+  };
+
+  const handleCloseEditDialog = () => {
+    if (editDialogDirty) {
+      setConfirmDiscardTarget('edit');
+    } else {
+      resetEditState();
+    }
+  };
+
+  const handleDiscardConfirmation = () => {
+    if (confirmDiscardTarget === 'create') {
+      resetCreateState();
+    } else if (confirmDiscardTarget === 'edit') {
+      resetEditState();
+    }
+    setConfirmDiscardTarget(null);
+  };
+
+  const handleCancelDiscard = () => {
+    setConfirmDiscardTarget(null);
+  };
 
   // Drag and drop handlers for questions
   const handleEditQuestionDragEnd = (event: DragEndEvent) => {
@@ -283,16 +372,7 @@ export default function FormsPage() {
       console.log('createTemplate - sending request with:', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions });
       await api.post('/api/forms/templates', { title: title.trim(), titleArabic: titleArabic.trim() || undefined, type: formType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       console.log('createTemplate - request successful');
-      setShowCreate(false);
-      setTitle('');
-      setTitleArabic('');
-      setFormType('nutrition');
-      setNewQuestions([]);
-      setCustomType('text');
-      setCustomLabel('');
-      setCustomLabelArabic('');
-      setCustomRequired(false);
-      setCustomOptions('');
+      resetCreateState();
       const res = await api.get('/api/forms/templates', { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       setTemplates(Array.isArray(res.data?.templates) ? res.data.templates : []);
     } catch {
@@ -303,10 +383,16 @@ export default function FormsPage() {
   };
 
   const openEdit = (t: FormTemplate) => {
+    const normalizedType =
+      (t.type as any) === 'workout'
+        ? 'workout'
+        : (t.type as any) === 'other'
+        ? 'other'
+        : 'nutrition';
     setEditTemplate(t);
     setEditTitle(t.title || '');
     setEditTitleArabic((t as any).titleArabic || '');
-    setEditFormType((t.type as any) === 'workout' ? 'workout' : 'nutrition');
+    setEditFormType(normalizedType);
     const mapped = Array.isArray(t.questions) ? t.questions.map((q: any, idx: number) => ({
       id: q.id || `tq_${idx}_${Date.now()}`,
       originalId: q.id,
@@ -319,6 +405,14 @@ export default function FormsPage() {
       allowOther: q.allowOther || false
     })) : [];
     setEditQuestions(mapped);
+    setEditInitialSnapshot(
+      JSON.stringify({
+        title: t.title || '',
+        titleArabic: (t as any).titleArabic || '',
+        type: normalizedType,
+        questions: mapped,
+      })
+    );
     setShowEdit(true);
   };
 
@@ -387,12 +481,7 @@ export default function FormsPage() {
         allowOther
       }));
       await api.put(`/api/forms/templates/${editTemplate.id}`, { title: editTitle.trim(), titleArabic: editTitleArabic.trim() || undefined, type: editFormType, questions }, { headers: { 'x-workspace-id': effectiveWorkspaceId } });
-      setShowEdit(false);
-      setEditTemplate(null);
-      setEditTitle('');
-      setEditTitleArabic('');
-      setEditFormType('nutrition');
-      setEditQuestions([]);
+      resetEditState();
       const res = await api.get('/api/forms/templates', { headers: { 'x-workspace-id': effectiveWorkspaceId } });
       setTemplates(Array.isArray(res.data?.templates) ? res.data.templates : []);
       openSnackbar({ open: true, message: 'Template updated successfully', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
@@ -438,7 +527,16 @@ export default function FormsPage() {
         justifyContent="space-between"
       >
         <Typography variant="h4">Forms</Typography>
-        <Button variant="contained" onClick={() => setShowCreate((s) => !s)}>
+        <Button
+          variant="contained"
+          onClick={() => {
+            if (showCreate) {
+              handleCloseCreateDialog();
+            } else {
+              setShowCreate(true);
+            }
+          }}
+        >
           Create Template
         </Button>
       </Stack>
@@ -468,7 +566,7 @@ export default function FormsPage() {
         <>
       <Dialog 
         open={showCreate} 
-        onClose={() => setShowCreate(false)} 
+        onClose={handleCloseCreateDialog} 
         fullWidth 
         maxWidth="md"
         PaperProps={{
@@ -722,7 +820,7 @@ export default function FormsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowCreate(false)}>Cancel</Button>
+          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
           <Button variant="contained" disabled={creating} onClick={createTemplate}>
             {creating ? 'Creating…' : 'Create'}
           </Button>
@@ -817,7 +915,7 @@ export default function FormsPage() {
       {/* Edit Template Dialog */}
       <Dialog 
         open={showEdit} 
-        onClose={() => setShowEdit(false)} 
+        onClose={handleCloseEditDialog} 
         fullWidth 
         maxWidth="md"
         PaperProps={{
@@ -1043,7 +1141,7 @@ export default function FormsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowEdit(false)}>Cancel</Button>
+          <Button onClick={handleCloseEditDialog}>Cancel</Button>
           <Button variant="contained" disabled={updating} onClick={updateTemplate}>
             {updating ? 'Saving…' : 'Save'}
           </Button>
@@ -1314,6 +1412,21 @@ export default function FormsPage() {
             setViewSubmissionDetails(null);
           }}>
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!confirmDiscardTarget} onClose={handleCancelDiscard} maxWidth="xs" fullWidth>
+        <DialogTitle>Discard changes?</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary">
+            You have unsaved changes in {confirmDiscardTarget === 'create' ? 'the new form template' : 'this form template'}. Are you sure you want to close without saving?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDiscard}>Keep editing</Button>
+          <Button color="error" onClick={handleDiscardConfirmation}>
+            Discard
           </Button>
         </DialogActions>
       </Dialog>
@@ -1638,6 +1751,7 @@ function OptionsEditor({
   optionsArabic: string[];
   onUpdate: (options: string[], optionsArabic: string[]) => void;
 }) {
+  const theme = useTheme();
   const [localOptions, setLocalOptions] = useState<Array<{ en: string; ar: string }>>(() => {
     const maxLen = Math.max(options.length, optionsArabic.length);
     return Array.from({ length: maxLen }, (_, i) => ({
@@ -1678,7 +1792,14 @@ function OptionsEditor({
   };
 
   return (
-    <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+    <Paper
+      sx={{
+        p: 2,
+        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'grey.50',
+        border: '1px solid',
+        borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'divider',
+      }}
+    >
       <Typography variant="subtitle2" sx={{ mb: 1 }}>Options</Typography>
       <Stack spacing={1}>
         {localOptions.map((opt, idx) => (
