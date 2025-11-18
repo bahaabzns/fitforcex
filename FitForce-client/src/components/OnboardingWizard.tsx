@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -40,6 +40,8 @@ import {
 import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Edit } from '@mui/icons-material';
 import FileUpload from './FileUpload';
 import api from '@/utils/axios';
+
+const CHOICE_QUESTION_TYPES = ['select', 'checkbox', 'radio'] as const;
 
 interface DefaultFormTemplate {
   id: string;
@@ -109,11 +111,52 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
   const [customQuestionLabel, setCustomQuestionLabel] = useState<string>('');
   const [customQuestionLabelArabic, setCustomQuestionLabelArabic] = useState<string>('');
   const [customQuestionRequired, setCustomQuestionRequired] = useState<boolean>(false);
-  const [customQuestionOptions, setCustomQuestionOptions] = useState<string>('');
+  const [customQuestionAllowOther, setCustomQuestionAllowOther] = useState<boolean>(false);
+  const [customQuestionOptions, setCustomQuestionOptions] = useState<string[]>([]);
+  const [customQuestionOptionsArabic, setCustomQuestionOptionsArabic] = useState<string[]>([]);
   const [customQuestionError, setCustomQuestionError] = useState<string>('');
   const [confirmCustomFormDiscard, setConfirmCustomFormDiscard] = useState(false);
   const [defaultQuestions, setDefaultQuestions] = useState<any[]>([]);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (CHOICE_QUESTION_TYPES.includes(customQuestionType as typeof CHOICE_QUESTION_TYPES[number])) {
+      if (customQuestionOptions.length === 0) {
+        setCustomQuestionOptions(['']);
+        setCustomQuestionOptionsArabic(['']);
+      }
+    } else if (customQuestionOptions.length > 0 || customQuestionOptionsArabic.length > 0 || customQuestionAllowOther) {
+      setCustomQuestionOptions([]);
+      setCustomQuestionOptionsArabic([]);
+      setCustomQuestionAllowOther(false);
+    }
+  }, [customQuestionType, customQuestionOptions.length, customQuestionOptionsArabic.length, customQuestionAllowOther]);
+
+  const addCustomOptionField = () => {
+    setCustomQuestionOptions((prev) => [...prev, '']);
+    setCustomQuestionOptionsArabic((prev) => [...prev, '']);
+  };
+
+  const updateCustomOptionField = (index: number, field: 'en' | 'ar', value: string) => {
+    if (field === 'en') {
+      setCustomQuestionOptions((prev) => {
+        const updated = [...prev];
+        updated[index] = value;
+        return updated;
+      });
+    } else {
+      setCustomQuestionOptionsArabic((prev) => {
+        const updated = [...prev];
+        updated[index] = value;
+        return updated;
+      });
+    }
+  };
+
+  const removeCustomOptionField = (index: number) => {
+    setCustomQuestionOptions((prev) => prev.filter((_, i) => i !== index));
+    setCustomQuestionOptionsArabic((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Step 3: Packages
   const [packages, setPackages] = useState<Package[]>([
@@ -390,18 +433,37 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
       return;
     }
 
+    const sanitizedOptionsEn = customQuestionOptions.map((opt) => opt.trim());
+    const sanitizedOptionsAr = customQuestionOptionsArabic.map((opt) => opt.trim());
+    const filteredOptionsEn: string[] = [];
+    const filteredOptionsAr: string[] = [];
+
+    sanitizedOptionsEn.forEach((opt, idx) => {
+      if (opt) {
+        filteredOptionsEn.push(opt);
+        filteredOptionsAr.push(sanitizedOptionsAr[idx] || '');
+      }
+    });
+
+    const isChoiceType = CHOICE_QUESTION_TYPES.includes(customQuestionType as typeof CHOICE_QUESTION_TYPES[number]);
+    if (isChoiceType && filteredOptionsEn.length === 0) {
+      setCustomQuestionError('Please add at least one option');
+      return;
+    }
+
     const newQuestion = {
       id: `custom_${Date.now()}`,
       type: customQuestionType,
       question: customQuestionLabel,
       questionArabic: customQuestionLabelArabic || '',
       required: customQuestionRequired,
-      options: ['select', 'checkbox', 'radio'].includes(customQuestionType) 
-        ? customQuestionOptions.split(',').map(s => s.trim()).filter(Boolean)
+      options: isChoiceType
+        ? filteredOptionsEn
         : undefined,
-      optionsArabic: ['select', 'checkbox', 'radio'].includes(customQuestionType) 
-        ? customQuestionOptions.split(',').map(s => s.trim()).filter(Boolean)
+      optionsArabic: isChoiceType
+        ? filteredOptionsAr
         : undefined,
+      allowOther: customQuestionType === 'select' ? customQuestionAllowOther : undefined,
     };
 
     if (editingQuestionIndex !== null) {
@@ -418,7 +480,9 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setCustomQuestionLabel('');
     setCustomQuestionLabelArabic('');
     setCustomQuestionRequired(false);
-    setCustomQuestionOptions('');
+    setCustomQuestionOptions([]);
+    setCustomQuestionOptionsArabic([]);
+    setCustomQuestionAllowOther(false);
     setCustomQuestionError('');
   };
 
@@ -430,13 +494,28 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
       setCustomQuestionLabel(question.question || '');
       setCustomQuestionLabelArabic(question.questionArabic || '');
       setCustomQuestionRequired(question.required || false);
-      // Handle options - could be in options or optionsArabic field
-      const options = question.options || question.optionsArabic || [];
-      setCustomQuestionOptions(
-        Array.isArray(options) 
-          ? options.join(', ') 
-          : (typeof options === 'string' ? options : '')
-      );
+      if (CHOICE_QUESTION_TYPES.includes((question.type || 'text') as typeof CHOICE_QUESTION_TYPES[number])) {
+        const normalizeOptions = (value: any): string[] => {
+          if (Array.isArray(value)) return value as string[];
+          if (typeof value === 'string') return value.split(',').map((s) => s.trim()).filter(Boolean);
+          return [];
+        };
+        const enOptions = normalizeOptions(question.options);
+        const arOptions = normalizeOptions(question.optionsArabic);
+        const effectiveLength = Math.max(enOptions.length, 1);
+        const paddedEn = enOptions.length ? enOptions : Array(effectiveLength).fill('');
+        const paddedAr = [...arOptions];
+        while (paddedAr.length < effectiveLength) {
+          paddedAr.push('');
+        }
+        setCustomQuestionOptions(paddedEn);
+        setCustomQuestionOptionsArabic(paddedAr.slice(0, effectiveLength));
+        setCustomQuestionAllowOther(Boolean(question.allowOther));
+      } else {
+        setCustomQuestionOptions([]);
+        setCustomQuestionOptionsArabic([]);
+        setCustomQuestionAllowOther(false);
+      }
       setCustomQuestionError('');
       
       // Scroll to question builder section after a short delay to ensure DOM is updated
@@ -454,7 +533,9 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setCustomQuestionLabel('');
     setCustomQuestionLabelArabic('');
     setCustomQuestionRequired(false);
-    setCustomQuestionOptions('');
+    setCustomQuestionOptions([]);
+    setCustomQuestionOptionsArabic([]);
+    setCustomQuestionAllowOther(false);
     setCustomQuestionError('');
   };
 
@@ -517,7 +598,9 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setCustomQuestionLabel('');
     setCustomQuestionLabelArabic('');
     setCustomQuestionRequired(false);
-    setCustomQuestionOptions('');
+    setCustomQuestionOptions([]);
+    setCustomQuestionOptionsArabic([]);
+    setCustomQuestionAllowOther(false);
     setCustomQuestionError('');
     setEditingQuestionIndex(null);
   };
@@ -553,7 +636,9 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     setCustomQuestionLabel('');
     setCustomQuestionLabelArabic('');
     setCustomQuestionRequired(false);
-    setCustomQuestionOptions('');
+    setCustomQuestionOptions([]);
+    setCustomQuestionOptionsArabic([]);
+    setCustomQuestionAllowOther(false);
     setCustomQuestionError('');
     setShowAddCustomForm(true);
   };
@@ -1276,17 +1361,80 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                           label="Required"
                         />
                       </Grid>
-                      <Grid item xs={12} sm={9}>
-                        <TextField
-                          fullWidth
-                          label="Options (comma separated)"
-                          value={customQuestionOptions}
-                          onChange={(e) => setCustomQuestionOptions(e.target.value)}
-                          disabled={!['select', 'checkbox', 'radio'].includes(customQuestionType)}
-                          placeholder="Option 1, Option 2, Option 3"
-                        />
-                      </Grid>
                     </Grid>
+                  {CHOICE_QUESTION_TYPES.includes(customQuestionType as typeof CHOICE_QUESTION_TYPES[number]) && (
+                    <Box
+                      sx={{
+                        mt: 2,
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'background.paper',
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                        Options
+                      </Typography>
+                      <Stack spacing={1}>
+                        {customQuestionOptions.map((option, idx) => (
+                          <Grid container spacing={1} key={`builder-option-${idx}`} alignItems="center">
+                            <Grid item xs={12} sm={5}>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                label="Option (English)"
+                                value={option}
+                                onChange={(e) => updateCustomOptionField(idx, 'en', e.target.value)}
+                                placeholder={`Option ${idx + 1}`}
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={5}>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                label="Option (Arabic)"
+                                value={customQuestionOptionsArabic[idx] || ''}
+                                onChange={(e) => updateCustomOptionField(idx, 'ar', e.target.value)}
+                                placeholder="اسم الخيار"
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => removeCustomOptionField(idx)}
+                                disabled={customQuestionOptions.length <= 1}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Grid>
+                          </Grid>
+                        ))}
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Add />}
+                          onClick={addCustomOptionField}
+                          sx={{ alignSelf: 'flex-start', mt: 1 }}
+                        >
+                          Add Option
+                        </Button>
+                      </Stack>
+                      {customQuestionType === 'select' && (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={customQuestionAllowOther}
+                              onChange={(e) => setCustomQuestionAllowOther(e.target.checked)}
+                            />
+                          }
+                          label="Allow 'Other' option"
+                          sx={{ mt: 2 }}
+                        />
+                      )}
+                    </Box>
+                  )}
                     {customQuestionError && (
                       <Alert severity="error" sx={{ mt: 1 }}>
                         {customQuestionError}
