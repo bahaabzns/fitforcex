@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { generatePdfFromTemplate } from '@/api/pdf-templates';
+import api from '@/utils/axios';
 
 interface NutritionPlanData {
   workspaceName: string;
@@ -224,7 +226,25 @@ function calculateMealTotals(meal: NutritionPlanData['cycles'][0]['meals'][0]) {
   );
 }
 
-export async function exportNutritionPlanToPDF(data: NutritionPlanData): Promise<void> {
+export async function exportNutritionPlanToPDF(
+  data: NutritionPlanData,
+  planId?: string
+): Promise<void> {
+  // Try template-based generation first if planId is provided
+  if (planId) {
+    try {
+      const { pdfUrl } = await generatePdfFromTemplate(planId, 'nutrition');
+      // Open PDF in new tab
+      window.open(pdfUrl, '_blank');
+      return;
+    } catch (error: any) {
+      // If template generation fails (no template assigned), fall back to client-side generation
+      console.log('Template-based generation not available, using client-side generation:', error.message);
+      // Continue to fallback - don't throw, just use client-side generation
+    }
+  }
+  
+  // Fall back to client-side PDF generation
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -427,8 +447,24 @@ export async function exportNutritionPlanToPDF(data: NutritionPlanData): Promise
 
 export async function exportWorkoutPlanToPDF(
   data: WorkoutPlanData,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  planId?: string
 ): Promise<void> {
+  // Try template-based generation first if planId is provided
+  if (planId) {
+    try {
+      const { pdfUrl } = await generatePdfFromTemplate(planId, 'workout');
+      // Open PDF in new tab
+      window.open(pdfUrl, '_blank');
+      return;
+    } catch (error: any) {
+      // If template generation fails (no template assigned), fall back to client-side generation
+      console.log('Template-based generation not available, using client-side generation:', error.message);
+      // Continue to fallback - don't throw, just use client-side generation
+    }
+  }
+  
+  // Fall back to client-side PDF generation
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();

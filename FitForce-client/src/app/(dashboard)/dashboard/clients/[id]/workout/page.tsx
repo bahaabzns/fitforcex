@@ -1925,7 +1925,7 @@ export default function ClientWorkoutPage() {
       }, (message) => {
         // Progress callback - could show in snackbar or console
         console.log('PDF Export:', message);
-      });
+      }, selectedPlanId && !String(selectedPlanId).startsWith('local_') ? selectedPlanId : undefined);
       openSnackbar({
         open: true,
         message: 'PDF exported successfully',

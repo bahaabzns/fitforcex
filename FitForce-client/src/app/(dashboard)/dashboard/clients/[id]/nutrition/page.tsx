@@ -1865,7 +1865,7 @@ export default function ClientNutritionPage() {
           microTotals: cycle.microTotals,
           meals: cycle.meals || []
         }))
-      });
+      }, selectedPlanId as string | undefined);
       openSnackbar({
         open: true,
         message: 'PDF exported successfully',
