@@ -29,6 +29,7 @@ import MessengerBadgeSync from './MessengerBadgeSync';
 import QueueBadgeSync from './QueueBadgeSync';
 import TutorialVideoHelper from '@/components/TutorialVideoHelper';
 import { usePathname } from 'next/navigation';
+import { useWorkspaceSubscription } from '@/hooks/useWorkspaceSubscription';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
@@ -50,6 +51,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const isClientDetailPage = Boolean(pathname?.match(/^\/dashboard\/clients\/([^/]+)/));
 
   const isHorizontal = menuOrientation === MenuOrientation.HORIZONTAL && !downLG;
+  
+  // Fetch workspace subscription to enable feature-based UI
+  useWorkspaceSubscription();
 
   // Detect workspace context from subdomain using cookies set by middleware
   useEffect(() => {

@@ -165,9 +165,24 @@ const workspaceMenu: NavItemType = {
   ]
 };
 
-// Function to get menu based on context
-export function getDashboardMenu(isWorkspaceSubdomain: boolean = false): NavItemType {
-  return isWorkspaceSubdomain ? workspaceMenu : mainDomainMenu;
+// Function to get menu based on context and subscription features
+export function getDashboardMenu(
+  isWorkspaceSubdomain: boolean = false, 
+  hasTeamMembersFeature: boolean = true
+): NavItemType {
+  if (!isWorkspaceSubdomain) {
+    return mainDomainMenu;
+  }
+
+  // Filter out team menu item if the feature is not enabled
+  if (!hasTeamMembersFeature) {
+    return {
+      ...workspaceMenu,
+      children: workspaceMenu.children.filter(child => child.id !== 'team')
+    };
+  }
+
+  return workspaceMenu;
 }
 
 // Default export for backward compatibility

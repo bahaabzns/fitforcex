@@ -37,6 +37,10 @@ export default function Navigation() {
   // Check if we're on a workspace subdomain
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
   const isWorkspaceSubdomain = !!workspaceSubdomain;
+  
+  // Get workspace subscription features
+  const subscription = useAppSelector((s) => s.workspace.subscription);
+  const hasTeamMembersFeature = subscription?.teamMembersEnabled ?? true;
 
   // Get dynamic menu items based on context
   const dynamicMenuItems = useMemo(() => {
@@ -58,13 +62,13 @@ export default function Navigation() {
       return { items: [clientMenu] };
     }
     
-    // Get the dashboard menu
-    const dashboardMenu = getDashboardMenu(isWorkspaceSubdomain);
+    // Get the dashboard menu with feature flags
+    const dashboardMenu = getDashboardMenu(isWorkspaceSubdomain, hasTeamMembersFeature);
     
     return {
       items: [dashboardMenu, ...menuItems.items.slice(1)] // Replace first item (dashboard) with dynamic one
     };
-  }, [isWorkspaceSubdomain, isClientArea]);
+  }, [isWorkspaceSubdomain, isClientArea, hasTeamMembersFeature]);
 
   const [selectedID, setSelectedID] = useState<string | null>(menuMaster.openedHorizontalItem);
   const [selectedItems, setSelectedItems] = useState<string | undefined>('');
