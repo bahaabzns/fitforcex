@@ -13,7 +13,13 @@ import { useTheme } from '@mui/material/styles';
 
 export default function LogoMain({ reverse }: { reverse?: boolean }) {
   const theme = useTheme();
+  
+  // Use hero.png in dark mode, down.png in light mode
+  const logoSrc = theme.palette.mode === 'dark' 
+    ? '/assets/header_logo/hero.png' 
+    : '/assets/header_logo/down.png';
+  
   return (
-    <img src="/assets/header_logo/down.png" alt="FitForce" style={{ display: 'block', width: '100%', height: 'auto' }} />
+    <img src={logoSrc} alt="FitForce" style={{ display: 'block', width: '100%', height: 'auto' }} />
   );
 }
