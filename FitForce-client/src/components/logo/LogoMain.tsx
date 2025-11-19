@@ -14,6 +14,6 @@ import { useTheme } from '@mui/material/styles';
 export default function LogoMain({ reverse }: { reverse?: boolean }) {
   const theme = useTheme();
   return (
-    <img src="/logo.svg" alt="FitForce" style={{ display: 'block', width: '100%', height: 'auto' }} />
+    <img src="/assets/header_logo/down.png" alt="FitForce" style={{ display: 'block', width: '100%', height: 'auto' }} />
   );
 }
