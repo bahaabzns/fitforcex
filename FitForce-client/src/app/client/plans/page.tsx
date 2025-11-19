@@ -74,7 +74,7 @@ export default function ClientPlansPage() {
   const { data: nutritionData, isLoading: loadingNutrition, error: nutritionError } = useSWR(
     () => (clientId ? `client-nutrition-plans-${clientId}` : null),
     async () => {
-      const res = await api.get(`/api/clients/${clientId}/nutrition/plans`);
+      const res = await api.get(`/api/clients/my-nutrition-plans`);
       return res.data as { plans: NutritionPlan[] };
     }
   );
@@ -82,7 +82,7 @@ export default function ClientPlansPage() {
   const { data: workoutData, isLoading: loadingWorkout, error: workoutError } = useSWR(
     () => (clientId ? `client-workout-plans-${clientId}` : null),
     async () => {
-      const res = await api.get(`/api/clients/${clientId}/workout/plans`);
+      const res = await api.get(`/api/clients/my-workout-plans`);
       return res.data as { plans: WorkoutPlan[] };
     }
   );
