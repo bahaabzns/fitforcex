@@ -111,6 +111,7 @@ export default function WorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
+  const [canManageSettings, setCanManageSettings] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState(0);
 
   // Form states
@@ -207,8 +208,10 @@ export default function WorkspacePage() {
         const response = await api.get(`/api/workspaces/by-subdomain/${subdomain}`);
         const ws = response.data?.workspace;
         const owner = !!response.data?.isOwner;
+        const canManage = !!response.data?.canManageSettings;
         
         setIsOwner(owner);
+        setCanManageSettings(canManage);
         setWorkspaceData(ws);
         setWorkspaceName(ws?.name || '');
         setLogoUrl(ws?.brandingLogoUrl || '');
@@ -220,6 +223,7 @@ export default function WorkspacePage() {
       } catch {
         setError('Failed to load workspace data');
         setIsOwner(false);
+        setCanManageSettings(false);
       } finally {
         setLoading(false);
       }
@@ -380,7 +384,7 @@ export default function WorkspacePage() {
     );
   }
 
-  if (isOwner === false) {
+  if (canManageSettings === false) {
     return (
       <MainCard sx={{ borderColor: 'error.main' }}>
         <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -389,7 +393,7 @@ export default function WorkspacePage() {
             <FormattedMessage id="workspace.restricted" defaultMessage="Access Restricted" />
           </Typography>
           <Typography color="text.secondary">
-            <FormattedMessage id="workspace.restricted.desc" defaultMessage="You are not the owner of this workspace. Redirecting to main site..." />
+            <FormattedMessage id="workspace.restricted.desc" defaultMessage="You don't have permission to manage workspace settings. Contact the workspace owner." />
           </Typography>
         </Box>
       </MainCard>
