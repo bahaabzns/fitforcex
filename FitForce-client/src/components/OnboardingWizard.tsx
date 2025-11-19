@@ -76,6 +76,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   // Step 1: Workspace Details
   const [logoUrl, setLogoUrl] = useState('');
@@ -279,6 +280,29 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to complete onboarding');
       setCompleting(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!window.confirm('Are you sure you want to skip onboarding? You can always set up your workspace later in the settings.')) {
+      return;
+    }
+
+    try {
+      setSkipping(true);
+      setError(null);
+
+      await api.post('/api/workspaces/onboarding/skip');
+
+      // Hard reload so the dashboard re-mounts and re-checks onboarding status
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to skip onboarding');
+      setSkipping(false);
     }
   };
 
@@ -1775,10 +1799,19 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               {renderStepContent(activeStep)}
             </Box>
 
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Stack direction="row" spacing={2} justifyContent="space-between">
+              <Button
+                variant="outlined"
+                color="warning"
+                onClick={handleSkip}
+                disabled={skipping || completing}
+              >
+                {skipping ? 'Skipping...' : 'Skip Onboarding'}
+              </Button>
+
               <Stack direction="row" spacing={2}>
                 <Button
-                  disabled={activeStep === 0 || completing}
+                  disabled={activeStep === 0 || completing || skipping}
                   onClick={handleBack}
                   startIcon={<ArrowBack />}
                 >
@@ -1789,7 +1822,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                   <Button
                     variant="contained"
                     onClick={handleComplete}
-                    disabled={completing}
+                    disabled={completing || skipping}
                     endIcon={completing ? <CircularProgress size={20} /> : <CheckCircle />}
                   >
                     {completing ? 'Completing...' : 'Complete Onboarding'}
@@ -1798,6 +1831,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                   <Button
                     variant="contained"
                     onClick={handleNext}
+                    disabled={skipping}
                     endIcon={<ArrowForward />}
                   >
                     Next
