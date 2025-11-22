@@ -47,6 +47,7 @@ interface VisualPdfConfig {
     showContactInfo?: boolean;
     backgroundImage?: string;
     backgroundColor?: string;
+    textColor?: string;
     customMessage?: string;
   };
   dayPages: {
@@ -54,6 +55,7 @@ interface VisualPdfConfig {
     daysPerPage: number;
     backgroundImage?: string;
     backgroundColor?: string;
+    textColor?: string;
     options: {
       showGifImage: boolean;
       showExerciseName: boolean;
@@ -116,12 +118,14 @@ export default function VisualPdfBuilder({
         showThankYouMessage: true,
         showContactInfo: true,
         backgroundColor: '#ffffff',
+        textColor: '#000000',
         customMessage: 'Thank you for choosing us!',
       },
       dayPages: {
         layout: 'vertical',
         daysPerPage: 1,
         backgroundColor: '#ffffff',
+        textColor: '#000000',
         options: {
           showGifImage: true,
           showExerciseName: true,
@@ -788,7 +792,7 @@ export default function VisualPdfBuilder({
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
                         Background Color
@@ -819,6 +823,47 @@ export default function VisualPdfBuilder({
                               dayPages: {
                                 ...config.dayPages,
                                 backgroundColor: e.target.value,
+                              },
+                            })
+                          }
+                          size="small"
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                        Text Color
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <TextField
+                          type="color"
+                          value={config.dayPages.textColor}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                textColor: e.target.value,
+                              },
+                            })
+                          }
+                          sx={{ 
+                            width: 80,
+                            '& input': { height: 50, cursor: 'pointer' }
+                          }}
+                        />
+                        <TextField
+                          value={config.dayPages.textColor}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                textColor: e.target.value,
                               },
                             })
                           }
@@ -1225,44 +1270,89 @@ export default function VisualPdfBuilder({
                       </Typography>
                     </Box>
 
-                    <Box sx={{ mt: 3 }}>
-                      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-                        Background Color
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                        <TextField
-                          type="color"
-                          value={config.endPage.backgroundColor}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              endPage: {
-                                ...config.endPage!,
-                                backgroundColor: e.target.value,
-                              },
-                            })
-                          }
-                          sx={{ 
-                            width: 80,
-                            '& input': { height: 50, cursor: 'pointer' }
-                          }}
-                        />
-                        <TextField
-                          value={config.endPage.backgroundColor}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              endPage: {
-                                ...config.endPage!,
-                                backgroundColor: e.target.value,
-                              },
-                            })
-                          }
-                          size="small"
-                          sx={{ flex: 1 }}
-                        />
-                      </Box>
-                    </Box>
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                      <Grid item xs={12} sm={6}>
+                        <Box>
+                          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                            Background Color
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <TextField
+                              type="color"
+                              value={config.endPage.backgroundColor}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  endPage: {
+                                    ...config.endPage!,
+                                    backgroundColor: e.target.value,
+                                  },
+                                })
+                              }
+                              sx={{ 
+                                width: 80,
+                                '& input': { height: 50, cursor: 'pointer' }
+                              }}
+                            />
+                            <TextField
+                              value={config.endPage.backgroundColor}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  endPage: {
+                                    ...config.endPage!,
+                                    backgroundColor: e.target.value,
+                                  },
+                                })
+                              }
+                              size="small"
+                              sx={{ flex: 1 }}
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+
+                      <Grid item xs={12} sm={6}>
+                        <Box>
+                          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                            Text Color
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <TextField
+                              type="color"
+                              value={config.endPage.textColor}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  endPage: {
+                                    ...config.endPage!,
+                                    textColor: e.target.value,
+                                  },
+                                })
+                              }
+                              sx={{ 
+                                width: 80,
+                                '& input': { height: 50, cursor: 'pointer' }
+                              }}
+                            />
+                            <TextField
+                              value={config.endPage.textColor}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  endPage: {
+                                    ...config.endPage!,
+                                    textColor: e.target.value,
+                                  },
+                                })
+                              }
+                              size="small"
+                              sx={{ flex: 1 }}
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+                    </Grid>
                   </Box>
                 )}
               </CardContent>
