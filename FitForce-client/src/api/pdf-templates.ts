@@ -31,7 +31,7 @@ export interface UploadTemplateData {
 
 export interface AssignTemplateData {
   isGlobal: boolean;
-  assignedWorkspaceIds?: string[];
+  assignedWorkspaceIds?: string[] | null;
 }
 
 /**
@@ -63,9 +63,8 @@ export async function uploadPdfTemplate(
   formData.append('name', data.name);
   formData.append('kind', data.kind);
   formData.append('isGlobal', String(data.isGlobal));
-  if (data.assignedWorkspaceIds && data.assignedWorkspaceIds.length > 0) {
-    formData.append('assignedWorkspaceIds', JSON.stringify(data.assignedWorkspaceIds));
-  }
+  // Always send assignedWorkspaceIds, even if empty (backend will handle null for global templates)
+  formData.append('assignedWorkspaceIds', JSON.stringify(data.assignedWorkspaceIds || []));
   
   const response = await api.post('/api/admin/pdf-templates', formData, {
     headers: {

@@ -115,8 +115,20 @@ export default function PdfTemplatesPage() {
   const handleAssign = async () => {
     if (!selectedTemplate) return;
 
+    // Validate: if not global, must have at least one workspace selected
+    if (!assignForm.isGlobal && (!assignForm.assignedWorkspaceIds || assignForm.assignedWorkspaceIds.length === 0)) {
+      openSnackbar('Please select at least one workspace when template is not global', 'error');
+      return;
+    }
+
     try {
-      await assignTemplate(selectedTemplate.id, assignForm);
+      // Prepare data: send null for assignedWorkspaceIds when isGlobal is true
+      const dataToSend = {
+        isGlobal: assignForm.isGlobal,
+        assignedWorkspaceIds: assignForm.isGlobal ? null : assignForm.assignedWorkspaceIds,
+      };
+      
+      await assignTemplate(selectedTemplate.id, dataToSend);
       openSnackbar('Template assignment updated', 'success');
       setAssignDialogOpen(false);
       fetchTemplates();
@@ -151,7 +163,7 @@ export default function PdfTemplatesPage() {
   const handleOpenAssign = (template: PdfTemplate) => {
     setSelectedTemplate(template);
     setAssignForm({
-      isGlobal: template.isGlobal,
+      isGlobal: template.isGlobal || false,
       assignedWorkspaceIds: (template.assignedWorkspaceIds || []) as string[],
     });
     setAssignDialogOpen(true);
@@ -362,7 +374,15 @@ export default function PdfTemplatesPage() {
               control={
                 <Checkbox
                   checked={assignForm.isGlobal}
-                  onChange={(e) => setAssignForm({ ...assignForm, isGlobal: e.target.checked })}
+                  onChange={(e) => {
+                    const isGlobal = e.target.checked;
+                    setAssignForm({
+                      ...assignForm,
+                      isGlobal,
+                      // Clear workspace selection when making it global
+                      assignedWorkspaceIds: isGlobal ? [] : (assignForm.assignedWorkspaceIds || []),
+                    });
+                  }}
                 />
               }
               label="Global Template (available to all workspaces)"
@@ -372,7 +392,7 @@ export default function PdfTemplatesPage() {
                 <InputLabel>Assign to Workspaces</InputLabel>
                 <Select
                   multiple
-                  value={assignForm.assignedWorkspaceIds}
+                  value={assignForm.assignedWorkspaceIds || []}
                   label="Assign to Workspaces"
                   onChange={(e) =>
                     setAssignForm({
@@ -404,40 +424,75 @@ export default function PdfTemplatesPage() {
         <DialogTitle>PDF Template Instructions</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>How to Create PDF Templates</Typography>
+            <Typography variant="h6" gutterBottom>How to Create Templates</Typography>
             <Typography variant="body2" paragraph>
-              Create your PDF template in any PDF editor, then add placeholders as text using the format: <code>[placeholder.name]</code>
+              You can upload <strong>PDF</strong> or <strong>Word/PowerPoint (.docx, .pptx)</strong> templates. Word templates are recommended as they preserve styles better.
+            </Typography>
+            <Typography variant="body2" paragraph>
+              <strong>PDF Templates:</strong> Use square brackets: <code>[placeholder.name]</code>
+            </Typography>
+            <Typography variant="body2" paragraph>
+              <strong>Word/PowerPoint Templates:</strong> Use curly braces and loops: <code>{'{'}{'}'}</code> for simple placeholders, <code>{'{{#loops}}...{{/loops}}'}</code> for repeating sections
             </Typography>
 
             <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Available Placeholders</Typography>
             
             <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 'bold' }}>Common (Both Plans):</Typography>
             <Box component="pre" sx={{ bgcolor: 'grey.100', p: 1, borderRadius: 1, fontSize: '0.875rem', overflow: 'auto' }}>
-{`[workspace.name] - Workspace name
-[plan.title] - Plan title
-[client.name] - Client full name`}
+{`PDF: [workspace.name] | Word: {workspace_name}
+PDF: [plan.title] | Word: {plan_title}
+PDF: [client.name] | Word: {client_name}`}
             </Box>
 
             <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 'bold' }}>Nutrition Plans:</Typography>
             <Box component="pre" sx={{ bgcolor: 'grey.100', p: 1, borderRadius: 1, fontSize: '0.875rem', overflow: 'auto' }}>
-{`[page.intro] - Page section marker
-[cycle.name] - Cycle/day label
-[cycle.macros] - Cycle macros (formatted)
-[cycle.micros] - Cycle micros (formatted)
-[cycle.meal.name] - Meal name
-[cycle.meal.fooditem1] - Food item 1
-[cycle.meal.fooditem2] - Food item 2
-[cycle.meal.fooditem3] - Food item 3
-[cycle.meal.fooditem4] - Food item 4
+{`PDF: [page.intro] | Word: {page_intro}
+PDF: [cycle.name] | Word: {cycle_name} or {#cycles}{name}{/cycles}
+PDF: [cycle.macros] | Word: {cycle_macros} or {#cycles}{macros}{/cycles}
+PDF: [cycle.micros] | Word: {cycle_micros} or {#cycles}{micros}{/cycles}
+PDF: [cycle.meal.name] | Word: {#cycles}{#meals}{name}{/meals}{/cycles}
+PDF: [cycle.meal.fooditem1] | Word: {cycle_meal_fooditem1} or {#foodItems}{name}{/foodItems}
 ... (continue numbering as needed)`}
             </Box>
 
-            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 'bold' }}>Workout Plans:</Typography>
+            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 'bold' }}>Workout Plans (PDF):</Typography>
             <Box component="pre" sx={{ bgcolor: 'grey.100', p: 1, borderRadius: 1, fontSize: '0.875rem', overflow: 'auto' }}>
 {`[day.name] - Day label
-[day.exercise1] - Exercise 1
+[day.exercise1] - Exercise 1 (name with sets x reps)
 [day.exercise2] - Exercise 2
 ... (continue numbering as needed)`}
+            </Box>
+
+            <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 'bold' }}>Workout Plans (Word/PowerPoint - DOCX):</Typography>
+            <Box component="pre" sx={{ bgcolor: 'grey.100', p: 1, borderRadius: 1, fontSize: '0.875rem', overflow: 'auto' }}>
+{`Simple placeholders:
+{day_name} - First day name
+{day_exercise1} - First day, exercise 1 (formatted: "Name (setsxreps)")
+{day_exercise2} - First day, exercise 2
+... (continue to day_exercise20)
+
+Numbered day placeholders (for multi-slide templates):
+{day1_name}, {day2_name}, {day3_name} - Day names
+{day1_exercise1_name} - Day 1, exercise 1 name
+{day1_exercise1_sets} - Day 1, exercise 1 sets
+{day1_exercise1_reps} - Day 1, exercise 1 reps
+{day1_exercise1_videoUrl} - Day 1, exercise 1 video URL (YouTube link)
+{%image day1_exercise1_gifImage} - Day 1, exercise 1 GIF image (200x200px fixed size)
+{day1_exercise1} - Day 1, exercise 1 (formatted display)
+{day1_exercise2_name}, {day1_exercise2_sets}, {day1_exercise2_reps}, {day1_exercise2_videoUrl}, {%image day1_exercise2_gifImage}
+... (continue numbering: day1_exercise1 through day10_exercise20)
+
+Loop syntax (recommended for dynamic content):
+{#days}
+  Day: {name}
+  {#exercises}
+    • {name} ({sets}x{reps})
+    Video: {videoUrl}
+    {%image gifImage} - Exercise GIF image (200x200px fixed size)
+  {/exercises}
+{/days}
+
+Note: GIF images use {%image placeholder} syntax and are automatically sized to 200x200 pixels.`}
             </Box>
 
             <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Repeating Patterns</Typography>
