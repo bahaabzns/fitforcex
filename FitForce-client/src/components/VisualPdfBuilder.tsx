@@ -56,6 +56,11 @@ interface VisualPdfConfig {
     backgroundImage?: string;
     backgroundColor?: string;
     textColor?: string;
+    fontSize?: {
+      exerciseName?: number;
+      details?: number;
+      dayTitle?: number;
+    };
     options: {
       showGifImage: boolean;
       showExerciseName: boolean;
@@ -81,6 +86,9 @@ interface VisualPdfConfig {
 interface VisualPdfBuilderProps {
   kind: 'workout' | 'nutrition';
   initialConfig?: VisualPdfConfig;
+  initialName?: string;
+  initialIsGlobal?: boolean;
+  initialWorkspaceIds?: string[];
   onSave: (config: VisualPdfConfig, name: string, isGlobal: boolean, workspaceIds: string[]) => void;
   onCancel: () => void;
   workspaces?: Array<{ id: string; name: string }>;
@@ -88,18 +96,21 @@ interface VisualPdfBuilderProps {
 
 export default function VisualPdfBuilder({ 
   kind, 
-  initialConfig, 
+  initialConfig,
+  initialName = '',
+  initialIsGlobal = true,
+  initialWorkspaceIds = [],
   onSave, 
   onCancel,
   workspaces = []
 }: VisualPdfBuilderProps) {
   const [activeStep, setActiveStep] = useState(0);
-  const [templateName, setTemplateName] = useState('');
-  const [isGlobal, setIsGlobal] = useState(true);
-  const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>([]);
-  const [introImageUrl, setIntroImageUrl] = useState('');
-  const [endImageUrl, setEndImageUrl] = useState('');
-  const [dayImageUrl, setDayImageUrl] = useState('');
+  const [templateName, setTemplateName] = useState(initialName);
+  const [isGlobal, setIsGlobal] = useState(initialIsGlobal);
+  const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>(initialWorkspaceIds);
+  const [introImageUrl, setIntroImageUrl] = useState(initialConfig?.introPage?.backgroundImage || '');
+  const [endImageUrl, setEndImageUrl] = useState(initialConfig?.endPage?.backgroundImage || '');
+  const [dayImageUrl, setDayImageUrl] = useState(initialConfig?.dayPages?.backgroundImage || '');
   const [uploadingImage, setUploadingImage] = useState<'intro' | 'end' | 'day' | null>(null);
   
   const [config, setConfig] = useState<VisualPdfConfig>(
@@ -126,6 +137,11 @@ export default function VisualPdfBuilder({
         daysPerPage: 1,
         backgroundColor: '#ffffff',
         textColor: '#000000',
+        fontSize: {
+          dayTitle: 18,
+          exerciseName: 12,
+          details: 10,
+        },
         options: {
           showGifImage: true,
           showExerciseName: true,
@@ -872,6 +888,83 @@ export default function VisualPdfBuilder({
                         />
                       </Box>
                     </Box>
+                  </Grid>
+                </Grid>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                  Font Sizes
+                </Typography>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      label="Day Title Size"
+                      type="number"
+                      fullWidth
+                      value={config.dayPages.fontSize?.dayTitle || 18}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          dayPages: {
+                            ...config.dayPages,
+                            fontSize: {
+                              ...config.dayPages.fontSize,
+                              dayTitle: parseInt(e.target.value) || 18,
+                            },
+                          },
+                        })
+                      }
+                      InputProps={{ inputProps: { min: 8, max: 48 } }}
+                      size="small"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      label="Exercise Name Size"
+                      type="number"
+                      fullWidth
+                      value={config.dayPages.fontSize?.exerciseName || 12}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          dayPages: {
+                            ...config.dayPages,
+                            fontSize: {
+                              ...config.dayPages.fontSize,
+                              exerciseName: parseInt(e.target.value) || 12,
+                            },
+                          },
+                        })
+                      }
+                      InputProps={{ inputProps: { min: 6, max: 32 } }}
+                      size="small"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      label="Details Size (sets, reps, etc.)"
+                      type="number"
+                      fullWidth
+                      value={config.dayPages.fontSize?.details || 10}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          dayPages: {
+                            ...config.dayPages,
+                            fontSize: {
+                              ...config.dayPages.fontSize,
+                              details: parseInt(e.target.value) || 10,
+                            },
+                          },
+                        })
+                      }
+                      InputProps={{ inputProps: { min: 6, max: 24 } }}
+                      size="small"
+                    />
                   </Grid>
                 </Grid>
 

@@ -33,7 +33,7 @@ import {
 } from '@mui/material';
 import { Delete, Add, Edit, Visibility, CloudUpload, AutoAwesome, Preview } from '@mui/icons-material';
 import { listPdfTemplates, uploadPdfTemplate, assignTemplate, deleteTemplate, getPdfTemplate, PdfTemplate, UploadTemplateData } from '@/api/pdf-templates';
-import { listVisualPdfTemplates, createVisualPdfTemplate, deleteVisualPdfTemplate, previewVisualPdfTemplate, VisualPdfTemplate } from '@/api/visual-pdf-templates';
+import { listVisualPdfTemplates, createVisualPdfTemplate, updateVisualPdfTemplate, deleteVisualPdfTemplate, previewVisualPdfTemplate, getVisualPdfTemplate, VisualPdfTemplate } from '@/api/visual-pdf-templates';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
 import dynamic from 'next/dynamic';
@@ -54,6 +54,7 @@ export default function PdfTemplatesPage() {
   const [patterns, setPatterns] = useState<any[]>([]);
   const [showVisualBuilder, setShowVisualBuilder] = useState(false);
   const [visualBuilderKind, setVisualBuilderKind] = useState<'workout' | 'nutrition'>('workout');
+  const [editingVisualTemplate, setEditingVisualTemplate] = useState<VisualPdfTemplate | null>(null);
   
   // Upload form state
   const [uploadForm, setUploadForm] = useState<UploadTemplateData>({
@@ -195,21 +196,41 @@ export default function PdfTemplatesPage() {
         return;
       }
 
-      await createVisualPdfTemplate({
-        name,
-        kind: visualBuilderKind,
-        config,
-        workspaceId,
-        isGlobal,
-        assignedWorkspaceIds: isGlobal ? undefined : workspaceIds,
-      });
+      if (editingVisualTemplate) {
+        // Update existing template
+        await updateVisualPdfTemplate(editingVisualTemplate.id, {
+          name,
+          kind: visualBuilderKind,
+          config,
+          isGlobal,
+          assignedWorkspaceIds: isGlobal ? undefined : workspaceIds,
+        });
+        openSnackbar('Visual template updated successfully', 'success');
+      } else {
+        // Create new template
+        await createVisualPdfTemplate({
+          name,
+          kind: visualBuilderKind,
+          config,
+          workspaceId,
+          isGlobal,
+          assignedWorkspaceIds: isGlobal ? undefined : workspaceIds,
+        });
+        openSnackbar('Visual template created successfully', 'success');
+      }
 
-      openSnackbar('Visual template created successfully', 'success');
       setShowVisualBuilder(false);
+      setEditingVisualTemplate(null);
       fetchVisualTemplates();
     } catch (e: any) {
-      openSnackbar(e.response?.data?.message || 'Failed to create visual template', 'error');
+      openSnackbar(e.response?.data?.message || `Failed to ${editingVisualTemplate ? 'update' : 'create'} visual template`, 'error');
     }
+  };
+
+  const handleEditVisualTemplate = async (template: VisualPdfTemplate) => {
+    setEditingVisualTemplate(template);
+    setVisualBuilderKind(template.kind);
+    setShowVisualBuilder(true);
   };
 
   const handleDeleteVisualTemplate = async (template: VisualPdfTemplate) => {
@@ -268,8 +289,15 @@ export default function PdfTemplatesPage() {
     return (
       <VisualPdfBuilder
         kind={visualBuilderKind}
+        initialConfig={editingVisualTemplate?.config}
+        initialName={editingVisualTemplate?.name}
+        initialIsGlobal={editingVisualTemplate?.isGlobal}
+        initialWorkspaceIds={editingVisualTemplate?.assignedWorkspaceIds || []}
         onSave={handleSaveVisualTemplate}
-        onCancel={() => setShowVisualBuilder(false)}
+        onCancel={() => {
+          setShowVisualBuilder(false);
+          setEditingVisualTemplate(null);
+        }}
         workspaces={workspaces}
       />
     );
@@ -486,6 +514,14 @@ export default function PdfTemplatesPage() {
                             title="Preview PDF"
                           >
                             <Preview />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleEditVisualTemplate(template)}
+                            title="Edit"
+                          >
+                            <Edit />
                           </IconButton>
                           <IconButton
                             size="small"
