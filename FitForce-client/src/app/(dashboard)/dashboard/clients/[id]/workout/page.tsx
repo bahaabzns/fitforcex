@@ -1891,10 +1891,10 @@ export default function ClientWorkoutPage() {
   };
 
   const handleExportPDF = async () => {
-    if (!localWorkoutPlan || !localWorkoutPlan.days || localWorkoutPlan.days.length === 0) {
+    if (!selectedPlanId || String(selectedPlanId).startsWith('local_')) {
       openSnackbar({
         open: true,
-        message: 'Please select a plan with days first',
+        message: 'Please save the plan first before exporting',
         variant: 'alert',
         alert: { color: 'warning' }
       } as any);
@@ -1903,35 +1903,59 @@ export default function ClientWorkoutPage() {
 
     try {
       setExportingPdf(true);
-      await exportWorkoutPlanToPDF({
-        workspaceName: workspaceName || 'Workspace',
-        clientName: clientName || 'Client',
-        planName: localWorkoutPlan.title,
-        days: localWorkoutPlan.days.map(day => ({
-          id: day.id,
-          title: day.title,
-          exercises: day.exercises.map(ex => ({
-            id: ex.id,
-            exercise: ex.exercise,
-            sets: ex.sets,
-            reps: ex.reps,
-            restSeconds: ex.restSeconds,
-            tempo: ex.tempo,
-            rir: ex.rir,
-            notes: ex.notes,
-            individualSets: (ex as any).individualSets
-          }))
-        }))
-      }, (message) => {
-        // Progress callback - could show in snackbar or console
-        console.log('PDF Export:', message);
-      }, selectedPlanId && !String(selectedPlanId).startsWith('local_') ? selectedPlanId : undefined);
-      openSnackbar({
-        open: true,
-        message: 'PDF exported successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      } as any);
+      
+      // Try to get visual templates first
+      const templatesRes = await api.get('/api/visual-pdf-templates', { params: { kind: 'workout' } });
+      const visualTemplates = templatesRes.data?.templates || [];
+      
+      if (visualTemplates.length > 0) {
+        // Use the first available visual template
+        const templateId = visualTemplates[0].id;
+        const res = await api.post(`/api/workout/plans/${selectedPlanId}/generate-visual-pdf`, { 
+          templateId 
+        });
+        
+        if (res.data?.pdfUrl) {
+          window.open(res.data.pdfUrl, '_blank');
+          openSnackbar({
+            open: true,
+            message: 'PDF generated successfully with visual template!',
+            variant: 'alert',
+            alert: { color: 'success' }
+          } as any);
+        }
+      } else {
+        // Fallback to old client-side PDF generation if no visual templates
+        await exportWorkoutPlanToPDF({
+          workspaceName: workspaceName || 'Workspace',
+          clientName: clientName || 'Client',
+          planName: localWorkoutPlan?.title || 'Workout Plan',
+          days: localWorkoutPlan?.days?.map(day => ({
+            id: day.id,
+            title: day.title,
+            exercises: day.exercises.map(ex => ({
+              id: ex.id,
+              exercise: ex.exercise,
+              sets: ex.sets,
+              reps: ex.reps,
+              restSeconds: ex.restSeconds,
+              tempo: ex.tempo,
+              rir: ex.rir,
+              notes: ex.notes,
+              individualSets: (ex as any).individualSets
+            }))
+          })) || []
+        }, (message) => {
+          console.log('PDF Export:', message);
+        }, selectedPlanId);
+        
+        openSnackbar({
+          open: true,
+          message: 'PDF exported successfully (using legacy template)',
+          variant: 'alert',
+          alert: { color: 'success' }
+        } as any);
+      }
     } catch (error: any) {
       console.error('Failed to export PDF:', error);
       openSnackbar({

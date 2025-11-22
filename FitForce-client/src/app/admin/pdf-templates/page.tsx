@@ -28,14 +28,22 @@ import {
   Alert,
   Stack,
   CircularProgress,
+  Tabs,
+  Tab,
 } from '@mui/material';
-import { Delete, Add, Edit, Visibility, CloudUpload } from '@mui/icons-material';
+import { Delete, Add, Edit, Visibility, CloudUpload, AutoAwesome, Preview } from '@mui/icons-material';
 import { listPdfTemplates, uploadPdfTemplate, assignTemplate, deleteTemplate, getPdfTemplate, PdfTemplate, UploadTemplateData } from '@/api/pdf-templates';
+import { listVisualPdfTemplates, createVisualPdfTemplate, deleteVisualPdfTemplate, previewVisualPdfTemplate, VisualPdfTemplate } from '@/api/visual-pdf-templates';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
+import dynamic from 'next/dynamic';
+
+const VisualPdfBuilder = dynamic(() => import('@/components/VisualPdfBuilder'), { ssr: false });
 
 export default function PdfTemplatesPage() {
+  const [tabValue, setTabValue] = useState(0);
   const [templates, setTemplates] = useState<PdfTemplate[]>([]);
+  const [visualTemplates, setVisualTemplates] = useState<VisualPdfTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -44,6 +52,8 @@ export default function PdfTemplatesPage() {
   const [viewPlaceholdersOpen, setViewPlaceholdersOpen] = useState(false);
   const [placeholders, setPlaceholders] = useState<string[]>([]);
   const [patterns, setPatterns] = useState<any[]>([]);
+  const [showVisualBuilder, setShowVisualBuilder] = useState(false);
+  const [visualBuilderKind, setVisualBuilderKind] = useState<'workout' | 'nutrition'>('workout');
   
   // Upload form state
   const [uploadForm, setUploadForm] = useState<UploadTemplateData>({
@@ -76,6 +86,19 @@ export default function PdfTemplatesPage() {
     }
   };
 
+  const fetchVisualTemplates = async () => {
+    try {
+      setLoading(true);
+      const { templates } = await listVisualPdfTemplates();
+      setVisualTemplates(templates);
+      setError(null);
+    } catch (e: any) {
+      setError(e.response?.data?.message || 'Failed to fetch visual templates');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchWorkspaces = async () => {
     try {
       const { data } = await api.get('/api/admin/workspaces');
@@ -87,9 +110,13 @@ export default function PdfTemplatesPage() {
   };
 
   useEffect(() => {
-    fetchTemplates();
+    if (tabValue === 0) {
+      fetchTemplates();
+    } else {
+      fetchVisualTemplates();
+    }
     fetchWorkspaces();
-  }, []);
+  }, [tabValue]);
 
   const handleUpload = async () => {
     if (!selectedFile || !uploadForm.name) {
@@ -149,6 +176,65 @@ export default function PdfTemplatesPage() {
     }
   };
 
+  const handleOpenVisualBuilder = (kind: 'workout' | 'nutrition') => {
+    setVisualBuilderKind(kind);
+    setShowVisualBuilder(true);
+  };
+
+  const handleSaveVisualTemplate = async (
+    config: any, 
+    name: string, 
+    isGlobal: boolean, 
+    workspaceIds: string[]
+  ) => {
+    try {
+      // Use first workspace as the owner, or first selected workspace if not global
+      const workspaceId = workspaces[0]?.id;
+      if (!workspaceId) {
+        openSnackbar('No workspace available', 'error');
+        return;
+      }
+
+      await createVisualPdfTemplate({
+        name,
+        kind: visualBuilderKind,
+        config,
+        workspaceId,
+        isGlobal,
+        assignedWorkspaceIds: isGlobal ? undefined : workspaceIds,
+      });
+
+      openSnackbar('Visual template created successfully', 'success');
+      setShowVisualBuilder(false);
+      fetchVisualTemplates();
+    } catch (e: any) {
+      openSnackbar(e.response?.data?.message || 'Failed to create visual template', 'error');
+    }
+  };
+
+  const handleDeleteVisualTemplate = async (template: VisualPdfTemplate) => {
+    if (!confirm(`Delete visual template "${template.name}"?`)) return;
+
+    try {
+      await deleteVisualPdfTemplate(template.id);
+      openSnackbar('Visual template deleted', 'success');
+      fetchVisualTemplates();
+    } catch (e: any) {
+      openSnackbar(e.response?.data?.message || 'Failed to delete visual template', 'error');
+    }
+  };
+
+  const handlePreviewVisualTemplate = async (template: VisualPdfTemplate) => {
+    try {
+      openSnackbar('Generating preview...', 'info');
+      const { previewUrl } = await previewVisualPdfTemplate(template.id);
+      window.open(previewUrl, '_blank');
+      openSnackbar('Preview generated successfully', 'success');
+    } catch (e: any) {
+      openSnackbar(e.response?.data?.message || 'Failed to generate preview', 'error');
+    }
+  };
+
   const handleViewPlaceholders = async (template: PdfTemplate) => {
     try {
       const { template: fullTemplate } = await getPdfTemplate(template.id);
@@ -169,11 +255,23 @@ export default function PdfTemplatesPage() {
     setAssignDialogOpen(true);
   };
 
-  if (loading) {
+  if (loading && !templates.length && !visualTemplates.length) {
     return (
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}>
         <CircularProgress />
       </Box>
+    );
+  }
+
+  // Show visual builder fullscreen
+  if (showVisualBuilder) {
+    return (
+      <VisualPdfBuilder
+        kind={visualBuilderKind}
+        onSave={handleSaveVisualTemplate}
+        onCancel={() => setShowVisualBuilder(false)}
+        workspaces={workspaces}
+      />
     );
   }
 
@@ -183,7 +281,7 @@ export default function PdfTemplatesPage() {
         <Box>
           <Typography variant="h4">PDF Templates</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Upload PDF templates with placeholders for nutrition and workout plans
+            Manage PDF templates for nutrition and workout plans
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -193,14 +291,30 @@ export default function PdfTemplatesPage() {
           >
             View Instructions
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setUploadDialogOpen(true)}
-          >
-            Upload Template
-          </Button>
+          {tabValue === 0 && (
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setUploadDialogOpen(true)}
+            >
+              Upload Template
+            </Button>
+          )}
         </Box>
+      </Box>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+          <Tab label="Placeholder Templates" />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AutoAwesome fontSize="small" />
+                Visual Builder Templates
+              </Box>
+            } 
+          />
+        </Tabs>
       </Box>
 
       {error && (
@@ -209,80 +323,188 @@ export default function PdfTemplatesPage() {
         </Alert>
       )}
 
-      <Card>
-        <CardContent>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Kind</TableCell>
-                <TableCell>Assignment</TableCell>
-                <TableCell>Workspace</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {templates.length === 0 ? (
+      {/* Tab 0: Placeholder Templates */}
+      {tabValue === 0 && (
+        <Card>
+          <CardContent>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography color="text.secondary">No templates found</Typography>
-                  </TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Kind</TableCell>
+                  <TableCell>Assignment</TableCell>
+                  <TableCell>Workspace</TableCell>
+                  <TableCell>Created</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ) : (
-                templates.map((template) => (
-                  <TableRow key={template.id}>
-                    <TableCell>{template.name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={template.kind}
-                        color={template.kind === 'nutrition' ? 'primary' : 'secondary'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {template.isGlobal ? (
-                        <Chip label="Global" color="success" size="small" />
-                      ) : (
-                        <Chip
-                          label={`${template.assignedWorkspaceIds?.length || 0} workspace(s)`}
-                          size="small"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>{template.workspace?.name || '-'}</TableCell>
-                    <TableCell>{new Date(template.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleViewPlaceholders(template)}
-                        title="View placeholders"
-                      >
-                        <Visibility />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenAssign(template)}
-                        title="Edit assignment"
-                      >
-                        <Edit />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDelete(template)}
-                        title="Delete"
-                      >
-                        <Delete />
-                      </IconButton>
+              </TableHead>
+              <TableBody>
+                {templates.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <Typography color="text.secondary">No templates found</Typography>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                ) : (
+                  templates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell>{template.name}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={template.kind}
+                          color={template.kind === 'nutrition' ? 'primary' : 'secondary'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {template.isGlobal ? (
+                          <Chip label="Global" color="success" size="small" />
+                        ) : (
+                          <Chip
+                            label={`${template.assignedWorkspaceIds?.length || 0} workspace(s)`}
+                            size="small"
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>{template.workspace?.name || '-'}</TableCell>
+                      <TableCell>{new Date(template.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewPlaceholders(template)}
+                          title="View placeholders"
+                        >
+                          <Visibility />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenAssign(template)}
+                          title="Edit assignment"
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(template)}
+                          title="Delete"
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tab 1: Visual Builder Templates */}
+      {tabValue === 1 && (
+        <>
+          <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<AutoAwesome />}
+              onClick={() => handleOpenVisualBuilder('workout')}
+            >
+              Create Workout Template
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<AutoAwesome />}
+              onClick={() => handleOpenVisualBuilder('nutrition')}
+            >
+              Create Nutrition Template
+            </Button>
+          </Box>
+
+          <Card>
+            <CardContent>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Kind</TableCell>
+                    <TableCell>Assignment</TableCell>
+                    <TableCell>Layout</TableCell>
+                    <TableCell>Created</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {visualTemplates.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Box sx={{ py: 4 }}>
+                          <Typography color="text.secondary" gutterBottom>
+                            No visual templates found
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Create your first visual template using the buttons above
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    visualTemplates.map((template) => (
+                      <TableRow key={template.id}>
+                        <TableCell>{template.name}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={template.kind}
+                            color={template.kind === 'nutrition' ? 'primary' : 'secondary'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {template.isGlobal ? (
+                            <Chip label="Global" color="success" size="small" />
+                          ) : (
+                            <Chip
+                              label={`${template.assignedWorkspaceIds?.length || 0} workspace(s)`}
+                              size="small"
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {template.config?.dayPages?.daysPerPage || 1} day(s) per page
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {template.config?.dayPages?.layout || 'vertical'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{new Date(template.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            onClick={() => handlePreviewVisualTemplate(template)}
+                            title="Preview PDF"
+                          >
+                            <Preview />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteVisualTemplate(template)}
+                            title="Delete"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Upload Dialog */}
       <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="sm" fullWidth>

@@ -1854,24 +1854,49 @@ export default function ClientNutritionPage() {
 
     try {
       setExportingPdf(true);
-      await exportNutritionPlanToPDF({
-        workspaceName: workspaceName || 'Workspace',
-        clientName: clientName || 'Client',
-        planName: selectedPlan.title,
-        cycles: selectedPlan.cycles.map(cycle => ({
-          id: cycle.id,
-          title: cycle.title,
-          label: cycle.label,
-          microTotals: cycle.microTotals,
-          meals: cycle.meals || []
-        }))
-      }, selectedPlanId as string | undefined);
-      openSnackbar({
-        open: true,
-        message: 'PDF exported successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      } as any);
+      
+      // Try to get visual templates first
+      const templatesRes = await api.get('/api/visual-pdf-templates', { params: { kind: 'nutrition' } });
+      const visualTemplates = templatesRes.data?.templates || [];
+      
+      if (visualTemplates.length > 0) {
+        // Use the first available visual template
+        const templateId = visualTemplates[0].id;
+        const res = await api.post(`/api/nutrition/plans/${selectedPlanId}/generate-visual-pdf`, { 
+          templateId 
+        });
+        
+        if (res.data?.pdfUrl) {
+          window.open(res.data.pdfUrl, '_blank');
+          openSnackbar({
+            open: true,
+            message: 'PDF generated successfully with visual template!',
+            variant: 'alert',
+            alert: { color: 'success' }
+          } as any);
+        }
+      } else {
+        // Fallback to old client-side PDF generation if no visual templates
+        await exportNutritionPlanToPDF({
+          workspaceName: workspaceName || 'Workspace',
+          clientName: clientName || 'Client',
+          planName: selectedPlan.title,
+          cycles: selectedPlan.cycles.map(cycle => ({
+            id: cycle.id,
+            title: cycle.title,
+            label: cycle.label,
+            microTotals: cycle.microTotals,
+            meals: cycle.meals || []
+          }))
+        }, selectedPlanId as string | undefined);
+        
+        openSnackbar({
+          open: true,
+          message: 'PDF exported successfully (using legacy template)',
+          variant: 'alert',
+          alert: { color: 'success' }
+        } as any);
+      }
     } catch (error: any) {
       console.error('Failed to export PDF:', error);
       openSnackbar({
