@@ -1,5 +1,5 @@
 // assets
-import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add, TimerStart, Messages2 } from '@wandersonalwes/iconsax-react';
+import { People, Money, Document, Apple, Bubble, Setting2, Home, Global, Add, TimerStart, Messages2, Notification } from '@wandersonalwes/iconsax-react';
 
 // types
 import { NavItemType } from 'types/menu';
@@ -16,7 +16,8 @@ const icons = {
   workspace: Global,
   workspaces: Add,
   queue: TimerStart,
-  messenger: Messages2
+  messenger: Messages2,
+  pushNotifications: Notification
 };
 
 // Main domain menu (shows workspace management)
@@ -112,6 +113,13 @@ const workspaceMenu: NavItemType = {
     type: 'item',
     url: '/dashboard/messenger',
     icon: icons.messenger
+  },
+  {
+    id: 'push-notifications',
+    title: 'Push Notifications',
+    type: 'item',
+    url: '/dashboard/push-notifications',
+    icon: icons.pushNotifications
   },
     {
       id: 'team',

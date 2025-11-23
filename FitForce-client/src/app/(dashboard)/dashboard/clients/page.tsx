@@ -75,6 +75,7 @@ import { Add, Edit, Eye, Trash, Grid3, Menu } from '@wandersonalwes/iconsax-reac
 import PauseCircleIcon from '@mui/icons-material/PauseCircle';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import useConfig from '@/hooks/useConfig';
 
 // Import translations
@@ -91,6 +92,7 @@ type Client = {
   fullName?: string;
   name?: string;
   email?: string | null;
+  workspaceEmail?: string | null;
   phone?: string | null;
   status?: string | null;
   packageId?: string | null;
@@ -165,10 +167,12 @@ export default function ClientsPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editFullName, setEditFullName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editWorkspaceEmail, setEditWorkspaceEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   
   // Validation states for edit form
   const [editEmailError, setEditEmailError] = useState<string | null>(null);
+  const [editWorkspaceEmailError, setEditWorkspaceEmailError] = useState<string | null>(null);
   const [editPhoneError, setEditPhoneError] = useState<string | null>(null);
 
   // Create client wizard
@@ -685,6 +689,7 @@ export default function ClientsPage() {
                       setSelectedClient(row.original);
                       setEditFullName(row.original.fullName || row.original.name || '');
                       setEditEmail(row.original.email || '');
+                      setEditWorkspaceEmail(row.original.workspaceEmail || '');
                       setEditPhone(row.original.phone || '');
                       setEditOpen(true);
                     }}
@@ -740,7 +745,7 @@ export default function ClientsPage() {
         }
       }
     ],
-    [activeTab, handleFreezeClient, handleUnfreezeClient, setSelectedClient, setViewOpen, setEditOpen, setEditFullName, setEditEmail, setEditPhone, handleDeleteClient, t]
+    [activeTab, handleFreezeClient, handleUnfreezeClient, setSelectedClient, setViewOpen, setEditOpen, setEditFullName, setEditEmail, setEditWorkspaceEmail, setEditPhone, handleDeleteClient, t]
   );
 
   // Table configuration
@@ -821,11 +826,41 @@ export default function ClientsPage() {
     }
   };
 
+  const validateEditWorkspaceEmail = async (workspaceEmailValue: string) => {
+    if (!workspaceEmailValue || !workspaceEmailValue.includes('@')) {
+      setEditWorkspaceEmailError(null);
+      return;
+    }
+
+    // Don't validate if it's the same as the current client's workspaceEmail
+    if (selectedClient && workspaceEmailValue === selectedClient.workspaceEmail) {
+      setEditWorkspaceEmailError(null);
+      return;
+    }
+
+    try {
+      const res = await api.get('/api/clients');
+      const clients = res.data.clients || [];
+      const existingClient = clients.find((client: any) => 
+        client.workspaceEmail && client.workspaceEmail.toLowerCase() === workspaceEmailValue.toLowerCase() && client.id !== selectedClient?.id
+      );
+      
+      if (existingClient) {
+        setEditWorkspaceEmailError('A client with this workspace email already exists in this workspace');
+      } else {
+        setEditWorkspaceEmailError(null);
+      }
+    } catch (err) {
+      console.error('Error validating workspace email:', err);
+      setEditWorkspaceEmailError(null);
+    }
+  };
+
   const saveEdit = async () => {
     if (!selectedClient) return;
     
     // Check for validation errors
-    if (editEmailError || editPhoneError) {
+    if (editEmailError || editWorkspaceEmailError || editPhoneError) {
       setError('Please fix the validation errors before saving');
       return;
     }
@@ -835,10 +870,12 @@ export default function ClientsPage() {
       await api.put(`/api/clients/${selectedClient.id}`, {
         fullName: editFullName.trim() || undefined,
         email: editEmail.trim() || null,
+        workspaceEmail: editWorkspaceEmail.trim() || null,
         phone: editPhone.trim() || null,
       });
       setEditOpen(false);
       setEditEmailError(null);
+      setEditWorkspaceEmailError(null);
       setEditPhoneError(null);
       await refreshClients();
     } catch (e: any) {
@@ -1394,6 +1431,38 @@ export default function ClientsPage() {
               helperText={editEmailError || ''}
               fullWidth 
             />
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <TextField 
+                label="Workspace Email (Optional)" 
+                type="email" 
+                value={editWorkspaceEmail} 
+                onChange={(e) => {
+                  setEditWorkspaceEmail(e.target.value);
+                  // Debounce validation
+                  setTimeout(() => validateEditWorkspaceEmail(e.target.value), 500);
+                }}
+                error={!!editWorkspaceEmailError}
+                helperText={editWorkspaceEmailError || 'Unique email for this workspace (e.g., firstname@subdomain.ff)'}
+                fullWidth 
+              />
+              <Tooltip title="Generate workspace email">
+                <IconButton
+                  onClick={async () => {
+                    if (!selectedClient) return;
+                    try {
+                      const res = await api.post(`/api/clients/${selectedClient.id}/generate-workspace-email`);
+                      setEditWorkspaceEmail(res.data.workspaceEmail || '');
+                      setEditWorkspaceEmailError(null);
+                    } catch (e: any) {
+                      setError(e?.response?.data?.error || 'Failed to generate workspace email');
+                    }
+                  }}
+                  sx={{ mt: 1 }}
+                >
+                  <AutoAwesomeIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
             <TextField 
               label="Phone" 
               value={editPhone} 

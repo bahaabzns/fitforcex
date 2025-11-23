@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Box, Grid, Card, CardActionArea, CardContent, Typography, Chip, Button, Stack, Divider, Skeleton } from '@mui/material';
-import { Inventory2, Restaurant, FitnessCenter, ShoppingCart, AutoAwesome, Insights, People, Logout, CardGiftcard, Description } from '@mui/icons-material';
+import { Inventory2, Restaurant, FitnessCenter, ShoppingCart, AutoAwesome, Insights, People, Logout, CardGiftcard, Description, Notifications } from '@mui/icons-material';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import api from '@/utils/axios';
 
@@ -140,8 +140,14 @@ export default function AdminHome() {
       desc: 'System performance & monitoring dashboard.',
       icon: <Insights color="primary" />,
       chip: 'Monitoring'
-    }
-    ,
+    },
+    {
+      href: '/admin/push-notifications',
+      title: 'Push Notifications',
+      desc: 'Send push notifications to clients across workspaces.',
+      icon: <Notifications color="primary" />,
+      chip: 'Communication'
+    },
     {
       href: '/admin/meta-integration',
       title: 'Meta Integration',
