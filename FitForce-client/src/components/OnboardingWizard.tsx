@@ -38,6 +38,15 @@ import {
   Switch,
 } from '@mui/material';
 import { Add, Delete, ArrowForward, ArrowBack, CheckCircle, Edit } from '@mui/icons-material';
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Trash, CloseCircle, ArrowDown2, ArrowUp2 } from '@wandersonalwes/iconsax-react';
+import { useTheme } from '@mui/material/styles';
+import Paper from '@mui/material/Paper';
+import Collapse from '@mui/material/Collapse';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { openSnackbar } from '@/api/snackbar';
 import FileUpload from './FileUpload';
 import api from '@/utils/axios';
 
@@ -119,6 +128,30 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
   const [confirmCustomFormDiscard, setConfirmCustomFormDiscard] = useState(false);
   const [defaultQuestions, setDefaultQuestions] = useState<any[]>([]);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
+
+  // Create form dialog state (from forms page)
+  const [showCreate, setShowCreate] = useState(false);
+  const [formType, setFormType] = useState<'nutrition' | 'workout' | 'other'>('nutrition');
+  const [title, setTitle] = useState('');
+  const [titleArabic, setTitleArabic] = useState('');
+  const [newQuestions, setNewQuestions] = useState<
+    Array<{ id: string; originalId?: string; label: string; labelArabic?: string; description?: string; descriptionArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[]; allowOther?: boolean }>
+  >([]);
+  const [creating, setCreating] = useState(false);
+  // custom question builder
+  const [customType, setCustomType] = useState<string>('text');
+  const [customLabel, setCustomLabel] = useState<string>('');
+  const [customLabelArabic, setCustomLabelArabic] = useState<string>('');
+  const [customDescription, setCustomDescription] = useState<string>('');
+  const [customDescriptionArabic, setCustomDescriptionArabic] = useState<string>('');
+  const [customRequired, setCustomRequired] = useState<boolean>(false);
+  const [customOptions, setCustomOptions] = useState<string[]>([]);
+  const [customOptionsArabic, setCustomOptionsArabic] = useState<string[]>([]);
+  const [customAllowOther, setCustomAllowOther] = useState<boolean>(false);
+  const [customError, setCustomError] = useState<string>('');
+  const [confirmDiscardTarget, setConfirmDiscardTarget] = useState<null | 'create' | 'edit'>(null);
+  const intl = useIntl();
+  const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
 
   useEffect(() => {
     if (CHOICE_QUESTION_TYPES.includes(customQuestionType as typeof CHOICE_QUESTION_TYPES[number])) {
@@ -247,13 +280,27 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
         };
       }).filter(Boolean);
 
-      // Sanitize custom forms: remove helper fields like originalId
+      // Sanitize custom forms: remove helper fields like originalId and map to API format
       const sanitizedCustomForms = (customForms || []).map((form: any) => ({
-        ...form,
+        type: form.type,
+        title: form.title,
+        titleArabic: form.titleArabic || '',
         questions: Array.isArray(form.questions)
           ? form.questions.map((q: any) => {
-              const { originalId, ...rest } = q || {};
-              return rest;
+              const { id, originalId, question, questionArabic, ...rest } = q || {};
+              return {
+                name: question || q.label || '',
+                nameArabic: questionArabic || q.labelArabic || '',
+                question: question || q.label || '',
+                questionArabic: questionArabic || q.labelArabic || '',
+                description: rest.description || null,
+                descriptionArabic: rest.descriptionArabic || null,
+                type: rest.type || 'text',
+                required: !!rest.required,
+                options: rest.options,
+                optionsArabic: rest.optionsArabic,
+                allowOther: rest.allowOther,
+              };
             })
           : []
       }));
@@ -273,7 +320,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
 
       // Hard reload so the dashboard re-mounts and re-checks onboarding status
       if (typeof window !== 'undefined') {
-        window.location.reload();
+        window.location.href = '/dashboard';
       } else {
         router.refresh();
       }
@@ -296,7 +343,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
 
       // Hard reload so the dashboard re-mounts and re-checks onboarding status
       if (typeof window !== 'undefined') {
-        window.location.reload();
+        window.location.href = '/dashboard';
       } else {
         router.refresh();
       }
@@ -403,6 +450,182 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
         }
       };
     });
+  };
+
+  // Create form functions (from forms page)
+  const resetCreateState = () => {
+    setShowCreate(false);
+    setEditingFormIndex(null);
+    setTitle('');
+    setTitleArabic('');
+    setFormType('nutrition');
+    setNewQuestions([]);
+    setCustomType('text');
+    setCustomLabel('');
+    setCustomLabelArabic('');
+    setCustomDescription('');
+    setCustomDescriptionArabic('');
+    setCustomRequired(false);
+    setCustomOptions([]);
+    setCustomOptionsArabic([]);
+    setCustomAllowOther(false);
+    setCustomError('');
+  };
+
+  const createDialogDirty = useMemo(() => {
+    if (editingFormIndex !== null) {
+      // For edit mode, check if anything changed
+      const originalForm = customForms[editingFormIndex];
+      if (!originalForm) return false;
+      
+      // Normalize questions for comparison
+      const normalizeQuestion = (q: any) => ({
+        label: q.label || q.question || q.name || '',
+        labelArabic: q.labelArabic || q.questionArabic || q.nameArabic || '',
+        description: q.description || '',
+        descriptionArabic: q.descriptionArabic || '',
+        type: q.type || 'text',
+        required: !!q.required,
+        options: q.options || undefined,
+        optionsArabic: q.optionsArabic || undefined,
+        allowOther: q.allowOther || false,
+      });
+      
+      const normalizedNew = newQuestions.map(normalizeQuestion);
+      const normalizedOriginal = (originalForm.questions || []).map(normalizeQuestion);
+      
+      return Boolean(
+        title.trim() !== (originalForm.title || '') ||
+        titleArabic.trim() !== (originalForm.titleArabic || '') ||
+        formType !== originalForm.type ||
+        JSON.stringify(normalizedNew) !== JSON.stringify(normalizedOriginal)
+      );
+    }
+    // For create mode
+    return Boolean(
+      title.trim() ||
+      titleArabic.trim() ||
+      formType !== 'nutrition' ||
+      newQuestions.length > 0
+    );
+  }, [title, titleArabic, formType, newQuestions, editingFormIndex, customForms]);
+
+  const handleCloseCreateDialog = () => {
+    if (createDialogDirty) {
+      setConfirmDiscardTarget(editingFormIndex !== null ? 'edit' : 'create');
+    } else {
+      resetCreateState();
+    }
+  };
+
+  const handleDiscardConfirmation = () => {
+    if (confirmDiscardTarget === 'create' || confirmDiscardTarget === 'edit') {
+      resetCreateState();
+    }
+    setConfirmDiscardTarget(null);
+  };
+
+  const handleCancelDiscard = () => {
+    setConfirmDiscardTarget(null);
+  };
+
+  // Drag and drop handlers for questions
+  const handleNewQuestionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = newQuestions.findIndex((q) => q.id === active.id);
+    const newIndex = newQuestions.findIndex((q) => q.id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const updated = [...newQuestions];
+      const [moved] = updated.splice(oldIndex, 1);
+      updated.splice(newIndex, 0, moved);
+      setNewQuestions(updated);
+    }
+  };
+
+  const createTemplate = () => {
+    if (!title.trim()) {
+      setError('Please enter a form title');
+      return;
+    }
+    
+    if (newQuestions.length === 0) {
+      setError('Please add at least one question to the form');
+      return;
+    }
+
+    setError(null);
+    
+    // Map questions to the format expected by customForms
+    const questions = newQuestions.map(({ id, label, labelArabic, description, descriptionArabic, type, required, options, optionsArabic, allowOther }) => ({
+      id,
+      question: label,
+      questionArabic: labelArabic || '',
+      description: description || '',
+      descriptionArabic: descriptionArabic || '',
+      type,
+      required: !!required,
+      options: options || undefined,
+      optionsArabic: optionsArabic || undefined,
+      allowOther: allowOther || undefined,
+    }));
+
+    if (editingFormIndex !== null) {
+      // Update existing form
+      const updated = [...customForms];
+      updated[editingFormIndex] = {
+        type: formType,
+        title: title.trim(),
+        titleArabic: titleArabic.trim() || '',
+        questions: questions,
+      };
+      setCustomForms(updated);
+      openSnackbar({ open: true, message: 'Form updated successfully', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+    } else {
+      // Add new form
+      setCustomForms([
+        ...customForms,
+        {
+          type: formType,
+          title: title.trim(),
+          titleArabic: titleArabic.trim() || '',
+          questions: questions,
+        },
+      ]);
+      openSnackbar({ open: true, message: 'Form saved successfully', variant: 'alert', alert: { color: 'success', variant: 'filled' } } as any);
+    }
+    
+    resetCreateState();
+  };
+
+  const openEditForm = (index: number) => {
+    const form = customForms[index];
+    if (!form) return;
+    
+    setEditingFormIndex(index);
+    setTitle(form.title || '');
+    setTitleArabic(form.titleArabic || '');
+    setFormType((form.type === 'workout' ? 'workout' : form.type === 'other' ? 'other' : 'nutrition'));
+    
+    // Map questions back to the format used in the dialog
+    const mappedQuestions = Array.isArray(form.questions) ? form.questions.map((q: any, idx: number) => ({
+      id: q.id || `q_${idx}_${Date.now()}`,
+      originalId: q.id,
+      label: q.question || q.label || q.name || `Question ${idx + 1}`,
+      labelArabic: q.questionArabic || q.labelArabic || q.nameArabic || '',
+      description: q.description || '',
+      descriptionArabic: q.descriptionArabic || '',
+      type: q.type || 'text',
+      required: !!q.required,
+      options: q.options,
+      optionsArabic: q.optionsArabic,
+      allowOther: q.allowOther || false,
+    })) : [];
+    
+    setNewQuestions(mappedQuestions);
+    setShowCreate(true);
   };
 
   const addFeature = () => {
@@ -1152,7 +1375,7 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                 title="Custom Forms" 
                 subheader="Create your own forms"
                 action={
-                  <Button size="small" startIcon={<Add />} onClick={() => setShowAddCustomForm(true)}>
+                  <Button size="small" startIcon={<Add />} onClick={() => setShowCreate(true)}>
                     Create Form
                   </Button>
                 }
@@ -1177,15 +1400,20 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                         <ListItemText
                           primary={form.title}
                           secondary={
-                            <Chip
-                              label={form.type}
-                              size="small"
-                              color={form.type === 'nutrition' ? 'success' : 'primary'}
-                            />
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                              <Chip
+                                label={form.type}
+                                size="small"
+                                color={form.type === 'nutrition' ? 'success' : form.type === 'workout' ? 'primary' : 'default'}
+                              />
+                              <Typography variant="caption" color="text.secondary">
+                                {Array.isArray(form.questions) ? `${form.questions.length} question${form.questions.length !== 1 ? 's' : ''}` : '0 questions'}
+                              </Typography>
+                            </Stack>
                           }
                         />
                         <Stack direction="row" spacing={1}>
-                          <Button size="small" onClick={() => openEditCustomForm(index)}>Edit</Button>
+                          <Button size="small" onClick={() => openEditForm(index)}>Edit</Button>
                           <IconButton edge="end" onClick={() => removeCustomForm(index)} color="error">
                             <Delete />
                           </IconButton>
@@ -1201,310 +1429,279 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               Selected {selectedTemplateIds.length} default template(s) and {customForms.length} custom form(s).
             </Alert>
 
-            {/* Add Custom Form Dialog */}
-            <Dialog open={showAddCustomForm} onClose={handleRequestCloseCustomFormDialog} maxWidth="md" fullWidth>
-              <DialogTitle>Create Custom Form</DialogTitle>
-              <DialogContent>
-                <Stack spacing={3} sx={{ mt: 1 }}>
-                  <TextField
-                    fullWidth
-                    label="Form Title"
-                    value={newFormTitle}
-                    onChange={(e) => setNewFormTitle(e.target.value)}
-                    placeholder="Initial Assessment"
-                  />
+            {/* Create Form Dialog (from forms page) */}
+            <Dialog 
+              open={showCreate} 
+              onClose={handleCloseCreateDialog} 
+              fullWidth 
+              maxWidth="md"
+              PaperProps={{
+                sx: {
+                  bgcolor: 'background.paper',
+                }
+              }}
+            >
+              <DialogTitle sx={{ 
+                pb: 1.5,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    {editingFormIndex !== null ? 'Edit Form' : <FormattedMessage id="new-form-template" defaultMessage="New Form Template" />}
+                  </Typography>
+                  {newQuestions.length > 0 && (
+                    <Chip
+                      label={`${newQuestions.length} ${newQuestions.length === 1 ? 'question' : 'questions'}`}
+                      size="small"
+                      color="primary"
+                    />
+                  )}
+                </Box>
+              </DialogTitle>
+              <DialogContent dividers sx={{ bgcolor: 'background.paper' }}>
+                <Stack spacing={3}>
+                  <TextField fullWidth label={intl.formatMessage({ id: 'title', defaultMessage: 'Title' })} value={title} onChange={(e) => setTitle(e.target.value)} />
+                  <TextField fullWidth label={intl.formatMessage({ id: 'title-arabic', defaultMessage: 'Title (Arabic)' })} value={titleArabic} onChange={(e) => setTitleArabic(e.target.value)} />
                   <FormControl fullWidth>
-                    <InputLabel>Form Type</InputLabel>
-                    <Select
-                      value={newFormType}
-                      label="Form Type"
-                      onChange={(e) => setNewFormType(e.target.value as 'nutrition' | 'workout')}
-                    >
-                      <MenuItem value="nutrition">Nutrition</MenuItem>
-                      <MenuItem value="workout">Workout</MenuItem>
+                    <InputLabel id="form-type-label"><FormattedMessage id="type" defaultMessage="Type" /></InputLabel>
+                    <Select labelId="form-type-label" label={intl.formatMessage({ id: 'type', defaultMessage: 'Type' })} value={formType} onChange={(e) => setFormType(e.target.value as any)}>
+                      <MenuItem value="nutrition">nutrition</MenuItem>
+                      <MenuItem value="workout">workout</MenuItem>
+                      <MenuItem value="other">other</MenuItem>
                     </Select>
                   </FormControl>
 
-                  {/* Questions List */}
-                  {newFormQuestions.length > 0 && (
+                  {/* Fixed (default) questions list */}
+                  {defaultQuestions.length > 0 && (
                     <Box>
                       <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                        Questions ({newFormQuestions.length})
+                        <FormattedMessage id="fixed-questions" defaultMessage="Fixed Questions" />
                       </Typography>
-                      <Stack spacing={1}>
-                        {newFormQuestions.map((question, index) => (
-                          <Box 
-                            key={question.id} 
-                            sx={{ 
-                              p: 2, 
-                              border: '1px solid', 
-                              borderColor: editingQuestionIndex === index ? 'primary.main' : 'divider', 
-                              borderRadius: 1,
-                              bgcolor: editingQuestionIndex === index ? 'primary.lighter' : 'background.paper',
-                              borderWidth: editingQuestionIndex === index ? 2 : 1
-                            }}
-                          >
-                            <Grid container spacing={1} alignItems="center">
-                              <Grid item xs={12} sm={6}>
-                                <Typography variant="body2" fontWeight="medium">
-                                  {question.question}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  Type: {question.type} {question.required ? '(Required)' : '(Optional)'}
-                                </Typography>
-                                {Array.isArray(question.options) && question.options.length > 0 && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                    Options: {question.options.join(', ')}
-                                  </Typography>
-                                )}
-                                {Array.isArray(question.optionsArabic) && question.optionsArabic.length > 0 && !Array.isArray(question.options) && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                    Options: {question.optionsArabic.join(', ')}
-                                  </Typography>
-                                )}
-                              </Grid>
-                              <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color={editingQuestionIndex === index ? "secondary" : "primary"}
-                                  startIcon={<Edit />}
-                                  onClick={() => editCustomQuestion(index)}
-                                  disabled={editingQuestionIndex === index}
-                                >
-                                  {editingQuestionIndex === index ? 'Editing...' : 'Edit'}
-                                </Button>
-                                <IconButton 
-                                  size="small" 
-                                  color="error" 
-                                  onClick={() => {
-                                    removeCustomQuestion(index);
-                                    if (editingQuestionIndex === index) {
-                                      cancelEditQuestion();
-                                    }
-                                  }}
-                                  title="Delete question"
-                                >
-                                  <Delete />
-                                </IconButton>
-                              </Grid>
-                            </Grid>
-                          </Box>
+                      <Stack direction="row" flexWrap="wrap" gap={1}>
+                        {defaultQuestions.map((q) => (
+                          <Chip
+                            key={q.id}
+                            label={(isArabic ? (q as any).labelArabic : undefined) || q.label || q.question}
+                            onClick={() =>
+                              setNewQuestions((prev) => {
+                                // prevent duplicate of the same default question
+                                if (prev.some((p) => p.originalId === q.id)) return prev;
+                                return [
+                                  ...prev,
+                                  { ...q, id: `${q.id}_${Date.now()}`, originalId: q.id, label: q.label || q.question, labelArabic: (q as any).labelArabic || q.questionArabic },
+                                ];
+                              })
+                            }
+                            sx={{ cursor: 'pointer' }}
+                          />
                         ))}
                       </Stack>
                     </Box>
                   )}
 
-                  {/* Question Builder */}
-                  <Box data-question-builder>
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                      {editingQuestionIndex !== null ? `Edit Question ${editingQuestionIndex + 1}` : 'Add Question'}
-                    </Typography>
-                    {editingQuestionIndex !== null && (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        Editing: {newFormQuestions[editingQuestionIndex]?.question || 'Question'}
-                      </Alert>
-                    )}
-                    {defaultQuestions.length > 0 && (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          Quick add from default questions
+                  {/* Added questions - editable with drag and drop */}
+                  {newQuestions.length > 0 && (
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Questions ({newQuestions.length})
                         </Typography>
-                        <Stack direction="row" flexWrap="wrap" gap={1}>
-                          {defaultQuestions.map((q: any) => (
-                            <Chip
-                              key={q.id}
-                              label={q.question}
-                              onClick={() => {
-                                if (newFormQuestions.some((x) => x.originalId === q.id)) return;
-                                setNewFormQuestions((prev) => [
-                                  ...prev,
-                                  {
-                                    id: `dq_${q.id}_${Date.now()}`,
-                                    originalId: q.id,
-                                    type: q.type,
-                                    question: q.question,
-                                    questionArabic: q.questionArabic,
-                                    required: !!q.required,
-                                    options: q.options,
-                                    optionsArabic: q.optionsArabic,
-                                  },
-                                ]);
-                              }}
-                              sx={{ cursor: 'pointer' }}
-                            />
-                          ))}
-                        </Stack>
+                        <Chip
+                          label={`${newQuestions.length} ${newQuestions.length === 1 ? 'question' : 'questions'}`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
                       </Box>
-                    )}
+                      <DndContext collisionDetection={closestCenter} onDragEnd={handleNewQuestionDragEnd}>
+                        <SortableContext items={newQuestions.map(q => q.id)} strategy={verticalListSortingStrategy}>
+                          <Box>
+                            {newQuestions.map((q, idx) => (
+                              <SortableQuestion
+                                key={q.id}
+                                question={q}
+                                index={idx}
+                                onUpdate={(id, field, value) => {
+                                  setNewQuestions((prev) => prev.map((x) => {
+                                    if (x.id !== id) return x;
+                                    if (field === 'type') {
+                                      return { ...x, type: value, options: ['select','checkbox','radio'].includes(value) ? (x.options||[]) : undefined, optionsArabic: ['select','checkbox','radio'].includes(value) ? (x.optionsArabic||[]) : undefined };
+                                    }
+                                    return { ...x, [field]: value };
+                                  }));
+                                }}
+                                onDelete={() => setNewQuestions((prev) => prev.filter((_, i) => i !== idx))}
+                              />
+                            ))}
+                          </Box>
+                        </SortableContext>
+                      </DndContext>
+                    </Box>
+                  )}
+
+                  {/* Custom question builder */}
+                  <Box sx={{ 
+                    mt: 3,
+                    p: 2.5,
+                    borderRadius: 2,
+                    border: '2px dashed',
+                    borderColor: 'divider',
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'action.hover',
+                  }}>
+                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Add size={20} />
+                      Add Custom Question
+                    </Typography>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={3}>
                         <FormControl fullWidth>
-                          <InputLabel>Type</InputLabel>
-                          <Select
-                            value={customQuestionType}
-                            label="Type"
-                            onChange={(e) => setCustomQuestionType(e.target.value)}
-                          >
-                            <MenuItem value="text">Text</MenuItem>
-                            <MenuItem value="textarea">Textarea</MenuItem>
-                            <MenuItem value="number">Number</MenuItem>
-                            <MenuItem value="select">Select</MenuItem>
-                            <MenuItem value="checkbox">Checkbox</MenuItem>
-                            <MenuItem value="radio">Radio</MenuItem>
-                            <MenuItem value="attachment">Attachment</MenuItem>
+                          <InputLabel id="custom-type-label">Type</InputLabel>
+                          <Select labelId="custom-type-label" label="Type" value={customType} onChange={(e) => setCustomType(e.target.value)}>
+                            <MenuItem value="text">text</MenuItem>
+                            <MenuItem value="textarea">textarea</MenuItem>
+                            <MenuItem value="number">number</MenuItem>
+                            <MenuItem value="date">date</MenuItem>
+                            <MenuItem value="select">select</MenuItem>
+                            <MenuItem value="checkbox">checkbox</MenuItem>
+                            <MenuItem value="radio">radio</MenuItem>
+                            <MenuItem value="attachment">attachment</MenuItem>
                           </Select>
                         </FormControl>
                       </Grid>
                       <Grid item xs={12} sm={5}>
-                        <TextField
-                          fullWidth
-                          label="Question Label"
-                          value={customQuestionLabel}
-                          onChange={(e) => setCustomQuestionLabel(e.target.value)}
-                          placeholder="What is your age?"
-                        />
+                        <TextField fullWidth label="Question label" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} />
                       </Grid>
                       <Grid item xs={12} sm={4}>
-                        <TextField
-                          fullWidth
-                          label="Question Label (Arabic)"
-                          value={customQuestionLabelArabic}
-                          onChange={(e) => setCustomQuestionLabelArabic(e.target.value)}
-                          placeholder="ما عمرك؟"
+                        <TextField fullWidth label="Question label (Arabic)" value={customLabelArabic} onChange={(e) => setCustomLabelArabic(e.target.value)} />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          fullWidth 
+                          label="Description (optional)" 
+                          value={customDescription} 
+                          onChange={(e) => setCustomDescription(e.target.value)} 
+                          multiline
+                          minRows={2}
+                          placeholder="Help text or instructions"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          fullWidth 
+                          label="Description (Arabic, optional)" 
+                          value={customDescriptionArabic} 
+                          onChange={(e) => setCustomDescriptionArabic(e.target.value)} 
+                          multiline
+                          minRows={2}
+                          placeholder="نص المساعدة"
                         />
                       </Grid>
                       <Grid item xs={12} sm={3}>
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={customQuestionRequired}
-                              onChange={(e) => setCustomQuestionRequired(e.target.checked)}
-                            />
-                          }
-                          label="Required"
-                        />
+                        <FormControlLabel control={<Switch checked={customRequired} onChange={(e) => setCustomRequired(e.target.checked)} />} label="Required" />
                       </Grid>
-                    </Grid>
-                  {CHOICE_QUESTION_TYPES.includes(customQuestionType as typeof CHOICE_QUESTION_TYPES[number]) && (
-                    <Box
-                      sx={{
-                        mt: 2,
-                        p: 2,
-                        borderRadius: 2,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'background.paper',
-                      }}
-                    >
-                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                        Options
-                      </Typography>
-                      <Stack spacing={1}>
-                        {customQuestionOptions.map((option, idx) => (
-                          <Grid container spacing={1} key={`builder-option-${idx}`} alignItems="center">
-                            <Grid item xs={12} sm={5}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Option (English)"
-                                value={option}
-                                onChange={(e) => updateCustomOptionField(idx, 'en', e.target.value)}
-                                placeholder={`Option ${idx + 1}`}
-                              />
-                            </Grid>
-                            <Grid item xs={12} sm={5}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Option (Arabic)"
-                                value={customQuestionOptionsArabic[idx] || ''}
-                                onChange={(e) => updateCustomOptionField(idx, 'ar', e.target.value)}
-                                placeholder="اسم الخيار"
-                              />
-                            </Grid>
-                            <Grid item xs={12} sm={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => removeCustomOptionField(idx)}
-                                disabled={customQuestionOptions.length <= 1}
-                              >
-                                <Delete fontSize="small" />
-                              </IconButton>
-                            </Grid>
-                          </Grid>
-                        ))}
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<Add />}
-                          onClick={addCustomOptionField}
-                          sx={{ alignSelf: 'flex-start', mt: 1 }}
-                        >
-                          Add Option
-                        </Button>
-                      </Stack>
-                      {customQuestionType === 'select' && (
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={customQuestionAllowOther}
-                              onChange={(e) => setCustomQuestionAllowOther(e.target.checked)}
-                            />
-                          }
-                          label="Allow 'Other' option"
-                          sx={{ mt: 2 }}
+                      </Grid>
+                    {['select', 'checkbox', 'radio'].includes(customType) && (
+                      <Box sx={{ mt: 2 }}>
+                        <OptionsEditor
+                          questionId={`custom-${Date.now()}`}
+                          options={customOptions}
+                          optionsArabic={customOptionsArabic}
+                          onUpdate={(options, optionsArabic) => {
+                            setCustomOptions(options);
+                            setCustomOptionsArabic(optionsArabic);
+                          }}
                         />
-                      )}
-                    </Box>
-                  )}
-                    {customQuestionError && (
-                      <Alert severity="error" sx={{ mt: 1 }}>
-                        {customQuestionError}
-                      </Alert>
+                        {customType === 'select' && (
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={customAllowOther}
+                                onChange={(e) => setCustomAllowOther(e.target.checked)}
+                              />
+                            }
+                            label="Allow 'Other' option"
+                            sx={{ mt: 2 }}
+                          />
+                        )}
+                      </Box>
                     )}
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                      {editingQuestionIndex !== null && (
-                        <Button
-                          variant="outlined"
-                          onClick={cancelEditQuestion}
-                        >
-                          Cancel Edit
-                        </Button>
-                      )}
+                    {customError && <Alert severity="error" sx={{ mt: 2 }}>{customError}</Alert>}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
                       <Button
                         variant="outlined"
-                        onClick={addCustomQuestion}
-                        disabled={!customQuestionLabel.trim()}
+                        onClick={() => {
+                          setCustomLabel('');
+                          setCustomLabelArabic('');
+                          setCustomDescription('');
+                          setCustomDescriptionArabic('');
+                          setCustomRequired(false);
+                          setCustomOptions([]);
+                          setCustomOptionsArabic([]);
+                          setCustomAllowOther(false);
+                          setCustomError('');
+                        }}
                       >
-                        {editingQuestionIndex !== null ? 'Update Question' : 'Add Question'}
+                        Clear
+                      </Button>
+                      <Button
+                        variant="contained"
+                        startIcon={<Add size={18} />}
+                        onClick={() => {
+                          setCustomError('');
+                          if (!customLabel.trim()) {
+                            setCustomError('Question label is required');
+                            return;
+                          }
+                          setNewQuestions((prev) => [
+                            ...prev,
+                            {
+                              id: `q_${Date.now()}`,
+                              label: customLabel.trim(),
+                              labelArabic: customLabelArabic.trim() || undefined,
+                              description: customDescription.trim() || undefined,
+                              descriptionArabic: customDescriptionArabic.trim() || undefined,
+                              type: customType,
+                              required: customRequired,
+                              options: customOptions.length ? customOptions : undefined,
+                              optionsArabic: customOptionsArabic.length ? customOptionsArabic : undefined,
+                              allowOther: customType === 'select' ? customAllowOther : undefined,
+                            },
+                          ]);
+                          setCustomLabel('');
+                          setCustomLabelArabic('');
+                          setCustomDescription('');
+                          setCustomDescriptionArabic('');
+                          setCustomRequired(false);
+                          setCustomOptions([]);
+                          setCustomOptionsArabic([]);
+                          setCustomAllowOther(false);
+                        }}
+                      >
+                        Add
                       </Button>
                     </Box>
                   </Box>
                 </Stack>
               </DialogContent>
               <DialogActions>
-                <Button onClick={handleRequestCloseCustomFormDialog}>Cancel</Button>
-                <Button 
-                  onClick={addCustomForm} 
-                  variant="contained"
-                  disabled={!newFormTitle.trim() || newFormQuestions.length === 0}
-                >
-                  Create Form
+                <Button onClick={handleCloseCreateDialog}>Cancel</Button>
+                <Button variant="contained" onClick={createTemplate}>
+                  {editingFormIndex !== null ? 'Save Changes' : 'Save Form'}
                 </Button>
               </DialogActions>
             </Dialog>
-            <Dialog open={confirmCustomFormDiscard} onClose={cancelCustomFormDiscardClose} maxWidth="xs" fullWidth>
+            <Dialog open={!!confirmDiscardTarget} onClose={handleCancelDiscard} maxWidth="xs" fullWidth>
               <DialogTitle>Discard changes?</DialogTitle>
               <DialogContent>
                 <Typography color="text.secondary">
-                  You have unsaved changes in this custom form. Do you want to discard them?
+                  You have unsaved changes. Do you want to discard them?
                 </Typography>
               </DialogContent>
               <DialogActions>
-                <Button onClick={cancelCustomFormDiscardClose}>Keep editing</Button>
-                <Button color="error" onClick={confirmCustomFormDiscardClose}>
+                <Button onClick={handleCancelDiscard}>Keep editing</Button>
+                <Button color="error" onClick={handleDiscardConfirmation}>
                   Discard
                 </Button>
               </DialogActions>
@@ -1843,5 +2040,402 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
         </CardContent>
       </Card>
     </Box>
+  );
+}
+
+// SortableQuestion Component (from forms page)
+function SortableQuestion({ 
+  question, 
+  index, 
+  onUpdate, 
+  onDelete,
+  isEditMode = false 
+}: { 
+  question: { id: string; label: string; labelArabic?: string; description?: string; descriptionArabic?: string; type: string; required?: boolean; options?: string[]; optionsArabic?: string[]; allowOther?: boolean }; 
+  index: number;
+  onUpdate: (id: string, field: string, value: any) => void;
+  onDelete: () => void;
+  isEditMode?: boolean;
+}) {
+  const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: question.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const questionLabel = question.label || `Question ${index + 1}`;
+  const questionType = question.type || 'text';
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        mb: 2,
+        border: '1px solid',
+        borderColor: isDragging ? 'primary.main' : 'divider',
+        borderRadius: 2,
+        bgcolor: isDragging 
+          ? (theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.08)' : 'rgba(25, 118, 210, 0.04)')
+          : (theme.palette.mode === 'dark' ? 'background.paper' : 'background.paper'),
+        boxShadow: isDragging 
+          ? theme.shadows[4] 
+          : (theme.palette.mode === 'dark' ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.05)'),
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          boxShadow: theme.shadows[2],
+          borderColor: 'primary.light',
+        },
+      }}
+    >
+      <CardContent sx={{ pb: expanded ? 1 : '16px !important', pt: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            {...attributes}
+            {...listeners}
+            sx={{
+              cursor: isDragging ? 'grabbing' : 'grab',
+              color: 'text.secondary',
+              fontSize: 20,
+              display: 'flex',
+              alignItems: 'center',
+              p: 0.5,
+              borderRadius: 1,
+              '&:hover': {
+                bgcolor: 'action.hover',
+                color: 'primary.main',
+              },
+              '&:active': { cursor: 'grabbing' }
+            }}
+          >
+            ≡
+          </Box>
+          <Chip
+            label={`#${index + 1}`}
+            size="small"
+            sx={{
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.16)' : 'primary.lighter',
+              color: 'primary.main',
+              fontWeight: 600,
+              minWidth: 40,
+            }}
+          />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 600,
+                color: 'text.primary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {questionLabel}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+              <Chip
+                label={questionType}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.7rem',
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'action.hover',
+                }}
+              />
+              {question.required && (
+                <Chip
+                  label="Required"
+                  size="small"
+                  color="error"
+                  sx={{ height: 20, fontSize: '0.7rem' }}
+                />
+              )}
+              {question.description && (
+                <Chip
+                  label="Has Description"
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.16)' : 'success.lighter',
+                    color: 'success.main',
+                  }}
+                />
+              )}
+              {['select', 'checkbox', 'radio'].includes(questionType) && question.options && question.options.length > 0 && (
+                <Chip
+                  label={`${question.options.length} options`}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(156, 39, 176, 0.16)' : 'secondary.lighter',
+                    color: 'secondary.main',
+                  }}
+                />
+              )}
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                bgcolor: 'action.hover',
+                color: 'primary.main',
+              },
+            }}
+          >
+            {expanded ? <ArrowUp2 size={18} /> : <ArrowDown2 size={18} />}
+          </IconButton>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={onDelete}
+            sx={{
+              '&:hover': {
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.16)' : 'error.lighter',
+              },
+            }}
+          >
+            <Trash size={18} />
+          </IconButton>
+        </Box>
+      </CardContent>
+      <Collapse in={expanded}>
+        <CardContent sx={{ pt: 0, bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'action.hover' }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id={`qtype-${question.id}`}>Type</InputLabel>
+                <Select
+                  labelId={`qtype-${question.id}`}
+                  label="Type"
+                  value={question.type}
+                  onChange={(e) => onUpdate(question.id, 'type', e.target.value)}
+                >
+                  <MenuItem value="text">text</MenuItem>
+                  <MenuItem value="textarea">textarea</MenuItem>
+                  <MenuItem value="number">number</MenuItem>
+                  <MenuItem value="date">date</MenuItem>
+                  <MenuItem value="select">select</MenuItem>
+                  <MenuItem value="checkbox">checkbox</MenuItem>
+                  <MenuItem value="radio">radio</MenuItem>
+                  <MenuItem value="attachment">attachment</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
+              <FormControlLabel 
+                control={
+                  <Switch 
+                    size="small" 
+                    checked={!!question.required} 
+                    onChange={(e) => onUpdate(question.id, 'required', e.target.checked)} 
+                  />
+                } 
+                label="Required" 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Label" 
+                value={question.label} 
+                onChange={(e) => onUpdate(question.id, 'label', e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Label (Arabic)" 
+                value={question.labelArabic || ''} 
+                onChange={(e) => onUpdate(question.id, 'labelArabic', e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Description (optional)" 
+                value={question.description || ''} 
+                onChange={(e) => onUpdate(question.id, 'description', e.target.value)} 
+                multiline
+                minRows={2}
+                placeholder="Help text or instructions"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                size="small" 
+                fullWidth 
+                label="Description (Arabic, optional)" 
+                value={question.descriptionArabic || ''} 
+                onChange={(e) => onUpdate(question.id, 'descriptionArabic', e.target.value)} 
+                multiline
+                minRows={2}
+                placeholder="نص المساعدة"
+              />
+            </Grid>
+            {['select','checkbox','radio'].includes(question.type) && (
+              <Grid item xs={12}>
+                <Box sx={{ 
+                  p: 2, 
+                  borderRadius: 1, 
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                    Options
+                  </Typography>
+                  <OptionsEditor
+                    questionId={question.id}
+                    options={question.options || []}
+                    optionsArabic={question.optionsArabic || []}
+                    onUpdate={(options, optionsArabic) => {
+                      onUpdate(question.id, 'options', options);
+                      onUpdate(question.id, 'optionsArabic', optionsArabic);
+                    }}
+                  />
+                  {question.type === 'select' && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={question.allowOther || false}
+                          onChange={(e) => onUpdate(question.id, 'allowOther', e.target.checked)}
+                        />
+                      }
+                      label="Allow 'Other' option"
+                      sx={{ mt: 2 }}
+                    />
+                  )}
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+        </CardContent>
+      </Collapse>
+    </Card>
+  );
+}
+
+// Options Editor Component (from forms page)
+function OptionsEditor({
+  questionId,
+  options,
+  optionsArabic,
+  onUpdate
+}: {
+  questionId: string;
+  options: string[];
+  optionsArabic: string[];
+  onUpdate: (options: string[], optionsArabic: string[]) => void;
+}) {
+  const theme = useTheme();
+  const [localOptions, setLocalOptions] = useState<Array<{ en: string; ar: string }>>(() => {
+    const maxLen = Math.max(options.length, optionsArabic.length);
+    return Array.from({ length: maxLen }, (_, i) => ({
+      en: options[i] || '',
+      ar: optionsArabic[i] || ''
+    }));
+  });
+
+  useEffect(() => {
+    const maxLen = Math.max(options.length, optionsArabic.length);
+    setLocalOptions(Array.from({ length: maxLen }, (_, i) => ({
+      en: options[i] || '',
+      ar: optionsArabic[i] || ''
+    })));
+  }, [questionId]);
+
+  const updateOption = (index: number, field: 'en' | 'ar', value: string) => {
+    const updated = [...localOptions];
+    updated[index] = { ...updated[index], [field]: value };
+    setLocalOptions(updated);
+    onUpdate(
+      updated.map(o => o.en).filter(Boolean),
+      updated.map(o => o.ar).filter(Boolean)
+    );
+  };
+
+  const addOption = () => {
+    setLocalOptions([...localOptions, { en: '', ar: '' }]);
+  };
+
+  const removeOption = (index: number) => {
+    const updated = localOptions.filter((_, i) => i !== index);
+    setLocalOptions(updated);
+    onUpdate(
+      updated.map(o => o.en).filter(Boolean),
+      updated.map(o => o.ar).filter(Boolean)
+    );
+  };
+
+  return (
+    <Paper
+      sx={{
+        p: 2,
+        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'grey.50',
+        border: '1px solid',
+        borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'divider',
+      }}
+    >
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>Options</Typography>
+      <Stack spacing={1}>
+        {localOptions.map((opt, idx) => (
+          <Grid container spacing={1} key={idx} alignItems="center">
+            <Grid item xs={12} sm={5}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Option (English)"
+                value={opt.en}
+                onChange={(e) => updateOption(idx, 'en', e.target.value)}
+                placeholder="Option name"
+              />
+            </Grid>
+            <Grid item xs={12} sm={5}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Option (Arabic)"
+                value={opt.ar}
+                onChange={(e) => updateOption(idx, 'ar', e.target.value)}
+                placeholder="اسم الخيار"
+              />
+            </Grid>
+            <Grid item xs={12} sm={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <IconButton size="small" color="error" onClick={() => removeOption(idx)}>
+                <CloseCircle size={16} />
+              </IconButton>
+            </Grid>
+          </Grid>
+        ))}
+        <Button
+          size="small"
+          startIcon={<Add size={16} />}
+          onClick={addOption}
+          variant="outlined"
+        >
+          Add Option
+        </Button>
+      </Stack>
+    </Paper>
   );
 }

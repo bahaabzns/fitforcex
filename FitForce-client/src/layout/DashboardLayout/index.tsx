@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, ReactNode } from 'react';
+import { useEffect, ReactNode, useState } from 'react';
 
 // material-ui
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -8,6 +8,9 @@ import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import Toolbar from '@mui/material/Toolbar';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 
 // project-imports
 import Drawer from './Drawer';
@@ -18,6 +21,7 @@ import ClientSidebarDrawer from './ClientSidebarDrawer';
 import ClientSidebarMobileDrawer from '@/components/ClientSidebarMobileDrawer';
 import Loader from 'components/Loader';
 import { useClientSidebar } from '@/contexts/ClientSidebarContext';
+import OnboardingWizard from '@/components/OnboardingWizard';
 
 import { handlerDrawerOpen, useGetMenuMaster } from 'api/menu';
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH, MenuOrientation } from 'config';
@@ -28,14 +32,16 @@ import { APP_CONFIG } from '@/lib/config';
 import MessengerBadgeSync from './MessengerBadgeSync';
 import QueueBadgeSync from './QueueBadgeSync';
 import TutorialVideoHelper from '@/components/TutorialVideoHelper';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useWorkspaceSubscription } from '@/hooks/useWorkspaceSubscription';
+import api from '@/utils/axios';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const pathname = usePathname();
+  const router = useRouter();
   const { menuMasterLoading } = useGetMenuMaster();
   const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
@@ -43,9 +49,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { miniDrawer, menuOrientation } = useConfig();
   const dispatch = useAppDispatch();
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
+  const workspaceId = useAppSelector((s) => s.workspace.id);
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster?.isDashboardDrawerOpened ?? false;
   const { isOpen: clientSidebarOpen } = useClientSidebar();
+
+  // Onboarding state
+  const [onboardingStatus, setOnboardingStatus] = useState<{
+    isOnboarded: boolean;
+  } | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
 
   // Check if we're on a client detail page
   const isClientDetailPage = Boolean(pathname?.match(/^\/dashboard\/clients\/([^/]+)/));
@@ -54,6 +67,63 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   
   // Fetch workspace subscription to enable feature-based UI
   useWorkspaceSubscription();
+
+  // Check onboarding status - only on workspace subdomain
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (!workspaceId || !workspaceSubdomain) {
+        // Not on a workspace subdomain, skip onboarding check
+        setOnboardingStatus({ isOnboarded: true });
+        setOnboardingLoading(false);
+        return;
+      }
+
+      // Only check onboarding if we're on a workspace subdomain
+      const host = typeof window !== 'undefined' ? window.location.host : '';
+      const isMainDomain = host === APP_CONFIG.frontendDomain || host === 'localhost:3000';
+      
+      if (isMainDomain) {
+        // On main domain, skip onboarding check
+        setOnboardingStatus({ isOnboarded: true });
+        setOnboardingLoading(false);
+        return;
+      }
+
+      try {
+        setOnboardingLoading(true);
+        const response = await api.get('/api/workspaces/onboarding/status', {
+          headers: { 'x-workspace-id': workspaceId }
+        });
+        setOnboardingStatus(response.data);
+      } catch (err: any) {
+        console.error('Onboarding status check failed:', err);
+        // If onboarding check fails, assume onboarded to not block access
+        setOnboardingStatus({ isOnboarded: true });
+      } finally {
+        setOnboardingLoading(false);
+      }
+    };
+
+    if (workspaceId && workspaceSubdomain) {
+      checkOnboardingStatus();
+    } else {
+      // No workspace context, assume onboarded
+      setOnboardingStatus({ isOnboarded: true });
+      setOnboardingLoading(false);
+    }
+  }, [workspaceId, workspaceSubdomain]);
+
+  // Prevent navigation to other pages during onboarding - only on workspace subdomain
+  useEffect(() => {
+    const host = typeof window !== 'undefined' ? window.location.host : '';
+    const isMainDomain = host === APP_CONFIG.frontendDomain || host === 'localhost:3000';
+    const isWorkspaceSubdomain = workspaceSubdomain && !isMainDomain;
+
+    if (isWorkspaceSubdomain && onboardingStatus && !onboardingStatus.isOnboarded && pathname !== '/dashboard') {
+      // Redirect to dashboard if trying to access other pages during onboarding
+      router.replace('/dashboard');
+    }
+  }, [onboardingStatus, pathname, router, workspaceSubdomain]);
 
   // Detect workspace context from subdomain using cookies set by middleware
   useEffect(() => {
@@ -140,7 +210,36 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [downXL]);
 
-  if (menuMasterLoading) return <Loader />;
+  if (menuMasterLoading) {
+    return <Loader />;
+  }
+
+  // Only show onboarding loading/check on workspace subdomain
+  const host = typeof window !== 'undefined' ? window.location.host : '';
+  const isMainDomain = host === APP_CONFIG.frontendDomain || host === 'localhost:3000';
+  const isWorkspaceSubdomain = workspaceSubdomain && !isMainDomain;
+
+  if (isWorkspaceSubdomain && onboardingLoading) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress />
+          <Typography color="text.secondary">
+            Checking onboarding status...
+          </Typography>
+        </Stack>
+      </Box>
+    );
+  }
+
+  // Show onboarding wizard if not onboarded - only on workspace subdomain
+  if (isWorkspaceSubdomain && onboardingStatus && !onboardingStatus.isOnboarded && workspaceId) {
+    return (
+      <Box sx={{ width: '100%', minHeight: '100vh' }}>
+        <OnboardingWizard workspaceId={workspaceId} />
+      </Box>
+    );
+  }
 
   // Calculate drawer widths
   const mainDrawerWidth = downLG ? 0 : (drawerOpen ? DRAWER_WIDTH : MINI_DRAWER_WIDTH);

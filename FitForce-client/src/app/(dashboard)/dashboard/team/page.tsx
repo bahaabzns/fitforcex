@@ -43,6 +43,9 @@ import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
 
 // project-imports
 import MainCard from 'components/MainCard';
@@ -51,7 +54,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { CSVExport, RowSelection } from 'components/third-party/react-table';
 
 // Icons
-import { Add, Edit, Trash, Shield, Crown, User, Menu as MenuIcon } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, Shield, Crown, User, Menu as MenuIcon, ArrowDown2, People, DocumentText } from '@wandersonalwes/iconsax-react';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -224,14 +227,12 @@ export default function TeamPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const isArabic = String(intl.locale || '').toLowerCase().startsWith('ar');
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Table states
@@ -269,8 +270,10 @@ export default function TeamPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [menuMember, setMenuMember] = useState<TeamMember | null>(null);
 
+  // Accordion state for Roles section
+  const [rolesExpanded, setRolesExpanded] = useState<boolean>(true);
+
   // Feature gate (hooks must be declared before any conditional returns)
-  const [featuresError, setFeaturesError] = useState<string | null>(null);
   const [teamEnabled, setTeamEnabled] = useState<boolean>(true);
   useEffect(() => {
     const run = async () => {
@@ -280,7 +283,6 @@ export default function TeamPage() {
         const enabled = data?.subscription?.teamMembersEnabled ?? data?.subscription?.package?.teamMembersEnabled ?? true;
         setTeamEnabled(!!enabled);
       } catch (e: any) {
-        setFeaturesError(e?.response?.data?.error || null);
         setTeamEnabled(true);
       }
     };
@@ -319,14 +321,11 @@ export default function TeamPage() {
     if (!workspaceId) return;
 
     const fetchInvitations = async () => {
-      setLoadingInvitations(true);
       try {
         const response = await api.get('/api/team/invitations');
         setPendingInvitations(response.data.invitations || []);
       } catch {
         // Silently fail - invitations are optional
-      } finally {
-        setLoadingInvitations(false);
       }
     };
 
@@ -516,7 +515,7 @@ export default function TeamPage() {
     setSelectedValue([]);
   };
 
-  const handleClick = (event: MouseEvent<HTMLTableRowElement> | undefined, id: string) => {
+  const handleClick = (event: MouseEvent<HTMLTableRowElement | HTMLDivElement> | undefined, id: string) => {
     const selectedIndex = selected.indexOf(id);
     let newSelected: string[] = [];
 
@@ -692,10 +691,12 @@ export default function TeamPage() {
         justifyContent="space-between"
       >
         <Box>
-          <Typography variant="h4" gutterBottom>
+          <Typography variant="h4" gutterBottom fontWeight={700}>
             <FormattedMessage id="team.title" defaultMessage="Team Management" />
           </Typography>
-          <Typography color="text.secondary"><FormattedMessage id="team.subtitle" defaultMessage="Manage your workspace members, roles, and permissions" /></Typography>
+          <Typography color="text.secondary" variant="body1">
+            <FormattedMessage id="team.subtitle" defaultMessage="Manage your workspace members, roles, and permissions" />
+          </Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
           <Button variant="outlined" startIcon={<Shield />} onClick={() => setIsRoleDialogOpen(true)}>
@@ -707,7 +708,122 @@ export default function TeamPage() {
         </Stack>
       </Stack>
 
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {/* Statistics Cards */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card 
+            sx={{ 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              height: '100%',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: 6
+              }
+            }}
+          >
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Box>
+                  <Typography variant="h3" fontWeight={700} gutterBottom>
+                    {members.length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Total Members
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                >
+                  <People size={32} />
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card 
+            sx={{ 
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              color: 'white',
+              height: '100%',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: 6
+              }
+            }}
+          >
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Box>
+                  <Typography variant="h3" fontWeight={700} gutterBottom>
+                    {roles.length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Active Roles
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                >
+                  <Shield size={32} />
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card 
+            sx={{ 
+              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+              color: 'white',
+              height: '100%',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: 6
+              }
+            }}
+          >
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                <Box>
+                  <Typography variant="h3" fontWeight={700} gutterBottom>
+                    {pendingInvitations.length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Pending Invitations
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                >
+                  <DocumentText size={32} />
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Pending Invitations Section */}
       {pendingInvitations.length > 0 && (
@@ -1059,66 +1175,166 @@ export default function TeamPage() {
         </MainCard>
       )}
 
-      {/* Roles Section */}
-      <MainCard title={`Roles & Permissions (${roles.length})`}>
-        <Stack spacing={2}>
-          {roles.map((role) => (
-            <Box key={role.id} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  {getRoleIcon(role.name)}
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    {role.name}
-                  </Typography>
-                  <Chip 
-                    label={`${role._count.members} member${role._count.members !== 1 ? 's' : ''}`} 
-                    variant="outlined" 
-                    size="small" 
-                  />
-                </Stack>
-                <Stack direction="row" spacing={1}>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleEditRole(role)}
-                    disabled={['owner', 'admin', 'member'].includes(role.name.toLowerCase())}
-                    title={['owner', 'admin', 'member'].includes(role.name.toLowerCase()) ? 'Cannot edit system roles' : 'Edit role'}
-                  >
-                    <Edit size={16} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteRole(role)}
-                    disabled={deletingRole || ['owner', 'admin', 'member'].includes(role.name.toLowerCase()) || role._count.members > 0}
-                    title={
-                      ['owner', 'admin', 'member'].includes(role.name.toLowerCase()) 
-                        ? 'Cannot delete system roles'
-                        : role._count.members > 0 
-                        ? 'Cannot delete role with assigned members'
-                        : 'Delete role'
-                    }
-                    sx={{ color: 'error.main' }}
-                  >
-                    {deletingRole ? <CircularProgress size={16} /> : <Trash size={16} />}
-                  </IconButton>
-                </Stack>
-              </Stack>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Permissions:
+      {/* Roles Section - Collapsible */}
+      <MainCard>
+        <Accordion 
+          expanded={rolesExpanded} 
+          onChange={() => setRolesExpanded(!rolesExpanded)}
+          sx={{
+            boxShadow: 'none',
+            border: 'none',
+            '&:before': { display: 'none' },
+            '&.Mui-expanded': { margin: 0 }
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ArrowDown2 style={{ transform: rolesExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }} />}
+            sx={{
+              px: 0,
+              '& .MuiAccordionSummary-content': {
+                my: 0,
+                '&.Mui-expanded': {
+                  my: 0
+                }
+              }
+            }}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Shield size={24} />
+              <Typography variant="h5" fontWeight={600}>
+                Roles & Permissions
               </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {role.permissions.map((rp) => (
-                  <Chip
-                    key={rp.permission.key}
-                    label={rp.permission.key}
-                    variant="outlined"
-                    size="small"
-                    sx={{ mb: 1 }}
-                  />
-                ))}
-              </Stack>
-            </Box>
-          ))}
-        </Stack>
+              <Chip 
+                label={roles.length} 
+                size="small" 
+                color="primary" 
+                sx={{ ml: 1 }}
+              />
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails sx={{ px: 0, pt: 2 }}>
+            <Stack spacing={2}>
+              {roles.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body1" color="text.secondary" gutterBottom>
+                    No roles created yet
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<Shield />} 
+                    onClick={() => setIsRoleDialogOpen(true)}
+                    sx={{ mt: 2 }}
+                  >
+                    Create Your First Role
+                  </Button>
+                </Box>
+              ) : (
+                roles.map((role) => (
+                  <Card 
+                    key={role.id} 
+                    sx={{ 
+                      border: 1, 
+                      borderColor: 'divider', 
+                      borderRadius: 2,
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        boxShadow: 4,
+                        borderColor: 'primary.main'
+                      }
+                    }}
+                  >
+                    <CardContent>
+                      <Stack spacing={2}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Stack direction="row" spacing={1.5} alignItems="center">
+                            {getRoleIcon(role.name)}
+                            <Typography variant="h6" fontWeight={600}>
+                              {role.name}
+                            </Typography>
+                            <Chip 
+                              label={`${role._count.members} member${role._count.members !== 1 ? 's' : ''}`} 
+                              variant="outlined" 
+                              size="small"
+                              color={getRoleColor(role.name) as any}
+                            />
+                          </Stack>
+                          <Stack direction="row" spacing={1}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditRole(role)}
+                              disabled={['owner', 'admin', 'member'].includes(role.name.toLowerCase())}
+                              title={['owner', 'admin', 'member'].includes(role.name.toLowerCase()) ? 'Cannot edit system roles' : 'Edit role'}
+                              sx={{
+                                '&:hover': {
+                                  bgcolor: 'primary.lighter',
+                                  color: 'primary.main'
+                                }
+                              }}
+                            >
+                              <Edit size={18} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteRole(role)}
+                              disabled={deletingRole || ['owner', 'admin', 'member'].includes(role.name.toLowerCase()) || role._count.members > 0}
+                              title={
+                                ['owner', 'admin', 'member'].includes(role.name.toLowerCase()) 
+                                  ? 'Cannot delete system roles'
+                                  : role._count.members > 0 
+                                  ? 'Cannot delete role with assigned members'
+                                  : 'Delete role'
+                              }
+                              sx={{ 
+                                color: 'error.main',
+                                '&:hover': {
+                                  bgcolor: 'error.lighter'
+                                },
+                                '&:disabled': {
+                                  color: 'text.disabled'
+                                }
+                              }}
+                            >
+                              {deletingRole ? <CircularProgress size={18} /> : <Trash size={18} />}
+                            </IconButton>
+                          </Stack>
+                        </Stack>
+                        <Divider />
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                            Permissions ({role.permissions.length})
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {role.permissions.length === 0 ? (
+                              <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                No permissions assigned
+                              </Typography>
+                            ) : (
+                              role.permissions.map((rp) => (
+                                <Chip
+                                  key={rp.permission.key}
+                                  label={rp.permission.key}
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ 
+                                    borderColor: 'primary.light',
+                                    '&:hover': {
+                                      bgcolor: 'primary.lighter',
+                                      borderColor: 'primary.main'
+                                    }
+                                  }}
+                                />
+                              ))
+                            )}
+                          </Stack>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
       </MainCard>
 
       {/* Invite Member Dialog */}

@@ -64,6 +64,7 @@ interface PackageFormData {
   currency: string;
   features: any;
   teamMembersEnabled?: boolean;
+  teamMembersLimit?: number | null;
   isActive: boolean;
 }
 
@@ -81,6 +82,7 @@ export default function AdminPackagesPage() {
     currency: 'EGP',
     features: {},
     teamMembersEnabled: true,
+    teamMembersLimit: null,
     isActive: true,
   });
   const [tabValue, setTabValue] = useState(0);
@@ -110,6 +112,7 @@ export default function AdminPackagesPage() {
       currency: 'EGP',
       features: {},
       teamMembersEnabled: true,
+      teamMembersLimit: null,
       isActive: true,
     });
     setDialogOpen(true);
@@ -125,6 +128,7 @@ export default function AdminPackagesPage() {
       currency: packageData.currency,
       features: packageData.features || {},
       teamMembersEnabled: (packageData as any).teamMembersEnabled ?? true,
+      teamMembersLimit: (packageData as any).teamMembersLimit ?? null,
       isActive: packageData.isActive,
     });
     setDialogOpen(true);
@@ -425,6 +429,26 @@ export default function AdminPackagesPage() {
                 label="Team members enabled"
               />
             </Grid>
+            {formData.teamMembersEnabled && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Team Members Limit"
+                  type="number"
+                  value={formData.teamMembersLimit ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      teamMembersLimit: value === '' ? null : parseInt(value) || null 
+                    }));
+                  }}
+                  inputProps={{ min: 1 }}
+                  helperText="Leave empty for unlimited team members"
+                  placeholder="Unlimited"
+                />
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>

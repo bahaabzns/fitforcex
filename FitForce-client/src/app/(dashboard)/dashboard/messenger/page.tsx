@@ -43,6 +43,7 @@ import { useAppDispatch } from '@/store';
 import { setUnreadTotal } from '@/store/slices/messengerSlice';
 import { getCookie } from '@/utils/cookies';
 import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface Thread {
   id: string;
@@ -86,6 +87,7 @@ export default function MessengerPage() {
   const intl = useIntl();
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const dispatch = useAppDispatch();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -196,6 +198,10 @@ export default function MessengerPage() {
     }
   }, [selectedThread]);
 
+  // Permission checks (must be defined early for use in functions)
+  const canViewMessages = hasPermission('messaging.read');
+  const canSendMessages = hasPermission('messaging.write');
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -273,7 +279,7 @@ export default function MessengerPage() {
   };
 
   const handleSendMessage = async () => {
-    if (!selectedThread || (!messageBody.trim() && attachments.length === 0)) return;
+    if (!selectedThread || (!messageBody.trim() && attachments.length === 0) || !canSendMessages) return;
 
     setSending(true);
     try {
@@ -301,6 +307,10 @@ export default function MessengerPage() {
   };
 
   const startChatWithClient = async (clientId: string) => {
+    if (!canSendMessages) {
+      console.warn('User does not have permission to send messages');
+      return;
+    }
     try {
       const { data } = await api.post('/api/messenger/threads', { clientId });
       if (data.thread) {
@@ -381,6 +391,36 @@ export default function MessengerPage() {
     return intl.formatMessage({ id: 'messenger.startConversation', defaultMessage: 'Start a conversation' });
   };
 
+  // Show loading state while checking permissions
+  if (permissionsLoading) {
+    return (
+      <WorkspaceSubscriptionGuard description="Activate a plan to use the Messenger and chat with clients.">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <CircularProgress />
+        </Box>
+      </WorkspaceSubscriptionGuard>
+    );
+  }
+
+  // Show access denied if user doesn't have view permission
+  if (!canViewMessages) {
+    return (
+      <WorkspaceSubscriptionGuard description="Activate a plan to use the Messenger and chat with clients.">
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography variant="h5" gutterBottom color="error">
+            <FormattedMessage id="messenger.accessDenied" defaultMessage="Access Denied" />
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 500, mx: 'auto', mt: 2 }}>
+            <FormattedMessage 
+              id="messenger.noViewPermission" 
+              defaultMessage="You don't have permission to view messages. Please contact your workspace administrator to grant you the 'View messages' permission." 
+            />
+          </Typography>
+        </Box>
+      </WorkspaceSubscriptionGuard>
+    );
+  }
+
   return (
     <WorkspaceSubscriptionGuard description="Activate a plan to use the Messenger and chat with clients.">
     <Box>
@@ -418,7 +458,11 @@ export default function MessengerPage() {
               />
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="subtitle2"><FormattedMessage id="messenger.conversations" defaultMessage="Conversations" /></Typography>
-                <Button size="small" variant="contained" onClick={() => setClientPickerOpen(true)}><FormattedMessage id="messenger.startChat" defaultMessage="Start chat" /></Button>
+                {canSendMessages && (
+                  <Button size="small" variant="contained" onClick={() => setClientPickerOpen(true)}>
+                    <FormattedMessage id="messenger.startChat" defaultMessage="Start chat" />
+                  </Button>
+                )}
               </Stack>
             </CardContent>
 
@@ -577,7 +621,8 @@ export default function MessengerPage() {
                     />
                     <IconButton
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading || sending}
+                      disabled={uploading || sending || !canSendMessages}
+                      title={!canSendMessages ? 'You do not have permission to send messages' : ''}
                     >
                       <AttachFile />
                     </IconButton>
@@ -586,26 +631,29 @@ export default function MessengerPage() {
                       fullWidth
                       multiline
                       maxRows={4}
-                      placeholder="Type your message..."
+                      placeholder={canSendMessages ? "Type your message..." : "You don't have permission to send messages"}
                       value={messageBody}
                       onChange={(e) => {
                         setMessageBody(e.target.value);
-                        handleTyping();
+                        if (canSendMessages) {
+                          handleTyping();
+                        }
                       }}
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        if (e.key === 'Enter' && !e.shiftKey && canSendMessages) {
                           e.preventDefault();
                           handleSendMessage();
                         }
                       }}
-                      disabled={sending || uploading}
+                      disabled={sending || uploading || !canSendMessages}
                     />
                     
                     <Button
                       variant="contained"
                       endIcon={<Send />}
                       onClick={handleSendMessage}
-                      disabled={(!messageBody.trim() && attachments.length === 0) || sending || uploading}
+                      disabled={(!messageBody.trim() && attachments.length === 0) || sending || uploading || !canSendMessages}
+                      title={!canSendMessages ? 'You do not have permission to send messages' : ''}
                     >
                       {uploading ? 'Uploading...' : sending ? 'Sending...' : 'Send'}
                     </Button>

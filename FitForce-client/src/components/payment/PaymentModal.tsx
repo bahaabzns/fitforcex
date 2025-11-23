@@ -21,8 +21,8 @@ import {
   Card,
   CardContent,
   Chip,
-  useTheme,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { LoadingButton } from '@mui/lab';
 import api from '@/utils/axios';
 
@@ -58,6 +58,15 @@ interface PaymentModalProps {
   type: 'workspace' | 'client';
   workspaceId: string;
   clientId?: string;
+  currentSubscription?: {
+    id: string;
+    status: string;
+    endDate?: string;
+    package?: {
+      priceCents: number;
+      durationMonths: number;
+    };
+  } | null;
 }
 
 interface PromoPreviewResponse {
@@ -87,6 +96,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   type,
   workspaceId,
   clientId,
+  currentSubscription,
 }) => {
   const [billingData, setBillingData] = useState<BillingData>({
     email: '',
@@ -111,6 +121,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [creditMode, setCreditMode] = useState<'none' | 'all' | 'custom'>('none');
   const [customCreditValue, setCustomCreditValue] = useState('');
   const [creditError, setCreditError] = useState<string | null>(null);
+  const [upgradeType, setUpgradeType] = useState<'queue' | 'upgrade'>('queue');
 
   const summaryCurrency = promoPreview?.currency || packageData?.currency || 'EGP';
   const originalPriceCents = packageData?.priceCents ?? 0;
@@ -153,7 +164,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               : Math.min(rawCustomCreditCents, maxCreditApplicable))
           : 0
       : 0;
-  const amountDueCents = Math.max(finalAmountAfterDiscountCents - selectedCreditCents, 0);
+  // Calculate upgrade credit if upgrading immediately
+  const hasActiveSubscription = currentSubscription && 
+    currentSubscription.status === 'active' && 
+    currentSubscription.endDate &&
+    new Date(currentSubscription.endDate) > new Date();
+  
+  let upgradeCreditCents = 0;
+  if (hasActiveSubscription && upgradeType === 'upgrade' && currentSubscription.package && packageData) {
+    const now = new Date();
+    const endDate = new Date(currentSubscription.endDate!);
+    const remainingDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (remainingDays > 0) {
+      const subscriptionPriceCents = currentSubscription.package.priceCents;
+      const subscriptionDurationDays = currentSubscription.package.durationMonths * 30;
+      
+      if (subscriptionDurationDays > 0) {
+        const creditPerDay = subscriptionPriceCents / subscriptionDurationDays;
+        upgradeCreditCents = Math.floor(creditPerDay * remainingDays);
+      }
+    }
+  }
+
+  const amountAfterUpgradeCredit = Math.max(0, finalAmountAfterDiscountCents - upgradeCreditCents);
+  const amountDueCents = Math.max(amountAfterUpgradeCredit - selectedCreditCents, 0);
 
   // Fetch and pre-fill user data when modal opens
   useEffect(() => {
@@ -251,6 +286,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setCreditMode('none');
       setCustomCreditValue('');
       setCreditError(null);
+      setUpgradeType('queue');
       return;
     }
 
@@ -268,6 +304,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         setCreditMode('none');
         setCustomCreditValue('');
         setCreditError(null);
+        setUpgradeType('queue');
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -353,6 +390,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             packageId: packageData.id,
             billingData,
             creditUsageCents: selectedCreditCents,
+            upgradeType: hasActiveSubscription ? upgradeType : 'queue',
           }
         : {
             clientId,
@@ -454,6 +492,67 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </Alert>
         )}
 
+        {type === 'workspace' && packageData && hasActiveSubscription && (
+          <Card 
+            sx={{ 
+              mb: 3,
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(76, 175, 80, 0.05)',
+              border: '2px solid',
+              borderColor: 'success.main',
+              boxShadow: theme.shadows[2],
+            }}
+          >
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'success.main' }}>
+                Upgrade Options
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <RadioGroup
+                  value={upgradeType}
+                  onChange={(event) => setUpgradeType(event.target.value as 'queue' | 'upgrade')}
+                >
+                  <FormControlLabel
+                    value="queue"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          Queue Subscription (Normal)
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          New subscription will start after your current subscription ends
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    value="upgrade"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          Upgrade Immediately
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Get credit for remaining days and upgrade now
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </RadioGroup>
+              </FormControl>
+              {upgradeType === 'upgrade' && upgradeCreditCents > 0 && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Upgrade Credit:</strong> {formatPrice(upgradeCreditCents, summaryCurrency)} 
+                    {' '}will be applied from your remaining subscription days.
+                  </Typography>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {type === 'workspace' && packageData && (
           <Card 
             sx={{ 
@@ -496,6 +595,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                           {formatPrice(originalPriceCents, summaryCurrency)}
                         </Typography>
                       </Box>
+                      {upgradeCreditCents > 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="success.main">
+                            Upgrade Credit:
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: 'success.main' }}>
+                            -{formatPrice(upgradeCreditCents, summaryCurrency)}
+                          </Typography>
+                        </Box>
+                      )}
                       {discountCents > 0 && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Typography variant="body2" color="success.main">
@@ -509,7 +618,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       {selectedCreditCents > 0 && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Typography variant="body2" color="info.main">
-                            Credit to Apply:
+                            Commission Credit:
                           </Typography>
                           <Typography variant="body2" sx={{ fontWeight: 500, color: 'info.main' }}>
                             -{formatPrice(selectedCreditCents, summaryCurrency)}

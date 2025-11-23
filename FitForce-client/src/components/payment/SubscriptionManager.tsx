@@ -544,6 +544,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
         type={type}
         workspaceId={effectiveWorkspaceId}
         clientId={clientId}
+        currentSubscription={subscription}
       />
 
       {paymentIframeData && (
