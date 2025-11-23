@@ -25,7 +25,7 @@ import MainCard from 'components/MainCard';
 import AppliedPromoCard from 'components/promo/AppliedPromoCard';
 import api, { fetcher } from '@/utils/axios';
 import { openSnackbar } from '@/api/snackbar';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 interface PromoSummaryResponse {
   promoCode: {
@@ -66,6 +66,7 @@ const formatCurrency = (cents: number, currency = 'EGP') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
 
 export default function OwnedPromoPage() {
+  const intl = useIntl();
   const { data, error, isLoading, mutate } = useSWR<PromoSummaryResponse>('/api/promo', fetcher, {
     revalidateOnFocus: false,
   });
@@ -83,7 +84,9 @@ export default function OwnedPromoPage() {
   if (error) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <Alert severity="error">Failed to load promotion data.</Alert>
+        <Alert severity="error">
+          <FormattedMessage id="promo.failedToLoad" defaultMessage="Failed to load promotion data." />
+        </Alert>
       </Box>
     );
   }
@@ -101,7 +104,7 @@ export default function OwnedPromoPage() {
       await api.post('/api/promo');
       openSnackbar({
         open: true,
-        message: 'Promo code generated successfully',
+        message: intl.formatMessage({ id: 'promo.generatedSuccessfully', defaultMessage: 'Promo code generated successfully' }),
         variant: 'alert',
         alert: { color: 'success', variant: 'filled' }
       });
@@ -136,14 +139,14 @@ export default function OwnedPromoPage() {
 
         {promo ? (
           <>
-            <MainCard title="Promo Details" contentSX={{ p: 3 }}>
+            <MainCard title={intl.formatMessage({ id: 'promo.details', defaultMessage: 'Promo Details' })} contentSX={{ p: 3 }}>
               <Stack spacing={2}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
                   <Typography variant="h4" fontWeight={800} color="primary" sx={{ fontFamily: 'monospace', letterSpacing: 2 }}>
                     {promo.code}
                   </Typography>
                   <Chip
-                    label={promo.isActive ? 'Active' : 'Inactive'}
+                    label={promo.isActive ? intl.formatMessage({ id: 'promo.active', defaultMessage: 'Active' }) : intl.formatMessage({ id: 'promo.inactive', defaultMessage: 'Inactive' })}
                     color={promo.isActive ? 'success' : 'default'}
                     variant={promo.isActive ? 'filled' : 'outlined'}
                   />
@@ -154,48 +157,48 @@ export default function OwnedPromoPage() {
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6} md={3}>
                     <MetricCard
-                      title="Total Commission Earned"
+                      title={intl.formatMessage({ id: 'promo.totalCommissionEarned', defaultMessage: 'Total Commission Earned' })}
                       value={formatCurrency(Math.round((summary?.totalCommission ?? 0) * 100))}
                       tone="success"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <MetricCard
-                      title="Commission Paid Out"
+                      title={intl.formatMessage({ id: 'promo.commissionPaidOut', defaultMessage: 'Commission Paid Out' })}
                       value={formatCurrency(Math.round((summary?.paidCommission ?? 0) * 100))}
                       tone="primary"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <MetricCard
-                      title="Commission Used as Credit"
+                      title={intl.formatMessage({ id: 'promo.commissionUsedAsCredit', defaultMessage: 'Commission Used as Credit' })}
                       value={formatCurrency(Math.round((summary?.creditedCommission ?? 0) * 100))}
                       tone="info"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <MetricCard
-                      title="Commission Pending"
+                      title={intl.formatMessage({ id: 'promo.commissionPending', defaultMessage: 'Commission Pending' })}
                       value={formatCurrency(Math.round((summary?.unpaidCommission ?? 0) * 100))}
                       tone="warning"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <MetricCard
-                      title="Available Credit"
+                      title={intl.formatMessage({ id: 'promo.availableCredit', defaultMessage: 'Available Credit' })}
                       value={formatCurrency(commissionCredit?.availableCents ?? 0, commissionCredit?.currency || 'EGP')}
                       tone="secondary"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <MetricCard
-                      title="Total Discount Given"
+                      title={intl.formatMessage({ id: 'promo.totalDiscountGiven', defaultMessage: 'Total Discount Given' })}
                       value={formatCurrency(Math.round((summary?.totalDiscount ?? 0) * 100))}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <MetricCard
-                      title="Total Code Uses"
+                      title={intl.formatMessage({ id: 'promo.totalCodeUses', defaultMessage: 'Total Code Uses' })}
                       value={summary?.usageCount.toLocaleString() ?? '0'}
                     />
                   </Grid>
@@ -204,7 +207,9 @@ export default function OwnedPromoPage() {
                 <Divider />
 
                 <Stack spacing={1}>
-                  <Typography variant="subtitle2" color="text.secondary">Promo Settings</Typography>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    <FormattedMessage id="promo.settings" defaultMessage="Promo Settings" />
+                  </Typography>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
                     <Chip label={`${promo.discountPercentage}% Discount`} color={promo.allowDiscount ? 'primary' : 'default'} variant={promo.allowDiscount ? 'filled' : 'outlined'} />
                     <Chip label={`${promo.commissionPercentage}% Commission`} color={promo.allowCommission ? 'secondary' : 'default'} variant={promo.allowCommission ? 'filled' : 'outlined'} />
@@ -222,14 +227,14 @@ export default function OwnedPromoPage() {
             </MainCard>
 
             {commissionCredit && commissionCredit.breakdown.length > 0 && (
-              <MainCard title="Commission Credit Breakdown" contentSX={{ p: 0 }}>
+              <MainCard title={intl.formatMessage({ id: 'promo.commissionCreditBreakdown', defaultMessage: 'Commission Credit Breakdown' })} contentSX={{ p: 0 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Commission</TableCell>
-                      <TableCell align="right">Earned</TableCell>
-                      <TableCell align="right">Used as Credit</TableCell>
-                      <TableCell align="right">Remaining</TableCell>
+                      <TableCell><FormattedMessage id="promo.commission" defaultMessage="Commission" /></TableCell>
+                      <TableCell align="right"><FormattedMessage id="promo.earned" defaultMessage="Earned" /></TableCell>
+                      <TableCell align="right"><FormattedMessage id="promo.usedAsCredit" defaultMessage="Used as Credit" /></TableCell>
+                      <TableCell align="right"><FormattedMessage id="promo.remaining" defaultMessage="Remaining" /></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -251,7 +256,7 @@ export default function OwnedPromoPage() {
             )}
           </>
         ) : (
-          <MainCard title="Create Your Workspace Promo Code" contentSX={{ p: 3 }}>
+          <MainCard title={intl.formatMessage({ id: 'promo.createWorkspacePromoCode', defaultMessage: 'Create Your Workspace Promo Code' })} contentSX={{ p: 3 }}>
             <Stack spacing={2}>
               <Typography color="text.secondary">
                 Generate a unique promo code for this workspace. Each code grants <strong>10% discount</strong> to your referrals and earns you a <strong>10% commission</strong> on their payments.
@@ -275,10 +280,10 @@ export default function OwnedPromoPage() {
                   disabled={creatingPromo}
                   sx={{ minWidth: 220 }}
                 >
-                  {creatingPromo ? 'Generating Promo Code…' : 'Generate Promo Code'}
+                  {creatingPromo ? intl.formatMessage({ id: 'promo.generating', defaultMessage: 'Generating Promo Code…' }) : intl.formatMessage({ id: 'promo.generate', defaultMessage: 'Generate Promo Code' })}
                 </Button>
                 <Typography variant="caption" color="text.secondary">
-                  Only one promo code can exist per workspace owner.
+                  <FormattedMessage id="promo.onlyOnePerOwner" defaultMessage="Only one promo code can exist per workspace owner." />
                 </Typography>
               </Stack>
             </Stack>

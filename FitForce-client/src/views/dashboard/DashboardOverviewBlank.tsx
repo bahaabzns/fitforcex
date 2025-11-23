@@ -12,8 +12,10 @@ import { useAppSelector } from '@/store';
 import OnboardingWizard from '@/components/OnboardingWizard';
 import api from '@/utils/axios';
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, PieChart, Pie, Cell, AreaChart, Area, Brush, BarChart, Bar } from 'recharts';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 export default function DashboardOverviewBlank() {
+  const intl = useIntl();
   const workspaceId = useAppSelector((s) => s.workspace.id);
   const [onboardingLoading, setOnboardingLoading] = useState(true);
   const [onboarded, setOnboarded] = useState<boolean>(true);
@@ -88,19 +90,25 @@ export default function DashboardOverviewBlank() {
             <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
               <Stack direction="row" spacing={1} alignItems="center">
                 <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#1976d2' }} />
-                <Typography variant="body2">Requested</Typography>
+                <Typography variant="body2">
+                  <FormattedMessage id="dashboard.requested" defaultMessage="Requested" />
+                </Typography>
               </Stack>
               <Typography variant="body2">{requested.toLocaleString()}</Typography>
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
               <Stack direction="row" spacing={1} alignItems="center">
                 <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#7b1fa2' }} />
-                <Typography variant="body2">In Progress</Typography>
+                <Typography variant="body2">
+                  <FormattedMessage id="dashboard.inProgress" defaultMessage="In Progress" />
+                </Typography>
               </Stack>
               <Typography variant="body2">{submitted.toLocaleString()}</Typography>
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-              <Typography variant="body2">Conversion</Typography>
+              <Typography variant="body2">
+                <FormattedMessage id="dashboard.conversion" defaultMessage="Conversion" />
+              </Typography>
               <Typography variant="body2">{conv}%</Typography>
             </Stack>
           </Stack>
@@ -387,7 +395,9 @@ export default function DashboardOverviewBlank() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Checking onboarding status...</Typography>
+          <Typography color="text.secondary">
+            <FormattedMessage id="dashboard.checkingOnboarding" defaultMessage="Checking onboarding status..." />
+          </Typography>
         </Stack>
       </Box>
     );
@@ -398,11 +408,11 @@ export default function DashboardOverviewBlank() {
   }
 
   const tabs = [
-    'Finance',
-    'Client Insights',
-    'Form submissions',
-    'Team Capacity',
-    'Team Productivity',
+    intl.formatMessage({ id: 'dashboard.tab.finance', defaultMessage: 'Finance' }),
+    intl.formatMessage({ id: 'dashboard.tab.clientInsights', defaultMessage: 'Client Insights' }),
+    intl.formatMessage({ id: 'dashboard.tab.formSubmissions', defaultMessage: 'Form submissions' }),
+    intl.formatMessage({ id: 'dashboard.tab.teamCapacity', defaultMessage: 'Team Capacity' }),
+    intl.formatMessage({ id: 'dashboard.tab.teamProductivity', defaultMessage: 'Team Productivity' }),
   ];
 
   return (
@@ -429,24 +439,40 @@ export default function DashboardOverviewBlank() {
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'stretch' }}>
                   <Box sx={{ flex: 3 }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
-                      <Typography variant="h6">Finance</Typography>
+                      <Typography variant="h6">
+                        <FormattedMessage id="dashboard.finance" defaultMessage="Finance" />
+                      </Typography>
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                         <FormControl size="small" sx={{ minWidth: 140 }}>
-                          <InputLabel id="currency-filter-label">Currency</InputLabel>
-                          <Select labelId="currency-filter-label" label="Currency" value={currencyFilter} onChange={(e) => setCurrencyFilter(e.target.value as any)}>
-                            <MenuItem value="ALL">All</MenuItem>
+                          <InputLabel id="currency-filter-label">
+                            <FormattedMessage id="dashboard.currency" defaultMessage="Currency" />
+                          </InputLabel>
+                          <Select labelId="currency-filter-label" label={intl.formatMessage({ id: 'dashboard.currency', defaultMessage: 'Currency' })} value={currencyFilter} onChange={(e) => setCurrencyFilter(e.target.value as any)}>
+                            <MenuItem value="ALL">
+                              <FormattedMessage id="dashboard.all" defaultMessage="All" />
+                            </MenuItem>
                             <MenuItem value="EGP">EGP</MenuItem>
                             <MenuItem value="USD">USD</MenuItem>
                             <MenuItem value="EUR">EUR</MenuItem>
                           </Select>
                         </FormControl>
                         <FormControl size="small" sx={{ minWidth: 140 }}>
-                          <InputLabel id="duration-filter-label">Duration</InputLabel>
-                          <Select labelId="duration-filter-label" label="Duration" value={duration} onChange={(e) => setDuration(e.target.value as any)}>
-                            <MenuItem value="30d">Last 30 days</MenuItem>
-                            <MenuItem value="90d">Last 90 days</MenuItem>
-                            <MenuItem value="12m">Last 12 months</MenuItem>
-                            <MenuItem value="all">All time</MenuItem>
+                          <InputLabel id="duration-filter-label">
+                            <FormattedMessage id="dashboard.duration" defaultMessage="Duration" />
+                          </InputLabel>
+                          <Select labelId="duration-filter-label" label={intl.formatMessage({ id: 'dashboard.duration', defaultMessage: 'Duration' })} value={duration} onChange={(e) => setDuration(e.target.value as any)}>
+                            <MenuItem value="30d">
+                              <FormattedMessage id="dashboard.last30Days" defaultMessage="Last 30 days" />
+                            </MenuItem>
+                            <MenuItem value="90d">
+                              <FormattedMessage id="dashboard.last90Days" defaultMessage="Last 90 days" />
+                            </MenuItem>
+                            <MenuItem value="12m">
+                              <FormattedMessage id="dashboard.last12Months" defaultMessage="Last 12 months" />
+                            </MenuItem>
+                            <MenuItem value="all">
+                              <FormattedMessage id="dashboard.allTime" defaultMessage="All time" />
+                            </MenuItem>
                           </Select>
                         </FormControl>
                       </Stack>
@@ -459,7 +485,9 @@ export default function DashboardOverviewBlank() {
                         </Box>
                       ) : series.length === 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                          <Typography color="text.secondary">No revenue data in selected range</Typography>
+                          <Typography color="text.secondary">
+                            <FormattedMessage id="dashboard.noRevenueData" defaultMessage="No revenue data in selected range" />
+                          </Typography>
                         </Box>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
@@ -481,19 +509,25 @@ export default function DashboardOverviewBlank() {
                     <Stack spacing={2} sx={{ flex: 1, height: '100%' }}>
                       <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                         <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <Typography variant="subtitle2" color="text.secondary">Total Revenue (EGP)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.totalRevenueEGP" defaultMessage="Total Revenue (EGP)" />
+                          </Typography>
                           <Typography variant="h5">{totals.EGP.toLocaleString(undefined, { maximumFractionDigits: 2 })} EGP</Typography>
                         </CardContent>
                       </Card>
                       <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                         <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <Typography variant="subtitle2" color="text.secondary">Total Revenue (USD)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.totalRevenueUSD" defaultMessage="Total Revenue (USD)" />
+                          </Typography>
                           <Typography variant="h5">{totals.USD.toLocaleString(undefined, { maximumFractionDigits: 2 })} USD</Typography>
                         </CardContent>
                       </Card>
                       <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                         <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <Typography variant="subtitle2" color="text.secondary">Total Revenue (EUR)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.totalRevenueEUR" defaultMessage="Total Revenue (EUR)" />
+                          </Typography>
                           <Typography variant="h5">{totals.EUR.toLocaleString(undefined, { maximumFractionDigits: 2 })} EUR</Typography>
                         </CardContent>
                       </Card>
@@ -510,24 +544,40 @@ export default function DashboardOverviewBlank() {
                   {/* Left: 3/4 width chart and top 3 packages */}
                   <Box sx={{ flex: 3 }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
-                      <Typography variant="h6">Subscription & Revenue Analysis</Typography>
+                      <Typography variant="h6">
+                        <FormattedMessage id="dashboard.subscriptionRevenueAnalysis" defaultMessage="Subscription & Revenue Analysis" />
+                      </Typography>
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                         <FormControl size="small" sx={{ minWidth: 180 }}>
-                          <InputLabel id="package-filter-label">Package</InputLabel>
-                          <Select labelId="package-filter-label" label="Package" value={selectedPackageId} onChange={(e) => setSelectedPackageId(e.target.value as any)}>
-                            <MenuItem value="all">All Packages</MenuItem>
+                          <InputLabel id="package-filter-label">
+                            <FormattedMessage id="dashboard.package" defaultMessage="Package" />
+                          </InputLabel>
+                          <Select labelId="package-filter-label" label={intl.formatMessage({ id: 'dashboard.package', defaultMessage: 'Package' })} value={selectedPackageId} onChange={(e) => setSelectedPackageId(e.target.value as any)}>
+                            <MenuItem value="all">
+                              <FormattedMessage id="dashboard.allPackages" defaultMessage="All Packages" />
+                            </MenuItem>
                             {packagesList.map((p) => (
                               <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
                             ))}
                           </Select>
                         </FormControl>
                         <FormControl size="small" sx={{ minWidth: 140 }}>
-                          <InputLabel id="duration-2-label">Duration</InputLabel>
-                          <Select labelId="duration-2-label" label="Duration" value={duration} onChange={(e) => setDuration(e.target.value as any)}>
-                            <MenuItem value="30d">Last 30 days</MenuItem>
-                            <MenuItem value="90d">Last 90 days</MenuItem>
-                            <MenuItem value="12m">Last 12 months</MenuItem>
-                            <MenuItem value="all">All time</MenuItem>
+                          <InputLabel id="duration-2-label">
+                            <FormattedMessage id="dashboard.duration" defaultMessage="Duration" />
+                          </InputLabel>
+                          <Select labelId="duration-2-label" label={intl.formatMessage({ id: 'dashboard.duration', defaultMessage: 'Duration' })} value={duration} onChange={(e) => setDuration(e.target.value as any)}>
+                            <MenuItem value="30d">
+                              <FormattedMessage id="dashboard.last30Days" defaultMessage="Last 30 days" />
+                            </MenuItem>
+                            <MenuItem value="90d">
+                              <FormattedMessage id="dashboard.last90Days" defaultMessage="Last 90 days" />
+                            </MenuItem>
+                            <MenuItem value="12m">
+                              <FormattedMessage id="dashboard.last12Months" defaultMessage="Last 12 months" />
+                            </MenuItem>
+                            <MenuItem value="all">
+                              <FormattedMessage id="dashboard.allTime" defaultMessage="All time" />
+                            </MenuItem>
                           </Select>
                         </FormControl>
                       </Stack>
@@ -544,7 +594,9 @@ export default function DashboardOverviewBlank() {
                         </Card>
                       ))}
                       {packageSeriesData.topTotals.length === 0 && (
-                        <Typography color="text.secondary">No package revenue data</Typography>
+                        <Typography color="text.secondary">
+                          <FormattedMessage id="dashboard.noPackageRevenueData" defaultMessage="No package revenue data" />
+                        </Typography>
                       )}
                     </Stack>
 
@@ -555,7 +607,9 @@ export default function DashboardOverviewBlank() {
                         </Box>
                       ) : packageSeriesData.rows.length === 0 ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                          <Typography color="text.secondary">No package revenue data in selected range</Typography>
+                          <Typography color="text.secondary">
+                            <FormattedMessage id="dashboard.noPackageRevenueDataRange" defaultMessage="No package revenue data in selected range" />
+                          </Typography>
                         </Box>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
@@ -579,19 +633,25 @@ export default function DashboardOverviewBlank() {
                     <Stack spacing={2} sx={{ flex: 1, height: '100%' }}>
                       <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                         <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <Typography variant="subtitle2" color="text.secondary">Avg. Revenue per Subscription (EGP)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.avgRevenuePerSubscription" defaultMessage="Avg. Revenue per Subscription (EGP)" />
+                          </Typography>
                           <Typography variant="h5">{(avgRevenuePerSub || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Typography>
                         </CardContent>
                       </Card>
                       <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                         <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <Typography variant="subtitle2" color="text.secondary">Total Subscriptions</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.totalSubscriptions" defaultMessage="Total Subscriptions" />
+                          </Typography>
                           <Typography variant="h5">{totalSubscriptions}</Typography>
                         </CardContent>
                       </Card>
                       <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                         <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <Typography variant="subtitle2" color="text.secondary">Revenue by All Packages (EGP)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.revenueByAllPackages" defaultMessage="Revenue by All Packages (EGP)" />
+                          </Typography>
                           <Typography variant="h5">{(egpRevenueAll || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Typography>
                         </CardContent>
                       </Card>
@@ -606,7 +666,9 @@ export default function DashboardOverviewBlank() {
           <Stack spacing={3}>
             <Card>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Client insights</Typography>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  <FormattedMessage id="dashboard.clientInsights" defaultMessage="Client insights" />
+                </Typography>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'stretch' }} sx={{ minHeight: { md: 620 } }}>
                   {/* Left column 1/3 */}
                   <Box sx={{ flex: 1, display: 'flex' }}>
@@ -614,7 +676,9 @@ export default function DashboardOverviewBlank() {
                       {/* Top: 3/5 height - Clients by status with donut */}
                       <Card variant="outlined" sx={{ flex: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <Typography variant="subtitle1" sx={{ mb: 1 }}>Number of clients by status</Typography>
+                          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                            <FormattedMessage id="dashboard.numberOfClientsByStatus" defaultMessage="Number of clients by status" />
+                          </Typography>
                           {/* Pizza (full pie) chart with extra height */}
                           <Box sx={{ width: '100%', height: { xs: 380, md: 520 }, mb: 2 }}>
                             {loadingInsights ? (
@@ -623,7 +687,9 @@ export default function DashboardOverviewBlank() {
                               </Box>
                             ) : !clientStatusCounts ? (
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                                <Typography color="text.secondary">No client status data</Typography>
+                                <Typography color="text.secondary">
+                                  <FormattedMessage id="dashboard.noClientStatusData" defaultMessage="No client status data" />
+                                </Typography>
                               </Box>
                             ) : (
                               <ResponsiveContainer width="100%" height="100%">
@@ -698,19 +764,25 @@ export default function DashboardOverviewBlank() {
                       <Stack direction="column" spacing={2} sx={{ flex: 2 }}>
                         <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                           <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            <Typography variant="subtitle2" color="text.secondary">New Inquiries</Typography>
+                            <Typography variant="subtitle2" color="text.secondary">
+                              <FormattedMessage id="dashboard.newInquiries" defaultMessage="New Inquiries" />
+                            </Typography>
                             <Typography variant="h5">{clientStatusCounts?.no_subscription ?? 0}</Typography>
                           </CardContent>
                         </Card>
                         <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                           <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            <Typography variant="subtitle2" color="text.secondary">Re New</Typography>
+                            <Typography variant="subtitle2" color="text.secondary">
+                              <FormattedMessage id="dashboard.renewal" defaultMessage="Re New" />
+                            </Typography>
                             <Typography variant="h5">{subscriptionKinds?.renewal ?? 0}</Typography>
                           </CardContent>
                         </Card>
                         <Card variant="outlined" sx={{ flex: 1, display: 'flex' }}>
                           <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            <Typography variant="subtitle2" color="text.secondary">New</Typography>
+                            <Typography variant="subtitle2" color="text.secondary">
+                              <FormattedMessage id="dashboard.new" defaultMessage="New" />
+                            </Typography>
                             <Typography variant="h5">{subscriptionKinds?.firstPlan ?? 0}</Typography>
                           </CardContent>
                         </Card>
@@ -724,7 +796,9 @@ export default function DashboardOverviewBlank() {
                       {/* Retention rate chart (new) */}
                       <Card variant="outlined" sx={{ flex: 1, minHeight: 240, display: 'flex' }}>
                         <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <Typography variant="subtitle1" sx={{ mb: 1 }}>Retention rate</Typography>
+                          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                            <FormattedMessage id="dashboard.retentionRate" defaultMessage="Retention rate" />
+                          </Typography>
                           <Box sx={{ flex: 1 }}>
                             {(() => {
                               const fallbackSeries = (() => {
@@ -749,7 +823,7 @@ export default function DashboardOverviewBlank() {
                                     <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                     <RechartsTooltip formatter={(v: any) => `${v}%`} />
                                     <Legend />
-                                    <Line type="monotone" dataKey="retention" stroke="#1976d2" strokeWidth={2} dot={false} name="Retention %" />
+                                    <Line type="monotone" dataKey="retention" stroke="#1976d2" strokeWidth={2} dot={false} name={intl.formatMessage({ id: 'dashboard.retentionPercent', defaultMessage: 'Retention %' })} />
                                   </LineChart>
                                 </ResponsiveContainer>
                               );
@@ -760,7 +834,9 @@ export default function DashboardOverviewBlank() {
 
                       <Card variant="outlined">
                         <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary">Client cancellation rate</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.clientCancellationRate" defaultMessage="Client cancellation rate" />
+                          </Typography>
                           <Typography variant="h4">
                             {(() => {
                               // Prefer precise computation from status counts if available
@@ -783,7 +859,9 @@ export default function DashboardOverviewBlank() {
                       </Card>
                       <Card variant="outlined">
                         <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary">Client retention rate</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.clientRetentionRate" defaultMessage="Client retention rate" />
+                          </Typography>
                           <Typography variant="h4">
                             {(() => {
                               if (typeof retentionRate === 'number') return `${retentionRate.toFixed(1)}%`;
@@ -798,7 +876,9 @@ export default function DashboardOverviewBlank() {
                       </Card>
                       <Card variant="outlined" sx={{ flex: 1, minHeight: 280, display: 'flex' }}>
                         <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <Typography variant="subtitle1" sx={{ mb: 1 }}>Cancellation rate</Typography>
+                          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                            <FormattedMessage id="dashboard.cancellationRate" defaultMessage="Cancellation rate" />
+                          </Typography>
                           <Box sx={{ flex: 1 }}>
                             {(() => {
                               const fallbackSeries = (() => {
@@ -824,7 +904,7 @@ export default function DashboardOverviewBlank() {
                                     <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                     <RechartsTooltip formatter={(v: any) => `${v}%`} />
                                     <Legend />
-                                    <Line type="monotone" dataKey="cancellation" stroke="#ed6c02" strokeWidth={2} dot={false} name="Cancellation %" />
+                                    <Line type="monotone" dataKey="cancellation" stroke="#ed6c02" strokeWidth={2} dot={false} name={intl.formatMessage({ id: 'dashboard.cancellationPercent', defaultMessage: 'Cancellation %' })} />
                                   </LineChart>
                                 </ResponsiveContainer>
                               );
@@ -843,27 +923,33 @@ export default function DashboardOverviewBlank() {
           <Stack spacing={3}>
             <Card>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Form submissions</Typography>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  <FormattedMessage id="dashboard.formSubmissions" defaultMessage="Form submissions" />
+                </Typography>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'stretch' }}>
                   {/* Left column: 2/5 - Plan Workflow Metrics */}
                   <Box sx={{ flex: 2 }}>
                     <Card variant="outlined">
                       <CardContent>
-                        <Typography variant="subtitle1" sx={{ mb: 2 }}>Plan Workflow Metrics</Typography>
+                        <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                          <FormattedMessage id="dashboard.planWorkflowMetrics" defaultMessage="Plan Workflow Metrics" />
+                        </Typography>
                         {loadingForms ? (
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
                             <CircularProgress />
                           </Box>
                         ) : !formsData ? (
-                          <Typography color="text.secondary">No forms data</Typography>
+                                <Typography color="text.secondary">
+                                  <FormattedMessage id="dashboard.noFormsData" defaultMessage="No forms data" />
+                                </Typography>
                         ) : (
                           <Stack spacing={2}>
                             {[
                               // Render top-to-bottom so bottom-most is Scheduled
-                              { key: 'completed', label: 'Completed', color: '#2e7d32', value: formsData?.completed?.total || 0, pct: workflowTotals.pctCompleted, overTime: formsData?.completed?.overTime || [], Icon: CheckCircleIcon },
-                              { key: 'submitted', label: 'In Progress', color: '#7b1fa2', value: formsData?.submitted?.total || 0, pct: workflowTotals.pctSubmitted, overTime: formsData?.submitted?.overTime || [], Icon: AutorenewIcon },
-                              { key: 'requested', label: 'Requested', color: '#1976d2', value: formsData?.requested?.total || 0, pct: workflowTotals.pctRequested, overTime: formsData?.requested?.overTime || [], Icon: RequestPageIcon },
-                              { key: 'scheduled', label: 'Scheduled', color: '#ed6c02', value: formsData?.scheduled?.total || 0, pct: workflowTotals.pctScheduled, overTime: formsData?.scheduled?.overTime || [], Icon: EventAvailableIcon },
+                              { key: 'completed', label: intl.formatMessage({ id: 'dashboard.completed', defaultMessage: 'Completed' }), color: '#2e7d32', value: formsData?.completed?.total || 0, pct: workflowTotals.pctCompleted, overTime: formsData?.completed?.overTime || [], Icon: CheckCircleIcon },
+                              { key: 'submitted', label: intl.formatMessage({ id: 'dashboard.inProgress', defaultMessage: 'In Progress' }), color: '#7b1fa2', value: formsData?.submitted?.total || 0, pct: workflowTotals.pctSubmitted, overTime: formsData?.submitted?.overTime || [], Icon: AutorenewIcon },
+                              { key: 'requested', label: intl.formatMessage({ id: 'dashboard.requested', defaultMessage: 'Requested' }), color: '#1976d2', value: formsData?.requested?.total || 0, pct: workflowTotals.pctRequested, overTime: formsData?.requested?.overTime || [], Icon: RequestPageIcon },
+                              { key: 'scheduled', label: intl.formatMessage({ id: 'dashboard.scheduled', defaultMessage: 'Scheduled' }), color: '#ed6c02', value: formsData?.scheduled?.total || 0, pct: workflowTotals.pctScheduled, overTime: formsData?.scheduled?.overTime || [], Icon: EventAvailableIcon },
                             ].map((step, idx, arr) => (
                               <Stack key={step.key} direction="row" spacing={2} alignItems="stretch">
                                 {/* left tracking line */}
@@ -890,7 +976,9 @@ export default function DashboardOverviewBlank() {
                                     {/* percentage contribution */}
                                     <Stack spacing={0.5} sx={{ mb: 1 }}>
                                       <LinearProgress variant="determinate" value={Math.min(100, Math.max(0, step.pct || 0))} sx={{ height: 6, borderRadius: 999, [`& .MuiLinearProgress-bar`]: { backgroundColor: step.color } }} />
-                                      <Typography variant="caption" color="text.secondary">{step.pct}% of workflow</Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {intl.formatMessage({ id: 'dashboard.percentOfWorkflow', defaultMessage: '{pct}% of workflow' }, { pct: step.pct })}
+                                      </Typography>
                                     </Stack>
                                     {/* tiny sparkline */}
                                     {Array.isArray(step.overTime) && step.overTime.length > 0 && (
@@ -917,7 +1005,10 @@ export default function DashboardOverviewBlank() {
                               </Stack>
                             ))}
                             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                              Flow (bottom → top): Scheduled → Requested → In Progress → Completed
+                              <FormattedMessage 
+                                id="dashboard.workflowFlow" 
+                                defaultMessage="Flow (bottom → top): Scheduled → Requested → In Progress → Completed" 
+                              />
                             </Typography>
                           </Stack>
                         )}
@@ -930,13 +1021,17 @@ export default function DashboardOverviewBlank() {
                     <Stack spacing={2}>
                       <Card variant="outlined">
                         <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary">Total submissions</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.totalSubmissions" defaultMessage="Total submissions" />
+                          </Typography>
                           <Typography variant="h4">{formsData?.submitted?.total ?? 0}</Typography>
                         </CardContent>
                       </Card>
                       <Card variant="outlined" sx={{ minHeight: 280, display: 'flex' }}>
                         <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <Typography variant="subtitle1" sx={{ mb: 1 }}>Demand rate</Typography>
+                          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                            <FormattedMessage id="dashboard.demandRate" defaultMessage="Demand rate" />
+                          </Typography>
                           <Box sx={{ flex: 1 }}>
                             {loadingForms ? (
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -944,7 +1039,9 @@ export default function DashboardOverviewBlank() {
                               </Box>
                             ) : demandSeries.length === 0 ? (
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                                <Typography color="text.secondary">No demand activity</Typography>
+                                <Typography color="text.secondary">
+                                  <FormattedMessage id="dashboard.noDemandActivity" defaultMessage="No demand activity" />
+                                </Typography>
                               </Box>
                             ) : (
                               <ResponsiveContainer width="100%" height="100%">
@@ -968,9 +1065,9 @@ export default function DashboardOverviewBlank() {
                                   <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                                   <RechartsTooltip content={<DemandTooltip />} />
                                   <Legend />
-                                  <Area yAxisId="left" type="monotone" dataKey="requested" stroke="#1976d2" strokeWidth={2} dot={false} fillOpacity={1} fill="url(#colorRequested)" name="Requested" stackId="1" animationDuration={400} />
-                                  <Area yAxisId="left" type="monotone" dataKey="submitted" stroke="#7b1fa2" strokeWidth={2} dot={false} fillOpacity={1} fill="url(#colorSubmitted)" name="In Progress" stackId="1" animationDuration={400} />
-                                  <Line yAxisId="right" type="monotone" dataKey="convPct" stroke="#2e7d32" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} name="Conversion %" />
+                                  <Area yAxisId="left" type="monotone" dataKey="requested" stroke="#1976d2" strokeWidth={2} dot={false} fillOpacity={1} fill="url(#colorRequested)" name={intl.formatMessage({ id: 'dashboard.requested', defaultMessage: 'Requested' })} stackId="1" animationDuration={400} />
+                                  <Area yAxisId="left" type="monotone" dataKey="submitted" stroke="#7b1fa2" strokeWidth={2} dot={false} fillOpacity={1} fill="url(#colorSubmitted)" name={intl.formatMessage({ id: 'dashboard.inProgress', defaultMessage: 'In Progress' })} stackId="1" animationDuration={400} />
+                                  <Line yAxisId="right" type="monotone" dataKey="convPct" stroke="#2e7d32" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} name={intl.formatMessage({ id: 'dashboard.conversionPercent', defaultMessage: 'Conversion %' })} />
                                   <Brush dataKey="date" height={20} travellerWidth={8} stroke="#90a4ae" />
                                   
                                 </AreaChart>
@@ -987,12 +1084,16 @@ export default function DashboardOverviewBlank() {
                               <Stack spacing={1.5} sx={{ flex: 1, justifyContent: 'center' }}>
                                 <Stack direction="row" spacing={1} alignItems="center">
                                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#ed6c02' }} />
-                                  <Typography variant="body2" sx={{ flex: 1 }}>Workout</Typography>
+                                  <Typography variant="body2" sx={{ flex: 1 }}>
+                                    <FormattedMessage id="dashboard.workout" defaultMessage="Workout" />
+                                  </Typography>
                                   <Typography variant="h6">{demandByType.workoutPct}%</Typography>
                                 </Stack>
                                 <Stack direction="row" spacing={1} alignItems="center">
                                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#1976d2' }} />
-                                  <Typography variant="body2" sx={{ flex: 1 }}>Nutrition</Typography>
+                                  <Typography variant="body2" sx={{ flex: 1 }}>
+                                    <FormattedMessage id="dashboard.nutrition" defaultMessage="Nutrition" />
+                                  </Typography>
                                   <Typography variant="h6">{demandByType.nutritionPct}%</Typography>
                                 </Stack>
                               </Stack>
@@ -1023,7 +1124,9 @@ export default function DashboardOverviewBlank() {
                                 </ResponsiveContainer>
                                 <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                                   <Stack spacing={0} alignItems="center">
-                                    <Typography variant="caption" color="text.secondary">Total Demand</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      <FormattedMessage id="dashboard.totalDemand" defaultMessage="Total Demand" />
+                                    </Typography>
                                     <Typography variant="h6">{demandByType.total}</Typography>
                                   </Stack>
                                 </Box>
@@ -1043,20 +1146,26 @@ export default function DashboardOverviewBlank() {
           <Stack spacing={3}>
             <Card>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Team Capacity</Typography>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  <FormattedMessage id="dashboard.teamCapacity" defaultMessage="Team Capacity" />
+                </Typography>
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'stretch' }}>
                   {/* Left: Capacity VS Demand */}
                   <Box sx={{ flex: 1 }}>
                     <Card variant="outlined" sx={{ height: '100%' }}>
                       <CardContent>
-                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Capacity VS Demand</Typography>
+                        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                          <FormattedMessage id="dashboard.capacityVsDemand" defaultMessage="Capacity VS Demand" />
+                        </Typography>
                         <Box sx={{ width: '100%', height: 300 }}>
                           {loadingTeam ? (
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                               <CircularProgress />
                             </Box>
                           ) : !capacityData ? (
-                            <Typography color="text.secondary">No capacity data</Typography>
+                                <Typography color="text.secondary">
+                                  <FormattedMessage id="dashboard.noCapacityData" defaultMessage="No capacity data" />
+                                </Typography>
                           ) : (
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={[
@@ -1082,19 +1191,25 @@ export default function DashboardOverviewBlank() {
                     <Stack spacing={2}>
                       <Card variant="outlined">
                         <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary">Total capacity (this week)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.totalCapacityThisWeek" defaultMessage="Total capacity (this week)" />
+                          </Typography>
                           <Typography variant="h4">{capacityData?.thisWeek?.capacity ?? 0}</Typography>
                         </CardContent>
                       </Card>
                       <Card variant="outlined">
                         <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary">Workout capacity (this week)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.workoutCapacityThisWeek" defaultMessage="Workout capacity (this week)" />
+                          </Typography>
                           <Typography variant="h4">{capacityData?.thisWeek?.workoutCapacity ?? 0}</Typography>
                         </CardContent>
                       </Card>
                       <Card variant="outlined">
                         <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary">Nutrition capacity (this week)</Typography>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            <FormattedMessage id="dashboard.nutritionCapacityThisWeek" defaultMessage="Nutrition capacity (this week)" />
+                          </Typography>
                           <Typography variant="h4">{capacityData?.thisWeek?.nutritionCapacity ?? 0}</Typography>
                         </CardContent>
                       </Card>
@@ -1109,7 +1224,9 @@ export default function DashboardOverviewBlank() {
           <Stack spacing={3}>
             <Card>
               <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Team Productivity</Typography>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  <FormattedMessage id="dashboard.teamProductivity" defaultMessage="Team Productivity" />
+                </Typography>
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'stretch' }}>
                   {/* Left: 7/10 table */}
                   <Box sx={{ flex: 7 }}>
@@ -1120,7 +1237,9 @@ export default function DashboardOverviewBlank() {
                             <CircularProgress />
                           </Box>
                         ) : !teamCapacity?.members?.length ? (
-                          <Typography color="text.secondary">No team data</Typography>
+                          <Typography color="text.secondary">
+                            <FormattedMessage id="dashboard.noTeamData" defaultMessage="No team data" />
+                          </Typography>
                         ) : (
                           (() => {
                             const members = teamCapacity.members as any[];
@@ -1131,11 +1250,21 @@ export default function DashboardOverviewBlank() {
                               <Table size="small" sx={{ '& th': { whiteSpace: 'nowrap' } }}>
                                 <TableHead>
                                   <TableRow sx={{ '& th': { backgroundColor: 'primary.main', color: 'common.white', fontWeight: 700, fontSize: '0.95rem', py: 1.25 } }}>
-                                    <TableCell>Team Member</TableCell>
-                                    <TableCell align="right">Plans Created</TableCell>
-                                    <TableCell align="right">Pending Plans</TableCell>
-                                    <TableCell align="right">Avg. Processing Time</TableCell>
-                                    <TableCell align="right">Total</TableCell>
+                                    <TableCell>
+                                      <FormattedMessage id="dashboard.teamMember" defaultMessage="Team Member" />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <FormattedMessage id="dashboard.plansCreated" defaultMessage="Plans Created" />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <FormattedMessage id="dashboard.pendingPlans" defaultMessage="Pending Plans" />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <FormattedMessage id="dashboard.avgProcessingTime" defaultMessage="Avg. Processing Time" />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <FormattedMessage id="dashboard.total" defaultMessage="Total" />
+                                    </TableCell>
                                   </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -1154,7 +1283,9 @@ export default function DashboardOverviewBlank() {
                                             <Avatar sx={{ width: 28, height: 28 }}>{String(name).slice(0,1).toUpperCase()}</Avatar>
                                             <Stack spacing={0}>
                                               <Typography sx={{ lineHeight: 1.2 }}>{name}</Typography>
-                                              <Typography variant="caption" color="text.secondary">Workload share: {share.toFixed(0)}%</Typography>
+                                              <Typography variant="caption" color="text.secondary">
+                                                {intl.formatMessage({ id: 'dashboard.workloadShare', defaultMessage: 'Workload share: {share}%' }, { share: share.toFixed(0) })}
+                                              </Typography>
                                             </Stack>
                                           </Stack>
                                         </TableCell>
@@ -1179,7 +1310,9 @@ export default function DashboardOverviewBlank() {
                                   })}
                                   <TableRow>
                                     <TableCell>
-                                      <Typography sx={{ fontWeight: 600 }}>Total</Typography>
+                                      <Typography sx={{ fontWeight: 600 }}>
+                                        <FormattedMessage id="dashboard.total" defaultMessage="Total" />
+                                      </Typography>
                                     </TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>{Number(teamCapacity?.summary?.totalCompleted || 0).toLocaleString()}</TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>{Number(teamCapacity?.summary?.totalPending || 0).toLocaleString()}</TableCell>
@@ -1198,13 +1331,17 @@ export default function DashboardOverviewBlank() {
                   <Box sx={{ flex: 3 }}>
                     <Card variant="outlined" sx={{ height: '100%' }}>
                       <CardContent>
-                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Coach workload balance</Typography>
+                        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                          <FormattedMessage id="dashboard.coachWorkloadBalance" defaultMessage="Coach workload balance" />
+                        </Typography>
                         {loadingTeam ? (
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
                             <CircularProgress />
                           </Box>
                         ) : !teamCapacity?.members?.length ? (
-                          <Typography color="text.secondary">No workload data</Typography>
+                          <Typography color="text.secondary">
+                            <FormattedMessage id="dashboard.noWorkloadData" defaultMessage="No workload data" />
+                          </Typography>
                         ) : (
                           <Box sx={{ position: 'relative', width: '100%', height: 260 }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -1229,7 +1366,9 @@ export default function DashboardOverviewBlank() {
                             </ResponsiveContainer>
                             <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                               <Stack spacing={0} alignItems="center">
-                                <Typography variant="caption" color="text.secondary">Total Pending</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  <FormattedMessage id="dashboard.totalPending" defaultMessage="Total Pending" />
+                                </Typography>
                                 <Typography variant="h6">{teamCapacity?.summary?.totalPending ?? 0}</Typography>
                               </Stack>
                             </Box>
@@ -1248,7 +1387,9 @@ export default function DashboardOverviewBlank() {
               <Typography variant="h6" gutterBottom>
                 {tabs[tabIndex]}
               </Typography>
-              <Typography color="text.secondary">This page is blank for now.</Typography>
+              <Typography color="text.secondary">
+                <FormattedMessage id="dashboard.pageBlank" defaultMessage="This page is blank for now." />
+              </Typography>
             </CardContent>
           </Card>
         )}

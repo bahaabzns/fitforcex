@@ -499,8 +499,12 @@ export default function FormsPage() {
       <Card sx={{ borderStyle: 'dashed' }}>
         <CardContent>
           <Box sx={{ textAlign: 'center', py: 6 }}>
-            <Typography variant="h6">Select a workspace</Typography>
-            <Typography color="text.secondary">Choose a workspace to manage forms.</Typography>
+            <Typography variant="h6">
+              <FormattedMessage id="forms.selectWorkspace" defaultMessage="Select a workspace" />
+            </Typography>
+            <Typography color="text.secondary">
+              <FormattedMessage id="forms.chooseWorkspace" defaultMessage="Choose a workspace to manage forms." />
+            </Typography>
           </Box>
         </CardContent>
       </Card>
@@ -512,7 +516,9 @@ export default function FormsPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
         <Stack alignItems="center" spacing={2}>
           <CircularProgress />
-          <Typography color="text.secondary">Loading forms…</Typography>
+          <Typography color="text.secondary">
+            <FormattedMessage id="forms.loading" defaultMessage="Loading forms…" />
+          </Typography>
         </Stack>
       </Box>
     );
@@ -544,15 +550,21 @@ export default function FormsPage() {
             }
           }}
         >
-          Create Template
+          <FormattedMessage id="forms.createTemplate" defaultMessage="Create Template" />
         </Button>
       </Stack>
 
       {subscriptionRequired ? (
-        <Alert severity="warning" action={<Button color="warning" variant="contained" size="small" href="/dashboard/workspaces/subscription">Manage Subscription</Button>}>
+        <Alert severity="warning" action={<Button color="warning" variant="contained" size="small" href="/dashboard/workspaces/subscription">
+          <FormattedMessage id="forms.manageSubscription" defaultMessage="Manage Subscription" />
+        </Button>}>
           <Box>
-            <Box sx={{ fontWeight: 600, mb: 0.5 }}>Workspace subscription required</Box>
-            <Box sx={{ color: 'text.secondary' }}>Your workspace has no active subscription. Activate a plan to manage forms.</Box>
+            <Box sx={{ fontWeight: 600, mb: 0.5 }}>
+              <FormattedMessage id="forms.workspaceSubscriptionRequired" defaultMessage="Workspace subscription required" />
+            </Box>
+            <Box sx={{ color: 'text.secondary' }}>
+              <FormattedMessage id="forms.noActiveSubscription" defaultMessage="Your workspace has no active subscription. Activate a plan to manage forms." />
+            </Box>
             <Box sx={{ mt: 0.5, fontFamily: 'monospace', fontSize: '0.8rem', color: 'warning.dark' }}>workspace_subscription_required</Box>
           </Box>
         </Alert>
@@ -563,8 +575,8 @@ export default function FormsPage() {
       {/* Tabs */}
       <Card>
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-          <Tab label="Templates" />
-          <Tab label="Form Submissions" />
+          <Tab label={intl.formatMessage({ id: 'forms.templates', defaultMessage: 'Templates' })} />
+          <Tab label={intl.formatMessage({ id: 'forms.formSubmissions', defaultMessage: 'Form Submissions' })} />
         </Tabs>
       </Card>
 
@@ -594,7 +606,10 @@ export default function FormsPage() {
             </Typography>
             {newQuestions.length > 0 && (
               <Chip
-                label={`${newQuestions.length} ${newQuestions.length === 1 ? 'question' : 'questions'}`}
+                label={intl.formatMessage(
+                  { id: 'forms.questionsCount', defaultMessage: '{count} {count, plural, one {question} other {questions}}' },
+                  { count: newQuestions.length }
+                )}
                 size="small"
                 color="primary"
               />
@@ -650,7 +665,10 @@ export default function FormsPage() {
                     Questions ({newQuestions.length})
                   </Typography>
                   <Chip
-                    label={`${newQuestions.length} ${newQuestions.length === 1 ? 'question' : 'questions'}`}
+                    label={intl.formatMessage(
+                  { id: 'forms.questionsCount', defaultMessage: '{count} {count, plural, one {question} other {questions}}' },
+                  { count: newQuestions.length }
+                )}
                     size="small"
                     color="primary"
                     variant="outlined"
@@ -693,13 +711,15 @@ export default function FormsPage() {
             }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Add size={20} />
-                Add Custom Question
+                <FormattedMessage id="forms.addCustomQuestion" defaultMessage="Add Custom Question" />
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={3}>
                   <FormControl fullWidth>
-                    <InputLabel id="custom-type-label">Type</InputLabel>
-                    <Select labelId="custom-type-label" label="Type" value={customType} onChange={(e) => setCustomType(e.target.value)}>
+                    <InputLabel id="custom-type-label">
+                      <FormattedMessage id="forms.type" defaultMessage="Type" />
+                    </InputLabel>
+                    <Select labelId="custom-type-label" label={intl.formatMessage({ id: 'forms.type', defaultMessage: 'Type' })} value={customType} onChange={(e) => setCustomType(e.target.value)}>
                       <MenuItem value="text">text</MenuItem>
                       <MenuItem value="textarea">textarea</MenuItem>
                       <MenuItem value="number">number</MenuItem>
@@ -712,35 +732,35 @@ export default function FormsPage() {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={5}>
-                  <TextField fullWidth label="Question label" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} />
+                  <TextField fullWidth label={intl.formatMessage({ id: 'forms.questionLabel', defaultMessage: 'Question label' })} value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} />
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <TextField fullWidth label="Question label (Arabic)" value={customLabelArabic} onChange={(e) => setCustomLabelArabic(e.target.value)} />
+                  <TextField fullWidth label={intl.formatMessage({ id: 'forms.questionLabelArabic', defaultMessage: 'Question label (Arabic)' })} value={customLabelArabic} onChange={(e) => setCustomLabelArabic(e.target.value)} />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField 
                     fullWidth 
-                    label="Description (optional)" 
+                    label={intl.formatMessage({ id: 'forms.descriptionOptional', defaultMessage: 'Description (optional)' })} 
                     value={customDescription} 
                     onChange={(e) => setCustomDescription(e.target.value)} 
                     multiline
                     minRows={2}
-                    placeholder="Help text or instructions"
+                    placeholder={intl.formatMessage({ id: 'forms.helpTextPlaceholder', defaultMessage: 'Help text or instructions' })}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField 
                     fullWidth 
-                    label="Description (Arabic, optional)" 
+                    label={intl.formatMessage({ id: 'forms.descriptionArabicOptional', defaultMessage: 'Description (Arabic, optional)' })} 
                     value={customDescriptionArabic} 
                     onChange={(e) => setCustomDescriptionArabic(e.target.value)} 
                     multiline
                     minRows={2}
-                    placeholder="نص المساعدة"
+                    placeholder={intl.formatMessage({ id: 'forms.helpTextPlaceholderArabic', defaultMessage: 'نص المساعدة' })}
                   />
                 </Grid>
                 <Grid item xs={12} sm={3}>
-                  <FormControlLabel control={<Switch checked={customRequired} onChange={(e) => setCustomRequired(e.target.checked)} />} label="Required" />
+                  <FormControlLabel control={<Switch checked={customRequired} onChange={(e) => setCustomRequired(e.target.checked)} />} label={intl.formatMessage({ id: 'forms.required', defaultMessage: 'Required' })} />
                 </Grid>
                 </Grid>
               {['select', 'checkbox', 'radio'].includes(customType) && (
@@ -792,7 +812,7 @@ export default function FormsPage() {
                   onClick={() => {
                     setCustomError('');
                     if (!customLabel.trim()) {
-                      setCustomError('Question label is required');
+                      setCustomError(intl.formatMessage({ id: 'forms.questionLabelRequired', defaultMessage: 'Question label is required' }));
                       return;
                     }
                     setNewQuestions((prev) => [

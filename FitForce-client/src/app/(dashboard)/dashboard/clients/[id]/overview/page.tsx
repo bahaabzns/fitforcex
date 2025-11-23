@@ -331,32 +331,32 @@ export default function ClientOverviewPage() {
 
       {/* Quick Actions */}
       <Card sx={{ mt: 2 }}>
-        <CardHeader title="Quick Actions" />
+        <CardHeader title={intl.formatMessage({ id: 'client.quickActions', defaultMessage: 'Quick Actions' })} />
         <CardContent>
           <Stack direction="row" spacing={2} flexWrap="wrap">
             <Button
               variant="outlined"
               onClick={() => router.push(`/dashboard/clients/${clientId}/nutrition`)}
             >
-              Nutrition Plans
+              <FormattedMessage id="client.nutritionPlans" defaultMessage="Nutrition Plans" />
             </Button>
             <Button
               variant="outlined"
               onClick={() => router.push(`/dashboard/clients/${clientId}/workout`)}
             >
-              Workout Plans
+              <FormattedMessage id="client.workoutPlans" defaultMessage="Workout Plans" />
             </Button>
             <Button
               variant="outlined"
               onClick={() => router.push(`/dashboard/clients/${clientId}/forms`)}
             >
-              Forms
+              <FormattedMessage id="Forms" defaultMessage="Forms" />
             </Button>
             <Button
               variant="outlined"
               onClick={() => router.push(`/dashboard/clients/${clientId}/subscription`)}
             >
-              Subscription
+              <FormattedMessage id="client.subscription" defaultMessage="Subscription" />
             </Button>
           </Stack>
         </CardContent>

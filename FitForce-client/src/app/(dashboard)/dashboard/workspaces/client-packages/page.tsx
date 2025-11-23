@@ -83,7 +83,7 @@ export default function WorkspaceClientPackagesPage() {
       const { data } = await api.get(`/api/workspaces/${effectiveWorkspaceId}/client-packages`);
       setPackages(data.packages || []);
     } catch (e) {
-      setError('Failed to fetch client packages');
+      setError(intl.formatMessage({ id: 'pkgs.failedToFetch', defaultMessage: 'Failed to fetch client packages' }));
     } finally {
       setLoading(false);
     }
@@ -100,15 +100,15 @@ export default function WorkspaceClientPackagesPage() {
       setError(null);
       setSuccessMsg(null);
       if (!name.trim()) {
-        setError('Name is required');
+        setError(intl.formatMessage({ id: 'pkgs.nameRequired', defaultMessage: 'Name is required' }));
         return;
       }
       if (durationMonths < 1) {
-        setError('Duration must be at least 1 month');
+        setError(intl.formatMessage({ id: 'pkgs.durationMin', defaultMessage: 'Duration must be at least 1 month' }));
         return;
       }
       if (priceEgp < 1) {
-        setError('Price must be at least 1 EGP');
+        setError(intl.formatMessage({ id: 'pkgs.priceMin', defaultMessage: 'Price must be at least 1 EGP' }));
         return;
       }
       const priceCents = Math.round(Number(priceEgp) * 100);
@@ -127,7 +127,7 @@ export default function WorkspaceClientPackagesPage() {
       await fetchPackages();
       setSuccessMsg('Package created');
     } catch (e) {
-      setError('Failed to create package');
+      setError(intl.formatMessage({ id: 'pkgs.failedToCreate', defaultMessage: 'Failed to create package' }));
     } finally {
       setSaving(false);
     }
@@ -141,7 +141,7 @@ export default function WorkspaceClientPackagesPage() {
       });
       await fetchPackages();
     } catch (e) {
-      setError('Failed to update package');
+      setError(intl.formatMessage({ id: 'pkgs.failedToUpdate', defaultMessage: 'Failed to update package' }));
     }
   };
 
@@ -160,9 +160,9 @@ export default function WorkspaceClientPackagesPage() {
       await fetchPackages();
       setDeleteDialogOpen(false);
       setPackageToDelete(null);
-      setSuccessMsg('Package deleted successfully');
+      setSuccessMsg(intl.formatMessage({ id: 'pkgs.deletedSuccessfully', defaultMessage: 'Package deleted successfully' }));
     } catch (e) {
-      setError('Failed to delete package');
+      setError(intl.formatMessage({ id: 'pkgs.failedToDelete', defaultMessage: 'Failed to delete package' }));
     } finally {
       setDeleteLoading(false);
     }
@@ -192,15 +192,15 @@ export default function WorkspaceClientPackagesPage() {
       setSuccessMsg(null);
       
       if (!editName.trim()) {
-        setError('Name is required');
+        setError(intl.formatMessage({ id: 'pkgs.nameRequired', defaultMessage: 'Name is required' }));
         return;
       }
       if (editDurationMonths < 1) {
-        setError('Duration must be at least 1 month');
+        setError(intl.formatMessage({ id: 'pkgs.durationMin', defaultMessage: 'Duration must be at least 1 month' }));
         return;
       }
       if (editPriceEgp < 1) {
-        setError('Price must be at least 1 EGP');
+        setError(intl.formatMessage({ id: 'pkgs.priceMin', defaultMessage: 'Price must be at least 1 EGP' }));
         return;
       }
 
@@ -216,9 +216,9 @@ export default function WorkspaceClientPackagesPage() {
 
       setEditDialogOpen(false);
       await fetchPackages();
-      setSuccessMsg('Package updated successfully');
+      setSuccessMsg(intl.formatMessage({ id: 'pkgs.updatedSuccessfully', defaultMessage: 'Package updated successfully' }));
     } catch (e) {
-      setError('Failed to update package');
+      setError(intl.formatMessage({ id: 'pkgs.failedToUpdate', defaultMessage: 'Failed to update package' }));
     } finally {
       setEditSaving(false);
     }
@@ -271,11 +271,11 @@ export default function WorkspaceClientPackagesPage() {
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Create Package
+              <FormattedMessage id="pkgs.createPackage" defaultMessage="Create Package" />
             </Typography>
             <Stack spacing={2} direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'flex-end' }}>
               <TextField 
-                label="Name" 
+                label={intl.formatMessage({ id: 'pkgs.name', defaultMessage: 'Name' })} 
                 value={name} 
                 onChange={(e) => setName(e.target.value)} 
                 fullWidth 
@@ -284,7 +284,7 @@ export default function WorkspaceClientPackagesPage() {
                 sx={{ minWidth: 200 }}
               />
               <TextField 
-                label="Description" 
+                label={intl.formatMessage({ id: 'pkgs.description', defaultMessage: 'Description' })} 
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
                 fullWidth 
@@ -292,7 +292,7 @@ export default function WorkspaceClientPackagesPage() {
                 sx={{ minWidth: 200 }}
               />
               <TextField
-                label="Duration (months)"
+                label={intl.formatMessage({ id: 'pkgs.durationMonths', defaultMessage: 'Duration (months)' })}
                 type="number"
                 value={durationMonths}
                 onChange={(e) => setDurationMonths(Number(e.target.value))}
@@ -301,7 +301,7 @@ export default function WorkspaceClientPackagesPage() {
                 sx={{ minWidth: 150 }}
               />
               <TextField
-                label="Price"
+                label={intl.formatMessage({ id: 'pkgs.price', defaultMessage: 'Price' })}
                 type="number"
                 value={priceEgp}
                 onChange={(e) => setPriceEgp(Number(e.target.value))}
@@ -310,10 +310,10 @@ export default function WorkspaceClientPackagesPage() {
                 sx={{ minWidth: 150 }}
               />
               <FormControl sx={{ minWidth: 120 }} size="medium">
-                <InputLabel>Currency</InputLabel>
+                <InputLabel><FormattedMessage id="pkgs.currency" defaultMessage="Currency" /></InputLabel>
                 <Select
                   value={currency}
-                  label="Currency"
+                  label={intl.formatMessage({ id: 'pkgs.currency', defaultMessage: 'Currency' })}
                   onChange={(e) => setCurrency(e.target.value)}
                 >
                   <MenuItem value="EGP">EGP</MenuItem>
@@ -331,7 +331,7 @@ export default function WorkspaceClientPackagesPage() {
                 size="large"
                 sx={{ minWidth: 120, height: 56 }}
               >
-                {saving ? 'Saving...' : 'Create'}
+                {saving ? intl.formatMessage({ id: 'pkgs.saving', defaultMessage: 'Saving...' }) : intl.formatMessage({ id: 'pkgs.create', defaultMessage: 'Create' })}
               </Button>
             </Stack>
           </CardContent>
@@ -347,9 +347,9 @@ export default function WorkspaceClientPackagesPage() {
                     {pkg.description}
                   </Typography>
                   <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-                    <Chip size="small" label={`Duration: ${pkg.durationMonths} mo`} />
-                    <Chip size="small" color="primary" label={`Price: ${(pkg.priceCents / 100).toFixed(2)} ${pkg.currency}`} />
-                    <Chip size="small" color={pkg.isActive ? 'success' : 'default'} label={pkg.isActive ? 'Active' : 'Inactive'} />
+                    <Chip size="small" label={intl.formatMessage({ id: 'pkgs.duration', defaultMessage: 'Duration: {months} mo' }, { months: pkg.durationMonths })} />
+                    <Chip size="small" color="primary" label={intl.formatMessage({ id: 'pkgs.priceLabel', defaultMessage: 'Price: {price} {currency}' }, { price: (pkg.priceCents / 100).toFixed(2), currency: pkg.currency })} />
+                    <Chip size="small" color={pkg.isActive ? 'success' : 'default'} label={pkg.isActive ? intl.formatMessage({ id: 'pkgs.active', defaultMessage: 'Active' }) : intl.formatMessage({ id: 'pkgs.inactive', defaultMessage: 'Inactive' })} />
                   </Stack>
                   <Divider sx={{ my: 1 }} />
                   <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
@@ -359,7 +359,9 @@ export default function WorkspaceClientPackagesPage() {
                         onChange={() => toggleActive(pkg)}
                         inputProps={{ 'aria-label': 'toggle active' }}
                       />
-                      <Typography variant="body2">Active</Typography>
+                      <Typography variant="body2">
+                        <FormattedMessage id="pkgs.active" defaultMessage="Active" />
+                      </Typography>
                     </Stack>
                     <Stack direction="row" spacing={1}>
                       <IconButton aria-label="edit" color="primary" onClick={() => handleEditPackage(pkg)}>
@@ -378,11 +380,13 @@ export default function WorkspaceClientPackagesPage() {
 
         {/* Edit Package Dialog */}
         <Dialog open={editDialogOpen} onClose={handleCancelEdit} maxWidth="sm" fullWidth>
-          <DialogTitle>Edit Package</DialogTitle>
+          <DialogTitle>
+            <FormattedMessage id="pkgs.editPackage" defaultMessage="Edit Package" />
+          </DialogTitle>
           <DialogContent>
             <Stack spacing={3} sx={{ mt: 1 }}>
               <TextField
-                label="Name"
+                label={intl.formatMessage({ id: 'pkgs.name', defaultMessage: 'Name' })}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 fullWidth
@@ -390,7 +394,7 @@ export default function WorkspaceClientPackagesPage() {
                 size="medium"
               />
               <TextField
-                label="Description"
+                label={intl.formatMessage({ id: 'pkgs.description', defaultMessage: 'Description' })}
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 fullWidth
@@ -400,7 +404,7 @@ export default function WorkspaceClientPackagesPage() {
               />
               <Stack direction="row" spacing={2}>
                 <TextField
-                  label="Duration (months)"
+                  label={intl.formatMessage({ id: 'pkgs.durationMonths', defaultMessage: 'Duration (months)' })}
                   type="number"
                   value={editDurationMonths}
                   onChange={(e) => setEditDurationMonths(Number(e.target.value))}
@@ -409,7 +413,7 @@ export default function WorkspaceClientPackagesPage() {
                   sx={{ flex: 1, minWidth: 150 }}
                 />
                 <TextField
-                  label="Price"
+                  label={intl.formatMessage({ id: 'pkgs.price', defaultMessage: 'Price' })}
                   type="number"
                   value={editPriceEgp}
                   onChange={(e) => setEditPriceEgp(Number(e.target.value))}
@@ -418,10 +422,10 @@ export default function WorkspaceClientPackagesPage() {
                   sx={{ flex: 1, minWidth: 150 }}
                 />
                 <FormControl sx={{ minWidth: 120 }} size="medium">
-                  <InputLabel>Currency</InputLabel>
+                  <InputLabel><FormattedMessage id="pkgs.currency" defaultMessage="Currency" /></InputLabel>
                   <Select
                     value={editCurrency}
-                    label="Currency"
+                    label={intl.formatMessage({ id: 'pkgs.currency', defaultMessage: 'Currency' })}
                     onChange={(e) => setEditCurrency(e.target.value)}
                   >
                     <MenuItem value="EGP">EGP</MenuItem>
@@ -442,7 +446,7 @@ export default function WorkspaceClientPackagesPage() {
               size="large"
               sx={{ minWidth: 100 }}
             >
-              Cancel
+              <FormattedMessage id="cancel" defaultMessage="Cancel" />
             </Button>
             <Button 
               onClick={handleSaveEdit} 
@@ -451,17 +455,19 @@ export default function WorkspaceClientPackagesPage() {
               size="large"
               sx={{ minWidth: 140 }}
             >
-              {editSaving ? 'Saving...' : 'Save Changes'}
+              {editSaving ? intl.formatMessage({ id: 'pkgs.saving', defaultMessage: 'Saving...' }) : intl.formatMessage({ id: 'pkgs.saveChanges', defaultMessage: 'Save Changes' })}
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onClose={cancelDelete} maxWidth="sm" fullWidth>
-          <DialogTitle>Delete Package</DialogTitle>
+          <DialogTitle>
+            <FormattedMessage id="pkgs.deletePackage" defaultMessage="Delete Package" />
+          </DialogTitle>
           <DialogContent>
             <Typography variant="body1" sx={{ mb: 2 }}>
-              Are you sure you want to delete this package? This action cannot be undone.
+              <FormattedMessage id="pkgs.deleteConfirm" defaultMessage="Are you sure you want to delete this package? This action cannot be undone." />
             </Typography>
             {packageToDelete && (
               <Card variant="outlined" sx={{ p: 2 }}>
@@ -472,9 +478,9 @@ export default function WorkspaceClientPackagesPage() {
                   </Typography>
                 )}
                 <Stack direction="row" spacing={1}>
-                  <Chip size="small" label={`Duration: ${packageToDelete.durationMonths} mo`} />
-                  <Chip size="small" color="primary" label={`Price: ${(packageToDelete.priceCents / 100).toFixed(2)} ${packageToDelete.currency}`} />
-                  <Chip size="small" color={packageToDelete.isActive ? 'success' : 'default'} label={packageToDelete.isActive ? 'Active' : 'Inactive'} />
+                  <Chip size="small" label={intl.formatMessage({ id: 'pkgs.duration', defaultMessage: 'Duration: {months} mo' }, { months: packageToDelete.durationMonths })} />
+                  <Chip size="small" color="primary" label={intl.formatMessage({ id: 'pkgs.priceLabel', defaultMessage: 'Price: {price} {currency}' }, { price: (packageToDelete.priceCents / 100).toFixed(2), currency: packageToDelete.currency })} />
+                  <Chip size="small" color={packageToDelete.isActive ? 'success' : 'default'} label={packageToDelete.isActive ? intl.formatMessage({ id: 'pkgs.active', defaultMessage: 'Active' }) : intl.formatMessage({ id: 'pkgs.inactive', defaultMessage: 'Inactive' })} />
                 </Stack>
               </Card>
             )}
@@ -486,7 +492,7 @@ export default function WorkspaceClientPackagesPage() {
               size="large"
               sx={{ minWidth: 100 }}
             >
-              Cancel
+              <FormattedMessage id="cancel" defaultMessage="Cancel" />
             </Button>
             <Button 
               onClick={confirmDelete} 
@@ -496,7 +502,7 @@ export default function WorkspaceClientPackagesPage() {
               size="large"
               sx={{ minWidth: 100 }}
             >
-              {deleteLoading ? 'Deleting...' : 'Delete'}
+              {deleteLoading ? intl.formatMessage({ id: 'pkgs.deleting', defaultMessage: 'Deleting...' }) : intl.formatMessage({ id: 'pkgs.delete', defaultMessage: 'Delete' })}
             </Button>
           </DialogActions>
         </Dialog>
