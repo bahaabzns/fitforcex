@@ -114,8 +114,11 @@ export default function PushNotificationsPage() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 } }}>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 700 }}>
-        <FormattedMessage id="push_notifications" defaultMessage="Push Notifications" />
+      <Typography variant="h4" sx={{ mb: 1, fontWeight: 700 }}>
+        <FormattedMessage id="pushNotifications.title" defaultMessage="Push Notifications" />
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        <FormattedMessage id="pushNotifications.subtitle" defaultMessage="Send instant notifications to clients" />
       </Typography>
 
       {loading ? (

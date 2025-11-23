@@ -736,9 +736,11 @@ export default function WorkoutPage() {
       >
         <Box>
           <Typography variant="h4" gutterBottom>
-            Workouts
+            <FormattedMessage id="Workouts" defaultMessage="Workouts" />
           </Typography>
-          <Typography color="text.secondary">Manage exercises and workout plans</Typography>
+          <Typography color="text.secondary">
+            <FormattedMessage id="workout.subtitle" defaultMessage="Manage exercises and workout database" />
+          </Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
           <Button variant="outlined" startIcon={<DocumentUpload />} onClick={handleOpenImport}>

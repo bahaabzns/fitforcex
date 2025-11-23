@@ -881,5 +881,42 @@
   "header.pricing": "Pricing",
   "header.book-demo": "Book Demo",
   "header.login": "Login",
-  "header.dashboard": "Dashboard"
+  "header.dashboard": "Dashboard",
+  
+  "pushNotifications.title": "Push Notifications",
+  "pushNotifications.subtitle": "Send instant notifications to clients",
+  "pushNotifications.sendToAll": "Send to All",
+  "pushNotifications.selectClients": "Select Clients",
+  "pushNotifications.titleField": "Notification Title",
+  "pushNotifications.bodyField": "Notification Body",
+  "pushNotifications.send": "Send",
+  "pushNotifications.sending": "Sending...",
+  "pushNotifications.success": "Notifications sent successfully",
+  "pushNotifications.error": "Failed to send notifications",
+  "pushNotifications.noClients": "No clients found",
+  "pushNotifications.loading": "Loading clients...",
+  
+  "promo.title": "Promo Earnings",
+  "promo.subtitle": "View statistics and earnings from your promo codes",
+  "promo.code": "Promo Code",
+  "promo.summary": "Summary",
+  "promo.usageCount": "Usage Count",
+  "promo.totalDiscount": "Total Discount",
+  "promo.totalCommission": "Total Commission",
+  "promo.unpaidCommission": "Unpaid Commission",
+  "promo.paidCommission": "Paid Commission",
+  "promo.creditedCommission": "Credited Commission",
+  "promo.noPromoCode": "No promo code found",
+  "promo.loading": "Loading...",
+  "promo.error": "Failed to load data",
+  
+  "workspaces.title": "Workspaces",
+  "workspaces.subtitle": "Manage your workspaces",
+  "workspaces.create": "Create Workspace",
+  "workspaces.loading": "Loading workspaces...",
+  "workspaces.noWorkspaces": "No workspaces found",
+  
+  "nutrition.subtitle": "Manage food items and nutrition database",
+  "workout.subtitle": "Manage exercises and workout database",
+  "forms.subtitle": "Create and manage assessment forms for clients"
 }

@@ -29,21 +29,21 @@ const mainDomainMenu: NavItemType = {
   children: [
     {
       id: 'profile',
-      title: 'Profile',
+      title: 'profile',
       type: 'item',
       url: '/dashboard/profile',
       icon: icons.settings
     },
     {
       id: 'promo',
-      title: 'Promo Earnings',
+      title: 'promo.title',
       type: 'item',
       url: '/dashboard/promo',
       icon: icons.finance
     },
     {
       id: 'workspaces',
-      title: 'Workspaces',
+      title: 'workspaces.title',
       type: 'item',
       url: '/dashboard/workspaces',
       icon: icons.workspaces
@@ -109,14 +109,14 @@ const workspaceMenu: NavItemType = {
     },
   {
     id: 'messenger',
-    title: 'Messenger',
+    title: 'messenger.title',
     type: 'item',
     url: '/dashboard/messenger',
     icon: icons.messenger
   },
   {
     id: 'push-notifications',
-    title: 'Push Notifications',
+    title: 'pushNotifications.title',
     type: 'item',
     url: '/dashboard/push-notifications',
     icon: icons.pushNotifications
@@ -137,14 +137,14 @@ const workspaceMenu: NavItemType = {
     },
     {
       id: 'profile',
-      title: 'Profile',
+      title: 'profile',
       type: 'item',
       url: '/dashboard/profile',
       icon: icons.settings
     },
     {
       id: 'promo',
-      title: 'Promo Earnings',
+      title: 'promo.title',
       type: 'item',
       url: '/dashboard/promo',
       icon: icons.finance
@@ -158,14 +158,14 @@ const workspaceMenu: NavItemType = {
     // },
     {
       id: 'workspace-subscription',
-      title: 'Workspace Subscription',
+      title: 'wsSub.title',
       type: 'item',
       url: '/dashboard/workspaces/subscription',
       icon: icons.finance
     },
     {
       id: 'workspace-client-packages',
-      title: 'Client Packages',
+      title: 'pkgs.title',
       type: 'item',
       url: '/dashboard/workspaces/client-packages',
       icon: icons.forms

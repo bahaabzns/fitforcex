@@ -680,9 +680,11 @@ export default function NutritionPage() {
       >
         <Box>
           <Typography variant="h4" gutterBottom>
-            Nutrition
+            <FormattedMessage id="Nutrition" defaultMessage="Nutrition" />
           </Typography>
-          <Typography color="text.secondary">Manage food items and nutrition plans</Typography>
+          <Typography color="text.secondary">
+            <FormattedMessage id="nutrition.subtitle" defaultMessage="Manage food items and nutrition database" />
+          </Typography>
         </Box>
       </Stack>
 

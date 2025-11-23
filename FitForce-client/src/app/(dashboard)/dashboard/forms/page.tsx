@@ -526,7 +526,14 @@ export default function FormsPage() {
         alignItems={{ xs: 'stretch', sm: 'center' }}
         justifyContent="space-between"
       >
-        <Typography variant="h4">Forms</Typography>
+        <Box>
+          <Typography variant="h4" gutterBottom>
+            <FormattedMessage id="Forms" defaultMessage="Forms" />
+          </Typography>
+          <Typography color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <FormattedMessage id="forms.subtitle" defaultMessage="Create and manage assessment forms for clients" />
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           onClick={() => {

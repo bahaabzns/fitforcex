@@ -52,11 +52,11 @@ export default function Navigation() {
         icon: Home,
         children: [
           { id: 'client-overview', title: 'Overview', type: 'item', url: '/client/dashboard', icon: Home },
-          { id: 'client-forms', title: 'Forms', type: 'item', url: '/client/forms', icon: Document },
+          { id: 'client-forms', title: 'forms', type: 'item', url: '/client/forms', icon: Document },
           { id: 'client-plans', title: 'Plans', type: 'item', url: '/client/plans', icon: Category },
           { id: 'client-subscription', title: 'Subscription', type: 'item', url: '/client/subscription', icon: Card },
           { id: 'client-support', title: 'Support', type: 'item', url: '/client/support', icon: Messages2 },
-          { id: 'client-settings', title: 'Settings', type: 'item', url: '/client/settings', icon: Setting2 }
+          { id: 'client-settings', title: 'settings', type: 'item', url: '/client/settings', icon: Setting2 }
         ]
       } as unknown as NavItemType;
       return { items: [clientMenu] };

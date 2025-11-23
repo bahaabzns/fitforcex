@@ -25,6 +25,7 @@ import MainCard from 'components/MainCard';
 import AppliedPromoCard from 'components/promo/AppliedPromoCard';
 import api, { fetcher } from '@/utils/axios';
 import { openSnackbar } from '@/api/snackbar';
+import { FormattedMessage } from 'react-intl';
 
 interface PromoSummaryResponse {
   promoCode: {
@@ -123,9 +124,11 @@ export default function OwnedPromoPage() {
     <Box sx={{ px: { xs: 2, sm: 3, lg: 4 }, py: { xs: 2, md: 3 }, maxWidth: 1280, mx: 'auto', width: '100%' }}>
       <Stack spacing={3}>
         <Box>
-          <Typography variant="h4" fontWeight={800}>Promo Earnings</Typography>
+          <Typography variant="h4" fontWeight={800}>
+            <FormattedMessage id="promo.title" defaultMessage="Promo Earnings" />
+          </Typography>
           <Typography color="text.secondary">
-            Track your referral code performance, available commission credit, and payouts.
+            <FormattedMessage id="promo.subtitle" defaultMessage="View statistics and earnings from your promo codes" />
           </Typography>
         </Box>
 

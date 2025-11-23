@@ -878,5 +878,42 @@
   "header.pricing": "التسعير",
   "header.book-demo": "احجز عرض توضيحي",
   "header.login": "تسجيل الدخول",
-  "header.dashboard": "لوحة التحكم"
+  "header.dashboard": "لوحة التحكم",
+  
+  "pushNotifications.title": "الإشعارات الفورية",
+  "pushNotifications.subtitle": "أرسل إشعارات فورية للعملاء",
+  "pushNotifications.sendToAll": "إرسال للجميع",
+  "pushNotifications.selectClients": "اختر العملاء",
+  "pushNotifications.titleField": "عنوان الإشعار",
+  "pushNotifications.bodyField": "نص الإشعار",
+  "pushNotifications.send": "إرسال",
+  "pushNotifications.sending": "جاري الإرسال...",
+  "pushNotifications.success": "تم إرسال الإشعارات بنجاح",
+  "pushNotifications.error": "فشل إرسال الإشعارات",
+  "pushNotifications.noClients": "لا يوجد عملاء",
+  "pushNotifications.loading": "جاري تحميل العملاء...",
+  
+  "promo.title": "أرباح الرموز الترويجية",
+  "promo.subtitle": "اعرض إحصائيات وأرباح رموزك الترويجية",
+  "promo.code": "رمز الترويجي",
+  "promo.summary": "ملخص",
+  "promo.usageCount": "عدد الاستخدامات",
+  "promo.totalDiscount": "إجمالي الخصم",
+  "promo.totalCommission": "إجمالي العمولة",
+  "promo.unpaidCommission": "عمولة غير مدفوعة",
+  "promo.paidCommission": "عمولة مدفوعة",
+  "promo.creditedCommission": "عمولة مستحقة",
+  "promo.noPromoCode": "لا يوجد رمز ترويجي",
+  "promo.loading": "جاري التحميل...",
+  "promo.error": "فشل تحميل البيانات",
+  
+  "workspaces.title": "مساحات العمل",
+  "workspaces.subtitle": "إدارة مساحات العمل الخاصة بك",
+  "workspaces.create": "إنشاء مساحة عمل",
+  "workspaces.loading": "جاري تحميل مساحات العمل...",
+  "workspaces.noWorkspaces": "لا توجد مساحات عمل",
+  
+  "nutrition.subtitle": "إدارة عناصر الطعام وقاعدة البيانات الغذائية",
+  "workout.subtitle": "إدارة التمارين وقاعدة بيانات التمارين",
+  "forms.subtitle": "إنشاء وإدارة نماذج التقييم للعملاء"
 }
