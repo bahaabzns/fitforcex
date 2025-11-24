@@ -60,6 +60,7 @@ interface SubscriptionData {
     providerRef?: string;
     createdAt: string;
   }>;
+  teamMembersLimit?: number | null;
 }
 
 interface SubscriptionManagerProps {
@@ -416,6 +417,20 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                     );
                   }
                   return null;
+                })()}
+                {(() => {
+                  const limit =
+                    subscription.teamMembersLimit ??
+                    subscription.package?.teamMembersLimit ??
+                    null;
+                  if (limit === null || limit === undefined) {
+                    return null;
+                  }
+                  return (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Team members limit: {limit === 0 ? 'Unlimited' : limit}
+                    </Typography>
+                  );
                 })()}
               </Grid>
               <Grid item xs={12} md={6}>

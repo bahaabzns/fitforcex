@@ -1,30 +1,14 @@
 'use client';
 
 // material-ui
-import Divider from '@mui/material/Divider';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
-import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
 
 // project-imports
-import Hero from 'sections/landing/Hero';
-import ProblemSolution from 'sections/landing/ProblemSolution';
-import WhyFitForceWins from 'sections/landing/WhyFitForceWins';
-import PricingPlans from 'sections/landing/PricingPlans';
-import FinalCTA from 'sections/landing/FinalCTA';
-import VideoShowcase from 'sections/landing/VideoShowcase';
-import SimpleLayout from 'layout/SimpleLayout';
+import NewLandingPage from 'components/landing/NewLandingPage';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, Suspense, useRef } from 'react';
-import IconButton from '@mui/material/IconButton';
-import Replay10Icon from '@mui/icons-material/Replay10';
-import Forward10Icon from '@mui/icons-material/Forward10';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
+import { useEffect, useState, Suspense } from 'react';
 import Loader from 'components/Loader';
 import { APP_CONFIG } from '@/lib/config';
 import dynamic from 'next/dynamic';
@@ -48,17 +32,6 @@ export default function Landing() {
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [isCheckingWorkspace, setIsCheckingWorkspace] = useState(true);
   const [workspaceData, setWorkspaceData] = useState<{ id: string; subdomain: string } | null>(null);
-  // Fetch book-demo and support overrides (must be declared before any early returns)
-  const [bookDemo, setBookDemo] = useState<{ title?: string; subtitle?: string } | null>(null);
-  const [support, setSupport] = useState<{ title?: string; subtitle?: string } | null>(null);
-  const [landingVideoUrl, setLandingVideoUrl] = useState<string | null>(null);
-  const landingVideoRef = useRef<HTMLVideoElement | null>(null);
-  const videoSectionRef = useRef<HTMLDivElement | null>(null);
-  const videoContainerRef = useRef<HTMLDivElement | null>(null);
-  const [isHoveringVideo, setIsHoveringVideo] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [inView, setInView] = useState(false);
-  const [videoHeight, setVideoHeight] = useState<number | null>(null);
 
   useEffect(() => {
     // Ensure Arabic is the default for landing and set RTL direction
@@ -184,73 +157,10 @@ export default function Landing() {
   }, [searchParams]);
 
   useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const resp = await fetch(`${APP_CONFIG.apiUrl}/api/meta/landing-config`, { cache: 'no-store' });
-        if (!resp.ok) return;
-        const data = await resp.json();
-        const lang = (i18n as string) || 'en';
-        const tr = data?.landing?.translations?.[lang];
-        const sections = tr?.sections || {};
-        if (!isMounted) return;
-        setBookDemo(sections.bookDemo || null);
-        setSupport(sections.support || null);
-        const candidate = data?.landing?.videoUrl
-          || tr?.video?.videoUrl
-          || sections?.video?.videoUrl
-          || tr?.video?.url
-          || sections?.video?.url
-          || null;
-        setLandingVideoUrl(candidate);
-      } catch {}
-    })();
-    return () => { isMounted = false; };
-  }, [i18n]);
-
-  useEffect(() => {
     const locale = (i18n as string) || (typeof navigator !== 'undefined' ? navigator.language : 'en');
     const eventId = `pv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     track('PageView', { page_type: 'landing', locale, event_id: eventId });
   }, [i18n]);
-
-  // Autoplay when section is in view (first time), keep playing when out of view
-  useEffect(() => {
-    const sectionEl = videoSectionRef.current;
-    if (!sectionEl) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const visible = entry.isIntersecting;
-          setInView(visible);
-          if (visible) {
-            setHasStarted(true);
-            landingVideoRef.current?.play().catch(() => {});
-          }
-        });
-      },
-      { threshold: 0.5 }
-    );
-    observer.observe(sectionEl);
-    return () => observer.disconnect();
-  }, []);
-
-  // Measure and preserve section height when mini-player is active
-  useEffect(() => {
-    const measure = () => {
-      const node = videoContainerRef.current;
-      if (!node) return;
-      const h = node.offsetHeight;
-      if (h && h !== videoHeight) setVideoHeight(h);
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    const t = setTimeout(measure, 300);
-    return () => {
-      window.removeEventListener('resize', measure);
-      clearTimeout(t);
-    };
-  }, [videoHeight]);
 
   // No entrance animation (removed)
 
@@ -269,11 +179,10 @@ export default function Landing() {
   }
 
   return (
-    <SimpleLayout>
-      <Box>
+    <>
       {/* Error Alert for Non-existent Workspace */}
       {showError && (
-        <Box sx={{ position: 'sticky', top: 0, zIndex: 1200, width: '100%' }}>
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, width: '100%' }}>
           <Alert 
             severity="error" 
             onClose={() => setShowError(false)}
@@ -298,178 +207,7 @@ export default function Landing() {
           </Alert>
         </Box>
       )}
-      <Hero />
-      {/* Landing video section with mini-player when scrolled away */}
-      <Box sx={{ pt: { xs: 2, md: 3 }, pb: 0, mb: 0 }} ref={videoSectionRef}>
-        <Container sx={{ px: { xs: 2, sm: 3 }, py: 0, pb: 0 }}>
-          {/* Wrapper keeps layout height stable when video container becomes fixed */}
-          <Box sx={{ height: (hasStarted && !inView && videoHeight) ? `${videoHeight}px` : 'auto', mb: 0, pb: 0, lineHeight: 0 }}>
-            <Box
-            sx={{
-                position: (hasStarted && !inView) ? 'fixed' : 'relative',
-                borderRadius: 2,
-                overflow: 'hidden',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-                right: (hasStarted && !inView) ? 16 : 'auto',
-                bottom: (hasStarted && !inView) ? 16 : 'auto',
-                zIndex: (hasStarted && !inView) ? 1300 : 'auto',
-                width: (hasStarted && !inView) ? { xs: 220, sm: 280, md: 320 } as any : '100%',
-                mb: 0,
-                pb: 0,
-                display: 'block'
-              }}
-              ref={videoContainerRef} 
-              onMouseEnter={() => setIsHoveringVideo(true)}
-              onMouseLeave={() => setIsHoveringVideo(false)}
-            >
-              <video
-                ref={landingVideoRef}
-                preload="metadata"
-                muted
-                playsInline
-                controls={false}
-                controlsList="nodownload noplaybackrate noremoteplayback"
-                style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
-                key={landingVideoUrl || 'fallback-video'}
-                src={landingVideoUrl || 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/global/landing/1762436014326-vid.mp4'}
-              />
-
-              {/* Hover overlay controls */}
-              <Box
-                sx={{
-                  pointerEvents: isHoveringVideo ? 'auto' : 'none',
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: isHoveringVideo ? 'rgba(0,0,0,0.15)' : 'transparent',
-                  transition: 'background-color 200ms ease'
-                }}
-              >
-                <Stack direction="row" spacing={2} alignItems="center" sx={{ opacity: isHoveringVideo ? 1 : 0, transition: 'opacity 200ms ease' }}>
-                  <IconButton
-                    aria-label="Back 10 seconds"
-                    onClick={() => {
-                      const v = landingVideoRef.current; if (!v) return;
-                      v.currentTime = Math.max(0, v.currentTime - 10);
-                    }}
-                    sx={{ bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}
-                  >
-                    <Replay10Icon />
-                  </IconButton>
-                  <IconButton
-                    aria-label="Play/Pause"
-                    onClick={() => {
-                      const v = landingVideoRef.current; if (!v) return;
-                      if (v.paused) { v.play().catch(() => {}); } else { v.pause(); }
-                    }}
-                    sx={{ bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }, width: 64, height: 64 }}
-                  >
-                    {landingVideoRef.current && !landingVideoRef.current.paused ? <PauseIcon /> : <PlayArrowIcon />}
-                  </IconButton>
-                  <IconButton
-                    aria-label="Forward 10 seconds"
-                    onClick={() => {
-                      const v = landingVideoRef.current; if (!v) return;
-                      v.currentTime = Math.min(v.duration || v.currentTime + 10, v.currentTime + 10);
-                    }}
-                    sx={{ bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}
-                  >
-                    <Forward10Icon />
-                  </IconButton>
-                  {(hasStarted && !inView) && (
-                    <IconButton
-                      aria-label="Back to section"
-                      onClick={() => {
-                        videoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }}
-                      sx={{ bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}
-                    >
-                      <PlayArrowIcon />
-                    </IconButton>
-                  )}
-                </Stack>
-              </Box>
-            </Box>
-          </Box>
-        </Container>
-      </Box>
-      <VideoShowcase />
-      <Box id="problem-solution">
-        <ProblemSolution />
-      </Box>
-      <Box id="why-fitforce">
-        <WhyFitForceWins />
-      </Box>
-      <Box id="pricing">
-        <PricingPlans />
-      </Box>
-      {/* Book Demo Section */}
-      <Box id="book-demo" sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default' }}>
-        <Container>
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Typography variant="h2" sx={{ fontWeight: 800, mb: 2 }}>
-              {bookDemo?.title || 'Book Your Demo'}
-            </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-              {bookDemo?.subtitle || 'See how FitForce can transform your coaching business. Schedule a personalized demo with our team.'}
-            </Typography>
-          </Box>
-          
-          {/* Calendly iframe */}
-          <Box 
-            sx={{ 
-              height: 800, 
-              borderRadius: 2,
-              overflow: 'hidden',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-            }}
-          >
-            <iframe
-              src="https://zcal.co/i/JprJ400Q"
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              title="Book a Demo - FitForce"
-              style={{
-                border: 'none',
-                borderRadius: '8px',
-                overflow: 'hidden'
-              }}
-              scrolling="no"
-            />
-          </Box>
-        </Container>
-      </Box>
-      <FinalCTA />
-      {/* Support Section override */}
-      <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'background.default' }}>
-        <Container>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h2" sx={{ fontWeight: 800, mb: 2 }}>
-              {support?.title || 'Need Support?'}
-            </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto', mb: 4 }}>
-              {support?.subtitle || "Have questions? Our expert support team is ready to help. Submit a ticket, and we'll assist you promptly."}
-            </Typography>
-            <Stack direction="row" justifyContent="center">
-              <Button
-                variant="contained"
-                color="primary"
-                size="large"
-                href="https://wa.me/201006206308"
-                target="_blank"
-                sx={{ px: 4 }}
-              >
-                Get Support
-              </Button>
-            </Stack>
-          </Box>
-        </Container>
-      </Box>
-      <Divider sx={{ borderColor: 'secondary.light' }} />
-      </Box>
-    </SimpleLayout>
+      <NewLandingPage />
+    </>
   );
 }

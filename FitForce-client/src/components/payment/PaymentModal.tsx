@@ -54,6 +54,8 @@ interface PaymentModalProps {
     priceCents: number;
     currency: string;
     features?: any;
+    teamMembersEnabled?: boolean;
+    teamMembersLimit?: number | null;
   };
   type: 'workspace' | 'client';
   workspaceId: string;
@@ -87,6 +89,11 @@ interface PromoPreviewResponse {
     expiresAt?: string | null;
   } | null;
 }
+
+const TEAM_PLAN_MIN_INCLUDED = 3;
+const TEAM_PLAN_MAX_MEMBERS = 20;
+const TEAM_PLAN_EXTRA_PRICE = 800;
+const TEAM_PLAN_EXTRA_PRICE_CENTS = TEAM_PLAN_EXTRA_PRICE * 100;
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({
   open,
@@ -122,9 +129,53 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [customCreditValue, setCustomCreditValue] = useState('');
   const [creditError, setCreditError] = useState<string | null>(null);
   const [upgradeType, setUpgradeType] = useState<'queue' | 'upgrade'>('queue');
+  const [teamMembersCount, setTeamMembersCount] = useState<number | null>(null);
 
   const summaryCurrency = promoPreview?.currency || packageData?.currency || 'EGP';
-  const originalPriceCents = packageData?.priceCents ?? 0;
+  const supportsCustomTeamMembers =
+    type === 'workspace' &&
+    !!(packageData && (packageData.teamMembersEnabled ?? true) && (packageData.teamMembersLimit ?? 0) >= TEAM_PLAN_MIN_INCLUDED);
+  const baseTeamMembersIncluded = supportsCustomTeamMembers
+    ? Math.max(packageData?.teamMembersLimit ?? TEAM_PLAN_MIN_INCLUDED, TEAM_PLAN_MIN_INCLUDED)
+    : null;
+  const effectiveTeamMembersCount =
+    supportsCustomTeamMembers && baseTeamMembersIncluded
+      ? Math.min(
+          TEAM_PLAN_MAX_MEMBERS,
+          Math.max(baseTeamMembersIncluded, teamMembersCount ?? baseTeamMembersIncluded),
+        )
+      : null;
+  const extraTeamMembers =
+    supportsCustomTeamMembers && effectiveTeamMembersCount && baseTeamMembersIncluded
+      ? Math.max(0, effectiveTeamMembersCount - baseTeamMembersIncluded)
+      : 0;
+  const canDecreaseTeamMembers =
+    !supportsCustomTeamMembers ||
+    !effectiveTeamMembersCount ||
+    !baseTeamMembersIncluded ||
+    effectiveTeamMembersCount <= baseTeamMembersIncluded;
+  const canIncreaseTeamMembers =
+    !supportsCustomTeamMembers ||
+    !effectiveTeamMembersCount ||
+    effectiveTeamMembersCount >= TEAM_PLAN_MAX_MEMBERS;
+  const handleTeamMembersStepper = (direction: 'inc' | 'dec') => {
+    if (!supportsCustomTeamMembers || !baseTeamMembersIncluded) return;
+    const current = effectiveTeamMembersCount ?? baseTeamMembersIncluded;
+    const delta = direction === 'inc' ? 1 : -1;
+    const next = Math.min(
+      TEAM_PLAN_MAX_MEMBERS,
+      Math.max(baseTeamMembersIncluded, current + delta),
+    );
+    setTeamMembersCount(next);
+  };
+  const calculatedTeamPackagePriceCents =
+    supportsCustomTeamMembers && packageData && baseTeamMembersIncluded
+      ? packageData.priceCents + extraTeamMembers * TEAM_PLAN_EXTRA_PRICE_CENTS
+      : packageData?.priceCents ?? 0;
+  const packagePriceCents =
+    promoPreview?.priceCents ??
+    (supportsCustomTeamMembers ? calculatedTeamPackagePriceCents : packageData?.priceCents ?? 0);
+  const originalPriceCents = packagePriceCents;
   const discountCents = Math.max(promoPreview?.discountCents ?? 0, 0);
   const finalAmountAfterDiscountCents = promoPreview?.finalAmountCents ?? originalPriceCents;
   const availableCreditCents =
@@ -214,6 +265,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setCreditMode('none');
       setCustomCreditValue('');
       setCreditError(null);
+      setTeamMembersCount(null);
       return;
     }
 
@@ -280,6 +332,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   }, [open, type, workspaceId, clientId]);
 
   useEffect(() => {
+    if (!packageData || type !== 'workspace') {
+      setTeamMembersCount(null);
+      return;
+    }
+    const allowCustom =
+      (packageData.teamMembersEnabled ?? true) &&
+      (packageData.teamMembersLimit ?? 0) >= TEAM_PLAN_MIN_INCLUDED;
+    if (!allowCustom) {
+      setTeamMembersCount(null);
+      return;
+    }
+    const base = Math.max(packageData.teamMembersLimit ?? TEAM_PLAN_MIN_INCLUDED, TEAM_PLAN_MIN_INCLUDED);
+    setTeamMembersCount(base);
+  }, [packageData]);
+
+  useEffect(() => {
     if (!open || type !== 'workspace' || !packageData) {
       setPromoPreview(null);
       setPromoPreviewLoading(false);
@@ -292,10 +360,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setPromoPreviewLoading(true);
     const controller = new AbortController();
+    const params: Record<string, any> = { packageId: packageData.id };
+    if (supportsCustomTeamMembers && effectiveTeamMembersCount) {
+      params.teamMembersCount = effectiveTeamMembersCount;
+    }
 
     api
       .get<PromoPreviewResponse>(`/api/workspaces/${workspaceId}/promo-preview`, {
-        params: { packageId: packageData.id },
+        params,
         signal: controller.signal,
       })
       .then(({ data }) => {
@@ -318,7 +390,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       });
 
     return () => controller.abort();
-  }, [open, type, workspaceId, packageData?.id]);
+  }, [
+    open,
+    type,
+    workspaceId,
+    packageData?.id,
+    supportsCustomTeamMembers,
+    effectiveTeamMembersCount,
+  ]);
 
   useEffect(() => {
     if (type !== 'workspace') {
@@ -391,6 +470,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             billingData,
             creditUsageCents: selectedCreditCents,
             upgradeType: hasActiveSubscription ? upgradeType : 'queue',
+            teamMembersCount:
+              supportsCustomTeamMembers && effectiveTeamMembersCount
+                ? effectiveTeamMembersCount
+                : undefined,
           }
         : {
             clientId,
@@ -471,8 +554,59 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   mb: 1.5,
                 }}
               >
-                {formatPrice(packageData.priceCents, packageData.currency)}
+                {formatPrice(packagePriceCents, packageData.currency)}
               </Typography>
+              {supportsCustomTeamMembers && effectiveTeamMembersCount && baseTeamMembersIncluded && (
+                <Box
+                  sx={{
+                    mb: 2,
+                    p: 1.5,
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'primary.light',
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(3, 169, 244, 0.08)' : 'rgba(3, 169, 244, 0.08)',
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    Team Members
+                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleTeamMembersStepper('dec')}
+                      disabled={canDecreaseTeamMembers}
+                    >
+                      -
+                    </Button>
+                    <Typography variant="h5" sx={{ minWidth: 40, textAlign: 'center' }}>
+                      {effectiveTeamMembersCount}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleTeamMembersStepper('inc')}
+                      disabled={canIncreaseTeamMembers}
+                    >
+                      +
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      max {TEAM_PLAN_MAX_MEMBERS}
+                    </Typography>
+                  </Stack>
+                  {extraTeamMembers > 0 ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      Base ({baseTeamMembersIncluded}) + Extra ({extraTeamMembers}) × {TEAM_PLAN_EXTRA_PRICE}{' '}
+                      {packageData.currency || 'EGP'}
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      Includes {baseTeamMembersIncluded} team members. Add more for {TEAM_PLAN_EXTRA_PRICE}{' '}
+                      {packageData.currency || 'EGP'} each.
+                    </Typography>
+                  )}
+                </Box>
+              )}
               {packageData.description && (
                 <Typography 
                   variant="body1" 
