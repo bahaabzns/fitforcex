@@ -130,6 +130,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [creditError, setCreditError] = useState<string | null>(null);
   const [upgradeType, setUpgradeType] = useState<'queue' | 'upgrade'>('queue');
   const [teamMembersCount, setTeamMembersCount] = useState<number | null>(null);
+  const [billingLocked, setBillingLocked] = useState(false);
 
   const summaryCurrency = promoPreview?.currency || packageData?.currency || 'EGP';
   const supportsCustomTeamMembers =
@@ -266,6 +267,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setCustomCreditValue('');
       setCreditError(null);
       setTeamMembersCount(null);
+      setBillingLocked(false);
       return;
     }
 
@@ -287,6 +289,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               last_name: lastName,
               phone_number: owner.phoneNumber || '',
             }));
+            setBillingLocked(true);
+            return;
           }
         } else if (type === 'client' && clientId) {
           // For client subscriptions, get the client's data
@@ -303,6 +307,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               last_name: lastName,
               phone_number: client.phone || '',
             }));
+            setBillingLocked(true);
+            return;
           }
         } else {
           // Fallback: get current logged-in user data
@@ -319,11 +325,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               last_name: lastName,
               phone_number: user.phoneNumber || '',
             }));
+            setBillingLocked(true);
+            return;
           }
         }
+        setBillingLocked(false);
       } catch (err) {
         console.error('Failed to fetch user data:', err);
         // Silently fail - user can still fill manually
+        setBillingLocked(false);
       } finally {
         setLoadingUserData(false);
       }
@@ -426,6 +436,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleInputChange = (field: keyof BillingData) => (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    if (billingLocked) return;
     setBillingData(prev => ({
       ...prev,
       [field]: event.target.value,
@@ -872,6 +883,39 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
               Billing Information
             </Typography>
+            {billingLocked ? (
+              <Box
+                sx={{
+                  mb: 3,
+                  p: 1.5,
+                  borderRadius: 1,
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(144,202,249,0.08)' : 'primary.lighter',
+                  border: '1px solid',
+                  borderColor: 'primary.main',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                }}
+              >
+                <Typography variant="body2" color="primary.dark">
+                  Contact info auto-filled from your {type === 'workspace' ? 'workspace owner' : 'account'}.
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => setBillingLocked(false)}
+                >
+                  Use different details
+                </Button>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Update the contact that will appear on the Paymob invoice.
+              </Typography>
+            )}
 
             {loadingUserData ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
@@ -889,6 +933,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     value={billingData.first_name}
                     onChange={handleInputChange('first_name')}
                     required
+                    InputProps={{ readOnly: billingLocked }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
@@ -902,6 +947,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     label="Last Name"
                     value={billingData.last_name}
                     onChange={handleInputChange('last_name')}
+                    InputProps={{ readOnly: billingLocked }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
@@ -917,6 +963,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     value={billingData.email}
                     onChange={handleInputChange('email')}
                     required
+                     InputProps={{ readOnly: billingLocked }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
@@ -931,6 +978,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     value={billingData.phone_number}
                     onChange={handleInputChange('phone_number')}
                     required
+                    InputProps={{ readOnly: billingLocked }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'background.paper',
