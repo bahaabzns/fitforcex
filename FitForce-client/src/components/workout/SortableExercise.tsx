@@ -368,131 +368,42 @@ export default function SortableExercise({
         <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: { xs: 1.5, sm: 2 }, width: '100%' }}>
           <Box
             sx={{
-              position: 'relative',
               borderRadius: 2,
-              overflow: 'hidden',
-              border: '1px solid',
-              borderColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.4 : 0.25),
-              background: theme.palette.mode === 'dark'
-                ? alpha(theme.palette.primary.dark, 0.2)
-                : alpha(theme.palette.primary.light, 0.15),
-              boxShadow: `inset 0 0 30px ${alpha(theme.palette.primary.main, 0.15)}`,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+              background: alpha(theme.palette.primary.light, theme.palette.mode === 'dark' ? 0.1 : 0.2),
+              p: { xs: 2, sm: 2.5 },
             }}
           >
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                opacity: 0.2,
-                background: `radial-gradient(circle at 20% 20%, ${alpha(theme.palette.primary.light, 0.45)}, transparent 45%),
-                             radial-gradient(circle at 80% 30%, ${alpha(theme.palette.primary.main, 0.35)}, transparent 40%)`,
-              }}
-            />
-            <Box
-              sx={{
-                position: 'relative',
-                display: 'flex',
-                flexDirection: { xs: 'column', sm: 'row' },
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: { xs: 2, sm: 4 },
-                py: { xs: 2.5, sm: 3 },
-                px: { xs: 2, sm: 3 },
-              }}
-            >
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
               <Box
                 sx={{
-                  position: 'relative',
-                  width: { xs: 140, sm: 160 },
-                  height: { xs: 140, sm: 160 },
+                  width: 72,
+                  height: 72,
                   borderRadius: '50%',
-                  border: `4px solid ${alpha(theme.palette.primary.main, 0.4)}`,
-                  background: theme.palette.mode === 'dark'
-                    ? alpha('#000', 0.3)
-                    : alpha('#fff', 0.85),
+                  border: `2px solid ${theme.palette.primary.main}`,
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: `0 10px 30px ${alpha(theme.palette.primary.main, 0.25)}`,
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    width: '2px',
-                    height: '35%',
-                    top: '15%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    backgroundColor: theme.palette.primary.dark,
-                    borderRadius: 2,
-                  },
-                  '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    width: '30%',
-                    height: '2px',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-10%, -50%) rotate(8deg)',
-                    transformOrigin: 'left center',
-                    backgroundColor: theme.palette.primary.main,
-                    borderRadius: 2,
-                  },
+                  background: theme.palette.mode === 'dark' ? alpha('#000', 0.2) : 'white',
+                  boxShadow: `0 6px 18px ${alpha(theme.palette.primary.main, 0.25)}`
                 }}
               >
-                <Box
-                  sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    backgroundColor: theme.palette.primary.main,
-                  }}
-                />
-                <Typography
-                  variant="h4"
-                  sx={{
-                    mt: 1,
-                    mb: -0.5,
-                    fontFamily: 'monospace',
-                    fontWeight: 700,
-                    color: theme.palette.primary.dark,
-                  }}
-                >
+                <Typography variant="h5" sx={{ fontFamily: 'monospace', fontWeight: 700, color: theme.palette.primary.main }}>
                   {cardioDurationParts?.main ?? '00:00'}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    letterSpacing: 1,
-                    color: 'text.secondary',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {cardioDurationParts?.unit ?? 'min'}
-                </Typography>
               </Box>
-              <Box sx={{ textAlign: 'center', maxWidth: 240 }}>
-                <Typography
-                  variant="overline"
-                  sx={{ letterSpacing: 2, color: 'text.secondary' }}
-                >
+              <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
+                <Typography variant="overline" sx={{ letterSpacing: 1.5, color: 'text.secondary' }}>
                   Cardio Duration
                 </Typography>
-                <Typography
-                  variant="h5"
-                  sx={{ fontWeight: 700, color: theme.palette.primary.dark }}
-                >
+                <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.dark }}>
                   {cardioDurationParts?.friendly ?? '10 mins'}
                 </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 0.5 }}
-                >
-                  Stay in motion — pace over sets.
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                  Time-based effort — no sets required.
                 </Typography>
               </Box>
-            </Box>
+            </Stack>
           </Box>
         </Box>
       ) : (

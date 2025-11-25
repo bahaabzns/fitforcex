@@ -448,33 +448,46 @@ export default function ClientWorkoutPlanDetail() {
                         
                         {/* Exercise Details */}
                         <Stack spacing={1} sx={{ mt: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                              {t('client.workout.sets')}:
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                              {it.sets || 'N/A'}
-                            </Typography>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                              {t('client.workout.reps')}:
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                              {it.reps || 'N/A'}
-                            </Typography>
-                          </Box>
-                          
-                          {it.planSets?.[0]?.weight && (
+                          {isCardio ? (
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                                {t('client.workout.weight')}:
+                                {t('client.workout.duration')}
                               </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                                {it.planSets[0].weight}kg
+                              <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'success.main' }}>
+                                {formatDuration(cardioDurationSeconds || 0)}
                               </Typography>
                             </Box>
+                          ) : (
+                            <>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                                  {t('client.workout.sets')}:
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                  {it.sets || 'N/A'}
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                                  {t('client.workout.reps')}:
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                  {it.reps || 'N/A'}
+                                </Typography>
+                              </Box>
+                              
+                              {!isCardio && it.planSets?.[0]?.weight && (
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                                    {t('client.workout.weight')}:
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                    {it.planSets[0].weight}kg
+                                  </Typography>
+                                </Box>
+                              )}
+                            </>
                           )}
                         </Stack>
                         
@@ -497,7 +510,7 @@ export default function ClientWorkoutPlanDetail() {
                             </Typography>
                             <Typography
                               variant="h4"
-                              sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'success.main' }}
+                              sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'success.main', mt: 0.5 }}
                             >
                               {formatDuration(cardioDurationSeconds || 0)}
                             </Typography>
@@ -512,7 +525,7 @@ export default function ClientWorkoutPlanDetail() {
                           </Box>
                         ) : (
                           <>
-                            {Array.isArray(it.planSets) && it.planSets.length > 0 && (
+                            {!isCardio && Array.isArray(it.planSets) && it.planSets.length > 0 && (
                               <Box sx={{ mt: 2 }}>
                                 <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', mb: 1 }}>
                                   {t('client.workout.setsDetails')}:
