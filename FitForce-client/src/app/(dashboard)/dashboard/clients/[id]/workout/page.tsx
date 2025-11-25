@@ -931,6 +931,116 @@ export default function ClientWorkoutPage() {
     );
   };
 
+  const formatAttachmentSize = (size?: number) => {
+    const sizeNumber = typeof size === 'number' ? size : Number(size);
+    if (!sizeNumber || Number.isNaN(sizeNumber)) return '';
+    if (sizeNumber < 1024) return `${sizeNumber} B`;
+    if (sizeNumber < 1024 * 1024) return `${(sizeNumber / 1024).toFixed(1)} KB`;
+    return `${(sizeNumber / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const renderChatAttachment = (attachment: any, index: number, isClient: boolean) => {
+    const mimetype = typeof attachment?.mimetype === 'string' ? attachment.mimetype : '';
+    const isImage = mimetype.startsWith('image/');
+    const name = attachment?.originalName || attachment?.filename || `Attachment ${index + 1}`;
+    const sizeLabel = formatAttachmentSize(attachment?.size);
+    const href = attachment?.url;
+
+    if (isImage && href) {
+      return (
+        <Box
+          key={`${href}-${index}`}
+          component="a"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{
+            display: 'block',
+            borderRadius: 1.5,
+            overflow: 'hidden',
+            border: '1px solid',
+            borderColor: isClient ? 'rgba(255,255,255,0.4)' : 'divider',
+            position: 'relative'
+          }}
+        >
+          <Box
+            component="img"
+            src={href}
+            alt={name}
+            sx={{
+              width: '100%',
+              maxHeight: 260,
+              objectFit: 'cover',
+              display: 'block'
+            }}
+          />
+          <Box
+            sx={{
+              position: 'absolute',
+              right: 8,
+              bottom: 8,
+              bgcolor: 'rgba(0,0,0,0.6)',
+              color: 'common.white',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 999,
+              fontSize: '0.7rem',
+              fontWeight: 600
+            }}
+          >
+            View full size
+          </Box>
+        </Box>
+      );
+    }
+
+    return (
+      <Paper
+        key={`${href || name}-${index}`}
+        variant="outlined"
+        sx={{
+          p: 1.2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          bgcolor: isClient ? 'rgba(255,255,255,0.08)' : 'background.paper',
+          borderColor: isClient ? 'rgba(255,255,255,0.4)' : 'divider'
+        }}
+      >
+        <AttachCircle fontSize="small" color="primary" />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 600, color: isClient ? 'common.white' : 'text.primary' }}
+            noWrap
+          >
+            {name}
+          </Typography>
+          {sizeLabel && (
+            <Typography
+              variant="caption"
+              sx={{ color: isClient ? 'rgba(255,255,255,0.8)' : 'text.secondary' }}
+            >
+              {sizeLabel}
+            </Typography>
+          )}
+        </Box>
+        {href && (
+          <Button
+            size="small"
+            variant="outlined"
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+          >
+            Download
+          </Button>
+        )}
+      </Paper>
+    );
+  };
+
   // Chat functions
   const ensureClientThread = useCallback(async () => {
     if (!clientId) return null;
@@ -1014,9 +1124,13 @@ export default function ClientWorkoutPage() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setAttachments([file]); // Only allow one file
+    if (e.target.files) {
+      const incoming = Array.from(e.target.files);
+      setAttachments((prev) => {
+        const combined = [...prev, ...incoming];
+        return combined.slice(0, 5);
+      });
+      e.target.value = '';
     }
   };
 
@@ -2432,23 +2546,11 @@ export default function ClientWorkoutPage() {
                             boxShadow: 1
                           }}>
                             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{m.body || m.message || m.text || ''}</Typography>
-                            {m.attachments && m.attachments.length > 0 && (
-                              <Box sx={{ mt: 1 }}>
-                                {m.attachments.map((attachment: any, index: number) => (
-                                  <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                    <AttachCircle fontSize="small" />
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      href={attachment.url}
-                                      target="_blank"
-                                      sx={{ textTransform: 'none', justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                                    >
-                                      {attachment.originalName || attachment.filename || `Attachment ${index + 1}`}
-                                      {attachment.size && ` (${(attachment.size / 1024).toFixed(1)} KB)`}
-                                    </Button>
-                                  </Box>
-                                ))}
+                            {Array.isArray(m.attachments) && m.attachments.length > 0 && (
+                              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                {m.attachments.map((attachment: any, index: number) =>
+                                  renderChatAttachment(attachment, index, isClient)
+                                )}
                               </Box>
                             )}
                             <Typography variant="caption" sx={{ 
@@ -2480,6 +2582,7 @@ export default function ClientWorkoutPage() {
                       hidden
                       onChange={handleFileSelect}
                       accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      multiple
                     />
                     <IconButton
                       onClick={() => fileInputRef.current?.click()}
