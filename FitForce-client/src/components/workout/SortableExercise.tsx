@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, Box, Tooltip, Typography, Chip, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Edit, Trash, Category } from '@wandersonalwes/iconsax-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -57,6 +57,47 @@ export default function SortableExercise({
         !!(exercise as any).durationSeconds ||
         !!(exercise as any).durationMinutes ||
         !!exercise.exercise?.defaultDurationSeconds;
+
+  const resolveCardioDurationSeconds = (): number => {
+    if (!isCardio) return 0;
+    const directSeconds = (exercise as any).durationSeconds;
+    if (typeof directSeconds === 'number' && directSeconds > 0) return directSeconds;
+    const durationMinutes = (exercise as any).durationMinutes;
+    if (typeof durationMinutes === 'number' && durationMinutes > 0) {
+      return Math.round(durationMinutes * 60);
+    }
+    const defaultSeconds = exercise.exercise?.defaultDurationSeconds;
+    if (typeof defaultSeconds === 'number' && defaultSeconds > 0) return defaultSeconds;
+    return 600; // fallback 10 minutes
+  };
+
+  const formatCardioDurationParts = (totalSeconds: number) => {
+    const safeSeconds = Math.max(1, Math.round(totalSeconds));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    if (hours > 0) {
+      return {
+        main: `${hours}:${String(minutes).padStart(2, '0')}`,
+        unit: 'hr',
+        friendly: minutes ? `${hours}h ${minutes}m` : `${hours}h`,
+      };
+    }
+
+    const displayMinutes = Math.floor(safeSeconds / 60);
+    return {
+      main: `${String(displayMinutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+      unit: 'min',
+      friendly:
+        displayMinutes > 0
+          ? `${displayMinutes} min${displayMinutes === 1 ? '' : 's'}`
+          : `${seconds} sec`,
+    };
+  };
+
+  const cardioDurationSeconds = isCardio ? resolveCardioDurationSeconds() : 0;
+  const cardioDurationParts = isCardio ? formatCardioDurationParts(cardioDurationSeconds) : null;
 
   // Track when dragging starts to show visual feedback
   useEffect(() => {
@@ -323,71 +364,131 @@ export default function SortableExercise({
       {/* Cardio: Show Duration/Time */}
       {isCardio ? (
         <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: { xs: 1.5, sm: 2 }, width: '100%' }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            gap: 1,
-            py: { xs: 1, sm: 1.5 },
-            px: { xs: 1, sm: 2 },
-            borderRadius: 2,
-            bgcolor: 'action.hover',
-            border: '2px solid',
-            borderColor: 'primary.main',
-            position: 'relative'
-          }}>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: 0.5
-            }}>
-              <Typography variant="caption" sx={{ 
-                fontSize: { xs: '0.65rem', sm: '0.7rem' }, 
-                color: 'text.secondary', 
-                textTransform: 'uppercase', 
-                letterSpacing: 1 
-              }}>
-                Duration
-              </Typography>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'baseline', 
-                gap: 0.5,
-                position: 'relative'
-              }}>
-                {(() => {
-                  const totalSeconds = (exercise as any).durationSeconds || ((exercise as any).durationMinutes || 10) * 60;
-                  const hours = Math.floor(totalSeconds / 3600);
-                  const minutes = Math.floor((totalSeconds % 3600) / 60);
-                  const seconds = totalSeconds % 60;
-                  const hasHours = hours > 0;
-                  
-                  return (
-                    <>
-                      <Typography variant="h4" sx={{ 
-                        fontWeight: 700, 
-                        color: 'primary.main',
-                        lineHeight: 1,
-                        fontFamily: 'monospace',
-                        fontSize: { xs: '1.75rem', sm: '2rem' }
-                      }}>
-                        {hasHours && `${hours}:`}
-                        {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-                      </Typography>
-                      {!hasHours && (
-                        <Typography variant="h6" sx={{ 
-                          fontWeight: 500, 
-                          color: 'text.secondary',
-                          fontSize: { xs: '0.875rem', sm: '1rem' },
-                          ml: 0.5
-                        }}>
-                          min
-                        </Typography>
-                      )}
-                    </>
-                  );
-                })()}
+          <Box
+            sx={{
+              position: 'relative',
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: '1px solid',
+              borderColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.4 : 0.25),
+              background: theme.palette.mode === 'dark'
+                ? alpha(theme.palette.primary.dark, 0.2)
+                : alpha(theme.palette.primary.light, 0.15),
+              boxShadow: `inset 0 0 30px ${alpha(theme.palette.primary.main, 0.15)}`,
+            }}
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                opacity: 0.2,
+                background: `radial-gradient(circle at 20% 20%, ${alpha(theme.palette.primary.light, 0.45)}, transparent 45%),
+                             radial-gradient(circle at 80% 30%, ${alpha(theme.palette.primary.main, 0.35)}, transparent 40%)`,
+              }}
+            />
+            <Box
+              sx={{
+                position: 'relative',
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: { xs: 2, sm: 4 },
+                py: { xs: 2.5, sm: 3 },
+                px: { xs: 2, sm: 3 },
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'relative',
+                  width: { xs: 140, sm: 160 },
+                  height: { xs: 140, sm: 160 },
+                  borderRadius: '50%',
+                  border: `4px solid ${alpha(theme.palette.primary.main, 0.4)}`,
+                  background: theme.palette.mode === 'dark'
+                    ? alpha('#000', 0.3)
+                    : alpha('#fff', 0.85),
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: `0 10px 30px ${alpha(theme.palette.primary.main, 0.25)}`,
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    width: '2px',
+                    height: '35%',
+                    top: '15%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: theme.palette.primary.dark,
+                    borderRadius: 2,
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    width: '30%',
+                    height: '2px',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-10%, -50%) rotate(8deg)',
+                    transformOrigin: 'left center',
+                    backgroundColor: theme.palette.primary.main,
+                    borderRadius: 2,
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: theme.palette.primary.main,
+                  }}
+                />
+                <Typography
+                  variant="h4"
+                  sx={{
+                    mt: 1,
+                    mb: -0.5,
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                    color: theme.palette.primary.dark,
+                  }}
+                >
+                  {cardioDurationParts?.main ?? '00:00'}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    letterSpacing: 1,
+                    color: 'text.secondary',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {cardioDurationParts?.unit ?? 'min'}
+                </Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center', maxWidth: 240 }}>
+                <Typography
+                  variant="overline"
+                  sx={{ letterSpacing: 2, color: 'text.secondary' }}
+                >
+                  Cardio Duration
+                </Typography>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 700, color: theme.palette.primary.dark }}
+                >
+                  {cardioDurationParts?.friendly ?? '10 mins'}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 0.5 }}
+                >
+                  Stay in motion — pace over sets.
+                </Typography>
               </Box>
             </Box>
           </Box>
