@@ -49,14 +49,16 @@ export default function SortableExercise({
   const muscleGroup = exercise.exercise?.muscleGroup?.toLowerCase() || '';
   const explicitCardio =
     (exercise as any).isCardio ?? exercise.exercise?.isCardio;
+  
+  // Prioritize category/muscleGroup for cardio detection
   const isCardio =
-    explicitCardio !== undefined
-      ? Boolean(explicitCardio)
-      : category === 'cardio' ||
-        muscleGroup.includes('cardiovascular') ||
-        !!(exercise as any).durationSeconds ||
-        !!(exercise as any).durationMinutes ||
-        !!exercise.exercise?.defaultDurationSeconds;
+    category === 'cardio' ||
+    muscleGroup.includes('cardio') ||
+    muscleGroup.includes('cardiovascular') ||
+    (explicitCardio !== undefined ? Boolean(explicitCardio) : false) ||
+    !!(exercise as any).durationSeconds ||
+    !!(exercise as any).durationMinutes ||
+    !!exercise.exercise?.defaultDurationSeconds;
 
   const resolveCardioDurationSeconds = (): number => {
     if (!isCardio) return 0;

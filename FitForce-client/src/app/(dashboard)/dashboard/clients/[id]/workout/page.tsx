@@ -117,19 +117,22 @@ interface Plan {
 
 const isCardioExercise = (exercise: any): boolean => {
   const exerciseNode = exercise?.exercise ? exercise.exercise : exercise;
-  if (exercise?.isCardio !== undefined) return Boolean(exercise.isCardio);
-  if (exerciseNode?.isCardio !== undefined) return Boolean(exerciseNode.isCardio);
   const category = exerciseNode?.category?.toLowerCase() || "";
   const muscleGroup = exerciseNode?.muscleGroup?.toLowerCase() || "";
-  return (
-    category === "cardio" ||
-    muscleGroup.includes("cardio") ||
-    Boolean(
-      exercise?.durationSeconds ||
-        exercise?.durationMinutes ||
-        exercise?.targetDurationSeconds ||
-        exerciseNode?.defaultDurationSeconds,
-    )
+  
+  // Prioritize category/muscleGroup for cardio detection
+  if (category === "cardio" || muscleGroup.includes("cardio") || muscleGroup.includes("cardiovascular")) {
+    return true;
+  }
+  
+  if (exercise?.isCardio !== undefined) return Boolean(exercise.isCardio);
+  if (exerciseNode?.isCardio !== undefined) return Boolean(exerciseNode.isCardio);
+  
+  return Boolean(
+    exercise?.durationSeconds ||
+      exercise?.durationMinutes ||
+      exercise?.targetDurationSeconds ||
+      exerciseNode?.defaultDurationSeconds,
   );
 };
 
@@ -1309,45 +1312,56 @@ export default function ClientWorkoutPage() {
           caDayUrls: (day as any).caDay?.urls || null,
           items: day.exercises.map((exercise) => {
             const isCardio = isCardioExercise(exercise);
-            const baseItem: any = {
-              exerciseId: exercise.exercise.id,
-              sets: exercise.sets,
-              reps: exercise.reps, // Keep as string (e.g., "8-12")
-              restSeconds: exercise.restSeconds,
-              tempo: exercise.tempo,
-              rir: exercise.rir,
-              notes: exercise.notes || "",
-            };
-            baseItem.isCardio = Boolean(exercise.isCardio ?? isCardio);
             
-            // Add duration for cardio exercises
             if (isCardio) {
-              if ((exercise as any).durationSeconds) {
-                baseItem.durationSeconds = (exercise as any).durationSeconds;
-              } else if ((exercise as any).durationMinutes) {
-                // Convert minutes to seconds for backward compatibility
-                baseItem.durationSeconds = (exercise as any).durationMinutes * 60;
+              // Cardio exercises: only duration, no sets/reps
+              const durationSeconds = (exercise as any).durationSeconds || 
+                ((exercise as any).durationMinutes ? (exercise as any).durationMinutes * 60 : null) ||
+                exercise.exercise?.defaultDurationSeconds ||
+                600; // fallback 10 minutes
+              
+              return {
+                exerciseId: exercise.exercise.id,
+                sets: 1, // Required by schema but meaningless for cardio
+                reps: "", // Empty for cardio
+                restSeconds: 0,
+                tempo: "",
+                rir: 0,
+                notes: exercise.notes || "",
+                durationSeconds: durationSeconds,
+                isCardio: true,
+              };
+            } else {
+              // Regular exercises: sets/reps/rest
+              const baseItem: any = {
+                exerciseId: exercise.exercise.id,
+                sets: exercise.sets,
+                reps: exercise.reps, // Keep as string (e.g., "8-12")
+                restSeconds: exercise.restSeconds,
+                tempo: exercise.tempo,
+                rir: exercise.rir,
+                notes: exercise.notes || "",
+                isCardio: false,
+              };
+              
+              // Persist per-set data if available
+              if ((exercise as any).individualSets && Array.isArray((exercise as any).individualSets)) {
+                baseItem.planSets = (exercise as any).individualSets.map((s: any, index: number) => {
+                    const { repMin, repMax } = parseRepRange(s?.reps ?? exercise.reps);
+                    const set: any = { setIndex: index + 1 };
+                    if (typeof repMin === 'number') set.repMin = repMin;
+                    if (typeof repMax === 'number') set.repMax = repMax;
+                    if (typeof s?.rir === 'number') set.rir = s.rir; else if (typeof exercise.rir === 'number') set.rir = exercise.rir;
+                    if (typeof s?.weight === 'number') set.weight = s.weight;
+                    if (s?.tempo || exercise.tempo) set.tempo = s?.tempo || exercise.tempo;
+                    if (typeof s?.restSeconds === 'number') set.restSeconds = s.restSeconds; else if (typeof exercise.restSeconds === 'number') set.restSeconds = exercise.restSeconds;
+                    if (s?.notes) set.notes = s.notes;
+                    return set;
+                  });
               }
-              // Backend persists durationSeconds directly on the workout item
+              
+              return baseItem;
             }
-            
-            // Persist per-set data if available (only for non-cardio)
-            if (!isCardio && (exercise as any).individualSets && Array.isArray((exercise as any).individualSets)) {
-              baseItem.planSets = (exercise as any).individualSets.map((s: any, index: number) => {
-                  const { repMin, repMax } = parseRepRange(s?.reps ?? exercise.reps);
-                  const set: any = { setIndex: index + 1 };
-                  if (typeof repMin === 'number') set.repMin = repMin;
-                  if (typeof repMax === 'number') set.repMax = repMax;
-                  if (typeof s?.rir === 'number') set.rir = s.rir; else if (typeof exercise.rir === 'number') set.rir = exercise.rir;
-                  if (typeof s?.weight === 'number') set.weight = s.weight;
-                  if (s?.tempo || exercise.tempo) set.tempo = s?.tempo || exercise.tempo;
-                  if (typeof s?.restSeconds === 'number') set.restSeconds = s.restSeconds; else if (typeof exercise.restSeconds === 'number') set.restSeconds = exercise.restSeconds;
-                  if (s?.notes) set.notes = s.notes;
-                  return set;
-                });
-            }
-            
-            return baseItem;
           })
         }))
       };
@@ -1377,17 +1391,35 @@ export default function ClientWorkoutPage() {
             caDayImageUrl: (d as any).caDayImageUrl || null,
             caDayUrl: (d as any).caDayUrl || null,
             caDayUrls: (d as any).caDayUrls || null,
-            items: d.items.map((it: any) => ({
-              exerciseId: it.exerciseId,
-              sets: it.sets,
-              reps: it.reps,
-              restSeconds: it.restSeconds,
-              tempo: it.tempo,
-              rir: it.rir,
-              notes: it.notes,
-              durationSeconds: it.durationSeconds || (it.durationMinutes ? it.durationMinutes * 60 : null),
-              isCardio: Boolean(it.isCardio),
-            }))
+            items: d.items.map((it: any) => {
+              if (it.isCardio) {
+                // Cardio: strip sets data
+                return {
+                  exerciseId: it.exerciseId,
+                  sets: 1,
+                  reps: "",
+                  restSeconds: 0,
+                  tempo: "",
+                  rir: 0,
+                  notes: it.notes,
+                  durationSeconds: it.durationSeconds || 600,
+                  isCardio: true,
+                };
+              } else {
+                // Regular exercise
+                return {
+                  exerciseId: it.exerciseId,
+                  sets: it.sets,
+                  reps: it.reps,
+                  restSeconds: it.restSeconds,
+                  tempo: it.tempo,
+                  rir: it.rir,
+                  notes: it.notes,
+                  durationSeconds: it.durationSeconds || null,
+                  isCardio: false,
+                };
+              }
+            })
           }))
         });
         const newPlanId = createRes.data?.plan?.id;
@@ -2122,16 +2154,14 @@ export default function ClientWorkoutPage() {
                               urls: day.caDayUrls || []
                             } : undefined,
                             exercises: (day.items || []).map((item: any) => {
-                            const explicitCardioFlag = item.isCardio ?? item.exercise?.isCardio;
-                            const isCardioItem =
-                              explicitCardioFlag !== undefined
-                                ? Boolean(explicitCardioFlag)
-                                : isCardioExercise(item);
+                              const isCardioItem = isCardioExercise(item);
+                              
                               let notes = item.notes || "";
                               let durationSeconds =
                                 item.durationSeconds ||
                                 (item.durationMinutes ? item.durationMinutes * 60 : undefined);
                               
+                              // Try parsing notes for legacy duration data
                               if (
                                 isCardioItem &&
                                 (!durationSeconds || durationSeconds <= 0) &&
@@ -2150,64 +2180,79 @@ export default function ClientWorkoutPage() {
                               }
 
                               const normalizedDurationSeconds =
-                              isCardioItem && durationSeconds && durationSeconds > 0
-                                ? durationSeconds
-                                : isCardioItem
-                                  ? getDefaultCardioDurationSeconds(item, 600)
-                                  : undefined;
-
-                              const individualSets = !isCardioItem
-                                ? (item.planSets && item.planSets.length > 0
-                                    ? item.planSets
-                                        .sort((a: any, b: any) => (a.setIndex || 0) - (b.setIndex || 0))
-                                        .map((s: any, idx: number) => ({
-                                          id: `set_${s.setIndex || idx + 1}`,
-                                          reps:
-                                            typeof s.repMin === 'number' &&
-                                            typeof s.repMax === 'number' &&
-                                            s.repMin !== s.repMax
-                                              ? `${s.repMin}-${s.repMax}`
-                                              : (typeof s.repMin === 'number'
-                                                  ? String(s.repMin)
-                                                  : String(item.reps)),
-                                          restSeconds:
-                                            typeof s.restSeconds === 'number'
-                                              ? s.restSeconds
-                                              : (item.restSeconds || 60),
-                                          tempo: s.tempo || item.tempo || "",
-                                          rir: typeof s.rir === 'number' ? s.rir : (item.rir || 0),
-                                          notes: s.notes || undefined
-                                        }))
-                                    : Array.from({ length: item.sets || 1 }, (_, index) => ({
-                                        id: `set_${index + 1}`,
-                                        reps: String(item.reps),
-                                        restSeconds: item.restSeconds || 60,
-                                        tempo: item.tempo || "",
-                                        rir: item.rir || 0
-                                      })))
-                                : [];
+                                isCardioItem && durationSeconds && durationSeconds > 0
+                                  ? durationSeconds
+                                  : isCardioItem
+                                    ? getDefaultCardioDurationSeconds(item, 600)
+                                    : undefined;
 
                               const exFull =
                                 (workspaceExercises || []).find(
                                   (exercise) => exercise.id === (item.exercise?.id || item.exerciseId)
                                 ) || item.exercise;
 
-                              return {
-                                id: item.id,
-                                exercise: exFull,
-                                sets: isCardioItem ? 1 : item.sets,
-                                reps: isCardioItem ? "" : String(item.reps),
-                                restSeconds: isCardioItem ? 0 : item.restSeconds || 60,
-                                tempo: isCardioItem ? "" : item.tempo || "",
-                                rir: isCardioItem ? 0 : item.rir || 0,
-                                notes,
-                                durationSeconds: normalizedDurationSeconds,
-                                durationMinutes: normalizedDurationSeconds
-                                  ? Math.round(normalizedDurationSeconds / 60)
-                                  : undefined,
-                                individualSets,
-                                isCardio: Boolean(item.isCardio ?? isCardioItem),
-                              };
+                              if (isCardioItem) {
+                                // Cardio: duration only, no sets
+                                return {
+                                  id: item.id,
+                                  exercise: exFull,
+                                  sets: 1,
+                                  reps: "",
+                                  restSeconds: 0,
+                                  tempo: "",
+                                  rir: 0,
+                                  notes,
+                                  durationSeconds: normalizedDurationSeconds,
+                                  durationMinutes: normalizedDurationSeconds
+                                    ? Math.round(normalizedDurationSeconds / 60)
+                                    : undefined,
+                                  individualSets: [],
+                                  isCardio: true,
+                                };
+                              } else {
+                                // Regular exercise: sets/reps
+                                const individualSets = item.planSets && item.planSets.length > 0
+                                  ? item.planSets
+                                      .sort((a: any, b: any) => (a.setIndex || 0) - (b.setIndex || 0))
+                                      .map((s: any, idx: number) => ({
+                                        id: `set_${s.setIndex || idx + 1}`,
+                                        reps:
+                                          typeof s.repMin === 'number' &&
+                                          typeof s.repMax === 'number' &&
+                                          s.repMin !== s.repMax
+                                            ? `${s.repMin}-${s.repMax}`
+                                            : (typeof s.repMin === 'number'
+                                                ? String(s.repMin)
+                                                : String(item.reps)),
+                                        restSeconds:
+                                          typeof s.restSeconds === 'number'
+                                            ? s.restSeconds
+                                            : (item.restSeconds || 60),
+                                        tempo: s.tempo || item.tempo || "",
+                                        rir: typeof s.rir === 'number' ? s.rir : (item.rir || 0),
+                                        notes: s.notes || undefined
+                                      }))
+                                  : Array.from({ length: item.sets || 1 }, (_, index) => ({
+                                      id: `set_${index + 1}`,
+                                      reps: String(item.reps),
+                                      restSeconds: item.restSeconds || 60,
+                                      tempo: item.tempo || "",
+                                      rir: item.rir || 0
+                                    }));
+
+                                return {
+                                  id: item.id,
+                                  exercise: exFull,
+                                  sets: item.sets,
+                                  reps: String(item.reps),
+                                  restSeconds: item.restSeconds || 60,
+                                  tempo: item.tempo || "",
+                                  rir: item.rir || 0,
+                                  notes,
+                                  individualSets,
+                                  isCardio: false,
+                                };
+                              }
                             })
                           }))
                         });
