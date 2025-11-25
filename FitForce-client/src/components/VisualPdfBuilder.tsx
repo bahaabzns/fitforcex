@@ -68,15 +68,12 @@ interface VisualPdfConfig {
     };
     options: {
       showGifImage: boolean;
+      gifHeight?: number;
       showExerciseName: boolean;
-      showSets: boolean;
-      showReps: boolean;
-      showWeight: boolean;
-      showRestTime: boolean;
-      showNotes: boolean;
-      showLinks: boolean;
-      showMuscleGroup: boolean;
-      showEquipment: boolean;
+      showExerciseDescription: boolean;
+      showSetRest: boolean;
+      showSetTempo: boolean;
+      showSetRir: boolean;
     };
   };
   options: {
@@ -155,15 +152,12 @@ export default function VisualPdfBuilder({
         },
         options: {
           showGifImage: true,
+          gifHeight: 140,
           showExerciseName: true,
-          showSets: true,
-          showReps: true,
-          showWeight: true,
-          showRestTime: true,
-          showNotes: true,
-          showLinks: true,
-          showMuscleGroup: true,
-          showEquipment: true,
+          showExerciseDescription: true,
+          showSetRest: true,
+          showSetTempo: true,
+          showSetRir: true,
         },
       },
       options: {
@@ -1176,245 +1170,182 @@ export default function VisualPdfBuilder({
 
                 <Divider sx={{ my: 2 }} />
 
-                <Typography variant="subtitle2" gutterBottom>
-                  Show on content pages:
-                </Typography>
-
-                <Grid container spacing={1}>
-                  {kind === 'workout' && (
-                    <>
+                {kind === 'workout' && (
+                  <>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+                      Exercise Content
+                    </Typography>
+                    <Grid container spacing={1}>
                       <Grid item xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={config.dayPages.options.showGifImage}
+                              checked={config.dayPages.options.showExerciseName !== false}
                               onChange={(e) =>
-                                setConfig({
-                                  ...config,
+                                setConfig((prev) => ({
+                                  ...prev,
                                   dayPages: {
-                                    ...config.dayPages,
+                                    ...prev.dayPages,
                                     options: {
-                                      ...config.dayPages.options,
-                                      showGifImage: e.target.checked,
-                                    },
-                                  },
-                                })
-                              }
-                            />
-                          }
-                          label="GIF/Image"
-                        />
-                      </Grid>
-
-                      <Grid item xs={12} sm={6}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={config.dayPages.options.showExerciseName}
-                              onChange={(e) =>
-                                setConfig({
-                                  ...config,
-                                  dayPages: {
-                                    ...config.dayPages,
-                                    options: {
-                                      ...config.dayPages.options,
+                                      ...prev.dayPages.options,
                                       showExerciseName: e.target.checked,
                                     },
                                   },
-                                })
+                                }))
                               }
                             />
                           }
                           label="Exercise Name"
                         />
                       </Grid>
-
                       <Grid item xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={config.dayPages.options.showSets}
+                              checked={config.dayPages.options.showExerciseDescription !== false}
                               onChange={(e) =>
-                                setConfig({
-                                  ...config,
+                                setConfig((prev) => ({
+                                  ...prev,
                                   dayPages: {
-                                    ...config.dayPages,
+                                    ...prev.dayPages,
                                     options: {
-                                      ...config.dayPages.options,
-                                      showSets: e.target.checked,
+                                      ...prev.dayPages.options,
+                                      showExerciseDescription: e.target.checked,
                                     },
                                   },
-                                })
+                                }))
                               }
                             />
                           }
-                          label="Sets"
+                          label="Exercise Description"
                         />
                       </Grid>
-
                       <Grid item xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={config.dayPages.options.showReps}
+                              checked={config.dayPages.options.showGifImage !== false}
                               onChange={(e) =>
-                                setConfig({
-                                  ...config,
+                                setConfig((prev) => ({
+                                  ...prev,
                                   dayPages: {
-                                    ...config.dayPages,
+                                    ...prev.dayPages,
                                     options: {
-                                      ...config.dayPages.options,
-                                      showReps: e.target.checked,
+                                      ...prev.dayPages.options,
+                                      showGifImage: e.target.checked,
                                     },
                                   },
-                                })
+                                }))
                               }
                             />
                           }
-                          label="Reps"
+                          label="GIF / Image"
                         />
                       </Grid>
+                      {config.dayPages.options.showGifImage && (
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="GIF Height (px)"
+                            size="small"
+                            value={config.dayPages.options.gifHeight || 140}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    gifHeight: Math.max(60, Math.min(240, Number(e.target.value) || 140)),
+                                  },
+                                },
+                              }))
+                            }
+                            helperText="Applies to every exercise image"
+                          />
+                        </Grid>
+                      )}
+                    </Grid>
 
-                      <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mt: 3 }}>
+                      Set Table Columns
+                    </Typography>
+                    <Grid container spacing={1}>
+                      <Grid item xs={12}>
+                        <Alert severity="info" sx={{ fontSize: '0.8rem', mb: 1 }}>
+                          The table always includes Set # and Reps. Toggle the additional columns below.
+                        </Alert>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={config.dayPages.options.showWeight}
+                              checked={config.dayPages.options.showSetRest !== false}
                               onChange={(e) =>
-                                setConfig({
-                                  ...config,
+                                setConfig((prev) => ({
+                                  ...prev,
                                   dayPages: {
-                                    ...config.dayPages,
+                                    ...prev.dayPages,
                                     options: {
-                                      ...config.dayPages.options,
-                                      showWeight: e.target.checked,
+                                      ...prev.dayPages.options,
+                                      showSetRest: e.target.checked,
                                     },
                                   },
-                                })
+                                }))
                               }
                             />
                           }
-                          label="Weight"
+                          label="Rest"
                         />
                       </Grid>
-
-                      <Grid item xs={12} sm={6}>
+                      <Grid item xs={12} sm={4}>
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={config.dayPages.options.showRestTime}
+                              checked={config.dayPages.options.showSetTempo !== false}
                               onChange={(e) =>
-                                setConfig({
-                                  ...config,
+                                setConfig((prev) => ({
+                                  ...prev,
                                   dayPages: {
-                                    ...config.dayPages,
+                                    ...prev.dayPages,
                                     options: {
-                                      ...config.dayPages.options,
-                                      showRestTime: e.target.checked,
+                                      ...prev.dayPages.options,
+                                      showSetTempo: e.target.checked,
                                     },
                                   },
-                                })
+                                }))
                               }
                             />
                           }
-                          label="Rest Time"
+                          label="Tempo"
                         />
                       </Grid>
-
-                      <Grid item xs={12} sm={6}>
+                      <Grid item xs={12} sm={4}>
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={config.dayPages.options.showNotes}
+                              checked={config.dayPages.options.showSetRir !== false}
                               onChange={(e) =>
-                                setConfig({
-                                  ...config,
+                                setConfig((prev) => ({
+                                  ...prev,
                                   dayPages: {
-                                    ...config.dayPages,
+                                    ...prev.dayPages,
                                     options: {
-                                      ...config.dayPages.options,
-                                      showNotes: e.target.checked,
+                                      ...prev.dayPages.options,
+                                      showSetRir: e.target.checked,
                                     },
                                   },
-                                })
+                                }))
                               }
                             />
                           }
-                          label="Notes"
+                          label="RIR"
                         />
                       </Grid>
-
-                      <Grid item xs={12} sm={6}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={config.dayPages.options.showLinks}
-                              onChange={(e) =>
-                                setConfig({
-                                  ...config,
-                                  dayPages: {
-                                    ...config.dayPages,
-                                    options: {
-                                      ...config.dayPages.options,
-                                      showLinks: e.target.checked,
-                                    },
-                                  },
-                                })
-                              }
-                            />
-                          }
-                          label="Video Links"
-                        />
-                      </Grid>
-
-                      <Grid item xs={12} sm={6}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={config.dayPages.options.showMuscleGroup}
-                              onChange={(e) =>
-                                setConfig({
-                                  ...config,
-                                  dayPages: {
-                                    ...config.dayPages,
-                                    options: {
-                                      ...config.dayPages.options,
-                                      showMuscleGroup: e.target.checked,
-                                    },
-                                  },
-                                })
-                              }
-                            />
-                          }
-                          label="Muscle Group"
-                        />
-                      </Grid>
-
-                      <Grid item xs={12} sm={6}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={config.dayPages.options.showEquipment}
-                              onChange={(e) =>
-                                setConfig({
-                                  ...config,
-                                  dayPages: {
-                                    ...config.dayPages,
-                                    options: {
-                                      ...config.dayPages.options,
-                                      showEquipment: e.target.checked,
-                                    },
-                                  },
-                                })
-                              }
-                            />
-                          }
-                          label="Equipment"
-                        />
-                      </Grid>
-                    </>
-                  )}
-                </Grid>
+                    </Grid>
+                  </>
+                )}
               </CardContent>
             </Card>
 
