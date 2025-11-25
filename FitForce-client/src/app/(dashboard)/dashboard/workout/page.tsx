@@ -55,6 +55,7 @@ import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard'
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { RowSelection } from 'components/third-party/react-table';
 import { openSnackbar } from '@/api/snackbar';
+import FileUpload from '@/components/FileUpload';
 
 // Icons
 import { Add, Edit, Trash, DocumentUpload, Warning2, SearchNormal1, Filter, CloseCircle, ArrowDown2, ArrowUp2 } from '@wandersonalwes/iconsax-react';
@@ -1442,13 +1443,27 @@ export default function WorkoutPage() {
               onChange={(e) => setNewExercise((prev) => ({ ...prev, videoUrl: e.target.value }))}
               placeholder="https://www.youtube.com/watch?v=..."
             />
-            <TextField
-              fullWidth
-              label="GIF Image URL"
-              value={newExercise.gifImage}
-              onChange={(e) => setNewExercise((prev) => ({ ...prev, gifImage: e.target.value }))}
-              placeholder="https://example.com/exercise.gif"
-            />
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Exercise GIF / Image
+              </Typography>
+              <FileUpload
+                uploadType="workout-media"
+                workspaceId={workspaceId || ''}
+                accept="image/gif,image/png,image/webp,image/jpeg"
+                maxSize={15}
+                currentImageUrl={newExercise.gifImage || undefined}
+                onUploadComplete={(url) =>
+                  setNewExercise((prev) => ({
+                    ...prev,
+                    gifImage: url
+                  }))
+                }
+              />
+              <Typography variant="caption" color="text.secondary">
+                Uploading replaces the GIF link automatically and stores it securely on S3.
+              </Typography>
+            </Box>
             <TextField
               fullWidth
               multiline
@@ -1588,13 +1603,26 @@ export default function WorkoutPage() {
                 onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, videoUrl: e.target.value } as any) : null))}
                 placeholder="https://www.youtube.com/watch?v=..."
               />
-              <TextField
-                fullWidth
-                label="GIF Image URL"
-                value={(selectedExercise as any).gifImage || ''}
-                onChange={(e) => setSelectedExercise((prev) => (prev ? ({ ...prev, gifImage: e.target.value } as any) : null))}
-                placeholder="https://example.com/exercise.gif"
-              />
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                  Exercise GIF / Image
+                </Typography>
+                <FileUpload
+                  uploadType="workout-media"
+                  workspaceId={workspaceId || ''}
+                  accept="image/gif,image/png,image/webp,image/jpeg"
+                  maxSize={15}
+                  currentImageUrl={(selectedExercise as any).gifImage || undefined}
+                  onUploadComplete={(url) =>
+                    setSelectedExercise((prev) =>
+                      prev ? ({ ...prev, gifImage: url } as any) : null
+                    )
+                  }
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Replace or remove the stored GIF to keep media organized in S3.
+                </Typography>
+              </Box>
               <TextField
                 fullWidth
                 multiline

@@ -10,7 +10,7 @@ interface FileUploadProps {
   onUploadComplete: (imageUrl: string) => void;
   currentImageUrl?: string;
   workspaceId?: string; // Optional for tutorial-videos
-  uploadType: 'branding' | 'landing' | 'tutorial-videos';
+  uploadType: 'branding' | 'landing' | 'tutorial-videos' | 'workout-media';
   accept?: string;
   maxSize?: number; // in MB
   className?: string;

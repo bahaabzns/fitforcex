@@ -27,7 +27,6 @@ import {
   IconButton,
 } from '@mui/material';
 import { CloudUpload, Delete } from '@mui/icons-material';
-import { ColorPicker } from './ColorPicker';
 import api from '@/utils/axios';
 
 interface VisualPdfConfig {
@@ -60,6 +59,12 @@ interface VisualPdfConfig {
       exerciseName?: number;
       details?: number;
       dayTitle?: number;
+    };
+    table?: {
+      headerBackground?: string;
+      headerTextColor?: string;
+      borderColor?: string;
+      stripeColor?: string;
     };
     options: {
       showGifImage: boolean;
@@ -137,6 +142,12 @@ export default function VisualPdfBuilder({
         daysPerPage: 1,
         backgroundColor: '#ffffff',
         textColor: '#000000',
+        table: {
+          headerBackground: '#f5f7ff',
+          headerTextColor: '#1a1a1a',
+          borderColor: '#d4daec',
+          stripeColor: '#f0f4ff',
+        },
         fontSize: {
           dayTitle: 18,
           exerciseName: 12,
@@ -880,6 +891,201 @@ export default function VisualPdfBuilder({
                               dayPages: {
                                 ...config.dayPages,
                                 textColor: e.target.value,
+                              },
+                            })
+                          }
+                          size="small"
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                      Table Appearance
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                        Header Background
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <TextField
+                          type="color"
+                          value={config.dayPages.table?.headerBackground || '#f5f7ff'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  headerBackground: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                          sx={{
+                            width: 80,
+                            '& input': { height: 50, cursor: 'pointer' }
+                          }}
+                        />
+                        <TextField
+                          value={config.dayPages.table?.headerBackground || '#f5f7ff'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  headerBackground: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                          size="small"
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                        Header Text
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <TextField
+                          type="color"
+                          value={config.dayPages.table?.headerTextColor || '#1a1a1a'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  headerTextColor: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                          sx={{
+                            width: 80,
+                            '& input': { height: 50, cursor: 'pointer' }
+                          }}
+                        />
+                        <TextField
+                          value={config.dayPages.table?.headerTextColor || '#1a1a1a'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  headerTextColor: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                          size="small"
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                        Border Color
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <TextField
+                          type="color"
+                          value={config.dayPages.table?.borderColor || '#d4daec'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  borderColor: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                          sx={{
+                            width: 80,
+                            '& input': { height: 50, cursor: 'pointer' }
+                          }}
+                        />
+                        <TextField
+                          value={config.dayPages.table?.borderColor || '#d4daec'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  borderColor: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                          size="small"
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                        Row Stripe
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <TextField
+                          type="color"
+                          value={config.dayPages.table?.stripeColor || '#f0f4ff'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  stripeColor: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                          sx={{
+                            width: 80,
+                            '& input': { height: 50, cursor: 'pointer' }
+                          }}
+                        />
+                        <TextField
+                          value={config.dayPages.table?.stripeColor || '#f0f4ff'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                table: {
+                                  ...config.dayPages.table,
+                                  stripeColor: e.target.value,
+                                },
                               },
                             })
                           }
