@@ -222,6 +222,12 @@ export default function SeedClientSignupPage() {
               <MuiButton variant="outlined" onClick={() => router.push('/')}>{t('client.signup.backHome')}</MuiButton>
             </Stack>
           )}
+          <Typography variant="caption" color="textSecondary" textAlign="center">
+            By continuing, you agree to our{' '}
+            <a href="/terms">Terms of Service</a>,{' '}
+            <a href="/privacy">Privacy Policy</a> and{' '}
+            <a href="/refund-policy">Refund &amp; Cancellation Policy</a>.
+          </Typography>
         </Stack>
       </Card>
     </Box>

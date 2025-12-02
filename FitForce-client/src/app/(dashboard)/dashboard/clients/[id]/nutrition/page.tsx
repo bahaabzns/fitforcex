@@ -2861,10 +2861,24 @@ export default function ClientNutritionPage() {
                           setIsPlanDirty(true);
                         }}><Copy size={16} /></IconButton>
                         <IconButton size="small" color="error" title="Delete" onClick={() => {
+                          // Update currentMeals immediately for real-time calculation
                           setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
                             ...m,
                             foodItems: m.foodItems.filter(fi => fi.id !== item.id)
                           }));
+                          // Also update plans state to keep everything in sync
+                          if (selectedPlanId && selectedCycleId) {
+                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                              ...p,
+                              cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                ...c,
+                                meals: (c.meals || []).map((m) => m.id !== selectedMealId ? m : ({
+                                  ...m,
+                                  foodItems: (m.foodItems || []).filter((fi) => fi.id !== item.id)
+                                }))
+                              }))
+                            })));
+                          }
                           setIsPlanDirty(true);
                         }}><Trash size={16} /></IconButton>
                       </Box>

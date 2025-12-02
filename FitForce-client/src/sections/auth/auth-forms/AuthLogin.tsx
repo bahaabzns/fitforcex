@@ -192,6 +192,23 @@ export default function AuthLogin({ providers, csrfToken }: any) {
                   </Button>
                 </AnimateButton>
               </Grid>
+              <Grid size={12}>
+                <Typography variant="caption" color="textSecondary">
+                  By logging in, you agree to our{' '}
+                  <Links href="/terms" color="inherit" underline="always">
+                    Terms of Service
+                  </Links>
+                  ,{' '}
+                  <Links href="/privacy" color="inherit" underline="always">
+                    Privacy Policy
+                  </Links>{' '}
+                  and{' '}
+                  <Links href="/refund-policy" color="inherit" underline="always">
+                    Refund &amp; Cancellation Policy
+                  </Links>
+                  .
+                </Typography>
+              </Grid>
             <Grid size={12}>
               <Stack spacing={1}>
                 <Divider />

@@ -214,6 +214,12 @@ export default function RegisterPage() {
           <MuiButton type="submit" variant="contained" fullWidth disabled={loading}>
             {loading ? t('processing') : t('register')}
           </MuiButton>
+          <Typography variant="caption" color="textSecondary" textAlign="center">
+            By creating an account, you agree to our{' '}
+            <Link href="/terms">Terms of Service</Link>,{' '}
+            <Link href="/privacy">Privacy Policy</Link> and{' '}
+            <Link href="/refund-policy">Refund &amp; Cancellation Policy</Link>.
+          </Typography>
           <Typography variant="body2" textAlign="center">
             {t('login')}? <Link href="/login">{t('go-to-login') || 'Go to Login'}</Link>
           </Typography>
