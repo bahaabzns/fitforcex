@@ -1314,13 +1314,16 @@ export default function ClientNutritionPage() {
       }
 
       // 4) Sync all plan data using bulk upsert (includes recipe data)
+      // Use currentMeals as the source of truth for food items to ensure deletions are persisted
       const daysData = cyclesToSync.map((cycle) => ({
         dayIndex: cycle.dayIndex,
         label: cycle.label || '',
         items: (cycle.meals || []).flatMap((meal) => {
-          // Find the corresponding meal in currentMeals to get recipe data
+          // Find the corresponding meal in currentMeals to get the most up-to-date food items
           const currentMeal = currentMeals.find(m => m.id === meal.id);
-          const mealItems = (meal.foodItems || []).map((item) => {
+          // Use currentMeal.foodItems if available (most up-to-date), otherwise fall back to meal.foodItems
+          const foodItemsToSave = currentMeal?.foodItems || meal.foodItems || [];
+          const mealItems = foodItemsToSave.map((item) => {
             const servingSize = (item as any)?.foodItem?.servingSize || 100;
             const override = (editingQuantities as any)?.[item.id];
             const candidate = override ?? (item as any)?.quantity ?? ((item as any)?.servings ? (Number((item as any).servings) * servingSize) : undefined);
