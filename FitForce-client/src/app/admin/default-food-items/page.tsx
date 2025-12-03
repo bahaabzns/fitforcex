@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import api from '@/utils/axios';
-import { Box, Typography, Card, CardContent, TextField, Button, Grid, Table, TableBody, TableCell, TableHead, TableRow, IconButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { Refresh, Delete, Add, Edit } from '@mui/icons-material';
+import { Box, Typography, Card, CardContent, TextField, Button, Grid, Table, TableBody, TableCell, TableHead, TableRow, IconButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Stack } from '@mui/material';
+import { Refresh, Delete, Add, Edit, UploadFile } from '@mui/icons-material';
 
 interface FoodItem {
   id: string;
@@ -59,6 +59,10 @@ export default function DefaultFoodItemsPage() {
   const [form, setForm] = useState<Partial<FoodItem>>({ name: '', calories: 0, protein: 0, carbs: 0, fat: 0, category: '', servingSize: undefined, unit: '' });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showMicros, setShowMicros] = useState<boolean>(false);
+  const [uploadPreview, setUploadPreview] = useState<FoodItem[]>([]);
+  const [uploadSkipped, setUploadSkipped] = useState<{ index: number; reason: string }[]>([]);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fetchItems = async () => {
     try {
@@ -168,20 +172,75 @@ export default function DefaultFoodItemsPage() {
     }
   };
 
+  const handleUploadFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadError(null);
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data } = await api.post('/api/admin/default-food-items/upload-preview', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const items = Array.isArray((data as any)?.items) ? (data as any).items : [];
+      setUploadPreview(items as FoodItem[]);
+      setUploadSkipped(((data as any)?.skipped || []) as { index: number; reason: string }[]);
+      setUploadDialogOpen(true);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || 'Failed to process file';
+      setUploadError(msg);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const updatePreviewRow = (index: number, patch: Partial<FoodItem>) => {
+    setUploadPreview((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
+
+  const submitBulkImport = async () => {
+    try {
+      setUploadError(null);
+      if (uploadPreview.length === 0) {
+        setUploadError('No rows to import');
+        return;
+      }
+      await api.post('/api/admin/default-food-items/bulk-import', { items: uploadPreview });
+      setUploadDialogOpen(false);
+      setUploadPreview([]);
+      setUploadSkipped([]);
+      await fetchItems();
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || 'Failed to import items';
+      setUploadError(msg);
+    }
+  };
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 } }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Typography variant="h5" fontWeight={800}>Base Food Items</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
         <Button variant="outlined" color="error" startIcon={<Delete />} disabled={selectedIds.length === 0} onClick={bulkDeleteSelected}>Delete Selected ({selectedIds.length})</Button>
         <Button variant="outlined" color="error" onClick={deleteAll}>Delete All</Button>
         <Button variant="outlined" onClick={clearSelection} disabled={selectedIds.length === 0}>Clear Selection</Button>
+        <Button
+          variant="outlined"
+          component="label"
+          startIcon={<UploadFile />}
+        >
+          Upload File
+          <input hidden type="file" accept=".csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleUploadFileChange} />
+        </Button>
         <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Add Item</Button>
         <Button variant="outlined" startIcon={<Refresh />} onClick={fetchItems}>Refresh</Button>
       </Box>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
+      )}
+      {uploadError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUploadError(null)}>{uploadError}</Alert>
       )}
       <Card>
         <CardContent>
@@ -236,6 +295,106 @@ export default function DefaultFoodItemsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} fullWidth maxWidth="lg">
+        <DialogTitle>Review Imported Food Items</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Required columns in the CSV/XLSX file are <strong>name</strong> and <strong>calories</strong>.
+            Optional columns: <strong>category</strong>, <strong>serving_size</strong>, <strong>unit</strong>,
+            <strong>protein</strong>, <strong>carbs</strong>, <strong>fat</strong>, and the various micronutrients
+            (water, fiber, vitamins, minerals, etc.). Each row represents a single base food item.
+          </Typography>
+          {uploadSkipped.length > 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {uploadSkipped.length} rows were skipped because they were missing required columns (name or calories).
+            </Alert>
+          )}
+          <Box sx={{ mt: 1, maxHeight: 400, overflow: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell align="right">Calories</TableCell>
+                  <TableCell align="right">Protein</TableCell>
+                  <TableCell align="right">Carbs</TableCell>
+                  <TableCell align="right">Fat</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {uploadPreview.map((row, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        value={row.name}
+                        onChange={(e) => updatePreviewRow(index, { name: e.target.value })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        value={row.category || ''}
+                        onChange={(e) => updatePreviewRow(index, { category: e.target.value })}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={row.calories}
+                        onChange={(e) => updatePreviewRow(index, { calories: Number(e.target.value) })}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={row.protein}
+                        onChange={(e) => updatePreviewRow(index, { protein: Number(e.target.value) })}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={row.carbs}
+                        onChange={(e) => updatePreviewRow(index, { carbs: Number(e.target.value) })}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={row.fat}
+                        onChange={(e) => updatePreviewRow(index, { fat: Number(e.target.value) })}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {uploadPreview.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <Typography variant="body2" color="text.secondary">
+                        No rows parsed from the file. Please check the columns and try again.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={submitBulkImport} disabled={uploadPreview.length === 0}>
+            Import to Base Food Items
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? 'Edit Food Item' : 'Add Food Item'}</DialogTitle>
