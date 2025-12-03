@@ -186,19 +186,37 @@ export default function DefaultExercisesPage() {
       'name',
       'name_arabic',
       'muscle_group',
+      'muscle_group_arabic',
       'category',
+      'category_arabic',
       'notes',
+      'notes_arabic',
       'equipment_needed',
+      'equipment_needed_arabic',
+      'equipment',
       'video_url',
+      'gif_image',
+      'instructions',
+      'is_cardio',
+      'default_duration_seconds',
     ].join(',');
     const sampleRow = [
       'Push Up',
       'تمرين الضغط',
       'Chest',
+      'صدر',
       'Bodyweight',
+      'تمارين وزن الجسم',
       'Classic push up exercise',
+      'تمرين ضغط كلاسيكي',
       'None',
+      'لا شيء',
+      '',
       'https://example.com/video',
+      'https://example.com/gif.gif',
+      'Start in plank position, lower body, push back up',
+      'false',
+      '',
     ].join(',');
     const csv = `${header}\n${sampleRow}\n`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -321,7 +339,7 @@ export default function DefaultExercisesPage() {
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
             Required columns in the CSV/XLSX file are <strong>name</strong> and <strong>muscle_group</strong>.
-            Optional columns: <strong>name_arabic</strong>, <strong>category</strong>, <strong>notes</strong>, <strong>equipment_needed</strong>, <strong>video_url</strong>.
+            Optional columns: <strong>name_arabic</strong>, <strong>category</strong>, <strong>notes</strong>, <strong>equipment_needed</strong>, <strong>video_url</strong>, <strong>gif_image</strong>, <strong>instructions</strong>, <strong>is_cardio</strong>, <strong>default_duration_seconds</strong>.
             Each row represents a single base exercise.
           </Typography>
           {uploadSkipped.length > 0 && (
