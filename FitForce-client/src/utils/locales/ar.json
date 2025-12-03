@@ -245,6 +245,7 @@
   "queue.empty": "لا توجد عناصر مطابقة للمرشحات",
   "queue.col.client": "العميل",
   "queue.col.form": "النموذج",
+  "queue.col.currentPackage": "الباقة الحالية",
   "queue.col.assignedTo": "مُسنَد إلى",
   "queue.col.createdAt": "تاريخ الإنشاء",
   "queue.col.scheduledAt": "مجدول",

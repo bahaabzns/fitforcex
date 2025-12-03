@@ -86,7 +86,7 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center gap-4">
             <LanguageToggle />
             <Link
-              href="/loginpage"
+              href="/login"
               className="text-gray-300 hover:text-cyan-400 font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded px-2 py-1"
             >
               {t.nav.login}
@@ -132,7 +132,7 @@ export default function Navbar() {
                 <span className="text-gray-400">{t.nav.language}</span>
                 <LanguageToggle />
               </div>
-              <Link href="/loginpage" onClick={handleNavItemClick} className="block text-gray-300 hover:text-cyan-400 px-4 py-2">
+              <Link href="/login" onClick={handleNavItemClick} className="block text-gray-300 hover:text-cyan-400 px-4 py-2">
                 {t.nav.login}
               </Link>
               <Button href="/register" onClick={handleNavItemClick} fullWidth>

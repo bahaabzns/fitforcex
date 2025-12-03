@@ -472,6 +472,7 @@
   "queue.empty": "No queue items match your filters",
   "queue.col.client": "Client",
   "queue.col.form": "Form",
+  "queue.col.currentPackage": "Current Package",
   "queue.col.assignedTo": "Assigned To",
   "queue.col.createdAt": "Created At",
   "queue.col.scheduledAt": "Scheduled",

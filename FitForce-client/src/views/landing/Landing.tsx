@@ -116,15 +116,14 @@ export default function Landing() {
                 <Button component={Link} href="/dashboard" size="large" variant="contained">
                   Go to Dashboard
                 </Button>
-              ) : /* Sign up/Login buttons - Show if not logged in */
+              ) : /* Auth CTA buttons - Show if not logged in */
               (
                 <>
-                  <Button component="a" href="#book-demo" size="large" variant="contained" onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('book-demo')?.scrollIntoView({ behavior: 'smooth' });
-                  }}>
+                  {/* Treat this as a "get started" action → send to register */}
+                  <Button component={Link} href="/register" size="large" variant="contained">
                     Book a Demo
                   </Button>
+                  {/* Explicit login button */}
                   <Button component={Link} href="/login" size="large" variant="outlined">
                     Sign In
                   </Button>
@@ -227,11 +226,13 @@ export default function Landing() {
                     <Typography variant="body2">Priority support</Typography>
                   </Stack>
                   <Stack direction="row" spacing={2}>
-                    <Button component={Link} href="/pricing" variant="outlined" color="primary">View Pricing</Button>
-                    <Button component="a" href="#book-demo" variant="contained" color="primary" onClick={(e) => {
-                      e.preventDefault();
-                      document.getElementById('book-demo')?.scrollIntoView({ behavior: 'smooth' });
-                    }}>Book a Demo</Button>
+                    <Button component={Link} href="/pricing" variant="outlined" color="primary">
+                      View Pricing
+                    </Button>
+                    {/* Pricing CTA as a get-started → register */}
+                    <Button component={Link} href="/register" variant="contained" color="primary">
+                      Book a Demo
+                    </Button>
                   </Stack>
                 </Stack>
               </Paper>
@@ -257,10 +258,10 @@ export default function Landing() {
                         <Typography color="text.secondary">{pkg.description}</Typography>
                       )}
                       <Box sx={{ flexGrow: 1 }} />
-                      <Button component="a" href="#book-demo" variant="contained" color="primary" onClick={(e) => {
-                        e.preventDefault();
-                        document.getElementById('book-demo')?.scrollIntoView({ behavior: 'smooth' });
-                      }}>Book a Demo</Button>
+                      {/* Package CTA → treat as get-started → register */}
+                      <Button component={Link} href="/register" variant="contained" color="primary">
+                        Book a Demo
+                      </Button>
                     </Stack>
                   </Paper>
                 </Grid>

@@ -62,6 +62,7 @@ interface QueueItem {
   id: string;
   clientId?: string;
   clientName: string;
+  clientPackageName?: string | null;
   formTitle: string;
   formType?: 'nutrition' | 'workout' | string | null;
   createdAt?: string | null;
@@ -818,6 +819,16 @@ export default function QueuePage() {
                     </TableCell>
                     <TableCell>
                       <TableSortLabel
+                        active={sortField === 'clientPackageName'}
+                        direction={sortField === 'clientPackageName' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('clientPackageName')}
+                        IconComponent={sortField === 'clientPackageName' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        <FormattedMessage id="queue.col.currentPackage" defaultMessage="Current Package" />
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
                         active={sortField === 'formTitle'}
                         direction={sortField === 'formTitle' ? sortDirection : 'asc'}
                         onClick={() => handleSort('formTitle')}
@@ -906,6 +917,7 @@ export default function QueuePage() {
                         )}
                       </TableCell>
                       <TableCell>{row.clientName}</TableCell>
+                      <TableCell>{row.clientPackageName || '-'}</TableCell>
                       <TableCell>
                         {(isArabic ? (row as any).formTitleArabic : undefined) || row.formTitle}
                         {row.formType ? <Chip size="small" label={formatFormType(intl, row.formType)} sx={{ ml: 1 }} /> : null}
