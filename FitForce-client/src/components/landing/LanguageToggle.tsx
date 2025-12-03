@@ -1,9 +1,9 @@
-'use client';
+'use client'
 
-import { useLanguage } from '@/lib/landing/LanguageContext';
+import { useLanguage } from '@/lib/landing/LanguageContext'
 
 export default function LanguageToggle() {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage } = useLanguage()
 
   return (
     <div className="flex items-center gap-2 bg-gray-900/50 backdrop-blur-md rounded-lg p-1 border border-cyan-500/20">
@@ -28,5 +28,5 @@ export default function LanguageToggle() {
         AR
       </button>
     </div>
-  );
+  )
 }

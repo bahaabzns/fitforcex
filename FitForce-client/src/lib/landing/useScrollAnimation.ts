@@ -84,4 +84,3 @@ export function useStaggeredAnimation(itemCount: number, staggerDelay: number = 
 
   return setRef
 }
-

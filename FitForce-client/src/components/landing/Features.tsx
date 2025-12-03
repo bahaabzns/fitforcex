@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
-import { useLanguage } from '@/lib/landing/LanguageContext';
+import { useLanguage } from "@/lib/landing/LanguageContext";
+import Image from "next/image";
 
 export default function Features() {
   const { t, dir } = useLanguage();
@@ -8,21 +9,25 @@ export default function Features() {
   const features = [
     {
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-          />
-        </svg>
+        <Image
+          src="/unlimited.png"
+          alt="Unlimited Members"
+          width={32}
+          height={32}
+          className="w-8 h-8"
+        />
       ),
       title: t.features.feature1.title,
-      description: t.features.feature1.description
+      description: t.features.feature1.description,
     },
     {
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-8 h-8"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -32,11 +37,16 @@ export default function Features() {
         </svg>
       ),
       title: t.features.feature2.title,
-      description: t.features.feature2.description
+      description: t.features.feature2.description,
     },
     {
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-8 h-8"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -46,11 +56,16 @@ export default function Features() {
         </svg>
       ),
       title: t.features.feature3.title,
-      description: t.features.feature3.description
+      description: t.features.feature3.description,
     },
     {
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-8 h-8"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -60,11 +75,16 @@ export default function Features() {
         </svg>
       ),
       title: t.features.feature4.title,
-      description: t.features.feature4.description
+      description: t.features.feature4.description,
     },
     {
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-8 h-8"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -74,11 +94,16 @@ export default function Features() {
         </svg>
       ),
       title: t.features.feature5.title,
-      description: t.features.feature5.description
+      description: t.features.feature5.description,
     },
     {
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-8 h-8"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -88,16 +113,24 @@ export default function Features() {
         </svg>
       ),
       title: t.features.feature6.title,
-      description: t.features.feature6.description
-    }
+      description: t.features.feature6.description,
+    },
   ];
 
   return (
-    <section id="features" className="section-padding bg-gray-900 scroll-snap-align-start min-h-screen flex items-center" dir={dir}>
+    <section
+      id="features"
+      className="section-padding bg-gray-900 scroll-snap-align-start min-h-screen flex items-center"
+      dir={dir}
+    >
       <div className="section-container">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">{t.features.title}</h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">{t.features.subtitle}</p>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
+            {t.features.title}
+          </h2>
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            {t.features.subtitle}
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -109,8 +142,23 @@ export default function Features() {
               <div className="w-16 h-16 bg-primary-500/20 backdrop-blur-sm rounded-lg flex items-center justify-center text-primary-400 mb-6 border border-primary-500/30">
                 {feature.icon}
               </div>
-              <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-              <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+              <h3 className="text-xl font-bold text-white mb-3">
+                {feature.title}
+              </h3>
+              <div className="text-gray-300 leading-relaxed space-y-2">
+                {Array.isArray(feature.description) ? (
+                  <ul className="space-y-2">
+                    {feature.description.map((line, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-cyan-400 mt-1">•</span>
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{feature.description}</p>
+                )}
+              </div>
             </div>
           ))}
         </div>

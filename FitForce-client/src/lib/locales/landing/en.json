@@ -1,4 +1,8 @@
 {
+  "brand": {
+    "name": "FitForce",
+    "nameLocalized": "FitForce"
+  },
   "nav": {
     "features": "Features",
     "pricing": "Pricing",
@@ -6,46 +10,71 @@
     "faq": "FAQ",
     "demo": "Quick Demo",
     "login": "Login",
-    "getStarted": "Get started — it's free",
+    "getStarted": "Get Started",
     "language": "Language",
     "theme": "Theme"
   },
   "hero": {
-    "title": "The Complete Platform for Fitness Coaches",
+    "title": "One System to Run Your Coaching Business",
     "subtitle": "Manage unlimited clients, deliver custom workout and nutrition plans, and grow your coaching business—all in one place.",
-    "cta": "Try it free now",
+    "cta": "Get Started — It's FREE!",
     "noCreditCard": "No credit card needed, cancel any time",
-    "trustedBy": "Trusted by 100+ coaches"
+    "trustedBy": "Trusted by 100+ coaches",
+    "superSheetsBadge": "The new generation of \"Super Sheets\""
   },
   "trustedBy": {
-    "title": "Trusted by Leading Coaches"
+    "title": "Trusted by Top-Tier Coaches"
   },
   "features": {
     "title": "Everything You Need to Coach Better",
     "subtitle": "Powerful features designed specifically for fitness professionals",
     "feature1": {
-      "title": "Unlimited Clients",
-      "description": "Scale your business without limits. Add as many clients as you want."
+      "title": "Unlimited Number of Clients",
+      "description": [
+        "Add as many clients as you want with no caps or restrictions",
+        "No forced upgrades or hidden fees as your business grows",
+        "Complete freedom to scale your coaching exactly the way you choose"
+      ]
     },
     "feature2": {
       "title": "Work From Anywhere",
-      "description": "Cloud-based platform accessible from any device, anywhere in the world."
+      "description": [
+        "Fully optimized for mobile, laptop, and tablet",
+        "Manage clients, send plans, and reply to chats from anywhere",
+        "Your entire workflow stays with you — gym, home, café, or traveling"
+      ]
     },
     "feature3": {
-      "title": "PDF or Portal Delivery",
-      "description": "Deliver plans as beautifully designed PDFs or through an interactive client portal."
+      "title": "Deliver Plans the Way You Want",
+      "description": [
+        "Choose between professional PDF, organized client portal, or mobile app",
+        "Pick the format that fits your brand and gives clients a premium experience",
+        "Fast, polished, and impressive delivery every single time"
+      ]
     },
     "feature4": {
-      "title": "Exercise & Food Libraries",
-      "description": "Access thousands of exercises and foods with photos, videos, and nutritional data."
+      "title": "Ready-to-Use Exercise & Food Libraries",
+      "description": [
+        "Hundreds of exercises with GIF demonstrations and full food database",
+        "No more collecting data from scratch or building lists manually",
+        "Every item is fully editable to tailor plans to your coaching style"
+      ]
     },
     "feature5": {
       "title": "Client Progress Tracking",
-      "description": "Monitor weight, measurements, photos, and performance metrics in real-time."
+      "description": [
+        "Check-ins, workout logs, progress photos — all in one place",
+        "Monitor every client day by day and make smarter decisions faster",
+        "Boosts engagement, speeds up results, and improves commitment"
+      ]
     },
     "feature6": {
       "title": "Extremely Easy to Use",
-      "description": "Intuitive interface for both coaches and clients. No technical skills required."
+      "description": [
+        "Clean, intuitive interface helps you create full plans in minutes",
+        "Clients receive everything neatly organized in their own portal",
+        "No confusion, no complexity — just a smooth premium experience"
+      ]
     }
   },
   "demo": {
@@ -55,7 +84,7 @@
   },
   "pricing": {
     "title": "Choose Your Plan",
-    "subtitle": "All prices include tax. Start with a 14-day free trial.",
+    "subtitle": "All prices include tax. Start with a 7-day free trial.",
     "monthly": "Monthly",
     "quarterly": "Quarterly",
     "semiAnnual": "Semi-Annual",
@@ -71,73 +100,74 @@
     "perMember": "per member",
     "addMember": "+ Add member",
     "oneForce": {
-      "name": "One Force",
+      "name": "OneForce",
       "price": "2,000",
-      "description": "Perfect for solo coaches ready to scale",
-      "highlight": "Best for starting out",
+      "description": "For solo coaches",
+      "highlight": "Perfect for individual coaches",
+      "coreFeatures": "What's included:",
       "features": [
-        "∞ Unlimited clients — grow without limits",
-        "Custom workout plans tailored to each client",
-        "Custom nutrition plans that deliver results",
-        "Exercise library with HD videos",
-        "Complete food database with nutrition data",
-        "Real-time progress tracking",
-        "Professional PDF plan delivery",
-        "Branded client portal access",
-        "Mobile app for your clients (iOS & Android)",
-        "Fast WhatsApp support"
+        "∞ Unlimited clients",
+        "Workout & nutrition plan delivery (PDF, Client Portal, Mobile App)",
+        "Exercise & food databases",
+        "Client tracking (Check-ins, Workout Logs, Progress Photos)",
+        "In-portal chat system",
+        "Reports and insights",
+        "Branded client interface (logo + colors)",
+        "Basic support"
       ]
     },
     "teamForce": {
-      "name": "Team Force",
+      "name": "TeamForce",
       "price": "4,000",
-      "description": "For teams ready to dominate their market",
-      "highlight": "Most Popular Choice",
+      "description": "For coaches with teams",
+      "highlight": "Most popular choice",
       "teamMembersLabel": "Number of team members:",
       "baseMembers": "3 team members included",
       "additionalCost": "800 LE per additional member",
+      "everythingIn": "Everything in OneForce, and:",
+      "teamFeatures": "Team Features",
       "features": [
-        "∞ Unlimited clients — scale infinitely",
-        "Everything in One Force, plus more",
-        "Powerful team collaboration tools",
-        "Shared client database for seamless workflow",
-        "Advanced analytics & insights",
-        "Your custom branding everywhere",
-        "Priority support — we've got your back",
-        "Full API access for integrations",
-        "White-label option included",
-        "Your dedicated account manager"
+        "Add team members",
+        "Role-based permissions",
+        "Team performance tracking",
+        "Queue dashboard for request management",
+        "Client distribution among team members",
+        "Full activity log",
+        "Priority support"
       ]
     },
     "enterpriseForce": {
-      "name": "Enterprise Force",
-      "price": "Custom",
-      "description": "For organizations that demand excellence",
-      "highlight": "Enterprise Scale",
+      "name": "EnterpriseForce",
+      "price": "Custom pricing",
+      "description": "For large coaching businesses & brands",
+      "highlight": "Enterprise scale",
+      "everythingIn": "Everything in TeamForce, and:",
+      "enterpriseFeatures": "Enterprise Features",
       "features": [
-        "∞ Unlimited clients — truly limitless",
-        "∞ Unlimited team members",
-        "Everything in Team Force, supercharged",
-        "Custom integrations built for you",
-        "Enterprise-grade security",
-        "Guaranteed SLA commitments",
-        "Custom features developed to your specs",
-        "On-premise deployment option",
-        "White-glove training & onboarding",
-        "24/7 dedicated phone support"
+        "Unlimited team members",
+        "Fully branded mobile app (App Store & Play Store)",
+        "Custom automation flows",
+        "Advanced workflow settings",
+        "Custom dashboards",
+        "Integrations (Payment Gateways, CRM, APIs)",
+        "Full team onboarding & training",
+        "Custom reports & feature development",
+        "Dedicated account manager",
+        "VIP 24/7 support"
       ]
     }
   },
-  "coaches": {
-    "title": "Join Leading Coaches",
-    "subtitle": "Trusted by fitness professionals worldwide"
+  "foundersword": {
+    "title": "Founder's Guarantee",
+    "subtitle": ""
   },
   "faq": {
     "title": "Frequently Asked Questions",
     "subtitle": "Everything you need to know about FitForce",
+    "stillHaveQuestions": "Still have questions? Chat with our team →",
     "q1": {
       "question": "How does the free trial work?",
-      "answer": "Start with a 14-day free trial with full access to all features. No credit card required. Cancel anytime."
+      "answer": "Start with a 7-day free trial with full access to all features. No credit card required. Cancel anytime."
     },
     "q2": {
       "question": "Can I cancel anytime?",
@@ -157,7 +187,7 @@
     },
     "q6": {
       "question": "What are your support hours?",
-      "answer": "We offer WhatsApp support 7 days a week from 10 AM to 7 PM. Enterprise clients get 24/7 phone support."
+      "answer": "We offer WhatsApp support all days of the week except Fridays from 10 AM to 7 PM. Enterprise clients get 24/7 phone support."
     },
     "q7": {
       "question": "Can I import my existing clients?",
@@ -167,6 +197,47 @@
       "question": "Is there a mobile app?",
       "answer": "Yes, your clients get access to our mobile app (iOS & Android) where they can view plans, track progress, and communicate with you."
     }
+  },
+  "workflows": {
+    "ariaLabel": "Platform workflows",
+    "dietPlan": "Design Nutrition Plans",
+    "dietPlanDesc": "Design personalized diet plans with macros, meals, and substitutions.",
+    "workoutPlan": "Build Workout Plans",
+    "workoutPlanDesc": "Build structured workout plans with progression, rest, and equipment.",
+    "createClient": "Onboard Clients",
+    "createClientDesc": "Quickly onboard a new client with essential details and goals.",
+    "chatClient": "Start Conversations",
+    "chatClientDesc": "Keep conversations flowing with in-app chat and media.",
+    "createForm": "Create Forms",
+    "createFormDesc": "Create assessment forms and collect responses in one place.",
+    "createPackages": "Setup Packages",
+    "createPackagesDesc": "Set up package offerings, pricing, and renewals for clients."
+  },
+  "coaches": {
+    "title": "Join Elite Professional Coaches",
+    "subtitle": "Thousands of fitness professionals trust us across the Arab world and globally",
+    "coach1": {
+      "name": "Ahmed Elbasuony",
+      "description": "First Egyptian WNBF competitor and judge. From overweight teen to bodybuilding champion, now helping others achieve their wellness goals."
+    },
+    "coach2": {
+      "name": "Abdallah Gamal",
+      "description": "Medical doctor and WNBF natural athlete with 2000+ clients worldwide. Former IGCSE teacher and cardiology assistant bringing simple, flexible plans."
+    }
+  },
+  "foundersGuarantee": {
+    "title": "Founder's Guarantee",
+    "subtitle": "A personal promise from our founder to you",
+    "founderName": "Dr. Bahaa",
+    "founderTitle": "Founder & CEO, FitForce",
+    "quote": "I built FitForce because I believe every coach deserves tools that empower them, not limit them. If FitForce doesn't transform how you manage your coaching business within 7 days, I want to hear from you personally.",
+    "guarantees": [
+      "No credit card required for your 7-day trial — start risk-free today",
+      "Cancel anytime with one click — no questions asked, no hidden fees",
+      "Unlimited clients from day one — grow without worrying about caps or extra charges"
+    ],
+    "cta": "Start Your Free Trial",
+    "ctaSecondary": "Talk to Bahaa"
   },
   "footer": {
     "tagline": "The complete platform for fitness coaches",
@@ -183,8 +254,12 @@
     "contact": "Contact",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
-    "refund": "Refund & Cancellation Policy",
     "email": "support@fitforce.io",
-    "copyright": "© 2025 FitForce. All rights reserved."
+    "copyright": "© 2025 FitForce. All rights reserved.",
+    "ctaTitle": "Ready to Transform Your Coaching Business?",
+    "ctaSubtitle": "Join 100+ coaches who trust FitForce to manage their clients and grow their business",
+    "startTrial": "Start Free 7-Day Trial",
+    "talkToSales": "Talk to Sales",
+    "guarantees": "✓ No credit card required • ✓ Cancel anytime"
   }
 }
