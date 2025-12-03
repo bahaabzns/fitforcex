@@ -1,9 +1,10 @@
 'use client';
 
 import { ChangeEvent, useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import api from '@/utils/axios';
 import { Box, Typography, Card, CardContent, TextField, Button, Table, TableBody, TableCell, TableHead, TableRow, IconButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Grid, Stack } from '@mui/material';
-import { Refresh, Delete, Add, Edit, UploadFile } from '@mui/icons-material';
+import { Refresh, Delete, Add, Edit, UploadFile, ArrowBack } from '@mui/icons-material';
 
 interface ExerciseItem {
   id: string;
@@ -17,7 +18,10 @@ interface ExerciseItem {
   isActive?: boolean;
 }
 
-export default function DefaultExercisesPage() {
+export default function WorkspaceExercisesPage() {
+  const params = useParams();
+  const router = useRouter();
+  const workspaceId = params.id as string;
   const [items, setItems] = useState<ExerciseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +37,7 @@ export default function DefaultExercisesPage() {
 
   const fetchItems = async () => {
     try {
-      const { data } = await api.get('/api/admin/default-exercises');
+      const { data } = await api.get(`/api/admin/workspaces/${workspaceId}/exercises`);
       const list = Array.isArray((data as any)?.exercises)
         ? (data as any).exercises
         : Array.isArray((data as any)?.items)
@@ -49,7 +53,7 @@ export default function DefaultExercisesPage() {
     }
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(); }, [workspaceId]);
 
   const filtered = Array.isArray(items)
     ? items.filter((it) => it.name.toLowerCase().includes(q.toLowerCase()))
@@ -77,7 +81,7 @@ export default function DefaultExercisesPage() {
     try {
       setError(null);
       if (selectedIds.length === 0) return;
-      await api.post('/api/admin/default-exercises/bulk-delete', { ids: selectedIds });
+      await api.post(`/api/admin/workspaces/${workspaceId}/exercises/bulk-delete`, { ids: selectedIds });
       setSelectedIds([]);
       await fetchItems();
     } catch (e: any) {
@@ -88,7 +92,7 @@ export default function DefaultExercisesPage() {
   const deleteAll = async () => {
     try {
       setError(null);
-      await api.post('/api/admin/default-exercises/bulk-delete', { all: true });
+      await api.post(`/api/admin/workspaces/${workspaceId}/exercises/bulk-delete`, { all: true });
       setSelectedIds([]);
       await fetchItems();
     } catch (e: any) {
@@ -116,9 +120,9 @@ export default function DefaultExercisesPage() {
         return;
       }
       if (editing) {
-        await api.put(`/api/admin/default-exercises/${editing.id}`, form);
+        await api.put(`/api/admin/workspaces/${workspaceId}/exercises/${editing.id}`, form);
       } else {
-        await api.post('/api/admin/default-exercises', form);
+        await api.post(`/api/admin/workspaces/${workspaceId}/exercises`, form);
       }
       setDialogOpen(false);
       await fetchItems();
@@ -130,7 +134,7 @@ export default function DefaultExercisesPage() {
   const deleteItem = async (id: string) => {
     try {
       setError(null);
-      await api.delete(`/api/admin/default-exercises/${id}`);
+      await api.delete(`/api/admin/workspaces/${workspaceId}/exercises/${id}`);
       await fetchItems();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to delete');
@@ -144,7 +148,7 @@ export default function DefaultExercisesPage() {
       setUploadError(null);
       const formData = new FormData();
       formData.append('file', file);
-      const { data } = await api.post('/api/admin/default-exercises/upload-preview', formData, {
+      const { data } = await api.post(`/api/admin/workspaces/${workspaceId}/exercises/upload-preview`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const items = Array.isArray((data as any)?.items) ? (data as any).items : [];
@@ -170,7 +174,7 @@ export default function DefaultExercisesPage() {
         setUploadError('No rows to import');
         return;
       }
-      await api.post('/api/admin/default-exercises/bulk-import', { items: uploadPreview });
+      await api.post(`/api/admin/workspaces/${workspaceId}/exercises/bulk-import`, { items: uploadPreview });
       setUploadDialogOpen(false);
       setUploadPreview([]);
       setUploadSkipped([]);
@@ -205,7 +209,7 @@ export default function DefaultExercisesPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'base-exercises-sample.csv');
+    link.setAttribute('download', 'workspace-exercises-sample.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -214,8 +218,11 @@ export default function DefaultExercisesPage() {
 
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 } }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Typography variant="h5" fontWeight={800}>Base Exercises</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
+        <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => router.push(`/admin/workspaces/${workspaceId}`)}>
+          Back to Workspace
+        </Button>
+        <Typography variant="h5" fontWeight={800}>Workspace Exercises</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
         <Button variant="outlined" color="error" startIcon={<Delete />} disabled={selectedIds.length === 0} onClick={bulkDeleteSelected}>Delete Selected ({selectedIds.length})</Button>
@@ -238,30 +245,19 @@ export default function DefaultExercisesPage() {
       {uploadError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUploadError(null)}>{uploadError}</Alert>
       )}
-      <Card sx={{ mb: 2 }}>
+      <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                Upload instructions
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                The CSV/XLSX file must have at least these columns:
-                <strong> name</strong> (exercise name) and <strong> muscle_group</strong>.
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Optional columns: <strong>category</strong>, <strong>notes</strong>, <strong>equipment_needed</strong>,
-                and <strong>video_url</strong>. Each row represents one base exercise.
-              </Typography>
-              <Typography variant="body2">
-                Smart reader: you can use friendly headers like <strong>Muscle Group</strong> or <strong>Primary Muscle</strong>;
-                the system will automatically map them to the correct field.
-              </Typography>
-            </Box>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Typography variant="h6" fontWeight={600}>Upload Instructions</Typography>
             <Button variant="outlined" size="small" onClick={downloadSampleCsv}>
               Download sample CSV
             </Button>
           </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Required columns in the CSV/XLSX file are <strong>name</strong> and <strong>muscle_group</strong>.
+            Optional columns: <strong>name_arabic</strong>, <strong>category</strong>, <strong>notes</strong>, <strong>equipment_needed</strong>, <strong>video_url</strong>.
+            Each row represents a single exercise for this workspace.
+          </Typography>
         </CardContent>
       </Card>
       <Card>
@@ -406,7 +402,7 @@ export default function DefaultExercisesPage() {
         <DialogActions>
           <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={submitBulkImport} disabled={uploadPreview.length === 0}>
-            Import to Base Exercises
+            Import to Workspace Exercises
           </Button>
         </DialogActions>
       </Dialog>
@@ -440,5 +436,4 @@ export default function DefaultExercisesPage() {
     </Box>
   );
 }
-
 

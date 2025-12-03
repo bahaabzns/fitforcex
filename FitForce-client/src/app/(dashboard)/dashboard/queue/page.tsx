@@ -62,7 +62,9 @@ interface QueueItem {
   id: string;
   clientId?: string;
   clientName: string;
+  clientCode?: number | null;
   clientPackageName?: string | null;
+  clientPackageDurationMonths?: number | null;
   formTitle: string;
   formType?: 'nutrition' | 'workout' | string | null;
   createdAt?: string | null;
@@ -640,6 +642,11 @@ export default function QueuePage() {
                             <Typography variant="body2" color="text.secondary">
                               {(isArabic ? (row as any).formTitleArabic : undefined) || row.formTitle}
                             </Typography>
+                            {row.clientCode && (
+                              <Typography variant="caption" color="text.secondary">
+                                ID: {row.clientCode}
+                              </Typography>
+                            )}
                           </Box>
                           <Chip 
                             size="small" 
@@ -819,6 +826,16 @@ export default function QueuePage() {
                     </TableCell>
                     <TableCell>
                       <TableSortLabel
+                        active={sortField === 'clientCode'}
+                        direction={sortField === 'clientCode' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('clientCode')}
+                        IconComponent={sortField === 'clientCode' ? (sortDirection === 'asc' ? ArrowUpwardIcon : ArrowDownwardIcon) : undefined}
+                      >
+                        <FormattedMessage id="queue.col.clientId" defaultMessage="Client ID" />
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
                         active={sortField === 'clientPackageName'}
                         direction={sortField === 'clientPackageName' ? sortDirection : 'asc'}
                         onClick={() => handleSort('clientPackageName')}
@@ -917,7 +934,21 @@ export default function QueuePage() {
                         )}
                       </TableCell>
                       <TableCell>{row.clientName}</TableCell>
-                      <TableCell>{row.clientPackageName || '-'}</TableCell>
+                      <TableCell>{row.clientCode ?? '-'}</TableCell>
+                      <TableCell>
+                        {row.clientPackageName ? (
+                          <Box>
+                            <Typography variant="body2">{row.clientPackageName}</Typography>
+                            {row.clientPackageDurationMonths && (
+                              <Typography variant="caption" color="text.secondary">
+                                {row.clientPackageDurationMonths} {row.clientPackageDurationMonths === 1 ? 'month' : 'months'}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
                       <TableCell>
                         {(isArabic ? (row as any).formTitleArabic : undefined) || row.formTitle}
                         {row.formType ? <Chip size="small" label={formatFormType(intl, row.formType)} sx={{ ml: 1 }} /> : null}

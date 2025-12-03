@@ -188,6 +188,8 @@ export default function WorkspaceDetailPage() {
             <Tab label="Team Members" id="workspace-tab-1" aria-controls="workspace-tabpanel-1" />
             <Tab label="Subscription" id="workspace-tab-2" aria-controls="workspace-tabpanel-2" />
             <Tab label="Owners" id="workspace-tab-3" aria-controls="workspace-tabpanel-3" />
+            <Tab label="Exercises" id="workspace-tab-4" aria-controls="workspace-tabpanel-4" />
+            <Tab label="Food Items" id="workspace-tab-5" aria-controls="workspace-tabpanel-5" />
           </Tabs>
         </Box>
 
@@ -203,6 +205,28 @@ export default function WorkspaceDetailPage() {
           </TabPanel>
           <TabPanel value={activeTab} index={3}>
             <OwnersTab workspace={workspace} onRefresh={handleRefresh} />
+          </TabPanel>
+          <TabPanel value={activeTab} index={4}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => window.location.href = `/admin/workspaces/${workspaceId}/exercises`}
+              >
+                Manage Workspace Exercises
+              </Button>
+            </Box>
+          </TabPanel>
+          <TabPanel value={activeTab} index={5}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => window.location.href = `/admin/workspaces/${workspaceId}/food-items`}
+              >
+                Manage Workspace Food Items
+              </Button>
+            </Box>
           </TabPanel>
         </CardContent>
       </Card>

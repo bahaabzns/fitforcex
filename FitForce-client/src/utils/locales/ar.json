@@ -244,6 +244,7 @@
   "queue.makePlan.short": "إنشاء خطة",
   "queue.empty": "لا توجد عناصر مطابقة للمرشحات",
   "queue.col.client": "العميل",
+  "queue.col.clientId": "معرف العميل",
   "queue.col.form": "النموذج",
   "queue.col.currentPackage": "الباقة الحالية",
   "queue.col.assignedTo": "مُسنَد إلى",

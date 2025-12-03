@@ -1,9 +1,10 @@
 'use client';
 
 import { ChangeEvent, useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import api from '@/utils/axios';
 import { Box, Typography, Card, CardContent, TextField, Button, Grid, Table, TableBody, TableCell, TableHead, TableRow, IconButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Stack } from '@mui/material';
-import { Refresh, Delete, Add, Edit, UploadFile } from '@mui/icons-material';
+import { Refresh, Delete, Add, Edit, UploadFile, ArrowBack } from '@mui/icons-material';
 
 interface FoodItem {
   id: string;
@@ -49,7 +50,10 @@ interface FoodItem {
   betaine?: number | null;
 }
 
-export default function DefaultFoodItemsPage() {
+export default function WorkspaceFoodItemsPage() {
+  const params = useParams();
+  const router = useRouter();
+  const workspaceId = params.id as string;
   const [items, setItems] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +70,7 @@ export default function DefaultFoodItemsPage() {
 
   const fetchItems = async () => {
     try {
-      const { data } = await api.get('/api/admin/default-food-items');
+      const { data } = await api.get(`/api/admin/workspaces/${workspaceId}/food-items`);
       const list = Array.isArray((data as any)?.foodItems)
         ? (data as any).foodItems
         : Array.isArray((data as any)?.items)
@@ -82,7 +86,7 @@ export default function DefaultFoodItemsPage() {
     }
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(); }, [workspaceId]);
 
   const filtered = Array.isArray(items)
     ? items.filter((it) => it.name.toLowerCase().includes(q.toLowerCase()))
@@ -112,7 +116,7 @@ export default function DefaultFoodItemsPage() {
     try {
       setError(null);
       if (selectedIds.length === 0) return;
-      await api.post('/api/admin/default-food-items/bulk-delete', { ids: selectedIds });
+      await api.post(`/api/admin/workspaces/${workspaceId}/food-items/bulk-delete`, { ids: selectedIds });
       setSelectedIds([]);
       await fetchItems();
     } catch (e: any) {
@@ -123,7 +127,7 @@ export default function DefaultFoodItemsPage() {
   const deleteAll = async () => {
     try {
       setError(null);
-      await api.post('/api/admin/default-food-items/bulk-delete', { all: true });
+      await api.post(`/api/admin/workspaces/${workspaceId}/food-items/bulk-delete`, { all: true });
       setSelectedIds([]);
       await fetchItems();
     } catch (e: any) {
@@ -151,9 +155,9 @@ export default function DefaultFoodItemsPage() {
         return;
       }
       if (editing) {
-        await api.put(`/api/admin/default-food-items/${editing.id}`, form);
+        await api.put(`/api/admin/workspaces/${workspaceId}/food-items/${editing.id}`, form);
       } else {
-        await api.post('/api/admin/default-food-items', form);
+        await api.post(`/api/admin/workspaces/${workspaceId}/food-items`, form);
       }
       setDialogOpen(false);
       await fetchItems();
@@ -165,7 +169,7 @@ export default function DefaultFoodItemsPage() {
   const deleteItem = async (id: string) => {
     try {
       setError(null);
-      await api.delete(`/api/admin/default-food-items/${id}`);
+      await api.delete(`/api/admin/workspaces/${workspaceId}/food-items/${id}`);
       await fetchItems();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to delete');
@@ -179,7 +183,7 @@ export default function DefaultFoodItemsPage() {
       setUploadError(null);
       const formData = new FormData();
       formData.append('file', file);
-      const { data } = await api.post('/api/admin/default-food-items/upload-preview', formData, {
+      const { data } = await api.post(`/api/admin/workspaces/${workspaceId}/food-items/upload-preview`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const items = Array.isArray((data as any)?.items) ? (data as any).items : [];
@@ -205,7 +209,7 @@ export default function DefaultFoodItemsPage() {
         setUploadError('No rows to import');
         return;
       }
-      await api.post('/api/admin/default-food-items/bulk-import', { items: uploadPreview });
+      await api.post(`/api/admin/workspaces/${workspaceId}/food-items/bulk-import`, { items: uploadPreview });
       setUploadDialogOpen(false);
       setUploadPreview([]);
       setUploadSkipped([]);
@@ -312,7 +316,10 @@ export default function DefaultFoodItemsPage() {
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Typography variant="h5" fontWeight={800}>Base Food Items</Typography>
+        <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => router.push(`/admin/workspaces/${workspaceId}`)}>
+          Back to Workspace
+        </Button>
+        <Typography variant="h5" fontWeight={800}>Workspace Food Items</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} />
         <Button variant="outlined" color="error" startIcon={<Delete />} disabled={selectedIds.length === 0} onClick={bulkDeleteSelected}>Delete Selected ({selectedIds.length})</Button>
@@ -427,7 +434,7 @@ export default function DefaultFoodItemsPage() {
             Required columns in the CSV/XLSX file are <strong>name</strong> and <strong>calories</strong>.
             Optional columns: <strong>category</strong>, <strong>serving_size</strong>, <strong>unit</strong>,
             <strong>protein</strong>, <strong>carbs</strong>, <strong>fat</strong>, and the various micronutrients
-            (water, fiber, vitamins, minerals, etc.). Each row represents a single base food item.
+            (water, fiber, vitamins, minerals, etc.). Each row represents a single food item for this workspace.
           </Typography>
           {uploadSkipped.length > 0 && (
             <Alert severity="warning" sx={{ mb: 2 }}>
@@ -523,7 +530,7 @@ export default function DefaultFoodItemsPage() {
         <DialogActions>
           <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={submitBulkImport} disabled={uploadPreview.length === 0}>
-            Import to Base Food Items
+            Import to Workspace Food Items
           </Button>
         </DialogActions>
       </Dialog>

@@ -471,6 +471,7 @@
   "queue.makePlan.short": "Make Plan",
   "queue.empty": "No queue items match your filters",
   "queue.col.client": "Client",
+  "queue.col.clientId": "Client ID",
   "queue.col.form": "Form",
   "queue.col.currentPackage": "Current Package",
   "queue.col.assignedTo": "Assigned To",
