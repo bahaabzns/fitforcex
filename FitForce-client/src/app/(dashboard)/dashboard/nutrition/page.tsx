@@ -384,7 +384,7 @@ export default function NutritionPage() {
     setUpdating(true);
     setError(null);
     try {
-      const { id, createdAt, updatedAt, workspaceId: _ws, ...payload } = selectedFoodItem as any;
+      const { id, createdAt, updatedAt, workspaceId: _ws, deletedAt, ...payload } = selectedFoodItem as any;
       // Auto-determine category if not provided - set default to "Other"
       if (!payload.category) {
         payload.category = 'Other';
