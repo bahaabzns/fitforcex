@@ -180,6 +180,35 @@ export default function DefaultExercisesPage() {
     }
   };
 
+  const downloadSampleCsv = () => {
+    const header = [
+      'name',
+      'muscle_group',
+      'category',
+      'notes',
+      'equipment_needed',
+      'video_url',
+    ].join(',');
+    const sampleRow = [
+      'Push Up',
+      'Chest',
+      'Bodyweight',
+      'Classic push up exercise',
+      'None',
+      'https://example.com/video',
+    ].join(',');
+    const csv = `${header}\n${sampleRow}\n`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'base-exercises-sample.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
@@ -206,6 +235,32 @@ export default function DefaultExercisesPage() {
       {uploadError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUploadError(null)}>{uploadError}</Alert>
       )}
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                Upload instructions
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                The CSV/XLSX file must have at least these columns:
+                <strong> name</strong> (exercise name) and <strong> muscle_group</strong>.
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Optional columns: <strong>category</strong>, <strong>notes</strong>, <strong>equipment_needed</strong>,
+                and <strong>video_url</strong>. Each row represents one base exercise.
+              </Typography>
+              <Typography variant="body2">
+                Smart reader: you can use friendly headers like <strong>Muscle Group</strong> or <strong>Primary Muscle</strong>;
+                the system will automatically map them to the correct field.
+              </Typography>
+            </Box>
+            <Button variant="outlined" size="small" onClick={downloadSampleCsv}>
+              Download sample CSV
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
       <Card>
         <CardContent>
           {loading ? (

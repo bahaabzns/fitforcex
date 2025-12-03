@@ -216,6 +216,41 @@ export default function DefaultFoodItemsPage() {
     }
   };
 
+  const downloadSampleCsv = () => {
+    const header = [
+      'name',
+      'name_arabic',
+      'category',
+      'serving_size',
+      'unit',
+      'calories',
+      'protein',
+      'carbs',
+      'fat',
+    ].join(',');
+    const sampleRow = [
+      'Apple',
+      'تفاح',
+      'Fruit',
+      '100',
+      'g',
+      '52',
+      '0.3',
+      '14',
+      '0.2',
+    ].join(',');
+    const csv = `${header}\n${sampleRow}\n`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'base-food-items-sample.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
@@ -242,6 +277,37 @@ export default function DefaultFoodItemsPage() {
       {uploadError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUploadError(null)}>{uploadError}</Alert>
       )}
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                Upload instructions
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                The CSV/XLSX file must have at least these columns:
+                <strong> name</strong> (English name) and <strong> calories</strong>.
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Optional columns: <strong>category</strong>, <strong>serving_size</strong>, <strong>unit</strong>,
+                <strong> protein</strong>, <strong> carbs</strong>, <strong> fat</strong>, and micronutrients like
+                <strong> water</strong>, <strong> fiber</strong>, <strong> vitamins</strong>, and <strong> minerals</strong>.
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                For Arabic names, you can add a column called <strong>name_arabic</strong>, <strong>arabic_name</strong>,
+                or <strong>name_ar</strong>. The system will automatically detect and save it to the Arabic name field.
+              </Typography>
+              <Typography variant="body2">
+                Smart reader: if you use columns like <strong>Name EN</strong> and <strong>Name AR</strong>, the system will
+                map English to the main name and Arabic to the Arabic name automatically. Each row represents one base food item.
+              </Typography>
+            </Box>
+            <Button variant="outlined" size="small" onClick={downloadSampleCsv}>
+              Download sample CSV
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
       <Card>
         <CardContent>
           {loading ? (
@@ -315,7 +381,8 @@ export default function DefaultFoodItemsPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>#</TableCell>
-                  <TableCell>Name</TableCell>
+                  <TableCell>Name (EN)</TableCell>
+                  <TableCell>Name (AR)</TableCell>
                   <TableCell>Category</TableCell>
                   <TableCell align="right">Calories</TableCell>
                   <TableCell align="right">Protein</TableCell>
@@ -332,6 +399,13 @@ export default function DefaultFoodItemsPage() {
                         size="small"
                         value={row.name}
                         onChange={(e) => updatePreviewRow(index, { name: e.target.value })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        value={row.nameArabic || ''}
+                        onChange={(e) => updatePreviewRow(index, { nameArabic: e.target.value })}
                       />
                     </TableCell>
                     <TableCell>
@@ -377,7 +451,7 @@ export default function DefaultFoodItemsPage() {
                 ))}
                 {uploadPreview.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <Typography variant="body2" color="text.secondary">
                         No rows parsed from the file. Please check the columns and try again.
                       </Typography>
