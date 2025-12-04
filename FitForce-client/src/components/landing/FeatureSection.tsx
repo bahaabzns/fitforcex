@@ -31,28 +31,33 @@ export default function FeatureSection({
 
       <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full py-6 sm:py-8 md:py-12 lg:py-16 relative z-10">
         <div
-          className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 lg:gap-12 items-center justify-items-center lg:justify-items-start ${
-            dir === "rtl" ? "direction-rtl" : ""
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 lg:gap-12 items-center ${
+            dir === "rtl" ? "direction-rtl" : "direction-ltr"
           }`}
         >
           {/* Feature Info */}
           <div
             ref={contentRef}
-            className={`text-center max-w-xl w-full mx-auto flex flex-col items-center animate-on-scroll fade-in-left ${
-              dir === "rtl" ? "lg:text-right lg:items-end" : "lg:text-left lg:items-start"
+            className={`w-full flex flex-col animate-on-scroll fade-in-left ${
+              dir === "rtl" 
+                ? "text-right items-end" 
+                : "text-left items-start"
             }`}
+            style={dir === "rtl" ? { direction: "rtl" } : { direction: "ltr" }}
           >
-            <h2 className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4 sm:mb-6 tracking-tight max-w-md px-2 ${
-              dir === "rtl" ? "mx-auto lg:mx-0 lg:mr-0" : "mx-auto lg:mx-0 lg:ml-0"
+            <h2 className={`w-full text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4 sm:mb-6 tracking-tight ${
+              dir === "rtl" ? "text-right" : "text-left"
             }`}>
               {feature.title}
             </h2>
-            <ul className={`space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-left max-w-md px-4 ${
-              dir === "rtl" ? "mx-auto lg:mx-0 lg:mr-0" : "mx-auto lg:mx-0 lg:ml-0"
+            <ul className={`w-full space-y-3 sm:space-y-4 mb-6 sm:mb-8 ${
+              dir === "rtl" ? "text-right" : "text-left"
             }`}>
               {Array.isArray(feature.description) &&
                 feature.description.map((point: string, index: number) => (
-                  <li key={index} className="flex items-start gap-3">
+                  <li key={index} className={`flex items-start gap-3 ${
+                    dir === "rtl" ? "flex-row-reverse" : ""
+                  }`}>
                     <svg
                       className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 mt-0.5"
                       viewBox="0 0 20 20"
@@ -73,15 +78,15 @@ export default function FeatureSection({
                         strokeLinejoin="round"
                       />
                     </svg>
-                    <span className="text-base sm:text-lg md:text-xl text-[var(--text-secondary)] leading-relaxed flex-1">
+                    <span className={`text-base sm:text-lg md:text-xl text-[var(--text-secondary)] leading-relaxed flex-1 ${
+                      dir === "rtl" ? "text-right" : "text-left"
+                    }`}>
                       {point}
                     </span>
                   </li>
                 ))}
             </ul>
-            <div className={`flex flex-col gap-3 w-full ${
-              dir === "rtl" ? "items-center lg:items-end" : "items-center lg:items-start"
-            }`}>
+            <div className="flex flex-col gap-3 w-full">
               <Link
                 href="/register"
                 className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg shadow-cyan-500/40 text-center"
@@ -89,7 +94,7 @@ export default function FeatureSection({
                 {t.hero.cta}
               </Link>
               <p className={`text-sm text-[var(--text-tertiary)] ${
-                dir === "rtl" ? "text-center lg:text-right" : "text-center lg:text-left"
+                dir === "rtl" ? "text-right" : "text-left"
               }`}>
                 {t.hero.noCreditCard}
               </p>

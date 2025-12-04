@@ -68,7 +68,7 @@ export default function ComponentsOverrides(theme: Theme) {
     Autocomplete(),
     Badge(theme),
     Backdrop(),
-    Body(),
+    Body(theme),
     Button(theme),
     ButtonBase(theme),
     ButtonGroup(),

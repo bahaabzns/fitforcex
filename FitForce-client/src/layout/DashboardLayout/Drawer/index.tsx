@@ -49,14 +49,15 @@ export default function MainDrawer({ window }: Props) {
           sx={{ display: { xs: drawerOpen ? 'block' : 'none', lg: 'none' } }}
           slotProps={{
             paper: {
-              sx: {
+              sx: (theme) => ({
                 boxSizing: 'border-box',
                 width: DRAWER_WIDTH,
                 borderRight: '1px solid',
                 borderColor: 'divider',
                 backgroundImage: 'none',
-                boxShadow: 'inherit'
-              }
+                boxShadow: 'inherit',
+                bgcolor: 'background.default' // Ensure proper background color in dark mode
+              })
             }
           }}
         >

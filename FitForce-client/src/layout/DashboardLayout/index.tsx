@@ -259,7 +259,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const extraClientMargin = (!drawerOpen && shouldShowClientSidebar && !downLG) ? 60 : 0;
 
   return (
-    <Box sx={{ display: 'flex', width: '100%' }}> 
+    <Box sx={{ display: 'flex', width: '100%', bgcolor: 'background.default', minHeight: '100vh' }}> 
       <Header />
       <MessengerBadgeSync />
       <QueueBadgeSync />
