@@ -1,21 +1,28 @@
+import Script from 'next/script';
+
 /**
- * Server-rendered Meta Pixel Script component (for head)
+ * Server-rendered Meta Pixel Script component
+ * Uses beforeInteractive to ensure script is in head for immediate execution
  * This ensures the pixel code is in the initial HTML for Meta Pixel Helper detection
- * Works even if NEXT_PUBLIC_FB_PIXEL_ID wasn't available at build time
  */
 export function MetaPixelScript() {
-  // Try to get pixel ID from environment (available at runtime in production)
-  // In Next.js, process.env is available in server components
+  // Try to get pixel ID from environment
+  // In Next.js server components, process.env is available at runtime
   const pixelId = process.env.NEXT_PUBLIC_FB_PIXEL_ID || '';
   const hasValidPixelId = pixelId && /^\d{15,16}$/.test(pixelId);
 
   if (!hasValidPixelId) {
+    // Log for debugging (only in server-side, won't show in browser)
+    if (typeof window === 'undefined') {
+      console.warn('[Meta Pixel] NEXT_PUBLIC_FB_PIXEL_ID not set or invalid:', pixelId || '(empty)');
+    }
     return null;
   }
 
   return (
-    <script
+    <Script
       id="meta-pixel-server"
+      strategy="beforeInteractive"
       dangerouslySetInnerHTML={{
         __html: `
           !function(f,b,e,v,n,t,s)

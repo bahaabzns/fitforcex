@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ClientLayout from './ClientLayout';
 import PixelProvider from './PixelProvider';
-import { MetaPixelScript, MetaPixelNoscript } from '@/components/MetaPixelServer';
+import { MetaPixelDirectScript, MetaPixelDirectNoscript } from '@/components/MetaPixelDirect';
 
 export const metadata: Metadata = {
   title: 'FitForce',
@@ -34,12 +34,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="preconnect" href="https://connect.facebook.net" />
         <link rel="dns-prefetch" href="https://connect.facebook.net" />
         
-        {/* Meta Pixel Script - Server-rendered in head for immediate detection */}
-        <MetaPixelScript />
+        {/* Meta Pixel Script - Direct injection in head for immediate detection */}
+        <MetaPixelDirectScript />
       </head>
       <body>
         {/* Meta Pixel noscript - MUST be in body for Meta Pixel Helper detection */}
-        <MetaPixelNoscript />
+        <MetaPixelDirectNoscript />
         <PixelProvider>
           <ClientLayout>{children}</ClientLayout>
         </PixelProvider>
