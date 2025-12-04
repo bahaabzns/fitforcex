@@ -1,19 +1,33 @@
+'use client';
+
 import Script from 'next/script';
+import { useEffect } from 'react';
 
 export default function MetaPixelScript() {
   const pixelId = process.env.NEXT_PUBLIC_FB_PIXEL_ID || '';
+  const hasValidPixelId = pixelId && /^\d{15,16}$/.test(pixelId);
 
-  // Don't render if pixel ID is not set
-  if (!pixelId || !/^\d{15,16}$/.test(pixelId)) {
+  useEffect(() => {
+    if (!hasValidPixelId && typeof window !== 'undefined') {
+      console.warn('⚠️ Meta Pixel: NEXT_PUBLIC_FB_PIXEL_ID is not set or invalid. Pixel will not load.');
+    }
+  }, [hasValidPixelId]);
+
+  if (!hasValidPixelId) {
     return null;
   }
 
   return (
     <>
-      {/* Meta Pixel Code - Load early for detection */}
+      {/* Meta Pixel Code - Using Next.js Script for reliable loading */}
       <Script
         id="meta-pixel"
         strategy="afterInteractive"
+        onLoad={() => {
+          if (typeof window !== 'undefined' && (window as any).fbq) {
+            console.log('✅ Meta Pixel loaded successfully');
+          }
+        }}
         dangerouslySetInnerHTML={{
           __html: `
             !function(f,b,e,v,n,t,s)
