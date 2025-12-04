@@ -1,20 +1,34 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function MetaPixelScript() {
-  const pixelId = process.env.NEXT_PUBLIC_FB_PIXEL_ID || '';
-  const hasValidPixelId = pixelId && /^\d{15,16}$/.test(pixelId);
+  const [pixelId, setPixelId] = useState<string>('');
+  const [hasValidPixelId, setHasValidPixelId] = useState(false);
 
   useEffect(() => {
-    if (!hasValidPixelId && typeof window !== 'undefined') {
-      console.warn('⚠️ Meta Pixel: NEXT_PUBLIC_FB_PIXEL_ID is not set or invalid. Pixel will not load.');
-    }
-  }, [hasValidPixelId]);
+    // Try to get pixel ID from environment (available at runtime)
+    const envPixelId = process.env.NEXT_PUBLIC_FB_PIXEL_ID || '';
+    const isValid = envPixelId && /^\d{15,16}$/.test(envPixelId);
+    
+    setPixelId(envPixelId);
+    setHasValidPixelId(isValid);
 
-  if (!hasValidPixelId) {
-    return null;
+    if (!isValid && typeof window !== 'undefined') {
+      console.error('❌ Meta Pixel Error: NEXT_PUBLIC_FB_PIXEL_ID is not set or invalid!');
+      console.error('   Current value:', envPixelId || '(empty)');
+      console.error('   Expected: 15-16 digit number');
+      console.error('   Please set NEXT_PUBLIC_FB_PIXEL_ID in your environment variables and rebuild.');
+    }
+  }, []);
+
+  if (!hasValidPixelId || !pixelId) {
+    return (
+      <div style={{ display: 'none' }} data-pixel-error="NEXT_PUBLIC_FB_PIXEL_ID not set">
+        {/* Hidden element for debugging */}
+      </div>
+    );
   }
 
   return (
@@ -24,9 +38,17 @@ export default function MetaPixelScript() {
         id="meta-pixel"
         strategy="afterInteractive"
         onLoad={() => {
-          if (typeof window !== 'undefined' && (window as any).fbq) {
-            console.log('✅ Meta Pixel loaded successfully');
+          if (typeof window !== 'undefined') {
+            if ((window as any).fbq) {
+              console.log('✅ Meta Pixel loaded successfully');
+              console.log('   Pixel ID:', pixelId);
+            } else {
+              console.error('❌ Meta Pixel script loaded but fbq function not available');
+            }
           }
+        }}
+        onError={(e) => {
+          console.error('❌ Meta Pixel script failed to load:', e);
         }}
         dangerouslySetInnerHTML={{
           __html: `
