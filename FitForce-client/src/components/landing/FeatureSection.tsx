@@ -31,21 +31,21 @@ export default function FeatureSection({
 
       <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 w-full py-6 sm:py-8 md:py-12 lg:py-16 relative z-10">
         <div
-          className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 lg:gap-12 items-center ${
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 lg:gap-12 items-center justify-items-center lg:justify-items-start ${
             dir === "rtl" ? "direction-rtl" : ""
           }`}
         >
           {/* Feature Info */}
           <div
             ref={contentRef}
-            className={`text-center animate-on-scroll fade-in-left ${
-              dir === "rtl" ? "lg:text-right" : "lg:text-left"
+            className={`text-center max-w-xl w-full mx-auto flex flex-col items-center animate-on-scroll fade-in-left ${
+              dir === "rtl" ? "lg:text-right lg:items-end" : "lg:text-left lg:items-start"
             }`}
           >
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4 sm:mb-6 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4 sm:mb-6 tracking-tight max-w-md mx-auto px-2">
               {feature.title}
             </h2>
-            <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-left">
+            <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-left max-w-md mx-auto px-4">
               {Array.isArray(feature.description) &&
                 feature.description.map((point: string, index: number) => (
                   <li key={index} className="flex items-start gap-3">
@@ -91,12 +91,12 @@ export default function FeatureSection({
           {/* Screenshot with glass card effect */}
           <div
             ref={imageRef}
-            className="relative animate-on-scroll fade-in-right"
+            className="relative w-full flex justify-center lg:block"
           >
             {/* Optimized outer glow */}
             <div className="absolute -inset-3 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 rounded-3xl blur-lg"></div>
 
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gray-900/40 backdrop-blur-xl border border-cyan-500/20 aspect-video">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gray-900/40 backdrop-blur-xl border border-cyan-500/20 aspect-video w-full max-w-xl mx-auto">
               {screenshot ? (
                 <Image
                   src={screenshot}

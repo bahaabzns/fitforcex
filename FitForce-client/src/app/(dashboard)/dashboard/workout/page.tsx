@@ -17,6 +17,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import Checkbox from '@mui/material/Checkbox';
@@ -257,6 +258,8 @@ export default function WorkoutPage() {
   // Pagination for import dialog
   const [importPage, setImportPage] = useState(0);
   const [importRowsPerPage, setImportRowsPerPage] = useState(20);
+  // Import progress tracking
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, batch: 0, totalBatches: 0 });
   // Filters for main search - Changed to multiselect arrays
   const [searchEquipmentFilter, setSearchEquipmentFilter] = useState<string[]>([]);
   const [searchCategoryFilter, setSearchCategoryFilter] = useState<string[]>([]);
@@ -612,18 +615,97 @@ export default function WorkoutPage() {
 
     setImporting(true);
     setError(null);
+    
     try {
       const itemsToImport = defaultItems.filter(item => selectedItems.has(item.name));
-      await api.post('/api/workout/exercises/import-selected', { items: itemsToImport });
-      setIsImportDialogOpen(false);
-      resetImportDialog();
+      const totalItems = itemsToImport.length;
+      
+      // Chunk items into batches of 150 to avoid payload size limits
+      const BATCH_SIZE = 150;
+      const batches: Exercise[][] = [];
+      
+      for (let i = 0; i < itemsToImport.length; i += BATCH_SIZE) {
+        batches.push(itemsToImport.slice(i, i + BATCH_SIZE));
+      }
+      
+      const totalBatches = batches.length;
+      setImportProgress({ current: 0, total: totalItems, batch: 0, totalBatches });
+      
+      let totalImported = 0;
+      let failedBatches: number[] = [];
+      
+      // Process batches sequentially to avoid overwhelming the server
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        setImportProgress({
+          current: totalImported,
+          total: totalItems,
+          batch: i + 1,
+          totalBatches
+        });
+        
+        try {
+          await api.post('/api/workout/exercises/import-selected', { items: batch });
+          totalImported += batch.length;
+        } catch (batchError: any) {
+          console.error(`Failed to import batch ${i + 1}:`, batchError);
+          failedBatches.push(i + 1);
+          
+          // If it's a "too large" error, try smaller batches
+          if (batchError?.response?.status === 413 || 
+              batchError?.response?.data?.error?.toLowerCase().includes('too large') ||
+              batchError?.response?.data?.message?.toLowerCase().includes('too large')) {
+            // Retry with smaller batch size (75 items)
+            const SMALLER_BATCH_SIZE = 75;
+            const smallerBatches: Exercise[][] = [];
+            for (let j = 0; j < batch.length; j += SMALLER_BATCH_SIZE) {
+              smallerBatches.push(batch.slice(j, j + SMALLER_BATCH_SIZE));
+            }
+            
+            for (const smallerBatch of smallerBatches) {
+              try {
+                await api.post('/api/workout/exercises/import-selected', { items: smallerBatch });
+                totalImported += smallerBatch.length;
+              } catch (smallError) {
+                console.error('Failed to import smaller batch:', smallError);
+              }
+            }
+          }
+        }
+        
+        // Small delay between batches to avoid overwhelming the server
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      // Update final progress
+      setImportProgress({
+        current: totalImported,
+        total: totalItems,
+        batch: totalBatches,
+        totalBatches
+      });
+      
+      if (failedBatches.length > 0) {
+        setError(`Import completed with errors. ${totalImported}/${totalItems} exercises imported. Failed batches: ${failedBatches.join(', ')}`);
+      } else {
+        setIsImportDialogOpen(false);
+        resetImportDialog();
+      }
+      
       // Refresh the list
       const response = await api.get('/api/workout/exercises');
       setExercises(response.data.exercises || []);
-    } catch {
-      setError('Failed to import exercises');
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || err?.response?.data?.message || 'Failed to import exercises';
+      setError(errorMsg);
     } finally {
       setImporting(false);
+      // Reset progress after a delay
+      setTimeout(() => {
+        setImportProgress({ current: 0, total: 0, batch: 0, totalBatches: 0 });
+      }, 2000);
     }
   };
 
@@ -1826,15 +1908,48 @@ export default function WorkoutPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsImportDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleImport}
-            disabled={selectedItems.size === 0 || importing}
-            startIcon={importing ? <CircularProgress size={16} /> : <DocumentUpload />}
-          >
-            Import Selected ({selectedItems.size})
-          </Button>
+          <Stack spacing={2} sx={{ width: '100%', p: 2 }}>
+            {importing && importProgress.total > 0 && (
+              <Box sx={{ width: '100%' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Importing exercises...
+                  </Typography>
+                  <Typography variant="body2" color="primary" fontWeight={600}>
+                    {importProgress.current} / {importProgress.total}
+                  </Typography>
+                </Stack>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={(importProgress.current / importProgress.total) * 100}
+                  sx={{ height: 8, borderRadius: 4 }}
+                />
+                {importProgress.totalBatches > 1 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Processing batch {importProgress.batch} of {importProgress.totalBatches}
+                  </Typography>
+                )}
+              </Box>
+            )}
+            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ width: '100%' }}>
+              <Button 
+                onClick={() => setIsImportDialogOpen(false)}
+                disabled={importing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleImport}
+                disabled={selectedItems.size === 0 || importing}
+                startIcon={importing ? <CircularProgress size={16} /> : <DocumentUpload />}
+              >
+                {importing 
+                  ? `Importing... (${importProgress.current}/${importProgress.total})` 
+                  : `Import Selected (${selectedItems.size})`}
+              </Button>
+            </Stack>
+          </Stack>
         </DialogActions>
       </Dialog>
 

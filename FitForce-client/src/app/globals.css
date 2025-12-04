@@ -4,58 +4,19 @@
 /* scroll bar */
 @import 'simplebar-react/dist/simplebar.min.css';
 
-/* Alexandria font for Arabic text */
+/* Alexandria local font */
 @font-face {
   font-family: 'Alexandria';
-  src: url('/assets/fonts/Alexandria,Baloo_Bhaijaan_2,Changa/Alexandria/Alexandria-VariableFont_wght.ttf') format('truetype');
+  src: url('/assets/fonts/Alexandria,Baloo_Bhaijaan_2,Changa/Alexandria/Alexandria-VariableFont_wght.ttf')
+    format('truetype');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
-/* Apply language-aware fonts */
-/* Arabic: Use Alexandria */
-html[lang="ar"],
-html[lang="ar"] body,
-html[lang="ar"] * {
-  font-family: 'Alexandria', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
-}
 
-/* English: Use Inter font (from Next.js) with Alexandria as fallback */
-html[lang="en"],
-html[lang="en"] body,
-html[lang="en"] * {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'Alexandria', sans-serif !important;
-}
-
-/* Default fallback for other languages */
-html:not([lang="ar"]):not([lang="en"]) body,
-html:not([lang="ar"]):not([lang="en"]) * {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'Alexandria', sans-serif !important;
-}
-
-/* Ensure Material-UI components use language-aware fonts */
-html[lang="ar"] .MuiTypography-root,
-html[lang="ar"] .MuiButton-root,
-html[lang="ar"] .MuiInputBase-root,
-html[lang="ar"] .MuiFormLabel-root,
-html[lang="ar"] .MuiMenuItem-root,
-html[lang="ar"] .MuiSelect-root,
-html[lang="ar"] .MuiTextField-root,
-html[lang="ar"] .MuiChip-root {
-  font-family: 'Alexandria', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
-}
-
-html[lang="en"] .MuiTypography-root,
-html[lang="en"] .MuiButton-root,
-html[lang="en"] .MuiInputBase-root,
-html[lang="en"] .MuiFormLabel-root,
-html[lang="en"] .MuiMenuItem-root,
-html[lang="en"] .MuiSelect-root,
-html[lang="en"] .MuiTextField-root,
-html[lang="en"] .MuiChip-root {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'Alexandria', sans-serif !important;
-}
+/* (Fonts for the whole app are now controlled only by the body/html rules below,
+   copied from the standalone landing-page so the look is identical.) */
 
 .css-13ddxbb > * + * {
   margin: 0 !important;
@@ -259,16 +220,28 @@ html[dir="rtl"] .animate-scroll-left {
   }
 }
 
-html {
+html,
+:host {
   scroll-behavior: smooth;
   overflow-x: hidden;
   height: 100%;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -moz-tab-size: 4;
+  tab-size: 4;
+  font-family: "Alexandria", system-ui, sans-serif !important;
+  font-feature-settings: normal;
+  font-variation-settings: normal;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: "Alexandria", system-ui, sans-serif;
+  margin: 0;
+  font-family: "Alexandria", system-ui, sans-serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
   transition: background-color 0.3s ease, color 0.3s ease;
   /* Prevent horizontal scroll */
   overflow-x: hidden;

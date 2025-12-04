@@ -1,15 +1,8 @@
 import { ReactNode } from 'react';
 import type { Metadata } from 'next';
-import localFont from 'next/font/local';
 import './globals.css';
 import ClientLayout from './ClientLayout';
 import PixelProvider from './PixelProvider';
-
-const alexandria = localFont({
-  src: '../../public/assets/fonts/Alexandria,Baloo_Bhaijaan_2,Changa/Alexandria/Alexandria-VariableFont_wght.ttf',
-  display: 'swap',
-  variable: '--font-alexandria'
-});
 
 export const metadata: Metadata = {
   title: 'FitForce',
@@ -23,9 +16,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={alexandria.variable}>
-      <head></head>
-      <body className={alexandria.className}>
+    <html lang="en">
+      <head>
+        {/* Match landing-page font loading so mobile uses Alexandria webfont */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
         <PixelProvider>
           <ClientLayout>{children}</ClientLayout>
         </PixelProvider>

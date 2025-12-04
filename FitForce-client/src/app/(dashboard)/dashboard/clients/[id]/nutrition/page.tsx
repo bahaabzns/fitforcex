@@ -4135,9 +4135,11 @@ export default function ClientNutritionPage() {
               autoFocus
             />
             {(() => {
-              const filteredFood = workspaceFood.filter((food) => 
-                food.name.toLowerCase().includes(foodSearchTerm.toLowerCase())
-              );
+              const filteredFood = workspaceFood.filter((food) => {
+                const searchLower = foodSearchTerm.toLowerCase();
+                return food.name.toLowerCase().includes(searchLower) ||
+                       (food.nameArabic && food.nameArabic.toLowerCase().includes(searchLower));
+              });
               const totalPages = Math.ceil(filteredFood.length / foodItemsPerPage);
               const startIndex = (foodPage - 1) * foodItemsPerPage;
               const endIndex = startIndex + foodItemsPerPage;

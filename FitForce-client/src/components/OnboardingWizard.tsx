@@ -254,8 +254,17 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
       setCompleting(true);
       setError(null);
 
+      // Helper function to ensure question has an ID
+      const ensureQuestionId = (q: any, index: number, formIndex: number): string => {
+        if (q?.id && typeof q.id === 'string' && q.id.trim()) {
+          return q.id;
+        }
+        // Generate a unique ID if missing
+        return `q_${formIndex}_${index}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      };
+
       // Prepare customized forms from templates
-      const customizedTemplates = selectedTemplateIds.map(templateId => {
+      const customizedTemplates = selectedTemplateIds.map((templateId, templateIndex) => {
         const template = defaultTemplates.find(t => t.id === templateId);
         const customization = templateCustomizations[templateId];
         
@@ -272,34 +281,50 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
           ...(customization?.additionalQuestions || [])
         ];
 
+        // Ensure all questions have IDs
+        const questionsWithIds = allQuestions.map((q: any, index: number) => ({
+          ...q,
+          id: ensureQuestionId(q, index, templateIndex),
+          // Ensure required fields are present
+          question: q.question || q.name || q.label || '',
+          questionArabic: q.questionArabic || q.nameArabic || q.labelArabic || null,
+          type: q.type || 'text',
+        }));
+
         return {
           type: template.type,
           title: template.title,
           titleArabic: template.titleArabic || '',
-          questions: allQuestions
+          questions: questionsWithIds
         };
       }).filter(Boolean);
 
       // Sanitize custom forms: remove helper fields like originalId and map to API format
-      const sanitizedCustomForms = (customForms || []).map((form: any) => ({
+      const sanitizedCustomForms = (customForms || []).map((form: any, formIndex: number) => ({
         type: form.type,
         title: form.title,
         titleArabic: form.titleArabic || '',
         questions: Array.isArray(form.questions)
-          ? form.questions.map((q: any) => {
-              const { id, originalId, question, questionArabic, ...rest } = q || {};
+          ? form.questions.map((q: any, index: number) => {
+              const { originalId, question, questionArabic, ...rest } = q || {};
+              // Preserve or generate ID
+              const questionId = ensureQuestionId(q, index, formIndex + 1000); // Use offset to avoid conflicts
+              
               return {
-                name: question || q.label || '',
-                nameArabic: questionArabic || q.labelArabic || '',
-                question: question || q.label || '',
-                questionArabic: questionArabic || q.labelArabic || '',
+                id: questionId, // Always include id - required by API
+                name: question || q.label || q.name || '',
+                nameArabic: questionArabic || q.labelArabic || q.nameArabic || null,
+                question: question || q.label || q.name || '',
+                questionArabic: questionArabic || q.labelArabic || q.nameArabic || null,
                 description: rest.description || null,
                 descriptionArabic: rest.descriptionArabic || null,
                 type: rest.type || 'text',
                 required: !!rest.required,
-                options: rest.options,
-                optionsArabic: rest.optionsArabic,
-                allowOther: rest.allowOther,
+                options: rest.options || null,
+                optionsArabic: rest.optionsArabic || null,
+                allowOther: rest.allowOther || false,
+                placeholder: rest.placeholder || null,
+                placeholderArabic: rest.placeholderArabic || null,
               };
             })
           : []

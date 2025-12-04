@@ -27,9 +27,9 @@ export default function TrustedBy() {
         </h3>
       </div>
 
-      <div className="relative w-full overflow-hidden">
+      <div className="relative w-full overflow-hidden pt-4 pb-4">
         <div
-          className="flex items-center gap-16"
+          className="flex items-center gap-8 sm:gap-16"
           style={{
             animation: "scroll-left 25s linear infinite",
           }}
@@ -43,8 +43,7 @@ export default function TrustedBy() {
                 src={logo}
                 alt="Company logo"
                 width={140}
-                height={50}
-                style={{ width: "auto", height: "40px" }}
+                height={40}
                 className="object-contain"
               />
             </div>
@@ -59,8 +58,7 @@ export default function TrustedBy() {
                 src={logo}
                 alt="Company logo"
                 width={140}
-                height={50}
-                style={{ width: "auto", height: "40px" }}
+                height={40}
                 className="object-contain"
               />
             </div>
