@@ -55,9 +55,7 @@ export default function FeatureSection({
             }`}>
               {Array.isArray(feature.description) &&
                 feature.description.map((point: string, index: number) => (
-                  <li key={index} className={`flex items-start gap-3 ${
-                    dir === "rtl" ? "flex-row-reverse" : ""
-                  }`}>
+                  <li key={index} className="flex items-start gap-3">
                     <svg
                       className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 mt-0.5"
                       viewBox="0 0 20 20"
