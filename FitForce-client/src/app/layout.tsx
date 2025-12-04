@@ -16,6 +16,17 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // Debug: Check if server can read env vars (only runs on server, logs to dokku logs)
+  if (typeof window === 'undefined') {
+    const pixelId = process.env.NEXT_PUBLIC_FB_PIXEL_ID;
+    console.log('[Meta Pixel Debug] NEXT_PUBLIC_FB_PIXEL_ID:', pixelId || '(NOT SET)');
+    console.log('[Meta Pixel Debug] All NEXT_PUBLIC_* vars:', 
+      Object.keys(process.env)
+        .filter(k => k.startsWith('NEXT_PUBLIC_'))
+        .reduce((acc, k) => ({ ...acc, [k]: process.env[k] }), {})
+    );
+  }
+
   return (
     <html lang="en">
       <head>

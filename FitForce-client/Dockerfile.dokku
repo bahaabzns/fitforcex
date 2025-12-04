@@ -76,4 +76,8 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
+# Note: NEXT_PUBLIC_* env vars are injected by Dokku at runtime
+# They are available to the Node.js process via process.env
+# Dokku automatically passes all config vars as environment variables to the container
+
 CMD ["node", "server.js"]
