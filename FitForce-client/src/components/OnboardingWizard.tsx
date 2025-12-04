@@ -281,24 +281,32 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
           ...(customization?.additionalQuestions || [])
         ];
 
-        // Ensure all questions have IDs and valid structure
+        // Ensure all questions have IDs and valid structure - only include allowed fields
         const questionsWithIds = allQuestions.map((q: any, index: number) => {
           const questionType = q.type || 'text';
           const isChoiceType = ['select', 'checkbox', 'radio'].includes(questionType);
           
-          return {
-            ...q,
+          // Build question object with only allowed fields (no description fields)
+          const questionObj: any = {
             id: ensureQuestionId(q, index, templateIndex),
-            // Ensure required fields are present
+            type: questionType,
             question: q.question || q.name || q.label || '',
             questionArabic: q.questionArabic || q.nameArabic || q.labelArabic || null,
-            type: questionType,
-            // Ensure options is always an array for choice types, or omitted for others
-            ...(isChoiceType ? {
-              options: Array.isArray(q.options) ? q.options : [],
-              optionsArabic: Array.isArray(q.optionsArabic) ? q.optionsArabic : [],
-            } : {}),
+            name: q.name || q.question || q.label || null,
+            nameArabic: q.nameArabic || q.questionArabic || q.labelArabic || null,
+            required: q.required || false,
+            placeholder: q.placeholder || null,
+            placeholderArabic: q.placeholderArabic || null,
           };
+          
+          // Only include options for choice-type questions, and ensure they're arrays
+          if (isChoiceType) {
+            questionObj.options = Array.isArray(q.options) ? q.options : [];
+            questionObj.optionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
+            questionObj.allowOther = q.allowOther || false;
+          }
+          
+          return questionObj;
         });
 
         return {
@@ -316,25 +324,25 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
         titleArabic: form.titleArabic || '',
         questions: Array.isArray(form.questions)
           ? form.questions.map((q: any, index: number) => {
-              const { originalId, question, questionArabic, ...rest } = q || {};
+              const { originalId, question, questionArabic, description, descriptionArabic, ...rest } = q || {};
               // Preserve or generate ID
               const questionId = ensureQuestionId(q, index, formIndex + 1000); // Use offset to avoid conflicts
               const questionType = rest.type || 'text';
               const isChoiceType = ['select', 'checkbox', 'radio'].includes(questionType);
               
-              // Build base question object
+              // Build base question object - ONLY include fields allowed by server schema
+              // Note: description and descriptionArabic are NOT allowed by server schema
               const questionObj: any = {
                 id: questionId, // Always include id - required by API
-                name: question || q.label || q.name || '',
-                nameArabic: questionArabic || q.labelArabic || q.nameArabic || null,
+                type: questionType,
                 question: question || q.label || q.name || '',
                 questionArabic: questionArabic || q.labelArabic || q.nameArabic || null,
-                description: rest.description || null,
-                descriptionArabic: rest.descriptionArabic || null,
-                type: questionType,
+                name: question || q.label || q.name || null,
+                nameArabic: questionArabic || q.labelArabic || q.nameArabic || null,
                 required: !!rest.required,
                 placeholder: rest.placeholder || null,
                 placeholderArabic: rest.placeholderArabic || null,
+                // Explicitly exclude description and descriptionArabic - not in server schema
               };
               
               // Only include options for choice-type questions, and ensure they're arrays
@@ -349,12 +357,42 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
           : []
       }));
 
+      // Final validation: ensure no disallowed fields are sent
+      const finalCustomForms = [...customizedTemplates, ...sanitizedCustomForms].map((form: any) => ({
+        type: form.type,
+        title: form.title,
+        titleArabic: form.titleArabic || '',
+        questions: (form.questions || []).map((q: any) => {
+          // Only include fields explicitly allowed by server schema
+          const allowedFields: any = {
+            id: q.id,
+            type: q.type,
+            question: q.question,
+            questionArabic: q.questionArabic || null,
+            name: q.name || null,
+            nameArabic: q.nameArabic || null,
+            required: q.required || false,
+            placeholder: q.placeholder || null,
+            placeholderArabic: q.placeholderArabic || null,
+          };
+          
+          // Only add options fields for choice types
+          if (['select', 'checkbox', 'radio'].includes(q.type)) {
+            allowedFields.options = Array.isArray(q.options) ? q.options : [];
+            allowedFields.optionsArabic = Array.isArray(q.optionsArabic) ? q.optionsArabic : [];
+            allowedFields.allowOther = q.allowOther || false;
+          }
+          
+          return allowedFields;
+        }),
+      }));
+
       const payload = {
         brandingLogoUrl: logoUrl || null,
         brandingPrimaryHex: primaryColor || null,
         landingConfig: landingConfig.title || landingConfig.subtitle ? landingConfig : null,
         formTemplateIds: [], // Don't use raw template IDs
-        customForms: [...customizedTemplates, ...sanitizedCustomForms], // Combine customized templates and custom forms (sanitized)
+        customForms: finalCustomForms, // Final sanitized forms with only allowed fields
         packages,
         importAllFoodItems,
         importAllExercises,
