@@ -525,7 +525,7 @@ export default function FormsPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, bgcolor: 'background.default', minHeight: '100%', p: 2 }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}

@@ -148,7 +148,7 @@ export default function ClientOverviewPage() {
   const { client, metrics, recentActivities } = data;
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw' }}>
+    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', bgcolor: 'background.default', minHeight: '100%' }}>
     <Box sx={{ p: { xs: 1, md: 2 }, width: '100%' }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>

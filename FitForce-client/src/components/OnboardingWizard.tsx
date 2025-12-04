@@ -281,15 +281,25 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
           ...(customization?.additionalQuestions || [])
         ];
 
-        // Ensure all questions have IDs
-        const questionsWithIds = allQuestions.map((q: any, index: number) => ({
-          ...q,
-          id: ensureQuestionId(q, index, templateIndex),
-          // Ensure required fields are present
-          question: q.question || q.name || q.label || '',
-          questionArabic: q.questionArabic || q.nameArabic || q.labelArabic || null,
-          type: q.type || 'text',
-        }));
+        // Ensure all questions have IDs and valid structure
+        const questionsWithIds = allQuestions.map((q: any, index: number) => {
+          const questionType = q.type || 'text';
+          const isChoiceType = ['select', 'checkbox', 'radio'].includes(questionType);
+          
+          return {
+            ...q,
+            id: ensureQuestionId(q, index, templateIndex),
+            // Ensure required fields are present
+            question: q.question || q.name || q.label || '',
+            questionArabic: q.questionArabic || q.nameArabic || q.labelArabic || null,
+            type: questionType,
+            // Ensure options is always an array for choice types, or omitted for others
+            ...(isChoiceType ? {
+              options: Array.isArray(q.options) ? q.options : [],
+              optionsArabic: Array.isArray(q.optionsArabic) ? q.optionsArabic : [],
+            } : {}),
+          };
+        });
 
         return {
           type: template.type,
@@ -309,8 +319,11 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
               const { originalId, question, questionArabic, ...rest } = q || {};
               // Preserve or generate ID
               const questionId = ensureQuestionId(q, index, formIndex + 1000); // Use offset to avoid conflicts
+              const questionType = rest.type || 'text';
+              const isChoiceType = ['select', 'checkbox', 'radio'].includes(questionType);
               
-              return {
+              // Build base question object
+              const questionObj: any = {
                 id: questionId, // Always include id - required by API
                 name: question || q.label || q.name || '',
                 nameArabic: questionArabic || q.labelArabic || q.nameArabic || null,
@@ -318,14 +331,20 @@ export default function OnboardingWizard({ workspaceId }: { workspaceId: string 
                 questionArabic: questionArabic || q.labelArabic || q.nameArabic || null,
                 description: rest.description || null,
                 descriptionArabic: rest.descriptionArabic || null,
-                type: rest.type || 'text',
+                type: questionType,
                 required: !!rest.required,
-                options: rest.options || null,
-                optionsArabic: rest.optionsArabic || null,
-                allowOther: rest.allowOther || false,
                 placeholder: rest.placeholder || null,
                 placeholderArabic: rest.placeholderArabic || null,
               };
+              
+              // Only include options for choice-type questions, and ensure they're arrays
+              if (isChoiceType) {
+                questionObj.options = Array.isArray(rest.options) ? rest.options : [];
+                questionObj.optionsArabic = Array.isArray(rest.optionsArabic) ? rest.optionsArabic : [];
+                questionObj.allowOther = rest.allowOther || false;
+              }
+              
+              return questionObj;
             })
           : []
       }));

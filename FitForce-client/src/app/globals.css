@@ -240,8 +240,9 @@ body {
   font-family: "Alexandria", system-ui, sans-serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
+  /* Use CSS variables only for landing page, dashboard uses Material-UI theme */
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
   /* Prevent horizontal scroll */
   overflow-x: hidden;
@@ -252,6 +253,9 @@ body {
   -webkit-font-feature-settings: "kern" 1;
   -moz-font-feature-settings: "kern" 1;
 }
+
+/* Dashboard pages use Material-UI theme backgrounds via CssBaseline */
+/* The body background from CSS variables should not override Material-UI themes */
 
 html[dir="rtl"] body {
   font-family: "Alexandria", "Noto Sans Arabic", sans-serif;

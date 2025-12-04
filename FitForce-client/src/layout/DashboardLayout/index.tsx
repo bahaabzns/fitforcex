@@ -273,6 +273,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         p: 0,
         marginLeft: downLG ? 0 : `${ 0.5*totalSidebarWidth + extraClientMargin}px`,
         paddingLeft: downLG ? 2 : 0,
+        bgcolor: 'background.default', // Ensure proper background color from theme
+        minHeight: '100vh',
         transition: theme.transitions.create(['margin-left'], {
           easing: theme.transitions.easing.sharp,
           duration: theme.transitions.duration.leavingScreen
@@ -286,7 +288,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             minHeight: 'calc(100vh - 124px)',
             display: 'flex',
             flexDirection: 'column',
-            px: 0
+            px: 0,
+            bgcolor: 'background.default' // Ensure Container also has proper background
           }}
         >
           {children}
