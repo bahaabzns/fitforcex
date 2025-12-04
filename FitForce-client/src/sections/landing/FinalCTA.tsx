@@ -19,6 +19,7 @@ import useTranslation from '@/utils/useTranslation';
 import { useEffect, useState } from 'react';
 import { APP_CONFIG } from '@/lib/config';
 import useConfig from '@/hooks/useConfig';
+import { track, trackCustom } from '@/lib/pixel';
 
 // ==============================|| LANDING - FINAL CTA ||============================== //
 
@@ -120,6 +121,18 @@ export default function FinalCTA() {
                     href="/register"
                     size="large"
                     variant="contained"
+                    onClick={() => {
+                      track("Lead", {
+                        content_name: t('landing.cta.bookDemoAndTrial'),
+                        content_category: "CTA",
+                        source: "final_cta_section"
+                      });
+                      trackCustom("GetStarted", {
+                        button_text: t('landing.cta.bookDemoAndTrial'),
+                        button_location: "final_cta",
+                        destination: "/register"
+                      });
+                    }}
                     sx={{
                       bgcolor: 'white',
                       color: '#159bff',

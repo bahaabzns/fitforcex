@@ -2,6 +2,7 @@
 
 import React, { memo } from "react";
 import Link from "next/link";
+import { track, trackCustom } from "@/lib/pixel";
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -48,10 +49,37 @@ function Button({
     if (onClick) {
       onClick();
     }
-    // Track event - check if gtag exists
+    
+    // Get button text for tracking
+    const buttonText = typeof children === "string" ? children : "CTA";
+    
+    // Track Meta Pixel event
+    // If button links to /register, track as "Lead" event (lead generation)
+    if (href === "/register" || buttonText.toLowerCase().includes("get started") || buttonText.toLowerCase().includes("book a demo")) {
+      track("Lead", {
+        content_name: buttonText,
+        content_category: "CTA",
+        source: "landing_page"
+      });
+      // Also track as custom event for better segmentation
+      trackCustom("GetStarted", {
+        button_text: buttonText,
+        button_location: "landing_page",
+        destination: href || "unknown"
+      });
+    } else {
+      // Track other CTA clicks as generic CTA event
+      track("ViewContent", {
+        content_name: buttonText,
+        content_category: "CTA",
+        source: "landing_page"
+      });
+    }
+    
+    // Track event - check if gtag exists (keep for backward compatibility)
     if (typeof window !== "undefined" && (window as any).gtag) {
       (window as any).gtag("event", "click_cta", {
-        button_text: typeof children === "string" ? children : "CTA",
+        button_text: buttonText,
       });
     }
   };

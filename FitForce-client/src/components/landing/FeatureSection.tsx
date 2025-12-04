@@ -42,10 +42,14 @@ export default function FeatureSection({
               dir === "rtl" ? "lg:text-right lg:items-end" : "lg:text-left lg:items-start"
             }`}
           >
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4 sm:mb-6 tracking-tight max-w-md mx-auto px-2">
+            <h2 className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4 sm:mb-6 tracking-tight max-w-md px-2 ${
+              dir === "rtl" ? "mx-auto lg:mx-0 lg:mr-0" : "mx-auto lg:mx-0 lg:ml-0"
+            }`}>
               {feature.title}
             </h2>
-            <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-left max-w-md mx-auto px-4">
+            <ul className={`space-y-3 sm:space-y-4 mb-6 sm:mb-8 text-left max-w-md px-4 ${
+              dir === "rtl" ? "mx-auto lg:mx-0 lg:mr-0" : "mx-auto lg:mx-0 lg:ml-0"
+            }`}>
               {Array.isArray(feature.description) &&
                 feature.description.map((point: string, index: number) => (
                   <li key={index} className="flex items-start gap-3">
@@ -75,14 +79,18 @@ export default function FeatureSection({
                   </li>
                 ))}
             </ul>
-            <div className="flex flex-col gap-3">
+            <div className={`flex flex-col gap-3 w-full ${
+              dir === "rtl" ? "items-center lg:items-end" : "items-center lg:items-start"
+            }`}>
               <Link
                 href="/register"
                 className="inline-block bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg shadow-cyan-500/40 text-center"
               >
                 {t.hero.cta}
               </Link>
-              <p className="text-sm text-[var(--text-tertiary)]">
+              <p className={`text-sm text-[var(--text-tertiary)] ${
+                dir === "rtl" ? "text-center lg:text-right" : "text-center lg:text-left"
+              }`}>
                 {t.hero.noCreditCard}
               </p>
             </div>

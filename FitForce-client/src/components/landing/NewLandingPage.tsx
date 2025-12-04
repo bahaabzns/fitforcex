@@ -1,9 +1,11 @@
 'use client';
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import Navbar from "./Navbar";
 import HeroSection from "./HeroSection";
 import { LanguageProvider } from "@/lib/landing/LanguageContext";
+import { track } from "@/lib/pixel";
 
 // Lazy load below-fold components
 const FeatureSection = dynamic(() => import("./FeatureSection"), {
@@ -26,6 +28,18 @@ const WhatsAppButton = dynamic(() => import("./WhatsAppButton"));
 const Footer = dynamic(() => import("./Footer"));
 
 export default function NewLandingPage() {
+  // Track PageView when landing page is visible
+  useEffect(() => {
+    const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
+    const eventId = `lp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    track('PageView', { 
+      page_type: 'landing', 
+      page_name: 'NewLandingPage',
+      locale, 
+      event_id: eventId 
+    });
+  }, []);
+
   return (
     <LanguageProvider>
       <main className="scroll-snap-container w-full max-w-[100vw] overflow-x-hidden">
