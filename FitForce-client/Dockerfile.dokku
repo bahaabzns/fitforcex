@@ -27,6 +27,20 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Accept build args for NEXT_PUBLIC_* variables
+# These should be set in Dokku before building: dokku config:set frontend NEXT_PUBLIC_FB_PIXEL_ID=...
+# Note: Dokku automatically passes config vars as build args for NEXT_PUBLIC_* vars
+ARG NEXT_PUBLIC_FB_PIXEL_ID
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_FRONTEND_DOMAIN
+ARG NEXT_PUBLIC_MAIN_DOMAIN
+
+# Set as ENV so Next.js can access them during build
+ENV NEXT_PUBLIC_FB_PIXEL_ID=$NEXT_PUBLIC_FB_PIXEL_ID
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_FRONTEND_DOMAIN=$NEXT_PUBLIC_FRONTEND_DOMAIN
+ENV NEXT_PUBLIC_MAIN_DOMAIN=$NEXT_PUBLIC_MAIN_DOMAIN
+
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \
   elif [ -f package-lock.json ]; then npm run build; \

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ClientLayout from './ClientLayout';
 import PixelProvider from './PixelProvider';
-import MetaPixelNoscript from '@/components/MetaPixelNoscript';
+import { MetaPixelScript, MetaPixelNoscript } from '@/components/MetaPixelServer';
 
 export const metadata: Metadata = {
   title: 'FitForce',
@@ -33,9 +33,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Preconnect to Facebook for faster pixel loading */}
         <link rel="preconnect" href="https://connect.facebook.net" />
         <link rel="dns-prefetch" href="https://connect.facebook.net" />
+        
+        {/* Meta Pixel Script - Server-rendered in head for immediate detection */}
+        <MetaPixelScript />
       </head>
       <body>
-        {/* Meta Pixel noscript fallback for detection */}
+        {/* Meta Pixel noscript - MUST be in body for Meta Pixel Helper detection */}
         <MetaPixelNoscript />
         <PixelProvider>
           <ClientLayout>{children}</ClientLayout>
