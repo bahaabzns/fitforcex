@@ -1360,18 +1360,17 @@ export default function ClientWorkoutPage() {
         return {
           id: `exercise_${Date.now()}_${Math.random()}`,
           exercise: exercise!,
-          sets: 3,
-          reps: "8-12",
-          restSeconds: 60,
+          sets: 2,
+          reps: "5-12",
+          restSeconds: 120,
           tempo: "",
           rir: 0,
           notes: "",
           videoUrl: "",
           thumbnailUrl: "",
           individualSets: [
-            { id: 'set_1', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
-            { id: 'set_2', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 },
-            { id: 'set_3', reps: "8-12", restSeconds: 60, tempo: "", rir: 0 }
+            { id: 'set_1', reps: "5-12", restSeconds: 120, tempo: "", rir: 0 },
+            { id: 'set_2', reps: "5-12", restSeconds: 120, tempo: "", rir: 0 }
           ],
           isCardio: false,
         };
@@ -1823,8 +1822,8 @@ export default function ClientWorkoutPage() {
         notes: exercise.notes || "",
         individualSets: exercise.individualSets || Array.from({ length: exercise.sets || 1 }, (_, index) => ({
           id: `set_${index + 1}`,
-          reps: exercise.reps || "8-12",
-          restSeconds: exercise.restSeconds || 60,
+          reps: exercise.reps || "5-12",
+          restSeconds: exercise.restSeconds || 120,
           tempo: exercise.tempo || "",
           rir: exercise.rir || 0
       })),
@@ -1875,8 +1874,8 @@ export default function ClientWorkoutPage() {
       : {
           ...editingExercise,
           sets: editingExercise.individualSets?.length || 0,
-          reps: editingExercise.individualSets?.[0]?.reps || "8-12",
-          restSeconds: editingExercise.individualSets?.[0]?.restSeconds || 60,
+          reps: editingExercise.individualSets?.[0]?.reps || "5-12",
+          restSeconds: editingExercise.individualSets?.[0]?.restSeconds || 120,
           tempo: editingExercise.individualSets?.[0]?.tempo || "",
           rir: editingExercise.individualSets?.[0]?.rir || 0,
           notes: editingExercise.notes || "",
@@ -1904,8 +1903,8 @@ export default function ClientWorkoutPage() {
   const addNewSet = () => {
     const newSet = {
       id: `set_${Date.now()}_${Math.random()}`,
-      reps: editingExercise.reps || "8-12",
-      restSeconds: editingExercise.restSeconds || 60,
+      reps: editingExercise.reps || "5-12",
+      restSeconds: editingExercise.restSeconds || 120,
       tempo: editingExercise.tempo || "",
       rir: editingExercise.rir || 0
     };

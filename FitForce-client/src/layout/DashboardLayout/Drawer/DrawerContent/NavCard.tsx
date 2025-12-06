@@ -16,7 +16,7 @@ const avatar = '/assets/images/users/customer-support-1.png';
 
 export default function NavCard() {
   return (
-    <MainCard sx={{ bgcolor: 'secondary.lighter', m: 3 }}>
+    <MainCard sx={{ bgcolor: 'background.paper', m: 3 }}>
       <Stack sx={{ gap: 2.5, alignItems: 'center' }}>
         <CardMedia component="img" image={avatar} />
         <Stack sx={{ alignItems: 'center' }}>

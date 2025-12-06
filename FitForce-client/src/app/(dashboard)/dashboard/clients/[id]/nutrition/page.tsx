@@ -2402,8 +2402,21 @@ export default function ClientNutritionPage() {
                           disabled={currentCycles.length <= 1 || saving}
                           color="error"
                           sx={{ minWidth: 32, height: 32 }}
+                          title="Delete cycle"
                         >
                           <Typography variant="h6" sx={{ fontSize: '1.2rem', lineHeight: 1 }}>−</Typography>
+                        </IconButton>
+                        
+                        {/* Copy button */}
+                        <IconButton
+                          size="small"
+                          onClick={handleCopyCycle}
+                          disabled={!selectedCycleId || saving}
+                          color="primary"
+                          sx={{ minWidth: 32, height: 32 }}
+                          title="Copy cycle"
+                        >
+                          <Copy size={18} />
                         </IconButton>
                         
                         {/* Left arrow */}
@@ -3451,8 +3464,21 @@ export default function ClientNutritionPage() {
                       disabled={currentCycles.length <= 1 || saving}
                       color="error"
                       sx={{ minWidth: 32, height: 32 }}
+                      title="Delete cycle"
                     >
                       <Typography variant="h6" sx={{ fontSize: '1.2rem', lineHeight: 1 }}>−</Typography>
+                    </IconButton>
+                    
+                    {/* Copy button */}
+                    <IconButton
+                      size="small"
+                      onClick={handleCopyCycle}
+                      disabled={!selectedCycleId || saving}
+                      color="primary"
+                      sx={{ minWidth: 32, height: 32 }}
+                      title="Copy cycle"
+                    >
+                      <Copy size={18} />
                     </IconButton>
                     
                     {/* Left arrow */}

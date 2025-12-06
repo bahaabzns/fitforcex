@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useMemo, useEffect } from 'react';
 
 // material-ui
 import { createTheme, ThemeOptions, ThemeProvider, Theme, TypographyVariantsOptions, StyledEngineProvider } from '@mui/material/styles';
@@ -35,6 +35,14 @@ export default function ThemeCustomization({ children }: ThemeCustomizationProps
       themeMode = ThemeMode.LIGHT;
     }
   }
+
+  // Sync data-theme attribute with MUI theme mode for CSS variables
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const dataTheme = themeMode === ThemeMode.DARK ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', dataTheme);
+    }
+  }, [themeMode]);
 
   const theme: Theme = useMemo<Theme>(() => Palette(themeMode, presetColor, themeContrast), [themeMode, presetColor, themeContrast]);
 

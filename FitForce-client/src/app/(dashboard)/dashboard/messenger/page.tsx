@@ -192,6 +192,20 @@ export default function MessengerPage() {
     fetchClients();
   }, []);
 
+  // Handle threadId from query params (for notification navigation)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && threads.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const threadIdParam = urlParams.get('threadId');
+      if (threadIdParam && !selectedThread) {
+        const thread = threads.find(t => t.id === threadIdParam);
+        if (thread) {
+          setSelectedThread(thread);
+        }
+      }
+    }
+  }, [threads]);
+
   useEffect(() => {
     if (selectedThread) {
       fetchMessages(selectedThread.id);

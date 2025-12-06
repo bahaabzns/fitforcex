@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 // material-ui
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -46,8 +47,9 @@ export default function NotificationPage() {
 
   const anchorRef = useRef<any>(null);
   const [unread, setUnread] = useState(0);
-  const [items, setItems] = useState<Array<{ id: string; title: string; message: string; createdAt: string; type: string }>>([]);
+  const [items, setItems] = useState<Array<{ id: string; title: string; message: string; createdAt: string; type: string; data?: any }>>([]);
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
   };
@@ -105,6 +107,78 @@ export default function NotificationPage() {
       setUnread(0);
       setItems((prev) => prev.map((it) => ({ ...it, readAt: new Date().toISOString() } as any)));
     } catch {}
+  };
+
+  const markNotificationRead = async (notificationId: string) => {
+    try {
+      await api.post(`/api/notifications/${notificationId}/read`);
+      setItems((prev) => prev.map((it) => 
+        it.id === notificationId ? { ...it, readAt: new Date().toISOString() } : it
+      ));
+      setUnread((prev) => Math.max(0, prev - 1));
+    } catch {}
+  };
+
+  const handleNotificationClick = async (notification: { id: string; type: string; data?: any }) => {
+    // Mark as read
+    await markNotificationRead(notification.id);
+    
+    // Close notification panel
+    setOpen(false);
+
+    // Navigate based on notification type
+    const { type, data } = notification;
+    
+    // Check if user is client or coach
+    const isClient = window.location.pathname.startsWith('/client');
+    
+    if (type === 'messenger_new_message' && data?.threadId) {
+      // Navigate to messenger/support based on user type
+      if (isClient) {
+        router.push('/client/support');
+      } else {
+        router.push(`/dashboard/messenger?threadId=${data.threadId}`);
+      }
+    } else if (type === 'form_assigned') {
+      if (isClient && data?.submissionId) {
+        // Client: go to forms page to submit
+        router.push('/client/forms');
+      } else if (data?.submissionId && data?.clientId) {
+        // Coach: go to queue page or client forms page to view assignment
+        if (data?.formType === 'nutrition') {
+          router.push(`/dashboard/clients/${data.clientId}/nutrition?tab=forms`);
+        } else if (data?.formType === 'workout') {
+          router.push(`/dashboard/clients/${data.clientId}/workout?tab=forms`);
+        } else {
+          router.push('/dashboard/queue');
+        }
+      } else if (isClient) {
+        // Client fallback
+        router.push('/client/forms');
+      }
+    } else if (type === 'form_submitted') {
+      // Coach: view form submission answers
+      if (data?.submissionId && data?.clientId) {
+        if (data?.formType === 'nutrition') {
+          router.push(`/dashboard/clients/${data.clientId}/nutrition?tab=forms`);
+        } else if (data?.formType === 'workout') {
+          router.push(`/dashboard/clients/${data.clientId}/workout?tab=forms`);
+        } else {
+          router.push('/dashboard/queue');
+        }
+      } else if (data?.submissionId) {
+        // Fallback to queue
+        router.push('/dashboard/queue');
+      } else if (isClient) {
+        // Client fallback
+        router.push('/client/forms');
+      }
+    } else {
+      // Default: try to navigate based on data
+      if (data?.clientId && !isClient) {
+        router.push(`/dashboard/clients/${data.clientId}/overview`);
+      }
+    }
   };
 
   return (
@@ -165,11 +239,17 @@ export default function NotificationPage() {
                         })}
                       >
                         {items.map((n) => (
-                          <ListItem key={n.id} component={ListItemButton} secondaryAction={
-                            <Typography variant="caption" noWrap>
-                              {new Date(n.createdAt).toLocaleString()}
-                            </Typography>
-                          }>
+                          <ListItem 
+                            key={n.id} 
+                            component={ListItemButton} 
+                            onClick={() => handleNotificationClick(n)}
+                            secondaryAction={
+                              <Typography variant="caption" noWrap>
+                                {new Date(n.createdAt).toLocaleString()}
+                              </Typography>
+                            }
+                            sx={{ cursor: 'pointer' }}
+                          >
                             <ListItemAvatar>
                               <Avatar type={n.type.includes('form') ? 'outlined' : 'filled'}>
                                 {n.type.includes('form') ? <MessageText1 size={20} variant="Bold" /> : <Gift size={20} variant="Bold" />}
