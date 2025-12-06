@@ -46,12 +46,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
-  // Mark body as dashboard to prevent CSS variable interference
+  // Mark body and html as dashboard to prevent CSS variable interference
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.body.setAttribute('data-dashboard', 'true');
+      document.documentElement.setAttribute('data-dashboard', 'true');
       return () => {
         document.body.removeAttribute('data-dashboard');
+        document.documentElement.removeAttribute('data-dashboard');
       };
     }
   }, []);

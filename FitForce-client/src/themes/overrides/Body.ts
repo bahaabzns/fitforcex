@@ -7,10 +7,19 @@ export default function Body(theme: any) {
         body: {
           fontFeatureSettings: '"salt"',
           backgroundColor: `${theme.palette.background.default} !important`,
-          color: `${theme.palette.text.primary} !important`
+          color: `${theme.palette.text.primary} !important`,
+          // Ensure body background is always set from theme
+          '&[data-dashboard]': {
+            backgroundColor: `${theme.palette.background.default} !important`,
+            color: `${theme.palette.text.primary} !important`
+          }
         },
         html: {
-          backgroundColor: `${theme.palette.background.default} !important`
+          backgroundColor: `${theme.palette.background.default} !important`,
+          // Ensure html background is always set from theme
+          '&[data-dashboard]': {
+            backgroundColor: `${theme.palette.background.default} !important`
+          }
         },
         '#__next': {
           backgroundColor: `${theme.palette.background.default} !important`,

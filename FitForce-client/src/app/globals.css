@@ -28,7 +28,8 @@ input[type='number']::-webkit-inner-spin-button {
 
 /* CSS Variables - Only for landing pages */
 /* Dashboard pages will ignore these and use MUI theme */
-:root {
+/* Only define variables when NOT in dashboard */
+:root:not([data-dashboard]) {
   --bg-primary: #000000;
   --bg-secondary: #030712;
   --bg-tertiary: #1f2937;
@@ -39,7 +40,8 @@ input[type='number']::-webkit-inner-spin-button {
   --glow-color: rgba(6, 182, 212, 0.1);
 }
 
-[data-theme='light'] {
+/* Only apply light theme variables when NOT in dashboard */
+[data-theme='light']:not([data-dashboard]) {
   --bg-primary: #ffffff;
   --bg-secondary: #f9fafb;
   --bg-tertiary: #f3f4f6;
@@ -263,10 +265,26 @@ body {
 
 /* ONLY apply CSS variables to landing pages (not dashboard/client routes) */
 /* Dashboard pages have data-dashboard attribute set by DashboardLayout */
+/* MUI CssBaseline will handle dashboard pages with !important */
 body:not([data-dashboard]) {
   background-color: var(--bg-primary) !important;
   color: var(--text-primary) !important;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure dashboard pages never use CSS variables for background */
+/* Force transparent so MUI CssBaseline can set the actual background */
+body[data-dashboard] {
+  background-color: transparent !important;
+}
+
+html[data-dashboard] {
+  background-color: transparent !important;
+}
+
+/* Ensure drawer paper doesn't get white background from CSS */
+body[data-dashboard] .MuiDrawer-paper {
+  background-color: transparent !important;
 }
 
 

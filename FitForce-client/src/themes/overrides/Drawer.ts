@@ -1,19 +1,18 @@
 // ==============================|| OVERRIDES - DRAWER ||============================== //
 
-export default function Drawer(theme?: any) {
+export default function Drawer(theme: any) {
   return {
     MuiDrawer: {
       styleOverrides: {
         root: {
           '& .MuiDrawer-paper': {
-            backgroundImage: 'none',
-            // Background will be set by individual drawer components via sx prop
+            backgroundImage: 'none'
           }
         },
         paper: {
-          backgroundImage: 'none',
-          // Individual drawer components should set bgcolor via sx prop
-          // This ensures theme.palette.background.default is used
+          backgroundImage: 'none'
+          // Background color is set by MiniDrawerStyled via sx prop using theme.palette.background.default
+          // This ensures the drawer uses the correct theme background color
         }
       }
     }
