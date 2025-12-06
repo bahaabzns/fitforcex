@@ -11,6 +11,7 @@ import AccordionDetails from './AccordionDetails';
 import AccordionSummary from './AccordionSummary';
 import Alert from './Alert';
 import AlertTitle from './AlertTitle';
+import AppBar from './AppBar';
 import Autocomplete from './Autocomplete';
 import Badge from './Badge';
 import Backdrop from './Backdrop';
@@ -38,6 +39,7 @@ import LoadingButton from './LoadingButton';
 import OutlinedInput from './OutlinedInput';
 import Pagination from './Pagination';
 import PaginationItem from './PaginationItem';
+import Paper from './Paper';
 import Popover from './Popover';
 import Radio from './Radio';
 import Slider from './Slider';
@@ -52,6 +54,7 @@ import TablePagination from './TablePagination';
 import TableRow from './TableRow';
 import Tabs from './Tabs';
 import ToggleButton from './ToggleButton';
+import Toolbar from './Toolbar';
 import Tooltip from './Tooltip';
 import TreeItem from './TreeItem';
 import Typography from './Typography';
@@ -65,6 +68,7 @@ export default function ComponentsOverrides(theme: Theme) {
     AccordionSummary(theme),
     Alert(theme),
     AlertTitle(),
+    AppBar(),
     Autocomplete(),
     Badge(theme),
     Backdrop(),
@@ -92,6 +96,7 @@ export default function ComponentsOverrides(theme: Theme) {
     OutlinedInput(theme),
     Pagination(),
     PaginationItem(theme),
+    Paper(),
     Popover(theme),
     Radio(theme),
     Slider(theme),
@@ -106,6 +111,7 @@ export default function ComponentsOverrides(theme: Theme) {
     TableRow(),
     Tabs(),
     ToggleButton(theme),
+    Toolbar(),
     Tooltip(theme),
     TreeItem(),
     Typography()

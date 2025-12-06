@@ -46,6 +46,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
+  // Mark body as dashboard to prevent CSS variable interference
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.setAttribute('data-dashboard', 'true');
+      return () => {
+        document.body.removeAttribute('data-dashboard');
+      };
+    }
+  }, []);
+
   const { miniDrawer, menuOrientation } = useConfig();
   const dispatch = useAppDispatch();
   const workspaceSubdomain = useAppSelector((s) => s.workspace.subdomain);
@@ -259,7 +269,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const extraClientMargin = (!drawerOpen && shouldShowClientSidebar && !downLG) ? 60 : 0;
 
   return (
-    <Box sx={{ display: 'flex', width: '100%', bgcolor: 'background.default', minHeight: '100vh' }}> 
+    <Box sx={{ display: 'flex', width: '100%', bgcolor: 'background.default', minHeight: '100vh', color: 'text.primary' }}> 
       <Header />
       <MessengerBadgeSync />
       <QueueBadgeSync />

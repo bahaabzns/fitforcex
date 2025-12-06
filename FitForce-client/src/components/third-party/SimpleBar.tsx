@@ -24,13 +24,20 @@ const RootStyle = styled(BrowserView)({
 // scroll bar wrapper
 const SimpleBarStyle = styled(SimpleBar)(({ theme }) => ({
   maxHeight: '100%',
+  backgroundColor: 'transparent', // Let parent handle background
   '& .simplebar-scrollbar': {
     '&:before': { backgroundColor: alpha(theme.palette.secondary.main, 0.25) },
     '&.simplebar-visible:before': { opacity: 1 }
   },
   '& .simplebar-track.simplebar-vertical': { width: 10 },
   '& .simplebar-track.simplebar-horizontal .simplebar-scrollbar': { height: 6 },
-  '& .simplebar-mask': { zIndex: 'inherit' }
+  '& .simplebar-mask': { zIndex: 'inherit' },
+  '& .simplebar-content': {
+    backgroundColor: 'transparent' // Ensure content area is transparent
+  },
+  '& .simplebar-wrapper': {
+    backgroundColor: 'transparent'
+  }
 }));
 
 // ==============================|| SIMPLE SCROLL BAR  ||============================== //

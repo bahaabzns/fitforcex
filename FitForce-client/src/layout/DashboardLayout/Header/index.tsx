@@ -91,7 +91,9 @@ const mainHeader: ReactNode = (
     position: 'fixed',
     elevation: 0,
     sx: (theme) => ({
-      bgcolor: alpha(theme.palette.background.default, 0.8),
+      bgcolor: theme.palette.mode === 'dark' 
+        ? alpha(theme.palette.background.default, 0.95)
+        : alpha(theme.palette.background.default, 0.8),
       backdropFilter: 'blur(8px)',
       zIndex: 1200,
       width: isHorizontal ? '100%' : (downLG ? '100%' : `calc(100% - ${totalSidebarWidth}px)`),
@@ -99,7 +101,8 @@ const mainHeader: ReactNode = (
       transition: theme.transitions.create(['width', 'margin-left'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen
-      })
+      }),
+      color: 'text.primary'
     })
   };
 
