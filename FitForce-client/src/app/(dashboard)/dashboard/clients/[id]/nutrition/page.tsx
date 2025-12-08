@@ -219,6 +219,24 @@ export default function ClientNutritionPage() {
   // Form scheduling popup after plan activation
   const [formSchedulingPopupOpen, setFormSchedulingPopupOpen] = useState(false);
 
+  // Keep food quantity inputs focused on mobile during updates
+  const foodInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [focusedFoodId, setFocusedFoodId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focusedFoodId) return;
+    const inputEl = foodInputRefs.current[focusedFoodId];
+    if (inputEl && document.activeElement !== inputEl) {
+      inputEl.focus({ preventScroll: true });
+      const len = inputEl.value.length;
+      try {
+        inputEl.setSelectionRange(len, len);
+      } catch {
+        // ignore if not supported
+      }
+    }
+  }, [focusedFoodId, editingQuantities, currentMeals]);
+
   const handleSendAsPdf = useCallback(async () => {
     try {
       if (!selectedPlanId) {
@@ -2897,12 +2915,19 @@ export default function ClientNutritionPage() {
                                       type="number"
                                       value={editingQuantities[item.id] ?? item.quantity}
                                       inputMode="decimal"
+                                      inputRef={(el) => {
+                                        foodInputRefs.current[item.id] = el;
+                                      }}
+                                      onFocus={() => setFocusedFoodId(item.id)}
                                       onChange={(e) => {
                                         const val = Number(e.target.value);
                                         setEditingQuantities((prev) => ({ ...prev, [item.id]: val }));
                                         setIsPlanDirty(true);
                                       }}
-                                      onBlur={(e) => applyFoodQuantity(item.id, e.target.value)}
+                                      onBlur={(e) => {
+                                        applyFoodQuantity(item.id, e.target.value);
+                                        setFocusedFoodId((prev) => (prev === item.id ? null : prev));
+                                      }}
                                       sx={{ width: 110, ml: 'auto' }}
                                       InputProps={{ endAdornment: <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
                                     />

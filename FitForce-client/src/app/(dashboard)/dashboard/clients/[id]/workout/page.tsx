@@ -1446,10 +1446,20 @@ export default function ClientWorkoutPage() {
               };
             } else {
               // Regular exercises: sets/reps/rest
+              const setsCount = Math.max(
+                1,
+                Number.isFinite(exercise.sets as any) ? Number(exercise.sets) : 0,
+                (exercise as any).individualSets?.length || 0
+              );
+              const repsValue =
+                (exercise.reps && String(exercise.reps).trim()) ||
+                (exercise as any).individualSets?.[0]?.reps ||
+                '5-12';
+
               const baseItem: any = {
                 exerciseId: exercise.exercise.id,
-                sets: exercise.sets,
-                reps: exercise.reps, // Keep as string (e.g., "8-12")
+                sets: setsCount,
+                reps: repsValue, // Keep as string (e.g., "8-12")
                 restSeconds: exercise.restSeconds,
                 tempo: exercise.tempo,
                 rir: exercise.rir,
@@ -1657,10 +1667,10 @@ export default function ClientWorkoutPage() {
         } as any);
       }
     } catch (err: any) {
-      console.error('Failed to save workout plan:', err);
+      console.error('Failed to save workout plan:', err?.response?.data || err);
       openSnackbar({
         open: true,
-        message: 'Failed to save workout plan',
+        message: err?.response?.data?.message || 'Failed to save workout plan',
         variant: 'alert',
         alert: { color: 'error', variant: 'filled' }
       } as any);
