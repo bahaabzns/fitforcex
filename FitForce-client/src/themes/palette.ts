@@ -33,11 +33,11 @@ export default function Palette(mode: ThemeMode, presetColor: PresetColor, theme
       },
       divider: mode === ThemeMode.DARK ? alpha(paletteColor.secondary.darker!, 0.05) : alpha(paletteColor.secondary.light!, 0.65),
       background: {
-        paper: mode === ThemeMode.DARK ? paletteColor.secondary[100] : '#fff',
+        paper: mode === ThemeMode.DARK ? paletteColor.secondary.lighter || '#131920' : '#fff',
         // Always use light background in light mode, ensure it's never dark
         default: mode === ThemeMode.LIGHT 
           ? (themeContrast ? '#fff' : paletteColor.secondary.lighter || '#f8f9fa')
-          : (themeContrast ? paletteColor.secondary.darker : paletteColor.secondary[800])
+          : (themeContrast ? paletteColor.secondary.darker : paletteColor.secondary.lighter || '#131920')
       }
     }
   });

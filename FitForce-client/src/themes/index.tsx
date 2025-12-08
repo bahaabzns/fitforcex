@@ -1,8 +1,13 @@
+'use client';
+
 import { ReactNode, useMemo, useEffect } from 'react';
 
 // material-ui
 import { createTheme, ThemeOptions, ThemeProvider, Theme, TypographyVariantsOptions, StyledEngineProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+
+// next
+import { usePathname } from 'next/navigation';
 
 // project-imports
 import Palette from './palette';
@@ -25,9 +30,18 @@ type ThemeCustomizationProps = {
 // ==============================|| DEFAULT THEME - MAIN  ||============================== //
 
 export default function ThemeCustomization({ children }: ThemeCustomizationProps) {
+  const pathname = usePathname();
   const { themeDirection, mode, presetColor, fontFamily, themeContrast, i18n } = useConfig();
+  
+  // Check if we're on the landing page - force dark mode only for landing page
+  const isLandingPage = pathname === '/';
+  
   let themeMode: any = mode;
-  if (themeMode === ThemeMode.AUTO) {
+  
+  // Force dark mode on landing page, regardless of user preference
+  if (isLandingPage) {
+    themeMode = ThemeMode.DARK;
+  } else if (themeMode === ThemeMode.AUTO) {
     const autoMode = getWindowScheme();
     if (autoMode) {
       themeMode = ThemeMode.DARK;
@@ -39,10 +53,11 @@ export default function ThemeCustomization({ children }: ThemeCustomizationProps
   // Sync data-theme attribute with MUI theme mode for CSS variables
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      const dataTheme = themeMode === ThemeMode.DARK ? 'dark' : 'light';
+      // Always force dark mode on landing page
+      const dataTheme = isLandingPage ? 'dark' : (themeMode === ThemeMode.DARK ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', dataTheme);
     }
-  }, [themeMode]);
+  }, [themeMode, isLandingPage]);
 
   const theme: Theme = useMemo<Theme>(() => Palette(themeMode, presetColor, themeContrast), [themeMode, presetColor, themeContrast]);
 

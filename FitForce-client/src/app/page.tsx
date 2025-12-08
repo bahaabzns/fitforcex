@@ -41,6 +41,11 @@ export default function Landing() {
     } else {
       onChangeDirection(ThemeDirection.RTL);
     }
+    
+    // Force dark mode on landing page
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

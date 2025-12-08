@@ -28,6 +28,13 @@ const WhatsAppButton = dynamic(() => import("./WhatsAppButton"));
 const Footer = dynamic(() => import("./Footer"));
 
 export default function NewLandingPage() {
+  // Force dark mode on landing page
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
   // Track PageView when landing page is visible
   useEffect(() => {
     const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
