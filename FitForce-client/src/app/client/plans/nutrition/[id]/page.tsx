@@ -590,6 +590,27 @@ export default function ClientNutritionPlanDetail() {
                             </Typography>
                           )}
 
+                          {/* Meal Notes */}
+                          {meal.notes && (
+                            <Paper
+                              variant="outlined"
+                              sx={{
+                                p: 1.5,
+                                mb: 2,
+                                borderRadius: 2,
+                                backgroundColor: 'info.lighter',
+                                borderColor: 'info.light'
+                              }}
+                            >
+                              <Typography variant="subtitle2" fontWeight={700} color="info.dark" sx={{ mb: 0.5 }}>
+                                {t('notes') || 'Notes'}
+                              </Typography>
+                              <Typography variant="body2" color="info.darker" sx={{ whiteSpace: 'pre-wrap' }}>
+                                {meal.notes}
+                              </Typography>
+                            </Paper>
+                          )}
+
                           {/* Food Items */}
                           {meal.foodItems && meal.foodItems.length > 0 && (
                             <Stack spacing={1.5}>

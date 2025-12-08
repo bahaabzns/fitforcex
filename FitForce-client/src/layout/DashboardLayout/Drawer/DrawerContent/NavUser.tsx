@@ -20,6 +20,7 @@ import { useGetMenuMaster } from 'api/menu';
 import Avatar from 'components/@extended/Avatar';
 import useUser from 'hooks/useUser';
 import { logoutUser } from '@/lib/auth';
+import APP_CONFIG from 'config';
 
 // assets
 import { ArrowRight2 } from '@wandersonalwes/iconsax-react';
@@ -80,6 +81,18 @@ export default function UserList() {
     setAnchorEl(null);
   };
 
+  const goToMainProfile = () => {
+    const base =
+      (APP_CONFIG.mainDomain && APP_CONFIG.mainDomain.replace(/\/$/, '')) ||
+      (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
+    const target = `${base}/profile`;
+    handleClose();
+
+    if (typeof window !== 'undefined') {
+      window.location.href = target;
+    }
+  };
+
   return (
     <Box sx={{ p: 1.25, px: !drawerOpen ? 1.25 : 3, borderTop: '2px solid ', borderTopColor: 'divider' }}>
       <List disablePadding>
@@ -133,7 +146,7 @@ export default function UserList() {
         transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <MenuItem onClick={handleLogout}>Logout</MenuItem>
-        <MenuItem component={Link} href="/profile" onClick={handleClose}>
+        <MenuItem onClick={goToMainProfile}>
           Profile
         </MenuItem>
         <MenuItem component={Link} href="/dashboard/settings" onClick={handleClose}>

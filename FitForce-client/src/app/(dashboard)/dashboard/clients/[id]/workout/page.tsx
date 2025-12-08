@@ -1923,6 +1923,21 @@ export default function ClientWorkoutPage() {
     }));
   };
 
+  // Duplicate an individual set (copy values into a new set)
+  const duplicateIndividualSet = (setId: string) => {
+    setEditingExercise((prev: any) => {
+      const sets = prev.individualSets || [];
+      const index = sets.findIndex((s: any) => s.id === setId);
+      if (index === -1) return prev;
+
+      const source = sets[index];
+      const clone = { ...source, id: `set_${Date.now()}_${Math.random()}` };
+      const nextSets = [...sets.slice(0, index + 1), clone, ...sets.slice(index + 1)];
+
+      return { ...prev, individualSets: nextSets };
+    });
+  };
+
   // Parse tempo string "x-x-x-x" to array of 4 numbers
   const parseTempo = (tempo: string): [number, number, number, number] => {
     if (!tempo) return [0, 0, 0, 0];
@@ -4129,6 +4144,13 @@ export default function ClientWorkoutPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsAddExerciseDialogOpen(false)}>Cancel</Button>
+          <Button
+            color="secondary"
+            onClick={() => setSelectedExercises([])}
+            disabled={!selectedExercises.length}
+          >
+            Clear Selected
+          </Button>
           <Button onClick={addExerciseToDay} disabled={!selectedExercises.length || !localWorkoutPlan}>
             Add Selected
           </Button>
@@ -4328,6 +4350,13 @@ export default function ClientWorkoutPage() {
                             />
                           </td>
                           <td style={{ padding: '8px' }}>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => duplicateIndividualSet(set.id)}
+                              title="Copy set"
+                            >
+                              <Copy size={16} />
+                            </IconButton>
                             <IconButton 
                               size="small" 
                               color="error"

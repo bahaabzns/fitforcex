@@ -1233,6 +1233,60 @@ export default function ClientNutritionPage() {
     setIsPlanDirty(true);
   };
 
+  const applyFoodQuantity = (foodItemId: string, rawValue: number | string) => {
+    if (!selectedMealId) return;
+    const val = Number(rawValue);
+    const safeQuantity = Number.isFinite(val) ? val : 0;
+
+    setEditingQuantities((prev) => ({ ...prev, [foodItemId]: safeQuantity }));
+
+    // Update current meals for live calculations
+    setCurrentMeals((prev: Meal[]) =>
+      prev.map((m: Meal) =>
+        m.id !== selectedMealId
+          ? m
+          : {
+              ...m,
+              foodItems: m.foodItems.map((fi: MealFoodItem) =>
+                fi.id === foodItemId ? { ...fi, quantity: safeQuantity } : fi
+              )
+            }
+      )
+    );
+
+    // Keep plans tree in sync so totals/charts update
+    if (selectedPlanId && selectedCycleId) {
+      setPlans((prev) =>
+        prev.map((p) =>
+          p.id !== selectedPlanId
+            ? p
+            : {
+                ...p,
+                cycles: (p.cycles || []).map((c) =>
+                  c.id !== selectedCycleId
+                    ? c
+                    : {
+                        ...c,
+                        meals: (c.meals || []).map((m) =>
+                          m.id !== selectedMealId
+                            ? m
+                            : {
+                                ...m,
+                                foodItems: (m.foodItems || []).map((fi) =>
+                                  fi.id !== foodItemId ? fi : { ...fi, quantity: safeQuantity }
+                                )
+                              }
+                        )
+                      }
+                )
+              }
+        )
+      );
+    }
+
+    setIsPlanDirty(true);
+  };
+
   const showSection2 = !!selectedPlanId;
   const showSection3 = !!selectedMealId;
   
@@ -2741,6 +2795,18 @@ export default function ClientNutritionPage() {
                           {selectedFoodItems.length > 0 && (
                             <Button
                               variant="outlined"
+                              color="secondary"
+                              size="small"
+                              startIcon={<Trash size={16} />}
+                              onClick={() => setSelectedFoodItems([])}
+                              sx={{ mr: 1 }}
+                            >
+                              Clear Selected
+                            </Button>
+                          )}
+                          {selectedFoodItems.length > 0 && (
+                            <Button
+                              variant="outlined"
                               color="error"
                               size="small"
                               startIcon={<Trash size={16} />}
@@ -2830,28 +2896,13 @@ export default function ClientNutritionPage() {
                                       size="small"
                                       type="number"
                                       value={editingQuantities[item.id] ?? item.quantity}
+                                      inputMode="decimal"
                                       onChange={(e) => {
                                         const val = Number(e.target.value);
-                                        setEditingQuantities(prev => ({ ...prev, [item.id]: val }));
-                                        setCurrentMeals((prev: Meal[]) => prev.map((m: Meal) => m.id !== (selectedMealId as string) ? m : {
-                                          ...m,
-                                          foodItems: m.foodItems.map((fi: MealFoodItem) => fi.id === item.id ? { ...fi, quantity: val } : fi)
-                                        }));
-                                        // Keep plans tree in sync so cycle totals and charts update
-                                        if (selectedPlanId && selectedCycleId && selectedMealId) {
-                                          setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
-                                            ...p,
-                                            cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
-                                              ...c,
-                                              meals: (c.meals || []).map((m) => m.id !== selectedMealId ? m : ({
-                                                ...m,
-                                                foodItems: (m.foodItems || []).map((fi) => fi.id !== item.id ? fi : ({ ...fi, quantity: val }))
-                                              }))
-                                            }))
-                                          })));
-                                        }
+                                        setEditingQuantities((prev) => ({ ...prev, [item.id]: val }));
                                         setIsPlanDirty(true);
                                       }}
+                                      onBlur={(e) => applyFoodQuantity(item.id, e.target.value)}
                                       sx={{ width: 110, ml: 'auto' }}
                                       InputProps={{ endAdornment: <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
                                     />
@@ -4231,6 +4282,13 @@ export default function ClientNutritionPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsAddFoodDialogOpen(false)}>Cancel</Button>
+          <Button
+            color="secondary"
+            onClick={() => setSelectedFoodItems([])}
+            disabled={!selectedFoodItems.length}
+          >
+            Clear Selected
+          </Button>
           <Button onClick={handleAddFoodToMeal} disabled={saving || !selectedFoodItems.length}>
             {saving ? <CircularProgress size={20} /> : `Add ${selectedFoodItems.length} item(s)`}
           </Button>
