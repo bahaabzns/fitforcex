@@ -97,9 +97,12 @@ export default function MobileSection() {
       >
         {({ TransitionProps }) => (
           <Transitions type="fade" in={open} {...TransitionProps}>
-            <Paper sx={(theme) => ({ boxShadow: theme.customShadows.z1 })}>
+            <Paper sx={(theme) => ({ 
+              boxShadow: theme.customShadows.z1,
+              bgcolor: 'background.paper' // Solid background: white in light mode, dark in dark mode
+            })}>
               <ClickAwayListener onClickAway={handleClose}>
-                <AppBar color="inherit">
+                <AppBar color="inherit" sx={{ bgcolor: 'background.paper' }}>
                   <Toolbar>
                     {!isClientRoute && <WorkspaceNavigator />}
                     {!isClientRoute && <ClientLoginLinkMobile />}

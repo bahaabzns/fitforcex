@@ -91,10 +91,14 @@ const mainHeader: ReactNode = (
     position: 'fixed',
     elevation: 0,
     sx: (theme) => ({
-      bgcolor: theme.palette.mode === 'dark' 
-        ? alpha(theme.palette.background.default, 0.95)
-        : alpha(theme.palette.background.default, 0.8),
-      backdropFilter: 'blur(8px)',
+      // On mobile, use solid background (white in light mode, dark in dark mode)
+      // On desktop, keep semi-transparent with blur effect
+      bgcolor: downLG 
+        ? theme.palette.background.paper
+        : (theme.palette.mode === 'dark' 
+          ? alpha(theme.palette.background.default, 0.95)
+          : alpha(theme.palette.background.default, 0.8)),
+      backdropFilter: downLG ? 'none' : 'blur(8px)',
       zIndex: 1200,
       width: isHorizontal ? '100%' : (downLG ? '100%' : `calc(100% - ${totalSidebarWidth}px)`),
       marginLeft: isHorizontal ? 0 : (downLG ? 0 : `${totalSidebarWidth}px`),

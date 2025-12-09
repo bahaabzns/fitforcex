@@ -6,7 +6,9 @@ export default function Drawer(theme: any) {
       styleOverrides: {
         root: {
           '& .MuiDrawer-paper': {
-            backgroundImage: 'none'
+            backgroundImage: 'none',
+            // Ensure mobile drawers have solid backgrounds (not transparent)
+            // Background color is set by individual drawer components via sx prop
           }
         },
         paper: {

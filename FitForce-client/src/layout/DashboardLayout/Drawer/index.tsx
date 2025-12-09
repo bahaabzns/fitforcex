@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
+import { useTheme } from '@mui/material/styles';
 
 // project-imports
 import DrawerHeader from './DrawerHeader';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function MainDrawer({ window }: Props) {
+  const theme = useTheme();
   const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
 
   const { menuMaster } = useGetMenuMaster();
@@ -56,13 +58,25 @@ export default function MainDrawer({ window }: Props) {
                 borderColor: 'divider',
                 backgroundImage: 'none',
                 boxShadow: 'inherit',
-                bgcolor: 'background.default' // Ensure proper background color in dark mode
+                // Solid background: white in light mode, dark in dark mode (not transparent)
+                bgcolor: '#fff',
+                ...theme.applyStyles('dark', {
+                  bgcolor: theme.palette.secondary.lighter || '#131920'
+                })
               })
             }
           }}
         >
-          {drawerHeader}
-          {drawerContent}
+          <Box sx={{ 
+            height: '100%', 
+            bgcolor: '#fff',
+            ...theme.applyStyles('dark', {
+              bgcolor: theme.palette.secondary.lighter || '#131920'
+            })
+          }}>
+            {drawerHeader}
+            {drawerContent}
+          </Box>
         </Drawer>
       )}
     </Box>

@@ -14,12 +14,14 @@ import { useClientSidebar } from '@/contexts/ClientSidebarContext';
 // ==============================|| CLIENT SIDEBAR - MINI STYLED ||============================== //
 
 const openedMixin = (theme: any): CSSObject => ({
-  backgroundColor: theme.palette.background.default,
+  // Solid background: white in light mode, dark in dark mode (not transparent)
+  backgroundColor: '#fff',
   width: CLIENT_DRAWER_WIDTH,
   borderRight: '1px dashed',
   borderRightColor: theme.palette.secondary[400],
   boxShadow: 'none',
   ...theme.applyStyles('dark', {
+    backgroundColor: theme.palette.secondary.lighter || '#131920',
     borderRightColor: theme.palette.secondary[200],
     boxShadow: theme.customShadows.z1
   }),

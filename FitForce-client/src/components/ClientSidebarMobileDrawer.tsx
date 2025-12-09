@@ -50,22 +50,34 @@ export default function ClientSidebarMobileDrawer() {
       ModalProps={{
         keepMounted: true // Better open performance on mobile
       }}
-      sx={{
-        display: { xs: 'block', lg: 'none' },
-        '& .MuiDrawer-paper': {
-          width: CLIENT_DRAWER_WIDTH,
-          boxSizing: 'border-box',
-          backgroundColor: theme.palette.background.default,
-          borderRight: '1px dashed',
-          borderRightColor: theme.palette.secondary[400],
-          boxShadow: theme.customShadows.z1,
-          ...theme.applyStyles('dark', {
-            borderRightColor: theme.palette.secondary[200]
+      sx={{ display: { xs: 'block', lg: 'none' } }}
+      slotProps={{
+        paper: {
+          sx: (theme) => ({
+            width: CLIENT_DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            // Solid background: white in light mode, dark in dark mode (not transparent)
+            bgcolor: '#fff',
+            borderRight: '1px dashed',
+            borderRightColor: theme.palette.secondary[400],
+            boxShadow: theme.customShadows.z1,
+            ...theme.applyStyles('dark', {
+              bgcolor: theme.palette.secondary.lighter || '#131920',
+              borderRightColor: theme.palette.secondary[200]
+            })
           })
         }
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: '100%',
+        bgcolor: '#fff',
+        ...theme.applyStyles('dark', {
+          bgcolor: theme.palette.secondary.lighter || '#131920'
+        })
+      }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 64, px: 3 }}>
           <Typography

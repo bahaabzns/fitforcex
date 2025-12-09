@@ -19,9 +19,9 @@ import {
   CardContent,
   CardActions,
   IconButton,
-  Alert,
-  Paper
+  Alert
 } from '@mui/material';
+import Paper from '@mui/material/Paper';
 import { 
   FitnessCenter, 
   Restaurant, 
