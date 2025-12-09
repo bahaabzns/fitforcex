@@ -1071,5 +1071,13 @@
   "client.quickActions": "إجراءات سريعة",
   "client.nutritionPlans": "خطط التغذية",
   "client.workoutPlans": "خطط التمارين",
-  "client.subscription": "الاشتراك"
+  "client.subscription": "الاشتراك",
+
+  "attachments": "المرفقات",
+  "attachments-description": "ستظهر الملفات التي يشاركها المدرب هنا.",
+  "attachments-error": "تعذر تحميل المرفقات.",
+  "no-attachments": "لا توجد مرفقات بعد.",
+  "download": "تحميل",
+  "shared-by": "مشاركة بواسطة",
+  "more-files-available": "هناك ملفات إضافية"
 }

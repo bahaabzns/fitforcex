@@ -1074,5 +1074,13 @@
   "client.quickActions": "Quick Actions",
   "client.nutritionPlans": "Nutrition Plans",
   "client.workoutPlans": "Workout Plans",
-  "client.subscription": "Subscription"
+  "client.subscription": "Subscription",
+
+  "attachments": "Attachments",
+  "attachments-description": "Files shared by your coach will appear here.",
+  "attachments-error": "Could not load attachments.",
+  "no-attachments": "No attachments shared yet.",
+  "download": "Download",
+  "shared-by": "Shared by",
+  "more-files-available": "More files available"
 }

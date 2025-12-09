@@ -32,7 +32,9 @@ import {
   CheckCircle,
   Schedule,
   Person,
-  Email
+  Email,
+  AttachFile,
+  Download
 } from '@mui/icons-material';
 
 // Import translations
@@ -42,6 +44,18 @@ import en from '@/utils/locales/en.json';
 const translations: Record<string, Record<string, string>> = {
   ar,
   en,
+};
+
+type ClientAttachment = {
+  id: string;
+  originalName: string;
+  url: string;
+  size: number;
+  mimeType: string;
+  createdAt: string;
+  uploadedBy?: {
+    fullName?: string | null;
+  } | null;
 };
 
 export default function SeedClientDashboard() {
@@ -76,9 +90,18 @@ export default function SeedClientDashboard() {
     }
   );
 
+  const { data: attachmentsData, isLoading: loadingAttachments, error: attachmentsError, mutate: mutateAttachments } = useSWR(
+    () => (profile?.client?.id ? `client-attachments-${profile.client.id}` : null),
+    async () => {
+      const res = await api.get('/api/clients/attachments');
+      return res.data.attachments as ClientAttachment[];
+    }
+  );
+
   const handleRefresh = () => {
     mutateProfile();
     mutateOverview();
+    mutateAttachments();
   };
 
   if (loadingProfile) {
@@ -111,6 +134,7 @@ export default function SeedClientDashboard() {
   const { client, workspace } = profile;
   const metrics = overview?.metrics;
   const activities = overview?.activities || [];
+  const attachments = attachmentsData || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -127,6 +151,18 @@ export default function SeedClientDashboard() {
       case 'pending': return <Schedule />;
       default: return null;
     }
+  };
+
+  const formatFileSize = (size: number) => {
+    if (!size) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let value = size;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
   };
 
   return (
@@ -473,6 +509,82 @@ export default function SeedClientDashboard() {
                     <Typography variant="body1">{metrics?.totalFormSubmissions ?? 0}</Typography>
                   </Box>
                 </Stack>
+              </CardContent>
+            </Card>
+
+            {/* Attachments Card */}
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                  <AttachFile color="primary" />
+                  <Typography variant="h6" fontWeight={700}>{t('attachments')}</Typography>
+                </Stack>
+                <Divider sx={{ mb: 2 }} />
+                {attachmentsError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {t('attachments-error')}
+                  </Alert>
+                )}
+                {loadingAttachments ? (
+                  <Stack alignItems="center" spacing={1} sx={{ py: 2 }}>
+                    <LinearProgress sx={{ width: '100%' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('loading-your-dashboard')}
+                    </Typography>
+                  </Stack>
+                ) : attachments.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('no-attachments')}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('attachments-description')}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Stack spacing={1.5}>
+                    {attachments.slice(0, 4).map((file) => (
+                      <Paper
+                        key={file.id}
+                        variant="outlined"
+                        sx={{ p: 1.5, borderRadius: 2 }}
+                        elevation={0}
+                      >
+                        <Stack direction="row" alignItems="center" spacing={1.5} justifyContent="space-between">
+                          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.main', color: 'white' }}>
+                              <AttachFile fontSize="small" />
+                            </Avatar>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
+                                {file.originalName}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {formatFileSize(file.size)}
+                                {file.uploadedBy?.fullName ? ` • ${t('shared-by')} ${file.uploadedBy.fullName}` : ''}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                          <MuiButton
+                            size="small"
+                            variant="outlined"
+                            startIcon={<Download />}
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {t('download')}
+                          </MuiButton>
+                        </Stack>
+                      </Paper>
+                    ))}
+                    {attachments.length > 4 && (
+                      <Typography variant="caption" color="text.secondary">
+                        {t('more-files-available')}
+                      </Typography>
+                    )}
+                  </Stack>
+                )}
               </CardContent>
             </Card>
 
