@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/utils/axios';
 import { Box, Typography, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Chip, TextField, Button, Alert, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TablePagination, Stack, Snackbar } from '@mui/material';
-import { Refresh, Add, Visibility, ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import { Refresh, Add, Visibility, ArrowUpward, ArrowDownward, CheckCircle, Cancel, Block, Check } from '@mui/icons-material';
 
 interface UserRow {
   id: string;
@@ -13,6 +13,9 @@ interface UserRow {
   lastName?: string | null;
   phoneNumber?: string | null;
   createdAt: string;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string | null;
+  deactivatedAt?: string | null;
   _count: {
     workspacesOwned: number;
     memberships: number;
@@ -213,6 +216,8 @@ export default function AdminUsersPage() {
                     </Box>
                   </TableCell>
                   <TableCell>Phone</TableCell>
+                  <TableCell>Verification</TableCell>
+                  <TableCell>Account Status</TableCell>
                   <TableCell 
                     sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                     onClick={() => handleSort('workspacesCount')}
@@ -252,6 +257,34 @@ export default function AdminUsersPage() {
                     <TableCell>{r.email}</TableCell>
                     <TableCell>{r.phoneNumber || '-'}</TableCell>
                     <TableCell>
+                      <Chip
+                        size="small"
+                        icon={r.emailVerified ? <CheckCircle /> : <Cancel />}
+                        label={r.emailVerified ? 'Verified' : 'Unverified'}
+                        color={r.emailVerified ? 'success' : 'warning'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {r.deactivatedAt ? (
+                        <Chip
+                          size="small"
+                          icon={<Block />}
+                          label="Deactivated"
+                          color="error"
+                          variant="outlined"
+                        />
+                      ) : (
+                        <Chip
+                          size="small"
+                          icon={<CheckCircle />}
+                          label="Active"
+                          color="success"
+                          variant="outlined"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <Chip 
                         size="small" 
                         label={r._count.workspacesOwned} 
@@ -285,6 +318,49 @@ export default function AdminUsersPage() {
                           setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to send reset email', severity: 'error' });
                         }
                       }}>Reset Password</Button>
+                      {!r.emailVerified && (
+                        <Button size="small" variant="outlined" color="success" startIcon={<Check />} onClick={async () => {
+                          try {
+                            await api.post(`/api/admin/users/${r.id}/verify-email`);
+                            setSnackbar({ open: true, message: 'Email verified', severity: 'success' });
+                            await fetchRows();
+                          } catch (e:any) {
+                            setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to verify email', severity: 'error' });
+                          }
+                        }}>Verify Email</Button>
+                      )}
+                      {r.emailVerified && (
+                        <Button size="small" variant="outlined" color="warning" startIcon={<Cancel />} onClick={async () => {
+                          try {
+                            await api.post(`/api/admin/users/${r.id}/unverify-email`);
+                            setSnackbar({ open: true, message: 'Email marked as unverified', severity: 'success' });
+                            await fetchRows();
+                          } catch (e:any) {
+                            setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to unverify email', severity: 'error' });
+                          }
+                        }}>Unverify</Button>
+                      )}
+                      {!r.deactivatedAt ? (
+                        <Button size="small" variant="outlined" color="error" startIcon={<Block />} onClick={async () => {
+                          try {
+                            await api.post(`/api/admin/users/${r.id}/deactivate`);
+                            setSnackbar({ open: true, message: 'User deactivated', severity: 'success' });
+                            await fetchRows();
+                          } catch (e:any) {
+                            setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to deactivate user', severity: 'error' });
+                          }
+                        }}>Deactivate</Button>
+                      ) : (
+                        <Button size="small" variant="outlined" color="success" startIcon={<Check />} onClick={async () => {
+                          try {
+                            await api.post(`/api/admin/users/${r.id}/activate`);
+                            setSnackbar({ open: true, message: 'User activated', severity: 'success' });
+                            await fetchRows();
+                          } catch (e:any) {
+                            setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to activate user', severity: 'error' });
+                          }
+                        }}>Activate</Button>
+                      )}
                     </Stack>
                   </TableCell>
                   </TableRow>

@@ -39,7 +39,8 @@ import { loginUser } from '@/lib/auth';
 
 // assets
 import { Eye, EyeSlash } from '@wandersonalwes/iconsax-react';
-import { ArrowForward } from '@mui/icons-material';
+import { ArrowForward, WhatsApp } from '@mui/icons-material';
+import Alert from '@mui/material/Alert';
 
 const Auth0 = '/assets/images/icons/auth0.svg';
 const Cognito = '/assets/images/icons/aws-cognito.svg';
@@ -54,12 +55,19 @@ export default function AuthLogin({ providers, csrfToken }: any) {
   const [checked, setChecked] = useState(false);
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isDeactivated, setIsDeactivated] = useState(false);
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
   };
 
   const handleMouseDownPassword = (event: SyntheticEvent) => {
     event.preventDefault();
+  };
+
+  const handleWhatsAppSupport = () => {
+    const phoneNumber = "201006206308";
+    const message = encodeURIComponent("Hello, my account has been deactivated. I need assistance to reactivate it.");
+    window.open(`https://wa.me/${phoneNumber}?text=${message}`, "_blank");
   };
 
   return (
@@ -80,6 +88,7 @@ export default function AuthLogin({ providers, csrfToken }: any) {
         })}
         onSubmit={async (values, { setErrors, setStatus, setSubmitting }) => {
           try {
+            setIsDeactivated(false);
             const trimmedEmail = values.email.trim();
             const ok = await loginUser(trimmedEmail, values.password);
             if (!ok) {
@@ -92,7 +101,12 @@ export default function AuthLogin({ providers, csrfToken }: any) {
             }
           } catch (err: any) {
             setStatus({ success: false });
-            setErrors({ submit: err.message });
+            if (err.message === 'ACCOUNT_DEACTIVATED') {
+              setIsDeactivated(true);
+              setErrors({ submit: '' });
+            } else {
+              setErrors({ submit: err.message });
+            }
             setSubmitting(false);
           }
         }}
@@ -180,7 +194,34 @@ export default function AuthLogin({ providers, csrfToken }: any) {
                   </Links>
                 </Stack>
               </Grid>
-              {errors.submit && (
+              {isDeactivated && (
+                <Grid size={12}>
+                  <Alert 
+                    severity="warning" 
+                    sx={{ mb: 2 }}
+                    action={
+                      <Button
+                        color="inherit"
+                        size="small"
+                        variant="outlined"
+                        startIcon={<WhatsApp />}
+                        onClick={handleWhatsAppSupport}
+                        sx={{ whiteSpace: 'nowrap' }}
+                      >
+                        Contact Support
+                      </Button>
+                    }
+                  >
+                    <Typography variant="body2" fontWeight={600} gutterBottom>
+                      Account Deactivated
+                    </Typography>
+                    <Typography variant="body2">
+                      Your account has been deactivated. Please contact our support team to reactivate your account.
+                    </Typography>
+                  </Alert>
+                </Grid>
+              )}
+              {errors.submit && !isDeactivated && (
                 <Grid size={12}>
                   <FormHelperText error>{errors.submit}</FormHelperText>
                 </Grid>

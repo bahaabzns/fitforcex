@@ -17,7 +17,11 @@ export async function loginUser(email: string, password: string): Promise<boolea
     await api.post('/api/auth/login', { email, password });
     // After setting cookie, load user via /me to sync state
     return await checkAuthStatus();
-  } catch {
+  } catch (err: any) {
+    // Re-throw if it's a deactivated account error so it can be handled specially
+    if (err?.response?.data?.message === 'ACCOUNT_DEACTIVATED') {
+      throw new Error('ACCOUNT_DEACTIVATED');
+    }
     return false;
   }
 }

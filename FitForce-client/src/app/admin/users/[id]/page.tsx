@@ -26,8 +26,9 @@ import {
   Skeleton,
   Stack,
 } from '@mui/material';
-import { ArrowBack, Settings, Add } from '@mui/icons-material';
+import { ArrowBack, Settings, Add, CheckCircle, Cancel, Block, Check } from '@mui/icons-material';
 import Snackbar from '@mui/material/Snackbar';
+import Divider from '@mui/material/Divider';
 
 interface User {
   id: string;
@@ -37,6 +38,9 @@ interface User {
   phoneNumber?: string | null;
   createdAt: string;
   updatedAt: string;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string | null;
+  deactivatedAt?: string | null;
   workspacesOwned: Array<{
     id: string;
     name: string;
@@ -209,7 +213,160 @@ export default function UserDetailPage() {
               <Typography variant="caption" color="text.secondary">Last Updated</Typography>
               <Typography variant="body1">{new Date(user.updatedAt).toLocaleDateString()}</Typography>
             </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Email Verification</Typography>
+              <Chip
+                size="small"
+                icon={user.emailVerified ? <CheckCircle /> : <Cancel />}
+                label={user.emailVerified ? 'Verified' : 'Unverified'}
+                color={user.emailVerified ? 'success' : 'warning'}
+                variant="outlined"
+                sx={{ mt: 0.5 }}
+              />
+              {user.emailVerifiedAt && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Verified on {new Date(user.emailVerifiedAt).toLocaleDateString()}
+                </Typography>
+              )}
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Account Status</Typography>
+              <Chip
+                size="small"
+                icon={user.deactivatedAt ? <Block /> : <CheckCircle />}
+                label={user.deactivatedAt ? 'Deactivated' : 'Active'}
+                color={user.deactivatedAt ? 'error' : 'success'}
+                variant="outlined"
+                sx={{ mt: 0.5 }}
+              />
+              {user.deactivatedAt && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Deactivated on {new Date(user.deactivatedAt).toLocaleDateString()}
+                </Typography>
+              )}
+            </Box>
           </Box>
+        </CardContent>
+      </Card>
+
+      {/* Account Control */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>Account Control</Typography>
+          <Divider sx={{ my: 2 }} />
+          <Stack spacing={3}>
+            {/* Type 1: Page Access Control (Email Verification) */}
+            <Box>
+              <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                1. Page Access Control
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                If email verification is required globally, unverified users can login but cannot access dashboard pages until they verify their email.
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Chip
+                  label={user.emailVerified ? "Email Verified" : "Email Not Verified"}
+                  color={user.emailVerified ? "success" : "warning"}
+                  icon={user.emailVerified ? <CheckCircle /> : <Cancel />}
+                />
+                {!user.emailVerified ? (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    size="small"
+                    startIcon={<Check />}
+                    onClick={async () => {
+                      try {
+                        await api.post(`/api/admin/users/${user.id}/verify-email`);
+                        setSnackbar({ open: true, message: 'Email verified successfully. User can now access all pages.' });
+                        fetchUser();
+                      } catch (e: any) {
+                        setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to verify email' });
+                      }
+                    }}
+                  >
+                    Verify Email (Allow Page Access)
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    startIcon={<Cancel />}
+                    onClick={async () => {
+                      try {
+                        await api.post(`/api/admin/users/${user.id}/unverify-email`);
+                        setSnackbar({ open: true, message: 'Email marked as unverified. User will be blocked from pages if verification is required.' });
+                        fetchUser();
+                      } catch (e: any) {
+                        setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to unverify email' });
+                      }
+                    }}
+                  >
+                    Unverify Email (Block Page Access)
+                  </Button>
+                )}
+              </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* Type 2: Login Access Control (Deactivation) */}
+            <Box>
+              <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                2. Login Access Control
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Deactivated users cannot login at all. They will see a support message with WhatsApp link when attempting to login.
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Chip
+                  label={user.deactivatedAt ? "Login Deactivated" : "Login Active"}
+                  color={user.deactivatedAt ? "error" : "success"}
+                  icon={user.deactivatedAt ? <Block /> : <CheckCircle />}
+                />
+                {user.deactivatedAt ? (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    size="small"
+                    startIcon={<CheckCircle />}
+                    onClick={async () => {
+                      try {
+                        await api.post(`/api/admin/users/${user.id}/activate`);
+                        setSnackbar({ open: true, message: 'User activated successfully. Login access restored.' });
+                        fetchUser();
+                      } catch (e: any) {
+                        setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to activate user' });
+                      }
+                    }}
+                  >
+                    Reactivate Login
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="small"
+                    startIcon={<Block />}
+                    onClick={async () => {
+                      if (confirm(`Are you sure you want to deactivate ${user.fullName}'s login? They will NOT be able to login and will see a support message.`)) {
+                        try {
+                          await api.post(`/api/admin/users/${user.id}/deactivate`);
+                          setSnackbar({ open: true, message: 'User login deactivated. User will see support message when attempting to login.' });
+                          fetchUser();
+                        } catch (e: any) {
+                          setSnackbar({ open: true, message: e?.response?.data?.error || 'Failed to deactivate user' });
+                        }
+                      }
+                    }}
+                  >
+                    Deactivate Login
+                  </Button>
+                )}
+              </Stack>
+            </Box>
+          </Stack>
         </CardContent>
       </Card>
 

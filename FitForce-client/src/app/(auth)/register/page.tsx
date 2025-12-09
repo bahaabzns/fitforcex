@@ -15,6 +15,7 @@ import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
 import { trackDual } from '@/lib/pixel';
 import { APP_CONFIG } from '@/lib/config';
+import EmailVerificationFlow from '@/components/EmailVerificationFlow';
 
 // ================================|| REGISTER ||================================ //
 
@@ -37,6 +38,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authBackgroundImage, setAuthBackgroundImage] = useState<string | null>(null);
+  const [showVerification, setShowVerification] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -139,7 +141,8 @@ export default function RegisterPage() {
         }
       );
 
-      router.replace('/dashboard');
+      // Show verification dialog instead of redirecting immediately
+      setShowVerification(true);
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Registration failed';
       setError(msg);
@@ -225,6 +228,19 @@ export default function RegisterPage() {
           </Typography>
         </Stack>
       </Card>
+
+      <EmailVerificationFlow
+        open={showVerification}
+        email={email}
+        onSkip={() => {
+          setShowVerification(false);
+          router.replace('/dashboard');
+        }}
+        onVerified={() => {
+          setShowVerification(false);
+          router.replace('/dashboard');
+        }}
+      />
     </Box>
   );
 }

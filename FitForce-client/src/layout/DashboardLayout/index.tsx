@@ -35,6 +35,7 @@ import TutorialVideoHelper from '@/components/TutorialVideoHelper';
 import { usePathname, useRouter } from 'next/navigation';
 import { useWorkspaceSubscription } from '@/hooks/useWorkspaceSubscription';
 import api from '@/utils/axios';
+import EmailVerificationPrompt from '@/components/EmailVerificationPrompt';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
@@ -71,6 +72,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     isOnboarded: boolean;
   } | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(true);
+
+  // User verification state
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean>(true);
 
   // Check if we're on a client detail page
   const isClientDetailPage = Boolean(pathname?.match(/^\/dashboard\/clients\/([^/]+)/));
@@ -214,6 +219,42 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   }, [dispatch, workspaceSubdomain]); // Re-run when workspaceSubdomain changes
 
+  // Fetch user verification status
+  useEffect(() => {
+    const fetchUserStatus = async () => {
+      try {
+        const response = await api.get('/api/auth/me');
+        console.log('[EmailVerification] API Response:', response.data);
+        if (response.data?.user) {
+          const user = response.data.user;
+          setUserEmail(user.email || null);
+          // Default to false (unverified) if not explicitly true
+          const verified = user.emailVerified === true;
+          setEmailVerified(verified);
+          console.log('[EmailVerification] User status set:', {
+            email: user.email,
+            emailVerified: verified,
+            rawValue: user.emailVerified,
+            willShowPrompt: !verified
+          });
+        } else {
+          console.log('[EmailVerification] No user data in response');
+        }
+      } catch (error: any) {
+        console.error('[EmailVerification] Failed to fetch user status:', error);
+        // If 401, user not logged in - that's ok
+        if (error?.response?.status !== 401) {
+          console.error('[EmailVerification] Unexpected error:', error);
+        }
+      }
+    };
+    fetchUserStatus();
+    
+    // Also refetch periodically to catch verification status changes
+    const interval = setInterval(fetchUserStatus, 30000); // Every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   // set media wise responsive drawer
   useEffect(() => {
     if (!miniDrawer) {
@@ -276,6 +317,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <MessengerBadgeSync />
       <QueueBadgeSync />
       <TutorialVideoHelper />
+      {userEmail && (
+        <EmailVerificationPrompt 
+          email={userEmail} 
+          emailVerified={emailVerified}
+          key={`verify-${userEmail}-${emailVerified}`} // Force re-render when status changes
+        />
+      )}
       {!isHorizontal ? <Drawer /> : <HorizontalBar />}
       <ClientSidebarDrawer />
       <ClientSidebarMobileDrawer />

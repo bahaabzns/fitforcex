@@ -18,6 +18,7 @@ export default function AuthGuard({ children }: GuardProps) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -25,6 +26,16 @@ export default function AuthGuard({ children }: GuardProps) {
       try {
         const res = await fetch(`${APP_CONFIG.apiUrl}/api/auth/me`, { credentials: 'include' });
         if (!cancelled && res.ok) {
+          const data = await res.json();
+          
+          // Check if email verification is required and user is not verified
+          if (data.requireEmailVerification && !data.user?.emailVerified) {
+            setVerificationRequired(true);
+            // Redirect to verification page (not login page)
+            router.push('/verify-email-required');
+            return;
+          }
+          
           setAuthorized(true);
         } else if (!cancelled) {
           router.push('/login');
