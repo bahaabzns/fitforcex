@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, Box, Tooltip, Typography, Chip, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Stack } from '@mui/material';
+import { Card, CardContent, Box, Tooltip, Typography, Chip, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Stack, Button } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Edit, Trash, Category } from '@wandersonalwes/iconsax-react';
@@ -15,6 +15,7 @@ type SortableExerciseProps = {
   onDelete: (id: string) => void;
   formatRepRange: (reps: string, sets: number) => string;
   onPreviewGif: (src: string) => void;
+  onReplace: (ex: any) => void;
 };
 
 export default function SortableExercise({
@@ -23,7 +24,8 @@ export default function SortableExercise({
   onEdit,
   onDelete,
   formatRepRange,
-  onPreviewGif
+  onPreviewGif,
+  onReplace
 }: SortableExerciseProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -326,7 +328,19 @@ export default function SortableExercise({
               </Typography>
             )}
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5, alignItems: 'center' }}>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isLongPressing) {
+                  onReplace(exercise);
+                }
+              }}
+            >
+              Replace
+            </Button>
             <IconButton
               size="small"
               color="primary"
@@ -359,7 +373,7 @@ export default function SortableExercise({
             >
               <Trash size={16} />
             </IconButton>
-          </Box>
+          </Stack>
         </Box>
       </CardContent>
       

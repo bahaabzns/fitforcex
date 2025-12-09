@@ -620,6 +620,7 @@ export default function ClientWorkoutPage() {
   const [newPlanTitle, setNewPlanTitle] = useState('');
   const [newDayTitle, setNewDayTitle] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
+  const [exerciseToReplaceId, setExerciseToReplaceId] = useState<string | null>(null);
   const [exerciseSearchTerm, setExerciseSearchTerm] = useState('');
   const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<string[]>([]);
   const [exerciseEquipmentFilter, setExerciseEquipmentFilter] = useState<string[]>([]);
@@ -658,6 +659,10 @@ export default function ClientWorkoutPage() {
   const { workspaceName } = useWorkspaceBranding();
   // PDF export state
   const [exportingPdf, setExportingPdf] = useState(false);
+
+  const replacementTarget = exerciseToReplaceId && localWorkoutPlan
+    ? localWorkoutPlan.days[selectedDayIndex]?.exercises.find((ex) => ex.id === exerciseToReplaceId)
+    : null;
 
   const handleDayDrop = (toIndex: number) => {
     if (dragDayIndex === null || toIndex === dragDayIndex || !localWorkoutPlan) return;
@@ -1387,6 +1392,69 @@ export default function ClientWorkoutPage() {
     } : null);
     
     setIsPlanDirty(true);
+    setSelectedExercises([]);
+    setIsAddExerciseDialogOpen(false);
+  };
+
+  // Replace an existing exercise in the selected day
+  const handleReplaceExercise = () => {
+    if (!localWorkoutPlan || !exerciseToReplaceId || selectedExercises.length === 0) return;
+    const replacementId = selectedExercises[0];
+    const newExercise = workspaceExercises.find((e) => e.id === replacementId);
+    const currentDay = localWorkoutPlan.days[selectedDayIndex];
+    if (!newExercise || !currentDay) return;
+
+    const targetIndex = currentDay.exercises.findIndex((ex) => ex.id === exerciseToReplaceId);
+    if (targetIndex === -1) return;
+
+    const currentEntry: any = currentDay.exercises[targetIndex];
+    const isCardioNew = isCardioExercise(newExercise);
+    const defaultDuration = getDefaultCardioDurationSeconds(newExercise, 600);
+
+    const updatedEntry: any = {
+      ...currentEntry,
+      exercise: newExercise,
+      isCardio: isCardioNew
+    };
+
+    if (isCardioNew) {
+      const durationSeconds = currentEntry?.durationSeconds || defaultDuration;
+      updatedEntry.durationSeconds = durationSeconds;
+      updatedEntry.durationMinutes = Math.round(durationSeconds / 60);
+      updatedEntry.sets = currentEntry?.sets ?? 1;
+      updatedEntry.reps = currentEntry?.reps ?? '';
+      updatedEntry.individualSets = [];
+    } else {
+      updatedEntry.durationSeconds = undefined;
+      updatedEntry.durationMinutes = undefined;
+      updatedEntry.sets = currentEntry?.sets ?? 2;
+      updatedEntry.reps = currentEntry?.reps ?? '5-12';
+      updatedEntry.restSeconds = currentEntry?.restSeconds ?? 120;
+      updatedEntry.tempo = currentEntry?.tempo ?? '';
+      updatedEntry.rir = currentEntry?.rir ?? 0;
+      updatedEntry.individualSets = currentEntry?.individualSets ?? [];
+    }
+
+    setLocalWorkoutPlan((prev) =>
+      prev
+        ? {
+            ...prev,
+            days: prev.days.map((day, idx) =>
+              idx === selectedDayIndex
+                ? {
+                    ...day,
+                    exercises: day.exercises.map((ex, exIdx) =>
+                      exIdx === targetIndex ? updatedEntry : ex
+                    )
+                  }
+                : day
+            )
+          }
+        : null
+    );
+
+    setIsPlanDirty(true);
+    setExerciseToReplaceId(null);
     setSelectedExercises([]);
     setIsAddExerciseDialogOpen(false);
   };
@@ -2952,7 +3020,11 @@ export default function ClientWorkoutPage() {
                       variant="contained"
                       size="small"
                       startIcon={<Add size={16} />}
-                      onClick={() => setIsAddExerciseDialogOpen(true)}
+                      onClick={() => {
+                        setExerciseToReplaceId(null);
+                        setSelectedExercises([]);
+                        setIsAddExerciseDialogOpen(true);
+                      }}
                     >
                       Add Exercise
                     </Button>
@@ -2988,6 +3060,11 @@ export default function ClientWorkoutPage() {
                               onDelete={removeExerciseFromDay}
                               formatRepRange={formatRepRange}
                               onPreviewGif={(src: string) => setImagePreviewSrc(src)}
+                              onReplace={(ex) => {
+                                setExerciseToReplaceId(ex.id);
+                                setSelectedExercises([]);
+                                setIsAddExerciseDialogOpen(true);
+                              }}
                             />
                           );
                         })}
@@ -3729,7 +3806,11 @@ export default function ClientWorkoutPage() {
                       variant="contained"
                       size="small"
                       startIcon={<Add size={16} />}
-                      onClick={() => setIsAddExerciseDialogOpen(true)}
+                      onClick={() => {
+                        setExerciseToReplaceId(null);
+                        setSelectedExercises([]);
+                        setIsAddExerciseDialogOpen(true);
+                      }}
                     >
                       Add Exercise
                     </Button>
@@ -3754,6 +3835,11 @@ export default function ClientWorkoutPage() {
                             onDelete={removeExerciseFromDay}
                             formatRepRange={formatRepRange}
                             onPreviewGif={(src: string) => setImagePreviewSrc(src)}
+                            onReplace={(ex) => {
+                              setExerciseToReplaceId(ex.id);
+                              setSelectedExercises([]);
+                              setIsAddExerciseDialogOpen(true);
+                            }}
                           />
                         ))}
                       </Stack>
@@ -4010,8 +4096,21 @@ export default function ClientWorkoutPage() {
         setExerciseCategoryFilter([]);
         setExerciseEquipmentFilter([]);
         setExercisePage(1);
+        setExerciseToReplaceId(null);
+        setSelectedExercises([]);
       }} maxWidth="md" fullWidth>
-        <DialogTitle>Add Exercises to Workout Day</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Typography variant="h6">
+              {exerciseToReplaceId ? 'Replace Exercise' : 'Add Exercises to Workout Day'}
+            </Typography>
+            {exerciseToReplaceId && (
+              <Typography variant="body2" color="text.secondary">
+                Replacing {replacementTarget?.exercise?.name || 'selected exercise'} in Day {selectedDayIndex + 1}
+              </Typography>
+            )}
+          </Box>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <TextField
@@ -4122,10 +4221,18 @@ export default function ClientWorkoutPage() {
                       size="small"
                       variant={isSelected ? "contained" : "outlined"}
                       onClick={() => {
-                        if (isSelected) {
-                          setSelectedExercises(prev => prev.filter(id => id !== exercise.id));
+                        if (exerciseToReplaceId) {
+                          if (isSelected) {
+                            setSelectedExercises([]);
+                          } else {
+                            setSelectedExercises([exercise.id]);
+                          }
                         } else {
-                          setSelectedExercises(prev => [...prev, exercise.id]);
+                          if (isSelected) {
+                            setSelectedExercises(prev => prev.filter(id => id !== exercise.id));
+                          } else {
+                            setSelectedExercises(prev => [...prev, exercise.id]);
+                          }
                         }
                       }}
                     >
@@ -4153,7 +4260,15 @@ export default function ClientWorkoutPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsAddExerciseDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => {
+            setIsAddExerciseDialogOpen(false);
+            setExerciseSearchTerm('');
+            setExerciseCategoryFilter([]);
+            setExerciseEquipmentFilter([]);
+            setExercisePage(1);
+            setExerciseToReplaceId(null);
+            setSelectedExercises([]);
+          }}>Cancel</Button>
           <Button
             color="secondary"
             onClick={() => setSelectedExercises([])}
@@ -4161,8 +4276,15 @@ export default function ClientWorkoutPage() {
           >
             Clear Selected
           </Button>
-          <Button onClick={addExerciseToDay} disabled={!selectedExercises.length || !localWorkoutPlan}>
-            Add Selected
+          <Button
+            onClick={exerciseToReplaceId ? handleReplaceExercise : addExerciseToDay}
+            disabled={
+              !selectedExercises.length ||
+              !localWorkoutPlan ||
+              (exerciseToReplaceId ? selectedExercises.length !== 1 : false)
+            }
+          >
+            {exerciseToReplaceId ? 'Replace Exercise' : 'Add Selected'}
           </Button>
         </DialogActions>
       </Dialog>

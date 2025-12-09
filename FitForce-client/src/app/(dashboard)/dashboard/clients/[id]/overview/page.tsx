@@ -21,10 +21,10 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Paper,
-  useTheme,
-  useMediaQuery
+  TextField
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   ArrowLeft2,
   User,
@@ -68,6 +68,17 @@ interface ClientData {
   }>;
 }
 
+interface Observation {
+  id: string;
+  content: string;
+  createdAt: string;
+  author?: {
+    id?: string;
+    fullName?: string;
+    email?: string | null;
+  };
+}
+
 export default function ClientOverviewPage() {
   const intl = useIntl();
   const params = useParams();
@@ -80,9 +91,15 @@ export default function ClientOverviewPage() {
   const [data, setData] = useState<ClientData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [observations, setObservations] = useState<Observation[]>([]);
+  const [observationsLoading, setObservationsLoading] = useState(false);
+  const [observationsError, setObservationsError] = useState<string | null>(null);
+  const [observationText, setObservationText] = useState('');
+  const [savingObservation, setSavingObservation] = useState(false);
 
   useEffect(() => {
     loadClientData();
+    loadObservations();
   }, [clientId]);
 
   const loadClientData = async () => {
@@ -98,6 +115,49 @@ export default function ClientOverviewPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadObservations = async () => {
+    try {
+      setObservationsLoading(true);
+      setObservationsError(null);
+
+      const response = await api.get(`/api/clients/${clientId}/observations`);
+      setObservations(response.data?.observations || []);
+    } catch (err: any) {
+      console.error('Failed to load observations:', err);
+      setObservationsError(err.response?.data?.message || 'Failed to load observations');
+    } finally {
+      setObservationsLoading(false);
+    }
+  };
+
+  const handleAddObservation = async () => {
+    if (!observationText.trim()) return;
+
+    try {
+      setSavingObservation(true);
+      setObservationsError(null);
+
+      const response = await api.post(`/api/clients/${clientId}/observations`, {
+        content: observationText.trim(),
+      });
+
+      if (response.data?.observation) {
+        setObservations((prev) => [response.data.observation, ...prev]);
+        setObservationText('');
+      }
+    } catch (err: any) {
+      console.error('Failed to save observation:', err);
+      setObservationsError(err.response?.data?.message || 'Failed to save observation');
+    } finally {
+      setSavingObservation(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    loadClientData();
+    loadObservations();
   };
 
   const getStatusColor = (status: string) => {
@@ -449,7 +509,7 @@ export default function ClientOverviewPage() {
             <Button
               size={isMobile ? "small" : "medium"}
               startIcon={<Refresh size={isMobile ? 14 : 16} />}
-              onClick={loadClientData}
+              onClick={handleRefresh}
               sx={{ 
                 fontSize: { xs: '0.75rem', sm: '0.875rem' },
                 py: { xs: 0.5, sm: 1 }
@@ -536,6 +596,118 @@ export default function ClientOverviewPage() {
                 No recent activities
               </Typography>
             </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Observations */}
+      <Card sx={{ mt: { xs: 2, md: 2 }, mb: { xs: 2, md: 0 } }}>
+        <CardHeader
+          title={
+            <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              Observations
+            </Typography>
+          }
+          action={
+            <Button
+              size={isMobile ? "small" : "medium"}
+              startIcon={<Refresh size={isMobile ? 14 : 16} />}
+              onClick={loadObservations}
+              sx={{
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                py: { xs: 0.5, sm: 1 }
+              }}
+            >
+              {!isMobile && "Refresh"}
+              {isMobile && "↻"}
+            </Button>
+          }
+          sx={{
+            px: { xs: 1.5, sm: 2 },
+            pt: { xs: 1.5, sm: 2 },
+            pb: { xs: 1, sm: 1.5 }
+          }}
+        />
+        <CardContent sx={{ px: { xs: 1.5, sm: 2 }, pb: { xs: 1.5, sm: 2 } }}>
+          <Stack spacing={1.5} sx={{ mb: 2 }}>
+            <TextField
+              label="Add an observation"
+              placeholder="Write an observation for this client..."
+              multiline
+              minRows={3}
+              fullWidth
+              value={observationText}
+              onChange={(e) => setObservationText(e.target.value)}
+              size={isMobile ? "small" : "medium"}
+            />
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="contained"
+                onClick={handleAddObservation}
+                disabled={savingObservation || !observationText.trim()}
+                sx={{
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                  py: { xs: 0.75, sm: 1 }
+                }}
+              >
+                {savingObservation ? 'Saving...' : 'Save observation'}
+              </Button>
+            </Stack>
+            {observationsError && (
+              <Alert severity="error" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                {observationsError}
+              </Alert>
+            )}
+          </Stack>
+
+          {observationsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: { xs: 2, sm: 3 } }}>
+              <CircularProgress size={isMobile ? 28 : 32} />
+            </Box>
+          ) : observations.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: { xs: 3, sm: 4 } }}>
+              <Typography 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+              >
+                No observations yet
+              </Typography>
+            </Box>
+          ) : (
+            <List sx={{ py: 0 }}>
+              {observations.map((observation, index) => (
+                <Box key={observation.id}>
+                  <ListItem
+                    sx={{
+                      px: 0,
+                      py: { xs: 1, sm: 1.5 },
+                      alignItems: 'flex-start',
+                      flexDirection: 'column',
+                      gap: 0.5
+                    }}
+                  >
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        fontSize: { xs: '0.9rem', sm: '1rem' },
+                        fontWeight: 500,
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {observation.content}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem' } }}
+                    >
+                      {observation.author?.fullName || 'Coach'} • {format(new Date(observation.createdAt), isMobile ? 'MMM dd, HH:mm' : 'MMM dd, yyyy HH:mm')}
+                    </Typography>
+                  </ListItem>
+                  {index < observations.length - 1 && <Divider />}
+                </Box>
+              ))}
+            </List>
           )}
         </CardContent>
       </Card>
