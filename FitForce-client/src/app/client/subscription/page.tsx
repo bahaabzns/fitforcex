@@ -7,7 +7,6 @@ import {
   Typography, 
   Alert, 
   CircularProgress,
-  Paper,
   Stack,
   Avatar,
   Card,
@@ -15,7 +14,8 @@ import {
   Grid,
   Divider,
   Chip,
-  Button
+  Button,
+  Paper
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { 
