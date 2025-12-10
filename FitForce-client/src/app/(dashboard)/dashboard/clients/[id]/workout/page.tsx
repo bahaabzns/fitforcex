@@ -4346,11 +4346,14 @@ export default function ClientWorkoutPage() {
                   </Typography>
                   <CardioDurationSelector
                     totalSeconds={
-                      (editingExercise as any).durationSeconds ||
-                      getDefaultCardioDurationSeconds(
-                        editingExercise,
-                        ((editingExercise as any).durationMinutes || 10) * 60
-                      )
+                      typeof (editingExercise as any).durationSeconds === 'number'
+                        ? (editingExercise as any).durationSeconds
+                        : typeof (editingExercise as any).durationMinutes === 'number'
+                        ? (editingExercise as any).durationMinutes * 60
+                        : getDefaultCardioDurationSeconds(
+                            editingExercise,
+                            600
+                          )
                     }
                     onChange={(totalSeconds) => {
                       setEditingExercise((prev: any) => ({
