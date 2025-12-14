@@ -17,10 +17,23 @@ export default function ContactHeader() {
         <Box sx={{ width: { xs: '100%', sm: 360, lg: 436 }, px: 2, py: 6, mx: 'auto' }}>
           <Stack sx={{ gap: 1 }}>
             <Typography align="center" variant="h2">
-              Talk to our Expert
+              Contact Us
             </Typography>
             <Typography align="center" sx={{ color: 'text.secondary' }}>
-              Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+              We’re here to help.
+            </Typography>
+            <Typography align="center" sx={{ color: 'text.secondary' }}>
+              📞 Mobile (Egypt): +20 10 04914771
+            </Typography>
+            <Typography align="center" sx={{ color: 'text.secondary' }}>
+              📧 Email: info@fitforce.io
+            </Typography>
+            <Typography align="center" sx={{ color: 'text.secondary' }}>
+              📍 Address: Cairo, Egypt
+            </Typography>
+            <Typography align="center" sx={{ color: 'text.secondary' }}>
+              For technical support, billing questions, or partnerships, reach out anytime — our team will get back to you as soon as
+              possible.
             </Typography>
           </Stack>
         </Box>

@@ -4,6 +4,7 @@ import './globals.css';
 import ClientLayout from './ClientLayout';
 import PixelProvider from './PixelProvider';
 import { MetaPixelDirectScript, MetaPixelDirectNoscript } from '@/components/MetaPixelDirect';
+import { ClarityScript } from '@/components/ClarityScript';
 
 export const metadata: Metadata = {
   title: 'FitForce',
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         
         {/* Meta Pixel Script - Direct injection in head for immediate detection */}
         <MetaPixelDirectScript />
+        <ClarityScript />
       </head>
       <body>
         {/* Meta Pixel noscript - MUST be in body for Meta Pixel Helper detection */}
