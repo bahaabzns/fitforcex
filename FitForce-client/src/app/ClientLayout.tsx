@@ -12,8 +12,8 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
   usePerformanceMonitor();
   // Meta Pixel is initialized globally via PixelProvider in layout.tsx
 
-  // Override window.open with a configurable block list (fixes global block on all non-fitforce.io URLs)
-  // This must be in useEffect to avoid server-side rendering issues
+  // Override window.open and guard normal link clicks with a configurable block list.
+  // This must be in useEffect to avoid server-side rendering issues.
   useEffect(() => {
     // Only run on client side
     if (typeof window === 'undefined') return;
@@ -25,6 +25,37 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
         .map((d) => d.trim().toLowerCase())
         .filter(Boolean);
     const allowedProtocols = ['http:', 'https:', 'about:', 'blob:', 'data:'];
+
+    const isBlockedUrl = (urlString: string) => {
+      try {
+        const parsedUrl = new URL(urlString, window.location.href); // supports relative URLs
+        const hostname = parsedUrl.hostname.toLowerCase();
+        const protocol = parsedUrl.protocol;
+
+        const isBlockedDomain = blockedDomains.some(
+          (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+        );
+
+        const isAllowedProtocol = allowedProtocols.includes(protocol);
+
+        return {
+          blockedDomain: isBlockedDomain,
+          allowedProtocol: isAllowedProtocol,
+          parsedHref: parsedUrl.href,
+          hostname,
+          protocol,
+        };
+      } catch {
+        // If URL parsing fails, fail open rather than breaking legitimate flows
+        return {
+          blockedDomain: false,
+          allowedProtocol: true,
+          parsedHref: urlString,
+          hostname: '',
+          protocol: '',
+        };
+      }
+    };
 
     window.open = (
       url: string | URL | undefined,
@@ -38,38 +69,50 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
       // Convert URL object to string if needed
       const urlString = typeof url === 'string' ? url : url.toString();
 
-      try {
-        const parsedUrl = new URL(urlString, window.location.href); // supports relative URLs
-        const hostname = parsedUrl.hostname.toLowerCase();
-        const protocol = parsedUrl.protocol;
+      const { blockedDomain, allowedProtocol, parsedHref, hostname, protocol } =
+        isBlockedUrl(urlString);
 
-        const isBlockedDomain = blockedDomains.some(
-          (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+      if (blockedDomain) {
+        console.warn('Blocked window.open to blocked domain', hostname);
+        return null;
+      }
+
+      if (!allowedProtocol) {
+        console.warn('Blocked window.open due to protocol', protocol);
+        return null;
+      }
+
+      return originalWindowOpen.call(window, parsedHref, target as any, features);
+    };
+
+    // Extra hardening: prevent normal <a> clicks from navigating to blocked domains.
+    const clickHandler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const anchor = target.closest('a[href]') as HTMLAnchorElement | null;
+      if (!anchor || !anchor.href) return;
+
+      const { blockedDomain, allowedProtocol, hostname, protocol } = isBlockedUrl(
+        anchor.href
+      );
+
+      if (blockedDomain || !allowedProtocol) {
+        console.warn(
+          'Blocked navigation via link click',
+          JSON.stringify({ hostname, protocol })
         );
-
-        const isAllowedProtocol = allowedProtocols.includes(protocol);
-
-        if (isBlockedDomain) {
-          console.warn('Blocked window.open to blocked domain', hostname);
-          return null;
-        }
-
-        if (!isAllowedProtocol) {
-          console.warn('Blocked window.open due to protocol', protocol);
-          return null;
-        }
-
-        return originalWindowOpen.call(window, parsedUrl.href, target as any, features);
-      } catch (error) {
-        // If URL parsing fails, fail open rather than breaking legitimate flows
-        console.warn('window.open URL parse failed, allowing by default', url);
-        return originalWindowOpen.call(window, url as any, target as any, features);
+        event.preventDefault();
+        event.stopPropagation();
       }
     };
+
+    document.addEventListener('click', clickHandler, true);
 
     // Cleanup: restore original window.open on unmount
     return () => {
       window.open = originalWindowOpen;
+      document.removeEventListener('click', clickHandler, true);
     };
   }, []);
   
