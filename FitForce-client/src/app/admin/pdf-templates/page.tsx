@@ -30,10 +30,12 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  Grid,
 } from '@mui/material';
-import { Delete, Add, Edit, Visibility, CloudUpload, AutoAwesome, Preview } from '@mui/icons-material';
+import { Delete, Add, Edit, Visibility, CloudUpload, AutoAwesome, Preview, ContentCopy, Palette } from '@mui/icons-material';
 import { listPdfTemplates, uploadPdfTemplate, assignTemplate, deleteTemplate, getPdfTemplate, PdfTemplate, UploadTemplateData } from '@/api/pdf-templates';
 import { listVisualPdfTemplates, createVisualPdfTemplate, updateVisualPdfTemplate, deleteVisualPdfTemplate, previewVisualPdfTemplate, getVisualPdfTemplate, VisualPdfTemplate } from '@/api/visual-pdf-templates';
+import { getPresetsForKind } from '@/utils/template-presets';
 import { openSnackbar } from '@/api/snackbar';
 import api from '@/utils/axios';
 import dynamic from 'next/dynamic';
@@ -55,6 +57,8 @@ export default function PdfTemplatesPage() {
   const [showVisualBuilder, setShowVisualBuilder] = useState(false);
   const [visualBuilderKind, setVisualBuilderKind] = useState<'workout' | 'nutrition'>('workout');
   const [editingVisualTemplate, setEditingVisualTemplate] = useState<VisualPdfTemplate | null>(null);
+  const [showPresetDialog, setShowPresetDialog] = useState(false);
+  const [presetKind, setPresetKind] = useState<'workout' | 'nutrition'>('workout');
   
   // Upload form state
   const [uploadForm, setUploadForm] = useState<UploadTemplateData>({
@@ -182,6 +186,28 @@ export default function PdfTemplatesPage() {
     setShowVisualBuilder(true);
   };
 
+  const handleOpenPresetDialog = (kind: 'workout' | 'nutrition') => {
+    setPresetKind(kind);
+    setShowPresetDialog(true);
+  };
+
+  const handleSelectPreset = (presetConfig: any, presetName: string) => {
+    setShowPresetDialog(false);
+    setVisualBuilderKind(presetKind);
+    setEditingVisualTemplate({
+      id: '',
+      name: presetName,
+      kind: presetKind,
+      config: presetConfig,
+      isGlobal: true,
+      assignedWorkspaceIds: [],
+      workspaceId: workspaces[0]?.id || '',
+      createdAt: '',
+      updatedAt: '',
+    });
+    setShowVisualBuilder(true);
+  };
+
   const handleSaveVisualTemplate = async (
     config: any, 
     name: string, 
@@ -229,6 +255,18 @@ export default function PdfTemplatesPage() {
 
   const handleEditVisualTemplate = async (template: VisualPdfTemplate) => {
     setEditingVisualTemplate(template);
+    setVisualBuilderKind(template.kind);
+    setShowVisualBuilder(true);
+  };
+
+  const handleDuplicateVisualTemplate = (template: VisualPdfTemplate) => {
+    // Create a copy of the template with "- Copy" suffix
+    const duplicatedTemplate: VisualPdfTemplate = {
+      ...template,
+      id: '', // New template will be created
+      name: `${template.name} - Copy`,
+    };
+    setEditingVisualTemplate(duplicatedTemplate);
     setVisualBuilderKind(template.kind);
     setShowVisualBuilder(true);
   };
@@ -293,6 +331,7 @@ export default function PdfTemplatesPage() {
         initialName={editingVisualTemplate?.name}
         initialIsGlobal={editingVisualTemplate?.isGlobal}
         initialWorkspaceIds={editingVisualTemplate?.assignedWorkspaceIds || []}
+        templateId={editingVisualTemplate?.id}
         onSave={handleSaveVisualTemplate}
         onCancel={() => {
           setShowVisualBuilder(false);
@@ -432,7 +471,7 @@ export default function PdfTemplatesPage() {
       {/* Tab 1: Visual Builder Templates */}
       {tabValue === 1 && (
         <>
-          <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+          <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Button
               variant="contained"
               startIcon={<AutoAwesome />}
@@ -447,6 +486,21 @@ export default function PdfTemplatesPage() {
               onClick={() => handleOpenVisualBuilder('nutrition')}
             >
               Create Nutrition Template
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Palette />}
+              onClick={() => handleOpenPresetDialog('workout')}
+            >
+              Use Workout Preset
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<Palette />}
+              onClick={() => handleOpenPresetDialog('nutrition')}
+            >
+              Use Nutrition Preset
             </Button>
           </Box>
 
@@ -522,6 +576,14 @@ export default function PdfTemplatesPage() {
                             title="Edit"
                           >
                             <Edit />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="secondary"
+                            onClick={() => handleDuplicateVisualTemplate(template)}
+                            title="Duplicate"
+                          >
+                            <ContentCopy />
                           </IconButton>
                           <IconButton
                             size="small"
@@ -834,6 +896,73 @@ MEAL: [cycle.meal.name]
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewPlaceholdersOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Preset Selection Dialog */}
+      <Dialog open={showPresetDialog} onClose={() => setShowPresetDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Select Template Preset</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Choose a preset template to get started quickly. You can customize it after selecting.
+          </Typography>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            {getPresetsForKind(presetKind).map((preset) => (
+              <Grid item xs={12} sm={6} key={preset.id}>
+                <Card
+                  sx={{
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      boxShadow: 4,
+                      transform: 'translateY(-2px)',
+                    },
+                  }}
+                  onClick={() => handleSelectPreset(preset.config, preset.name)}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
+                      <Typography variant="h6">{preset.name}</Typography>
+                      <Chip
+                        label={preset.category}
+                        size="small"
+                        color={
+                          preset.category === 'minimalist' ? 'default' :
+                          preset.category === 'professional' ? 'primary' :
+                          preset.category === 'colorful' ? 'secondary' :
+                          preset.category === 'compact' ? 'info' : 'success'
+                        }
+                      />
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {preset.description}
+                    </Typography>
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {preset.config.introPage?.enabled && (
+                        <Chip label="Intro Page" size="small" variant="outlined" />
+                      )}
+                      {preset.config.endPage?.enabled && (
+                        <Chip label="End Page" size="small" variant="outlined" />
+                      )}
+                      <Chip
+                        label={`${preset.config.dayPages.daysPerPage} day(s)/page`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={preset.config.dayPages.layout}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowPresetDialog(false)}>Cancel</Button>
         </DialogActions>
       </Dialog>
     </Box>

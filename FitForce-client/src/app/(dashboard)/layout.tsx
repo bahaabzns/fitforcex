@@ -1,6 +1,7 @@
 // project-imports
 import DashboardLayout from 'layout/DashboardLayout';
 import AuthGuard from 'utils/route-guard/AuthGuard';
+import DashboardRouteGuard from 'utils/route-guard/DashboardRouteGuard';
 import { ClientSidebarProvider } from '@/contexts/ClientSidebarContext';
 
 // ==============================|| DASHBOARD LAYOUT ||============================== //
@@ -8,9 +9,11 @@ import { ClientSidebarProvider } from '@/contexts/ClientSidebarContext';
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
-      <ClientSidebarProvider>
-        <DashboardLayout>{children}</DashboardLayout>
-      </ClientSidebarProvider>
+      <DashboardRouteGuard>
+        <ClientSidebarProvider>
+          <DashboardLayout>{children}</DashboardLayout>
+        </ClientSidebarProvider>
+      </DashboardRouteGuard>
     </AuthGuard>
   );
 }
