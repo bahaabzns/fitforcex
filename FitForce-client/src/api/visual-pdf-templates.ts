@@ -96,3 +96,23 @@ export async function previewVisualPdfTemplate(id: string): Promise<{ previewUrl
   return response.data;
 }
 
+/**
+ * Generate a preview PDF directly from config (no templateId required)
+ * This allows real-time preview without saving the template first
+ */
+export async function previewVisualPdfFromConfig(
+  config: any,
+  kind: 'workout' | 'nutrition',
+  workspaceName?: string,
+  signal?: AbortSignal
+): Promise<{ previewUrl: string }> {
+  const response = await api.post('/api/admin/visual-pdf-templates/preview-direct', {
+    config,
+    kind,
+    workspaceName,
+  }, {
+    signal, // Support request cancellation
+  });
+  return response.data;
+}
+

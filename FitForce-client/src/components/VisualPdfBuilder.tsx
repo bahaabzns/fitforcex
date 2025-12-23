@@ -55,10 +55,11 @@ import {
   Radio,
   RadioGroup,
   FormLabel,
+  Slider,
 } from '@mui/material';
-import { CloudUpload, Delete, Preview, Settings, Description, ViewDay, ExitToApp, CheckCircle, RadioButtonUnchecked, Palette, Image, TableChart, FormatSize, HelpOutline, ExpandMore, ExpandLess, Add, Edit, DragIndicator, QuestionAnswer, Gavel, Article, ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import { CloudUpload, Delete, Preview, Settings, Description, ViewDay, ExitToApp, CheckCircle, RadioButtonUnchecked, Palette, Image, TableChart, FormatSize, HelpOutline, ExpandMore, ExpandLess, Add, Edit, DragIndicator, QuestionAnswer, Gavel, Article, ArrowUpward, ArrowDownward, ZoomIn, ZoomOut, Refresh, Fullscreen, FullscreenExit, Close } from '@mui/icons-material';
 import api from '@/utils/axios';
-import { previewVisualPdfTemplate, createVisualPdfTemplate, deleteVisualPdfTemplate } from '@/api/visual-pdf-templates';
+import { previewVisualPdfTemplate, previewVisualPdfFromConfig, createVisualPdfTemplate, deleteVisualPdfTemplate } from '@/api/visual-pdf-templates';
 import { listPageTemplates, createPageTemplate, WorkspacePageTemplate } from '@/api/page-templates';
 
 export interface CustomPageConfig {
@@ -69,9 +70,20 @@ export interface CustomPageConfig {
   position: 'beforeContent' | 'afterContent' | 'atEnd' | 'afterEnd'; // Where in document
   order: number; // Order within the same position group
   backgroundColor?: string;
+  backgroundColorOpacity?: number; // Opacity for background color overlay (0-1)
   backgroundImage?: string;
   textColor?: string;
   fontSize?: number;
+  // Grid positioning system (3x4 grid = 12 cells)
+  gridEnabled?: boolean; // Enable grid positioning
+  gridColumns?: number; // Number of columns (default: 3)
+  gridRows?: number; // Number of rows (default: 4)
+  gridPosition?: {
+    row: number; // Row index (0-based)
+    col: number; // Column index (0-based)
+    spanRows?: number; // How many rows to span (default: 1)
+    spanCols?: number; // How many columns to span (default: 1)
+  };
   config: QAPageConfig | DisclaimerPageConfig | CustomContentPageConfig;
 }
 
@@ -143,6 +155,7 @@ interface VisualPdfConfig {
   dayPages: {
     layout: 'vertical' | 'horizontal';
     daysPerPage: number;
+    mealsPerPage?: number; // For nutrition plans: how many meals per page before new page
     backgroundImage?: string;
     backgroundColor?: string;
     textColor?: string;
@@ -166,6 +179,7 @@ interface VisualPdfConfig {
       showSetRest?: boolean;
       showSetTempo?: boolean;
       showSetRir?: boolean;
+      exerciseSpacing?: number; // Vertical spacing between exercises
       // Nutrition plan options
       showMealNames?: boolean;
       showMealTimes?: boolean;
@@ -179,6 +193,7 @@ interface VisualPdfConfig {
       showMealTotalCalories?: boolean;
       showDayTotalCalories?: boolean;
       showMealNotes?: boolean;
+      mealSpacing?: number; // Vertical spacing between meals
     };
   };
   options: {
@@ -189,6 +204,24 @@ interface VisualPdfConfig {
     secondaryColor?: string;
     textDirection?: 'ltr' | 'rtl';
     textAlignment?: 'left' | 'center' | 'right' | 'justify';
+    layoutPreset?: 'clean' | 'compact' | 'spacious' | 'card';
+    typography?: {
+      lineHeight?: number; // Line height multiplier (e.g., 1.5 = 150%)
+      letterSpacing?: number; // Letter spacing in points
+      wordSpacing?: number; // Word spacing in points
+      textShadow?: {
+        enabled?: boolean;
+        offsetX?: number; // Shadow offset X in points
+        offsetY?: number; // Shadow offset Y in points
+        blur?: number; // Shadow blur radius
+        color?: string; // Shadow color (hex)
+        opacity?: number; // Shadow opacity (0-1)
+      };
+      fontWeights?: {
+        normal?: 'light' | 'regular' | 'medium' | 'bold';
+        bold?: 'medium' | 'bold' | 'extrabold';
+      };
+    };
     logo?: {
       enabled: boolean;
       url?: string;
@@ -261,6 +294,12 @@ export default function VisualPdfBuilder({
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [autoPreviewEnabled, setAutoPreviewEnabled] = useState(true);
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previewAbortControllerRef = useRef<AbortController | null>(null);
+  const [previewZoom, setPreviewZoom] = useState(100);
+  const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [showPreviewFullscreen, setShowPreviewFullscreen] = useState(false);
   const [dragActive, setDragActive] = useState<'intro' | 'end' | 'day' | null>(null);
   const [editingCustomPage, setEditingCustomPage] = useState<CustomPageConfig | null>(null);
   const [showCustomPageDialog, setShowCustomPageDialog] = useState(false);
@@ -328,6 +367,8 @@ export default function VisualPdfBuilder({
           showMealTotalCalories: true,
           showDayTotalCalories: true,
           showMealNotes: true,
+          exerciseSpacing: 10,
+          mealSpacing: 10,
         },
       },
       options: {
@@ -338,6 +379,7 @@ export default function VisualPdfBuilder({
         secondaryColor: '#333333',
         textDirection: 'ltr',
         textAlignment: 'left',
+        layoutPreset: 'clean',
         logo: {
           enabled: false,
           position: 'top-left',
@@ -366,6 +408,23 @@ export default function VisualPdfBuilder({
           format: 'Page {page} of {total}',
           startFrom: 1,
           excludeFirstPage: false,
+        },
+        typography: {
+          lineHeight: 1.5,
+          letterSpacing: 0,
+          wordSpacing: 0,
+          textShadow: {
+            enabled: false,
+            offsetX: 2,
+            offsetY: 2,
+            blur: 3,
+            color: '#000000',
+            opacity: 0.5,
+          },
+          fontWeights: {
+            normal: 'regular',
+            bold: 'bold',
+          },
         },
       },
     }
@@ -407,9 +466,9 @@ export default function VisualPdfBuilder({
       return;
     }
 
-    // Validate file size (10MB max)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Image size must be less than 10MB');
+    // Validate file size (50MB max)
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Image size must be less than 50MB');
       return;
     }
 
@@ -453,6 +512,12 @@ export default function VisualPdfBuilder({
   };
 
   const handleLogoUpload = async (file: File) => {
+    // Validate file size (50MB max)
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Image size must be less than 50MB');
+      return;
+    }
+    
     try {
       const formData = new FormData();
       formData.append('image', file);
@@ -487,17 +552,19 @@ export default function VisualPdfBuilder({
   };
 
   const generatePreviewInternal = async (showError = true) => {
-    if (!templateId) {
-      if (showError) {
-        alert('Please save the template first to generate a preview');
-      }
-      return;
+    // Cancel any ongoing preview generation
+    if (previewAbortControllerRef.current) {
+      previewAbortControllerRef.current.abort();
     }
+
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    previewAbortControllerRef.current = abortController;
 
     try {
       setGeneratingPreview(true);
       
-      // First update the template with current config
+      // Build final config with image URLs
       const finalConfig = {
         ...config,
         introPage: config.introPage ? {
@@ -514,21 +581,34 @@ export default function VisualPdfBuilder({
         },
       };
 
-      // Update template with current config
-      await api.put(`/api/admin/visual-pdf-templates/${templateId}`, {
-        config: finalConfig,
-      });
-
-      // Generate preview
-      const { previewUrl } = await previewVisualPdfTemplate(templateId);
-      setPreviewUrl(previewUrl);
+      // Use new direct preview endpoint (no templateId required)
+      const { previewUrl } = await previewVisualPdfFromConfig(
+        finalConfig,
+        kind,
+        workspaces[0]?.name,
+        abortController.signal
+      );
+      
+      // Only update if request wasn't cancelled
+      if (!abortController.signal.aborted) {
+        setPreviewUrl(previewUrl);
+        // Reset zoom and pan when new preview loads
+        setPreviewZoom(100);
+        setPreviewPan({ x: 0, y: 0 });
+      }
     } catch (error: any) {
+      // Don't show error if request was cancelled
+      if (error.name === 'AbortError' || abortController.signal.aborted) {
+        return;
+      }
       console.error('Failed to generate preview:', error);
       if (showError) {
         alert(error.response?.data?.message || 'Failed to generate preview. Please try again.');
       }
     } finally {
-      setGeneratingPreview(false);
+      if (!abortController.signal.aborted) {
+        setGeneratingPreview(false);
+      }
     }
   };
 
@@ -536,10 +616,10 @@ export default function VisualPdfBuilder({
     generatePreviewInternal(true);
   };
 
-  // Auto-preview on config change (debounced)
+  // Auto-preview on config change (debounced) - Now works without templateId!
   useEffect(() => {
-    // Only auto-preview if template is saved and auto-preview is enabled
-    if (!templateId || !autoPreviewEnabled) {
+    // Only auto-preview if enabled
+    if (!autoPreviewEnabled) {
       return;
     }
 
@@ -548,10 +628,10 @@ export default function VisualPdfBuilder({
       clearTimeout(previewTimeoutRef.current);
     }
 
-    // Set new timeout for debounced preview
+    // Set new timeout for debounced preview (reduced to 800ms for better responsiveness)
     previewTimeoutRef.current = setTimeout(() => {
       generatePreviewInternal(false); // Don't show errors for auto-preview
-    }, 2000); // 2 second delay
+    }, 800); // 800ms delay for better real-time feel
 
     // Cleanup
     return () => {
@@ -559,7 +639,7 @@ export default function VisualPdfBuilder({
         clearTimeout(previewTimeoutRef.current);
       }
     };
-  }, [config, introImageUrl, endImageUrl, dayImageUrl, templateId, autoPreviewEnabled]);
+  }, [config, introImageUrl, endImageUrl, dayImageUrl, autoPreviewEnabled, kind]);
 
   const handleSave = () => {
     if (!templateName.trim()) {
@@ -599,6 +679,104 @@ export default function VisualPdfBuilder({
     'Review & Save',
   ];
 
+  const templateNameHelpAdornment = (
+    <Tooltip title="This name will be displayed in the template list">
+      <HelpOutline fontSize="small" color="action" sx={{ cursor: 'help' }} />
+    </Tooltip>
+  );
+
+  const colorHashAdornment = (
+    <Typography sx={{ mr: 1, color: 'text.secondary' }}>#</Typography>
+  );
+
+  const ptAdornment = (
+    <Typography variant="body2" sx={{ ml: 1 }}>
+      pt
+    </Typography>
+  );
+
+  // High-level layout presets to quickly adjust margins, density, and font sizes
+  const applyLayoutPreset = (preset: 'clean' | 'compact' | 'spacious' | 'card') => {
+    setConfig((prev) => {
+      const next: VisualPdfConfig = {
+        ...prev,
+        dayPages: {
+          ...prev.dayPages,
+          fontSize: {
+            dayTitle: prev.dayPages.fontSize?.dayTitle ?? 18,
+            exerciseName: prev.dayPages.fontSize?.exerciseName ?? 12,
+            details: prev.dayPages.fontSize?.details ?? 10,
+          },
+        },
+        options: {
+          ...prev.options,
+          layoutPreset: preset,
+          margins: {
+            top: prev.options.margins?.top ?? 50,
+            bottom: prev.options.margins?.bottom ?? 50,
+            left: prev.options.margins?.left ?? 50,
+            right: prev.options.margins?.right ?? 50,
+          },
+        },
+      };
+
+      const margins = next.options.margins!;
+
+      switch (preset) {
+        case 'clean':
+          margins.top = 50;
+          margins.bottom = 50;
+          margins.left = 50;
+          margins.right = 50;
+          next.dayPages.fontSize = {
+            dayTitle: 18,
+            exerciseName: 12,
+            details: 10,
+          };
+          next.dayPages.daysPerPage = 1;
+          break;
+        case 'compact':
+          margins.top = 35;
+          margins.bottom = 35;
+          margins.left = 35;
+          margins.right = 35;
+          next.dayPages.fontSize = {
+            dayTitle: 16,
+            exerciseName: 10,
+            details: 8,
+          };
+          next.dayPages.daysPerPage = Math.min(3, Math.max(2, next.dayPages.daysPerPage || 2));
+          break;
+        case 'spacious':
+          margins.top = 70;
+          margins.bottom = 70;
+          margins.left = 60;
+          margins.right = 60;
+          next.dayPages.fontSize = {
+            dayTitle: 22,
+            exerciseName: 14,
+            details: 12,
+          };
+          next.dayPages.daysPerPage = 1;
+          break;
+        case 'card':
+          margins.top = 45;
+          margins.bottom = 45;
+          margins.left = 40;
+          margins.right = 40;
+          next.dayPages.fontSize = {
+            dayTitle: 20,
+            exerciseName: 12,
+            details: 10,
+          };
+          next.dayPages.daysPerPage = 2;
+          break;
+      }
+
+      return next;
+    });
+  };
+
   return (
     <Box sx={{ maxWidth: 1400, mx: 'auto', p: { xs: 2, md: 3 } }}>
       {/* Enhanced Header */}
@@ -624,52 +802,50 @@ export default function VisualPdfBuilder({
               />
             </Box>
           </Box>
-          {templateId && (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={autoPreviewEnabled}
-                    onChange={(e) => setAutoPreviewEnabled(e.target.checked)}
-                    size="small"
-                    sx={{ color: 'white', '&.Mui-checked': { color: 'white' } }}
-                  />
-                }
-                label={
-                  <Typography variant="body2" sx={{ color: 'white' }}>
-                    Auto-preview
-                  </Typography>
-                }
-              />
-              <Button
-                variant="contained"
-                startIcon={generatingPreview ? <CircularProgress size={16} sx={{ color: 'white' }} /> : <Preview />}
-                onClick={handleGeneratePreview}
-                disabled={generatingPreview}
-                size="small"
-                sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
-              >
-                {generatingPreview ? 'Generating...' : 'Preview Now'}
-              </Button>
-            </Box>
-          )}
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={autoPreviewEnabled}
+                  onChange={(e) => setAutoPreviewEnabled(e.target.checked)}
+                  size="small"
+                  sx={{ color: 'white', '&.Mui-checked': { color: 'white' } }}
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ color: 'white' }}>
+                  Auto-preview (real-time)
+                </Typography>
+              }
+            />
+            <Button
+              variant="contained"
+              startIcon={generatingPreview ? <CircularProgress size={16} sx={{ color: 'white' }} /> : <Preview />}
+              onClick={handleGeneratePreview}
+              disabled={generatingPreview}
+              size="small"
+              sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+            >
+              {generatingPreview ? 'Generating...' : 'Generate Preview'}
+            </Button>
+          </Box>
         </Box>
       </Paper>
 
-      {/* Enhanced Preview Panel */}
-      {previewUrl && (
+      {/* Enhanced Preview Panel with Zoom/Pan Controls */}
+      {(previewUrl || generatingPreview) && (
         <Paper 
           elevation={3} 
           sx={{ 
             mb: 3, 
             overflow: 'hidden',
             border: '2px solid',
-            borderColor: 'success.main',
+            borderColor: generatingPreview ? 'warning.main' : 'success.main',
             borderRadius: 2
           }}
         >
           <Box sx={{ 
-            bgcolor: 'success.main', 
+            bgcolor: generatingPreview ? 'warning.main' : 'success.main', 
             color: 'white', 
             p: 1.5, 
             display: 'flex', 
@@ -677,46 +853,260 @@ export default function VisualPdfBuilder({
             alignItems: 'center' 
           }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <CheckCircle fontSize="small" />
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Preview Generated Successfully
-              </Typography>
+              {generatingPreview ? (
+                <>
+                  <CircularProgress size={16} sx={{ color: 'white' }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Generating Preview...
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <CheckCircle fontSize="small" />
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Preview Generated Successfully
+                  </Typography>
+                </>
+              )}
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => window.open(previewUrl, '_blank')}
-                sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
+            {previewUrl && (
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                {/* Zoom Controls */}
+                <Tooltip title="Zoom Out">
+                  <IconButton
+                    size="small"
+                    onClick={() => setPreviewZoom(Math.max(25, previewZoom - 25))}
+                    sx={{ color: 'white' }}
+                  >
+                    <ZoomOut />
+                  </IconButton>
+                </Tooltip>
+                <Typography variant="body2" sx={{ minWidth: 50, textAlign: 'center', fontSize: '0.75rem' }}>
+                  {previewZoom}%
+                </Typography>
+                <Tooltip title="Zoom In">
+                  <IconButton
+                    size="small"
+                    onClick={() => setPreviewZoom(Math.min(300, previewZoom + 25))}
+                    sx={{ color: 'white' }}
+                  >
+                    <ZoomIn />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Reset Zoom">
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setPreviewZoom(100);
+                      setPreviewPan({ x: 0, y: 0 });
+                    }}
+                    sx={{ color: 'white' }}
+                  >
+                    <Refresh />
+                  </IconButton>
+                </Tooltip>
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                <Tooltip title="Fullscreen">
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowPreviewFullscreen(true)}
+                    sx={{ color: 'white' }}
+                  >
+                    <Fullscreen />
+                  </IconButton>
+                </Tooltip>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => window.open(previewUrl, '_blank')}
+                  sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }, ml: 0.5 }}
+                >
+                  Open in New Tab
+                </Button>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setPreviewUrl(null);
+                    setPreviewZoom(100);
+                    setPreviewPan({ x: 0, y: 0 });
+                  }}
+                  sx={{ color: 'white' }}
+                >
+                  <Close />
+                </IconButton>
+              </Box>
+            )}
+          </Box>
+          {previewUrl && (
+            <Box sx={{ 
+              position: 'relative', 
+              bgcolor: '#f5f5f5',
+              minHeight: '600px',
+              maxHeight: '600px',
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              overflow: 'hidden',
+              cursor: isPanning ? 'grabbing' : 'grab'
+            }}
+              onMouseDown={(e) => {
+                if (previewZoom > 100) {
+                  setIsPanning(true);
+                  setPanStart({ x: e.clientX - previewPan.x, y: e.clientY - previewPan.y });
+                }
+              }}
+              onMouseMove={(e) => {
+                if (isPanning && previewZoom > 100) {
+                  setPreviewPan({
+                    x: e.clientX - panStart.x,
+                    y: e.clientY - panStart.y,
+                  });
+                }
+              }}
+              onMouseUp={() => setIsPanning(false)}
+              onMouseLeave={() => setIsPanning(false)}
+            >
+              <Box
+                sx={{
+                  transform: `scale(${previewZoom / 100}) translate(${previewPan.x / (previewZoom / 100)}px, ${previewPan.y / (previewZoom / 100)}px)`,
+                  transformOrigin: 'top left',
+                  width: `${100 / (previewZoom / 100)}%`,
+                  height: `${600 / (previewZoom / 100)}px`,
+                  transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                }}
               >
-                Open Full Size
-              </Button>
-              <IconButton
-                size="small"
-                onClick={() => setPreviewUrl(null)}
-                sx={{ color: 'white' }}
-              >
-                <Delete />
-              </IconButton>
+                <iframe 
+                  src={previewUrl} 
+                  width="100%" 
+                  height="600px"
+                  style={{ border: 'none', display: 'block' }}
+                  title="PDF Preview"
+                />
+              </Box>
             </Box>
-          </Box>
-          <Box sx={{ 
-            position: 'relative', 
-            bgcolor: '#f5f5f5',
-            minHeight: '600px',
-            borderTop: '1px solid',
-            borderColor: 'divider'
-          }}>
-            <iframe 
-              src={previewUrl} 
-              width="100%" 
-              height="600px"
-              style={{ border: 'none', display: 'block' }}
-              title="PDF Preview"
-            />
-          </Box>
+          )}
+          {generatingPreview && !previewUrl && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              minHeight: '400px',
+              bgcolor: '#f5f5f5'
+            }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <CircularProgress size={48} sx={{ mb: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Generating preview PDF...
+                </Typography>
+              </Box>
+            </Box>
+          )}
         </Paper>
       )}
+
+      {/* Fullscreen Preview Dialog */}
+      <Dialog
+        open={showPreviewFullscreen}
+        onClose={() => setShowPreviewFullscreen(false)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            width: '100vw',
+            height: '100vh',
+            maxWidth: '100vw',
+            maxHeight: '100vh',
+            m: 0,
+            borderRadius: 0,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: 'success.main', 
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          pb: 1
+        }}>
+          <Typography variant="h6">PDF Preview - Fullscreen</Typography>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Tooltip title="Zoom Out">
+              <IconButton size="small" onClick={() => setPreviewZoom(Math.max(25, previewZoom - 25))} sx={{ color: 'white' }}>
+                <ZoomOut />
+              </IconButton>
+            </Tooltip>
+            <Typography variant="body2" sx={{ minWidth: 50, textAlign: 'center' }}>
+              {previewZoom}%
+            </Typography>
+            <Tooltip title="Zoom In">
+              <IconButton size="small" onClick={() => setPreviewZoom(Math.min(300, previewZoom + 25))} sx={{ color: 'white' }}>
+                <ZoomIn />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Reset Zoom">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setPreviewZoom(100);
+                  setPreviewPan({ x: 0, y: 0 });
+                }}
+                sx={{ color: 'white' }}
+              >
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+            <IconButton size="small" onClick={() => setShowPreviewFullscreen(false)} sx={{ color: 'white' }}>
+              <FullscreenExit />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, bgcolor: '#f5f5f5', position: 'relative', overflow: 'hidden', height: 'calc(100vh - 64px)' }}>
+          {previewUrl && (
+            <Box
+              sx={{
+                width: '100%',
+                height: '100%',
+                overflow: 'auto',
+                cursor: isPanning ? 'grabbing' : 'grab',
+                position: 'relative'
+              }}
+              onMouseDown={(e) => {
+                if (previewZoom > 100) {
+                  setIsPanning(true);
+                  setPanStart({ x: e.clientX - previewPan.x, y: e.clientY - previewPan.y });
+                }
+              }}
+              onMouseMove={(e) => {
+                if (isPanning && previewZoom > 100) {
+                  setPreviewPan({
+                    x: e.clientX - panStart.x,
+                    y: e.clientY - panStart.y,
+                  });
+                }
+              }}
+              onMouseUp={() => setIsPanning(false)}
+              onMouseLeave={() => setIsPanning(false)}
+            >
+              <Box
+                sx={{
+                  transform: `scale(${previewZoom / 100}) translate(${previewPan.x / (previewZoom / 100)}px, ${previewPan.y / (previewZoom / 100)}px)`,
+                  transformOrigin: 'top left',
+                  width: `${100 / (previewZoom / 100)}%`,
+                  transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                }}
+              >
+                <iframe 
+                  src={previewUrl} 
+                  width="100%" 
+                  height="100%"
+                  style={{ border: 'none', display: 'block', minHeight: '100vh' }}
+                  title="PDF Preview Fullscreen"
+                />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Stepper activeStep={activeStep} orientation="vertical">
         {/* Step 1: General Settings */}
@@ -734,11 +1124,7 @@ export default function VisualPdfBuilder({
                   required
                   helperText="Give your template a descriptive name"
                   InputProps={{
-                    endAdornment: (
-                      <Tooltip title="This name will be displayed in the template list">
-                        <HelpOutline fontSize="small" color="action" sx={{ cursor: 'help' }} />
-                      </Tooltip>
-                    )
+                    endAdornment: templateNameHelpAdornment,
                   }}
                 />
 
@@ -813,6 +1199,423 @@ export default function VisualPdfBuilder({
                       </Tooltip>
                     </FormControl>
                   </Grid>
+
+                  {/* Layout Presets */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }}>
+                      <Chip icon={<ViewDay />} label="Layout Presets" size="small" />
+                    </Divider>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+                      {[
+                        {
+                          id: 'clean' as const,
+                          title: 'Clean',
+                          description: 'Balanced margins, 1 day per page, medium fonts.',
+                        },
+                        {
+                          id: 'compact' as const,
+                          title: 'Compact',
+                          description: 'Smaller margins and fonts, fits more content.',
+                        },
+                        {
+                          id: 'spacious' as const,
+                          title: 'Spacious',
+                          description: 'Large margins and fonts for a premium look.',
+                        },
+                        {
+                          id: 'card' as const,
+                          title: 'Card Layout',
+                          description: 'Two days per page with comfortable spacing.',
+                        },
+                      ].map((preset) => {
+                        const selected = config.options.layoutPreset === preset.id;
+                        return (
+                          <Card
+                            key={preset.id}
+                            variant={selected ? 'outlined' : 'elevation'}
+                            sx={{
+                              borderRadius: 2,
+                              border: '2px solid',
+                              borderColor: selected ? 'primary.main' : 'divider',
+                              boxShadow: selected ? 4 : 1,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                boxShadow: 6,
+                                borderColor: 'primary.main',
+                              },
+                            }}
+                            onClick={() => applyLayoutPreset(preset.id)}
+                          >
+                            <CardContent sx={{ p: 2 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                <ViewDay color="primary" fontSize="small" />
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                  {preset.title}
+                                </Typography>
+                              </Box>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                {preset.description}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant={selected ? 'contained' : 'outlined'}
+                                color="primary"
+                                fullWidth
+                              >
+                                {selected ? 'Selected' : 'Apply'}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </Box>
+                  </Grid>
+
+                  {/* Typography Controls */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                      Advanced Typography
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Line Height"
+                      value={config.options.typography?.lineHeight || 1.5}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          options: {
+                            ...config.options,
+                            typography: {
+                              ...config.options.typography,
+                              lineHeight: parseFloat(e.target.value) || 1.5,
+                            },
+                          },
+                        })
+                      }
+                      inputProps={{ min: 0.5, max: 3, step: 0.1 }}
+                      helperText="Line height multiplier (1.5 = 150%)"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Letter Spacing (pt)"
+                      value={config.options.typography?.letterSpacing || 0}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          options: {
+                            ...config.options,
+                            typography: {
+                              ...config.options.typography,
+                              letterSpacing: parseFloat(e.target.value) || 0,
+                            },
+                          },
+                        })
+                      }
+                      inputProps={{ min: -5, max: 10, step: 0.5 }}
+                      helperText="Space between letters in points"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Word Spacing (pt)"
+                      value={config.options.typography?.wordSpacing || 0}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          options: {
+                            ...config.options,
+                            typography: {
+                              ...config.options.typography,
+                              wordSpacing: parseFloat(e.target.value) || 0,
+                            },
+                          },
+                        })
+                      }
+                      inputProps={{ min: 0, max: 20, step: 0.5 }}
+                      helperText="Space between words in points"
+                    />
+                  </Grid>
+
+                  {/* Text Shadow Controls */}
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={config.options.typography?.textShadow?.enabled || false}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              options: {
+                                ...config.options,
+                                typography: {
+                                  ...config.options.typography,
+                                  textShadow: {
+                                    ...config.options.typography?.textShadow,
+                                    enabled: e.target.checked,
+                                    offsetX: config.options.typography?.textShadow?.offsetX || 2,
+                                    offsetY: config.options.typography?.textShadow?.offsetY || 2,
+                                    blur: config.options.typography?.textShadow?.blur || 3,
+                                    color: config.options.typography?.textShadow?.color || '#000000',
+                                    opacity: config.options.typography?.textShadow?.opacity ?? 0.5,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                        />
+                      }
+                      label="Enable Text Shadow"
+                      sx={{ mb: 2 }}
+                    />
+                  </Grid>
+
+                  {config.options.typography?.textShadow?.enabled && (
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Shadow Offset X (pt)"
+                          value={config.options.typography?.textShadow?.offsetX || 2}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              options: {
+                                ...config.options,
+                                typography: {
+                                  ...config.options.typography,
+                                  textShadow: {
+                                    ...config.options.typography?.textShadow!,
+                                    offsetX: parseFloat(e.target.value) || 0,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: -10, max: 10, step: 0.5 }}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Shadow Offset Y (pt)"
+                          value={config.options.typography?.textShadow?.offsetY || 2}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              options: {
+                                ...config.options,
+                                typography: {
+                                  ...config.options.typography,
+                                  textShadow: {
+                                    ...config.options.typography?.textShadow!,
+                                    offsetY: parseFloat(e.target.value) || 0,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: -10, max: 10, step: 0.5 }}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Shadow Blur (pt)"
+                          value={config.options.typography?.textShadow?.blur || 3}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              options: {
+                                ...config.options,
+                                typography: {
+                                  ...config.options.typography,
+                                  textShadow: {
+                                    ...config.options.typography?.textShadow!,
+                                    blur: parseFloat(e.target.value) || 0,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 20, step: 0.5 }}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} sm={4}>
+                        <Box>
+                          <Typography variant="subtitle2" gutterBottom sx={{ mb: 1, fontWeight: 600 }}>
+                            Shadow Color
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Box
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 1,
+                                border: '2px solid',
+                                borderColor: 'divider',
+                                bgcolor: config.options.typography?.textShadow?.color || '#000000',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'color';
+                                input.value = config.options.typography?.textShadow?.color || '#000000';
+                                input.onchange = (e: any) =>
+                                  setConfig({
+                                    ...config,
+                                    options: {
+                                      ...config.options,
+                                      typography: {
+                                        ...config.options.typography,
+                                        textShadow: {
+                                          ...config.options.typography?.textShadow!,
+                                          color: e.target.value,
+                                        },
+                                      },
+                                    },
+                                  });
+                                input.click();
+                              }}
+                            />
+                            <TextField
+                              size="small"
+                              value={config.options.typography?.textShadow?.color || '#000000'}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  options: {
+                                    ...config.options,
+                                    typography: {
+                                      ...config.options.typography,
+                                      textShadow: {
+                                        ...config.options.typography?.textShadow!,
+                                        color: e.target.value,
+                                      },
+                                    },
+                                  },
+                                })
+                              }
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+
+                      <Grid item xs={12} sm={4}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Shadow Opacity"
+                          value={(config.options.typography?.textShadow?.opacity ?? 0.5) * 100}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              options: {
+                                ...config.options,
+                                typography: {
+                                  ...config.options.typography,
+                                  textShadow: {
+                                    ...config.options.typography?.textShadow!,
+                                    opacity: (parseFloat(e.target.value) || 50) / 100,
+                                  },
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 100, step: 5 }}
+                          helperText="0-100%"
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* Font Weight Controls */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                      Font Weights
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Normal Text Weight</InputLabel>
+                      <Select
+                        value={config.options.typography?.fontWeights?.normal || 'regular'}
+                        label="Normal Text Weight"
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            options: {
+                              ...config.options,
+                              typography: {
+                                ...config.options.typography,
+                                fontWeights: {
+                                  ...config.options.typography?.fontWeights,
+                                  normal: e.target.value as any,
+                                },
+                              },
+                            },
+                          })
+                        }
+                      >
+                        <MenuItem value="light">Light</MenuItem>
+                        <MenuItem value="regular">Regular</MenuItem>
+                        <MenuItem value="medium">Medium</MenuItem>
+                        <MenuItem value="bold">Bold</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Bold Text Weight</InputLabel>
+                      <Select
+                        value={config.options.typography?.fontWeights?.bold || 'bold'}
+                        label="Bold Text Weight"
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            options: {
+                              ...config.options,
+                              typography: {
+                                ...config.options.typography,
+                                fontWeights: {
+                                  ...config.options.typography?.fontWeights,
+                                  bold: e.target.value as any,
+                                },
+                              },
+                            },
+                          })
+                        }
+                      >
+                        <MenuItem value="medium">Medium</MenuItem>
+                        <MenuItem value="bold">Bold</MenuItem>
+                        <MenuItem value="extrabold">Extra Bold</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
 
                   <Grid item xs={12}>
                     <Divider sx={{ my: 2 }}>
@@ -1208,7 +2011,7 @@ export default function VisualPdfBuilder({
                           size="small"
                           sx={{ flex: 1 }}
                           InputProps={{
-                            startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>#</Typography>
+                            startAdornment: colorHashAdornment,
                           }}
                         />
                       </Box>
@@ -1276,7 +2079,7 @@ export default function VisualPdfBuilder({
                           size="small"
                           sx={{ flex: 1 }}
                           InputProps={{
-                            startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>#</Typography>
+                            startAdornment: colorHashAdornment,
                           }}
                         />
                       </Box>
@@ -1285,7 +2088,7 @@ export default function VisualPdfBuilder({
                       </Typography>
                     </Paper>
                   </Grid>
-                </Grid>
+                
               </CardContent>
             </Card>
 
@@ -1607,8 +2410,8 @@ export default function VisualPdfBuilder({
                               })
                             }
                             InputProps={{
-                              endAdornment: <Typography variant="body2" sx={{ ml: 1 }}>pt</Typography>,
-                              sx: { fontSize: '16px' }
+                              endAdornment: ptAdornment,
+                              sx: { fontSize: '16px' },
                             }}
                             helperText="Size in points (default: 32)"
                           />
@@ -2045,6 +2848,100 @@ export default function VisualPdfBuilder({
                       </Select>
                     </FormControl>
                   </Grid>
+
+                  {kind === 'nutrition' && (
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Meals Per Page</InputLabel>
+                        <Select
+                          value={config.dayPages.mealsPerPage || ''}
+                          label="Meals Per Page"
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                mealsPerPage: e.target.value === '' ? undefined : (e.target.value as number),
+                              },
+                            })
+                          }
+                        >
+                          <MenuItem value="">Unlimited</MenuItem>
+                          <MenuItem value={1}>1 Meal</MenuItem>
+                          <MenuItem value={2}>2 Meals</MenuItem>
+                          <MenuItem value={3}>3 Meals</MenuItem>
+                          <MenuItem value={4}>4 Meals</MenuItem>
+                          <MenuItem value={5}>5 Meals</MenuItem>
+                          <MenuItem value={6}>6 Meals</MenuItem>
+                        </Select>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                          Start a new page after this many meals
+                        </Typography>
+                      </FormControl>
+                    </Grid>
+                  )}
+
+                  {/* Spacing Controls */}
+                  <Grid item xs={12}>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                        Spacing
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Control vertical spacing between items to make the layout more compact or more airy.
+                      </Typography>
+                    </Box>
+                  </Grid>
+
+                  {kind === 'workout' && (
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="Exercise Spacing (px)"
+                        value={config.dayPages.options.exerciseSpacing ?? 10}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            dayPages: {
+                              ...config.dayPages,
+                              options: {
+                                ...config.dayPages.options,
+                                exerciseSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                              },
+                            },
+                          })
+                        }
+                        inputProps={{ min: 0, max: 40 }}
+                        helperText="Vertical space between exercises"
+                      />
+                    </Grid>
+                  )}
+
+                  {kind === 'nutrition' && (
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="Meal Spacing (px)"
+                        value={config.dayPages.options.mealSpacing ?? 10}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            dayPages: {
+                              ...config.dayPages,
+                              options: {
+                                ...config.dayPages.options,
+                                mealSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                              },
+                            },
+                          })
+                        }
+                        inputProps={{ min: 0, max: 40 }}
+                        helperText="Vertical space between meals"
+                      />
+                    </Grid>
+                  )}
 
                   <Grid item xs={12}>
                     <Box>
@@ -3565,7 +4462,14 @@ function CustomPageEditor({
   const [enabled, setEnabled] = useState(page?.enabled !== false);
   const [position, setPosition] = useState<CustomPageConfig['position']>(page?.position || 'beforeContent');
   const [backgroundColor, setBackgroundColor] = useState(page?.backgroundColor || '#ffffff');
+  const [backgroundColorOpacity, setBackgroundColorOpacity] = useState(page?.backgroundColorOpacity ?? 1);
   const [textColor, setTextColor] = useState(page?.textColor || '#000000');
+  const [gridEnabled, setGridEnabled] = useState(page?.gridEnabled || false);
+  const [gridColumns, setGridColumns] = useState(page?.gridColumns || 3);
+  const [gridRows, setGridRows] = useState(page?.gridRows || 4);
+  const [gridPosition, setGridPosition] = useState<{ row: number; col: number; spanRows?: number; spanCols?: number }>(
+    page?.gridPosition || { row: 0, col: 0, spanRows: 1, spanCols: 1 }
+  );
   const [backgroundImageUrl, setBackgroundImageUrl] = useState(page?.backgroundImage || '');
   const [uploadingBackgroundImage, setUploadingBackgroundImage] = useState(false);
   const [dragActiveBg, setDragActiveBg] = useState(false);
@@ -3644,8 +4548,13 @@ function CustomPageEditor({
       position: position,
       order: page?.order ?? maxOrder + 1,
       backgroundColor,
+      backgroundColorOpacity,
       textColor,
       backgroundImage: backgroundImageUrl || undefined,
+      gridEnabled: gridEnabled || undefined,
+      gridColumns: gridEnabled ? gridColumns : undefined,
+      gridRows: gridEnabled ? gridRows : undefined,
+      gridPosition: gridEnabled ? gridPosition : undefined,
       config: pageType === 'qa'
         ? {
             sections: qaSections,
@@ -3688,6 +4597,12 @@ function CustomPageEditor({
   };
 
   const handleBackgroundImageUpload = async (file: File) => {
+    // Validate file size (50MB max)
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Image size must be less than 50MB');
+      return;
+    }
+    
     setUploadingBackgroundImage(true);
     try {
       const formData = new FormData();
@@ -3736,8 +4651,13 @@ function CustomPageEditor({
     setEnabled(templatePage.enabled);
     setPosition(templatePage.position || 'beforeContent');
     setBackgroundColor(templatePage.backgroundColor || '#ffffff');
+    setBackgroundColorOpacity(templatePage.backgroundColorOpacity ?? 1);
     setTextColor(templatePage.textColor || '#000000');
     setBackgroundImageUrl(templatePage.backgroundImage || '');
+    setGridEnabled(templatePage.gridEnabled || false);
+    setGridColumns(templatePage.gridColumns || 3);
+    setGridRows(templatePage.gridRows || 4);
+    setGridPosition(templatePage.gridPosition || { row: 0, col: 0, spanRows: 1, spanCols: 1 });
     
     if (template.type === 'qa' && templatePage.config) {
       const qaConfig = templatePage.config as QAPageConfig;
@@ -4398,6 +5318,39 @@ function CustomPageEditor({
                     helperText="Click color box or enter hex code"
                   />
                 </Box>
+                {backgroundImageUrl && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Background Color Opacity (overlay on image)
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mt: 1 }}>
+                      <Slider
+                        value={backgroundColorOpacity * 100}
+                        onChange={(_, value) => setBackgroundColorOpacity((value as number) / 100)}
+                        min={0}
+                        max={100}
+                        step={1}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={(value) => `${value}%`}
+                        sx={{ flex: 1 }}
+                      />
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={Math.round(backgroundColorOpacity * 100)}
+                        onChange={(e) => {
+                          const value = Math.max(0, Math.min(100, Number(e.target.value)));
+                          setBackgroundColorOpacity(value / 100);
+                        }}
+                        inputProps={{ min: 0, max: 100, step: 1 }}
+                        sx={{ width: 80 }}
+                      />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      Adjust opacity to create an overlay effect on the background image
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -4463,6 +5416,146 @@ function CustomPageEditor({
               </Box>
             </Grid>
           </Grid>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Grid Positioning System */}
+          <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+            Grid Positioning (3x4 Grid System)
+          </Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={gridEnabled}
+                onChange={(e) => setGridEnabled(e.target.checked)}
+              />
+            }
+            label="Enable grid positioning for this page"
+            sx={{ mb: 2 }}
+          />
+
+          {gridEnabled && (
+            <Box sx={{ pl: 4, pt: 1 }}>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Grid Columns"
+                    value={gridColumns}
+                    onChange={(e) => setGridColumns(Math.max(1, Math.min(12, parseInt(e.target.value) || 3)))}
+                    inputProps={{ min: 1, max: 12 }}
+                    helperText="Number of columns in the grid (default: 3)"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Grid Rows"
+                    value={gridRows}
+                    onChange={(e) => setGridRows(Math.max(1, Math.min(12, parseInt(e.target.value) || 4)))}
+                    inputProps={{ min: 1, max: 12 }}
+                    helperText="Number of rows in the grid (default: 4)"
+                  />
+                </Grid>
+              </Grid>
+
+              {/* Grid Position Selector */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                  Select Grid Position
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+                    gap: 1,
+                    p: 2,
+                    bgcolor: 'grey.50',
+                    borderRadius: 2,
+                    border: '2px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  {Array.from({ length: gridRows * gridColumns }).map((_, index) => {
+                    const row = Math.floor(index / gridColumns);
+                    const col = index % gridColumns;
+                    const isSelected = gridPosition.row === row && gridPosition.col === col;
+                    const isInSpan = 
+                      row >= gridPosition.row && 
+                      row < gridPosition.row + (gridPosition.spanRows || 1) &&
+                      col >= gridPosition.col && 
+                      col < gridPosition.col + (gridPosition.spanCols || 1);
+
+                    return (
+                      <Box
+                        key={index}
+                        onClick={() => setGridPosition({ ...gridPosition, row, col })}
+                        sx={{
+                          aspectRatio: '1',
+                          bgcolor: isSelected ? 'primary.main' : isInSpan ? 'primary.light' : 'white',
+                          border: '2px solid',
+                          borderColor: isSelected ? 'primary.dark' : 'divider',
+                          borderRadius: 1,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.75rem',
+                          color: isSelected || isInSpan ? 'white' : 'text.secondary',
+                          fontWeight: isSelected ? 600 : 400,
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'primary.dark' : 'primary.light',
+                            borderColor: 'primary.dark',
+                            color: 'white',
+                          },
+                        }}
+                      >
+                        {row + 1},{col + 1}
+                      </Box>
+                    );
+                  })}
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Selected: Row {gridPosition.row + 1}, Column {gridPosition.col + 1}
+                </Typography>
+              </Box>
+
+              {/* Span Controls */}
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Span Rows"
+                    value={gridPosition.spanRows || 1}
+                    onChange={(e) => setGridPosition({ 
+                      ...gridPosition, 
+                      spanRows: Math.max(1, Math.min(gridRows - gridPosition.row, parseInt(e.target.value) || 1))
+                    })}
+                    inputProps={{ min: 1, max: gridRows }}
+                    helperText="How many rows to span"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Span Columns"
+                    value={gridPosition.spanCols || 1}
+                    onChange={(e) => setGridPosition({ 
+                      ...gridPosition, 
+                      spanCols: Math.max(1, Math.min(gridColumns - gridPosition.col, parseInt(e.target.value) || 1))
+                    })}
+                    inputProps={{ min: 1, max: gridColumns }}
+                    helperText="How many columns to span"
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          )}
 
           {/* Quick Color Presets */}
           <Box sx={{ mt: 3 }}>
