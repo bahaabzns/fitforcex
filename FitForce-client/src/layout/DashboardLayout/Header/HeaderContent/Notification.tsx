@@ -173,6 +173,11 @@ export default function NotificationPage() {
         // Client fallback
         router.push('/client/forms');
       }
+    } else if (type === 'food_replacement_request' || type === 'food_replacement_processed') {
+      // Navigate to nutrition page with requests tab
+      if (data?.clientId && !isClient) {
+        router.push(`/dashboard/clients/${data.clientId}/nutrition?tab=requests`);
+      }
     } else {
       // Default: try to navigate based on data
       if (data?.clientId && !isClient) {

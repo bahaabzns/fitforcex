@@ -34,7 +34,8 @@ import {
   Tooltip,
   Checkbox,
   FormControlLabel,
-  Pagination
+  Pagination,
+  Badge
 } from '@mui/material';
 import {
   Add,
@@ -48,7 +49,8 @@ import {
   Category,
   DocumentText,
   Setting2,
-  Messages2
+  Messages2,
+  Refresh
 } from '@wandersonalwes/iconsax-react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -64,6 +66,13 @@ import Divider from '@mui/material/Divider';
 import { FormSchedulingPopup } from '@/components/forms/FormSchedulingPopup';
 import { exportNutritionPlanToPDF } from '@/utils/pdfExport';
 import { useWorkspaceBranding } from '@/hooks/useWorkspaceBranding';
+import FoodReplacementDialog from '@/components/FoodReplacementDialog';
+import PendingReplacementRequests from '@/components/PendingReplacementRequests';
+import BulkReplacementDialog from '@/components/BulkReplacementDialog';
+import ReplacementTemplatesManager from '@/components/ReplacementTemplatesManager';
+import ReplacementAnalyticsDashboard from '@/components/ReplacementAnalyticsDashboard';
+import { getPendingReplacementRequests } from '@/api/food-replacements';
+import useSWR from 'swr';
 
 interface FoodItem {
   id: string;
@@ -147,6 +156,9 @@ export default function ClientNutritionPage() {
   const [isCreateMealDialogOpen, setIsCreateMealDialogOpen] = useState(false);
   const [isAddFoodDialogOpen, setIsAddFoodDialogOpen] = useState(false);
   const [isMacrosDialogOpen, setIsMacrosDialogOpen] = useState(false);
+  const [isReplaceFoodDialogOpen, setIsReplaceFoodDialogOpen] = useState(false);
+  const [replacingFoodItem, setReplacingFoodItem] = useState<MealFoodItem | null>(null);
+  const [bulkReplaceDialogOpen, setBulkReplaceDialogOpen] = useState(false);
   
   // Form states
   const [newPlanTitle, setNewPlanTitle] = useState('');
@@ -1770,7 +1782,7 @@ export default function ClientNutritionPage() {
   }, [loadChatMessages]);
 
   useEffect(() => {
-    if (plansTab === 3) {
+    if (plansTab === 4) {
       (async () => {
         const id = await ensureClientThread();
         if (id) {
@@ -1879,14 +1891,23 @@ export default function ClientNutritionPage() {
   }, [clientId]);
 
   useEffect(() => {
-    if (plansTab === 1) loadClientForms();
+    if (plansTab === 2) loadClientForms();
   }, [plansTab, loadClientForms]);
+
+  // Get pending requests count for badge
+  const { data: pendingRequestsData } = useSWR(
+    `pending-replacement-requests-count-${clientId}`,
+    () => getPendingReplacementRequests(clientId),
+    { refreshInterval: 30000 }
+  );
+  const pendingRequestsCount = pendingRequestsData?.requests?.length || 0;
 
   // Optional: support deep-linking to Forms tab
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      if ((url.searchParams.get('tab') || '').toLowerCase() === 'forms') setPlansTab(1);
+      if ((url.searchParams.get('tab') || '').toLowerCase() === 'forms') setPlansTab(2);
+      if ((url.searchParams.get('tab') || '').toLowerCase() === 'requests') setPlansTab(1);
     }
   }, []);
 
@@ -2051,6 +2072,18 @@ export default function ClientNutritionPage() {
                     icon={<Messages2 size={20} />}
                     iconPosition="top"
                   />
+                  <Tab 
+                    label=""
+                    icon={<DocumentText size={20} />}
+                    iconPosition="top"
+                    title="Templates"
+                  />
+                  <Tab 
+                    label=""
+                    icon={<Category size={20} />}
+                    iconPosition="top"
+                    title="Analytics"
+                  />
                 </Tabs>
               </Box>
             }
@@ -2062,6 +2095,9 @@ export default function ClientNutritionPage() {
                   </Button>
                   <Button variant="outlined" size="small" startIcon={<Copy size={16} />} onClick={() => setLoadPlanDialogOpen(true)} sx={{ flex: 1 }}>
                     Load
+                  </Button>
+                  <Button variant="outlined" size="small" startIcon={<Refresh size={16} />} onClick={() => setBulkReplaceDialogOpen(true)} sx={{ flex: 1 }}>
+                    Bulk Replace
                   </Button>
                 </Stack>
                 <TextField
@@ -2075,7 +2111,7 @@ export default function ClientNutritionPage() {
             ) : null}
           />
           <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-            {plansTab === 3 ? (
+            {plansTab === 4 ? (
               <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', height: '60vh' }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>Chat</Typography>
                 {chatError && <Alert severity="error" sx={{ mb: 1 }}>{chatError}</Alert>}
@@ -2185,7 +2221,7 @@ export default function ClientNutritionPage() {
                   )}
                 </Box>
               </Box>
-            ) : plansTab === 1 ? (
+            ) : plansTab === 3 ? (
               <Box sx={{ py: 2 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>Forms</Typography>
                 {formsError && <Alert severity="error" sx={{ mb: 2 }}>{formsError}</Alert>}
@@ -2226,7 +2262,7 @@ export default function ClientNutritionPage() {
                   </List>
                 )}
               </Box>
-            ) : plansTab === 2 ? (
+            ) : plansTab === 3 ? (
               <Box sx={{ py: 2 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>Tools</Typography>
                 <Card variant="outlined">
@@ -3128,15 +3164,28 @@ export default function ClientNutritionPage() {
                     {isMobile
                       ? [
                           <Tab key="plans-icon" label="" icon={<Category size={20} />} iconPosition="top" />,
+                          <Tab key="requests-icon" label="" icon={<Refresh size={20} />} iconPosition="top" />,
                           <Tab key="forms-icon" label="" icon={<DocumentText size={20} />} iconPosition="top" />,
                           <Tab key="tools-icon" label="" icon={<Setting2 size={20} />} iconPosition="top" />,
                           <Tab key="chat-icon" label="" icon={<Messages2 size={20} />} iconPosition="top" />,
+                          <Tab key="templates-icon" label="" icon={<DocumentText size={20} />} iconPosition="top" title="Templates" />,
+                          <Tab key="analytics-icon" label="" icon={<Category size={20} />} iconPosition="top" title="Analytics" />,
                         ]
                       : [
                           <Tab key="plans" label="Plans" />,
+                          <Tab 
+                            key="requests" 
+                            label={
+                              <Badge badgeContent={pendingRequestsCount} color="error" max={99}>
+                                Pending Requests
+                              </Badge>
+                            } 
+                          />,
                           <Tab key="forms" label="Forms" />,
                           <Tab key="tools" label="Tools" />,
                           <Tab key="chat" label="Chat" />,
+                          <Tab key="templates" label="Templates" />,
+                          <Tab key="analytics" label="Analytics" />,
                         ]}
                   </Tabs>
                 </Box>
@@ -3150,6 +3199,9 @@ export default function ClientNutritionPage() {
                     <Button variant="outlined" size="small" startIcon={<Copy size={16} />} onClick={() => setLoadPlanDialogOpen(true)} sx={{ flex: 1 }}>
                       Load
                     </Button>
+                    <Button variant="outlined" size="small" startIcon={<Refresh size={16} />} onClick={() => setBulkReplaceDialogOpen(true)} sx={{ flex: 1 }}>
+                      Bulk Replace
+                    </Button>
                   </Stack>
                   <TextField
                     fullWidth
@@ -3162,7 +3214,37 @@ export default function ClientNutritionPage() {
               ) : null}
             />
             <CardContent sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-              {plansTab === 3 ? (
+              {plansTab === 1 ? (
+                <Box sx={{ py: 2 }}>
+                  <PendingReplacementRequests
+                    clientId={clientId}
+                    onRequestProcessed={() => {
+                      // Refresh if needed
+                    }}
+                  />
+                </Box>
+              ) : plansTab === 5 ? (
+                // Templates Tab
+                <Box sx={{ py: 2 }}>
+                  <ReplacementTemplatesManager
+                    onApplyTemplate={(templateId) => {
+                      openSnackbar({
+                        open: true,
+                        message: 'Template applied successfully',
+                        variant: 'alert',
+                        alert: { color: 'success', variant: 'filled' },
+                      } as any);
+                      // Refresh plans
+                      loadAllPlansData();
+                    }}
+                  />
+                </Box>
+              ) : plansTab === 6 ? (
+                // Analytics Tab
+                <Box sx={{ py: 2 }}>
+                  <ReplacementAnalyticsDashboard />
+                </Box>
+              ) : plansTab === 4 ? (
                 <Box sx={{ py: 2, display: 'flex', flexDirection: 'column', height: '60vh' }}>
                   <Typography variant="subtitle1" sx={{ mb: 1 }}>Chat</Typography>
                   {chatError && <Alert severity="error" sx={{ mb: 1 }}>{chatError}</Alert>}
@@ -3272,7 +3354,7 @@ export default function ClientNutritionPage() {
                     )}
                   </Box>
                 </Box>
-              ) : plansTab === 1 ? (
+              ) : plansTab === 3 ? (
                 <Box sx={{ py: 2 }}>
                   <Typography variant="subtitle1" sx={{ mb: 1 }}>Forms</Typography>
                   {formsError && <Alert severity="error" sx={{ mb: 2 }}>{formsError}</Alert>}
@@ -3313,7 +3395,7 @@ export default function ClientNutritionPage() {
                     </List>
                   )}
                 </Box>
-              ) : plansTab === 2 ? (
+              ) : plansTab === 3 ? (
                 <Box sx={{ py: 2 }}>
                   <Typography variant="subtitle1" sx={{ mb: 1 }}>Tools</Typography>
                   <Card variant="outlined">
@@ -3978,6 +4060,10 @@ export default function ClientNutritionPage() {
                                   })));
                                   setIsPlanDirty(true);
                                 }}><Copy size={16} /></IconButton>
+                                <IconButton size="small" title="Replace" onClick={() => {
+                                  setReplacingFoodItem(item);
+                                  setIsReplaceFoodDialogOpen(true);
+                                }}><Refresh size={16} /></IconButton>
                                 <IconButton size="small" color="error" title="Delete" onClick={() => {
                                   setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
                                     ...m,
@@ -4580,6 +4666,93 @@ export default function ClientNutritionPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Bulk Replacement Dialog */}
+      <BulkReplacementDialog
+        open={bulkReplaceDialogOpen}
+        onClose={() => setBulkReplaceDialogOpen(false)}
+        onSuccess={() => {
+          // Refresh plans after bulk replacement
+          loadAllPlansData();
+        }}
+      />
+
+      {/* Food Replacement Dialog */}
+      {replacingFoodItem && selectedMealId && (
+        <FoodReplacementDialog
+          open={isReplaceFoodDialogOpen}
+          onClose={() => {
+            setIsReplaceFoodDialogOpen(false);
+            setReplacingFoodItem(null);
+          }}
+          foodItem={replacingFoodItem.foodItem}
+          mealId={selectedMealId}
+          currentQuantity={replacingFoodItem.quantity}
+          onReplace={(newFoodItem, newQuantity) => {
+            // Update the food item in current meals
+            setCurrentMeals((prev) =>
+              prev.map((m) =>
+                m.id === selectedMealId
+                  ? {
+                      ...m,
+                      foodItems: m.foodItems.map((fi) =>
+                        fi.id === replacingFoodItem.id
+                          ? {
+                              ...fi,
+                              foodItem: newFoodItem,
+                              foodItemId: newFoodItem.id,
+                              quantity: newQuantity,
+                            }
+                          : fi
+                      ),
+                    }
+                  : m
+              )
+            );
+
+            // Update in plans tree
+            if (selectedPlanId && selectedCycleId) {
+              setPlans((prev) =>
+                prev.map((p) =>
+                  p.id !== selectedPlanId
+                    ? p
+                    : {
+                        ...p,
+                        cycles: (p.cycles || []).map((c) =>
+                          c.id !== selectedCycleId
+                            ? c
+                            : {
+                                ...c,
+                                meals: (c.meals || []).map((m) =>
+                                  m.id !== selectedMealId
+                                    ? m
+                                    : {
+                                        ...m,
+                                        foodItems: (m.foodItems || []).map((fi: any) =>
+                                          fi.id === replacingFoodItem.id
+                                            ? {
+                                                ...fi,
+                                                foodItem: newFoodItem,
+                                                foodItemId: newFoodItem.id,
+                                                quantity: newQuantity,
+                                              }
+                                            : fi
+                                        ),
+                                      }
+                                ),
+                              }
+                        ),
+                      }
+                )
+              );
+            }
+
+            setIsPlanDirty(true);
+            setIsReplaceFoodDialogOpen(false);
+            setReplacingFoodItem(null);
+          }}
+        />
+      )}
     </Stack>
     </Box>
   );

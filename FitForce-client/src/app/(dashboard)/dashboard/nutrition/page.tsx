@@ -55,7 +55,16 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { RowSelection } from 'components/third-party/react-table';
 
 // Icons
-import { Add, Edit, Trash, DocumentUpload, SearchNormal1, Information, Filter, CloseCircle, ArrowUp2 } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Trash, DocumentUpload, SearchNormal1, Information, Filter, CloseCircle, ArrowUp2, Refresh } from '@wandersonalwes/iconsax-react';
+
+// Food Replacements API
+import {
+  getFoodItemReplacements,
+  addFoodItemReplacement,
+  updateFoodItemReplacement,
+  deleteFoodItemReplacement,
+  type FoodReplacement,
+} from '@/api/food-replacements';
 
 // types
 import { KeyedObject } from 'types/root';
@@ -262,6 +271,12 @@ export default function NutritionPage() {
   const [selectedFoodItem, setSelectedFoodItem] = useState<FoodItem | null>(null);
   const [createTab, setCreateTab] = useState(0);
   const [editTab, setEditTab] = useState(0);
+  const [replacements, setReplacements] = useState<FoodReplacement[]>([]);
+  const [loadingReplacements, setLoadingReplacements] = useState(false);
+  const [addingReplacement, setAddingReplacement] = useState(false);
+  const [selectedReplacementFood, setSelectedReplacementFood] = useState<FoodItem | null>(null);
+  const [replacementPriority, setReplacementPriority] = useState(0);
+  const [replacementNotes, setReplacementNotes] = useState('');
 
   // Form states
   const [newFoodItem, setNewFoodItem] = useState({
@@ -436,6 +451,56 @@ export default function NutritionPage() {
     setSelectedFoodItem({ ...foodItem });
     setIsEditDialogOpen(true);
     setEditTab(0);
+    setReplacements([]);
+  };
+
+  const loadReplacements = async (foodItemId: string) => {
+    try {
+      setLoadingReplacements(true);
+      const data = await getFoodItemReplacements(foodItemId);
+      setReplacements(data.replacements);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load replacements');
+    } finally {
+      setLoadingReplacements(false);
+    }
+  };
+
+  const handleAddReplacement = async () => {
+    if (!selectedFoodItem || !selectedReplacementFood) {
+      setError('Please select a replacement food');
+      return;
+    }
+
+    try {
+      setAddingReplacement(true);
+      setError(null);
+      await addFoodItemReplacement(selectedFoodItem.id, {
+        replacementId: selectedReplacementFood.id,
+        priority: replacementPriority,
+        notes: replacementNotes || undefined,
+      });
+      await loadReplacements(selectedFoodItem.id);
+      setSelectedReplacementFood(null);
+      setReplacementPriority(0);
+      setReplacementNotes('');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to add replacement');
+    } finally {
+      setAddingReplacement(false);
+    }
+  };
+
+  const handleDeleteReplacement = async (replacementId: string) => {
+    if (!selectedFoodItem || !confirm('Are you sure you want to remove this replacement?')) return;
+
+    try {
+      setError(null);
+      await deleteFoodItemReplacement(selectedFoodItem.id, replacementId);
+      await loadReplacements(selectedFoodItem.id);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to delete replacement');
+    }
   };
 
   // Table handlers
@@ -1315,9 +1380,16 @@ export default function NutritionPage() {
           {selectedFoodItem && (
             <>
               <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-                <Tabs value={editTab} onChange={(_, v) => setEditTab(v)}>
+                <Tabs value={editTab} onChange={(_, v) => {
+                  setEditTab(v);
+                  if (v === 2 && selectedFoodItem) {
+                    // Load replacements when switching to Replacements tab
+                    loadReplacements(selectedFoodItem.id);
+                  }
+                }}>
                   <Tab label="Main Details" />
                   <Tab label="Micronutrients" />
+                  <Tab label="Replacements" />
                 </Tabs>
               </Box>
               {editTab === 0 && (
@@ -1435,6 +1507,121 @@ export default function NutritionPage() {
                     </Grid>
                   ))}
                 </Grid>
+              )}
+              {editTab === 2 && selectedFoodItem && (
+                <Stack spacing={3}>
+                  <Typography variant="body2" color="text.secondary">
+                    Define replacement foods for <strong>{selectedFoodItem.name}</strong>. These will appear when coaches replace this food in nutrition plans.
+                  </Typography>
+
+                  {/* Add Replacement Section */}
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle1" gutterBottom>
+                        Add Replacement
+                      </Typography>
+                      <Stack spacing={2} sx={{ mt: 2 }}>
+                        <Autocomplete
+                          options={foodItems.filter(f => f.id !== selectedFoodItem.id)}
+                          getOptionLabel={(option) => option.name}
+                          value={selectedReplacementFood}
+                          onChange={(_, newValue) => setSelectedReplacementFood(newValue)}
+                          renderInput={(params) => (
+                            <TextField {...params} label="Select Replacement Food" placeholder="Search for a food item..." />
+                          )}
+                          renderOption={(props, option) => (
+                            <Box component="li" {...props}>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="body2">{option.name}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {option.calories} kcal • P: {option.protein}g • C: {option.carbs}g • F: {option.fat}g
+                                </Typography>
+                              </Box>
+                            </Box>
+                          )}
+                        />
+                        <Stack direction="row" spacing={2}>
+                          <TextField
+                            label="Priority"
+                            type="number"
+                            value={replacementPriority}
+                            onChange={(e) => setReplacementPriority(Number(e.target.value))}
+                            helperText="Lower number = higher priority (0 = highest)"
+                            sx={{ flex: 1 }}
+                            inputProps={{ min: 0 }}
+                          />
+                          <TextField
+                            label="Notes (optional)"
+                            value={replacementNotes}
+                            onChange={(e) => setReplacementNotes(e.target.value)}
+                            placeholder="e.g., Good alternative"
+                            sx={{ flex: 2 }}
+                          />
+                        </Stack>
+                        <Button
+                          variant="contained"
+                          startIcon={<Add />}
+                          onClick={handleAddReplacement}
+                          disabled={!selectedReplacementFood || addingReplacement}
+                        >
+                          {addingReplacement ? 'Adding...' : 'Add Replacement'}
+                        </Button>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+
+                  {/* Existing Replacements List */}
+                  <Box>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Existing Replacements ({replacements.length})
+                    </Typography>
+                    {loadingReplacements ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                        <CircularProgress size={32} />
+                      </Box>
+                    ) : replacements.length === 0 ? (
+                      <Alert severity="info">
+                        No replacements defined yet. Add one above to get started.
+                      </Alert>
+                    ) : (
+                      <Stack spacing={1} sx={{ mt: 2 }}>
+                        {replacements.map((replacement) => (
+                          <Card key={replacement.id} variant="outlined">
+                            <CardContent>
+                              <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body1" fontWeight={600}>
+                                    {replacement.replacement.name}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
+                                    <Chip size="small" label={`${replacement.replacement.calories} kcal`} color="error" variant="outlined" />
+                                    <Chip size="small" label={`P: ${replacement.replacement.protein}g`} variant="outlined" />
+                                    <Chip size="small" label={`C: ${replacement.replacement.carbs}g`} variant="outlined" />
+                                    <Chip size="small" label={`F: ${replacement.replacement.fat}g`} variant="outlined" />
+                                    <Chip size="small" label={`Priority: ${replacement.priority}`} color="primary" variant="outlined" />
+                                  </Stack>
+                                  {replacement.notes && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                      {replacement.notes}
+                                    </Typography>
+                                  )}
+                                </Box>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleDeleteReplacement(replacement.id)}
+                                  title="Remove replacement"
+                                >
+                                  <Trash size={18} />
+                                </IconButton>
+                              </Stack>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
+                </Stack>
               )}
             </>
           )}

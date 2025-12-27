@@ -19,7 +19,8 @@ import {
   Avatar,
   IconButton,
   Alert,
-  Chip as MuiChip
+  Chip as MuiChip,
+  Button
 } from '@mui/material';
 import {
   Restaurant,
@@ -31,11 +32,14 @@ import {
   Grain,
   Bento,
   EmojiNature,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Refresh
 } from '@mui/icons-material';
+import { Refresh as RefreshIcon } from '@wandersonalwes/iconsax-react';
 import useConfig from '@/hooks/useConfig';
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
+import ClientReplacementRequestDialog from '@/components/ClientReplacementRequestDialog';
 
 const translations: Record<string, Record<string, string>> = { ar, en };
 
@@ -126,6 +130,8 @@ export default function ClientNutritionPlanDetail() {
   const { logoUrl, primaryColor, workspaceName } = useWorkspaceBranding();
 
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestingFoodItem, setRequestingFoodItem] = useState<{ foodItem: any; mealId: string } | null>(null);
 
   const { data, isLoading, error } = useSWR(() => (id ? `client-nutrition-plan-${id}` : null), async () => {
     // Get plan with cycles/items
@@ -147,6 +153,7 @@ export default function ClientNutritionPlanDetail() {
           dayIndex: number; 
           label?: string; 
           meals: Array<{ 
+            id?: string;
             meal?: string; 
             foodItems?: Array<{ 
               quantity: number; 
@@ -685,6 +692,25 @@ export default function ClientNutritionPlanDetail() {
                                           <InlineMacro label={t('fat-short')} value={`${Math.round(macros.fat)}g`} />
                                         </Stack>
                                       </Box>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<RefreshIcon size={16} />}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const meal = day.meals?.[mealIdx];
+                                          if (meal && meal.id && fi.foodItem?.id) {
+                                            setRequestingFoodItem({
+                                              foodItem: fi.foodItem,
+                                              mealId: meal.id,
+                                            });
+                                            setRequestDialogOpen(true);
+                                          }
+                                        }}
+                                        sx={{ flexShrink: 0 }}
+                                      >
+                                        Request Replace
+                                      </Button>
                                     </Stack>
                                   </Paper>
                                 );
@@ -819,6 +845,23 @@ export default function ClientNutritionPlanDetail() {
         </Card>
       )}
 
+      {/* Replacement Request Dialog */}
+      {requestingFoodItem && planData?.plan?.id && (
+        <ClientReplacementRequestDialog
+          open={requestDialogOpen}
+          onClose={() => {
+            setRequestDialogOpen(false);
+            setRequestingFoodItem(null);
+          }}
+          foodItem={requestingFoodItem.foodItem}
+          planId={planData.plan.id}
+          mealId={requestingFoodItem.mealId}
+          onRequestSubmitted={() => {
+            // Optionally refresh the plan data
+            // The request will be processed by coach later
+          }}
+        />
+      )}
     </Box>
   );
 }
