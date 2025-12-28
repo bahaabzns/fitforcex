@@ -722,7 +722,7 @@ function EnhancedColorInput({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: value ? (getContrastColor(value) : 'text.primary'),
+                color: value ? getContrastColor(value) : undefined,
                 fontSize: '0.75rem',
                 fontWeight: 600,
               }}
@@ -5587,7 +5587,7 @@ export default function VisualPdfBuilder({
                               <EnhancedColorInput
                                 label=""
                                 value={config.dayPages.options.exerciseTableBorder?.headerTextColor || '#000000'}
-                                onChange={(value) =>
+                                onChange={(value) => {
                                   setConfig((prev) => ({
                                     ...prev,
                                     dayPages: {
@@ -5599,9 +5599,8 @@ export default function VisualPdfBuilder({
                                           headerTextColor: value,
                                         },
                                       },
-                                    }))
-                                  }
-                                }
+                                    }}));
+                                }}
                                 helperText="Text color for table header"
                               />
                             </Box>
@@ -5614,7 +5613,7 @@ export default function VisualPdfBuilder({
                               <EnhancedColorInput
                                 label=""
                                 value={config.dayPages.options.exerciseTableBorder?.rowStripeColor || '#fafafa'}
-                                onChange={(value) =>
+                                onChange={(value) => {
                                   setConfig((prev) => ({
                                     ...prev,
                                     dayPages: {
@@ -5626,9 +5625,8 @@ export default function VisualPdfBuilder({
                                           rowStripeColor: value,
                                         },
                                       },
-                                    }))
-                                  }
-                                }
+                                    }}));
+                                }}
                                 helperText="Color for alternating row backgrounds"
                               />
                             </Box>
@@ -6363,7 +6361,7 @@ export default function VisualPdfBuilder({
                             <EnhancedColorInput
                               label="Border Color"
                               value={config.dayPages.options.foodItemBorder?.color || '#f0f0f0'}
-                              onChange={(value) =>
+                              onChange={(value) => {
                                 setConfig((prev) => ({
                                   ...prev,
                                   dayPages: {
@@ -6376,8 +6374,8 @@ export default function VisualPdfBuilder({
                                       },
                                     },
                                   },
-                                }))
-                              }
+                                }));
+                              }}
                               helperText="Color of the food item border"
                             />
                           </Grid>
