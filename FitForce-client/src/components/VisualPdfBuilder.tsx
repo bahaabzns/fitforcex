@@ -27,6 +27,7 @@ import {
   MenuItem,
   FormControlLabel,
   Checkbox,
+  Switch,
   Button,
   Card,
   CardContent,
@@ -57,7 +58,7 @@ import {
   FormLabel,
   Slider,
 } from '@mui/material';
-import { CloudUpload, Delete, Preview, Settings, Description, ViewDay, ExitToApp, CheckCircle, RadioButtonUnchecked, Palette, Image, TableChart, FormatSize, HelpOutline, ExpandMore, ExpandLess, Add, Edit, DragIndicator, QuestionAnswer, Gavel, Article, ArrowUpward, ArrowDownward, ZoomIn, ZoomOut, Refresh, Fullscreen, FullscreenExit, Close } from '@mui/icons-material';
+import { CloudUpload, Delete, Preview, Settings, Description, ViewDay, ExitToApp, CheckCircle, RadioButtonUnchecked, Palette, Image, TableChart, FormatSize, HelpOutline, ExpandMore, ExpandLess, Add, Edit, DragIndicator, QuestionAnswer, Gavel, Article, ArrowUpward, ArrowDownward, ZoomIn, ZoomOut, Refresh, Fullscreen, FullscreenExit, Close, GridOn } from '@mui/icons-material';
 import api from '@/utils/axios';
 import { previewVisualPdfTemplate, previewVisualPdfFromConfig, createVisualPdfTemplate, deleteVisualPdfTemplate } from '@/api/visual-pdf-templates';
 import { listPageTemplates, createPageTemplate, WorkspacePageTemplate } from '@/api/page-templates';
@@ -643,6 +644,526 @@ function ButtonManager({
   );
 }
 
+// ============================================================================
+// ENHANCED UI COMPONENTS FOR PDF BUILDER
+// ============================================================================
+
+// Enhanced Color Input Component
+interface EnhancedColorInputProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  helperText?: string;
+  fullWidth?: boolean;
+  showPreview?: boolean;
+}
+
+function EnhancedColorInput({
+  label,
+  value,
+  onChange,
+  helperText,
+  fullWidth = true,
+  showPreview = true,
+}: EnhancedColorInputProps) {
+  return (
+    <Box sx={{ width: fullWidth ? '100%' : 'auto' }}>
+      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 500, color: 'text.secondary' }}>
+        {label}
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+        <Box
+          sx={{
+            position: 'relative',
+            width: 56,
+            height: 56,
+            borderRadius: 2,
+            border: '2px solid',
+            borderColor: 'divider',
+            bgcolor: value || '#ffffff',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'all 0.2s',
+            '&:hover': {
+              transform: 'scale(1.05)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            },
+          }}
+        >
+          <TextField
+            type="color"
+            value={value || '#ffffff'}
+            onChange={(e) => onChange(e.target.value)}
+            sx={{
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              opacity: 0,
+              cursor: 'pointer',
+              '& input': {
+                cursor: 'pointer',
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                padding: 0,
+              },
+            }}
+          />
+          {showPreview && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                pointerEvents: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: value ? (getContrastColor(value) : 'text.primary'),
+                fontSize: '0.75rem',
+                fontWeight: 600,
+              }}
+            >
+              {value?.replace('#', '').toUpperCase() || 'N/A'}
+            </Box>
+          )}
+        </Box>
+        <TextField
+          value={value || ''}
+          onChange={(e) => {
+            let val = e.target.value;
+            if (!val.startsWith('#')) val = '#' + val;
+            onChange(val);
+          }}
+          placeholder="#000000"
+          size="small"
+          sx={{
+            flex: 1,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+              '&:hover fieldset': {
+                borderColor: 'primary.main',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: 'primary.main',
+                borderWidth: 2,
+              },
+            },
+          }}
+          InputProps={{
+            startAdornment: (
+              <Typography sx={{ mr: 1, color: 'text.secondary', fontWeight: 500 }}>#</Typography>
+            ),
+          }}
+        />
+      </Box>
+      {helperText && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+          {helperText}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// Helper function to determine contrast color
+function getContrastColor(hex: string): string {
+  if (!hex) return '#000000';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? '#000000' : '#ffffff';
+}
+
+// Enhanced Number Input Component
+interface EnhancedNumberInputProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  helperText?: string;
+  fullWidth?: boolean;
+  size?: 'small' | 'medium';
+}
+
+function EnhancedNumberInput({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  unit,
+  helperText,
+  fullWidth = true,
+  size = 'small',
+}: EnhancedNumberInputProps) {
+  return (
+    <Box sx={{ width: fullWidth ? '100%' : 'auto' }}>
+      <Typography variant="caption" sx={{ mb: 1, display: 'block', fontWeight: 500, color: 'text.secondary' }}>
+        {label}
+      </Typography>
+      <TextField
+        type="number"
+        value={value}
+        onChange={(e) => {
+          const val = parseFloat(e.target.value) || 0;
+          let finalVal = val;
+          if (min !== undefined) finalVal = Math.max(min, finalVal);
+          if (max !== undefined) finalVal = Math.min(max, finalVal);
+          onChange(finalVal);
+        }}
+        inputProps={{ min, max, step }}
+        size={size}
+        fullWidth={fullWidth}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            transition: 'all 0.2s',
+            '&:hover': {
+              bgcolor: 'action.hover',
+              '& fieldset': {
+                borderColor: 'primary.main',
+              },
+            },
+            '&.Mui-focused': {
+              bgcolor: 'background.paper',
+              '& fieldset': {
+                borderColor: 'primary.main',
+                borderWidth: 2,
+              },
+            },
+          },
+        }}
+        InputProps={{
+          endAdornment: unit && (
+            <Typography sx={{ ml: 1, color: 'text.secondary', fontWeight: 500 }}>{unit}</Typography>
+          ),
+        }}
+        helperText={helperText}
+        FormHelperTextProps={{
+          sx: { mt: 0.5, fontSize: '0.75rem' },
+        }}
+      />
+    </Box>
+  );
+}
+
+// Enhanced Section Card Component
+interface EnhancedSectionCardProps {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  defaultExpanded?: boolean;
+  variant?: 'default' | 'outlined' | 'elevated';
+}
+
+function EnhancedSectionCard({
+  title,
+  icon,
+  children,
+  defaultExpanded = true,
+  variant = 'outlined',
+}: EnhancedSectionCardProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  return (
+    <Card
+      elevation={variant === 'elevated' ? 4 : 0}
+      variant={variant === 'outlined' ? 'outlined' : 'elevation'}
+      sx={{
+        mb: 2.5,
+        borderRadius: 3,
+        overflow: 'hidden',
+        border: variant === 'outlined' ? '1px solid' : 'none',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        boxShadow: variant === 'elevated' 
+          ? '0 4px 20px rgba(0,0,0,0.08)' 
+          : '0 1px 3px rgba(0,0,0,0.05)',
+        transition: 'all 0.3s',
+        '&:hover': {
+          boxShadow: variant === 'elevated'
+            ? '0 6px 24px rgba(0,0,0,0.12)'
+            : '0 2px 6px rgba(0,0,0,0.1)',
+        },
+      }}
+    >
+      <Accordion
+        expanded={expanded}
+        onChange={() => setExpanded(!expanded)}
+        sx={{
+          '&:before': { display: 'none' },
+          boxShadow: 'none',
+          bgcolor: 'transparent',
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMore sx={{ color: 'primary.main' }} />}
+          sx={{
+            px: 3,
+            py: 2,
+            bgcolor: expanded ? 'primary.50' : 'transparent',
+            transition: 'background-color 0.2s',
+            '&:hover': {
+              bgcolor: 'primary.50',
+            },
+            '& .MuiAccordionSummary-content': {
+              my: 1,
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {icon && (
+              <Box
+                sx={{
+                  p: 1,
+                  borderRadius: 2,
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {icon}
+              </Box>
+            )}
+            <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              {title}
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails sx={{ px: 3, py: 2.5, bgcolor: 'background.paper' }}>
+          {children}
+        </AccordionDetails>
+      </Accordion>
+    </Card>
+  );
+}
+
+// Enhanced Switch/Toggle Component
+interface EnhancedSwitchProps {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  helperText?: string;
+  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+}
+
+function EnhancedSwitch({
+  label,
+  checked,
+  onChange,
+  helperText,
+  color = 'primary',
+}: EnhancedSwitchProps) {
+  return (
+    <Box>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+            color={color}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked': {
+                color: `${color}.main`,
+              },
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                bgcolor: `${color}.main`,
+              },
+            }}
+          />
+        }
+        label={
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {label}
+          </Typography>
+        }
+        sx={{ mb: helperText ? 0.5 : 0 }}
+      />
+      {helperText && (
+        <Typography variant="caption" color="text.secondary" sx={{ ml: 4.5, display: 'block' }}>
+          {helperText}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// Grid Position Dialog Component
+interface GridPositionDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (x: number, y: number) => void;
+  currentX?: number;
+  currentY?: number;
+  pageWidth: number; // PDF page width in points
+  pageHeight: number; // PDF page height in points
+  margin?: number; // Page margin in points
+  gridColumns?: number;
+  gridRows?: number;
+}
+
+function GridPositionDialog({
+  open,
+  onClose,
+  onSelect,
+  currentX = 0,
+  currentY = 0,
+  pageWidth = 595, // A4 width in points
+  pageHeight = 842, // A4 height in points
+  margin = 50,
+  gridColumns = 3,
+  gridRows = 4,
+}: GridPositionDialogProps) {
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
+
+  // Convert current X/Y to grid position on mount
+  useEffect(() => {
+    if (open && currentX !== undefined && currentY !== undefined) {
+      const contentWidth = pageWidth - (margin * 2);
+      const contentHeight = pageHeight - (margin * 2);
+      const cellWidth = contentWidth / gridColumns;
+      const cellHeight = contentHeight / gridRows;
+      
+      const relativeX = currentX - margin;
+      const relativeY = currentY - margin;
+      
+      const col = Math.min(gridColumns - 1, Math.max(0, Math.floor(relativeX / cellWidth)));
+      const row = Math.min(gridRows - 1, Math.max(0, Math.floor(relativeY / cellHeight)));
+      
+      setSelectedCell({ row, col });
+    }
+  }, [open, currentX, currentY, pageWidth, pageHeight, margin, gridColumns, gridRows]);
+
+  const handleCellClick = (row: number, col: number) => {
+    setSelectedCell({ row, col });
+    
+    // Convert grid position to X/Y coordinates
+    const contentWidth = pageWidth - (margin * 2);
+    const contentHeight = pageHeight - (margin * 2);
+    const cellWidth = contentWidth / gridColumns;
+    const cellHeight = contentHeight / gridRows;
+    
+    // Position at the top-left of the selected cell
+    const x = margin + (col * cellWidth);
+    const y = margin + (row * cellHeight);
+    
+    onSelect(x, y);
+  };
+
+  const contentWidth = pageWidth - (margin * 2);
+  const contentHeight = pageHeight - (margin * 2);
+  const cellWidth = contentWidth / gridColumns;
+  const cellHeight = contentHeight / gridRows;
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        Select Position on Page
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          Click on a grid cell to set the position
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ p: 2 }}>
+          {/* Visual Page Representation */}
+          <Box
+            sx={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: 600,
+              mx: 'auto',
+              aspectRatio: `${pageWidth} / ${pageHeight}`,
+              bgcolor: 'grey.100',
+              border: '2px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              p: 2,
+              mb: 2,
+            }}
+          >
+            {/* Grid Overlay */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: `${(margin / pageHeight) * 100}%`,
+                left: `${(margin / pageWidth) * 100}%`,
+                width: `${(contentWidth / pageWidth) * 100}%`,
+                height: `${(contentHeight / pageHeight) * 100}%`,
+                display: 'grid',
+                gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+                gridTemplateRows: `repeat(${gridRows}, 1fr)`,
+                gap: '2px',
+              }}
+            >
+              {Array.from({ length: gridRows * gridColumns }).map((_, index) => {
+                const row = Math.floor(index / gridColumns);
+                const col = index % gridColumns;
+                const isSelected = selectedCell?.row === row && selectedCell?.col === col;
+
+                return (
+                  <Box
+                    key={index}
+                    onClick={() => handleCellClick(row, col)}
+                    sx={{
+                      bgcolor: isSelected ? 'primary.main' : 'white',
+                      border: '1px solid',
+                      borderColor: isSelected ? 'primary.dark' : 'grey.300',
+                      borderRadius: 0.5,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.7rem',
+                      color: isSelected ? 'white' : 'text.secondary',
+                      fontWeight: isSelected ? 600 : 400,
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        bgcolor: isSelected ? 'primary.dark' : 'primary.light',
+                        borderColor: 'primary.dark',
+                        color: 'white',
+                      },
+                    }}
+                  >
+                    {row + 1},{col + 1}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+
+          {selectedCell && (
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Selected: Row {selectedCell.row + 1}, Column {selectedCell.col + 1}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                X: {Math.round(margin + (selectedCell.col * cellWidth))}px, 
+                Y: {Math.round(margin + (selectedCell.row * cellHeight))}px
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function VisualPdfBuilder({ 
   kind, 
   initialConfig,
@@ -683,6 +1204,84 @@ export default function VisualPdfBuilder({
     useSensor(KeyboardSensor)
   );
   
+  // Grid position dialog state
+  const [gridDialogOpen, setGridDialogOpen] = useState(false);
+  const [gridDialogContext, setGridDialogContext] = useState<{
+    type: 'meal' | 'exercise';
+    currentX?: number;
+    currentY?: number;
+  } | null>(null);
+
+  // Helper function to get page dimensions
+  const getPageDimensions = () => {
+    const pageSize = config.options?.pageSize || 'A4';
+    const orientation = config.options?.orientation || 'portrait';
+    
+    // Dimensions in points (1 point = 1/72 inch)
+    const dimensions = {
+      A4: { width: 595, height: 842 },
+      Letter: { width: 612, height: 792 },
+    };
+    
+    const base = dimensions[pageSize];
+    if (orientation === 'landscape') {
+      return { width: base.height, height: base.width };
+    }
+    return base;
+  };
+
+  const handleGridSelect = (x: number, y: number) => {
+    if (!gridDialogContext) return;
+    
+    if (gridDialogContext.type === 'meal') {
+      setConfig((prev) => ({
+        ...prev,
+        dayPages: {
+          ...prev.dayPages,
+          options: {
+            ...prev.dayPages.options,
+            mealTablePosition: {
+              ...prev.dayPages.options.mealTablePosition,
+              x: Math.round(x),
+              y: Math.round(y),
+            },
+          },
+        },
+      }));
+    } else if (gridDialogContext.type === 'exercise') {
+      setConfig((prev) => ({
+        ...prev,
+        dayPages: {
+          ...prev.dayPages,
+          options: {
+            ...prev.dayPages.options,
+            exerciseTablePosition: {
+              ...prev.dayPages.options.exerciseTablePosition,
+              x: Math.round(x),
+              y: Math.round(y),
+            },
+          },
+        },
+      }));
+    }
+    
+    setGridDialogOpen(false);
+    setGridDialogContext(null);
+  };
+
+  const openGridDialog = (type: 'meal' | 'exercise') => {
+    const position = type === 'meal' 
+      ? config.dayPages.options.mealTablePosition
+      : config.dayPages.options.exerciseTablePosition;
+    
+    setGridDialogContext({
+      type,
+      currentX: position?.x,
+      currentY: position?.y,
+    });
+    setGridDialogOpen(true);
+  };
+
   const [config, setConfig] = useState<VisualPdfConfig>(
     initialConfig || {
       introPage: {
@@ -4985,48 +5584,26 @@ export default function VisualPdfBuilder({
                               <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
                                 Header Text Color
                               </Typography>
-                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <TextField
-                                  type="color"
-                                  value={config.dayPages.options.exerciseTableBorder?.headerTextColor || '#000000'}
-                                  onChange={(e) =>
-                                    setConfig((prev) => ({
-                                      ...prev,
-                                      dayPages: {
-                                        ...prev.dayPages,
-                                        options: {
-                                          ...prev.dayPages.options,
-                                          exerciseTableBorder: {
-                                            ...prev.dayPages.options.exerciseTableBorder!,
-                                            headerTextColor: e.target.value,
-                                          },
+                              <EnhancedColorInput
+                                label=""
+                                value={config.dayPages.options.exerciseTableBorder?.headerTextColor || '#000000'}
+                                onChange={(value) =>
+                                  setConfig((prev) => ({
+                                    ...prev,
+                                    dayPages: {
+                                      ...prev.dayPages,
+                                      options: {
+                                        ...prev.dayPages.options,
+                                        exerciseTableBorder: {
+                                          ...prev.dayPages.options.exerciseTableBorder!,
+                                          headerTextColor: value,
                                         },
                                       },
                                     }))
                                   }
-                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
-                                />
-                                <TextField
-                                  value={config.dayPages.options.exerciseTableBorder?.headerTextColor || '#000000'}
-                                  onChange={(e) =>
-                                    setConfig((prev) => ({
-                                      ...prev,
-                                      dayPages: {
-                                        ...prev.dayPages,
-                                        options: {
-                                          ...prev.dayPages.options,
-                                          exerciseTableBorder: {
-                                            ...prev.dayPages.options.exerciseTableBorder!,
-                                            headerTextColor: e.target.value,
-                                          },
-                                        },
-                                      },
-                                    }))
-                                  }
-                                  size="small"
-                                  sx={{ flex: 1 }}
-                                />
-                              </Box>
+                                }
+                                helperText="Text color for table header"
+                              />
                             </Box>
                           </Grid>
                           <Grid item xs={12} sm={6}>
@@ -5034,48 +5611,26 @@ export default function VisualPdfBuilder({
                               <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
                                 Row Stripe Color (Alternating Rows)
                               </Typography>
-                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <TextField
-                                  type="color"
-                                  value={config.dayPages.options.exerciseTableBorder?.rowStripeColor || '#fafafa'}
-                                  onChange={(e) =>
-                                    setConfig((prev) => ({
-                                      ...prev,
-                                      dayPages: {
-                                        ...prev.dayPages,
-                                        options: {
-                                          ...prev.dayPages.options,
-                                          exerciseTableBorder: {
-                                            ...prev.dayPages.options.exerciseTableBorder!,
-                                            rowStripeColor: e.target.value,
-                                          },
+                              <EnhancedColorInput
+                                label=""
+                                value={config.dayPages.options.exerciseTableBorder?.rowStripeColor || '#fafafa'}
+                                onChange={(value) =>
+                                  setConfig((prev) => ({
+                                    ...prev,
+                                    dayPages: {
+                                      ...prev.dayPages,
+                                      options: {
+                                        ...prev.dayPages.options,
+                                        exerciseTableBorder: {
+                                          ...prev.dayPages.options.exerciseTableBorder!,
+                                          rowStripeColor: value,
                                         },
                                       },
                                     }))
                                   }
-                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
-                                />
-                                <TextField
-                                  value={config.dayPages.options.exerciseTableBorder?.rowStripeColor || '#fafafa'}
-                                  onChange={(e) =>
-                                    setConfig((prev) => ({
-                                      ...prev,
-                                      dayPages: {
-                                        ...prev.dayPages,
-                                        options: {
-                                          ...prev.dayPages.options,
-                                          exerciseTableBorder: {
-                                            ...prev.dayPages.options.exerciseTableBorder!,
-                                            rowStripeColor: e.target.value,
-                                          },
-                                        },
-                                      },
-                                    }))
-                                  }
-                                  size="small"
-                                  sx={{ flex: 1 }}
-                                />
-                              </Box>
+                                }
+                                helperText="Color for alternating row backgrounds"
+                              />
                             </Box>
                           </Grid>
                         </Grid>
@@ -5108,30 +5663,42 @@ export default function VisualPdfBuilder({
                       </Typography>
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            type="number"
-                            label="Table Start X Position (px)"
-                            value={config.dayPages.options.exerciseTablePosition?.x ?? 20}
-                            onChange={(e) =>
-                              setConfig((prev) => ({
-                                ...prev,
-                                dayPages: {
-                                  ...prev.dayPages,
-                                  options: {
-                                    ...prev.dayPages.options,
-                                    exerciseTablePosition: {
-                                      ...prev.dayPages.options.exerciseTablePosition,
-                                      x: parseInt(e.target.value) || 0,
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Table Start X Position (px)"
+                              value={config.dayPages.options.exerciseTablePosition?.x ?? 20}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      exerciseTablePosition: {
+                                        ...prev.dayPages.options.exerciseTablePosition,
+                                        x: parseInt(e.target.value) || 0,
+                                      },
                                     },
                                   },
-                                },
-                              }))
-                            }
-                            inputProps={{ min: 0, max: 1000 }}
-                            helperText="Horizontal starting position of the table"
-                            size="small"
-                          />
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 1000 }}
+                              helperText="Horizontal starting position of the table"
+                              size="small"
+                            />
+                            <Tooltip title="Select position using grid">
+                              <IconButton
+                                onClick={() => openGridDialog('exercise')}
+                                size="small"
+                                sx={{ mt: 0.5 }}
+                                color="primary"
+                              >
+                                <GridOn />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <TextField
@@ -5728,11 +6295,39 @@ export default function VisualPdfBuilder({
                     </Card>
                     
                     {/* Food Item Border */}
-                    <Card variant="outlined" sx={{ mb: 2, p: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                          Food Item Border
-                        </Typography>
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        mb: 2.5, 
+                        p: 2.5,
+                        borderRadius: 3,
+                        bgcolor: 'background.paper',
+                        borderColor: 'divider',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        transition: 'all 0.3s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                          borderColor: 'primary.light',
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box sx={{ 
+                            p: 1, 
+                            borderRadius: 2, 
+                            bgcolor: 'primary.main', 
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <TableChart fontSize="small" />
+                          </Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Food Item Border
+                          </Typography>
+                        </Box>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -5765,53 +6360,26 @@ export default function VisualPdfBuilder({
                       {config.dayPages.options.foodItemBorder?.enabled && (
                         <Grid container spacing={2}>
                           <Grid item xs={12} sm={6}>
-                            <Box>
-                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
-                                Border Color
-                              </Typography>
-                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <TextField
-                                  type="color"
-                                  value={config.dayPages.options.foodItemBorder?.color || '#f0f0f0'}
-                                  onChange={(e) =>
-                                    setConfig((prev) => ({
-                                      ...prev,
-                                      dayPages: {
-                                        ...prev.dayPages,
-                                        options: {
-                                          ...prev.dayPages.options,
-                                          foodItemBorder: {
-                                            ...prev.dayPages.options.foodItemBorder!,
-                                            color: e.target.value,
-                                          },
-                                        },
+                            <EnhancedColorInput
+                              label="Border Color"
+                              value={config.dayPages.options.foodItemBorder?.color || '#f0f0f0'}
+                              onChange={(value) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      foodItemBorder: {
+                                        ...prev.dayPages.options.foodItemBorder!,
+                                        color: value,
                                       },
-                                    }))
-                                  }
-                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
-                                />
-                                <TextField
-                                  value={config.dayPages.options.foodItemBorder?.color || '#f0f0f0'}
-                                  onChange={(e) =>
-                                    setConfig((prev) => ({
-                                      ...prev,
-                                      dayPages: {
-                                        ...prev.dayPages,
-                                        options: {
-                                          ...prev.dayPages.options,
-                                          foodItemBorder: {
-                                            ...prev.dayPages.options.foodItemBorder!,
-                                            color: e.target.value,
-                                          },
-                                        },
-                                      },
-                                    }))
-                                  }
-                                  size="small"
-                                  sx={{ flex: 1 }}
-                                />
-                              </Box>
-                            </Box>
+                                    },
+                                  },
+                                }))
+                              }
+                              helperText="Color of the food item border"
+                            />
                           </Grid>
                           <Grid item xs={12} sm={3}>
                             <TextField
@@ -6334,30 +6902,42 @@ export default function VisualPdfBuilder({
                       </Typography>
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            type="number"
-                            label="Table Start X Position (px)"
-                            value={config.dayPages.options.mealTablePosition?.x ?? 20}
-                            onChange={(e) =>
-                              setConfig((prev) => ({
-                                ...prev,
-                                dayPages: {
-                                  ...prev.dayPages,
-                                  options: {
-                                    ...prev.dayPages.options,
-                                    mealTablePosition: {
-                                      ...prev.dayPages.options.mealTablePosition,
-                                      x: parseInt(e.target.value) || 0,
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Table Start X Position (px)"
+                              value={config.dayPages.options.mealTablePosition?.x ?? 20}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      mealTablePosition: {
+                                        ...prev.dayPages.options.mealTablePosition,
+                                        x: parseInt(e.target.value) || 0,
+                                      },
                                     },
                                   },
-                                },
-                              }))
-                            }
-                            inputProps={{ min: 0, max: 1000 }}
-                            helperText="Horizontal starting position of the table"
-                            size="small"
-                          />
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 1000 }}
+                              helperText="Horizontal starting position of the table"
+                              size="small"
+                            />
+                            <Tooltip title="Select position using grid">
+                              <IconButton
+                                onClick={() => openGridDialog('meal')}
+                                size="small"
+                                sx={{ mt: 0.5 }}
+                                color="primary"
+                              >
+                                <GridOn />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <TextField
@@ -8796,6 +9376,25 @@ function CustomPageEditor({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Grid Position Dialog */}
+      {gridDialogContext && (
+        <GridPositionDialog
+          open={gridDialogOpen}
+          onClose={() => {
+            setGridDialogOpen(false);
+            setGridDialogContext(null);
+          }}
+          onSelect={handleGridSelect}
+          currentX={gridDialogContext.currentX}
+          currentY={gridDialogContext.currentY}
+          pageWidth={getPageDimensions().width}
+          pageHeight={getPageDimensions().height}
+          margin={50}
+          gridColumns={3}
+          gridRows={4}
+        />
+      )}
     </>
   );
 }
