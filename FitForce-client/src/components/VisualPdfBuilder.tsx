@@ -235,6 +235,10 @@ interface VisualPdfConfig {
       foodItemSpacing?: number; // Vertical spacing between food items within a meal
       mealTitleMarginTop?: number; // Space above meal title
       mealTitleMarginBottom?: number; // Space below meal title
+      mealNameSpacing?: number; // Spacing after meal name
+      foodItemsSpacing?: number; // Spacing after food items section
+      mealNotesSpacing?: number; // Spacing after meal notes
+      mealNutritionFactsSpacing?: number; // Spacing after meal nutrition facts/totals
       // Border options for nutrition
       mealBorder?: {
         enabled?: boolean;
@@ -249,6 +253,7 @@ interface VisualPdfConfig {
         width?: number;
         style?: 'solid' | 'dashed' | 'dotted' | 'double';
         radius?: number;
+        padding?: number;
       };
       // Food items layout and display options
       foodItemsLayout?: 'vertical' | 'horizontal' | 'table' | 'vertical-with-macros' | 'horizontal-calories-vertical-macros';
@@ -3682,6 +3687,94 @@ export default function VisualPdfBuilder({
                           helperText="Vertical space between food items within a meal"
                         />
                       </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Meal Name Spacing (px)"
+                          value={config.dayPages.options.mealNameSpacing ?? 6}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  mealNameSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 50 }}
+                          helperText="Space after meal name"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Food Items Section Spacing (px)"
+                          value={config.dayPages.options.foodItemsSpacing ?? 0}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  foodItemsSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 50 }}
+                          helperText="Space after food items section"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Meal Notes Spacing (px)"
+                          value={config.dayPages.options.mealNotesSpacing ?? 3}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  mealNotesSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 50 }}
+                          helperText="Space after meal notes"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Meal Nutrition Facts Spacing (px)"
+                          value={config.dayPages.options.mealNutritionFactsSpacing ?? 15}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  mealNutritionFactsSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 50 }}
+                          helperText="Space after meal totals/nutrition facts"
+                        />
+                      </Grid>
                     </>
                   )}
                   
@@ -5770,6 +5863,32 @@ export default function VisualPdfBuilder({
                               size="small"
                             />
                           </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Padding (px)"
+                              value={config.dayPages.options.foodItemBorder?.padding ?? 4}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      foodItemBorder: {
+                                        ...prev.dayPages.options.foodItemBorder!,
+                                        padding: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 50 }}
+                              size="small"
+                              helperText="Space inside border"
+                            />
+                          </Grid>
                           <Grid item xs={12} sm={6}>
                             <FormControl fullWidth size="small">
                               <InputLabel>Border Style</InputLabel>
@@ -6288,7 +6407,7 @@ export default function VisualPdfBuilder({
                             fullWidth
                             type="number"
                             label="Spacing Between Food Items (px)"
-                            value={config.dayPages.options.spacingBetweenFoodItems ?? 8}
+                            value={config.dayPages.options.spacingBetweenFoodItems ?? 15}
                             onChange={(e) =>
                               setConfig((prev) => ({
                                 ...prev,
