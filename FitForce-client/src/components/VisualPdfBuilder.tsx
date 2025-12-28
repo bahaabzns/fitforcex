@@ -129,6 +129,26 @@ export interface CustomContentPageConfig {
   content: string; // HTML content
   allowImages: boolean;
   allowLinks: boolean;
+  buttons?: ButtonConfig[];
+}
+
+interface ButtonConfig {
+  id: string;
+  label: string;
+  link: string;
+  x: number; // X position in pixels
+  y: number; // Y position in pixels
+  width?: number; // Button width (default: auto)
+  height?: number; // Button height (default: auto)
+  style?: {
+    backgroundColor?: string;
+    textColor?: string;
+    borderColor?: string;
+    borderWidth?: number;
+    borderRadius?: number;
+    fontSize?: number;
+    padding?: number;
+  };
 }
 
 interface VisualPdfConfig {
@@ -141,6 +161,7 @@ interface VisualPdfConfig {
     backgroundColor?: string;
     titleColor?: string;
     titleSize?: number;
+    buttons?: ButtonConfig[];
   };
   endPage?: {
     enabled: boolean;
@@ -150,15 +171,18 @@ interface VisualPdfConfig {
     backgroundColor?: string;
     textColor?: string;
     customMessage?: string;
+    buttons?: ButtonConfig[];
   };
   customPages?: CustomPageConfig[]; // NEW: Custom pages array
   dayPages: {
     layout: 'vertical' | 'horizontal';
     daysPerPage: number;
     mealsPerPage?: number; // For nutrition plans: how many meals per page before new page
+    foodItemsPerMeal?: number; // For nutrition plans: max food items per meal before splitting to next page
     backgroundImage?: string;
     backgroundColor?: string;
     textColor?: string;
+    buttons?: ButtonConfig[]; // Buttons for day/content pages
     fontSize?: {
       exerciseName?: number;
       details?: number;
@@ -179,9 +203,80 @@ interface VisualPdfConfig {
       showSetRest?: boolean;
       showSetTempo?: boolean;
       showSetRir?: boolean;
+      showSetNotes?: boolean; // Show Notes column in workout table
       exerciseSpacing?: number; // Vertical spacing between exercises
+      exerciseTitleMarginTop?: number; // Space above exercise title
+      exerciseTitleMarginBottom?: number; // Space below exercise title
+      // Exercise layout and display options
+      exerciseLayout?: 'vertical' | 'horizontal' | 'table' | 'compact';
+      // Exercise table styling
+      exerciseTableBorder?: {
+        enabled?: boolean;
+        color?: string;
+        width?: number;
+        style?: 'solid' | 'dashed' | 'dotted' | 'double';
+        radius?: number;
+        headerBackground?: string;
+        headerTextColor?: string;
+        rowStripeColor?: string;
+      };
+      // Advanced positioning for workout
+      exerciseTablePosition?: {
+        x?: number; // X position of table start (in pixels)
+        y?: number; // Y position of table start (in pixels)
+      };
+      // Advanced spacing for workout
+      spacingBetweenExercises?: number; // Spacing between exercises
+      spacingBetweenExerciseAndDetails?: number; // Spacing between exercise name and details
+      spacingBetweenSetDetails?: number; // Spacing between set details (reps, rest, tempo, RIR)
       // Nutrition plan options
       showMealNames?: boolean;
+      mealSpacing?: number; // Vertical spacing between meals
+      foodItemSpacing?: number; // Vertical spacing between food items within a meal
+      mealTitleMarginTop?: number; // Space above meal title
+      mealTitleMarginBottom?: number; // Space below meal title
+      // Border options for nutrition
+      mealBorder?: {
+        enabled?: boolean;
+        color?: string;
+        width?: number;
+        style?: 'solid' | 'dashed' | 'dotted' | 'double';
+        radius?: number;
+      };
+      foodItemBorder?: {
+        enabled?: boolean;
+        color?: string;
+        width?: number;
+        style?: 'solid' | 'dashed' | 'dotted' | 'double';
+        radius?: number;
+      };
+      // Food items layout and display options
+      foodItemsLayout?: 'vertical' | 'horizontal' | 'table' | 'vertical-with-macros' | 'horizontal-calories-vertical-macros';
+      // Meal table styling
+      mealTableBorder?: {
+        enabled?: boolean;
+        color?: string;
+        width?: number;
+        style?: 'solid' | 'dashed' | 'dotted' | 'double';
+        radius?: number;
+        headerBackground?: string;
+        headerTextColor?: string;
+        rowStripeColor?: string;
+      };
+      // Advanced positioning for nutrition
+      mealTablePosition?: {
+        x?: number; // X position of table start (in pixels)
+        y?: number; // Y position of table start (in pixels)
+      };
+      // Advanced spacing for nutrition
+      spacingBetweenFoodItems?: number; // Spacing between food items
+      spacingBetweenFoodItemAndMacros?: number; // Spacing between food item name and macros
+      spacingBetweenMacros?: number; // Spacing between macro values (calories, protein, carbs, fat)
+      // Advanced spacing options (shared)
+      contentPaddingTop?: number; // Top padding for content area
+      contentPaddingBottom?: number; // Bottom padding for content area
+      contentPaddingLeft?: number; // Left padding for content area
+      contentPaddingRight?: number; // Right padding for content area
       showMealTimes?: boolean;
       showFoodItems?: boolean;
       showQuantities?: boolean;
@@ -269,6 +364,280 @@ interface VisualPdfBuilderProps {
   workspaces?: Array<{ id: string; name: string }>;
 }
 
+// Reusable Button Manager Component
+function ButtonManager({
+  buttons,
+  onButtonsChange,
+  pageType = 'Page',
+}: {
+  buttons: ButtonConfig[];
+  onButtonsChange: (buttons: ButtonConfig[]) => void;
+  pageType?: string;
+}) {
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          Buttons ({pageType})
+        </Typography>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<Add />}
+          onClick={() => {
+            onButtonsChange([...buttons, {
+              id: `btn-${Date.now()}`,
+              label: 'Button',
+              link: '',
+              x: 100,
+              y: 100,
+              style: {
+                backgroundColor: '#1976d2',
+                textColor: '#ffffff',
+                borderColor: '#1976d2',
+                borderWidth: 1,
+                borderRadius: 4,
+                fontSize: 14,
+                padding: 8,
+              }
+            }]);
+          }}
+        >
+          Add Button
+        </Button>
+      </Box>
+      
+      {buttons.map((button, index) => (
+        <Card key={button.id} sx={{ mb: 2, p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="subtitle1">
+              Button {index + 1}
+            </Typography>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onButtonsChange(buttons.filter(b => b.id !== button.id))}
+            >
+              <Delete />
+            </IconButton>
+          </Box>
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Button Label"
+                value={button.label}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  updated[index].label = e.target.value;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Link URL"
+                value={button.link}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  updated[index].link = e.target.value;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+                placeholder="https://example.com"
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="X Position (px)"
+                type="number"
+                value={button.x}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  updated[index].x = parseInt(e.target.value) || 0;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Y Position (px)"
+                type="number"
+                value={button.y}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  updated[index].y = parseInt(e.target.value) || 0;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Width (px)"
+                type="number"
+                value={button.width || ''}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  updated[index].width = e.target.value ? parseInt(e.target.value) : undefined;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+                placeholder="Auto"
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Height (px)"
+                type="number"
+                value={button.height || ''}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  updated[index].height = e.target.value ? parseInt(e.target.value) : undefined;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+                placeholder="Auto"
+              />
+            </Grid>
+            
+            {/* Button Style */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                Button Style
+              </Typography>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Background Color"
+                type="color"
+                value={button.style?.backgroundColor || '#1976d2'}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  if (!updated[index].style) updated[index].style = {};
+                  updated[index].style!.backgroundColor = e.target.value;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Text Color"
+                type="color"
+                value={button.style?.textColor || '#ffffff'}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  if (!updated[index].style) updated[index].style = {};
+                  updated[index].style!.textColor = e.target.value;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Border Color"
+                type="color"
+                value={button.style?.borderColor || '#1976d2'}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  if (!updated[index].style) updated[index].style = {};
+                  updated[index].style!.borderColor = e.target.value;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Border Width (px)"
+                type="number"
+                value={button.style?.borderWidth || 1}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  if (!updated[index].style) updated[index].style = {};
+                  updated[index].style!.borderWidth = parseInt(e.target.value) || 0;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Border Radius (px)"
+                type="number"
+                value={button.style?.borderRadius || 4}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  if (!updated[index].style) updated[index].style = {};
+                  updated[index].style!.borderRadius = parseInt(e.target.value) || 0;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Font Size (px)"
+                type="number"
+                value={button.style?.fontSize || 14}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  if (!updated[index].style) updated[index].style = {};
+                  updated[index].style!.fontSize = parseInt(e.target.value) || 12;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField
+                fullWidth
+                label="Padding (px)"
+                type="number"
+                value={button.style?.padding || 8}
+                onChange={(e) => {
+                  const updated = [...buttons];
+                  if (!updated[index].style) updated[index].style = {};
+                  updated[index].style!.padding = parseInt(e.target.value) || 0;
+                  onButtonsChange(updated);
+                }}
+                size="small"
+              />
+            </Grid>
+          </Grid>
+        </Card>
+      ))}
+      
+      {buttons.length === 0 && (
+        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.50', border: '2px dashed', borderColor: 'divider' }}>
+          <Typography variant="body2" color="text.secondary">
+            No buttons added. Click "Add Button" to add a clickable button with a link to this page.
+          </Typography>
+        </Paper>
+      )}
+    </Box>
+  );
+}
+
 export default function VisualPdfBuilder({ 
   kind, 
   initialConfig,
@@ -354,6 +723,7 @@ export default function VisualPdfBuilder({
           showSetRest: true,
           showSetTempo: true,
           showSetRir: true,
+          showSetNotes: false, // Notes column disabled by default
           // Nutrition defaults
           showMealNames: true,
           showMealTimes: true,
@@ -581,9 +951,16 @@ export default function VisualPdfBuilder({
         },
       };
 
+      // Clean up undefined values to avoid sending them to the server
+      const cleanConfig = JSON.parse(JSON.stringify(finalConfig));
+
+      console.log('[Preview] Generating preview with config:', cleanConfig);
+      console.log('[Preview] Kind:', kind);
+      console.log('[Preview] Workspace name:', workspaces[0]?.name);
+
       // Use new direct preview endpoint (no templateId required)
       const { previewUrl } = await previewVisualPdfFromConfig(
-        finalConfig,
+        cleanConfig,
         kind,
         workspaces[0]?.name,
         abortController.signal
@@ -595,15 +972,43 @@ export default function VisualPdfBuilder({
         // Reset zoom and pan when new preview loads
         setPreviewZoom(100);
         setPreviewPan({ x: 0, y: 0 });
+        console.log('[Preview] Preview generated successfully:', previewUrl);
       }
     } catch (error: any) {
       // Don't show error if request was cancelled
       if (error.name === 'AbortError' || abortController.signal.aborted) {
         return;
       }
-      console.error('Failed to generate preview:', error);
+      console.error('[Preview] Failed to generate preview:', error);
+      console.error('[Preview] Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        code: error.code,
+        config: error.config,
+      });
+      
       if (showError) {
-        alert(error.response?.data?.message || 'Failed to generate preview. Please try again.');
+        let errorMessage = 'Failed to generate preview. Please try again.';
+        
+        // Handle timeout errors
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout') || error.message?.includes('504')) {
+          errorMessage = 'Preview generation is taking too long. This might be due to:\n\n' +
+                        '• Large PDF content\n' +
+                        '• Complex formatting\n' +
+                        '• Server processing time\n\n' +
+                        'Please try again or simplify your template configuration.';
+        } else if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+          errorMessage = 'Network error occurred. Please check your connection and try again.';
+        } else if (error.response?.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        alert(errorMessage);
       }
     } finally {
       if (!abortController.signal.aborted) {
@@ -778,349 +1183,516 @@ export default function VisualPdfBuilder({
   };
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto', p: { xs: 2, md: 3 } }}>
-      {/* Enhanced Header */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: 'white' }}>
-              Visual PDF Template Builder
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-              Create a custom PDF template for {kind === 'workout' ? 'workout' : 'nutrition'} plans
-            </Typography>
-            <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Chip 
-                label={`Step ${activeStep + 1} of ${steps.length}`}
-                size="small"
-                sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
-              />
-              <Chip 
-                label={kind === 'workout' ? 'Workout Plan' : 'Nutrition Plan'}
-                size="small"
-                sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
-              />
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={autoPreviewEnabled}
-                  onChange={(e) => setAutoPreviewEnabled(e.target.checked)}
-                  size="small"
-                  sx={{ color: 'white', '&.Mui-checked': { color: 'white' } }}
-                />
-              }
-              label={
-                <Typography variant="body2" sx={{ color: 'white' }}>
-                  Auto-preview (real-time)
-                </Typography>
-              }
-            />
-            <Button
-              variant="contained"
-              startIcon={generatingPreview ? <CircularProgress size={16} sx={{ color: 'white' }} /> : <Preview />}
-              onClick={handleGeneratePreview}
-              disabled={generatingPreview}
-              size="small"
-              sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}
-            >
-              {generatingPreview ? 'Generating...' : 'Generate Preview'}
-            </Button>
-          </Box>
-        </Box>
-      </Paper>
-
-      {/* Enhanced Preview Panel with Zoom/Pan Controls */}
-      {(previewUrl || generatingPreview) && (
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'grey.50',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      pb: 4
+    }}>
+      <Box sx={{ maxWidth: 1600, mx: 'auto', p: { xs: 2, md: 3 } }}>
+        {/* Enhanced Header with Modern Design */}
         <Paper 
-          elevation={3} 
+          elevation={0} 
           sx={{ 
+            p: { xs: 2.5, md: 4 }, 
             mb: 3, 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
+            position: 'relative',
             overflow: 'hidden',
-            border: '2px solid',
-            borderColor: generatingPreview ? 'warning.main' : 'success.main',
-            borderRadius: 2
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)',
+              pointerEvents: 'none'
+            }
           }}
         >
-          <Box sx={{ 
-            bgcolor: generatingPreview ? 'warning.main' : 'success.main', 
-            color: 'white', 
-            p: 1.5, 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center' 
-          }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              {generatingPreview ? (
-                <>
-                  <CircularProgress size={16} sx={{ color: 'white' }} />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Generating Preview...
+          <Box sx={{ position: 'relative', zIndex: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ flex: 1, minWidth: 280 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                  <Box sx={{ 
+                    width: 48, 
+                    height: 48, 
+                    borderRadius: 2, 
+                    bgcolor: 'rgba(255,255,255,0.2)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    backdropFilter: 'blur(10px)'
+                  }}>
+                    <Settings sx={{ fontSize: 28, color: 'white' }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: 'white', mb: 0.5, letterSpacing: '-0.02em' }}>
+                      PDF Template Builder
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
+                      Design professional {kind === 'workout' ? 'workout' : 'nutrition'} plan templates
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Chip 
+                    icon={<CheckCircle sx={{ color: 'white !important' }} />}
+                    label={`Step ${activeStep + 1} of ${steps.length}`}
+                    size="small"
+                    sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.25)', 
+                      color: 'white',
+                      fontWeight: 600,
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255,255,255,0.3)'
+                    }}
+                  />
+                  <Chip 
+                    icon={kind === 'workout' ? <ViewDay sx={{ color: 'white !important' }} /> : <TableChart sx={{ color: 'white !important' }} />}
+                    label={kind === 'workout' ? 'Workout Plan' : 'Nutrition Plan'}
+                    size="small"
+                    sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.25)', 
+                      color: 'white',
+                      fontWeight: 600,
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255,255,255,0.3)'
+                    }}
+                  />
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 1, 
+                    bgcolor: 'rgba(255,255,255,0.15)', 
+                    borderRadius: 2,
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.2)'
+                  }}
+                >
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={autoPreviewEnabled}
+                        onChange={(e) => setAutoPreviewEnabled(e.target.checked)}
+                        size="small"
+                        sx={{ 
+                          color: 'white', 
+                          '&.Mui-checked': { color: 'white' },
+                          '& .MuiSvgIcon-root': { fontSize: 20 }
+                        }}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, fontSize: '0.875rem' }}>
+                        Auto-preview
+                      </Typography>
+                    }
+                  />
+                </Paper>
+                <Button
+                  variant="contained"
+                  startIcon={generatingPreview ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <Preview />}
+                  onClick={handleGeneratePreview}
+                  disabled={generatingPreview}
+                  size="medium"
+                  sx={{ 
+                    bgcolor: 'rgba(255,255,255,0.25)', 
+                    color: 'white',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    px: 2.5,
+                    py: 1,
+                    '&:hover': { 
+                      bgcolor: 'rgba(255,255,255,0.35)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    },
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                >
+                  {generatingPreview ? 'Generating...' : 'Generate Preview'}
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+
+      {/* Main Content with Preview on Left */}
+      <Grid container spacing={3}>
+        {/* Left Side: PDF Preview - Always Visible */}
+        <Grid item xs={12} md={5} lg={4}>
+          <Paper 
+            elevation={0}
+            sx={{ 
+              position: 'sticky',
+              top: 20,
+              overflow: 'hidden',
+              border: '2px solid',
+              borderColor: generatingPreview ? 'warning.main' : (previewUrl ? 'success.main' : 'grey.300'),
+              borderRadius: 3,
+              maxHeight: 'calc(100vh - 40px)',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '500px',
+              bgcolor: 'white',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            {/* Preview Header */}
+            <Box sx={{ 
+              bgcolor: generatingPreview 
+                ? 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)' 
+                : (previewUrl 
+                  ? 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)' 
+                  : 'linear-gradient(135deg, #757575 0%, #616161 100%)'), 
+              color: 'white', 
+              p: 2, 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                {generatingPreview ? (
+                  <>
+                    <CircularProgress size={16} sx={{ color: 'white' }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Generating Preview...
+                    </Typography>
+                  </>
+                ) : previewUrl ? (
+                  <>
+                    <CheckCircle fontSize="small" />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Live Preview
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Preview fontSize="small" />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      PDF Preview
+                    </Typography>
+                  </>
+                )}
+              </Box>
+              {previewUrl && (
+                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Zoom Controls */}
+                  <Tooltip title="Zoom Out">
+                    <IconButton
+                      size="small"
+                      onClick={() => setPreviewZoom(Math.max(25, previewZoom - 25))}
+                      sx={{ color: 'white' }}
+                    >
+                      <ZoomOut />
+                    </IconButton>
+                  </Tooltip>
+                  <Typography variant="body2" sx={{ minWidth: 50, textAlign: 'center', fontSize: '0.75rem' }}>
+                    {previewZoom}%
                   </Typography>
-                </>
-              ) : (
-                <>
-                  <CheckCircle fontSize="small" />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Preview Generated Successfully
-                  </Typography>
-                </>
+                  <Tooltip title="Zoom In">
+                    <IconButton
+                      size="small"
+                      onClick={() => setPreviewZoom(Math.min(300, previewZoom + 25))}
+                      sx={{ color: 'white' }}
+                    >
+                      <ZoomIn />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Reset Zoom">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setPreviewZoom(100);
+                        setPreviewPan({ x: 0, y: 0 });
+                      }}
+                      sx={{ color: 'white' }}
+                    >
+                      <Refresh />
+                    </IconButton>
+                  </Tooltip>
+                  <Divider orientation="vertical" flexItem sx={{ mx: 0.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
+                  <Tooltip title="Fullscreen">
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowPreviewFullscreen(true)}
+                      sx={{ color: 'white' }}
+                    >
+                      <Fullscreen />
+                    </IconButton>
+                  </Tooltip>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => window.open(previewUrl, '_blank')}
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }, ml: 0.5 }}
+                  >
+                    Open
+                  </Button>
+                </Box>
               )}
             </Box>
-            {previewUrl && (
-              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                {/* Zoom Controls */}
-                <Tooltip title="Zoom Out">
-                  <IconButton
-                    size="small"
-                    onClick={() => setPreviewZoom(Math.max(25, previewZoom - 25))}
-                    sx={{ color: 'white' }}
-                  >
-                    <ZoomOut />
-                  </IconButton>
-                </Tooltip>
-                <Typography variant="body2" sx={{ minWidth: 50, textAlign: 'center', fontSize: '0.75rem' }}>
-                  {previewZoom}%
-                </Typography>
-                <Tooltip title="Zoom In">
-                  <IconButton
-                    size="small"
-                    onClick={() => setPreviewZoom(Math.min(300, previewZoom + 25))}
-                    sx={{ color: 'white' }}
-                  >
-                    <ZoomIn />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Reset Zoom">
-                  <IconButton
-                    size="small"
-                    onClick={() => {
-                      setPreviewZoom(100);
-                      setPreviewPan({ x: 0, y: 0 });
-                    }}
-                    sx={{ color: 'white' }}
-                  >
-                    <Refresh />
-                  </IconButton>
-                </Tooltip>
-                <Divider orientation="vertical" flexItem sx={{ mx: 0.5, bgcolor: 'rgba(255,255,255,0.3)' }} />
-                <Tooltip title="Fullscreen">
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowPreviewFullscreen(true)}
-                    sx={{ color: 'white' }}
-                  >
-                    <Fullscreen />
-                  </IconButton>
-                </Tooltip>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => window.open(previewUrl, '_blank')}
-                  sx={{ bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }, ml: 0.5 }}
-                >
-                  Open in New Tab
-                </Button>
-                <IconButton
-                  size="small"
-                  onClick={() => {
-                    setPreviewUrl(null);
-                    setPreviewZoom(100);
-                    setPreviewPan({ x: 0, y: 0 });
+            
+            {/* Preview Content */}
+            {previewUrl ? (
+              <Box sx={{ 
+                position: 'relative', 
+                bgcolor: '#f5f5f5',
+                flex: 1,
+                minHeight: '500px',
+                maxHeight: 'calc(100vh - 120px)',
+                overflow: 'auto',
+                cursor: isPanning ? 'grabbing' : 'grab'
+              }}
+                onMouseDown={(e) => {
+                  if (previewZoom > 100) {
+                    setIsPanning(true);
+                    setPanStart({ x: e.clientX - previewPan.x, y: e.clientY - previewPan.y });
+                  }
+                }}
+                onMouseMove={(e) => {
+                  if (isPanning && previewZoom > 100) {
+                    setPreviewPan({
+                      x: e.clientX - panStart.x,
+                      y: e.clientY - panStart.y,
+                    });
+                  }
+                }}
+                onMouseUp={() => setIsPanning(false)}
+                onMouseLeave={() => setIsPanning(false)}
+              >
+                <Box
+                  sx={{
+                    transform: `scale(${previewZoom / 100}) translate(${previewPan.x / (previewZoom / 100)}px, ${previewPan.y / (previewZoom / 100)}px)`,
+                    transformOrigin: 'top left',
+                    width: `${100 / (previewZoom / 100)}%`,
+                    minHeight: '500px',
+                    transition: isPanning ? 'none' : 'transform 0.1s ease-out',
                   }}
-                  sx={{ color: 'white' }}
                 >
-                  <Close />
-                </IconButton>
+                  <iframe 
+                    src={previewUrl} 
+                    width="100%" 
+                    height="100%"
+                    style={{ border: 'none', display: 'block', minHeight: '500px' }}
+                    title="PDF Preview"
+                  />
+                </Box>
+              </Box>
+            ) : generatingPreview ? (
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                minHeight: '500px',
+                bgcolor: '#f5f5f5',
+                flex: 1
+              }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <CircularProgress size={48} sx={{ mb: 2 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Generating preview PDF...
+                  </Typography>
+                </Box>
+              </Box>
+            ) : (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                minHeight: '500px',
+                bgcolor: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                flex: 1,
+                p: 4,
+                textAlign: 'center',
+                position: 'relative',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'radial-gradient(circle at 50% 50%, rgba(102, 126, 234, 0.05) 0%, transparent 70%)',
+                  pointerEvents: 'none'
+                }
+              }}>
+                <Box sx={{ position: 'relative', zIndex: 1 }}>
+                  <Box sx={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: '50%',
+                    bgcolor: 'rgba(102, 126, 234, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 2
+                  }}>
+                    <Preview sx={{ fontSize: 40, color: 'primary.main' }} />
+                  </Box>
+                  <Typography variant="h6" color="text.primary" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                    PDF Preview
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 300, mx: 'auto' }}>
+                    Click "Generate Preview" in the header to see your PDF template as you make changes
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<Preview />}
+                    onClick={handleGeneratePreview}
+                    disabled={generatingPreview}
+                    size="medium"
+                    sx={{
+                      borderRadius: 2,
+                      px: 3,
+                      py: 1,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                      '&:hover': {
+                        boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                        transform: 'translateY(-2px)'
+                      },
+                      transition: 'all 0.2s ease-in-out'
+                    }}
+                  >
+                    Generate Preview
+                  </Button>
+                </Box>
               </Box>
             )}
-          </Box>
-          {previewUrl && (
-            <Box sx={{ 
-              position: 'relative', 
-              bgcolor: '#f5f5f5',
-              minHeight: '600px',
-              maxHeight: '600px',
-              borderTop: '1px solid',
-              borderColor: 'divider',
-              overflow: 'hidden',
-              cursor: isPanning ? 'grabbing' : 'grab'
+          </Paper>
+        </Grid>
+
+        {/* Right Side: Builder Form */}
+        <Grid item xs={12} md={7} lg={8}>
+          <Paper 
+            elevation={0}
+            sx={{
+              bgcolor: 'white',
+              borderRadius: 3,
+              p: 3,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
             }}
-              onMouseDown={(e) => {
-                if (previewZoom > 100) {
-                  setIsPanning(true);
-                  setPanStart({ x: e.clientX - previewPan.x, y: e.clientY - previewPan.y });
-                }
-              }}
-              onMouseMove={(e) => {
-                if (isPanning && previewZoom > 100) {
-                  setPreviewPan({
-                    x: e.clientX - panStart.x,
-                    y: e.clientY - panStart.y,
-                  });
-                }
-              }}
-              onMouseUp={() => setIsPanning(false)}
-              onMouseLeave={() => setIsPanning(false)}
-            >
-              <Box
-                sx={{
-                  transform: `scale(${previewZoom / 100}) translate(${previewPan.x / (previewZoom / 100)}px, ${previewPan.y / (previewZoom / 100)}px)`,
-                  transformOrigin: 'top left',
-                  width: `${100 / (previewZoom / 100)}%`,
-                  height: `${600 / (previewZoom / 100)}px`,
-                  transition: isPanning ? 'none' : 'transform 0.1s ease-out',
-                }}
-              >
-                <iframe 
-                  src={previewUrl} 
-                  width="100%" 
-                  height="600px"
-                  style={{ border: 'none', display: 'block' }}
-                  title="PDF Preview"
-                />
-              </Box>
-            </Box>
-          )}
-          {generatingPreview && !previewUrl && (
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              minHeight: '400px',
-              bgcolor: '#f5f5f5'
-            }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <CircularProgress size={48} sx={{ mb: 2 }} />
-                <Typography variant="body2" color="text.secondary">
-                  Generating preview PDF...
-                </Typography>
-              </Box>
-            </Box>
-          )}
-        </Paper>
-      )}
-
-      {/* Fullscreen Preview Dialog */}
-      <Dialog
-        open={showPreviewFullscreen}
-        onClose={() => setShowPreviewFullscreen(false)}
-        maxWidth={false}
-        fullWidth
-        PaperProps={{
-          sx: {
-            width: '100vw',
-            height: '100vh',
-            maxWidth: '100vw',
-            maxHeight: '100vh',
-            m: 0,
-            borderRadius: 0,
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          bgcolor: 'success.main', 
-          color: 'white',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          pb: 1
-        }}>
-          <Typography variant="h6">PDF Preview - Fullscreen</Typography>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Tooltip title="Zoom Out">
-              <IconButton size="small" onClick={() => setPreviewZoom(Math.max(25, previewZoom - 25))} sx={{ color: 'white' }}>
-                <ZoomOut />
-              </IconButton>
-            </Tooltip>
-            <Typography variant="body2" sx={{ minWidth: 50, textAlign: 'center' }}>
-              {previewZoom}%
-            </Typography>
-            <Tooltip title="Zoom In">
-              <IconButton size="small" onClick={() => setPreviewZoom(Math.min(300, previewZoom + 25))} sx={{ color: 'white' }}>
-                <ZoomIn />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Reset Zoom">
-              <IconButton
-                size="small"
-                onClick={() => {
-                  setPreviewZoom(100);
-                  setPreviewPan({ x: 0, y: 0 });
-                }}
-                sx={{ color: 'white' }}
-              >
-                <Refresh />
-              </IconButton>
-            </Tooltip>
-            <IconButton size="small" onClick={() => setShowPreviewFullscreen(false)} sx={{ color: 'white' }}>
-              <FullscreenExit />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0, bgcolor: '#f5f5f5', position: 'relative', overflow: 'hidden', height: 'calc(100vh - 64px)' }}>
-          {previewUrl && (
-            <Box
+          >
+            <Stepper 
+              activeStep={activeStep} 
+              orientation="vertical"
               sx={{
-                width: '100%',
-                height: '100%',
-                overflow: 'auto',
-                cursor: isPanning ? 'grabbing' : 'grab',
-                position: 'relative'
-              }}
-              onMouseDown={(e) => {
-                if (previewZoom > 100) {
-                  setIsPanning(true);
-                  setPanStart({ x: e.clientX - previewPan.x, y: e.clientY - previewPan.y });
+                '& .MuiStep-root': {
+                  '& .MuiStepLabel-root': {
+                    '& .MuiStepLabel-label': {
+                      fontSize: '1rem',
+                      fontWeight: 500
+                    }
+                  },
+                  '& .MuiStepContent-root': {
+                    borderLeft: '2px solid',
+                    borderColor: 'divider',
+                    ml: 2.5,
+                    pl: 4,
+                    mt: 2
+                  },
+                  '&.Mui-active .MuiStepContent-root': {
+                    borderColor: 'primary.main'
+                  },
+                  '&.Mui-completed .MuiStepContent-root': {
+                    borderColor: 'success.main'
+                  }
                 }
               }}
-              onMouseMove={(e) => {
-                if (isPanning && previewZoom > 100) {
-                  setPreviewPan({
-                    x: e.clientX - panStart.x,
-                    y: e.clientY - panStart.y,
-                  });
-                }
-              }}
-              onMouseUp={() => setIsPanning(false)}
-              onMouseLeave={() => setIsPanning(false)}
             >
-              <Box
-                sx={{
-                  transform: `scale(${previewZoom / 100}) translate(${previewPan.x / (previewZoom / 100)}px, ${previewPan.y / (previewZoom / 100)}px)`,
-                  transformOrigin: 'top left',
-                  width: `${100 / (previewZoom / 100)}%`,
-                  transition: isPanning ? 'none' : 'transform 0.1s ease-out',
-                }}
-              >
-                <iframe 
-                  src={previewUrl} 
-                  width="100%" 
-                  height="100%"
-                  style={{ border: 'none', display: 'block', minHeight: '100vh' }}
-                  title="PDF Preview Fullscreen"
-                />
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Stepper activeStep={activeStep} orientation="vertical">
         {/* Step 1: General Settings */}
         <Step>
-          <StepLabel>General Settings</StepLabel>
+          <StepLabel
+            StepIconComponent={() => (
+              <Box sx={{ 
+                width: 40, 
+                height: 40, 
+                borderRadius: '50%', 
+                bgcolor: activeStep === 0 ? 'primary.main' : activeStep > 0 ? 'success.main' : 'grey.300',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: activeStep === 0 || activeStep > 0 ? 'white' : 'grey.600',
+                fontWeight: 'bold',
+                transition: 'all 0.3s',
+                cursor: 'pointer',
+                boxShadow: activeStep === 0 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  boxShadow: 4
+                }
+              }}>
+                {activeStep > 0 ? <CheckCircle /> : <Settings />}
+              </Box>
+            )}
+          >
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: activeStep === 0 ? 600 : 400,
+                cursor: 'pointer',
+                '&:hover': { color: 'primary.main' },
+                transition: 'color 0.2s'
+              }}
+            >
+              General Settings
+            </Typography>
+          </StepLabel>
           <StepContent>
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
+            <Card 
+              elevation={0}
+              sx={{ 
+                mb: 3, 
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'white',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                }
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
                 <TextField
                   fullWidth
                   label="Template Name"
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
-                  sx={{ mb: 3 }}
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': {
+                        borderColor: 'primary.main',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderWidth: 2,
+                      }
+                    }
+                  }}
                   required
                   helperText="Give your template a descriptive name"
                   InputProps={{
@@ -2109,8 +2681,8 @@ export default function VisualPdfBuilder({
             onClick={() => setActiveStep(1)}
             StepIconComponent={() => (
               <Box sx={{ 
-                width: 40, 
-                height: 40, 
+                width: 44, 
+                height: 44, 
                 borderRadius: '50%', 
                 bgcolor: activeStep === 1 ? 'primary.main' : activeStep > 1 ? 'success.main' : 'grey.300',
                 display: 'flex',
@@ -2118,11 +2690,12 @@ export default function VisualPdfBuilder({
                 justifyContent: 'center',
                 color: activeStep === 1 || activeStep > 1 ? 'white' : 'grey.600',
                 fontWeight: 'bold',
-                transition: 'all 0.3s',
+                transition: 'all 0.3s ease-in-out',
                 cursor: 'pointer',
+                boxShadow: activeStep === 1 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
                 '&:hover': {
                   transform: 'scale(1.1)',
-                  boxShadow: 4
+                  boxShadow: activeStep === 1 ? '0 6px 16px rgba(102, 126, 234, 0.4)' : '0 4px 12px rgba(0,0,0,0.15)'
                 }
               }}>
                 {activeStep > 1 ? <CheckCircle /> : <Description />}
@@ -2141,20 +2714,39 @@ export default function VisualPdfBuilder({
             </Typography>
           </StepLabel>
           <StepContent>
-            <Card sx={{ mb: 2, boxShadow: 3, borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Paper 
-                  elevation={1} 
-                  sx={{ 
-                    p: 2, 
-                    mb: 2, 
-                    bgcolor: config.introPage?.enabled ? 'success.50' : 'grey.50',
-                    border: '2px solid',
-                    borderColor: config.introPage?.enabled ? 'success.main' : 'transparent',
-                    borderRadius: 2,
-                    transition: 'all 0.3s'
-                  }}
-                >
+            <Card 
+              elevation={0}
+              sx={{ 
+                mb: 3, 
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'white',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              <CardContent sx={{ p: 3.5 }}>
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        p: 2.5, 
+                        mb: 3, 
+                        bgcolor: config.introPage?.enabled ? 'success.50' : 'grey.50',
+                        border: '2px solid',
+                        borderColor: config.introPage?.enabled ? 'success.main' : 'grey.200',
+                        borderRadius: 2,
+                        transition: 'all 0.3s',
+                        '&:hover': {
+                          borderColor: config.introPage?.enabled ? 'success.dark' : 'grey.300',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                        }
+                      }}
+                    >
                   <FormControlLabel
                     control={
                       <Checkbox
@@ -2420,21 +3012,68 @@ export default function VisualPdfBuilder({
                     </Grid>
                   </Box>
                 )}
+                
+                {/* Buttons Section for Intro Page */}
+                {config.introPage?.enabled && (
+                  <Box sx={{ mt: 3 }}>
+                    <Divider sx={{ mb: 3 }} />
+                    <ButtonManager
+                      buttons={config.introPage.buttons || []}
+                      onButtonsChange={(buttons) =>
+                        setConfig({
+                          ...config,
+                          introPage: {
+                            ...config.introPage!,
+                            buttons: buttons.length > 0 ? buttons : undefined,
+                          },
+                        })
+                      }
+                      pageType="Intro Page"
+                    />
+                  </Box>
+                )}
               </CardContent>
             </Card>
 
-            <Box sx={{ mb: 2, display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
+            <Box sx={{ mb: 2, display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 3 }}>
               <Button 
                 variant="outlined" 
                 onClick={handleBack}
-                sx={{ minWidth: 100 }}
+                sx={{ 
+                  minWidth: 120,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Back
               </Button>
               <Button 
                 variant="contained" 
                 onClick={handleNext}
-                sx={{ minWidth: 120 }}
+                sx={{ 
+                  minWidth: 140,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Continue
               </Button>
@@ -2448,8 +3087,8 @@ export default function VisualPdfBuilder({
             onClick={() => setActiveStep(2)}
             StepIconComponent={() => (
               <Box sx={{ 
-                width: 40, 
-                height: 40, 
+                width: 44, 
+                height: 44, 
                 borderRadius: '50%', 
                 bgcolor: activeStep === 2 ? 'primary.main' : activeStep > 2 ? 'success.main' : 'grey.300',
                 display: 'flex',
@@ -2457,11 +3096,12 @@ export default function VisualPdfBuilder({
                 justifyContent: 'center',
                 color: activeStep === 2 || activeStep > 2 ? 'white' : 'grey.600',
                 fontWeight: 'bold',
-                transition: 'all 0.3s',
+                transition: 'all 0.3s ease-in-out',
                 cursor: 'pointer',
+                boxShadow: activeStep === 2 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
                 '&:hover': {
                   transform: 'scale(1.1)',
-                  boxShadow: 4
+                  boxShadow: activeStep === 2 ? '0 6px 16px rgba(102, 126, 234, 0.4)' : '0 4px 12px rgba(0,0,0,0.15)'
                 }
               }}>
                 {activeStep > 2 ? <CheckCircle /> : <Article />}
@@ -2480,8 +3120,23 @@ export default function VisualPdfBuilder({
             </Typography>
           </StepLabel>
           <StepContent>
-            <Card sx={{ mb: 2, boxShadow: 3, borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
+            <Card 
+              elevation={0}
+              sx={{ 
+                mb: 3, 
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'white',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              <CardContent sx={{ p: 3.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                   <Article color="primary" />
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -2740,18 +3395,45 @@ export default function VisualPdfBuilder({
               </CardContent>
             </Card>
 
-            <Box sx={{ mb: 2, display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
+            <Box sx={{ mb: 2, display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 3 }}>
               <Button 
                 variant="outlined" 
                 onClick={handleBack}
-                sx={{ minWidth: 100 }}
+                sx={{ 
+                  minWidth: 120,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Back
               </Button>
               <Button 
                 variant="contained" 
                 onClick={handleNext}
-                sx={{ minWidth: 120 }}
+                sx={{ 
+                  minWidth: 140,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Continue
               </Button>
@@ -2765,8 +3447,8 @@ export default function VisualPdfBuilder({
             onClick={() => setActiveStep(3)}
             StepIconComponent={() => (
               <Box sx={{ 
-                width: 40, 
-                height: 40, 
+                width: 44, 
+                height: 44, 
                 borderRadius: '50%', 
                 bgcolor: activeStep === 3 ? 'primary.main' : activeStep > 3 ? 'success.main' : 'grey.300',
                 display: 'flex',
@@ -2774,11 +3456,12 @@ export default function VisualPdfBuilder({
                 justifyContent: 'center',
                 color: activeStep === 3 || activeStep > 3 ? 'white' : 'grey.600',
                 fontWeight: 'bold',
-                transition: 'all 0.3s',
+                transition: 'all 0.3s ease-in-out',
                 cursor: 'pointer',
+                boxShadow: activeStep === 3 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
                 '&:hover': {
                   transform: 'scale(1.1)',
-                  boxShadow: 4
+                  boxShadow: activeStep === 3 ? '0 6px 16px rgba(102, 126, 234, 0.4)' : '0 4px 12px rgba(0,0,0,0.15)'
                 }
               }}>
                 {activeStep > 3 ? <CheckCircle /> : <ViewDay />}
@@ -2799,9 +3482,12 @@ export default function VisualPdfBuilder({
           <StepContent>
             <Card sx={{ mb: 2 }}>
               <CardContent>
-                <Typography variant="subtitle1" gutterBottom>
-                  Day/Content Page Layout
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <ViewDay sx={{ color: 'primary.main', fontSize: 28 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    Day/Content Page Layout
+                  </Typography>
+                </Box>
 
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                   <Grid item xs={12} sm={6}>
@@ -2850,35 +3536,67 @@ export default function VisualPdfBuilder({
                   </Grid>
 
                   {kind === 'nutrition' && (
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel>Meals Per Page</InputLabel>
-                        <Select
-                          value={config.dayPages.mealsPerPage || ''}
-                          label="Meals Per Page"
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              dayPages: {
-                                ...config.dayPages,
-                                mealsPerPage: e.target.value === '' ? undefined : (e.target.value as number),
-                              },
-                            })
-                          }
-                        >
-                          <MenuItem value="">Unlimited</MenuItem>
-                          <MenuItem value={1}>1 Meal</MenuItem>
-                          <MenuItem value={2}>2 Meals</MenuItem>
-                          <MenuItem value={3}>3 Meals</MenuItem>
-                          <MenuItem value={4}>4 Meals</MenuItem>
-                          <MenuItem value={5}>5 Meals</MenuItem>
-                          <MenuItem value={6}>6 Meals</MenuItem>
-                        </Select>
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Start a new page after this many meals
-                        </Typography>
-                      </FormControl>
-                    </Grid>
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth>
+                          <InputLabel>Meals Per Page</InputLabel>
+                          <Select
+                            value={config.dayPages.mealsPerPage || ''}
+                            label="Meals Per Page"
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                dayPages: {
+                                  ...config.dayPages,
+                                  mealsPerPage: e.target.value === '' ? undefined : (e.target.value as number),
+                                },
+                              })
+                            }
+                          >
+                            <MenuItem value="">Unlimited</MenuItem>
+                            <MenuItem value={1}>1 Meal</MenuItem>
+                            <MenuItem value={2}>2 Meals</MenuItem>
+                            <MenuItem value={3}>3 Meals</MenuItem>
+                            <MenuItem value={4}>4 Meals</MenuItem>
+                            <MenuItem value={5}>5 Meals</MenuItem>
+                            <MenuItem value={6}>6 Meals</MenuItem>
+                          </Select>
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Start a new page after this many meals. If a meal is too large, it will continue on the next page.
+                          </Typography>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth>
+                          <InputLabel>Food Items Per Meal</InputLabel>
+                          <Select
+                            value={config.dayPages.foodItemsPerMeal || ''}
+                            label="Food Items Per Meal"
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                dayPages: {
+                                  ...config.dayPages,
+                                  foodItemsPerMeal: e.target.value === '' ? undefined : (e.target.value as number),
+                                },
+                              })
+                            }
+                          >
+                            <MenuItem value="">Unlimited</MenuItem>
+                            <MenuItem value={3}>3 Items</MenuItem>
+                            <MenuItem value={5}>5 Items</MenuItem>
+                            <MenuItem value={8}>8 Items</MenuItem>
+                            <MenuItem value={10}>10 Items</MenuItem>
+                            <MenuItem value={12}>12 Items</MenuItem>
+                            <MenuItem value={15}>15 Items</MenuItem>
+                            <MenuItem value={20}>20 Items</MenuItem>
+                          </Select>
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Maximum food items per meal before continuing on next page. If a meal exceeds this, it will split across pages.
+                          </Typography>
+                        </FormControl>
+                      </Grid>
+                    </>
                   )}
 
                   {/* Spacing Controls */}
@@ -2919,28 +3637,255 @@ export default function VisualPdfBuilder({
                   )}
 
                   {kind === 'nutrition' && (
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label="Meal Spacing (px)"
-                        value={config.dayPages.options.mealSpacing ?? 10}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            dayPages: {
-                              ...config.dayPages,
-                              options: {
-                                ...config.dayPages.options,
-                                mealSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Meal Spacing (px)"
+                          value={config.dayPages.options.mealSpacing ?? 10}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  mealSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                                },
                               },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 100 }}
+                          helperText="Vertical space between meals"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Food Item Spacing (px)"
+                          value={config.dayPages.options.foodItemSpacing ?? 5}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  foodItemSpacing: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 50 }}
+                          helperText="Vertical space between food items within a meal"
+                        />
+                      </Grid>
+                    </>
+                  )}
+                  
+                  {/* Advanced Spacing Controls */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                      Advanced Spacing & Positioning
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                      Fine-tune content positioning and spacing for better layout control
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Content Padding Top (px)"
+                      value={config.dayPages.options.contentPaddingTop ?? 20}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          dayPages: {
+                            ...config.dayPages,
+                            options: {
+                              ...config.dayPages.options,
+                              contentPaddingTop: Math.max(0, parseInt(e.target.value) || 0),
                             },
-                          })
-                        }
-                        inputProps={{ min: 0, max: 40 }}
-                        helperText="Vertical space between meals"
-                      />
-                    </Grid>
+                          },
+                        })
+                      }
+                      inputProps={{ min: 0, max: 200 }}
+                      helperText="Top padding for content area"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Content Padding Bottom (px)"
+                      value={config.dayPages.options.contentPaddingBottom ?? 20}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          dayPages: {
+                            ...config.dayPages,
+                            options: {
+                              ...config.dayPages.options,
+                              contentPaddingBottom: Math.max(0, parseInt(e.target.value) || 0),
+                            },
+                          },
+                        })
+                      }
+                      inputProps={{ min: 0, max: 200 }}
+                      helperText="Bottom padding for content area"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Content Padding Left (px)"
+                      value={config.dayPages.options.contentPaddingLeft ?? 20}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          dayPages: {
+                            ...config.dayPages,
+                            options: {
+                              ...config.dayPages.options,
+                              contentPaddingLeft: Math.max(0, parseInt(e.target.value) || 0),
+                            },
+                          },
+                        })
+                      }
+                      inputProps={{ min: 0, max: 200 }}
+                      helperText="Left padding for content area"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Content Padding Right (px)"
+                      value={config.dayPages.options.contentPaddingRight ?? 20}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          dayPages: {
+                            ...config.dayPages,
+                            options: {
+                              ...config.dayPages.options,
+                              contentPaddingRight: Math.max(0, parseInt(e.target.value) || 0),
+                            },
+                          },
+                        })
+                      }
+                      inputProps={{ min: 0, max: 200 }}
+                      helperText="Right padding for content area"
+                    />
+                  </Grid>
+                  
+                  {kind === 'nutrition' && (
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Meal Title Margin Top (px)"
+                          value={config.dayPages.options.mealTitleMarginTop ?? 15}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  mealTitleMarginTop: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 100 }}
+                          helperText="Space above meal title"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Meal Title Margin Bottom (px)"
+                          value={config.dayPages.options.mealTitleMarginBottom ?? 10}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  mealTitleMarginBottom: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 100 }}
+                          helperText="Space below meal title"
+                        />
+                      </Grid>
+                    </>
+                  )}
+                  
+                  {kind === 'workout' && (
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Exercise Title Margin Top (px)"
+                          value={config.dayPages.options.exerciseTitleMarginTop ?? 15}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  exerciseTitleMarginTop: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 100 }}
+                          helperText="Space above exercise title"
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Exercise Title Margin Bottom (px)"
+                          value={config.dayPages.options.exerciseTitleMarginBottom ?? 10}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              dayPages: {
+                                ...config.dayPages,
+                                options: {
+                                  ...config.dayPages.options,
+                                  exerciseTitleMarginBottom: Math.max(0, parseInt(e.target.value) || 0),
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0, max: 100 }}
+                          helperText="Space below exercise title"
+                        />
+                      </Grid>
+                    </>
                   )}
 
                   <Grid item xs={12}>
@@ -3484,91 +4429,740 @@ export default function VisualPdfBuilder({
                       )}
                     </Grid>
 
-                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mt: 3 }}>
-                      Set Table Columns
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, mt: 3 }}>
+                      <TableChart sx={{ color: 'primary.main', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Set Table Columns
+                      </Typography>
+                    </Box>
                     <Grid container spacing={1}>
                       <Grid item xs={12}>
-                        <Alert severity="info" sx={{ fontSize: '0.8rem', mb: 1 }}>
-                          The table always includes Set # and Reps. Toggle the additional columns below.
-                        </Alert>
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={config.dayPages.options.showSetRest !== false}
-                              onChange={(e) =>
-                                setConfig((prev) => ({
-                                  ...prev,
-                                  dayPages: {
-                                    ...prev.dayPages,
-                                    options: {
-                                      ...prev.dayPages.options,
-                                      showSetRest: e.target.checked,
-                                    },
-                                  },
-                                }))
-                              }
-                            />
+                      <Alert 
+                        severity="info" 
+                        sx={{ 
+                          fontSize: '0.875rem', 
+                          mb: 2,
+                          borderRadius: 2,
+                          bgcolor: 'info.50',
+                          border: '1px solid',
+                          borderColor: 'info.200',
+                          '& .MuiAlert-icon': {
+                            color: 'info.main'
                           }
-                          label="Rest"
-                        />
+                        }}
+                        icon={<HelpOutline />}
+                      >
+                        The table always includes <strong>Set #</strong> and <strong>Reps</strong>. Toggle the additional columns below to customize what appears in the workout table.
+                      </Alert>
                       </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={config.dayPages.options.showSetTempo !== false}
-                              onChange={(e) =>
-                                setConfig((prev) => ({
-                                  ...prev,
-                                  dayPages: {
-                                    ...prev.dayPages,
-                                    options: {
-                                      ...prev.dayPages.options,
-                                      showSetTempo: e.target.checked,
-                                    },
-                                  },
-                                }))
-                              }
-                            />
-                          }
-                          label="Tempo"
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={config.dayPages.options.showSetRir !== false}
-                              onChange={(e) =>
-                                setConfig((prev) => ({
-                                  ...prev,
-                                  dayPages: {
-                                    ...prev.dayPages,
-                                    options: {
-                                      ...prev.dayPages.options,
-                                      showSetRir: e.target.checked,
-                                    },
-                                  },
-                                }))
-                              }
-                            />
-                          }
-                          label="RIR"
-                        />
+                      <Grid item xs={12}>
+                        <Card 
+                          variant="outlined" 
+                          sx={{ 
+                            p: 2.5, 
+                            bgcolor: 'grey.50',
+                            borderRadius: 2,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              bgcolor: 'grey.100',
+                              borderColor: 'primary.light',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                            }
+                          }}
+                        >
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, fontWeight: 600 }}>
+                            Always Visible Columns:
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                            <Chip label="Set #" size="small" color="primary" />
+                            <Chip label="Reps" size="small" color="primary" />
+                          </Box>
+                          
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, fontWeight: 600 }}>
+                            Optional Columns (Toggle to show/hide):
+                          </Typography>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6} md={4}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={config.dayPages.options.showSetRest !== false}
+                                    onChange={(e) =>
+                                      setConfig((prev) => ({
+                                        ...prev,
+                                        dayPages: {
+                                          ...prev.dayPages,
+                                          options: {
+                                            ...prev.dayPages.options,
+                                            showSetRest: e.target.checked,
+                                          },
+                                        },
+                                      }))
+                                    }
+                                  />
+                                }
+                                label={
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      Rest
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Rest time between sets
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={config.dayPages.options.showSetTempo !== false}
+                                    onChange={(e) =>
+                                      setConfig((prev) => ({
+                                        ...prev,
+                                        dayPages: {
+                                          ...prev.dayPages,
+                                          options: {
+                                            ...prev.dayPages.options,
+                                            showSetTempo: e.target.checked,
+                                          },
+                                        },
+                                      }))
+                                    }
+                                  />
+                                }
+                                label={
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      Tempo
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Movement tempo (e.g., 2-0-1-0)
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={config.dayPages.options.showSetRir !== false}
+                                    onChange={(e) =>
+                                      setConfig((prev) => ({
+                                        ...prev,
+                                        dayPages: {
+                                          ...prev.dayPages,
+                                          options: {
+                                            ...prev.dayPages.options,
+                                            showSetRir: e.target.checked,
+                                          },
+                                        },
+                                      }))
+                                    }
+                                  />
+                                }
+                                label={
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      RIR
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Reps in Reserve
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={config.dayPages.options.showSetNotes !== false}
+                                    onChange={(e) =>
+                                      setConfig((prev) => ({
+                                        ...prev,
+                                        dayPages: {
+                                          ...prev.dayPages,
+                                          options: {
+                                            ...prev.dayPages.options,
+                                            showSetNotes: e.target.checked,
+                                          },
+                                        },
+                                      }))
+                                    }
+                                  />
+                                }
+                                label={
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      Notes
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Set-specific notes
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                            </Grid>
+                          </Grid>
+                        </Card>
                       </Grid>
                     </Grid>
+                    
+                    {/* Exercise Layout Options */}
+                    <Divider sx={{ my: 3 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                      Exercise Layout & Display
+                    </Typography>
+                    
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                      <Grid item xs={12}>
+                        <FormControl fullWidth>
+                          <InputLabel>Exercise View/Layout</InputLabel>
+                          <Select
+                            value={config.dayPages.options.exerciseLayout || 'vertical'}
+                            label="Exercise View/Layout"
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    exerciseLayout: e.target.value as 'vertical' | 'horizontal' | 'table' | 'compact',
+                                  },
+                                },
+                              }))
+                            }
+                          >
+                            <MenuItem value="vertical">Vertical - Exercises stacked vertically</MenuItem>
+                            <MenuItem value="horizontal">Horizontal - Exercises in horizontal rows</MenuItem>
+                            <MenuItem value="table">Table Format - Traditional table layout</MenuItem>
+                            <MenuItem value="compact">Compact - Minimal spacing, compact view</MenuItem>
+                          </Select>
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                            Choose how exercises are displayed in the workout plan
+                          </Typography>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                    
+                    {/* Exercise Table Border & Styling */}
+                    <Divider sx={{ my: 3 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                      Exercise Table Styling
+                    </Typography>
+                    
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        mb: 3, 
+                        p: 2.5,
+                        borderRadius: 2,
+                        bgcolor: 'white',
+                        borderColor: 'divider',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                          borderColor: 'primary.light'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          Exercise Table Border
+                        </Typography>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={config.dayPages.options.exerciseTableBorder?.enabled || false}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      exerciseTableBorder: {
+                                        ...prev.dayPages.options.exerciseTableBorder,
+                                        enabled: e.target.checked,
+                                        color: prev.dayPages.options.exerciseTableBorder?.color || '#d0d0d0',
+                                        width: prev.dayPages.options.exerciseTableBorder?.width || 1,
+                                        style: prev.dayPages.options.exerciseTableBorder?.style || 'solid',
+                                        radius: prev.dayPages.options.exerciseTableBorder?.radius || 0,
+                                        headerBackground: prev.dayPages.options.exerciseTableBorder?.headerBackground || '#f5f5f5',
+                                        headerTextColor: prev.dayPages.options.exerciseTableBorder?.headerTextColor || '#000000',
+                                        rowStripeColor: prev.dayPages.options.exerciseTableBorder?.rowStripeColor || '#fafafa',
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          }
+                          label="Enable Table Border"
+                        />
+                      </Box>
+                      
+                      {config.dayPages.options.exerciseTableBorder?.enabled && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Border Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.exerciseTableBorder?.color || '#d0d0d0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.exerciseTableBorder?.color || '#d0d0d0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Border Width (px)"
+                              value={config.dayPages.options.exerciseTableBorder?.width || 1}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      exerciseTableBorder: {
+                                        ...prev.dayPages.options.exerciseTableBorder!,
+                                        width: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 10 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Border Radius (px)"
+                              value={config.dayPages.options.exerciseTableBorder?.radius || 0}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      exerciseTableBorder: {
+                                        ...prev.dayPages.options.exerciseTableBorder!,
+                                        radius: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 50 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Border Style</InputLabel>
+                              <Select
+                                value={config.dayPages.options.exerciseTableBorder?.style || 'solid'}
+                                label="Border Style"
+                                onChange={(e) =>
+                                  setConfig((prev) => ({
+                                    ...prev,
+                                    dayPages: {
+                                      ...prev.dayPages,
+                                      options: {
+                                        ...prev.dayPages.options,
+                                        exerciseTableBorder: {
+                                          ...prev.dayPages.options.exerciseTableBorder!,
+                                          style: e.target.value as 'solid' | 'dashed' | 'dotted' | 'double',
+                                        },
+                                      },
+                                    },
+                                  }))
+                                }
+                              >
+                                <MenuItem value="solid">Solid</MenuItem>
+                                <MenuItem value="dashed">Dashed</MenuItem>
+                                <MenuItem value="dotted">Dotted</MenuItem>
+                                <MenuItem value="double">Double</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Header Background Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.exerciseTableBorder?.headerBackground || '#f5f5f5'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            headerBackground: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.exerciseTableBorder?.headerBackground || '#f5f5f5'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            headerBackground: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Header Text Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.exerciseTableBorder?.headerTextColor || '#000000'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            headerTextColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.exerciseTableBorder?.headerTextColor || '#000000'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            headerTextColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Row Stripe Color (Alternating Rows)
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.exerciseTableBorder?.rowStripeColor || '#fafafa'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            rowStripeColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.exerciseTableBorder?.rowStripeColor || '#fafafa'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          exerciseTableBorder: {
+                                            ...prev.dayPages.options.exerciseTableBorder!,
+                                            rowStripeColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                        </Grid>
+                      )}
+                    </Card>
+                    
+                    {/* Advanced Positioning for Workout */}
+                    <Divider sx={{ my: 3 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                      Advanced Positioning
+                    </Typography>
+                    
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        mb: 3, 
+                        p: 2.5,
+                        borderRadius: 2,
+                        bgcolor: 'white',
+                        borderColor: 'divider',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                          borderColor: 'primary.light'
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Control the starting position of the exercise table/content area on the page
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Table Start X Position (px)"
+                            value={config.dayPages.options.exerciseTablePosition?.x ?? 20}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    exerciseTablePosition: {
+                                      ...prev.dayPages.options.exerciseTablePosition,
+                                      x: parseInt(e.target.value) || 0,
+                                    },
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 1000 }}
+                            helperText="Horizontal starting position of the table"
+                            size="small"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Table Start Y Position (px)"
+                            value={config.dayPages.options.exerciseTablePosition?.y ?? 20}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    exerciseTablePosition: {
+                                      ...prev.dayPages.options.exerciseTablePosition,
+                                      y: parseInt(e.target.value) || 0,
+                                    },
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 1000 }}
+                            helperText="Vertical starting position of the table"
+                            size="small"
+                          />
+                        </Grid>
+                      </Grid>
+                    </Card>
+                    
+                    {/* Advanced Spacing for Workout */}
+                    <Divider sx={{ my: 3 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                      Advanced Spacing Controls
+                    </Typography>
+                    
+                    <Card variant="outlined" sx={{ mb: 2, p: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Fine-tune spacing between exercises and their elements
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Spacing Between Exercises (px)"
+                            value={config.dayPages.options.spacingBetweenExercises ?? 15}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    spacingBetweenExercises: Math.max(0, parseInt(e.target.value) || 0),
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 100 }}
+                            helperText="Vertical/horizontal space between each exercise"
+                            size="small"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Spacing Between Exercise & Details (px)"
+                            value={config.dayPages.options.spacingBetweenExerciseAndDetails ?? 10}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    spacingBetweenExerciseAndDetails: Math.max(0, parseInt(e.target.value) || 0),
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 100 }}
+                            helperText="Space between exercise name and set details"
+                            size="small"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Spacing Between Set Details (px)"
+                            value={config.dayPages.options.spacingBetweenSetDetails ?? 5}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    spacingBetweenSetDetails: Math.max(0, parseInt(e.target.value) || 0),
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 50 }}
+                            helperText="Space between set details (reps, rest, tempo, RIR)"
+                            size="small"
+                          />
+                        </Grid>
+                      </Grid>
+                    </Card>
                   </>
                 )}
 
                 {kind === 'nutrition' && (
                   <>
-                    <Divider sx={{ my: 2 }} />
-                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
-                      Nutrition Content
-                    </Typography>
+                    <Divider sx={{ my: 3, borderWidth: 1 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <TableChart sx={{ color: 'primary.main', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Nutrition Content
+                      </Typography>
+                    </Box>
                     <Grid container spacing={1}>
                       <Grid item xs={12} sm={6}>
                         <FormControlLabel
@@ -3847,23 +5441,981 @@ export default function VisualPdfBuilder({
                         />
                       </Grid>
                     </Grid>
+                    
+                    {/* Border Options */}
+                    <Divider sx={{ my: 3, borderWidth: 1 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                      <Palette sx={{ color: 'primary.main', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Border Styling
+                      </Typography>
+                    </Box>
+                    
+                    {/* Meal Border */}
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        mb: 3, 
+                        p: 2.5,
+                        borderRadius: 2,
+                        bgcolor: 'white',
+                        borderColor: 'divider',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                          borderColor: 'primary.light'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          Meal Border
+                        </Typography>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={config.dayPages.options.mealBorder?.enabled || false}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      mealBorder: {
+                                        ...prev.dayPages.options.mealBorder,
+                                        enabled: e.target.checked,
+                                        color: prev.dayPages.options.mealBorder?.color || '#e0e0e0',
+                                        width: prev.dayPages.options.mealBorder?.width || 1,
+                                        style: prev.dayPages.options.mealBorder?.style || 'solid',
+                                        radius: prev.dayPages.options.mealBorder?.radius || 0,
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          }
+                          label="Enable Border"
+                        />
+                      </Box>
+                      
+                      {config.dayPages.options.mealBorder?.enabled && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Border Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.mealBorder?.color || '#e0e0e0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealBorder: {
+                                            ...prev.dayPages.options.mealBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.mealBorder?.color || '#e0e0e0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealBorder: {
+                                            ...prev.dayPages.options.mealBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Width (px)"
+                              value={config.dayPages.options.mealBorder?.width || 1}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      mealBorder: {
+                                        ...prev.dayPages.options.mealBorder!,
+                                        width: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 10 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Radius (px)"
+                              value={config.dayPages.options.mealBorder?.radius || 0}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      mealBorder: {
+                                        ...prev.dayPages.options.mealBorder!,
+                                        radius: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 50 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Border Style</InputLabel>
+                              <Select
+                                value={config.dayPages.options.mealBorder?.style || 'solid'}
+                                label="Border Style"
+                                onChange={(e) =>
+                                  setConfig((prev) => ({
+                                    ...prev,
+                                    dayPages: {
+                                      ...prev.dayPages,
+                                      options: {
+                                        ...prev.dayPages.options,
+                                        mealBorder: {
+                                          ...prev.dayPages.options.mealBorder!,
+                                          style: e.target.value as 'solid' | 'dashed' | 'dotted' | 'double',
+                                        },
+                                      },
+                                    },
+                                  }))
+                                }
+                              >
+                                <MenuItem value="solid">Solid</MenuItem>
+                                <MenuItem value="dashed">Dashed</MenuItem>
+                                <MenuItem value="dotted">Dotted</MenuItem>
+                                <MenuItem value="double">Double</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                        </Grid>
+                      )}
+                    </Card>
+                    
+                    {/* Food Item Border */}
+                    <Card variant="outlined" sx={{ mb: 2, p: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          Food Item Border
+                        </Typography>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={config.dayPages.options.foodItemBorder?.enabled || false}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      foodItemBorder: {
+                                        ...prev.dayPages.options.foodItemBorder,
+                                        enabled: e.target.checked,
+                                        color: prev.dayPages.options.foodItemBorder?.color || '#f0f0f0',
+                                        width: prev.dayPages.options.foodItemBorder?.width || 1,
+                                        style: prev.dayPages.options.foodItemBorder?.style || 'solid',
+                                        radius: prev.dayPages.options.foodItemBorder?.radius || 0,
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          }
+                          label="Enable Border"
+                        />
+                      </Box>
+                      
+                      {config.dayPages.options.foodItemBorder?.enabled && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Border Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.foodItemBorder?.color || '#f0f0f0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          foodItemBorder: {
+                                            ...prev.dayPages.options.foodItemBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.foodItemBorder?.color || '#f0f0f0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          foodItemBorder: {
+                                            ...prev.dayPages.options.foodItemBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Width (px)"
+                              value={config.dayPages.options.foodItemBorder?.width || 1}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      foodItemBorder: {
+                                        ...prev.dayPages.options.foodItemBorder!,
+                                        width: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 10 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Radius (px)"
+                              value={config.dayPages.options.foodItemBorder?.radius || 0}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      foodItemBorder: {
+                                        ...prev.dayPages.options.foodItemBorder!,
+                                        radius: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 50 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Border Style</InputLabel>
+                              <Select
+                                value={config.dayPages.options.foodItemBorder?.style || 'solid'}
+                                label="Border Style"
+                                onChange={(e) =>
+                                  setConfig((prev) => ({
+                                    ...prev,
+                                    dayPages: {
+                                      ...prev.dayPages,
+                                      options: {
+                                        ...prev.dayPages.options,
+                                        foodItemBorder: {
+                                          ...prev.dayPages.options.foodItemBorder!,
+                                          style: e.target.value as 'solid' | 'dashed' | 'dotted' | 'double',
+                                        },
+                                      },
+                                    },
+                                  }))
+                                }
+                              >
+                                <MenuItem value="solid">Solid</MenuItem>
+                                <MenuItem value="dashed">Dashed</MenuItem>
+                                <MenuItem value="dotted">Dotted</MenuItem>
+                                <MenuItem value="double">Double</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                        </Grid>
+                      )}
+                    </Card>
+                    
+                    {/* Food Items Layout Options */}
+                    <Divider sx={{ my: 3, borderWidth: 1 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                      <FormatSize sx={{ color: 'primary.main', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Food Items Layout & Display
+                      </Typography>
+                    </Box>
+                    
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                      <Grid item xs={12}>
+                        <FormControl fullWidth>
+                          <InputLabel>Food Items View/Layout</InputLabel>
+                          <Select
+                            value={config.dayPages.options.foodItemsLayout || 'vertical'}
+                            label="Food Items View/Layout"
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    foodItemsLayout: e.target.value as 'vertical' | 'horizontal' | 'table' | 'vertical-with-macros' | 'horizontal-calories-vertical-macros',
+                                  },
+                                },
+                              }))
+                            }
+                          >
+                            <MenuItem value="vertical">Vertical - Food items stacked vertically with grams</MenuItem>
+                            <MenuItem value="vertical-with-macros">Vertical with Macros - Food items with grams and macros below</MenuItem>
+                            <MenuItem value="horizontal">Horizontal - Food items in horizontal rows</MenuItem>
+                            <MenuItem value="horizontal-calories-vertical-macros">Horizontal Calories, Vertical Macros - Calories horizontal, other macros vertical</MenuItem>
+                            <MenuItem value="table">Table Format - Traditional table layout</MenuItem>
+                          </Select>
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                            Choose how food items are displayed in each meal
+                          </Typography>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                    
+                    {/* Meal Table Border & Styling */}
+                    <Divider sx={{ my: 3, borderWidth: 1 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                      <Image sx={{ color: 'primary.main', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Meal Table Styling
+                      </Typography>
+                    </Box>
+                    
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        mb: 3, 
+                        p: 2.5,
+                        borderRadius: 2,
+                        bgcolor: 'white',
+                        borderColor: 'divider',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                          borderColor: 'primary.light'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          Meal Table Border
+                        </Typography>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={config.dayPages.options.mealTableBorder?.enabled || false}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      mealTableBorder: {
+                                        ...prev.dayPages.options.mealTableBorder,
+                                        enabled: e.target.checked,
+                                        color: prev.dayPages.options.mealTableBorder?.color || '#d0d0d0',
+                                        width: prev.dayPages.options.mealTableBorder?.width || 1,
+                                        style: prev.dayPages.options.mealTableBorder?.style || 'solid',
+                                        radius: prev.dayPages.options.mealTableBorder?.radius || 0,
+                                        headerBackground: prev.dayPages.options.mealTableBorder?.headerBackground || '#f5f5f5',
+                                        headerTextColor: prev.dayPages.options.mealTableBorder?.headerTextColor || '#000000',
+                                        rowStripeColor: prev.dayPages.options.mealTableBorder?.rowStripeColor || '#fafafa',
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          }
+                          label="Enable Table Border"
+                        />
+                      </Box>
+                      
+                      {config.dayPages.options.mealTableBorder?.enabled && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Border Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.mealTableBorder?.color || '#d0d0d0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.mealTableBorder?.color || '#d0d0d0'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            color: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Border Width (px)"
+                              value={config.dayPages.options.mealTableBorder?.width || 1}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      mealTableBorder: {
+                                        ...prev.dayPages.options.mealTableBorder!,
+                                        width: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 10 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Border Radius (px)"
+                              value={config.dayPages.options.mealTableBorder?.radius || 0}
+                              onChange={(e) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  dayPages: {
+                                    ...prev.dayPages,
+                                    options: {
+                                      ...prev.dayPages.options,
+                                      mealTableBorder: {
+                                        ...prev.dayPages.options.mealTableBorder!,
+                                        radius: Math.max(0, parseInt(e.target.value) || 0),
+                                      },
+                                    },
+                                  },
+                                }))
+                              }
+                              inputProps={{ min: 0, max: 50 }}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Border Style</InputLabel>
+                              <Select
+                                value={config.dayPages.options.mealTableBorder?.style || 'solid'}
+                                label="Border Style"
+                                onChange={(e) =>
+                                  setConfig((prev) => ({
+                                    ...prev,
+                                    dayPages: {
+                                      ...prev.dayPages,
+                                      options: {
+                                        ...prev.dayPages.options,
+                                        mealTableBorder: {
+                                          ...prev.dayPages.options.mealTableBorder!,
+                                          style: e.target.value as 'solid' | 'dashed' | 'dotted' | 'double',
+                                        },
+                                      },
+                                    },
+                                  }))
+                                }
+                              >
+                                <MenuItem value="solid">Solid</MenuItem>
+                                <MenuItem value="dashed">Dashed</MenuItem>
+                                <MenuItem value="dotted">Dotted</MenuItem>
+                                <MenuItem value="double">Double</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Header Background Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.mealTableBorder?.headerBackground || '#f5f5f5'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            headerBackground: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.mealTableBorder?.headerBackground || '#f5f5f5'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            headerBackground: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Header Text Color
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.mealTableBorder?.headerTextColor || '#000000'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            headerTextColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.mealTableBorder?.headerTextColor || '#000000'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            headerTextColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Box>
+                              <Typography variant="caption" gutterBottom sx={{ display: 'block', mb: 0.5 }}>
+                                Row Stripe Color (Alternating Rows)
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  type="color"
+                                  value={config.dayPages.options.mealTableBorder?.rowStripeColor || '#fafafa'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            rowStripeColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 60, '& input': { height: 40, cursor: 'pointer' } }}
+                                />
+                                <TextField
+                                  value={config.dayPages.options.mealTableBorder?.rowStripeColor || '#fafafa'}
+                                  onChange={(e) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      dayPages: {
+                                        ...prev.dayPages,
+                                        options: {
+                                          ...prev.dayPages.options,
+                                          mealTableBorder: {
+                                            ...prev.dayPages.options.mealTableBorder!,
+                                            rowStripeColor: e.target.value,
+                                          },
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  size="small"
+                                  sx={{ flex: 1 }}
+                                />
+                              </Box>
+                            </Box>
+                          </Grid>
+                        </Grid>
+                      )}
+                    </Card>
+                    
+                    {/* Advanced Positioning */}
+                    <Divider sx={{ my: 3, borderWidth: 1 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                      <Settings sx={{ color: 'primary.main', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Advanced Positioning
+                      </Typography>
+                    </Box>
+                    
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        mb: 3, 
+                        p: 2.5,
+                        borderRadius: 2,
+                        bgcolor: 'white',
+                        borderColor: 'divider',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                          borderColor: 'primary.light'
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Control the starting position of the meal table/content area on the page
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Table Start X Position (px)"
+                            value={config.dayPages.options.mealTablePosition?.x ?? 20}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    mealTablePosition: {
+                                      ...prev.dayPages.options.mealTablePosition,
+                                      x: parseInt(e.target.value) || 0,
+                                    },
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 1000 }}
+                            helperText="Horizontal starting position of the table"
+                            size="small"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Table Start Y Position (px)"
+                            value={config.dayPages.options.mealTablePosition?.y ?? 20}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    mealTablePosition: {
+                                      ...prev.dayPages.options.mealTablePosition,
+                                      y: parseInt(e.target.value) || 0,
+                                    },
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 1000 }}
+                            helperText="Vertical starting position of the table"
+                            size="small"
+                          />
+                        </Grid>
+                      </Grid>
+                    </Card>
+                    
+                    {/* Advanced Spacing */}
+                    <Divider sx={{ my: 3, borderWidth: 1 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                      <FormatSize sx={{ color: 'primary.main', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Advanced Spacing Controls
+                      </Typography>
+                    </Box>
+                    
+                    <Card variant="outlined" sx={{ mb: 2, p: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Fine-tune spacing between food items and their elements
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Spacing Between Food Items (px)"
+                            value={config.dayPages.options.spacingBetweenFoodItems ?? 8}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    spacingBetweenFoodItems: Math.max(0, parseInt(e.target.value) || 0),
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 100 }}
+                            helperText="Vertical/horizontal space between each food item"
+                            size="small"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Spacing Between Food Item & Macros (px)"
+                            value={config.dayPages.options.spacingBetweenFoodItemAndMacros ?? 10}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    spacingBetweenFoodItemAndMacros: Math.max(0, parseInt(e.target.value) || 0),
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 100 }}
+                            helperText="Space between food item name and macro values"
+                            size="small"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Spacing Between Macros (px)"
+                            value={config.dayPages.options.spacingBetweenMacros ?? 5}
+                            onChange={(e) =>
+                              setConfig((prev) => ({
+                                ...prev,
+                                dayPages: {
+                                  ...prev.dayPages,
+                                  options: {
+                                    ...prev.dayPages.options,
+                                    spacingBetweenMacros: Math.max(0, parseInt(e.target.value) || 0),
+                                  },
+                                },
+                              }))
+                            }
+                            inputProps={{ min: 0, max: 50 }}
+                            helperText="Space between macro values (calories, protein, carbs, fat)"
+                            size="small"
+                          />
+                        </Grid>
+                      </Grid>
+                    </Card>
                   </>
                 )}
+                
+                {/* Buttons Section for Day/Content Pages */}
+                <Box sx={{ mt: 3 }}>
+                  <Divider sx={{ mb: 3 }} />
+                  <ButtonManager
+                    buttons={config.dayPages.buttons || []}
+                    onButtonsChange={(buttons) =>
+                      setConfig({
+                        ...config,
+                        dayPages: {
+                          ...config.dayPages,
+                          buttons: buttons.length > 0 ? buttons : undefined,
+                        },
+                      })
+                    }
+                    pageType="Content Pages"
+                  />
+                </Box>
               </CardContent>
             </Card>
 
-            <Box sx={{ mb: 2, display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
+            <Box sx={{ mb: 2, display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 3 }}>
               <Button 
                 variant="outlined" 
                 onClick={handleBack}
-                sx={{ minWidth: 100 }}
+                sx={{ 
+                  minWidth: 120,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Back
               </Button>
               <Button 
                 variant="contained" 
                 onClick={handleNext}
-                sx={{ minWidth: 120 }}
+                sx={{ 
+                  minWidth: 140,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Continue
               </Button>
@@ -3877,8 +6429,8 @@ export default function VisualPdfBuilder({
             onClick={() => setActiveStep(4)}
             StepIconComponent={() => (
               <Box sx={{ 
-                width: 40, 
-                height: 40, 
+                width: 44, 
+                height: 44, 
                 borderRadius: '50%', 
                 bgcolor: activeStep === 4 ? 'primary.main' : activeStep > 4 ? 'success.main' : 'grey.300',
                 display: 'flex',
@@ -3886,11 +6438,12 @@ export default function VisualPdfBuilder({
                 justifyContent: 'center',
                 color: activeStep === 4 || activeStep > 4 ? 'white' : 'grey.600',
                 fontWeight: 'bold',
-                transition: 'all 0.3s',
+                transition: 'all 0.3s ease-in-out',
                 cursor: 'pointer',
+                boxShadow: activeStep === 4 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
                 '&:hover': {
                   transform: 'scale(1.1)',
-                  boxShadow: 4
+                  boxShadow: activeStep === 4 ? '0 6px 16px rgba(102, 126, 234, 0.4)' : '0 4px 12px rgba(0,0,0,0.15)'
                 }
               }}>
                 {activeStep > 4 ? <CheckCircle /> : <ExitToApp />}
@@ -3909,8 +6462,23 @@ export default function VisualPdfBuilder({
             </Typography>
           </StepLabel>
           <StepContent>
-            <Card sx={{ mb: 2, boxShadow: 3, borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
+            <Card 
+              elevation={0}
+              sx={{ 
+                mb: 3, 
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'white',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              <CardContent sx={{ p: 3.5 }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -4161,21 +6729,68 @@ export default function VisualPdfBuilder({
                     </Grid>
                   </Box>
                 )}
+                
+                {/* Buttons Section for End Page */}
+                {config.endPage?.enabled && (
+                  <Box sx={{ mt: 3 }}>
+                    <Divider sx={{ mb: 3 }} />
+                    <ButtonManager
+                      buttons={config.endPage.buttons || []}
+                      onButtonsChange={(buttons) =>
+                        setConfig({
+                          ...config,
+                          endPage: {
+                            ...config.endPage!,
+                            buttons: buttons.length > 0 ? buttons : undefined,
+                          },
+                        })
+                      }
+                      pageType="End Page"
+                    />
+                  </Box>
+                )}
               </CardContent>
             </Card>
 
-            <Box sx={{ mb: 2, display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
+            <Box sx={{ mb: 2, display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 3 }}>
               <Button 
                 variant="outlined" 
                 onClick={handleBack}
-                sx={{ minWidth: 100 }}
+                sx={{ 
+                  minWidth: 120,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Back
               </Button>
               <Button 
                 variant="contained" 
                 onClick={handleNext}
-                sx={{ minWidth: 120 }}
+                sx={{ 
+                  minWidth: 140,
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
               >
                 Continue
               </Button>
@@ -4185,13 +6800,66 @@ export default function VisualPdfBuilder({
 
         {/* Step 6: Review & Save */}
         <Step>
-          <StepLabel>Review & Save</StepLabel>
+          <StepLabel
+            StepIconComponent={() => (
+              <Box sx={{ 
+                width: 44, 
+                height: 44, 
+                borderRadius: '50%', 
+                bgcolor: activeStep === 5 ? 'primary.main' : activeStep > 5 ? 'success.main' : 'grey.300',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: activeStep === 5 || activeStep > 5 ? 'white' : 'grey.600',
+                fontWeight: 'bold',
+                transition: 'all 0.3s ease-in-out',
+                cursor: 'pointer',
+                boxShadow: activeStep === 5 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  boxShadow: activeStep === 5 ? '0 6px 16px rgba(102, 126, 234, 0.4)' : '0 4px 12px rgba(0,0,0,0.15)'
+                }
+              }}>
+                {activeStep > 5 ? <CheckCircle /> : <CheckCircle />}
+              </Box>
+            )}
+          >
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: activeStep === 5 ? 600 : 400,
+                cursor: 'pointer',
+                '&:hover': { color: 'primary.main' },
+                transition: 'color 0.2s'
+              }}
+            >
+              Review & Save
+            </Typography>
+          </StepLabel>
           <StepContent>
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Workspace Assignment
-                </Typography>
+            <Card 
+              elevation={0}
+              sx={{ 
+                mb: 3, 
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'white',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              <CardContent sx={{ p: 3.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                  <Settings sx={{ color: 'primary.main', fontSize: 28 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    Workspace Assignment
+                  </Typography>
+                </Box>
                 
                 <Box sx={{ mb: 3 }}>
                   <FormControlLabel
@@ -4268,17 +6936,23 @@ export default function VisualPdfBuilder({
                   {/* Visual Preview Cards */}
                   <Grid item xs={12} md={6}>
                     <Paper 
-                      elevation={2}
+                      elevation={0}
                       sx={{ 
-                        p: 2, 
-                        bgcolor: 'grey.50',
+                        p: 2.5, 
+                        bgcolor: 'white',
                         borderRadius: 2,
                         border: '2px solid',
-                        borderColor: 'primary.main'
+                        borderColor: 'primary.main',
+                        boxShadow: '0 2px 12px rgba(102, 126, 234, 0.15)',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 4px 20px rgba(102, 126, 234, 0.2)',
+                          transform: 'translateY(-2px)'
+                        }
                       }}
                     >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Palette fontSize="small" />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary' }}>
+                        <Palette sx={{ color: 'primary.main', fontSize: 24 }} />
                         Color Scheme Preview
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
@@ -4299,17 +6973,23 @@ export default function VisualPdfBuilder({
 
                   <Grid item xs={12} md={6}>
                     <Paper 
-                      elevation={2}
+                      elevation={0}
                       sx={{ 
-                        p: 2, 
-                        bgcolor: 'grey.50',
+                        p: 2.5, 
+                        bgcolor: 'white',
                         borderRadius: 2,
                         border: '2px solid',
-                        borderColor: 'info.main'
+                        borderColor: 'info.main',
+                        boxShadow: '0 2px 12px rgba(33, 150, 243, 0.15)',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          boxShadow: '0 4px 20px rgba(33, 150, 243, 0.2)',
+                          transform: 'translateY(-2px)'
+                        }
                       }}
                     >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <ViewDay fontSize="small" />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary' }}>
+                        <ViewDay sx={{ color: 'info.main', fontSize: 24 }} />
                         Layout Preview
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -4334,57 +7014,151 @@ export default function VisualPdfBuilder({
                   </Grid>
                 </Grid>
 
-                <Paper sx={{ p: 2, mb: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <strong>Template Name:</strong> {templateName || '(Not set)'}
-                  </Typography>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <strong>Type:</strong> {kind === 'workout' ? 'Workout Plan' : 'Nutrition Plan'}
-                  </Typography>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <strong>Assignment:</strong>{' '}
-                    {isGlobal ? (
-                      <Chip label="Global (All Workspaces)" color="success" size="small" />
-                    ) : (
-                      <Chip label={`${selectedWorkspaceIds.length} workspace(s)`} size="small" />
-                    )}
-                  </Typography>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <strong>Page Size:</strong> {config.options.pageSize} ({config.options.orientation})
-                  </Typography>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <strong>Intro Page:</strong>{' '}
-                    <Chip
-                      label={config.introPage?.enabled ? 'Enabled' : 'Disabled'}
-                      color={config.introPage?.enabled ? 'success' : 'default'}
-                      size="small"
-                    />
-                    {config.introPage?.enabled && introImageUrl && (
-                      <Chip label="+ Background Image" color="info" size="small" sx={{ ml: 1 }} />
-                    )}
-                  </Typography>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <strong>End Page:</strong>{' '}
-                    <Chip
-                      label={config.endPage?.enabled ? 'Enabled' : 'Disabled'}
-                      color={config.endPage?.enabled ? 'success' : 'default'}
-                      size="small"
-                    />
-                    {config.endPage?.enabled && endImageUrl && (
-                      <Chip label="+ Background Image" color="info" size="small" sx={{ ml: 1 }} />
-                    )}
-                  </Typography>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <strong>Content Pages:</strong> {config.dayPages.daysPerPage} day(s) per page ({config.dayPages.layout})
-                    {dayImageUrl && (
-                      <Chip label="+ Background Image" color="info" size="small" sx={{ ml: 1 }} />
-                    )}
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    mb: 3, 
+                    bgcolor: 'white', 
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <CheckCircle sx={{ color: 'primary.main', fontSize: 28 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                      Template Summary
+                    </Typography>
+                  </Box>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Template Name
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, color: 'text.primary' }}>
+                          {templateName || '(Not set)'}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Type
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, color: 'text.primary' }}>
+                          {kind === 'workout' ? 'Workout Plan' : 'Nutrition Plan'}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Assignment
+                        </Typography>
+                        <Box sx={{ mt: 0.5 }}>
+                          {isGlobal ? (
+                            <Chip label="Global (All Workspaces)" color="success" size="small" sx={{ fontWeight: 600 }} />
+                          ) : (
+                            <Chip label={`${selectedWorkspaceIds.length} workspace(s)`} size="small" sx={{ fontWeight: 600 }} />
+                          )}
+                        </Box>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Page Size
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5, color: 'text.primary' }}>
+                          {config.options.pageSize} ({config.options.orientation})
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Pages Configuration
+                        </Typography>
+                        <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              Intro Page:
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                              <Chip
+                                label={config.introPage?.enabled ? 'Enabled' : 'Disabled'}
+                                color={config.introPage?.enabled ? 'success' : 'default'}
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                              />
+                              {config.introPage?.enabled && introImageUrl && (
+                                <Chip label="+ Image" color="info" size="small" sx={{ fontWeight: 600 }} />
+                              )}
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              End Page:
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                              <Chip
+                                label={config.endPage?.enabled ? 'Enabled' : 'Disabled'}
+                                color={config.endPage?.enabled ? 'success' : 'default'}
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                              />
+                              {config.endPage?.enabled && endImageUrl && (
+                                <Chip label="+ Image" color="info" size="small" sx={{ fontWeight: 600 }} />
+                              )}
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              Content Pages:
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <Chip 
+                                label={`${config.dayPages.daysPerPage} day(s)/page`}
+                                size="small"
+                                color="primary"
+                                sx={{ fontWeight: 600 }}
+                              />
+                              <Chip 
+                                label={config.dayPages.layout}
+                                size="small"
+                                color="secondary"
+                                sx={{ fontWeight: 600 }}
+                              />
+                              {dayImageUrl && (
+                                <Chip label="+ Image" color="info" size="small" sx={{ fontWeight: 600 }} />
+                              )}
+                            </Box>
+                          </Box>
+                          {config.customPages && config.customPages.length > 0 && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                Custom Pages:
+                              </Typography>
+                              <Chip 
+                                label={`${config.customPages.filter(p => p.enabled).length} page(s)`}
+                                size="small"
+                                color="info"
+                                sx={{ fontWeight: 600 }}
+                              />
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+                    Review your configuration and click "Save Template" to create your visual PDF template.
                   </Typography>
                 </Paper>
-
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                  Review your configuration and click "Save Template" to create your visual PDF template.
-                </Typography>
               </CardContent>
             </Card>
 
@@ -4407,7 +7181,21 @@ export default function VisualPdfBuilder({
                 variant="contained" 
                 color="success"
                 onClick={handleSave}
-                sx={{ minWidth: 140 }}
+                sx={{ 
+                  minWidth: 180,
+                  borderRadius: 2,
+                  px: 4,
+                  py: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  boxShadow: '0 4px 16px rgba(76, 175, 80, 0.4)',
+                  '&:hover': {
+                    boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
                 size="large"
               >
                 Save Template
@@ -4415,7 +7203,116 @@ export default function VisualPdfBuilder({
             </Box>
           </StepContent>
         </Step>
-      </Stepper>
+            </Stepper>
+          </Paper>
+        </Grid>
+      </Grid>
+      </Box>
+
+      {/* Fullscreen Preview Dialog */}
+      <Dialog
+        open={showPreviewFullscreen}
+        onClose={() => setShowPreviewFullscreen(false)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            width: '100vw',
+            height: '100vh',
+            maxWidth: '100vw',
+            maxHeight: '100vh',
+            m: 0,
+            borderRadius: 0,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: 'success.main', 
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          pb: 1
+        }}>
+          <Typography variant="h6">PDF Preview - Fullscreen</Typography>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Tooltip title="Zoom Out">
+              <IconButton size="small" onClick={() => setPreviewZoom(Math.max(25, previewZoom - 25))} sx={{ color: 'white' }}>
+                <ZoomOut />
+              </IconButton>
+            </Tooltip>
+            <Typography variant="body2" sx={{ minWidth: 50, textAlign: 'center' }}>
+              {previewZoom}%
+            </Typography>
+            <Tooltip title="Zoom In">
+              <IconButton size="small" onClick={() => setPreviewZoom(Math.min(300, previewZoom + 25))} sx={{ color: 'white' }}>
+                <ZoomIn />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Reset Zoom">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setPreviewZoom(100);
+                  setPreviewPan({ x: 0, y: 0 });
+                }}
+                sx={{ color: 'white' }}
+              >
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+            <IconButton size="small" onClick={() => setShowPreviewFullscreen(false)} sx={{ color: 'white' }}>
+              <FullscreenExit />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, bgcolor: '#f5f5f5', position: 'relative', overflow: 'hidden', height: 'calc(100vh - 64px)' }}>
+          {previewUrl && (
+            <Box
+              sx={{
+                width: '100%',
+                height: '100%',
+                overflow: 'auto',
+                cursor: isPanning ? 'grabbing' : 'grab',
+                position: 'relative'
+              }}
+              onMouseDown={(e) => {
+                if (previewZoom > 100) {
+                  setIsPanning(true);
+                  setPanStart({ x: e.clientX - previewPan.x, y: e.clientY - previewPan.y });
+                }
+              }}
+              onMouseMove={(e) => {
+                if (isPanning && previewZoom > 100) {
+                  setPreviewPan({
+                    x: e.clientX - panStart.x,
+                    y: e.clientY - panStart.y,
+                  });
+                }
+              }}
+              onMouseUp={() => setIsPanning(false)}
+              onMouseLeave={() => setIsPanning(false)}
+            >
+              <Box
+                sx={{
+                  transform: `scale(${previewZoom / 100}) translate(${previewPan.x / (previewZoom / 100)}px, ${previewPan.y / (previewZoom / 100)}px)`,
+                  transformOrigin: 'top left',
+                  width: `${100 / (previewZoom / 100)}%`,
+                  transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                }}
+              >
+                <iframe 
+                  src={previewUrl} 
+                  width="100%" 
+                  height="100%"
+                  style={{ border: 'none', display: 'block', minHeight: '100vh' }}
+                  title="PDF Preview Fullscreen"
+                />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Custom Page Dialog */}
       <Dialog
@@ -4507,6 +7404,9 @@ function CustomPageEditor({
   const [customContent, setCustomContent] = useState(
     page?.type === 'custom' ? (page.config as CustomContentPageConfig).content : ''
   );
+  const [buttons, setButtons] = useState<ButtonConfig[]>(
+    page?.type === 'custom' ? (page.config as CustomContentPageConfig).buttons || [] : []
+  );
   
   // Widget styling state (shared across page types)
   const [widgetStyle, setWidgetStyle] = useState<{
@@ -4571,6 +7471,7 @@ function CustomPageEditor({
             content: customContent,
             allowImages: true,
             allowLinks: true,
+            buttons: buttons.length > 0 ? buttons : undefined,
           },
     };
     onSave(newPage);
@@ -4694,6 +7595,7 @@ function CustomPageEditor({
     } else if (template.type === 'custom' && templatePage.config) {
       const customConfig = templatePage.config as CustomContentPageConfig;
       setCustomContent(customConfig.content || '');
+      setButtons(customConfig.buttons || []);
       if (customConfig.widgetStyle) {
         setWidgetStyle({
           enabled: customConfig.widgetStyle.enabled || false,
@@ -4744,6 +7646,7 @@ function CustomPageEditor({
               content: customContent,
               allowImages: true,
               allowLinks: true,
+              buttons: buttons.length > 0 ? buttons : undefined,
             },
       };
 
@@ -5164,6 +8067,15 @@ function CustomPageEditor({
                 multiline
                 rows={10}
                 helperText="Enter custom HTML content for this page"
+                sx={{ mb: 3 }}
+              />
+              
+              {/* Buttons Section */}
+              <Divider sx={{ my: 3 }} />
+              <ButtonManager
+                buttons={buttons}
+                onButtonsChange={setButtons}
+                pageType="Custom Page"
               />
             </Box>
           )}

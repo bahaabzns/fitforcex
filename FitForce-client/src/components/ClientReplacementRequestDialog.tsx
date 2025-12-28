@@ -15,12 +15,18 @@ import {
   Autocomplete,
   Stack,
   CircularProgress,
+  Divider,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   createReplacementRequest,
   getSmartSuggestions,
   getCategoryAlternatives,
+  getFoodItemReplacements,
+  replaceFoodInMeal,
   type FoodItem,
+  type FoodReplacement,
 } from '@/api/food-replacements';
 import { openSnackbar } from '@/api/snackbar';
 
@@ -45,19 +51,37 @@ export default function ClientReplacementRequestDialog({
   const [requestedFood, setRequestedFood] = useState<FoodItem | null>(null);
   const [availableFoods, setAvailableFoods] = useState<FoodItem[]>([]);
   const [smartSuggestions, setSmartSuggestions] = useState<Array<{ foodItem: FoodItem; matchScore: number }>>([]);
+  const [libraryReplacements, setLibraryReplacements] = useState<FoodReplacement[]>([]);
   const [loadingFoods, setLoadingFoods] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [replacingFromLibrary, setReplacingFromLibrary] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       loadAvailableFoods();
+      loadLibraryReplacements();
       setReason('');
       setRequestedFood(null);
       setError(null);
     }
   }, [open]);
+
+  const loadLibraryReplacements = async () => {
+    try {
+      setLoadingLibrary(true);
+      // Use client-specific endpoint
+      const response = await getFoodItemReplacements(foodItem.id, true);
+      setLibraryReplacements(response.replacements || []);
+    } catch (err: any) {
+      console.error('Failed to load library replacements:', err);
+      setLibraryReplacements([]);
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
 
   const loadAvailableFoods = async () => {
     try {
@@ -98,6 +122,40 @@ export default function ClientReplacementRequestDialog({
     } finally {
       setLoadingFoods(false);
       setLoadingSuggestions(false);
+    }
+  };
+
+  const handleLibraryReplacement = async (replacement: FoodReplacement) => {
+    try {
+      setReplacingFromLibrary(true);
+      setError(null);
+      
+      await replaceFoodInMeal({
+        mealId,
+        originalFoodId: foodItem.id,
+        replacementFoodId: replacement.replacement.id,
+        autoMatchMacros: false, // Keep same quantity
+      }, true); // Use client endpoint
+
+      openSnackbar({
+        open: true,
+        message: 'Food replaced successfully from library!',
+        variant: 'alert',
+        alert: { color: 'success', variant: 'filled' },
+      } as any);
+
+      onRequestSubmitted();
+      onClose();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to replace food');
+      openSnackbar({
+        open: true,
+        message: err?.response?.data?.message || err?.message || 'Failed to replace food',
+        variant: 'alert',
+        alert: { color: 'error', variant: 'filled' },
+      } as any);
+    } finally {
+      setReplacingFromLibrary(false);
     }
   };
 
@@ -172,6 +230,75 @@ export default function ClientReplacementRequestDialog({
         )}
 
         <Stack spacing={3}>
+          {/* Coach-Defined Replacements Library */}
+          {libraryReplacements.length > 0 && (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Chip label="Library" size="small" color="primary" />
+                Recommended Replacements
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                These are pre-approved by your coach. Selecting one will replace immediately.
+              </Typography>
+              {loadingLibrary ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : (
+                <Stack spacing={1}>
+                  {libraryReplacements.map((replacement) => (
+                    <Card
+                      key={replacement.id}
+                      sx={{
+                        cursor: replacingFromLibrary ? 'wait' : 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                        },
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                      onClick={() => !replacingFromLibrary && handleLibraryReplacement(replacement)}
+                    >
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              {replacement.replacement.name}
+                            </Typography>
+                            {replacement.notes && (
+                              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                {replacement.notes}
+                              </Typography>
+                            )}
+                            <Box sx={{ display: 'flex', gap: 0.5, mt: 1, flexWrap: 'wrap' }}>
+                              <Chip size="small" label={`${replacement.replacement.calories} kcal`} color="error" />
+                              <Chip size="small" label={`P: ${replacement.replacement.protein}g`} />
+                              <Chip size="small" label={`C: ${replacement.replacement.carbs}g`} />
+                              <Chip size="small" label={`F: ${replacement.replacement.fat}g`} />
+                            </Box>
+                          </Box>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            disabled={replacingFromLibrary}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLibraryReplacement(replacement);
+                            }}
+                            sx={{ ml: 2 }}
+                          >
+                            {replacingFromLibrary ? <CircularProgress size={16} /> : 'Use'}
+                          </Button>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              )}
+              <Divider sx={{ my: 2 }} />
+            </Box>
+          )}
+
           <TextField
             fullWidth
             label="Reason for Replacement *"
@@ -186,10 +313,10 @@ export default function ClientReplacementRequestDialog({
 
           <Box>
             <Typography variant="subtitle2" gutterBottom>
-              Preferred Replacement (Optional)
+              Other Replacement Options (Requires Approval)
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-              Suggest a specific food if you have a preference. Your coach may approve a different option.
+              Suggest a specific food if you have a preference. Your coach will review and approve.
             </Typography>
             {loadingFoods ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
@@ -220,18 +347,20 @@ export default function ClientReplacementRequestDialog({
           </Box>
 
           <Alert severity="info">
-            Your request will be sent to your coach for review. You'll be notified once it's processed.
+            {libraryReplacements.length > 0
+              ? 'Select from the library above for instant replacement, or submit a request for other foods.'
+              : 'Your request will be sent to your coach for review. You\'ll be notified once it\'s processed.'}
           </Alert>
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
+        <Button onClick={onClose} disabled={submitting || replacingFromLibrary}>
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={!reason.trim() || submitting}
+          disabled={!reason.trim() || submitting || replacingFromLibrary}
         >
           {submitting ? <CircularProgress size={20} /> : 'Submit Request'}
         </Button>

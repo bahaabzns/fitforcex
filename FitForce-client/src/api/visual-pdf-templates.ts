@@ -112,6 +112,7 @@ export async function previewVisualPdfFromConfig(
     workspaceName,
   }, {
     signal, // Support request cancellation
+    timeout: 120000, // 2 minutes timeout for PDF generation (can take time)
   });
   return response.data;
 }

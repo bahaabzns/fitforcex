@@ -61,8 +61,11 @@ export interface ReplaceFoodResponse {
 /**
  * Get all replacements for a food item
  */
-export async function getFoodItemReplacements(foodItemId: string): Promise<FoodItemReplacementsResponse> {
-  const res = await api.get(`/api/nutrition/food-items/${foodItemId}/replacements`);
+export async function getFoodItemReplacements(foodItemId: string, useClientEndpoint = false): Promise<FoodItemReplacementsResponse> {
+  const endpoint = useClientEndpoint 
+    ? `/api/nutrition/client/food-items/${foodItemId}/replacements`
+    : `/api/nutrition/food-items/${foodItemId}/replacements`;
+  const res = await api.get(endpoint);
   return res.data;
 }
 
@@ -103,8 +106,11 @@ export async function deleteFoodItemReplacement(
 /**
  * Replace food in a meal
  */
-export async function replaceFoodInMeal(data: ReplaceFoodRequest): Promise<ReplaceFoodResponse> {
-  const res = await api.post('/api/nutrition/replace-food', data);
+export async function replaceFoodInMeal(data: ReplaceFoodRequest, useClientEndpoint = false): Promise<ReplaceFoodResponse> {
+  const endpoint = useClientEndpoint 
+    ? '/api/nutrition/client/replace-food'
+    : '/api/nutrition/replace-food';
+  const res = await api.post(endpoint, data);
   return res.data;
 }
 
