@@ -59,6 +59,7 @@ import {
   TableChart,
   TouchApp,
   Link as LinkIcon,
+  LocalDining,
 } from '@mui/icons-material';
 import { previewVisualPdfFromConfig } from '@/api/visual-pdf-templates';
 // Removed dnd-kit imports - using native mouse events instead
@@ -131,9 +132,23 @@ export interface ButtonConfig {
   align?: 'left' | 'center' | 'right';
 }
 
+export interface MealMacrosConfig {
+  showCalories?: boolean;
+  showProtein?: boolean;
+  showCarbs?: boolean;
+  showFat?: boolean;
+  showFiber?: boolean;
+  labelColor?: string;
+  valueColor?: string;
+  fontSize?: number;
+  fontWeight?: string | number;
+  spacing?: number; // Spacing between macro items
+  format?: 'inline' | 'vertical' | 'compact'; // Display format
+}
+
 export interface PageElement {
   id: string;
-  type: 'meal' | 'mealItem' | 'foodItem' | 'image' | 'text' | 'table' | 'button';
+  type: 'meal' | 'mealItem' | 'foodItem' | 'mealMacros' | 'image' | 'text' | 'table' | 'button';
   x: number;
   y: number;
   width?: number;
@@ -151,6 +166,10 @@ export interface PageElement {
   // Food item specific
   foodItemData?: FoodItemElement;
   parentMealId?: string; // If this is a food item, which meal it belongs to
+  // Meal macros specific (for nutrition plans)
+  mealMacrosConfig?: MealMacrosConfig;
+  dayIndex?: number; // Day index for meal macros
+  mealIndex?: number; // Meal index for meal macros
   // Table-specific (for workout plans)
   tableConfig?: TableConfig;
   // Button-specific
@@ -743,8 +762,8 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
   const handleAddElement = (type: PageElement['type']) => {
     if (!selectedPage) return;
 
-    // If it's mealItem or foodItem, show quantity dialog
-    if (type === 'mealItem' || type === 'foodItem') {
+    // If it's mealItem, foodItem, or mealMacros, show quantity dialog
+    if (type === 'mealItem' || type === 'foodItem' || type === 'mealMacros') {
       setPendingElementType(type);
       setQuantity(1);
       setShowAddElementDialog(false);
@@ -837,6 +856,32 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
             name: `Food Items`,
             x: 50,
             y: baseY + (i * spacing),
+          },
+        };
+      } else if (type === 'mealMacros') {
+        // Individual meal macros element
+        newElement = {
+          id: `element-${timestamp}`,
+          type: 'mealMacros',
+          x: 50,
+          y: baseY + (i * spacing),
+          width: 250,
+          height: 100,
+          fontSize: 12,
+          fontWeight: 'normal',
+          color: '#ff9800',
+          dayIndex: 0, // Default to first day
+          mealIndex: i, // Each meal macros element references a different meal
+          mealMacrosConfig: {
+            showCalories: true,
+            showProtein: true,
+            showCarbs: true,
+            showFat: true,
+            showFiber: false,
+            format: 'inline',
+            fontSize: 10,
+            fontWeight: 'normal',
+            spacing: 4,
           },
         };
       } else if (type === 'image') {
@@ -1687,6 +1732,14 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
                 </Button>
                 <Button
                   variant="outlined"
+                  startIcon={<LocalDining />}
+                  onClick={() => handleAddElement('mealMacros')}
+                  fullWidth
+                >
+                  Individual Meal Macros
+                </Button>
+                <Button
+                  variant="outlined"
                   startIcon={<Restaurant />}
                   onClick={() => handleAddElement('meal')}
                   fullWidth
@@ -1743,12 +1796,12 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
       {/* Quantity Dialog */}
       <Dialog open={showQuantityDialog} onClose={() => setShowQuantityDialog(false)}>
         <DialogTitle>
-          Add {pendingElementType === 'mealItem' ? 'Meals' : 'Food Items'}
+          Add {pendingElementType === 'mealItem' ? 'Meals' : pendingElementType === 'foodItem' ? 'Food Items' : 'Meal Macros'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 300, pt: 2 }}>
             <TextField
-              label={`How many ${pendingElementType === 'mealItem' ? 'meals' : 'food items'}?`}
+              label={`How many ${pendingElementType === 'mealItem' ? 'meals' : pendingElementType === 'foodItem' ? 'food items' : 'meal macros'}?`}
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
@@ -1759,14 +1812,16 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
             <Typography variant="caption" color="text.secondary">
               {pendingElementType === 'mealItem' 
                 ? 'Each meal will be added as a separate draggable element that you can position individually.'
-                : 'Each food item will be added as a separate draggable element that you can position individually.'}
+                : pendingElementType === 'foodItem'
+                ? 'Each food item will be added as a separate draggable element that you can position individually.'
+                : 'Each meal macros element will be added as a separate draggable element that displays macros for a specific meal.'}
             </Typography>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowQuantityDialog(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleConfirmQuantity}>
-            Add {quantity} {pendingElementType === 'mealItem' ? 'Meal(s)' : 'Food Item(s)'}
+            Add {quantity} {pendingElementType === 'mealItem' ? 'Meal(s)' : pendingElementType === 'foodItem' ? 'Food Item(s)' : 'Meal Macros'}
           </Button>
         </DialogActions>
       </Dialog>
