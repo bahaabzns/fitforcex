@@ -10346,23 +10346,21 @@ function CustomPageEditor({
       </Dialog>
 
       {/* Grid Position Dialog */}
-      {gridDialogContext && (
-        <GridPositionDialog
-          open={gridDialogOpen}
-          onClose={() => {
-            setGridDialogOpen(false);
-            setGridDialogContext(null);
-          }}
-          onSelect={handleGridSelect}
-          currentX={gridDialogContext.currentX}
-          currentY={gridDialogContext.currentY}
-          pageWidth={getPageDimensions().width}
-          pageHeight={getPageDimensions().height}
-          margin={50}
-          gridColumns={3}
-          gridRows={4}
-        />
-      )}
+      <GridPositionDialog
+        open={gridDialogOpen && gridDialogContext !== null}
+        onClose={() => {
+          setGridDialogOpen(false);
+          setGridDialogContext(null);
+        }}
+        onSelect={handleGridSelect}
+        currentX={gridDialogContext?.currentX ?? 0}
+        currentY={gridDialogContext?.currentY ?? 0}
+        pageWidth={getPageDimensions().width}
+        pageHeight={getPageDimensions().height}
+        margin={50}
+        gridColumns={3}
+        gridRows={4}
+      />
     </>
   );
 }

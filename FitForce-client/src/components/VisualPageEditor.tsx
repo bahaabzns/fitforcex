@@ -56,6 +56,9 @@ import {
   Article,
   ViewDay,
   CloudUpload,
+  TableChart,
+  TouchApp,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { previewVisualPdfFromConfig } from '@/api/visual-pdf-templates';
 // Removed dnd-kit imports - using native mouse events instead
@@ -90,9 +93,47 @@ export interface MealElement {
   showCalories?: boolean;
 }
 
+export interface TableColumn {
+  id: string;
+  label: string;
+  width?: number; // Column width in pixels/points
+  align?: 'left' | 'center' | 'right';
+  dataField?: string; // Field from workout data (e.g., 'exerciseName', 'sets', 'reps', 'weight', 'rest', 'tempo', 'rir', 'notes')
+}
+
+export interface TableConfig {
+  columns: TableColumn[];
+  showHeader?: boolean;
+  headerBackground?: string;
+  headerTextColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  rowStripeColor?: string;
+  cellPadding?: number;
+  fontSize?: number;
+  headerFontSize?: number;
+  headerFontWeight?: string | number;
+}
+
+export interface ButtonConfig {
+  label: string;
+  link?: string; // URL or action
+  backgroundColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  fontSize?: number;
+  fontWeight?: string | number;
+  padding?: number;
+  width?: number;
+  height?: number;
+  align?: 'left' | 'center' | 'right';
+}
+
 export interface PageElement {
   id: string;
-  type: 'meal' | 'mealItem' | 'foodItem' | 'image' | 'text';
+  type: 'meal' | 'mealItem' | 'foodItem' | 'image' | 'text' | 'table' | 'button';
   x: number;
   y: number;
   width?: number;
@@ -110,6 +151,10 @@ export interface PageElement {
   // Food item specific
   foodItemData?: FoodItemElement;
   parentMealId?: string; // If this is a food item, which meal it belongs to
+  // Table-specific (for workout plans)
+  tableConfig?: TableConfig;
+  // Button-specific
+  buttonConfig?: ButtonConfig;
 }
 
 export interface VisualPage {
@@ -384,6 +429,131 @@ function DraggableElement({
             <Typography variant="body2">{element.content || 'Text content'}</Typography>
           </Box>
         );
+      case 'table':
+        const tableConfig = element.tableConfig || {
+          columns: [
+            { id: 'col1', label: 'Exercise', dataField: 'exerciseName' },
+            { id: 'col2', label: 'Sets', dataField: 'sets' },
+            { id: 'col3', label: 'Reps', dataField: 'reps' },
+          ],
+          showHeader: true,
+        };
+        return (
+          <Box
+            sx={{
+              border: '2px solid #9c27b0',
+              borderRadius: 1,
+              p: 1,
+              bgcolor: 'rgba(156, 39, 176, 0.1)',
+              minWidth: element.width || 400,
+              minHeight: element.height || 200,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <TableChart fontSize="small" />
+              <Typography variant="caption" fontWeight="bold">
+                Exercise Table
+              </Typography>
+            </Box>
+            <Box
+              component="table"
+              sx={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: tableConfig.fontSize || 10,
+              }}
+            >
+              {tableConfig.showHeader && (
+                <Box component="thead">
+                  <Box component="tr" sx={{ bgcolor: tableConfig.headerBackground || '#f5f5f5' }}>
+                    {tableConfig.columns.map((col) => (
+                      <Box
+                        key={col.id}
+                        component="th"
+                        sx={{
+                          border: `1px solid ${tableConfig.borderColor || '#ddd'}`,
+                          p: tableConfig.cellPadding || 0.5,
+                          textAlign: col.align || 'left',
+                          fontWeight: tableConfig.headerFontWeight || 'bold',
+                          fontSize: tableConfig.headerFontSize || 11,
+                          color: tableConfig.headerTextColor || '#000',
+                        }}
+                      >
+                        {col.label}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              <Box component="tbody">
+                {[1, 2, 3].map((row) => (
+                  <Box
+                    key={row}
+                    component="tr"
+                    sx={{
+                      bgcolor: row % 2 === 0 ? (tableConfig.rowStripeColor || 'transparent') : 'transparent',
+                    }}
+                  >
+                    {tableConfig.columns.map((col) => (
+                      <Box
+                        key={col.id}
+                        component="td"
+                        sx={{
+                          border: `1px solid ${tableConfig.borderColor || '#ddd'}`,
+                          p: tableConfig.cellPadding || 0.5,
+                          textAlign: col.align || 'left',
+                        }}
+                      >
+                        {col.dataField || '...'}
+                      </Box>
+                    ))}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              {tableConfig.columns.length} columns • {tableConfig.showHeader ? 'With header' : 'No header'}
+            </Typography>
+          </Box>
+        );
+      case 'button':
+        const buttonConfig = element.buttonConfig || {
+          label: 'Button',
+          backgroundColor: '#1976d2',
+          textColor: '#ffffff',
+          fontSize: 14,
+        };
+        return (
+          <Box
+            sx={{
+              border: '2px solid #4caf50',
+              borderRadius: buttonConfig.borderRadius || 4,
+              p: buttonConfig.padding || 1,
+              bgcolor: buttonConfig.backgroundColor || '#1976d2',
+              color: buttonConfig.textColor || '#ffffff',
+              minWidth: element.width || buttonConfig.width || 120,
+              minHeight: element.height || buttonConfig.height || 40,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <TouchApp fontSize="small" />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: buttonConfig.fontSize || 14,
+                  fontWeight: buttonConfig.fontWeight || 'medium',
+                  color: buttonConfig.textColor || '#ffffff',
+                }}
+              >
+                {buttonConfig.label || 'Button'}
+              </Typography>
+            </Box>
+          </Box>
+        );
       default:
         return null;
     }
@@ -521,7 +691,13 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
   const [scale, setScale] = useState(0.5);
   const [showAddElementDialog, setShowAddElementDialog] = useState(false);
   const [showQuantityDialog, setShowQuantityDialog] = useState(false);
+  const [showTableConfigDialog, setShowTableConfigDialog] = useState(false);
   const [pendingElementType, setPendingElementType] = useState<PageElement['type'] | null>(null);
+  const [tableColumns, setTableColumns] = useState<TableColumn[]>([
+    { id: 'col1', label: 'Exercise', dataField: 'exerciseName', width: 150 },
+    { id: 'col2', label: 'Sets', dataField: 'sets', width: 60, align: 'center' },
+    { id: 'col3', label: 'Reps', dataField: 'reps', width: 60, align: 'center' },
+  ]);
   const [quantity, setQuantity] = useState(1);
   const [editingElement, setEditingElement] = useState<PageElement | null>(null);
   const [newElementType, setNewElementType] = useState<PageElement['type']>('meal');
@@ -573,6 +749,22 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
       setQuantity(1);
       setShowAddElementDialog(false);
       setShowQuantityDialog(true);
+      return;
+    }
+
+    // If it's table, show table configuration dialog
+    if (type === 'table') {
+      setPendingElementType(type);
+      setShowAddElementDialog(false);
+      setShowTableConfigDialog(true);
+      return;
+    }
+
+    // If it's button, show button configuration dialog
+    if (type === 'button') {
+      setPendingElementType(type);
+      setShowAddElementDialog(false);
+      setShowButtonConfigDialog(true);
       return;
     }
 
@@ -655,6 +847,41 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
           y: baseY + (i * spacing),
           width: 200,
           height: 150,
+        };
+      } else if (type === 'table') {
+        newElement = {
+          id: `element-${timestamp}`,
+          type: 'table',
+          x: 50,
+          y: baseY + (i * spacing),
+          width: 500,
+          height: 300,
+          tableConfig: {
+            columns: tableColumns.length > 0 ? tableColumns : [
+              { id: 'col1', label: 'Exercise', dataField: 'exerciseName' },
+              { id: 'col2', label: 'Sets', dataField: 'sets' },
+              { id: 'col3', label: 'Reps', dataField: 'reps' },
+            ],
+            showHeader: true,
+            headerBackground: '#f5f5f5',
+            headerTextColor: '#000000',
+            borderColor: '#ddd',
+            borderWidth: 1,
+            cellPadding: 8,
+            fontSize: 10,
+            headerFontSize: 11,
+            headerFontWeight: 'bold',
+          },
+        };
+      } else if (type === 'button') {
+        newElement = {
+          id: `element-${timestamp}`,
+          type: 'button',
+          x: 50,
+          y: baseY + (i * spacing),
+          width: buttonConfig.width || 120,
+          height: buttonConfig.height || 40,
+          buttonConfig: { ...buttonConfig },
         };
       } else {
         // text
@@ -1440,31 +1667,48 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
         <DialogTitle>Add Element</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 300 }}>
-            <Button
-              variant="outlined"
-              startIcon={<Restaurant />}
-              onClick={() => handleAddElement('mealItem')}
-              fullWidth
-            >
-              Individual Meal
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Restaurant />}
-              onClick={() => handleAddElement('foodItem')}
-              fullWidth
-            >
-              Food Item
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Restaurant />}
-              onClick={() => handleAddElement('meal')}
-              fullWidth
-            >
-              Meal Placeholder (Legacy)
-            </Button>
-            <Divider />
+            {kind === 'nutrition' && (
+              <>
+                <Button
+                  variant="outlined"
+                  startIcon={<Restaurant />}
+                  onClick={() => handleAddElement('mealItem')}
+                  fullWidth
+                >
+                  Individual Meal
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<Restaurant />}
+                  onClick={() => handleAddElement('foodItem')}
+                  fullWidth
+                >
+                  Food Item
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<Restaurant />}
+                  onClick={() => handleAddElement('meal')}
+                  fullWidth
+                >
+                  Meal Placeholder (Legacy)
+                </Button>
+                <Divider />
+              </>
+            )}
+            {kind === 'workout' && (
+              <>
+                <Button
+                  variant="outlined"
+                  startIcon={<TableChart />}
+                  onClick={() => handleAddElement('table')}
+                  fullWidth
+                >
+                  Exercise Table
+                </Button>
+                <Divider />
+              </>
+            )}
             <Button
               variant="outlined"
               startIcon={<ImageIcon />}
@@ -1480,6 +1724,14 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
               fullWidth
             >
               Text
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<TouchApp />}
+              onClick={() => handleAddElement('button')}
+              fullWidth
+            >
+              Button
             </Button>
           </Box>
         </DialogContent>
@@ -1515,6 +1767,269 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
           <Button onClick={() => setShowQuantityDialog(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleConfirmQuantity}>
             Add {quantity} {pendingElementType === 'mealItem' ? 'Meal(s)' : 'Food Item(s)'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Table Configuration Dialog */}
+      <Dialog open={showTableConfigDialog} onClose={() => setShowTableConfigDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Configure Exercise Table</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Table Columns
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {tableColumns.map((col, index) => (
+                <Card key={col.id} variant="outlined" sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <TextField
+                      label="Column Label"
+                      value={col.label}
+                      onChange={(e) => {
+                        const updated = [...tableColumns];
+                        updated[index].label = e.target.value;
+                        setTableColumns(updated);
+                      }}
+                      size="small"
+                      sx={{ flex: 1 }}
+                    />
+                    <FormControl size="small" sx={{ minWidth: 150 }}>
+                      <InputLabel>Data Field</InputLabel>
+                      <Select
+                        value={col.dataField || ''}
+                        label="Data Field"
+                        onChange={(e) => {
+                          const updated = [...tableColumns];
+                          updated[index].dataField = e.target.value;
+                          setTableColumns(updated);
+                        }}
+                      >
+                        <MenuItem value="exerciseName">Exercise Name</MenuItem>
+                        <MenuItem value="sets">Sets</MenuItem>
+                        <MenuItem value="reps">Reps</MenuItem>
+                        <MenuItem value="weight">Weight</MenuItem>
+                        <MenuItem value="rest">Rest</MenuItem>
+                        <MenuItem value="tempo">Tempo</MenuItem>
+                        <MenuItem value="rir">RIR</MenuItem>
+                        <MenuItem value="notes">Notes</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label="Width"
+                      type="number"
+                      value={col.width || ''}
+                      onChange={(e) => {
+                        const updated = [...tableColumns];
+                        updated[index].width = e.target.value ? parseInt(e.target.value) : undefined;
+                        setTableColumns(updated);
+                      }}
+                      size="small"
+                      sx={{ width: 100 }}
+                      inputProps={{ min: 50 }}
+                    />
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                      <InputLabel>Align</InputLabel>
+                      <Select
+                        value={col.align || 'left'}
+                        label="Align"
+                        onChange={(e) => {
+                          const updated = [...tableColumns];
+                          updated[index].align = e.target.value as 'left' | 'center' | 'right';
+                          setTableColumns(updated);
+                        }}
+                      >
+                        <MenuItem value="left">Left</MenuItem>
+                        <MenuItem value="center">Center</MenuItem>
+                        <MenuItem value="right">Right</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <IconButton
+                      onClick={() => {
+                        setTableColumns(tableColumns.filter((_, i) => i !== index));
+                      }}
+                      color="error"
+                      size="small"
+                    >
+                      <Delete />
+                    </IconButton>
+                  </Box>
+                </Card>
+              ))}
+              <Button
+                startIcon={<Add />}
+                onClick={() => {
+                  setTableColumns([
+                    ...tableColumns,
+                    {
+                      id: `col-${Date.now()}`,
+                      label: 'New Column',
+                      dataField: 'exerciseName',
+                      width: 100,
+                      align: 'left',
+                    },
+                  ]);
+                }}
+                variant="outlined"
+                fullWidth
+              >
+                Add Column
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowTableConfigDialog(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (pendingElementType === 'table') {
+                addElementToPage('table', 1);
+              }
+              setShowTableConfigDialog(false);
+            }}
+          >
+            Create Table
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Button Configuration Dialog */}
+      <Dialog open={showButtonConfigDialog} onClose={() => setShowButtonConfigDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Configure Button</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
+            <TextField
+              label="Button Label"
+              value={buttonConfig.label}
+              onChange={(e) => setButtonConfig({ ...buttonConfig, label: e.target.value })}
+              fullWidth
+              autoFocus
+            />
+            <TextField
+              label="Link URL (optional)"
+              value={buttonConfig.link || ''}
+              onChange={(e) => setButtonConfig({ ...buttonConfig, link: e.target.value })}
+              fullWidth
+              placeholder="https://example.com or action://..."
+            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Width"
+                type="number"
+                value={buttonConfig.width || 120}
+                onChange={(e) => setButtonConfig({ ...buttonConfig, width: parseInt(e.target.value) || 120 })}
+                size="small"
+                sx={{ flex: 1 }}
+                inputProps={{ min: 50 }}
+              />
+              <TextField
+                label="Height"
+                type="number"
+                value={buttonConfig.height || 40}
+                onChange={(e) => setButtonConfig({ ...buttonConfig, height: parseInt(e.target.value) || 40 })}
+                size="small"
+                sx={{ flex: 1 }}
+                inputProps={{ min: 30 }}
+              />
+            </Box>
+            <Divider />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Styling
+            </Typography>
+            <TextField
+              label="Background Color"
+              type="color"
+              value={buttonConfig.backgroundColor || '#1976d2'}
+              onChange={(e) => setButtonConfig({ ...buttonConfig, backgroundColor: e.target.value })}
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Text Color"
+              type="color"
+              value={buttonConfig.textColor || '#ffffff'}
+              onChange={(e) => setButtonConfig({ ...buttonConfig, textColor: e.target.value })}
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Border Color"
+              type="color"
+              value={buttonConfig.borderColor || '#1976d2'}
+              onChange={(e) => setButtonConfig({ ...buttonConfig, borderColor: e.target.value })}
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Border Width"
+                type="number"
+                value={buttonConfig.borderWidth || 1}
+                onChange={(e) => setButtonConfig({ ...buttonConfig, borderWidth: parseInt(e.target.value) || 1 })}
+                size="small"
+                sx={{ flex: 1 }}
+                inputProps={{ min: 0, max: 10 }}
+              />
+              <TextField
+                label="Border Radius"
+                type="number"
+                value={buttonConfig.borderRadius || 4}
+                onChange={(e) => setButtonConfig({ ...buttonConfig, borderRadius: parseInt(e.target.value) || 4 })}
+                size="small"
+                sx={{ flex: 1 }}
+                inputProps={{ min: 0, max: 50 }}
+              />
+              <TextField
+                label="Padding"
+                type="number"
+                value={buttonConfig.padding || 8}
+                onChange={(e) => setButtonConfig({ ...buttonConfig, padding: parseInt(e.target.value) || 8 })}
+                size="small"
+                sx={{ flex: 1 }}
+                inputProps={{ min: 0, max: 50 }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Font Size"
+                type="number"
+                value={buttonConfig.fontSize || 14}
+                onChange={(e) => setButtonConfig({ ...buttonConfig, fontSize: parseInt(e.target.value) || 14 })}
+                size="small"
+                sx={{ flex: 1 }}
+                inputProps={{ min: 8, max: 72 }}
+              />
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Font Weight</InputLabel>
+                <Select
+                  value={buttonConfig.fontWeight || 'medium'}
+                  label="Font Weight"
+                  onChange={(e) => setButtonConfig({ ...buttonConfig, fontWeight: e.target.value })}
+                >
+                  <MenuItem value="normal">Normal</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="bold">Bold</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowButtonConfigDialog(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (pendingElementType === 'button') {
+                addElementToPage('button', 1);
+              }
+              setShowButtonConfigDialog(false);
+            }}
+          >
+            Create Button
           </Button>
         </DialogActions>
       </Dialog>
