@@ -58,7 +58,8 @@ import {
   FormLabel,
   Slider,
 } from '@mui/material';
-import { CloudUpload, Delete, Preview, Settings, Description, ViewDay, ExitToApp, CheckCircle, RadioButtonUnchecked, Palette, Image, TableChart, FormatSize, HelpOutline, ExpandMore, ExpandLess, Add, Edit, DragIndicator, QuestionAnswer, Gavel, Article, ArrowUpward, ArrowDownward, ZoomIn, ZoomOut, Refresh, Fullscreen, FullscreenExit, Close, GridOn } from '@mui/icons-material';
+import { CloudUpload, Delete, Preview, Settings, Description, ViewDay, ExitToApp, CheckCircle, RadioButtonUnchecked, Palette, Image, TableChart, FormatSize, HelpOutline, ExpandMore, ExpandLess, Add, Edit, DragIndicator, QuestionAnswer, Gavel, Article, ArrowUpward, ArrowDownward, ZoomIn, ZoomOut, Refresh, Fullscreen, FullscreenExit, Close, GridOn, DesignServices, Tune, Download, Upload } from '@mui/icons-material';
+import VisualPageEditor, { VisualPage, PageElement, convertVisualPagesToConfig } from './VisualPageEditor';
 import api from '@/utils/axios';
 import { previewVisualPdfTemplate, previewVisualPdfFromConfig, createVisualPdfTemplate, deleteVisualPdfTemplate } from '@/api/visual-pdf-templates';
 import { listPageTemplates, createPageTemplate, WorkspacePageTemplate } from '@/api/page-templates';
@@ -160,6 +161,13 @@ interface VisualPdfConfig {
     showClientName?: boolean;
     backgroundImage?: string;
     backgroundColor?: string;
+    backgroundGradient?: {
+      enabled?: boolean;
+      type?: 'linear' | 'radial';
+      direction?: 'horizontal' | 'vertical' | 'diagonal' | 'radial';
+      colors?: string[]; // Array of color stops
+      angle?: number; // For linear gradients (0-360 degrees)
+    };
     titleColor?: string;
     titleSize?: number;
     buttons?: ButtonConfig[];
@@ -170,6 +178,13 @@ interface VisualPdfConfig {
     showContactInfo?: boolean;
     backgroundImage?: string;
     backgroundColor?: string;
+    backgroundGradient?: {
+      enabled?: boolean;
+      type?: 'linear' | 'radial';
+      direction?: 'horizontal' | 'vertical' | 'diagonal' | 'radial';
+      colors?: string[]; // Array of color stops
+      angle?: number; // For linear gradients (0-360 degrees)
+    };
     textColor?: string;
     customMessage?: string;
     buttons?: ButtonConfig[];
@@ -182,6 +197,13 @@ interface VisualPdfConfig {
     foodItemsPerMeal?: number; // For nutrition plans: max food items per meal before splitting to next page
     backgroundImage?: string;
     backgroundColor?: string;
+    backgroundGradient?: {
+      enabled?: boolean;
+      type?: 'linear' | 'radial';
+      direction?: 'horizontal' | 'vertical' | 'diagonal' | 'radial';
+      colors?: string[]; // Array of color stops
+      angle?: number; // For linear gradients (0-360 degrees)
+    };
     textColor?: string;
     buttons?: ButtonConfig[]; // Buttons for day/content pages
     fontSize?: {
@@ -294,7 +316,6 @@ interface VisualPdfConfig {
       showMealTotalCalories?: boolean;
       showDayTotalCalories?: boolean;
       showMealNotes?: boolean;
-      mealSpacing?: number; // Vertical spacing between meals
     };
   };
   options: {
@@ -310,6 +331,10 @@ interface VisualPdfConfig {
       lineHeight?: number; // Line height multiplier (e.g., 1.5 = 150%)
       letterSpacing?: number; // Letter spacing in points
       wordSpacing?: number; // Word spacing in points
+      textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+      textDecoration?: 'none' | 'underline' | 'overline' | 'line-through';
+      textDecorationColor?: string;
+      textDecorationThickness?: number;
       textShadow?: {
         enabled?: boolean;
         offsetX?: number; // Shadow offset X in points
@@ -1198,6 +1223,9 @@ export default function VisualPdfBuilder({
   const [dragActive, setDragActive] = useState<'intro' | 'end' | 'day' | null>(null);
   const [editingCustomPage, setEditingCustomPage] = useState<CustomPageConfig | null>(null);
   const [showCustomPageDialog, setShowCustomPageDialog] = useState(false);
+  const [editorMode, setEditorMode] = useState<'form' | 'visual'>('form');
+  const [visualPages, setVisualPages] = useState<VisualPage[]>([]);
+  const visualPagesInitialized = useRef(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -1211,76 +1239,6 @@ export default function VisualPdfBuilder({
     currentX?: number;
     currentY?: number;
   } | null>(null);
-
-  // Helper function to get page dimensions
-  const getPageDimensions = () => {
-    const pageSize = config.options?.pageSize || 'A4';
-    const orientation = config.options?.orientation || 'portrait';
-    
-    // Dimensions in points (1 point = 1/72 inch)
-    const dimensions = {
-      A4: { width: 595, height: 842 },
-      Letter: { width: 612, height: 792 },
-    };
-    
-    const base = dimensions[pageSize];
-    if (orientation === 'landscape') {
-      return { width: base.height, height: base.width };
-    }
-    return base;
-  };
-
-  const handleGridSelect = (x: number, y: number) => {
-    if (!gridDialogContext) return;
-    
-    if (gridDialogContext.type === 'meal') {
-      setConfig((prev) => ({
-        ...prev,
-        dayPages: {
-          ...prev.dayPages,
-          options: {
-            ...prev.dayPages.options,
-            mealTablePosition: {
-              ...prev.dayPages.options.mealTablePosition,
-              x: Math.round(x),
-              y: Math.round(y),
-            },
-          },
-        },
-      }));
-    } else if (gridDialogContext.type === 'exercise') {
-      setConfig((prev) => ({
-        ...prev,
-        dayPages: {
-          ...prev.dayPages,
-          options: {
-            ...prev.dayPages.options,
-            exerciseTablePosition: {
-              ...prev.dayPages.options.exerciseTablePosition,
-              x: Math.round(x),
-              y: Math.round(y),
-            },
-          },
-        },
-      }));
-    }
-    
-    setGridDialogOpen(false);
-    setGridDialogContext(null);
-  };
-
-  const openGridDialog = (type: 'meal' | 'exercise') => {
-    const position = type === 'meal' 
-      ? config.dayPages.options.mealTablePosition
-      : config.dayPages.options.exerciseTablePosition;
-    
-    setGridDialogContext({
-      type,
-      currentX: position?.x,
-      currentY: position?.y,
-    });
-    setGridDialogOpen(true);
-  };
 
   const [config, setConfig] = useState<VisualPdfConfig>(
     initialConfig || {
@@ -1403,6 +1361,191 @@ export default function VisualPdfBuilder({
       },
     }
   );
+
+  // Helper function to get page dimensions
+  const getPageDimensions = () => {
+    const pageSize = config.options?.pageSize || 'A4';
+    const orientation = config.options?.orientation || 'portrait';
+    
+    // Dimensions in points (1 point = 1/72 inch)
+    const dimensions = {
+      A4: { width: 595, height: 842 },
+      Letter: { width: 612, height: 792 },
+    };
+    
+    const base = dimensions[pageSize];
+    if (orientation === 'landscape') {
+      return { width: base.height, height: base.width };
+    }
+    return base;
+  };
+
+  const handleGridSelect = (x: number, y: number) => {
+    if (!gridDialogContext) return;
+    
+    if (gridDialogContext.type === 'meal') {
+      setConfig((prev) => ({
+        ...prev,
+        dayPages: {
+          ...prev.dayPages,
+          options: {
+            ...prev.dayPages.options,
+            mealTablePosition: {
+              ...prev.dayPages.options.mealTablePosition,
+              x: Math.round(x),
+              y: Math.round(y),
+            },
+          },
+        },
+      }));
+    } else if (gridDialogContext.type === 'exercise') {
+      setConfig((prev) => ({
+        ...prev,
+        dayPages: {
+          ...prev.dayPages,
+          options: {
+            ...prev.dayPages.options,
+            exerciseTablePosition: {
+              ...prev.dayPages.options.exerciseTablePosition,
+              x: Math.round(x),
+              y: Math.round(y),
+            },
+          },
+        },
+      }));
+    }
+    
+    setGridDialogOpen(false);
+    setGridDialogContext(null);
+  };
+
+  const openGridDialog = (type: 'meal' | 'exercise') => {
+    const position = type === 'meal' 
+      ? config.dayPages.options.mealTablePosition
+      : config.dayPages.options.exerciseTablePosition;
+    
+    setGridDialogContext({
+      type,
+      currentX: position?.x,
+      currentY: position?.y,
+    });
+    setGridDialogOpen(true);
+  };
+
+  // Initialize visual pages from config when switching to visual mode
+  useEffect(() => {
+    if (editorMode === 'visual') {
+      let pages: VisualPage[] = [];
+
+      // First, try to restore from saved visualPages in config
+      const savedVisualPages = (config as any).visualPages;
+      if (savedVisualPages && Array.isArray(savedVisualPages) && savedVisualPages.length > 0) {
+        // Restore saved visual pages with all their elements
+        pages = savedVisualPages.map((page: any) => ({
+          id: page.id,
+          type: page.type,
+          isContentPage: page.isContentPage || false,
+          backgroundImage: page.backgroundImage,
+          elements: page.elements || [],
+          order: page.order || 0,
+        }));
+        // Always restore saved pages when switching to visual mode
+        setVisualPages(pages);
+        visualPagesInitialized.current = true;
+        return; // Exit early since we restored from saved pages
+      }
+      
+      // Only initialize from config structure if we haven't initialized yet
+      if (!visualPagesInitialized.current) {
+        // If no saved visual pages, initialize from config structure
+        let order = 0;
+
+        // Intro page
+        if (config.introPage?.enabled) {
+          pages.push({
+            id: 'intro-page',
+            type: 'intro',
+            isContentPage: false,
+            backgroundImage: config.introPage.backgroundImage,
+            elements: [],
+            order: order++,
+          });
+        }
+
+        // Custom pages before content
+        const beforeContentPages = (config.customPages || [])
+          .filter(p => p.enabled && p.position === 'beforeContent')
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        beforeContentPages.forEach((customPage) => {
+          pages.push({
+            id: customPage.id,
+            type: 'custom',
+            isContentPage: false,
+            backgroundImage: customPage.backgroundImage,
+            elements: [],
+            order: order++,
+          });
+        });
+
+        // Content page (where meals/exercises will render)
+        pages.push({
+          id: 'content-page',
+          type: 'content',
+          isContentPage: true,
+          backgroundImage: config.dayPages?.backgroundImage,
+          elements: [],
+          order: order++,
+        });
+
+        // Custom pages after content
+        const afterContentPages = (config.customPages || [])
+          .filter(p => p.enabled && p.position === 'afterContent')
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        afterContentPages.forEach((customPage) => {
+          pages.push({
+            id: customPage.id,
+            type: 'custom',
+            isContentPage: false,
+            backgroundImage: customPage.backgroundImage,
+            elements: [],
+            order: order++,
+          });
+        });
+
+        // End page
+        if (config.endPage?.enabled) {
+          pages.push({
+            id: 'end-page',
+            type: 'end',
+            isContentPage: false,
+            backgroundImage: config.endPage.backgroundImage,
+            elements: [],
+            order: order++,
+          });
+        }
+
+        // If no pages, create at least one
+        if (pages.length === 0) {
+          pages.push({
+            id: 'default-page',
+            type: 'content',
+            isContentPage: true,
+            elements: [],
+            order: 0,
+          });
+        }
+        
+        setVisualPages(pages);
+        visualPagesInitialized.current = true;
+      }
+    } else if (editorMode === 'form') {
+      // Don't reset when switching to form mode - keep pages in memory
+      // visualPagesInitialized.current = false;
+    }
+  }, [config, editorMode]);
+
 
   const handleNext = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
@@ -1786,6 +1929,162 @@ export default function VisualPdfBuilder({
     });
   };
 
+  // Custom preset for meal-based nutrition PDF with images
+  const applyCustomMealPreset = () => {
+    const customPages: CustomPageConfig[] = [
+      // Second page - image
+      {
+        id: `custom-page-${Date.now()}-1`,
+        type: 'custom',
+        title: 'Landing Page 1',
+        enabled: true,
+        position: 'beforeContent',
+        order: 1,
+        backgroundImage: 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmh257f5h01x0la0ulx9zjnq5/landing/1766961122925-Screenshot_from_2025-12-29_00-31-49.png',
+        config: {
+          content: '',
+          allowImages: true,
+          allowLinks: false,
+        },
+      },
+      // Page after meals - image
+      {
+        id: `custom-page-${Date.now()}-2`,
+        type: 'custom',
+        title: 'Landing Page 2',
+        enabled: true,
+        position: 'afterContent',
+        order: 1,
+        backgroundImage: 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmh257f5h01x0la0ulx9zjnq5/landing/1766961500696-Screenshot_from_2025-12-29_00-38-07.png',
+        config: {
+          content: '',
+          allowImages: true,
+          allowLinks: false,
+        },
+      },
+      // Next page - image
+      {
+        id: `custom-page-${Date.now()}-3`,
+        type: 'custom',
+        title: 'Landing Page 3',
+        enabled: true,
+        position: 'afterContent',
+        order: 2,
+        backgroundImage: 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmh257f5h01x0la0ulx9zjnq5/landing/1766961547400-Screenshot_from_2025-12-29_00-38-57.png',
+        config: {
+          content: '',
+          allowImages: true,
+          allowLinks: false,
+        },
+      },
+    ];
+
+    setConfig((prev) => ({
+      ...prev,
+      // First page - intro page with image
+      introPage: {
+        enabled: true,
+        showPlanTitle: false,
+        showWorkspaceName: false,
+        showClientName: false,
+        backgroundImage: 'https://fitforce.s3.eu-north-1.amazonaws.com/template-images/1766432309718-1fzc8k.jpeg',
+        backgroundColor: '#ffffff',
+      },
+      // End page - last image
+      endPage: {
+        enabled: true,
+        showThankYouMessage: false,
+        showContactInfo: false,
+        backgroundImage: 'https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmh257f5h01x0la0ulx9zjnq5/landing/1766961586657-Screenshot_from_2025-12-29_00-39-35.png',
+        backgroundColor: '#ffffff',
+        textColor: '#000000',
+      },
+      // Custom pages with images
+      customPages: customPages,
+      // Day pages - 3 meals per page with borders and meal template background
+      dayPages: {
+        ...prev.dayPages,
+        layout: 'vertical',
+        daysPerPage: 1,
+        mealsPerPage: 3, // 3 meals per page
+        backgroundImage: 'https://fitforce.s3.eu-north-1.amazonaws.com/template-images/1766432760080-67ohwn.jpeg', // Meal page template with borders
+        backgroundColor: '#ffffff',
+        textColor: '#ffffff',
+        fontSize: {
+          dayTitle: 18,
+          exerciseName: 14,
+          details: 12,
+        },
+        options: {
+          ...prev.dayPages.options,
+          // Meal display options
+          showMealNames: true,
+          showFoodItems: true,
+          showQuantities: true,
+          showMacros: true,
+          showCalories: true,
+          showProtein: true,
+          showCarbs: true,
+          showFat: true,
+          showMealTotalCalories: true,
+          showMealNotes: true,
+          mealSpacing: 20,
+          foodItemSpacing: 8,
+          mealNameSpacing: 10,
+          mealNotesSpacing: 10,
+          // Meal border - enabled for meal boxes
+          mealBorder: {
+            enabled: true,
+            color: '#000000',
+            width: 2,
+            style: 'solid',
+            radius: 0,
+          },
+          // Food item border - enabled for food item boxes
+          foodItemBorder: {
+            enabled: true,
+            color: '#000000',
+            width: 1,
+            style: 'solid',
+            radius: 0,
+            padding: 4,
+          },
+          // Food items layout - vertical layout
+          foodItemsLayout: 'vertical',
+          // Content positioning - start from 100px from top
+          contentPaddingTop: 100,
+          // Meal table start position - food items on the right side
+          mealTableStart: {
+            x: 300, // Position food items on the right (meal name stays on left at x + 10)
+            y: 100, // Start from 100px from top (accounting for contentPaddingTop)
+          },
+        },
+      },
+      // General options
+      options: {
+        ...prev.options,
+        pageSize: 'A4',
+        orientation: 'portrait',
+        fontFamily: 'Alexandria',
+        primaryColor: '#000000',
+        secondaryColor: '#333333',
+        textDirection: 'ltr',
+        textAlignment: 'left',
+        margins: {
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
+        },
+      },
+    }));
+
+    // Update image URLs state
+    setIntroImageUrl('https://fitforce.s3.eu-north-1.amazonaws.com/template-images/1766432309718-1fzc8k.jpeg');
+    setDayImageUrl('https://fitforce.s3.eu-north-1.amazonaws.com/template-images/1766432760080-67ohwn.jpeg');
+    setEndImageUrl('https://fitforce.s3.eu-north-1.amazonaws.com/workspaces/cmh257f5h01x0la0ulx9zjnq5/landing/1766961586657-Screenshot_from_2025-12-29_00-39-35.png');
+  };
+
   return (
     <Box sx={{ 
       minHeight: '100vh',
@@ -1902,6 +2201,95 @@ export default function VisualPdfBuilder({
                   />
                 </Paper>
                 <Button
+                  variant="outlined"
+                  startIcon={<Download />}
+                  onClick={() => {
+                    const exportData = {
+                      name: templateName,
+                      config,
+                      kind,
+                      exportedAt: new Date().toISOString(),
+                      version: '1.0',
+                    };
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `pdf-template-${templateName || 'template'}-${Date.now()}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  size="medium"
+                  sx={{ 
+                    bgcolor: 'rgba(255,255,255,0.15)', 
+                    color: 'white',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    px: 2,
+                    py: 1,
+                    '&:hover': { 
+                      bgcolor: 'rgba(255,255,255,0.25)',
+                      borderColor: 'rgba(255,255,255,0.5)',
+                      transform: 'translateY(-2px)',
+                    },
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                >
+                  Export
+                </Button>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={<Upload />}
+                  size="medium"
+                  sx={{ 
+                    bgcolor: 'rgba(255,255,255,0.15)', 
+                    color: 'white',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    px: 2,
+                    py: 1,
+                    '&:hover': { 
+                      bgcolor: 'rgba(255,255,255,0.25)',
+                      borderColor: 'rgba(255,255,255,0.5)',
+                      transform: 'translateY(-2px)',
+                    },
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                >
+                  Import
+                  <input
+                    type="file"
+                    hidden
+                    accept=".json"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          try {
+                            const importedData = JSON.parse(event.target?.result as string);
+                            if (importedData.config) {
+                              setConfig(importedData.config);
+                              if (importedData.name) setTemplateName(importedData.name);
+                              alert('Configuration imported successfully!');
+                            } else {
+                              alert('Invalid configuration file format.');
+                            }
+                          } catch (error) {
+                            alert('Error importing configuration: ' + (error as Error).message);
+                          }
+                        };
+                        reader.readAsText(file);
+                      }
+                    }}
+                  />
+                </Button>
+                <Button
                   variant="contained"
                   startIcon={generatingPreview ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <Preview />}
                   onClick={handleGeneratePreview}
@@ -1930,8 +2318,62 @@ export default function VisualPdfBuilder({
           </Box>
         </Paper>
 
-      {/* Main Content with Preview on Left */}
-      <Grid container spacing={3}>
+      {/* Editor Mode Toggle */}
+      <Paper sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+        <Button
+          variant={editorMode === 'form' ? 'contained' : 'outlined'}
+          startIcon={<Tune />}
+          onClick={() => setEditorMode('form')}
+        >
+          Form Editor
+        </Button>
+        <Button
+          variant={editorMode === 'visual' ? 'contained' : 'outlined'}
+          startIcon={<DesignServices />}
+          onClick={() => setEditorMode('visual')}
+        >
+          Visual Editor
+        </Button>
+      </Paper>
+
+      {/* Main Content */}
+      {editorMode === 'visual' ? (
+        <VisualPageEditor
+          kind={kind}
+          pages={visualPages}
+          workspaceName={workspaces[0]?.name}
+          existingConfig={config}
+          onPagesChange={(newPages) => {
+            // Update visual pages state
+            setVisualPages(newPages);
+            // Also immediately save to config so it persists
+            setConfig((prev) => ({
+              ...prev,
+              visualPages: newPages, // Save visual pages directly
+            } as any));
+          }}
+          onSave={(visualConfig) => {
+            // Merge visual config with existing config - this ensures all changes sync
+            setConfig((prev) => {
+              const merged = {
+                ...prev,
+                ...visualConfig,
+                // Use visualPages from the config (which includes all elements), not the state variable
+                visualPages: visualConfig.visualPages || visualPages,
+              };
+              // Also update introPage, endPage, dayPages, options from visualConfig if they exist
+              if (visualConfig.introPage) merged.introPage = { ...prev.introPage, ...visualConfig.introPage };
+              if (visualConfig.endPage) merged.endPage = { ...prev.endPage, ...visualConfig.endPage };
+              if (visualConfig.dayPages) merged.dayPages = { ...prev.dayPages, ...visualConfig.dayPages };
+              if (visualConfig.options) merged.options = { ...prev.options, ...visualConfig.options };
+              if (visualConfig.customPages) merged.customPages = visualConfig.customPages;
+              return merged as any;
+            });
+            // Visual editor changes are saved to config and will be reflected in form editor
+          }}
+        />
+      ) : (
+        <Grid container spacing={3}>
         {/* Left Side: PDF Preview - Always Visible */}
         <Grid item xs={12} md={5} lg={4}>
           <Paper 
@@ -2367,8 +2809,14 @@ export default function VisualPdfBuilder({
                       >
                         <MenuItem value="Alexandria">Alexandria (Arabic Support)</MenuItem>
                         <MenuItem value="Helvetica">Helvetica</MenuItem>
+                        <MenuItem value="Helvetica-Bold">Helvetica Bold</MenuItem>
+                        <MenuItem value="Helvetica-Oblique">Helvetica Oblique</MenuItem>
                         <MenuItem value="Times-Roman">Times Roman</MenuItem>
+                        <MenuItem value="Times-Bold">Times Bold</MenuItem>
+                        <MenuItem value="Times-Italic">Times Italic</MenuItem>
                         <MenuItem value="Courier">Courier</MenuItem>
+                        <MenuItem value="Courier-Bold">Courier Bold</MenuItem>
+                        <MenuItem value="Courier-Oblique">Courier Oblique</MenuItem>
                       </Select>
                       <Tooltip title="Alexandria supports Arabic and RTL text. Other fonts are standard PDF fonts.">
                         <HelpOutline fontSize="small" color="action" sx={{ mt: 0.5, cursor: 'help' }} />
@@ -2449,6 +2897,55 @@ export default function VisualPdfBuilder({
                       })}
                     </Box>
                   </Grid>
+
+                  {/* Custom Meal Preset - Only for nutrition */}
+                  {kind === 'nutrition' && (
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 2 }}>
+                        <Chip icon={<Image />} label="Custom Meal Preset" size="small" />
+                      </Divider>
+                    </Grid>
+                  )}
+                  {kind === 'nutrition' && (
+                    <Grid item xs={12}>
+                      <Card
+                        variant="outlined"
+                        sx={{
+                          borderRadius: 2,
+                          border: '2px solid',
+                          borderColor: 'primary.main',
+                          boxShadow: 2,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            boxShadow: 4,
+                            borderColor: 'primary.dark',
+                          },
+                        }}
+                        onClick={applyCustomMealPreset}
+                      >
+                        <CardContent sx={{ p: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Image color="primary" fontSize="small" />
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              Custom Meal Layout Preset
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                            Creates a custom PDF with: First page image, landing pages, 3 meals per page with borders (meal name in first box, food items in next box, notes below), and additional image pages at the end.
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            fullWidth
+                          >
+                            Apply Custom Meal Preset
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  )}
 
                   {/* Typography Controls */}
                   <Grid item xs={12}>
@@ -2791,6 +3288,154 @@ export default function VisualPdfBuilder({
                       </Select>
                     </FormControl>
                   </Grid>
+
+                  {/* Text Transform and Decoration */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                      Text Transform & Decoration
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Text Transform</InputLabel>
+                      <Select
+                        value={config.options.typography?.textTransform || 'none'}
+                        label="Text Transform"
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            options: {
+                              ...config.options,
+                              typography: {
+                                ...config.options.typography,
+                                textTransform: e.target.value as any,
+                              },
+                            },
+                          })
+                        }
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        <MenuItem value="uppercase">UPPERCASE</MenuItem>
+                        <MenuItem value="lowercase">lowercase</MenuItem>
+                        <MenuItem value="capitalize">Capitalize</MenuItem>
+                      </Select>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        Transform text case (applies to headings)
+                      </Typography>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Text Decoration</InputLabel>
+                      <Select
+                        value={config.options.typography?.textDecoration || 'none'}
+                        label="Text Decoration"
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            options: {
+                              ...config.options,
+                              typography: {
+                                ...config.options.typography,
+                                textDecoration: e.target.value as any,
+                              },
+                            },
+                          })
+                        }
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        <MenuItem value="underline">Underline</MenuItem>
+                        <MenuItem value="overline">Overline</MenuItem>
+                        <MenuItem value="line-through">Line Through</MenuItem>
+                      </Select>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        Add text decoration (applies to headings)
+                      </Typography>
+                    </FormControl>
+                  </Grid>
+
+                  {config.options.typography?.textDecoration && config.options.typography?.textDecoration !== 'none' && (
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <Box>
+                          <Typography variant="subtitle2" gutterBottom sx={{ mb: 1, fontWeight: 600 }}>
+                            Decoration Color
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Box
+                              sx={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 1,
+                                border: '2px solid',
+                                borderColor: 'divider',
+                                bgcolor: config.options.typography?.textDecorationColor || config.options.primaryColor || '#000000',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'color';
+                                input.value = config.options.typography?.textDecorationColor || config.options.primaryColor || '#000000';
+                                input.onchange = (e: any) =>
+                                  setConfig({
+                                    ...config,
+                                    options: {
+                                      ...config.options,
+                                      typography: {
+                                        ...config.options.typography,
+                                        textDecorationColor: e.target.value,
+                                      },
+                                    },
+                                  });
+                                input.click();
+                              }}
+                            />
+                            <TextField
+                              size="small"
+                              value={config.options.typography?.textDecorationColor || config.options.primaryColor || '#000000'}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  options: {
+                                    ...config.options,
+                                    typography: {
+                                      ...config.options.typography,
+                                      textDecorationColor: e.target.value,
+                                    },
+                                  },
+                                })
+                              }
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="Decoration Thickness (pt)"
+                          value={config.options.typography?.textDecorationThickness || 1}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              options: {
+                                ...config.options,
+                                typography: {
+                                  ...config.options.typography,
+                                  textDecorationThickness: parseFloat(e.target.value) || 1,
+                                },
+                              },
+                            })
+                          }
+                          inputProps={{ min: 0.5, max: 5, step: 0.5 }}
+                          helperText="Thickness of decoration line"
+                        />
+                      </Grid>
+                    </>
+                  )}
                 </Grid>
 
                   <Grid item xs={12}>
@@ -3264,6 +3909,142 @@ export default function VisualPdfBuilder({
                       </Typography>
                     </Paper>
                   </Grid>
+
+                  {/* Color Theme Presets */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2 }}>
+                      <Chip icon={<Palette />} label="Color Theme Presets" size="small" />
+                    </Divider>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Quickly apply pre-designed color schemes
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                      {[
+                        {
+                          id: 'professional',
+                          name: 'Professional',
+                          primary: '#1a237e',
+                          secondary: '#424242',
+                          description: 'Deep blue and dark gray',
+                        },
+                        {
+                          id: 'modern',
+                          name: 'Modern',
+                          primary: '#1976d2',
+                          secondary: '#333333',
+                          description: 'Bright blue and charcoal',
+                        },
+                        {
+                          id: 'elegant',
+                          name: 'Elegant',
+                          primary: '#5e35b1',
+                          secondary: '#616161',
+                          description: 'Purple and gray tones',
+                        },
+                        {
+                          id: 'vibrant',
+                          name: 'Vibrant',
+                          primary: '#d32f2f',
+                          secondary: '#212121',
+                          description: 'Bold red and black',
+                        },
+                        {
+                          id: 'nature',
+                          name: 'Nature',
+                          primary: '#388e3c',
+                          secondary: '#2e7d32',
+                          description: 'Green and forest tones',
+                        },
+                        {
+                          id: 'sunset',
+                          name: 'Sunset',
+                          primary: '#f57c00',
+                          secondary: '#e65100',
+                          description: 'Warm orange tones',
+                        },
+                        {
+                          id: 'ocean',
+                          name: 'Ocean',
+                          primary: '#0277bd',
+                          secondary: '#01579b',
+                          description: 'Cool blue tones',
+                        },
+                        {
+                          id: 'minimal',
+                          name: 'Minimal',
+                          primary: '#000000',
+                          secondary: '#757575',
+                          description: 'Black and gray',
+                        },
+                        {
+                          id: 'royal',
+                          name: 'Royal',
+                          primary: '#7b1fa2',
+                          secondary: '#4a148c',
+                          description: 'Rich purple tones',
+                        },
+                      ].map((theme) => (
+                        <Card
+                          key={theme.id}
+                          variant="outlined"
+                          sx={{
+                            borderRadius: 2,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            border: '2px solid',
+                            borderColor: config.options.primaryColor === theme.primary && config.options.secondaryColor === theme.secondary ? 'primary.main' : 'divider',
+                            boxShadow: config.options.primaryColor === theme.primary && config.options.secondaryColor === theme.secondary ? 4 : 1,
+                            '&:hover': {
+                              boxShadow: 4,
+                              borderColor: 'primary.main',
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                          onClick={() => {
+                            setConfig({
+                              ...config,
+                              options: {
+                                ...config.options,
+                                primaryColor: theme.primary,
+                                secondaryColor: theme.secondary,
+                              },
+                            });
+                          }}
+                        >
+                          <CardContent sx={{ p: 2 }}>
+                            <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
+                              <Box
+                                sx={{
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: 1,
+                                  bgcolor: theme.primary,
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                }}
+                              />
+                              <Box
+                                sx={{
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: 1,
+                                  bgcolor: theme.secondary,
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                }}
+                              />
+                            </Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                              {theme.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {theme.description}
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  </Grid>
                 
               </CardContent>
             </Card>
@@ -3544,6 +4325,193 @@ export default function VisualPdfBuilder({
                             Used when no background image is set
                           </Typography>
                         </Box>
+                      </Grid>
+
+                      {/* Advanced Background Gradient */}
+                      <Grid item xs={12}>
+                        <Card variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                              Background Gradient
+                            </Typography>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={config.introPage?.backgroundGradient?.enabled || false}
+                                  onChange={(e) =>
+                                    setConfig({
+                                      ...config,
+                                      introPage: {
+                                        ...config.introPage!,
+                                        backgroundGradient: {
+                                          ...config.introPage?.backgroundGradient,
+                                          enabled: e.target.checked,
+                                          type: config.introPage?.backgroundGradient?.type || 'linear',
+                                          direction: config.introPage?.backgroundGradient?.direction || 'vertical',
+                                          colors: config.introPage?.backgroundGradient?.colors || [config.introPage?.backgroundColor || '#ffffff', '#f0f0f0'],
+                                          angle: config.introPage?.backgroundGradient?.angle || 90,
+                                        },
+                                      },
+                                    })
+                                  }
+                                />
+                              }
+                              label="Enable Gradient"
+                            />
+                          </Box>
+                          
+                          {config.introPage?.backgroundGradient?.enabled && (
+                            <Grid container spacing={2}>
+                              <Grid item xs={12} sm={6}>
+                                <FormControl fullWidth size="small">
+                                  <InputLabel>Gradient Type</InputLabel>
+                                  <Select
+                                    value={config.introPage?.backgroundGradient?.type || 'linear'}
+                                    label="Gradient Type"
+                                    onChange={(e) =>
+                                      setConfig({
+                                        ...config,
+                                        introPage: {
+                                          ...config.introPage!,
+                                          backgroundGradient: {
+                                            ...config.introPage?.backgroundGradient!,
+                                            type: e.target.value as 'linear' | 'radial',
+                                          },
+                                        },
+                                      })
+                                    }
+                                  >
+                                    <MenuItem value="linear">Linear</MenuItem>
+                                    <MenuItem value="radial">Radial</MenuItem>
+                                  </Select>
+                                </FormControl>
+                              </Grid>
+                              
+                              {config.introPage?.backgroundGradient?.type === 'linear' && (
+                                <Grid item xs={12} sm={6}>
+                                  <FormControl fullWidth size="small">
+                                    <InputLabel>Direction</InputLabel>
+                                    <Select
+                                      value={config.introPage?.backgroundGradient?.direction || 'vertical'}
+                                      label="Direction"
+                                      onChange={(e) =>
+                                        setConfig({
+                                          ...config,
+                                          introPage: {
+                                            ...config.introPage!,
+                                            backgroundGradient: {
+                                              ...config.introPage?.backgroundGradient!,
+                                              direction: e.target.value as any,
+                                              angle: e.target.value === 'horizontal' ? 0 : e.target.value === 'vertical' ? 90 : e.target.value === 'diagonal' ? 45 : 90,
+                                            },
+                                          },
+                                        })
+                                      }
+                                    >
+                                      <MenuItem value="horizontal">Horizontal</MenuItem>
+                                      <MenuItem value="vertical">Vertical</MenuItem>
+                                      <MenuItem value="diagonal">Diagonal</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </Grid>
+                              )}
+                              
+                              <Grid item xs={12}>
+                                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                  Gradient Colors (at least 2 colors)
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                                  {(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0']).map((color, index) => (
+                                    <Box key={index} sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                      <TextField
+                                        type="color"
+                                        value={color}
+                                        onChange={(e) => {
+                                          const colors = [...(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0'])];
+                                          colors[index] = e.target.value;
+                                          setConfig({
+                                            ...config,
+                                            introPage: {
+                                              ...config.introPage!,
+                                              backgroundGradient: {
+                                                ...config.introPage?.backgroundGradient!,
+                                                colors,
+                                              },
+                                            },
+                                          });
+                                        }}
+                                        sx={{ width: 50, height: 40, '& input': { height: 40, cursor: 'pointer' } }}
+                                      />
+                                      {index > 1 && (
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => {
+                                            const colors = [...(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0'])];
+                                            colors.splice(index, 1);
+                                            setConfig({
+                                              ...config,
+                                              introPage: {
+                                                ...config.introPage!,
+                                                backgroundGradient: {
+                                                  ...config.introPage?.backgroundGradient!,
+                                                  colors,
+                                                },
+                                              },
+                                            });
+                                          }}
+                                        >
+                                          <Delete fontSize="small" />
+                                        </IconButton>
+                                      )}
+                                    </Box>
+                                  ))}
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<Add />}
+                                    onClick={() => {
+                                      const colors = [...(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0']), '#cccccc'];
+                                      setConfig({
+                                        ...config,
+                                        introPage: {
+                                          ...config.introPage!,
+                                          backgroundGradient: {
+                                            ...config.introPage?.backgroundGradient!,
+                                            colors,
+                                          },
+                                        },
+                                      });
+                                    }}
+                                  >
+                                    Add Color
+                                  </Button>
+                                </Box>
+                              </Grid>
+                              
+                              {/* Gradient Preview */}
+                              <Grid item xs={12}>
+                                <Box
+                                  sx={{
+                                    height: 60,
+                                    borderRadius: 1,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    background: config.introPage?.backgroundGradient?.type === 'radial'
+                                      ? `radial-gradient(circle, ${(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0']).join(', ')})`
+                                      : config.introPage?.backgroundGradient?.direction === 'horizontal'
+                                      ? `linear-gradient(90deg, ${(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0']).join(', ')})`
+                                      : config.introPage?.backgroundGradient?.direction === 'diagonal'
+                                      ? `linear-gradient(45deg, ${(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0']).join(', ')})`
+                                      : `linear-gradient(180deg, ${(config.introPage?.backgroundGradient?.colors || ['#ffffff', '#f0f0f0']).join(', ')})`,
+                                  }}
+                                />
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                  Gradient Preview
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                          )}
+                        </Card>
                       </Grid>
 
                       <Grid item xs={12} sm={6}>
@@ -5599,7 +6567,8 @@ export default function VisualPdfBuilder({
                                           headerTextColor: value,
                                         },
                                       },
-                                    }}));
+                                    },
+                                  }));
                                 }}
                                 helperText="Text color for table header"
                               />
@@ -7904,6 +8873,7 @@ export default function VisualPdfBuilder({
           </Paper>
         </Grid>
       </Grid>
+        )}
       </Box>
 
       {/* Fullscreen Preview Dialog */}
