@@ -148,7 +148,7 @@ export interface MealMacrosConfig {
 
 export interface PageElement {
   id: string;
-  type: 'meal' | 'mealItem' | 'foodItem' | 'mealMacros' | 'image' | 'text' | 'table' | 'button';
+  type: 'meal' | 'mealItem' | 'foodItem' | 'mealMacros' | 'image' | 'text' | 'table' | 'button' | 'mealNotes';
   x: number;
   y: number;
   width?: number;
@@ -573,6 +573,29 @@ function DraggableElement({
             </Box>
           </Box>
         );
+      case 'mealNotes':
+        return (
+          <Box
+            sx={{
+              border: '2px dashed #ff9800',
+              borderRadius: 1,
+              p: 2,
+              bgcolor: 'rgba(255, 152, 0, 0.1)',
+              minWidth: 200,
+              minHeight: 100,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Article fontSize="small" />
+              <Typography variant="caption" fontWeight="bold">
+                Meal Notes
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Notes for the meal will be displayed here.
+            </Typography>
+          </Box>
+        );
       default:
         return null;
     }
@@ -778,8 +801,8 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
   const handleAddElement = (type: PageElement['type']) => {
     if (!selectedPage) return;
 
-    // If it's mealItem, foodItem, or mealMacros, show quantity dialog
-    if (type === 'mealItem' || type === 'foodItem' || type === 'mealMacros') {
+    // If it's mealItem, foodItem, mealMacros, or mealNotes, show quantity dialog
+    if (type === 'mealItem' || type === 'foodItem' || type === 'mealMacros' || type === 'mealNotes') {
       setPendingElementType(type);
       setQuantity(1);
       setShowAddElementDialog(false);
@@ -899,6 +922,19 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
             fontWeight: 'normal',
             spacing: 4,
           },
+        };
+      } else if (type === 'mealNotes') {
+        newElement = {
+          id: `element-${timestamp}`,
+          type: 'mealNotes',
+          x: 50,
+          y: baseY + (i * spacing),
+          width: 200,
+          height: 100,
+          fontSize: 12,
+          color: '#000000',
+          dayIndex: 0,
+          mealIndex: i,
         };
       } else if (type === 'image') {
         newElement = {
@@ -1756,6 +1792,14 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
                 </Button>
                 <Button
                   variant="outlined"
+                  startIcon={<Article />}
+                  onClick={() => handleAddElement('mealNotes')}
+                  fullWidth
+                >
+                  Meal Notes
+                </Button>
+                <Button
+                  variant="outlined"
                   startIcon={<Restaurant />}
                   onClick={() => handleAddElement('meal')}
                   fullWidth
@@ -1812,12 +1856,12 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
       {/* Quantity Dialog */}
       <Dialog open={showQuantityDialog} onClose={() => setShowQuantityDialog(false)}>
         <DialogTitle>
-          Add {pendingElementType === 'mealItem' ? 'Meals' : pendingElementType === 'foodItem' ? 'Food Items' : 'Meal Macros'}
+          Add {pendingElementType === 'mealItem' ? 'Meals' : pendingElementType === 'foodItem' ? 'Food Items' : pendingElementType === 'mealMacros' ? 'Meal Macros' : 'Meal Notes'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 300, pt: 2 }}>
             <TextField
-              label={`How many ${pendingElementType === 'mealItem' ? 'meals' : pendingElementType === 'foodItem' ? 'food items' : 'meal macros'}?`}
+              label={`How many ${pendingElementType === 'mealItem' ? 'meals' : pendingElementType === 'foodItem' ? 'food items' : pendingElementType === 'mealMacros' ? 'meal macros' : 'meal notes'}?`}
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
@@ -1830,14 +1874,16 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
                 ? 'Each meal will be added as a separate draggable element that you can position individually.'
                 : pendingElementType === 'foodItem'
                 ? 'Each food item will be added as a separate draggable element that you can position individually.'
-                : 'Each meal macros element will be added as a separate draggable element that displays macros for a specific meal.'}
+                : pendingElementType === 'mealMacros'
+                ? 'Each meal macros element will be added as a separate draggable element that displays macros for a specific meal.'
+                : 'Each meal notes element will be added as a separate draggable element that displays notes for a specific meal.'}
             </Typography>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowQuantityDialog(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleConfirmQuantity}>
-            Add {quantity} {pendingElementType === 'mealItem' ? 'Meal(s)' : pendingElementType === 'foodItem' ? 'Food Item(s)' : 'Meal Macros'}
+            Add {quantity} {pendingElementType === 'mealItem' ? 'Meal(s)' : pendingElementType === 'foodItem' ? 'Food Item(s)' : pendingElementType === 'mealMacros' ? 'Meal Macros' : 'Meal Note(s)'}
           </Button>
         </DialogActions>
       </Dialog>
