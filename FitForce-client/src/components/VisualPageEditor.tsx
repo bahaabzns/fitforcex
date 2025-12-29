@@ -711,6 +711,22 @@ export default function VisualPageEditor({ kind, pages, onPagesChange, onSave, w
   const [showAddElementDialog, setShowAddElementDialog] = useState(false);
   const [showQuantityDialog, setShowQuantityDialog] = useState(false);
   const [showTableConfigDialog, setShowTableConfigDialog] = useState(false);
+  const [showButtonConfigDialog, setShowButtonConfigDialog] = useState(false);
+  const [buttonConfig, setButtonConfig] = useState<ButtonConfig>({
+    label: 'Button',
+    link: '',
+    backgroundColor: '#1976d2',
+    textColor: '#ffffff',
+    borderColor: '#1976d2',
+    borderWidth: 1,
+    borderRadius: 4,
+    fontSize: 14,
+    fontWeight: 'medium',
+    padding: 8,
+    width: 120,
+    height: 40,
+    align: 'center',
+  });
   const [pendingElementType, setPendingElementType] = useState<PageElement['type'] | null>(null);
   const [tableColumns, setTableColumns] = useState<TableColumn[]>([
     { id: 'col1', label: 'Exercise', dataField: 'exerciseName', width: 150 },
