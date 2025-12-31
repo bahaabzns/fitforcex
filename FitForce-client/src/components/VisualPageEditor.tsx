@@ -211,25 +211,31 @@ function DraggableElement({
   scale?: number;
 }) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState('');
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const elementRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent, handle?: string) => {
     e.stopPropagation();
     e.preventDefault();
-    setIsDragging(true);
+
+    if (handle) {
+      setIsResizing(true);
+      setResizeHandle(handle);
+    } else {
+      setIsDragging(true);
+    }
+
     const pageElement = elementRef.current?.closest('[data-page-id]') as HTMLElement;
     if (pageElement) {
       const pageRect = pageElement.getBoundingClientRect();
-      // Calculate mouse position in page coordinates
       const mouseXInPage = (e.clientX - pageRect.left) / scale;
       const mouseYInPage = (e.clientY - pageRect.top) / scale;
-      
-      // Use the stored element position directly (already in page coordinates)
+
       const elementXInPage = element.x || 0;
       const elementYInPage = element.y || 0;
-      
-      // Calculate offset from mouse to element's top-left corner
+
       setDragStart({
         x: mouseXInPage - elementXInPage,
         y: mouseYInPage - elementYInPage,
@@ -238,37 +244,66 @@ function DraggableElement({
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || !elementRef.current) return;
+    if (!elementRef.current) return;
 
     const pageElement = elementRef.current.closest('[data-page-id]') as HTMLElement;
     if (!pageElement) return;
 
     const pageRect = pageElement.getBoundingClientRect();
-    // Calculate new position: mouse position in page coordinates minus the drag offset
     const mouseXInPage = (e.clientX - pageRect.left) / scale;
     const mouseYInPage = (e.clientY - pageRect.top) / scale;
-    
-    const newX = mouseXInPage - dragStart.x;
-    const newY = mouseYInPage - dragStart.y;
 
-    // Constrain to page bounds
-    const elementWidth = element.width || 200;
-    const elementHeight = element.height || 100;
-    const constrainedX = Math.max(0, Math.min(newX, 595 - elementWidth));
-    const constrainedY = Math.max(0, Math.min(newY, 842 - elementHeight));
+    if (isDragging) {
+      const newX = mouseXInPage - dragStart.x;
+      const newY = mouseYInPage - dragStart.y;
+      const elementWidth = element.width || 200;
+      const elementHeight = element.height || 100;
+      const constrainedX = Math.max(0, Math.min(newX, 595 - elementWidth));
+      const constrainedY = Math.max(0, Math.min(newY, 842 - elementHeight));
 
-    onUpdate(element.id, {
-      x: constrainedX,
-      y: constrainedY,
-    });
-  }, [isDragging, dragStart, scale, element, onUpdate]);
+      onUpdate(element.id, {
+        x: constrainedX,
+        y: constrainedY,
+      });
+    } else if (isResizing) {
+      const { x, y, width, height } = element;
+      let newX = x || 0;
+      let newY = y || 0;
+      let newWidth = width || 200;
+      let newHeight = height || 100;
+
+      if (resizeHandle.includes('right')) {
+        newWidth = mouseXInPage - newX;
+      }
+      if (resizeHandle.includes('left')) {
+        newWidth = (x || 0) + (width || 200) - mouseXInPage;
+        newX = mouseXInPage;
+      }
+      if (resizeHandle.includes('bottom')) {
+        newHeight = mouseYInPage - newY;
+      }
+      if (resizeHandle.includes('top')) {
+        newHeight = (y || 0) + (height || 100) - mouseYInPage;
+        newY = mouseYInPage;
+      }
+
+      onUpdate(element.id, {
+        x: newX,
+        y: newY,
+        width: Math.max(50, newWidth),
+        height: Math.max(50, newHeight),
+      });
+    }
+  }, [isDragging, isResizing, dragStart, scale, element, onUpdate, resizeHandle]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
+    setIsResizing(false);
+    setResizeHandle('');
   }, []);
 
-  React.useEffect(() => {
-    if (isDragging) {
+  useEffect(() => {
+    if (isDragging || isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -276,29 +311,60 @@ function DraggableElement({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
   const style: React.CSSProperties = {
-    opacity: isDragging ? 0.7 : 1,
+    opacity: isDragging || isResizing ? 0.7 : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
+  };
+  
+  const resizeHandles = [
+    { position: 'top-left', cursor: 'nwse-resize' },
+    { position: 'top-right', cursor: 'nesw-resize' },
+    { position: 'bottom-left', cursor: 'nesw-resize' },
+    { position: 'bottom-right', cursor: 'nwse-resize' },
+    { position: 'top', cursor: 'ns-resize' },
+    { position: 'bottom', cursor: 'ns-resize' },
+    { position: 'left', cursor: 'ew-resize' },
+    { position: 'right', cursor: 'ew-resize' },
+  ];
+  
+  const getHandleStyle = (position: string): React.CSSProperties => {
+    const size = 8;
+    const baseStyle: React.CSSProperties = {
+      position: 'absolute',
+      width: size,
+      height: size,
+      background: '#1976d2',
+      border: '1px solid white',
+      borderRadius: '50%',
+      zIndex: 1001,
+    };
+
+    if (position.includes('top')) baseStyle.top = -size / 2;
+    if (position.includes('bottom')) baseStyle.bottom = -size / 2;
+    if (position.includes('left')) baseStyle.left = -size / 2;
+    if (position.includes('right')) baseStyle.right = -size / 2;
+    if (position === 'top' || position === 'bottom') baseStyle.left = `calc(50% - ${size / 2}px)`;
+    if (position === 'left' || position === 'right') baseStyle.top = `calc(50% - ${size / 2}px)`;
+
+    return baseStyle;
   };
 
   const renderElement = () => {
     switch (element.type) {
       case 'meal':
-        // Individual meal element
         if (element.mealData) {
           return (
-            <Box
-              sx={{
+            <Card sx={{
                 border: '2px solid #1976d2',
-                borderRadius: 1,
                 p: 2,
                 bgcolor: element.backgroundColor || 'rgba(25, 118, 210, 0.1)',
-                minWidth: element.width || 250,
-                minHeight: element.height || 150,
+                width: element.width || 250,
+                height: element.height || 150,
               }}
             >
+              <CardContent>
               <Typography
                 variant="body2"
                 fontWeight={element.fontWeight || 'bold'}
@@ -310,37 +376,23 @@ function DraggableElement({
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {element.mealData.foodItems.map((foodItem) => (
-                  <Box
-                    key={foodItem.id}
-                    sx={{
-                      border: '1px solid #ccc',
-                      borderRadius: 0.5,
-                      p: 0.5,
-                      fontSize: foodItem.fontSize || 10,
-                      fontWeight: foodItem.fontWeight || 'normal',
-                      color: foodItem.color || 'inherit',
-                      bgcolor: 'white',
-                    }}
-                  >
-                    • {foodItem.name} {foodItem.quantity ? `(${foodItem.quantity})` : ''}
-                  </Box>
+                  <Chip key={foodItem.id} label={`• ${foodItem.name} ${foodItem.quantity ? `(${foodItem.quantity})` : ''}`} size="small" />
                 ))}
               </Box>
-            </Box>
+              </CardContent>
+            </Card>
           );
         }
-        // Meal placeholder (legacy)
         return (
-          <Box
-            sx={{
+          <Card sx={{
               border: '2px dashed #1976d2',
-              borderRadius: 1,
               p: 2,
               bgcolor: 'rgba(25, 118, 210, 0.1)',
-              minWidth: 200,
-              minHeight: 100,
+              width: 200,
+              height: 100,
             }}
           >
+            <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Restaurant fontSize="small" />
               <Typography variant="caption" fontWeight="bold">
@@ -350,21 +402,20 @@ function DraggableElement({
             <Typography variant="caption" color="text.secondary">
               {element.mealsCount || 3} meals will be rendered here
             </Typography>
-          </Box>
+            </CardContent>
+          </Card>
         );
       case 'mealItem':
-        // Individual meal item (single meal)
         return (
-          <Box
-            sx={{
+          <Card sx={{
               border: '2px solid #1976d2',
-              borderRadius: 1,
               p: 1.5,
               bgcolor: element.backgroundColor || 'rgba(25, 118, 210, 0.1)',
-              minWidth: element.width || 200,
-              minHeight: element.height || 80,
+              width: element.width || 200,
+              height: element.height || 80,
             }}
           >
+          <CardContent>
             <Typography
               variant="body2"
               fontWeight={element.fontWeight || 'bold'}
@@ -373,20 +424,19 @@ function DraggableElement({
             >
               {element.content || 'Meal Name'}
             </Typography>
-          </Box>
+            </CardContent>
+          </Card>
         );
       case 'foodItem':
-        // Individual food item
         return (
-          <Box
-            sx={{
+          <Card sx={{
               border: '1px solid #4caf50',
-              borderRadius: 0.5,
               p: 1,
               bgcolor: element.backgroundColor || 'rgba(76, 175, 80, 0.1)',
-              minWidth: element.width || 150,
+              width: element.width || 150,
             }}
           >
+            <CardContent>
             <Typography
               variant="caption"
               fontWeight={element.fontWeight || 'normal'}
@@ -395,41 +445,34 @@ function DraggableElement({
             >
               • {element.content || 'Food Item'}
             </Typography>
-          </Box>
+            </CardContent>
+          </Card>
         );
-      case 'image':
+      case 'mealNotes':
         return (
-          <Box
-            sx={{
-              border: '2px solid #4caf50',
-              borderRadius: 1,
-              overflow: 'hidden',
-              bgcolor: '#f5f5f5',
+          <Card sx={{
+              border: '2px dashed #ff9800',
+              p: 2,
+              bgcolor: 'rgba(255, 152, 0, 0.1)',
               width: element.width || 200,
-              height: element.height || 150,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              height: element.height || 100,
             }}
           >
-            {element.imageUrl ? (
-              <img
-                src={element.imageUrl}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <Box sx={{ textAlign: 'center', p: 2 }}>
-                <ImageIcon sx={{ fontSize: 40, color: '#4caf50' }} />
-                <Typography variant="caption" display="block" mt={1}>
-                  Image
-                </Typography>
-              </Box>
-            )}
-          </Box>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Article fontSize="small" />
+              <Typography variant="caption" fontWeight="bold">
+                Meal Notes
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Notes for the meal will be displayed here.
+            </Typography>
+            </CardContent>
+          </Card>
         );
-      case 'text':
-        return (
+      default:
+         return (
           <Box
             sx={{
               border: '2px solid #ff9800',
@@ -448,156 +491,6 @@ function DraggableElement({
             <Typography variant="body2">{element.content || 'Text content'}</Typography>
           </Box>
         );
-      case 'table':
-        const tableConfig = element.tableConfig || {
-          columns: [
-            { id: 'col1', label: 'Exercise', dataField: 'exerciseName' },
-            { id: 'col2', label: 'Sets', dataField: 'sets' },
-            { id: 'col3', label: 'Reps', dataField: 'reps' },
-          ],
-          showHeader: true,
-        };
-        return (
-          <Box
-            sx={{
-              border: '2px solid #9c27b0',
-              borderRadius: 1,
-              p: 1,
-              bgcolor: 'rgba(156, 39, 176, 0.1)',
-              minWidth: element.width || 400,
-              minHeight: element.height || 200,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <TableChart fontSize="small" />
-              <Typography variant="caption" fontWeight="bold">
-                Exercise Table
-              </Typography>
-            </Box>
-            <Box
-              component="table"
-              sx={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: tableConfig.fontSize || 10,
-              }}
-            >
-              {tableConfig.showHeader && (
-                <Box component="thead">
-                  <Box component="tr" sx={{ bgcolor: tableConfig.headerBackground || '#f5f5f5' }}>
-                    {tableConfig.columns.map((col) => (
-                      <Box
-                        key={col.id}
-                        component="th"
-                        sx={{
-                          border: `1px solid ${tableConfig.borderColor || '#ddd'}`,
-                          p: tableConfig.cellPadding || 0.5,
-                          textAlign: col.align || 'left',
-                          fontWeight: tableConfig.headerFontWeight || 'bold',
-                          fontSize: tableConfig.headerFontSize || 11,
-                          color: tableConfig.headerTextColor || '#000',
-                        }}
-                      >
-                        {col.label}
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-              <Box component="tbody">
-                {[1, 2, 3].map((row) => (
-                  <Box
-                    key={row}
-                    component="tr"
-                    sx={{
-                      bgcolor: row % 2 === 0 ? (tableConfig.rowStripeColor || 'transparent') : 'transparent',
-                    }}
-                  >
-                    {tableConfig.columns.map((col) => (
-                      <Box
-                        key={col.id}
-                        component="td"
-                        sx={{
-                          border: `1px solid ${tableConfig.borderColor || '#ddd'}`,
-                          p: tableConfig.cellPadding || 0.5,
-                          textAlign: col.align || 'left',
-                        }}
-                      >
-                        {col.dataField || '...'}
-                      </Box>
-                    ))}
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              {tableConfig.columns.length} columns • {tableConfig.showHeader ? 'With header' : 'No header'}
-            </Typography>
-          </Box>
-        );
-      case 'button':
-        const buttonConfig = element.buttonConfig || {
-          label: 'Button',
-          backgroundColor: '#1976d2',
-          textColor: '#ffffff',
-          fontSize: 14,
-        };
-        return (
-          <Box
-            sx={{
-              border: '2px solid #4caf50',
-              borderRadius: buttonConfig.borderRadius || 4,
-              p: buttonConfig.padding || 1,
-              bgcolor: buttonConfig.backgroundColor || '#1976d2',
-              color: buttonConfig.textColor || '#ffffff',
-              minWidth: element.width || buttonConfig.width || 120,
-              minHeight: element.height || buttonConfig.height || 40,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <TouchApp fontSize="small" />
-              <Typography
-                variant="body2"
-                sx={{
-                  fontSize: buttonConfig.fontSize || 14,
-                  fontWeight: buttonConfig.fontWeight || 'medium',
-                  color: buttonConfig.textColor || '#ffffff',
-                }}
-              >
-                {buttonConfig.label || 'Button'}
-              </Typography>
-            </Box>
-          </Box>
-        );
-      case 'mealNotes':
-        return (
-          <Box
-            sx={{
-              border: '2px dashed #ff9800',
-              borderRadius: 1,
-              p: 2,
-              bgcolor: 'rgba(255, 152, 0, 0.1)',
-              minWidth: 200,
-              minHeight: 100,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Article fontSize="small" />
-              <Typography variant="caption" fontWeight="bold">
-                Meal Notes
-              </Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary">
-              Notes for the meal will be displayed here.
-            </Typography>
-          </Box>
-        );
-      default:
-        return null;
     }
   };
 
@@ -605,16 +498,16 @@ function DraggableElement({
     <Box
       ref={elementRef}
       style={style}
-      onMouseDown={handleMouseDown}
+      onMouseDown={(e) => handleMouseDown(e)}
       sx={{
         position: 'absolute',
         left: element.x * scale,
         top: element.y * scale,
-        zIndex: isDragging ? 1000 : 1,
+        zIndex: isDragging || isResizing ? 1000 : 1,
         userSelect: 'none',
       }}
     >
-      <Box sx={{ position: 'relative' }}>
+      <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
         {renderElement()}
         <Box sx={{ position: 'absolute', top: -8, right: -8, display: 'flex', gap: 0.5 }}>
           <IconButton
@@ -646,10 +539,18 @@ function DraggableElement({
             <Delete fontSize="small" />
           </IconButton>
         </Box>
+        {resizeHandles.map(handle => (
+          <div
+            key={handle.position}
+            onMouseDown={(e) => handleMouseDown(e, handle.position)}
+            style={{ ...getHandleStyle(handle.position), cursor: handle.cursor }}
+          />
+        ))}
       </Box>
     </Box>
   );
 }
+
 
 // Page component
 function PageCanvas({

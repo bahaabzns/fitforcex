@@ -118,6 +118,7 @@ export default function WorkspacePage() {
   const [workspaceName, setWorkspaceName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#3B82F6');
+  const [welcomeMessage, setWelcomeMessage] = useState('');
 
   // Loading states
   const [saving, setSaving] = useState(false);
@@ -216,6 +217,7 @@ export default function WorkspacePage() {
         setWorkspaceName(ws?.name || '');
         setLogoUrl(ws?.brandingLogoUrl || '');
         setPrimaryColor(ws?.brandingPrimaryHex || '#3B82F6');
+        setWelcomeMessage(ws?.welcomeMessage || '');
         
         if (owner && ws?.id && workspaceId !== ws.id) {
           dispatch(setWorkspace({ id: ws.id, subdomain }));
@@ -272,19 +274,35 @@ export default function WorkspacePage() {
     
     setSaving(true);
     try {
-      await api.put(`/api/workspaces/${workspace.id}`, {
-        name: workspaceName
+      const response = await api.put(`/api/workspaces/${workspace.id}`, {
+        name: workspaceName,
+        welcomeMessage: welcomeMessage || null
       });
       
       setWorkspaceData(prev => prev ? { 
         ...prev, 
-        name: workspaceName
+        name: response.data.workspace.name,
+        welcomeMessage: response.data.workspace.welcomeMessage || null
       } : null);
     } catch {
       setError('Failed to save workspace settings');
     } finally {
       setSaving(false);
     }
+  };
+
+  // Preview state for welcome message
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const renderWelcomePreview = () => {
+    const template = welcomeMessage && welcomeMessage.trim() ? welcomeMessage : `<p>Welcome to <strong>{{workspaceName}}</strong>! Your login email is <strong>{{loginEmail}}</strong> and password is <strong>{{password}}</strong>. <a href="{{loginUrl}}">Click here to login</a>.</p>`;
+
+    return template
+      .replace(/{{\s*loginEmail\s*}}/g, 'jane@example.com')
+      .replace(/{{\s*email\s*}}/g, 'jane@example.com')
+      .replace(/{{\s*password\s*}}/g, 'hunter2')
+      .replace(/{{\s*loginUrl\s*}}/g, `${APP_CONFIG.frontendUrl}/login`)
+      .replace(/{{\s*workspaceName\s*}}/g, workspace?.name || 'Your Workspace');
   };
 
   const handleDeleteWorkspace = async () => {
@@ -480,6 +498,18 @@ export default function WorkspacePage() {
                       endAdornment: <InputAdornment position="end">.{APP_CONFIG.frontendDomain}</InputAdornment>
                     }}
                   />
+
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={4}
+                    label={intl.formatMessage({ id: 'workspace.welcomeMessage', defaultMessage: 'Welcome / Credentials Email' })}
+                    value={welcomeMessage}
+                    onChange={(e) => setWelcomeMessage(e.target.value)}
+                    placeholder={intl.formatMessage({ id: 'workspace.welcomeMessage.placeholder', defaultMessage: 'Enter custom HTML for the credentials email. Use placeholders like {{loginEmail}}, {{password}}, {{loginUrl}}, {{workspaceName}}' })}
+                    helperText={intl.formatMessage({ id: 'workspace.welcomeMessage.helper', defaultMessage: 'You can use placeholders: {{loginEmail}}, {{password}}, {{loginUrl}}, {{workspaceName}}' })}
+                  />
+
                   <Stack direction="row" spacing={2}>
                     <Button
                       variant="contained"
@@ -487,6 +517,9 @@ export default function WorkspacePage() {
                       disabled={saving}
                     >
                       {saving ? intl.formatMessage({ id: 'saving', defaultMessage: 'Saving...' }) : intl.formatMessage({ id: 'workspace.saveChanges', defaultMessage: 'Save Changes' })}
+                    </Button>
+                    <Button variant="outlined" onClick={() => setPreviewOpen(true)}>
+                      <FormattedMessage id="workspace.welcomePreview" defaultMessage="Preview" />
                     </Button>
                     <Button variant="outlined" startIcon={<Settings />}>
                       <FormattedMessage id="workspace.advanced" defaultMessage="Advanced" />
@@ -1163,6 +1196,16 @@ export default function WorkspacePage() {
           </Stack>
         </TabPanel>
         )}
+
+        <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} maxWidth="md" fullWidth>
+          <DialogContent sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom><FormattedMessage id="workspace.welcomePreview.title" defaultMessage="Welcome Email Preview" /></Typography>
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ mt: 2 }}>
+              <div dangerouslySetInnerHTML={{ __html: renderWelcomePreview() }} />
+            </Box>
+          </DialogContent>
+        </Dialog>
 
         <Dialog fullScreen open={builderOpen} onClose={() => setBuilderOpen(false)}>
           <DialogContent sx={{ p: 2 }}>

@@ -1260,9 +1260,6 @@ export default function DashboardOverviewBlank() {
                                       <FormattedMessage id="dashboard.pendingPlans" defaultMessage="Pending Plans" />
                                     </TableCell>
                                     <TableCell align="right">
-                                      <FormattedMessage id="dashboard.avgProcessingTime" defaultMessage="Avg. Processing Time" />
-                                    </TableCell>
-                                    <TableCell align="right">
                                       <FormattedMessage id="dashboard.total" defaultMessage="Total" />
                                     </TableCell>
                                   </TableRow>
@@ -1301,9 +1298,6 @@ export default function DashboardOverviewBlank() {
                                             <LinearProgress variant="determinate" value={pendingPctOfMax} sx={{ width: 110, height: 6, borderRadius: 999 }} />
                                           </Stack>
                                         </TableCell>
-                                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                                          <Typography>{(Number(m.avgProcessingHours || 0)).toFixed(1)} h</Typography>
-                                        </TableCell>
                                         <TableCell align="right">{total.toLocaleString()}</TableCell>
                                       </TableRow>
                                     );
@@ -1316,7 +1310,6 @@ export default function DashboardOverviewBlank() {
                                     </TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>{Number(teamCapacity?.summary?.totalCompleted || 0).toLocaleString()}</TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>{Number(teamCapacity?.summary?.totalPending || 0).toLocaleString()}</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 600 }}>—</TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 600 }}>{(Number(teamCapacity?.summary?.totalCompleted || 0) + Number(teamCapacity?.summary?.totalPending || 0)).toLocaleString()}</TableCell>
                                   </TableRow>
                                 </TableBody>

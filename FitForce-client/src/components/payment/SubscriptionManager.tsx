@@ -283,7 +283,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   const calculateSubscriptionProgress = () => {
     if (!subscription) return { progress: 0, daysRemaining: 0, hoursRemaining: 0, totalDays: 0 };
     
-    const startDateStr = subscription.startDate || subscription.createdAt;
+    // Only use a real start date; do NOT fall back to creation date. Start date should be populated when the first plan is activated.
+    const startDateStr = subscription.startDate;
     const endDateStr = subscription.endDate || subscription.renewalDate;
     
     if (!startDateStr || !endDateStr) return { progress: 0, daysRemaining: 0, hoursRemaining: 0, totalDays: 0 };
@@ -370,7 +371,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                       }} 
                     />
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                      {formatDate(subscription.startDate || subscription.createdAt)} → {formatDate(subscription.endDate || subscription.renewalDate)}
+                      {formatDate(subscription.startDate)} → {formatDate(subscription.endDate || subscription.renewalDate)}
                       {progressData.totalDays > 0 && ` (${progressData.totalDays} day${progressData.totalDays !== 1 ? 's' : ''})`}
                     </Typography>
                   </Box>
@@ -438,7 +439,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                   <ListItem>
                     <ListItemText
                       primary={intl.formatMessage({ id: 'start-date' })}
-                      secondary={formatDate(subscription.startDate || subscription.createdAt)}
+                      secondary={formatDate(subscription.startDate)}
                     />
                   </ListItem>
                   <ListItem>

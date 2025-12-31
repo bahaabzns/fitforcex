@@ -233,8 +233,9 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   };
 
   const validatePassword = (passwordValue: string) => {
+    // Password is optional — leave empty to auto-generate a secure password
     if (!passwordValue || passwordValue.trim().length === 0) {
-      setPasswordError('Password is required');
+      setPasswordError(null);
       return;
     }
 
@@ -316,45 +317,25 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
         return;
       }
 
-      if (!password.trim()) {
-        setError('Password is required');
-        setLoading(false);
-        return;
-      }
-
-      if (password.trim().length < 6) {
-        setError('Password must be at least 6 characters');
-        setLoading(false);
-        return;
-      }
-
       // Create client
       const phoneDigits = phone.trim().replace(/\D/g, '');
       const fullPhone = phoneDigits ? phoneCountryCode + phoneDigits : undefined;
       
+      // Send optional password to server; server will generate one if missing
       const clientRes = await api.post('/api/clients', {
         fullName: fullName.trim(),
         email: email.trim(),
         phone: fullPhone,
         phoneCountryCode: phoneDigits ? phoneCountryCode : undefined,
+        password: password.trim() || undefined,
       });
 
       const clientId = clientRes.data.client.id;
       setCreatedClientId(clientId);
 
-      // Create password for client (required)
-      try {
-        await api.post('/api/clients/set-password', {
-          clientId,
-          password: password.trim(),
-        });
-      } catch (err) {
-        console.error('Error setting client password:', err);
-        setError('Failed to set client password');
-        setLoading(false);
-        return;
-      }
-
+      // If server returned the generated password, keep it for display
+      const returnedPassword = clientRes.data.password || null;
+      if (returnedPassword) setPassword(returnedPassword);
       setActiveStep(1);
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to create client');
@@ -496,8 +477,7 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
                 validatePassword(e.target.value);
               }}
               error={!!passwordError}
-              helperText={passwordError || "Set a password so the client can login to their portal (minimum 6 characters)"}
-              required
+              helperText={passwordError || "Leave empty to auto-generate a secure password (minimum 6 characters)"}
             />
           </Stack>
         );

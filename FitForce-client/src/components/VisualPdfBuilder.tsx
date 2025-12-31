@@ -10347,10 +10347,10 @@ function CustomPageEditor({
 
       {/* Grid Position Dialog */}
       <GridPositionDialog
-        open={gridDialogOpen && gridDialogContext !== null}
+        open={typeof gridDialogOpen !== 'undefined' && gridDialogOpen && gridDialogContext !== null}
         onClose={() => {
-          setGridDialogOpen(false);
-          setGridDialogContext(null);
+          if (typeof setGridDialogOpen === 'function') setGridDialogOpen(false);
+          if (typeof setGridDialogContext === 'function') setGridDialogContext(null);
         }}
         onSelect={handleGridSelect}
         currentX={gridDialogContext?.currentX ?? 0}

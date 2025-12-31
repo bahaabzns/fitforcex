@@ -276,27 +276,33 @@ export default function SortableExercise({
                     {exercise.exercise.name}
                   </Typography>
                 </Box>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                    {exercise.exercise.muscleGroup}
-                  </Typography>
-                    {!isCardio && exercise.tempo && (
-                      <Chip
-                        label={`Tempo: ${exercise.tempo}`}
-                        size="small"
-                        variant="outlined"
-                    sx={{ mb: 0.5 }}
-                      />
-                    )}
-                    {!isCardio && exercise.rir > 0 && (
-                      <Chip
-                        label={`RIR: ${exercise.rir}`}
-                        size="small"
-                        variant="outlined"
-                    sx={{ mb: 0.5 }}
-                      />
-                    )}
-              </Box>
-            </Box>
+                                  <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                                    {exercise.exercise.muscleGroup}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                    {!isCardio && exercise.restSeconds > 0 && (
+                                      <Chip
+                                        label={`Rest: ${exercise.restSeconds}s`}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {!isCardio && exercise.tempo && (
+                                      <Chip
+                                        label={`Tempo: ${exercise.tempo}`}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {!isCardio && exercise.rir > 0 && (
+                                      <Chip
+                                        label={`RIR: ${exercise.rir}`}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </Stack>
+                              </Box>            </Box>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5, mt: 0.5 }}>
               <Chip
                 label={exercise.exercise.category || ''}

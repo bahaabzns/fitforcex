@@ -533,12 +533,29 @@ export default function ClientWorkoutPlanDetail() {
                                 {it.planSets.map((s: any, setIndex: number) => (
                                   <Chip
                                     key={setIndex}
-                                    label={`${intl.formatMessage({ id: 'set' })} ${setIndex + 1}: ${s.repMin ?? s.reps ?? ''}${s.repMax ? '-' + s.repMax : ''}${s.weight ? ` @ ${s.weight}kg` : ''}`}
+                                    label={`${intl.formatMessage({ id: 'set' })} ${setIndex + 1}: ${s.repMin ?? s.reps ?? ''}${s.repMax ? '-' + s.repMax : ''}${s.weight ? ` @ ${s.weight}kg` : ''}${s.tempo ? ` • Tempo: ${s.tempo}` : ''}${(s.rir !== undefined && s.rir !== null) ? ` • RIR: ${s.rir}` : ''}${s.restSeconds ? ` • Rest: ${s.restSeconds}s` : ''}`}
                                     size="small"
                                     variant="outlined"
                                     sx={{ mr: 1, mb: 0.5 }}
                                   />
                                 ))}
+
+                                {/* Exercise-level summary (tempo / RIR / rest) */}
+                                {(it.tempo || (it.rir !== undefined && it.rir !== null) || it.restSeconds) && (
+                                  <Box sx={{ mt: 1 }}>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                                      {it.tempo && (
+                                        <Chip size="small" label={`Tempo: ${it.tempo}`} sx={{ mr: 1, mb: 0.5 }} />
+                                      )}
+                                      {(it.rir !== undefined && it.rir !== null) && (
+                                        <Chip size="small" label={`RIR: ${it.rir}`} sx={{ mr: 1, mb: 0.5 }} />
+                                      )}
+                                      {it.restSeconds && (
+                                        <Chip size="small" label={`Rest: ${it.restSeconds}s`} sx={{ mr: 1, mb: 0.5 }} />
+                                      )}
+                                    </Stack>
+                                  </Box>
+                                )}
                               </Box>
                             )}
 

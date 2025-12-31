@@ -58,7 +58,7 @@ const eslintConfig = [
       'no-shadow': 'off',
       '@typescript-eslint/naming-convention': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      'import/no-cycle': 'off',
+      'import/no-cycle': 'warn',
       'prefer-destructuring': 'off',
       'import/no-extraneous-dependencies': 'off',
       'react/display-name': 'off',

@@ -24,6 +24,8 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
+import Checkbox from '@mui/material/Checkbox';
+import ListItemText from '@mui/material/ListItemText';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -48,8 +50,12 @@ import {
   getFilteredRowModel,
   useReactTable,
   SortingState,
-  ColumnFiltersState
+  ColumnFiltersState,
+  FilterFn
 } from '@tanstack/react-table';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 // Project imports
 import Avatar from 'components/@extended/Avatar';
@@ -99,9 +105,10 @@ type Client = {
   packageName?: string | null;
   packageDuration?: number | null;
   createdAt?: string;
+  // Plaintext password visible to coaches
+  password?: string | null;
 };
 
-type ViewMode = 'table' | 'cards';
 type TableDensity = 'compact';
 
 export default function ClientsPage() {
@@ -119,10 +126,7 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [subscriptionRequired, setSubscriptionRequired] = useState<boolean>(false);
   const [clients, setClients] = useState<Client[]>([]);
-  const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [tableDensity, setTableDensity] = useState<TableDensity>('compact');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<number>(0); // 0 = Active, 1 = Archived
 
   const statusOptions = [
@@ -136,13 +140,6 @@ export default function ClientsPage() {
     { value: 'refunded', label: 'Refunded', color: 'default' },
     { value: 'inactive', label: 'Inactive', color: 'error' },
   ];
-
-  // Auto-switch to cards view on mobile
-  useEffect(() => {
-    if (isMobile && viewMode === 'table') {
-      setViewMode('cards');
-    }
-  }, [isMobile]);
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
@@ -199,10 +196,10 @@ export default function ClientsPage() {
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [settingPassword, setSettingPassword] = useState(false);
   const [customPassword, setCustomPassword] = useState('');
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
 
   // Packages for filtering and display
   const [packages, setPackages] = useState<any[]>([]);
-  const [packageFilter, setPackageFilter] = useState<string>('all');
 
   useEffect(() => {
     if (!workspaceId) {
@@ -257,52 +254,7 @@ export default function ClientsPage() {
   }, [workspaceId]);
 
 
-  const filtered = useMemo(() => {
-    let result = clients;
 
-    // Text search filter - focus on client name primarily
-    const searchQuery = search.trim().toLowerCase();
-    if (searchQuery) {
-      result = result.filter(
-        (c) => {
-          const clientName = (c.fullName || c.name || '').toLowerCase();
-          const email = (c.email || '').toLowerCase();
-          const phone = (c.phone || '').toLowerCase();
-          
-          // Primary search: client name (most common use case)
-          if (clientName.includes(searchQuery)) {
-            return true;
-          }
-          // Secondary search: email (for cases where user searches by email)
-          if (email.includes(searchQuery)) {
-            return true;
-          }
-          // Tertiary search: phone (for cases where user searches by phone)
-          if (phone.includes(searchQuery)) {
-            return true;
-          }
-          return false;
-        }
-      );
-    }
-
-    // Package filter
-    if (packageFilter && packageFilter !== 'all') {
-      if (packageFilter === 'none') {
-        result = result.filter((c: any) => !c.packageId);
-      } else {
-        result = result.filter((c: any) => c.packageId === packageFilter);
-      }
-    }
-
-    // Status filter
-    if (statusFilter && statusFilter !== 'all') {
-      const target = statusFilter.toLowerCase();
-      result = result.filter((c: any) => (c.status || '').toLowerCase() === target);
-    }
-
-    return result;
-  }, [clients, search, packageFilter, statusFilter]);
 
   const refreshClients = async () => {
     try {
@@ -588,23 +540,76 @@ export default function ClientsPage() {
         )
       },
       {
-        header: '#',
-        accessorKey: 'code',
-        cell: ({ getValue }) => {
-          const code = getValue() as number;
+        header: ({ column }) => {
+          const filterValue = column.getFilterValue() as string;
+          const hasFilter = filterValue && String(filterValue).trim().length > 0;
+          if (openFilter === 'code') {
+            return <DebouncedInput
+              value={filterValue || ''}
+              onFilterChange={(value) => column.setFilterValue(value)}
+              onBlur={() => setOpenFilter(null)}
+              placeholder="Search by ID..."
+              autoFocus
+            />
+          }
+          return (
+            <Button 
+              size="small" 
+              onClick={() => setOpenFilter('code')}
+              variant={hasFilter ? 'contained' : 'text'}
+              color={hasFilter ? 'primary' : 'inherit'}
+            >
+              #
+            </Button>
+          );
+        },
+        accessorFn: (row) => row.id || '',
+        id: 'code',
+        cell: ({ row }) => {
+          const id = row.original.id || '';
+          const code = id.substring(0, 8);
           return (
             <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
               #{code}
             </Typography>
           );
         },
+        filterFn: (row, id, filterValue) => {
+          const rowValue = row.original.id || '';
+          const searchValue = String(filterValue || '').toLowerCase().trim();
+          if (!searchValue) return true;
+          return rowValue.toLowerCase().includes(searchValue);
+        },
         meta: { align: 'center' }
       },
       {
-        header: t('client-name'),
-        accessorKey: 'name',
-        cell: ({ row, getValue }) => {
-          const name = (getValue() as string) || row.original.fullName || 'Unnamed';
+        header: ({ column }) => {
+          const filterValue = column.getFilterValue() as string;
+          const hasFilter = filterValue && String(filterValue).trim().length > 0;
+          if (openFilter === 'name') {
+            return <DebouncedInput
+              value={filterValue || ''}
+              onFilterChange={(value) => column.setFilterValue(value)}
+              onBlur={() => setOpenFilter(null)}
+              placeholder="Search by name..."
+              autoFocus
+            />
+          }
+          return (
+            <Button 
+              size="small" 
+              onClick={() => setOpenFilter('name')}
+              variant={hasFilter ? 'contained' : 'text'}
+              color={hasFilter ? 'primary' : 'inherit'}
+            >
+              {t('client-name')}
+            </Button>
+          );
+        },
+        accessorFn: (row) => row.fullName || row.name || '',
+        id: 'name',
+        cell: ({ row }) => {
+          const name = row.original.fullName || row.original.name || 'Unnamed';
           return (
             <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
               <Avatar alt="Avatar" size="sm" src={`/assets/images/users/avatar-1.png`} />
@@ -616,24 +621,159 @@ export default function ClientsPage() {
               </Stack>
             </Stack>
           );
+        },
+        filterFn: (row, id, filterValue) => {
+          const name = (row.original.fullName || row.original.name || '').toLowerCase();
+          const searchValue = String(filterValue || '').toLowerCase().trim();
+          if (!searchValue) return true;
+          return name.includes(searchValue);
+        },
+      },
+      {
+        header: ({ column }) => {
+          const filterValue = column.getFilterValue() as string;
+          const hasFilter = filterValue && String(filterValue).trim().length > 0;
+          if (openFilter === 'phone') {
+            return <DebouncedInput
+              value={filterValue || ''}
+              onFilterChange={(value) => column.setFilterValue(value)}
+              onBlur={() => setOpenFilter(null)}
+              placeholder="Search by contact..."
+              autoFocus
+            />
+          }
+          return (
+            <Button 
+              size="small" 
+              onClick={() => setOpenFilter('phone')}
+              variant={hasFilter ? 'contained' : 'text'}
+              color={hasFilter ? 'primary' : 'inherit'}
+            >
+              {t('contact')}
+            </Button>
+          );
+        },
+        accessorKey: 'phone',
+        cell: ({ getValue }) => <Typography>{(getValue() as string) || t('no-phone')}</Typography>,
+        filterFn: (row, id, filterValue) => {
+          const rowValue = String(row.original.phone || '').toLowerCase();
+          const searchValue = String(filterValue || '').toLowerCase().trim();
+          if (!searchValue) return true;
+          return rowValue.includes(searchValue);
         }
       },
       {
-        header: t('contact'),
-        accessorKey: 'phone',
-        cell: ({ getValue }) => <Typography>{(getValue() as string) || t('no-phone')}</Typography>
+        header: ({ column }) => {
+          const filterValue = column.getFilterValue() as string;
+          const hasFilter = filterValue && String(filterValue).trim().length > 0;
+          if (openFilter === 'password') {
+            return <DebouncedInput
+              value={filterValue || ''}
+              onFilterChange={(value) => column.setFilterValue(value)}
+              onBlur={() => setOpenFilter(null)}
+              placeholder="Search by password..."
+              autoFocus
+            />
+          }
+          return (
+            <Button 
+              size="small" 
+              onClick={() => setOpenFilter('password')}
+              variant={hasFilter ? 'contained' : 'text'}
+              color={hasFilter ? 'primary' : 'inherit'}
+            >
+              Password
+            </Button>
+          );
+        },
+        accessorKey: 'password',
+        cell: ({ getValue }) => (
+          <Typography sx={{ fontFamily: 'monospace' }}>{(getValue() as string) || '—'}</Typography>
+        ),
+        filterFn: (row, id, filterValue) => {
+          const rowValue = String(row.original.password || '').toLowerCase();
+          const searchValue = String(filterValue || '').toLowerCase().trim();
+          if (!searchValue) return true;
+          return rowValue.includes(searchValue);
+        }
       },
       {
-        header: t('status'),
+        header: ({ column }) => {
+          const filterValue = column.getFilterValue() as string[];
+          const hasFilter = filterValue && Array.isArray(filterValue) && filterValue.length > 0;
+          if (openFilter === 'status') {
+            return <FormControl size="small" sx={{minWidth: 120}}>
+              <Select
+                multiple
+                value={filterValue || []}
+                onChange={(e) => column.setFilterValue(e.target.value)}
+                onClose={() => setOpenFilter(null)}
+                open={true}
+                renderValue={(selected) => (selected as string[]).join(', ')}
+              >
+                {statusOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    <Checkbox checked={(filterValue || []).includes(option.value)} />
+                    <ListItemText primary={option.label} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          }
+          return (
+            <Button 
+              size="small" 
+              onClick={() => setOpenFilter('status')}
+              variant={hasFilter ? 'contained' : 'text'}
+              color={hasFilter ? 'primary' : 'inherit'}
+            >
+              {t('status')} {hasFilter && `(${filterValue.length})`}
+            </Button>
+          );
+        },
         accessorKey: 'status',
+        filterFn: 'arrIncludes',
         cell: ({ getValue }) => {
           const status = getValue() as string;
           return <Chip color={getStatusColor(status) as any} label={getStatusLabel(status)} size="small" variant="light" />;
         }
       },
       {
-        header: t('package'),
+        header: ({ column }) => {
+          const filterValue = column.getFilterValue() as string[];
+          const hasFilter = filterValue && Array.isArray(filterValue) && filterValue.length > 0;
+          if (openFilter === 'packageName') {
+            return <FormControl size="small" sx={{minWidth: 150}}>
+              <Select
+                multiple
+                value={filterValue || []}
+                onChange={(e) => column.setFilterValue(e.target.value)}
+                onClose={() => setOpenFilter(null)}
+                open={true}
+                renderValue={(selected) => selected.join(', ')}
+              >
+                {packages.map((pkg) => (
+                  <MenuItem key={pkg.id} value={pkg.name}>
+                    <Checkbox checked={(filterValue || []).includes(pkg.name)} />
+                    <ListItemText primary={pkg.name} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          }
+          return (
+            <Button 
+              size="small" 
+              onClick={() => setOpenFilter('packageName')}
+              variant={hasFilter ? 'contained' : 'text'}
+              color={hasFilter ? 'primary' : 'inherit'}
+            >
+              {t('package')} {hasFilter && `(${filterValue.length})`}
+            </Button>
+          );
+        },
         accessorKey: 'packageName',
+        filterFn: 'arrIncludes',
         cell: ({ row }) => {
           const packageName = row.original.packageName;
           const packageDuration = row.original.packageDuration;
@@ -653,11 +793,58 @@ export default function ClientsPage() {
         }
       },
       {
-        header: 'Created',
+        header: ({ column }) => {
+          const filterValue = column.getFilterValue() as Date | null;
+          const hasFilter = filterValue !== null && filterValue !== undefined;
+          if (openFilter === 'createdAt') {
+            return (
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  value={filterValue}
+                  onChange={(newValue) => {
+                    column.setFilterValue(newValue);
+                    setOpenFilter(null);
+                  }}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      autoFocus: true,
+                      placeholder: 'Select date',
+                      sx: { minWidth: 150 }
+                    },
+                    actionBar: {
+                      actions: ['clear', 'today']
+                    }
+                  }}
+                  open
+                  onClose={() => setOpenFilter(null)}
+                />
+              </LocalizationProvider>
+            );
+          }
+          return (
+            <Button 
+              size="small"
+              onClick={() => setOpenFilter('createdAt')}
+              variant={hasFilter ? 'contained' : 'text'}
+              color={hasFilter ? 'primary' : 'inherit'}
+            >
+              Created
+            </Button>
+          );
+        },
         accessorKey: 'createdAt',
         cell: ({ getValue }) => {
           const date = getValue() as string;
           return date ? new Date(date).toLocaleDateString() : 'Unknown';
+        },
+        filterFn: (row, id, filterValue) => {
+          if (!filterValue) return true;
+          const rowDate = row.original.createdAt ? new Date(row.original.createdAt) : null;
+          if (!rowDate) return false;
+          const filterDate = filterValue instanceof Date ? filterValue : new Date(filterValue);
+          // Compare dates (ignore time)
+          return rowDate.toDateString() === filterDate.toDateString();
         }
       },
       {
@@ -745,12 +932,12 @@ export default function ClientsPage() {
         }
       }
     ],
-    [activeTab, handleFreezeClient, handleUnfreezeClient, setSelectedClient, setViewOpen, setEditOpen, setEditFullName, setEditEmail, setEditWorkspaceEmail, setEditPhone, handleDeleteClient, t]
+    [activeTab, handleFreezeClient, handleUnfreezeClient, setSelectedClient, setViewOpen, setEditOpen, setEditFullName, setEditEmail, setEditWorkspaceEmail, setEditPhone, handleDeleteClient, t, openFilter, setOpenFilter, statusOptions, packages]
   );
 
   // Table configuration
   const table = useReactTable({
-    data: filtered,
+    data: clients,
     columns: columns,
     state: { columnFilters, sorting, rowSelection },
     enableRowSelection: true,
@@ -759,10 +946,18 @@ export default function ClientsPage() {
     onRowSelectionChange: setRowSelection,
     onColumnFiltersChange: setColumnFilters,
     getRowCanExpand: () => true,
-    getSortedRowModel: getSortedRowModel(),
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    debugTable: true
+    filterFns: {
+      arrIncludes: (row, columnId, filterValue) => {
+        const rowValue = row.getValue(columnId) as string;
+        if (!filterValue || !Array.isArray(filterValue) || filterValue.length === 0) return true;
+        return filterValue.includes(rowValue);
+      },
+    },
+    globalFilterFn: 'includesString',
   });
 
   // Validation functions for edit form
@@ -941,6 +1136,7 @@ export default function ClientsPage() {
           clientId: selectedClient.id,
           password: password
         });
+        await refreshClients();
         setPasswordDialogOpen(false);
         setError(null);
       } else {
@@ -952,6 +1148,7 @@ export default function ClientsPage() {
           clientId: selectedClient.id,
           password: password
         });
+        await refreshClients();
       }
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to set password');
@@ -994,10 +1191,36 @@ export default function ClientsPage() {
     );
   }
 
-  const renderTableView = () => (
+  const renderTableView = () => {
+    const activeFiltersCount = columnFilters.filter(f => {
+      const value = f.value;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'string') return value.trim().length > 0;
+      return value != null && value !== '';
+    }).length;
+    
+    const hasActiveFilters = activeFiltersCount > 0;
+    
+    return (
     <MainCard content={false}>
       <Stack>
-        <RowSelection selected={Object.keys(rowSelection).length} />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, pb: 1 }}>
+          <RowSelection selected={Object.keys(rowSelection).length} />
+          {hasActiveFilters && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="secondary"
+              onClick={() => {
+                setColumnFilters([]);
+                setOpenFilter(null);
+              }}
+              sx={{ ml: 'auto' }}
+            >
+              Clear Filters ({activeFiltersCount})
+            </Button>
+          )}
+        </Box>
         <ResponsiveTable>
           <Table size={tableDensity === 'compact' ? 'small' : 'small'}>
             <TableHead>
@@ -1069,11 +1292,14 @@ export default function ClientsPage() {
         </>
       </Stack>
     </MainCard>
-  );
+    );
+  };
 
-  const renderCardsView = () => (
+  const renderCardsView = () => {
+    const filteredClients = table.getRowModel().rows.map(row => row.original);
+    return (
     <Grid container spacing={2}>
-      {filtered.map((c) => (
+      {filteredClients.map((c) => (
         <Grid key={c.id} size={{ xs: 12, sm: 6, lg: 4 }}>
           <Card 
             sx={{ 
@@ -1210,7 +1436,8 @@ export default function ClientsPage() {
         </Grid>
       ))}
     </Grid>
-  );
+    );
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -1223,31 +1450,8 @@ export default function ClientsPage() {
       >
         <Typography variant="h4">{t('clients')}</Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-          <ToggleButtonGroup value={viewMode} exclusive onChange={(_, newMode) => newMode && setViewMode(newMode)} size="small">
-            <ToggleButton value="table">
-              <Menu size={16} />
-            </ToggleButton>
-            <ToggleButton value="cards">
-              <Grid3 size={16} />
-            </ToggleButton>
-          </ToggleButtonGroup>
-          <Select
-            value={packageFilter}
-            onChange={(event) => setPackageFilter(event.target.value)}
-            displayEmpty
-            size="small"
-            sx={{ minWidth: 150 }}
-          >
-            <MenuItem value="all">{t('all-packages')}</MenuItem>
-            <MenuItem value="none">{t('no-package-filter')}</MenuItem>
-            {packages.map((pkg) => (
-              <MenuItem key={pkg.id} value={pkg.id}>
-                {pkg.name}
-              </MenuItem>
-            ))}
-          </Select>
-          <TextField size="small" placeholder={t('search-by-client-name')} value={search} onChange={(e) => setSearch(e.target.value)} />
-          {activeTab === 0 && Object.keys(rowSelection).length > 0 && viewMode === 'table' && (
+
+          {activeTab === 0 && Object.keys(rowSelection).length > 0 && (
             <Button
               variant="outlined"
               color="primary"
@@ -1264,7 +1468,7 @@ export default function ClientsPage() {
           )}
           <CSVExport
             {...{
-              data: filtered,
+              data: clients,
               headers,
               filename: 'clients-list.csv'
             }}
@@ -1282,31 +1486,6 @@ export default function ClientsPage() {
           justifyContent: 'space-between'
         }}
       >
-        <Box sx={{ flexGrow: 1, width: '100%' }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ px: 1, mb: 0.5 }}>
-            Filter by Status
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {statusOptions.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                onClick={() => setStatusFilter(option.value)}
-                color={statusFilter === option.value ? (option.color as any) : undefined}
-                variant={statusFilter === option.value ? 'filled' : 'outlined'}
-                size="small"
-                sx={{
-                  cursor: 'pointer',
-                  fontWeight: statusFilter === option.value ? 600 : 400,
-                  transition: 'transform 0.15s ease',
-                  '&:hover': {
-                    transform: 'translateY(-1px)'
-                  }
-                }}
-              />
-            ))}
-          </Box>
-        </Box>
         <Box sx={{ alignSelf: { xs: 'stretch', md: 'flex-end' } }}>
           <Tooltip title={activeTab === 1 ? 'Show Active Clients' : 'View Archived Clients'}>
             <Button
@@ -1397,7 +1576,7 @@ export default function ClientsPage() {
         </Card>
       )}
 
-      {filtered.length === 0 ? (
+      {clients.length === 0 ? (
         <Card>
           <CardContent>
             <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -1406,10 +1585,8 @@ export default function ClientsPage() {
             </Box>
           </CardContent>
         </Card>
-      ) : viewMode === 'table' ? (
-        renderTableView()
       ) : (
-        renderCardsView()
+        renderTableView()
       )}
 
       {/* Edit Client Dialog */}

@@ -635,6 +635,31 @@ export default function ClientWorkoutPage() {
   const [isPlanDirty, setIsPlanDirty] = useState(false);
   const [dragDayIndex, setDragDayIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  
+  // Auto-save infrastructure
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const savePlanRef = useRef<(() => Promise<any>) | null>(null);
+
+  const scheduleAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      if (isPlanDirty && savePlanRef.current) {
+        try {
+          await savePlanRef.current();
+        } catch (e) {
+          console.error('Auto-save failed', e);
+        }
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    };
+  }, []);
   const [planQuery, setPlanQuery] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [editingPlanTitleId, setEditingPlanTitleId] = useState<string | null>(null);
@@ -680,6 +705,7 @@ export default function ClientWorkoutPage() {
     });
     setDragDayIndex(null);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   // DnD sensors - Configured for mobile touch support with long press
@@ -1297,6 +1323,7 @@ export default function ClientWorkoutPage() {
         setLocalWorkoutPlan(newPlan);
         setSelectedPlanId(created.id);
         setIsPlanDirty(true);
+        scheduleAutoSave();
         setSelectedDayIndex(0);
         setNewPlanTitle('');
         setIsCreatePlanDialogOpen(false);
@@ -1328,6 +1355,7 @@ export default function ClientWorkoutPage() {
     
     setSelectedDayIndex(localWorkoutPlan.days.length); // Select new day
     setIsPlanDirty(true);
+    scheduleAutoSave();
       setNewDayTitle('');
       setIsCreateDayDialogOpen(false);
   };
@@ -1454,6 +1482,7 @@ export default function ClientWorkoutPage() {
     );
 
     setIsPlanDirty(true);
+    scheduleAutoSave();
     setExerciseToReplaceId(null);
     setSelectedExercises([]);
     setIsAddExerciseDialogOpen(false);
@@ -1747,6 +1776,10 @@ export default function ClientWorkoutPage() {
     }
   };
 
+  useEffect(() => {
+    savePlanRef.current = saveLocalPlan;
+  }, [saveLocalPlan]);
+
   // Clear local plan (discard changes)
   const clearLocalPlan = () => {
     setLocalWorkoutPlan(null);
@@ -1793,8 +1826,9 @@ export default function ClientWorkoutPage() {
       )
     } : null);
     
-    setIsPlanDirty(true);
-  };
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      };
 
   // Format rep range display
   const formatRepRange = (reps: string, sets: number) => {
@@ -1830,8 +1864,9 @@ export default function ClientWorkoutPage() {
           idx === selectedDayIndex ? { ...day, exercises: newExercises } : day
         )
       } : null);
-      setIsPlanDirty(true);
-    }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
   };
 
   const handleDayDragEnd = (event: DragEndEvent) => {
@@ -1854,8 +1889,9 @@ export default function ClientWorkoutPage() {
       } else if (selectedDayIndex < Math.min(oldIndex, newIndex)) {
         // No change needed
       }
-      setIsPlanDirty(true);
-    }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
   };
 
   const openEditExerciseDialog = (exercise: any) => {
@@ -2805,8 +2841,9 @@ export default function ClientWorkoutPage() {
                       onBlur={() => {
                         if (localWorkoutPlan) {
                           setLocalWorkoutPlan((prev) => prev ? { ...prev, title: editingPlanTitleValue || prev.title } : null);
-                          setIsPlanDirty(true);
-                        }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
                         setEditingPlanTitleId(null);
                       }}
                       onKeyDown={(e) => {
@@ -2891,8 +2928,9 @@ export default function ClientWorkoutPage() {
                                 ...prev,
                                 days: [...prev.days, copiedDay]
                               } : null);
-                              setIsPlanDirty(true);
-                            }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                             onDelete={() => {
                               if (!localWorkoutPlan) return;
                               if (window.confirm('Delete this day?')) {
@@ -2905,8 +2943,9 @@ export default function ClientWorkoutPage() {
                                 } else if (selectedDayIndex > index) {
                                   setSelectedDayIndex(selectedDayIndex - 1);
                                 }
-                                setIsPlanDirty(true);
-                              }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
                             }}
                           />
                         ))}
@@ -2986,8 +3025,9 @@ export default function ClientWorkoutPage() {
                                   : day
                               )
                             } : null);
-                            setIsPlanDirty(true);
-                          }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
                           setEditingDayTitleId(null);
                         }}
                         onKeyDown={(e) => {
@@ -3616,8 +3656,9 @@ export default function ClientWorkoutPage() {
                           onBlur={() => {
                             if (localWorkoutPlan) {
                               setLocalWorkoutPlan((prev) => prev ? { ...prev, title: editingPlanTitleValue || prev.title } : null);
-                              setIsPlanDirty(true);
-                            }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
                             setEditingPlanTitleId(null);
                           }}
                           onKeyDown={(e) => {
@@ -3696,8 +3737,9 @@ export default function ClientWorkoutPage() {
                                   ...prev,
                                   days: [...prev.days, copiedDay]
                                 } : null);
-                                setIsPlanDirty(true);
-                              }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                               onDelete={() => {
                                 if (!localWorkoutPlan) return;
                                 if (window.confirm('Delete this day?')) {
@@ -3710,8 +3752,9 @@ export default function ClientWorkoutPage() {
                                   } else if (selectedDayIndex > index) {
                                     setSelectedDayIndex(selectedDayIndex - 1);
                                   }
-                                  setIsPlanDirty(true);
-                                }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
                               }}
                             />
                           ))}
@@ -3776,8 +3819,9 @@ export default function ClientWorkoutPage() {
                                   : day
                               )
                             } : null);
-                            setIsPlanDirty(true);
-                          }
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }
                           setEditingDayTitleId(null);
                         }}
                         onKeyDown={(e) => {
@@ -3909,8 +3953,9 @@ export default function ClientWorkoutPage() {
                         caDay: { ...d.caDay, name: e.target.value } as any
                       }) : d)
                     } : null);
-                    setIsPlanDirty(true);
-                  }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                 />
                 <TextField
                   fullWidth
@@ -3925,8 +3970,9 @@ export default function ClientWorkoutPage() {
                         caDay: { ...d.caDay, imageUrl: e.target.value } as any
                       }) : d)
                     } : null);
-                    setIsPlanDirty(true);
-                  }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                 />
                 <TextField
                   fullWidth
@@ -3941,8 +3987,9 @@ export default function ClientWorkoutPage() {
                         caDay: { ...d.caDay, url: e.target.value } as any
                       }) : d)
                     } : null);
-                    setIsPlanDirty(true);
-                  }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                 />
                 
                 {/* Multiple URLs Section */}
@@ -3968,8 +4015,9 @@ export default function ClientWorkoutPage() {
                                 caDay: { ...d.caDay, urls: newUrls } as any
                               }) : d)
                             } : null);
-                            setIsPlanDirty(true);
-                          }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                         />
                         <IconButton
                           color="error"
@@ -3984,8 +4032,9 @@ export default function ClientWorkoutPage() {
                                 caDay: { ...d.caDay, urls: newUrls } as any
                               }) : d)
                             } : null);
-                            setIsPlanDirty(true);
-                          }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                         >
                           <Trash size={16} />
                         </IconButton>
@@ -4004,8 +4053,9 @@ export default function ClientWorkoutPage() {
                             caDay: { ...d.caDay, urls: [...currentUrls, ''] } as any
                           }) : d)
                         } : null);
-                        setIsPlanDirty(true);
-                      }}
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}
                     >
                       Add URL
                     </Button>
@@ -4027,8 +4077,9 @@ export default function ClientWorkoutPage() {
                     ...prev,
                     days: prev.days.map((d, i) => i === selectedDayIndex ? ({ ...d, caDay: undefined } as any) : d)
                   } : null);
-                  setIsPlanDirty(true);
-                }}>Clear</Button>
+        setIsPlanDirty(true);
+        scheduleAutoSave();
+      }}>Clear</Button>
                 {caDays.map((c) => (
                   <Card key={c.id} variant="outlined" onClick={() => {
                     if (!localWorkoutPlan) return;

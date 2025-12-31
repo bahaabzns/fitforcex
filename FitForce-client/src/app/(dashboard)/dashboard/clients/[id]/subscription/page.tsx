@@ -105,7 +105,7 @@ export default function ClientSubscriptionPage() {
           
           // Handle queued subscriptions (pre_active with null dates)
           let displayStatus = s.status;
-          let displayStartDate = s.startDate || s.createdAt;
+          let displayStartDate = s.startDate; // only show when set after activation
           let displayEndDate = s.endDate || s.renewalDate;
           
           if (s.status === 'pre_active') {

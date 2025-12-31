@@ -216,6 +216,31 @@ export default function ClientNutritionPage() {
   const { workspaceName } = useWorkspaceBranding();
   // PDF export state
   const [exportingPdf, setExportingPdf] = useState(false);
+
+  // Auto-save on drag/move
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const savePlanRef = useRef<(() => Promise<any>) | null>(null);
+
+  const scheduleAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      if (isPlanDirty && savePlanRef.current) {
+        try {
+          await savePlanRef.current();
+        } catch (e) {
+          console.error('Auto-save failed', e);
+        }
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    };
+  }, []);
   // Forms tab state
   const [formsLoading, setFormsLoading] = useState(false);
   const [formsError, setFormsError] = useState<string | null>(null);
@@ -409,6 +434,7 @@ export default function ClientNutritionPage() {
     })));
 
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   // Handle meal drag end with mirror effect
@@ -432,6 +458,7 @@ export default function ClientNutritionPage() {
 
     setCurrentMeals(newMeals);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   // Sortable meal component for mirror drag effect
@@ -539,6 +566,7 @@ export default function ClientNutritionPage() {
     })));
     setDragFoodIndex(null);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   const handleMealDrop = (toIndex: number) => {
@@ -555,6 +583,7 @@ export default function ClientNutritionPage() {
     setCurrentMeals((prev) => reorderArray(prev || [], dragMealIndex, toIndex));
     setDragMealIndex(null);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   // Load workspace food items
@@ -1210,6 +1239,7 @@ export default function ClientNutritionPage() {
     setNewMealTitle('');
     setIsCreateMealDialogOpen(false);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   const handleAddFoodToMeal = () => {
@@ -1261,6 +1291,7 @@ export default function ClientNutritionPage() {
     setSelectedFoodItems([]);
     setIsAddFoodDialogOpen(false);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   const applyFoodQuantity = (foodItemId: string, rawValue: number | string) => {
@@ -1315,6 +1346,7 @@ export default function ClientNutritionPage() {
     }
 
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   const showSection2 = !!selectedPlanId;
@@ -1504,6 +1536,10 @@ export default function ClientNutritionPage() {
     }
   };
 
+  useEffect(() => {
+    savePlanRef.current = handleSavePlan;
+  }, [handleSavePlan]);
+
   const handleActivatePlan = async () => {
     if (!selectedPlanId) return;
     try {
@@ -1689,6 +1725,7 @@ export default function ClientNutritionPage() {
     setSelectedCycleId(newId);
     setSelectedMealId(copy.meals && copy.meals.length > 0 ? copy.meals[0].id : null);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   const handleAddCycle = () => {
@@ -1713,6 +1750,7 @@ export default function ClientNutritionPage() {
     setSelectedCycleId(newId);
     setSelectedMealId(null);
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   const handleDeleteCycle = () => {
@@ -1741,6 +1779,7 @@ export default function ClientNutritionPage() {
       setSelectedMealId(null);
     }
     setIsPlanDirty(true);
+    scheduleAutoSave();
   };
 
   const ensureClientThread = useCallback(async () => {
@@ -2221,7 +2260,7 @@ export default function ClientNutritionPage() {
                   )}
                 </Box>
               </Box>
-            ) : plansTab === 3 ? (
+            ) : plansTab === 2 ? (
               <Box sx={{ py: 2 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>Forms</Typography>
                 {formsError && <Alert severity="error" sx={{ mb: 2 }}>{formsError}</Alert>}
@@ -2561,6 +2600,7 @@ export default function ClientNutritionPage() {
                                 })));
                                 setEditingCycleId(null);
                                 setIsPlanDirty(true);
+                                scheduleAutoSave();
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -2668,6 +2708,7 @@ export default function ClientNutritionPage() {
                                   })));
                                   if (selectedMealId === meal.id) setSelectedMealId(null);
                                   setIsPlanDirty(true);
+                                  scheduleAutoSave();
                                 }}
                               />
                             ))}
@@ -2726,6 +2767,7 @@ export default function ClientNutritionPage() {
                           }
                           setEditingMealTitleId(null);
                           setIsPlanDirty(true);
+                          scheduleAutoSave();
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -2886,6 +2928,7 @@ export default function ClientNutritionPage() {
                                 }
                                 setSelectedFoodItems([]);
                                 setIsPlanDirty(true);
+                                scheduleAutoSave();
                               }}
                             >
                               Delete Selected ({selectedFoodItems.length})
@@ -2959,6 +3002,7 @@ export default function ClientNutritionPage() {
                                         const val = Number(e.target.value);
                                         setEditingQuantities((prev) => ({ ...prev, [item.id]: val }));
                                         setIsPlanDirty(true);
+                                        scheduleAutoSave();
                                       }}
                                       onBlur={(e) => {
                                         applyFoodQuantity(item.id, e.target.value);
@@ -2987,6 +3031,7 @@ export default function ClientNutritionPage() {
                             }))
                           })));
                           setIsPlanDirty(true);
+                          scheduleAutoSave();
                         }}><Copy size={16} /></IconButton>
                         <IconButton size="small" color="error" title="Delete" onClick={() => {
                           // Update currentMeals immediately for real-time calculation
@@ -3008,6 +3053,7 @@ export default function ClientNutritionPage() {
                             })));
                           }
                           setIsPlanDirty(true);
+                          scheduleAutoSave();
                         }}><Trash size={16} /></IconButton>
                       </Box>
                             </ListItem>
@@ -3090,6 +3136,7 @@ export default function ClientNutritionPage() {
                             })));
                           }
                           setIsPlanDirty(true);
+                          scheduleAutoSave();
                         }}
                         placeholder="Add notes about this meal..."
                         variant="outlined"
@@ -3354,7 +3401,7 @@ export default function ClientNutritionPage() {
                     )}
                   </Box>
                 </Box>
-              ) : plansTab === 3 ? (
+              ) : plansTab === 2 ? (
                 <Box sx={{ py: 2 }}>
                   <Typography variant="subtitle1" sx={{ mb: 1 }}>Forms</Typography>
                   {formsError && <Alert severity="error" sx={{ mb: 2 }}>{formsError}</Alert>}
@@ -3506,6 +3553,7 @@ export default function ClientNutritionPage() {
                           setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, title: editingPlanTitleValue || p.title })));
                           setEditingPlanTitleId(null);
                           setIsPlanDirty(true);
+                          scheduleAutoSave();
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -3673,6 +3721,7 @@ export default function ClientNutritionPage() {
                             })));
                             setEditingCycleId(null);
                             setIsPlanDirty(true);
+                            scheduleAutoSave();
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -3771,6 +3820,7 @@ export default function ClientNutritionPage() {
                                       }))
                                     })));
                                     setIsPlanDirty(true);
+                                    scheduleAutoSave();
                                   }}
                                   onDelete={() => {
                                     if (!selectedPlanId || !selectedCycleId) return;
@@ -4035,6 +4085,7 @@ export default function ClientNutritionPage() {
                                             foodItems: m.foodItems.map((fi) => fi.id === item.id ? { ...fi, quantity: val } : fi)
                                           }));
                                           setIsPlanDirty(true);
+                                          scheduleAutoSave();
                                         }}
                                       sx={{ width: 110, ml: 'auto' }}
                                       InputProps={{ endAdornment: <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
@@ -4059,6 +4110,7 @@ export default function ClientNutritionPage() {
                                     }))
                                   })));
                                   setIsPlanDirty(true);
+                                  scheduleAutoSave();
                                 }}><Copy size={16} /></IconButton>
                                 <IconButton size="small" title="Replace" onClick={() => {
                                   setReplacingFoodItem(item);
@@ -4070,6 +4122,7 @@ export default function ClientNutritionPage() {
                                     foodItems: m.foodItems.filter(fi => fi.id !== item.id)
                                   }));
                                   setIsPlanDirty(true);
+                                  scheduleAutoSave();
                                 }}><Trash size={16} /></IconButton>
                               </Box>
                             </ListItem>

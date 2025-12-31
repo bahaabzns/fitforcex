@@ -33,6 +33,8 @@ interface WorkoutSet {
   reps: number | null;
   weight: number | null;
   restTime: number | null;
+  tempo?: string | null;
+  rir?: number | null;
   completed: boolean;
   completedAt?: string;
 }
@@ -200,13 +202,26 @@ export default function WorkoutTracking({
           ? durationSeconds || item.exercise?.defaultDurationSeconds || 600
           : undefined;
 
-        const baseSets = Array.from({ length: item.sets || 1 }, (_, setIndex) => ({
-          id: `set_${index}_${setIndex}`,
-          reps: null,
-          weight: null,
-          restTime: null,
-          completed: false
-        }));
+        let baseSets = [] as any[];
+        if (Array.isArray(item.planSets) && item.planSets.length > 0) {
+          baseSets = item.planSets.map((ps: any, setIndex: number) => ({
+            id: `set_${index}_${setIndex}`,
+            reps: ps.repMin ?? ps.reps ?? null,
+            weight: ps.weight ?? null,
+            restTime: ps.restSeconds ?? null,
+            tempo: ps.tempo ?? null,
+            rir: ps.rir ?? null,
+            completed: false
+          }));
+        } else {
+          baseSets = Array.from({ length: item.sets || 1 }, (_, setIndex) => ({
+            id: `set_${index}_${setIndex}`,
+            reps: null,
+            weight: null,
+            restTime: null,
+            completed: false
+          }));
+        }
 
         return {
           id: `exercise_${index}`,
@@ -931,6 +946,25 @@ export default function WorkoutTracking({
                           }}
                           placeholder="0"
                         />
+
+                        {set.tempo && (
+                          <TextField
+                            label="Tempo"
+                            value={set.tempo}
+                            InputProps={{ readOnly: true }}
+                            sx={{ width: '140px' }}
+                          />
+                        )}
+
+                        {(set.rir !== undefined && set.rir !== null) && (
+                          <TextField
+                            label="RIR"
+                            type="number"
+                            value={String(set.rir)}
+                            InputProps={{ readOnly: true }}
+                            sx={{ width: '100px' }}
+                          />
+                        )}
 
                         <Chip 
                           label={set.completed ? '✓ Completed' : '⏳ Pending'}

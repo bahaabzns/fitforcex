@@ -60,7 +60,7 @@ export default function SubscriptionBar() {
   }, [workspaceId, isSubscriptionPage]);
 
   const calculateRemainingDays = (sub: SubscriptionData) => {
-    const startDateStr = sub.startDate || sub.createdAt;
+    const startDateStr = sub.startDate;
     const endDateStr = sub.endDate || sub.renewalDate;
     
     if (!startDateStr || !endDateStr) {

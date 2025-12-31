@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useIntl } from 'react-intl';
 import api from '@/utils/axios';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import WorkspaceSubscriptionGuard from '@/components/WorkspaceSubscriptionGuard';
+const WorkspaceSubscriptionGuard = dynamic(() => import('@/components/WorkspaceSubscriptionGuard'), { ssr: false });
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setSubmittedCount } from '@/store/slices/queueSlice';
 
@@ -142,14 +143,36 @@ export default function QueuePage() {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<QueueStatus | 'all'>('all');
   const [tab, setTab] = useState<number>(0);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
   const [viewError, setViewError] = useState<string | null>(null);
   const [viewSubmission, setViewSubmission] = useState<any | null>(null);
   
+  // react-table states
+  const [rowSelection, setRowSelection] = useState({});
+
+  // Packages for filtering and display
+  const [packages, setPackages] = useState<any[]>([]);
+
+  // Filtering and search state
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<QueueStatus | 'all'>('all');
+  const [activeColumnFilter, setActiveColumnFilter] = useState<'id' | 'client' | 'form' | 'package' | null>(null);
+  const [packageMultiFilter, setPackageMultiFilter] = useState<string[]>([]);
+  const [showPackageMultiSelect, setShowPackageMultiSelect] = useState(false);
+
+  // Sorting state
+  const [sortField, setSortField] = useState<string>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Selection state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
+
   // New state for assignment functionality
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [hasFormsRead, setHasFormsRead] = useState(true);
@@ -162,28 +185,20 @@ export default function QueuePage() {
   const [menuSubmission, setMenuSubmission] = useState<QueueItem | null>(null);
   
   // Bulk selection state
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false);
   const [bulkSelectedAssignee, setBulkSelectedAssignee] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
   
-  // Sorting state
-  const [sortField, setSortField] = useState<string>('createdAt');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  
-  // Pagination state
-  const [page, setPage] = useState<number>(1);
-  const itemsPerPage = 10;
-  
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const userId = useAppSelector((state) => state.auth.user?.id);
+  const workspaceId = useAppSelector((state) => state.workspace.id);
   const dispatch = useAppDispatch();
 
   // Clear selection when tab changes
   useEffect(() => {
-    setSelectedItems(new Set());
-  }, [tab, statusFilter]);
+    setRowSelection({});
+  }, [tab]);
 
   useEffect(() => {
     const load = async () => {
@@ -217,6 +232,23 @@ export default function QueuePage() {
     load();
   }, [assignedToMe]);
 
+  // Load packages for package filter
+  useEffect(() => {
+    const loadPackages = async () => {
+      try {
+        if (!workspaceId) return;
+        const res = await api.get(`/api/workspaces/${workspaceId}/client-packages`);
+        setPackages(res.data?.packages || []);
+      } catch (err) {
+        // Fallback: ignore if packages can't be loaded
+        setPackages([]);
+      }
+    };
+
+    loadPackages();
+  }, [workspaceId]);
+
+
   const counts = useMemo(() => {
     return {
       all: items.length,
@@ -227,47 +259,67 @@ export default function QueuePage() {
     };
   }, [items]);
 
+  // Filter and sort items
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let result = items.filter((it) => {
       const byStatus = statusFilter === 'all' ? true : it.status === statusFilter;
-      const byText = !q
-        ? true
-        : it.clientName.toLowerCase().includes(q) || it.formTitle.toLowerCase().includes(q);
+
+      let byText = true;
+      if (q) {
+        if (activeColumnFilter === 'id') {
+          const codeStr = it.clientCode != null ? String(it.clientCode) : (it.clientId || '').toLowerCase();
+          byText = codeStr.toLowerCase().includes(q);
+        } else if (activeColumnFilter === 'client') {
+          byText = it.clientName.toLowerCase().includes(q);
+        } else if (activeColumnFilter === 'form') {
+          byText = it.formTitle.toLowerCase().includes(q);
+        } else if (activeColumnFilter === 'package') {
+          byText = (it.clientPackageName || '').toLowerCase().includes(q);
+        } else {
+          byText = it.clientName.toLowerCase().includes(q) || it.formTitle.toLowerCase().includes(q);
+        }
+      }
+
       return byStatus && byText;
     });
-    
+
+    // Apply package multi-select filter (if any)
+    if (packageMultiFilter.length > 0) {
+      result = result.filter((it) => packageMultiFilter.includes(it.clientPackageName || ''));
+    }
+
     // Apply sorting
     result.sort((a, b) => {
       let aVal: any = (a as any)[sortField];
       let bVal: any = (b as any)[sortField];
-      
+
       // Handle date sorting
       if (sortField === 'createdAt' || sortField === 'scheduledAt' || sortField === 'sentAt' || sortField === 'completedAt' || sortField === 'assignedAt') {
         aVal = aVal ? new Date(aVal).getTime() : 0;
         bVal = bVal ? new Date(bVal).getTime() : 0;
       }
-      
+
       // Handle string sorting
       if (typeof aVal === 'string') {
         aVal = aVal.toLowerCase();
         bVal = typeof bVal === 'string' ? bVal.toLowerCase() : '';
       }
-      
+
       // Handle null/undefined values
       if (aVal == null) aVal = '';
       if (bVal == null) bVal = '';
-      
+
       if (sortDirection === 'asc') {
         return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
       } else {
         return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
       }
     });
-    
+
     return result;
-  }, [items, search, statusFilter, sortField, sortDirection]);
-  
+  }, [items, search, statusFilter, sortField, sortDirection, activeColumnFilter, packageMultiFilter]);
+
   // Get only completed items for bulk operations
   const completedItems = useMemo(() => {
     return filtered.filter(item => item.status === 'completed');
@@ -320,7 +372,7 @@ export default function QueuePage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [tab, statusFilter, search, assignedToMe]);
+  }, [tab, statusFilter, search, assignedToMe, activeColumnFilter, packageMultiFilter]);
 
   const openView = async (id: string) => {
     setViewOpen(true);
@@ -504,10 +556,17 @@ export default function QueuePage() {
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: 'center', mb: 2 }}>
             <TextField
               size="small"
-              placeholder={intl.formatMessage({ id: 'queue.search.placeholder', defaultMessage: 'Search by client or form title' })}
+              placeholder={
+                activeColumnFilter === 'id' ? 'Search by ID' :
+                activeColumnFilter === 'client' ? 'Search by client name' :
+                activeColumnFilter === 'package' ? 'Search by package' :
+                activeColumnFilter === 'form' ? 'Search by form title' :
+                intl.formatMessage({ id: 'queue.search.placeholder', defaultMessage: 'Search by client or form title' })
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+
             {hasFormsRead && (
               <FormControlLabel
                 control={
@@ -520,6 +579,48 @@ export default function QueuePage() {
               />
             )}
           </Stack>
+
+          {/* Column Filters (ID, Client, Package, Form) */}
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+            <Button size="small" variant={activeColumnFilter === 'id' ? 'contained' : 'text'} onClick={() => { setActiveColumnFilter(activeColumnFilter === 'id' ? null : 'id'); setSearch(''); }}>
+              #
+            </Button>
+            <Button size="small" variant={activeColumnFilter === 'client' ? 'contained' : 'text'} onClick={() => { setActiveColumnFilter(activeColumnFilter === 'client' ? null : 'client'); setSearch(''); }}>
+              <FormattedMessage id="queue.col.client" defaultMessage="Client" />
+            </Button>
+            <Button size="small" variant={activeColumnFilter === 'package' ? 'contained' : 'text'} onClick={() => { setShowPackageMultiSelect(!showPackageMultiSelect); setActiveColumnFilter(showPackageMultiSelect ? null : 'package'); }}>
+              <FormattedMessage id="queue.col.currentPackage" defaultMessage="Current Package" />
+            </Button>
+            <Button size="small" variant={activeColumnFilter === 'form' ? 'contained' : 'text'} onClick={() => { setActiveColumnFilter(activeColumnFilter === 'form' ? null : 'form'); setSearch(''); }}>
+              <FormattedMessage id="queue.col.form" defaultMessage="Form" />
+            </Button>
+          </Stack>
+
+          {/* Package multi-select */}
+          {showPackageMultiSelect && (
+            <Box sx={{ mb: 2 }}>
+              <FormControl sx={{ minWidth: 240 }}>
+                <InputLabel id="package-multi-select-label">Package</InputLabel>
+                <Select
+                  labelId="package-multi-select-label"
+                  multiple
+                  value={packageMultiFilter}
+                  onChange={(event) => setPackageMultiFilter(typeof event.target.value === 'string' ? event.target.value.split(',') : event.target.value)}
+                  label="Package"
+                  renderValue={(selected) => (selected as string[]).join(', ')}
+                  size="small"
+                >
+                    {packages.map((pkg) => (
+                    <MenuItem key={pkg.id} value={pkg.name}>
+                      <Checkbox checked={packageMultiFilter.indexOf(pkg.name) > -1} />
+                      <ListItemText primary={pkg.name} secondary={`${pkg.durationMonths} month${pkg.durationMonths === 1 ? '' : 's'}`} />
+                    </MenuItem>
+                  ))}
+                </Select>
+                <Button size="small" onClick={() => { setShowPackageMultiSelect(false); }} sx={{ mt: 1 }}>Done</Button>
+              </FormControl>
+            </Box>
+          )}
 
           {/* Status Tabs */}
           <Tabs
@@ -801,7 +902,7 @@ export default function QueuePage() {
             </Grid>
           ) : (
             // Desktop Table View
-            <ResponsiveTable>
+            <ResponsiveTable minWidth={900}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -824,7 +925,7 @@ export default function QueuePage() {
                         <FormattedMessage id="queue.col.client" defaultMessage="Client" />
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       <TableSortLabel
                         active={sortField === 'clientCode'}
                         direction={sortField === 'clientCode' ? sortDirection : 'asc'}
@@ -864,7 +965,7 @@ export default function QueuePage() {
                         <FormattedMessage id="queue.col.assignedTo" defaultMessage="Assigned To" />
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       <TableSortLabel
                         active={sortField === 'createdAt'}
                         direction={sortField === 'createdAt' ? sortDirection : 'asc'}
@@ -874,7 +975,7 @@ export default function QueuePage() {
                         <FormattedMessage id="queue.col.createdAt" defaultMessage="Created At" />
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       <TableSortLabel
                         active={sortField === 'scheduledAt'}
                         direction={sortField === 'scheduledAt' ? sortDirection : 'asc'}
@@ -884,7 +985,7 @@ export default function QueuePage() {
                         <FormattedMessage id="queue.col.scheduledAt" defaultMessage="Scheduled" />
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       <TableSortLabel
                         active={sortField === 'sentAt'}
                         direction={sortField === 'sentAt' ? sortDirection : 'asc'}
@@ -894,7 +995,7 @@ export default function QueuePage() {
                         <FormattedMessage id="queue.col.sentAt" defaultMessage="Sent" />
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       <TableSortLabel
                         active={sortField === 'completedAt'}
                         direction={sortField === 'completedAt' ? sortDirection : 'asc'}
@@ -934,7 +1035,7 @@ export default function QueuePage() {
                         )}
                       </TableCell>
                       <TableCell>{row.clientName}</TableCell>
-                      <TableCell>{row.clientCode ?? '-'}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{row.clientCode ?? '-'}</TableCell>
                       <TableCell>
                         {row.clientPackageName ? (
                           <Box>
@@ -967,10 +1068,10 @@ export default function QueuePage() {
                           '-'
                         )}
                       </TableCell>
-                      <TableCell>{row.createdAt ? new Date(row.createdAt).toLocaleString() : '-'}</TableCell>
-                      <TableCell>{row.scheduledAt ? new Date(row.scheduledAt).toLocaleString() : '-'}</TableCell>
-                      <TableCell>{row.sentAt ? new Date(row.sentAt).toLocaleString() : '-'}</TableCell>
-                      <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleString() : '-'}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{row.createdAt ? new Date(row.createdAt).toLocaleString() : '-'}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{row.scheduledAt ? new Date(row.scheduledAt).toLocaleString() : '-'}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{row.sentAt ? new Date(row.sentAt).toLocaleString() : '-'}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{row.completedAt ? new Date(row.completedAt).toLocaleString() : '-'}</TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Chip size="small" color={statusColor(row.status) as any} label={statusLabelIntl(intl, row.status)} variant="outlined" />
