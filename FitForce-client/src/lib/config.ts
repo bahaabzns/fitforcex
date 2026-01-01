@@ -1,10 +1,10 @@
 
 export const APP_CONFIG = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.fitforce.io',
+  apiUrl: process.env.NEXT_PUBLIC_API_URL!,
   // apiUrl:'https://api.fitforce.io',
-  frontendDomain: process.env.NEXT_PUBLIC_FRONTEND_DOMAIN || 'fitforce.io',
+  frontendDomain: process.env.NEXT_PUBLIC_FRONTEND_DOMAIN!,
   // frontendDomain: 'fitforce.io',
-  mainDomain: process.env.NEXT_PUBLIC_MAIN_DOMAIN || 'https://fitforce.io',
+  mainDomain: process.env.NEXT_PUBLIC_MAIN_DOMAIN!,
   // mainDomain: 'https://fitforce.io',
   managementSubdomain: process.env.NEXT_PUBLIC_MANAGEMENT_SUBDOMAIN || 'admin',
   // Optional: workspace whose public packages should be showcased on main landing
@@ -14,4 +14,4 @@ export const APP_CONFIG = {
 } as const;
 
 
- 
+  
