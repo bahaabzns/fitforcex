@@ -217,31 +217,12 @@ export default function ClientNutritionPage() {
   // PDF export state
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  // Auto-save on drag/move
-  const autoSaveTimerRef = useRef<number | null>(null);
-  const savePlanRef = useRef<(() => Promise<any>) | null>(null);
-  const preservedMealIdRef = useRef<string | null>(null);
+  const plansRef = useRef<Plan[]>([]);
 
-  const scheduleAutoSave = () => {
-    if (autoSaveTimerRef.current) {
-      window.clearTimeout(autoSaveTimerRef.current);
-    }
-    autoSaveTimerRef.current = window.setTimeout(async () => {
-      if (isPlanDirty && savePlanRef.current) {
-        try {
-          await savePlanRef.current({ reload: false });
-        } catch (e) {
-          console.error('Auto-save failed', e);
-        }
-      }
-    }, 1000);
-  };
-
+  // Keep plansRef in sync with plans state to ensure we always have the latest state
   useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
-    };
-  }, []);
+    plansRef.current = plans;
+  }, [plans]);
   // Forms tab state
   const [formsLoading, setFormsLoading] = useState(false);
   const [formsError, setFormsError] = useState<string | null>(null);
@@ -435,7 +416,6 @@ export default function ClientNutritionPage() {
     })));
 
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   // Handle meal drag end with mirror effect
@@ -459,7 +439,6 @@ export default function ClientNutritionPage() {
 
     setCurrentMeals(newMeals);
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   // Sortable meal component for mirror drag effect
@@ -567,7 +546,6 @@ export default function ClientNutritionPage() {
     })));
     setDragFoodIndex(null);
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   const handleMealDrop = (toIndex: number) => {
@@ -584,7 +562,6 @@ export default function ClientNutritionPage() {
     setCurrentMeals((prev) => reorderArray(prev || [], dragMealIndex, toIndex));
     setDragMealIndex(null);
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   // Load workspace food items
@@ -1104,7 +1081,9 @@ export default function ClientNutritionPage() {
     // Preserve selected meal if it still exists in this cycle; otherwise clear it
     if (selectedMealId) {
       const stillExists = !!selectedCycle?.meals?.some((m) => m.id === selectedMealId);
-      if (!stillExists) setSelectedMealId(null);
+      if (!stillExists) {
+        setSelectedMealId(null);
+      }
     }
   }, [selectedCycleId, currentCycles]);
 
@@ -1129,31 +1108,6 @@ export default function ClientNutritionPage() {
     setSelectedMealId(null);
   }, [selectedPlanId]);
 
-  // Restore selected meal ID after auto-save reloads plans
-  useEffect(() => {
-    if (preservedMealIdRef.current && selectedPlanId && plans.length > 0) {
-      const selectedPlan = plans.find(p => p.id === selectedPlanId);
-      if (selectedPlan) {
-        // Find which cycle contains the meal
-        const cycleWithMeal = selectedPlan.cycles?.find(c => 
-          c.meals?.some(m => m.id === preservedMealIdRef.current)
-        );
-        
-        if (cycleWithMeal) {
-          // Ensure the cycle is selected
-          if (selectedCycleId !== cycleWithMeal.id) {
-            setSelectedCycleId(cycleWithMeal.id);
-          }
-          // Restore the meal ID
-          if (selectedMealId !== preservedMealIdRef.current) {
-            setSelectedMealId(preservedMealIdRef.current);
-          }
-        }
-        // Clear the ref after attempting to restore
-        preservedMealIdRef.current = null;
-      }
-    }
-  }, [plans, selectedPlanId, selectedCycleId, selectedMealId]);
 
   const filteredPlans = plans
     .filter(plan => plan.title.toLowerCase().includes(planQuery.toLowerCase()))
@@ -1266,7 +1220,6 @@ export default function ClientNutritionPage() {
     setNewMealTitle('');
     setIsCreateMealDialogOpen(false);
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   const handleAddFoodToMeal = () => {
@@ -1318,7 +1271,6 @@ export default function ClientNutritionPage() {
     setSelectedFoodItems([]);
     setIsAddFoodDialogOpen(false);
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   const applyFoodQuantity = (foodItemId: string, rawValue: number | string) => {
@@ -1373,20 +1325,26 @@ export default function ClientNutritionPage() {
     }
 
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   const showSection2 = !!selectedPlanId;
   const showSection3 = !!selectedMealId;
   
-  const handleSavePlan = async (options?: { reload?: boolean }) => {
+  const handleSavePlan = async (options?: { reload?: boolean; silent?: boolean }) => {
     const shouldReload = options?.reload !== false; // Default to true for manual saves
+    const isSilent = options?.silent === true; // Silent mode for saves
     if (!selectedPlanId) return;
     
     try {
       setSaving(true);
-      const selectedPlan = plans.find(p => p.id === selectedPlanId);
-      if (!selectedPlan) return;
+      // Get the latest plan state from ref to ensure we have the most current state
+      // This is important when creating multiple meals quickly - the ref is always up-to-date
+      const currentPlans = plansRef.current.length > 0 ? plansRef.current : plans;
+      const selectedPlan = currentPlans.find(p => p.id === selectedPlanId);
+      if (!selectedPlan) {
+        setSaving(false);
+        return;
+      }
       
       // Persist plan, cycles, meals, and food items
       // 1) Ensure plan exists on server
@@ -1433,27 +1391,30 @@ export default function ClientNutritionPage() {
       }
 
       // 3) Sync meals
+      // NOTE: We only create meals with temp IDs here. We don't update existing meals because
+      // the bulk upsert in step 4 will delete and recreate ALL meals with new IDs anyway.
+      // Any meal updates (notes, etc.) will be handled by the bulk upsert.
       const createdMealIdMap: Record<string, string> = {};
       for (const cycle of cyclesToSync) {
         const effectiveCycleId = createdCycleIdMap[cycle.id] || cycle.id;
         for (const meal of cycle.meals || []) {
-          let serverMealId = meal.id;
           if (meal.id.startsWith('tmpm-')) {
-          const res = await api.post(`/api/clients/${clientId}/nutrition/cycles/${effectiveCycleId}/meals`, {
-              title: meal.meal,
-              notes: meal.notes
-            });
-            serverMealId = res.data.meal.id;
-            createdMealIdMap[meal.id] = serverMealId;
+            // Create new meal - this ensures the meal exists for the bulk upsert
+            // The bulk upsert will delete and recreate it with a new ID, but having it
+            // exist first helps with the mealKey matching in the bulk upsert
+            try {
+              const res = await api.post(`/api/clients/${clientId}/nutrition/cycles/${effectiveCycleId}/meals`, {
+                title: meal.meal,
+                notes: meal.notes
+              });
+              createdMealIdMap[meal.id] = res.data.meal.id;
+            } catch (error: any) {
+              // If creation fails, log but continue - the bulk upsert will create it anyway
+              console.warn(`Failed to create meal ${meal.id} in step 3, will be created by bulk upsert:`, error);
+            }
           }
-          else {
-            // Update existing meal metadata (e.g., notes)
-            const effectiveMealId = createdMealIdMap[meal.id] || meal.id;
-            await api.put(`/api/clients/${clientId}/nutrition/meals/${effectiveMealId}`, {
-              title: meal.meal,
-              notes: meal.notes
-            });
-          }
+          // Skip updating existing meals here - the bulk upsert will handle everything
+          // including meal metadata updates (notes, title, etc.)
         }
       }
 
@@ -1463,8 +1424,11 @@ export default function ClientNutritionPage() {
         dayIndex: cycle.dayIndex,
         label: cycle.label || '',
         items: (cycle.meals || []).flatMap((meal) => {
+          // Use the real meal ID if it was just created, otherwise use the meal ID
+          const realMealId = createdMealIdMap[meal.id] || meal.id;
           // Find the corresponding meal in currentMeals to get the most up-to-date food items
-          const currentMeal = currentMeals.find(m => m.id === meal.id);
+          // Check both the original ID and the real ID
+          const currentMeal = currentMeals.find(m => m.id === meal.id || m.id === realMealId);
           // Use currentMeal.foodItems if available (most up-to-date), otherwise fall back to meal.foodItems
           const foodItemsToSave = currentMeal?.foodItems || meal.foodItems || [];
           const mealItems = foodItemsToSave.map((item) => {
@@ -1475,7 +1439,8 @@ export default function ClientNutritionPage() {
             return {
               foodItemId: item.foodItemId,
               quantity: Number.isFinite(quantity) ? quantity : 0,
-              mealKey: meal.id,
+              // Use real meal ID as mealKey to help with matching (though bulk upsert will recreate meals)
+              mealKey: realMealId.startsWith('tmpm-') ? meal.id : realMealId,
               meal: meal.meal || '',
               notes: meal.notes || '',
               recipeName: (currentMeal as any)?.recipeName || '',
@@ -1489,7 +1454,7 @@ export default function ClientNutritionPage() {
             mealItems.push({
               foodItemId: null,
               servings: 1,
-              mealKey: meal.id,
+              mealKey: realMealId.startsWith('tmpm-') ? meal.id : realMealId,
               meal: meal.meal || '',
               notes: meal.notes || '',
               recipeName: (currentMeal as any)?.recipeName || '',
@@ -1504,7 +1469,7 @@ export default function ClientNutritionPage() {
             mealItems.push({
               foodItemId: null,
               quantity: 0,
-              mealKey: meal.id,
+              mealKey: realMealId.startsWith('tmpm-') ? meal.id : realMealId,
               meal: meal.meal || '',
               notes: meal.notes || '',
               recipeName: (currentMeal as any)?.recipeName || null,
@@ -1520,6 +1485,72 @@ export default function ClientNutritionPage() {
       await api.put(`/api/nutrition/plans/${serverPlanId}/days`, {
         days: daysData
       });
+
+      // After bulk upsert, cycles are deleted and recreated, so we need to fetch new cycle IDs
+      // Then fetch meals using the new cycle IDs
+      try {
+        // First, fetch all cycles from the server to get their new IDs (matching by dayIndex)
+        const cyclesResponse = await api.get(`/api/nutrition/plans/${serverPlanId}/cycles`);
+        const serverCycles = cyclesResponse.data.cycles || [];
+        
+        // Map server cycles back to local cycle IDs by matching dayIndex
+        // Update createdCycleIdMap with the new cycle IDs from the server
+        for (const localCycle of cyclesToSync) {
+          const matchingServerCycle = serverCycles.find((sc: any) => 
+            Number(sc.dayIndex) === Number(localCycle.dayIndex)
+          );
+          if (matchingServerCycle) {
+            // Update the cycle ID mapping - bulk upsert recreates cycles with new IDs
+            createdCycleIdMap[localCycle.id] = matchingServerCycle.id;
+          }
+        }
+        
+        // Now fetch meals using the new cycle IDs
+        for (const cycle of cyclesToSync) {
+          // Use the new cycle ID from the server (after bulk upsert)
+          const newCycleId = createdCycleIdMap[cycle.id] || cycle.id;
+          
+          // Skip if cycle ID is still a temp ID (shouldn't happen, but safety check)
+          if (newCycleId.startsWith('tmpc-')) {
+            console.warn(`Cycle ${cycle.id} still has temp ID after bulk upsert`);
+            continue;
+          }
+          
+          try {
+            const mealsRes = await api.get(`/api/clients/${clientId}/nutrition/cycles/${newCycleId}/meals`);
+            const serverMeals = mealsRes.data.meals || [];
+            
+            // Map server meals back to local meal IDs by matching meal name
+            // IMPORTANT: Bulk upsert deletes and recreates ALL meals with NEW IDs,
+            // so we MUST update the mapping even if it already exists
+            // Track which server meals we've already matched to avoid duplicate mappings
+            const usedServerMealIds = new Set<string>();
+            
+            for (const localMeal of cycle.meals || []) {
+              // Find a matching server meal that hasn't been used yet
+              const matchingServerMeal = serverMeals.find((sm: any) => 
+                sm.meal === localMeal.meal && !usedServerMealIds.has(sm.id)
+              );
+              if (matchingServerMeal) {
+                // Always update the mapping - bulk upsert creates new meal IDs
+                createdMealIdMap[localMeal.id] = matchingServerMeal.id;
+                usedServerMealIds.add(matchingServerMeal.id);
+              }
+            }
+          } catch (mealError: any) {
+            // If cycle not found (404), log and skip this cycle
+            if (mealError?.response?.status === 404) {
+              console.warn(`Cycle ${newCycleId} not found after bulk upsert, skipping meal mapping for cycle ${cycle.id}`);
+              continue;
+            }
+            // For other errors, log but don't throw - we want to continue with other cycles
+            console.error(`Failed to fetch meals for cycle ${newCycleId}:`, mealError);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch cycles/meals after bulk upsert', e);
+        // Continue anyway - the meals were saved, we just can't map the IDs
+      }
 
       // 5) Update plan metadata including water data
       await api.put(`/api/nutrition/plans/${serverPlanId}`, {
@@ -1566,51 +1597,63 @@ export default function ClientNutritionPage() {
         }));
         
         // Update selected cycle ID if it was changed
-        if (selectedCycleId && createdCycleIdMap[selectedCycleId]) {
-          setSelectedCycleId(createdCycleIdMap[selectedCycleId]);
+        // After bulk upsert, cycles are recreated, so we need to use the new cycle IDs
+        if (selectedCycleId) {
+          const newCycleId = createdCycleIdMap[selectedCycleId] || selectedCycleId;
+          if (newCycleId !== selectedCycleId) {
+            setSelectedCycleId(newCycleId);
+          }
         }
         
-        // Update currentCycles with new IDs
-        if (Object.keys(createdCycleIdMap).length > 0) {
-          setCurrentCycles((prev) => prev.map((cycle) => {
-            const newCycleId = createdCycleIdMap[cycle.id] || cycle.id;
-            return {
-              ...cycle,
-              id: newCycleId,
-              meals: cycle.meals?.map((meal) => {
-                const newMealId = createdMealIdMap[meal.id] || meal.id;
-                return {
-                  ...meal,
-                  id: newMealId,
-                  foodItems: meal.foodItems?.map((foodItem: any) => ({
-                    ...foodItem,
-                    mealId: newMealId
-                  })) || []
-                };
-              }) || []
-            };
-          }));
-        }
-        
-        // Update selected meal ID if it was changed
-        if (selectedMealId && createdMealIdMap[selectedMealId]) {
-          setSelectedMealId(createdMealIdMap[selectedMealId]);
-        }
-        
-        // Update currentMeals with new IDs
-        if (Object.keys(createdMealIdMap).length > 0) {
-          setCurrentMeals((prev) => prev.map((meal) => {
-            const newMealId = createdMealIdMap[meal.id] || meal.id;
-            return {
-              ...meal,
-              id: newMealId,
-              // Update mealId in foodItems if they have that property
-              foodItems: meal.foodItems?.map((foodItem: any) => ({
-                ...foodItem,
-                mealId: newMealId
-              })) || []
-            };
-          }));
+        // Update selected meal ID and all related state atomically to prevent intermediate states
+        // Update currentCycles with new IDs (this will trigger useEffect, so we need to update selected meal ID first)
+        if (Object.keys(createdCycleIdMap).length > 0 || Object.keys(createdMealIdMap).length > 0) {
+          // First, calculate the new selected meal ID
+          if (selectedMealId && Object.keys(createdMealIdMap).length > 0) {
+            const newSelectedMealId = createdMealIdMap[selectedMealId] || selectedMealId;
+            // Update selected meal ID first (before updating currentCycles) to prevent useEffect from clearing it
+            if (newSelectedMealId !== selectedMealId) {
+              setSelectedMealId(newSelectedMealId);
+            }
+          }
+          
+          // Then update currentCycles with new IDs
+          if (Object.keys(createdCycleIdMap).length > 0) {
+            setCurrentCycles((prev) => prev.map((cycle) => {
+              const newCycleId = createdCycleIdMap[cycle.id] || cycle.id;
+              return {
+                ...cycle,
+                id: newCycleId,
+                meals: cycle.meals?.map((meal) => {
+                  const newMealId = createdMealIdMap[meal.id] || meal.id;
+                  return {
+                    ...meal,
+                    id: newMealId,
+                    foodItems: meal.foodItems?.map((foodItem: any) => ({
+                      ...foodItem,
+                      mealId: newMealId
+                    })) || []
+                  };
+                }) || []
+              };
+            }));
+          }
+          
+          // Update currentMeals with new IDs atomically
+          if (Object.keys(createdMealIdMap).length > 0) {
+            setCurrentMeals((prev) => prev.map((meal) => {
+              const newMealId = createdMealIdMap[meal.id] || meal.id;
+              return {
+                ...meal,
+                id: newMealId,
+                // Update mealId in foodItems if they have that property
+                foodItems: meal.foodItems?.map((foodItem: any) => ({
+                  ...foodItem,
+                  mealId: newMealId
+                })) || []
+              };
+            }));
+          }
         }
       }
 
@@ -1621,14 +1664,30 @@ export default function ClientNutritionPage() {
         const preservedPlanId = serverPlanId;
         const preservedMealId = selectedMealId ? (createdMealIdMap[selectedMealId] || selectedMealId) : null;
         
-        // Store the meal ID to restore after reload
-        preservedMealIdRef.current = preservedMealId;
-        
         // Reload all plans data to get fresh server data
         await loadAllPlansData();
         
         // Ensure the saved plan remains selected
         setSelectedPlanId(preservedPlanId);
+        
+        // Restore selected meal ID after reload (use plansRef for immediate access)
+        if (preservedMealId) {
+          // Small delay to ensure state is updated
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const currentPlans = plansRef.current.length > 0 ? plansRef.current : plans;
+          const selectedPlan = currentPlans.find(p => p.id === preservedPlanId);
+          if (selectedPlan) {
+            const cycleWithMeal = selectedPlan.cycles?.find(c => 
+              c.meals?.some(m => m.id === preservedMealId)
+            );
+            if (cycleWithMeal) {
+              if (selectedCycleId !== cycleWithMeal.id) {
+                setSelectedCycleId(cycleWithMeal.id);
+              }
+              setSelectedMealId(preservedMealId);
+            }
+          }
+        }
         
         openSnackbar({
           open: true,
@@ -1638,20 +1697,22 @@ export default function ClientNutritionPage() {
         });
       }
     } catch (error) {
-      openSnackbar({
-        open: true,
-        message: 'Failed to save plan',
-        variant: 'alert',
-        alert: { color: 'error' }
-      });
+      // Only show error notification if not in silent mode
+      if (!isSilent) {
+        openSnackbar({
+          open: true,
+          message: 'Failed to save plan',
+          variant: 'alert',
+          alert: { color: 'error' }
+        });
+      }
+      // Re-throw error so caller can handle it if needed
+      throw error;
     } finally {
       setSaving(false);
     }
   };
 
-  useEffect(() => {
-    savePlanRef.current = handleSavePlan;
-  }, [handleSavePlan]);
 
   const handleActivatePlan = async () => {
     if (!selectedPlanId) return;
@@ -1838,7 +1899,6 @@ export default function ClientNutritionPage() {
     setSelectedCycleId(newId);
     setSelectedMealId(copy.meals && copy.meals.length > 0 ? copy.meals[0].id : null);
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   const handleAddCycle = () => {
@@ -1863,7 +1923,6 @@ export default function ClientNutritionPage() {
     setSelectedCycleId(newId);
     setSelectedMealId(null);
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   const handleDeleteCycle = () => {
@@ -1892,7 +1951,6 @@ export default function ClientNutritionPage() {
       setSelectedMealId(null);
     }
     setIsPlanDirty(true);
-    scheduleAutoSave();
   };
 
   const ensureClientThread = useCallback(async () => {
@@ -2713,7 +2771,6 @@ export default function ClientNutritionPage() {
                                 })));
                                 setEditingCycleId(null);
                                 setIsPlanDirty(true);
-                                scheduleAutoSave();
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -2821,7 +2878,6 @@ export default function ClientNutritionPage() {
                                   })));
                                   if (selectedMealId === meal.id) setSelectedMealId(null);
                                   setIsPlanDirty(true);
-                                  scheduleAutoSave();
                                 }}
                               />
                             ))}
@@ -2880,7 +2936,6 @@ export default function ClientNutritionPage() {
                           }
                           setEditingMealTitleId(null);
                           setIsPlanDirty(true);
-                          scheduleAutoSave();
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -3041,7 +3096,6 @@ export default function ClientNutritionPage() {
                                 }
                                 setSelectedFoodItems([]);
                                 setIsPlanDirty(true);
-                                scheduleAutoSave();
                               }}
                             >
                               Delete Selected ({selectedFoodItems.length})
@@ -3115,7 +3169,6 @@ export default function ClientNutritionPage() {
                                         const val = Number(e.target.value);
                                         setEditingQuantities((prev) => ({ ...prev, [item.id]: val }));
                                         setIsPlanDirty(true);
-                                        scheduleAutoSave();
                                       }}
                                       onBlur={(e) => {
                                         applyFoodQuantity(item.id, e.target.value);
@@ -3144,7 +3197,6 @@ export default function ClientNutritionPage() {
                             }))
                           })));
                           setIsPlanDirty(true);
-                          scheduleAutoSave();
                         }}><Copy size={16} /></IconButton>
                         <IconButton size="small" color="error" title="Delete" onClick={() => {
                           // Update currentMeals immediately for real-time calculation
@@ -3166,7 +3218,6 @@ export default function ClientNutritionPage() {
                             })));
                           }
                           setIsPlanDirty(true);
-                          scheduleAutoSave();
                         }}><Trash size={16} /></IconButton>
                       </Box>
                             </ListItem>
@@ -3249,7 +3300,6 @@ export default function ClientNutritionPage() {
                             })));
                           }
                           setIsPlanDirty(true);
-                          scheduleAutoSave();
                         }}
                         placeholder="Add notes about this meal..."
                         variant="outlined"
@@ -3666,7 +3716,6 @@ export default function ClientNutritionPage() {
                           setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({ ...p, title: editingPlanTitleValue || p.title })));
                           setEditingPlanTitleId(null);
                           setIsPlanDirty(true);
-                          scheduleAutoSave();
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -3834,7 +3883,6 @@ export default function ClientNutritionPage() {
                             })));
                             setEditingCycleId(null);
                             setIsPlanDirty(true);
-                            scheduleAutoSave();
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -3933,7 +3981,6 @@ export default function ClientNutritionPage() {
                                       }))
                                     })));
                                     setIsPlanDirty(true);
-                                    scheduleAutoSave();
                                   }}
                                   onDelete={() => {
                                     if (!selectedPlanId || !selectedCycleId) return;
@@ -4198,7 +4245,6 @@ export default function ClientNutritionPage() {
                                             foodItems: m.foodItems.map((fi) => fi.id === item.id ? { ...fi, quantity: val } : fi)
                                           }));
                                           setIsPlanDirty(true);
-                                          scheduleAutoSave();
                                         }}
                                       sx={{ width: 110, ml: 'auto' }}
                                       InputProps={{ endAdornment: <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>{item.foodItem.unit}</Typography> as any }}
@@ -4223,7 +4269,6 @@ export default function ClientNutritionPage() {
                                     }))
                                   })));
                                   setIsPlanDirty(true);
-                                  scheduleAutoSave();
                                 }}><Copy size={16} /></IconButton>
                                 <IconButton size="small" title="Replace" onClick={() => {
                                   setReplacingFoodItem(item);
@@ -4235,7 +4280,6 @@ export default function ClientNutritionPage() {
                                     foodItems: m.foodItems.filter(fi => fi.id !== item.id)
                                   }));
                                   setIsPlanDirty(true);
-                                  scheduleAutoSave();
                                 }}><Trash size={16} /></IconButton>
                               </Box>
                             </ListItem>

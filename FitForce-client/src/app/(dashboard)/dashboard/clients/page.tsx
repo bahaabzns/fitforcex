@@ -95,6 +95,7 @@ const translations: Record<string, Record<string, string>> = {
 
 type Client = {
   id: string;
+  code?: number | null;
   fullName?: string;
   name?: string;
   email?: string | null;
@@ -548,7 +549,7 @@ export default function ClientsPage() {
               value={filterValue || ''}
               onFilterChange={(value) => column.setFilterValue(value)}
               onBlur={() => setOpenFilter(null)}
-              placeholder="Search by ID..."
+              placeholder="Search by code..."
               autoFocus
             />
           }
@@ -563,11 +564,17 @@ export default function ClientsPage() {
             </Button>
           );
         },
-        accessorFn: (row) => row.id || '',
+        accessorFn: (row) => row.code?.toString() || '',
         id: 'code',
         cell: ({ row }) => {
-          const id = row.original.id || '';
-          const code = id.substring(0, 8);
+          const code = row.original.code;
+          if (code === null || code === undefined) {
+            return (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                -
+              </Typography>
+            );
+          }
           return (
             <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
               #{code}
@@ -575,10 +582,11 @@ export default function ClientsPage() {
           );
         },
         filterFn: (row, id, filterValue) => {
-          const rowValue = row.original.id || '';
-          const searchValue = String(filterValue || '').toLowerCase().trim();
+          const code = row.original.code;
+          const rowValue = code !== null && code !== undefined ? code.toString() : '';
+          const searchValue = String(filterValue || '').trim();
           if (!searchValue) return true;
-          return rowValue.toLowerCase().includes(searchValue);
+          return rowValue.includes(searchValue);
         },
         meta: { align: 'center' }
       },
