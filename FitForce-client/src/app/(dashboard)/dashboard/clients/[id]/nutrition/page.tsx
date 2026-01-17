@@ -220,6 +220,7 @@ export default function ClientNutritionPage() {
   // Auto-save on drag/move
   const autoSaveTimerRef = useRef<number | null>(null);
   const savePlanRef = useRef<(() => Promise<any>) | null>(null);
+  const preservedMealIdRef = useRef<string | null>(null);
 
   const scheduleAutoSave = () => {
     if (autoSaveTimerRef.current) {
@@ -228,7 +229,7 @@ export default function ClientNutritionPage() {
     autoSaveTimerRef.current = window.setTimeout(async () => {
       if (isPlanDirty && savePlanRef.current) {
         try {
-          await savePlanRef.current();
+          await savePlanRef.current({ reload: false });
         } catch (e) {
           console.error('Auto-save failed', e);
         }
@@ -1128,6 +1129,32 @@ export default function ClientNutritionPage() {
     setSelectedMealId(null);
   }, [selectedPlanId]);
 
+  // Restore selected meal ID after auto-save reloads plans
+  useEffect(() => {
+    if (preservedMealIdRef.current && selectedPlanId && plans.length > 0) {
+      const selectedPlan = plans.find(p => p.id === selectedPlanId);
+      if (selectedPlan) {
+        // Find which cycle contains the meal
+        const cycleWithMeal = selectedPlan.cycles?.find(c => 
+          c.meals?.some(m => m.id === preservedMealIdRef.current)
+        );
+        
+        if (cycleWithMeal) {
+          // Ensure the cycle is selected
+          if (selectedCycleId !== cycleWithMeal.id) {
+            setSelectedCycleId(cycleWithMeal.id);
+          }
+          // Restore the meal ID
+          if (selectedMealId !== preservedMealIdRef.current) {
+            setSelectedMealId(preservedMealIdRef.current);
+          }
+        }
+        // Clear the ref after attempting to restore
+        preservedMealIdRef.current = null;
+      }
+    }
+  }, [plans, selectedPlanId, selectedCycleId, selectedMealId]);
+
   const filteredPlans = plans
     .filter(plan => plan.title.toLowerCase().includes(planQuery.toLowerCase()))
     .sort((a, b) => {
@@ -1352,7 +1379,8 @@ export default function ClientNutritionPage() {
   const showSection2 = !!selectedPlanId;
   const showSection3 = !!selectedMealId;
   
-  const handleSavePlan = async () => {
+  const handleSavePlan = async (options?: { reload?: boolean }) => {
+    const shouldReload = options?.reload !== false; // Default to true for manual saves
     if (!selectedPlanId) return;
     
     try {
@@ -1507,23 +1535,108 @@ export default function ClientNutritionPage() {
           : p
       ));
 
+      // Update local state with new IDs (cycles and meals) if we're not reloading
+      if (!shouldReload && (Object.keys(createdCycleIdMap).length > 0 || Object.keys(createdMealIdMap).length > 0)) {
+        setPlans((prev) => prev.map((plan) => {
+          if (plan.id !== serverPlanId) return plan;
+          
+          return {
+            ...plan,
+            cycles: plan.cycles?.map((cycle) => {
+              const newCycleId = createdCycleIdMap[cycle.id] || cycle.id;
+              
+              return {
+                ...cycle,
+                id: newCycleId,
+                meals: cycle.meals?.map((meal) => {
+                  const newMealId = createdMealIdMap[meal.id] || meal.id;
+                  return {
+                    ...meal,
+                    id: newMealId,
+                    // Update mealId in foodItems if they have that property
+                    foodItems: meal.foodItems?.map((foodItem: any) => ({
+                      ...foodItem,
+                      mealId: newMealId
+                    })) || []
+                  };
+                }) || []
+              };
+            }) || []
+          };
+        }));
+        
+        // Update selected cycle ID if it was changed
+        if (selectedCycleId && createdCycleIdMap[selectedCycleId]) {
+          setSelectedCycleId(createdCycleIdMap[selectedCycleId]);
+        }
+        
+        // Update currentCycles with new IDs
+        if (Object.keys(createdCycleIdMap).length > 0) {
+          setCurrentCycles((prev) => prev.map((cycle) => {
+            const newCycleId = createdCycleIdMap[cycle.id] || cycle.id;
+            return {
+              ...cycle,
+              id: newCycleId,
+              meals: cycle.meals?.map((meal) => {
+                const newMealId = createdMealIdMap[meal.id] || meal.id;
+                return {
+                  ...meal,
+                  id: newMealId,
+                  foodItems: meal.foodItems?.map((foodItem: any) => ({
+                    ...foodItem,
+                    mealId: newMealId
+                  })) || []
+                };
+              }) || []
+            };
+          }));
+        }
+        
+        // Update selected meal ID if it was changed
+        if (selectedMealId && createdMealIdMap[selectedMealId]) {
+          setSelectedMealId(createdMealIdMap[selectedMealId]);
+        }
+        
+        // Update currentMeals with new IDs
+        if (Object.keys(createdMealIdMap).length > 0) {
+          setCurrentMeals((prev) => prev.map((meal) => {
+            const newMealId = createdMealIdMap[meal.id] || meal.id;
+            return {
+              ...meal,
+              id: newMealId,
+              // Update mealId in foodItems if they have that property
+              foodItems: meal.foodItems?.map((foodItem: any) => ({
+                ...foodItem,
+                mealId: newMealId
+              })) || []
+            };
+          }));
+        }
+      }
+
       setIsPlanDirty(false);
       
-      // Preserve the selected plan ID before reloading
-      const preservedPlanId = serverPlanId;
-      
-      // Reload all plans data to get fresh server data
-      await loadAllPlansData();
-      
-      // Ensure the saved plan remains selected
-      setSelectedPlanId(preservedPlanId);
-      
-      openSnackbar({
-        open: true,
-        message: 'Plan saved and activated successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      });
+      if (shouldReload) {
+        // Preserve the selected plan ID and meal ID before reloading
+        const preservedPlanId = serverPlanId;
+        const preservedMealId = selectedMealId ? (createdMealIdMap[selectedMealId] || selectedMealId) : null;
+        
+        // Store the meal ID to restore after reload
+        preservedMealIdRef.current = preservedMealId;
+        
+        // Reload all plans data to get fresh server data
+        await loadAllPlansData();
+        
+        // Ensure the saved plan remains selected
+        setSelectedPlanId(preservedPlanId);
+        
+        openSnackbar({
+          open: true,
+          message: 'Plan saved and activated successfully',
+          variant: 'alert',
+          alert: { color: 'success' }
+        });
+      }
     } catch (error) {
       openSnackbar({
         open: true,
