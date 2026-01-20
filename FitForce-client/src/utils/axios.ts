@@ -77,7 +77,25 @@ export const fetcher = async (url: string) => {
 
 // Handle permission-denied responses globally with a warning instead of an error
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Handle 304 Not Modified responses - ensure we have data
+    // Some browsers/proxies return 304 with empty body, which can cause issues
+    if (response.status === 304 && (!response.data || Object.keys(response.data).length === 0)) {
+      console.warn('Received 304 Not Modified with empty body, forcing fresh request');
+      // Force a fresh request by adding a cache-busting parameter
+      const originalUrl = response.config.url || '';
+      if (!originalUrl.includes('_nocache=') && !originalUrl.includes('_t=')) {
+        const separator = originalUrl.includes('?') ? '&' : '?';
+        const newConfig = { ...response.config };
+        newConfig.url = `${originalUrl}${separator}_nocache=${Date.now()}`;
+        // Prevent infinite loop by marking this as a retry
+        newConfig.headers = { ...newConfig.headers, 'X-Retry-Attempt': '1' };
+        // Retry the request
+        return api.request(newConfig);
+      }
+    }
+    return response;
+  },
   (error) => {
     try {
       const status = error?.response?.status;

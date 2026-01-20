@@ -2147,6 +2147,19 @@ export default function ClientNutritionPage() {
       return;
     }
 
+    // Open a blank tab immediately so the browser treats it as a direct user action.
+    // We will navigate this tab once the PDF URL is ready to avoid popup blockers.
+    const pendingWindow = window.open('about:blank', '_blank');
+    if (pendingWindow) {
+      try {
+        pendingWindow.document.write(
+          '<p style="font-family:sans-serif;padding:16px;">Generating nutrition PDF… You can keep using FitForce while this loads.</p>'
+        );
+      } catch {
+        // Ignore document write errors – tab will just stay blank.
+      }
+    }
+
     const selectedPlan = plans.find(p => p.id === selectedPlanId);
     if (!selectedPlan || !selectedPlan.cycles || selectedPlan.cycles.length === 0) {
       openSnackbar({
@@ -2173,7 +2186,14 @@ export default function ClientNutritionPage() {
         });
         
         if (res.data?.pdfUrl) {
-          window.open(res.data.pdfUrl, '_blank');
+          if (pendingWindow && !pendingWindow.closed) {
+            pendingWindow.location.href = res.data.pdfUrl;
+          } else {
+            const popup = window.open(res.data.pdfUrl, '_blank');
+            if (!popup) {
+              console.warn('Popup blocked while opening nutrition PDF. URL:', res.data.pdfUrl);
+            }
+          }
           openSnackbar({
             open: true,
             message: 'PDF generated successfully with visual template!',
@@ -2182,6 +2202,15 @@ export default function ClientNutritionPage() {
           } as any);
         }
       } else {
+        // No visual templates – close the pending window before falling back
+        if (pendingWindow && !pendingWindow.closed) {
+          try {
+            pendingWindow.close();
+          } catch {
+            // Ignore close errors
+          }
+        }
+
         // Fallback to old client-side PDF generation if no visual templates
         await exportNutritionPlanToPDF({
           workspaceName: workspaceName || 'Workspace',
@@ -2194,7 +2223,7 @@ export default function ClientNutritionPage() {
             microTotals: cycle.microTotals,
             meals: cycle.meals || []
           }))
-        }, selectedPlanId as string | undefined);
+        }, selectedPlanId as string | undefined, undefined);
         
         openSnackbar({
           open: true,
@@ -2205,6 +2234,16 @@ export default function ClientNutritionPage() {
       }
     } catch (error: any) {
       console.error('Failed to export PDF:', error);
+
+      // On failure, close the pending window so the user isn't left with a blank tab
+      if (pendingWindow && !pendingWindow.closed) {
+        try {
+          pendingWindow.close();
+        } catch {
+          // Ignore close errors
+        }
+      }
+
       openSnackbar({
         open: true,
         message: error?.message || 'Failed to export PDF',
@@ -2217,7 +2256,7 @@ export default function ClientNutritionPage() {
   };
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
+    <Box sx={{ width: '100%', overflowX: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
     <Stack spacing={1} sx={{ width: '100%', maxWidth: '100%' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 1, md: 0 } }}>
@@ -2299,7 +2338,7 @@ export default function ClientNutritionPage() {
             }
             subheader={plansTab === 0 ? (
               <Box sx={{ mt: 2 }}>
-                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
                   <Button variant="contained" size="small" startIcon={<Add size={16} />} onClick={() => setIsCreatePlanDialogOpen(true)} sx={{ flex: 1 }}>
                     Create
                   </Button>
@@ -2498,70 +2537,105 @@ export default function ClientNutritionPage() {
                 <CircularProgress />
               </Box>
             ) : (
-              <Grid container spacing={2} direction="column">
-                {filteredPlans.map((plan) => {
-                  const isSelected = selectedPlanId === plan.id;
-                  const createdDate = plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : undefined;
-                  return (
-                    <Box key={plan.id}>
-                      <Card
-                        onClick={() => {
-                          if (selectedPlanId !== plan.id) {
-                            setSelectedPlanId(plan.id);
-                            if (isMobile) setMobileSection(1);
-                          }
-                        }}
-                        sx={{
-                          cursor: 'pointer',
-                          border: '2px solid',
-                          borderColor: isSelected ? 'primary.main' : 'divider',
-                          bgcolor: isSelected 
-                            ? theme.palette.mode === 'dark' 
-                              ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
-                              : 'primary.lighter' 
-                            : 'background.paper',
-                          position: 'relative',
-                          boxShadow: 'none',
-                          borderRadius: 2,
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          overflow: 'hidden',
-                          '&:hover': {
-                            borderColor: isSelected ? 'primary.dark' : 'primary.main',
-                            transform: 'translateY(-2px)',
-                            boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Grid container spacing={2} direction="column">
+                  {filteredPlans.map((plan) => {
+                    const isSelected = selectedPlanId === plan.id;
+                    const createdDate = plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : undefined;
+                    return (
+                      <Box key={plan.id}>
+                        <Card
+                          onClick={() => {
+                            if (selectedPlanId !== plan.id) {
+                              setSelectedPlanId(plan.id);
+                              if (isMobile) setMobileSection(1);
+                            }
+                          }}
+                          sx={{
+                            cursor: 'pointer',
+                            border: '2px solid',
+                            borderColor: isSelected ? 'primary.main' : 'divider',
                             bgcolor: isSelected 
-                              ? theme.palette.mode === 'dark'
-                                ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
-                                : 'primary.lighter'
-                              : 'action.hover'
-                          },
-                          '&:hover .plan-actions': { opacity: 1 }
-                        }}
-                      >
-                        <CardContent sx={{ py: 2.5, px: 2.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 90 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: isSelected ? 'primary.main' : 'text.primary', fontSize: '0.95rem', transition: 'color 0.2s' }}>{plan.title}</Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                              {createdDate ? `Last Edited: ${createdDate}` : 'Last Edited: —'}{plan.createdBy ? `, By: ${plan.createdBy}` : ''}
+                              ? theme.palette.mode === 'dark' 
+                                ? 'rgba(25, 118, 210, 0.08)'  // Subtle blue tint in dark mode
+                                : 'primary.lighter' 
+                              : 'background.paper',
+                            position: 'relative',
+                            boxShadow: 'none',
+                            borderRadius: 2,
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            overflow: 'hidden',
+                            '&:hover': {
+                              borderColor: isSelected ? 'primary.dark' : 'primary.main',
+                              transform: 'translateY(-2px)',
+                              boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.06)',
+                              bgcolor: isSelected 
+                                ? theme.palette.mode === 'dark'
+                                  ? 'rgba(25, 118, 210, 0.12)'  // Slightly more visible on hover in dark mode
+                                  : 'primary.lighter'
+                                : 'action.hover'
+                            },
+                            '&:hover .plan-actions': { opacity: 1 }
+                          }}
+                        >
+                          <CardContent sx={{ py: 2.5, px: 2.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 90 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: isSelected ? 'primary.main' : 'text.primary', fontSize: '0.95rem', transition: 'color 0.2s' }}>{plan.title}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                                {createdDate ? `Last Edited: ${createdDate}` : 'Last Edited: —'}{plan.createdBy ? `, By: ${plan.createdBy}` : ''}
                                   </Typography>
-                            {plan.status && (
-                              <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} sx={{ height: 20, fontSize: '0.65rem', fontWeight: 500 }} />
-                            )}
+                              {plan.status && (
+                                <Chip size="small" label={plan.status} color={plan.status === 'active' ? 'success' : 'default'} sx={{ height: 20, fontSize: '0.65rem', fontWeight: 500 }} />
+                              )}
+                            </Box>
+                          </CardContent>
+                          <Box className="plan-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: isMobile ? 1 : 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                            <IconButton size="small" onClick={() => handleCopyPlanCard(plan.id)} disabled={copyingPlanId === plan.id} title="Copy plan" sx={{ '&:hover': { bgcolor: 'action.selected' } }}>
+                              <Copy size={16} />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => handleDeletePlanCard(plan.id)} disabled={deletingPlanId === plan.id} title="Delete plan" sx={{ '&:hover': { bgcolor: 'error.lighter' } }}>
+                              <Trash size={16} />
+                            </IconButton>
                           </Box>
-                        </CardContent>
-                        <Box className="plan-actions" sx={{ position: 'absolute', top: 8, right: 8, opacity: isMobile ? 1 : 0, transition: 'opacity 0.3s ease', display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-                          <IconButton size="small" onClick={() => handleCopyPlanCard(plan.id)} disabled={copyingPlanId === plan.id} title="Copy plan" sx={{ '&:hover': { bgcolor: 'action.selected' } }}>
-                            <Copy size={16} />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleDeletePlanCard(plan.id)} disabled={deletingPlanId === plan.id} title="Delete plan" sx={{ '&:hover': { bgcolor: 'error.lighter' } }}>
-                            <Trash size={16} />
-                          </IconButton>
-                        </Box>
-                      </Card>
-                    </Box>
-                  );
-                })}
-              </Grid>
+                        </Card>
+                      </Box>
+                    );
+                  })}
+                </Grid>
+
+                {/* Secondary actions at the bottom so they are always reachable even when scrolled down */}
+                <Box sx={{ mt: 1 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Add size={16} />}
+                      onClick={() => setIsCreatePlanDialogOpen(true)}
+                      sx={{ flex: 1 }}
+                    >
+                      Create
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Copy size={16} />}
+                      onClick={() => setLoadPlanDialogOpen(true)}
+                      sx={{ flex: 1 }}
+                    >
+                      Load
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Refresh size={16} />}
+                      onClick={() => setBulkReplaceDialogOpen(true)}
+                      sx={{ flex: 1 }}
+                    >
+                      Bulk Replace
+                    </Button>
+                  </Stack>
+                </Box>
+              </Box>
             )}
           </CardContent>
         </Card>,

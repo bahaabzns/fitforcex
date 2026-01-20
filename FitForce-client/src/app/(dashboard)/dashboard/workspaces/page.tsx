@@ -34,9 +34,22 @@ export default function WorkspacesPage() {
   useEffect(() => {
     const fetchWorkspaces = async () => {
       try {
-        const response = await api.get('/api/workspaces');
+        // Add cache-busting parameter to prevent 304 issues
+        const response = await api.get('/api/workspaces', {
+          params: { _t: Date.now() },
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
         console.log('API Response:', response.data);
-        setWorkspaces(response.data.workspaces || []);
+        // Ensure we have valid data even if response is empty
+        if (response.data && response.data.workspaces) {
+          setWorkspaces(response.data.workspaces);
+        } else {
+          console.warn('Empty or invalid response from /api/workspaces');
+          setWorkspaces([]);
+        }
       } catch (err) {
         console.error('Failed to fetch workspaces:', err);
         setError('Failed to load workspaces');
@@ -126,8 +139,9 @@ export default function WorkspacesPage() {
                       <Button
                         variant="outlined"
                         size="small"
-                        href={`https://${workspace.subdomain}.${APP_CONFIG.frontendDomain}/dashboard`}
-                        target="_blank"
+                        onClick={() => {
+                          window.location.href = `https://${workspace.subdomain}.${APP_CONFIG.frontendDomain}/dashboard`;
+                        }}
                         sx={{ flex: 1 }}
                       >
                         Open

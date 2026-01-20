@@ -2175,6 +2175,19 @@ export default function ClientWorkoutPage() {
       return;
     }
 
+    // Open a blank tab immediately so the browser treats it as a direct user action.
+    // We will navigate this tab once the PDF URL is ready to avoid popup blockers.
+    const pendingWindow = window.open('about:blank', '_blank');
+    if (pendingWindow) {
+      try {
+        pendingWindow.document.write(
+          '<p style="font-family:sans-serif;padding:16px;">Generating workout PDF… You can keep using FitForce while this loads.</p>'
+        );
+      } catch {
+        // Ignore document write errors – tab will just stay blank.
+      }
+    }
+
     try {
       setExportingPdf(true);
       
@@ -2190,7 +2203,14 @@ export default function ClientWorkoutPage() {
         });
         
         if (res.data?.pdfUrl) {
-          window.open(res.data.pdfUrl, '_blank');
+          if (pendingWindow && !pendingWindow.closed) {
+            pendingWindow.location.href = res.data.pdfUrl;
+          } else {
+            const popup = window.open(res.data.pdfUrl, '_blank');
+            if (!popup) {
+              console.warn('Popup blocked while opening workout PDF. URL:', res.data.pdfUrl);
+            }
+          }
           openSnackbar({
             open: true,
             message: 'PDF generated successfully with visual template!',
@@ -2199,7 +2219,16 @@ export default function ClientWorkoutPage() {
           } as any);
         }
       } else {
-        // Fallback to old client-side PDF generation if no visual templates
+        // No visual templates – close the pending window before falling back
+        if (pendingWindow && !pendingWindow.closed) {
+          try {
+            pendingWindow.close();
+          } catch {
+            // Ignore close errors
+          }
+        }
+
+        // Fallback to old client-side / template-based PDF generation if no visual templates
         await exportWorkoutPlanToPDF({
           workspaceName: workspaceName || 'Workspace',
           clientName: clientName || 'Client',
@@ -2221,7 +2250,7 @@ export default function ClientWorkoutPage() {
           })) || []
         }, (message) => {
           console.log('PDF Export:', message);
-        }, selectedPlanId);
+        }, selectedPlanId, undefined);
         
         openSnackbar({
           open: true,
@@ -2232,6 +2261,16 @@ export default function ClientWorkoutPage() {
       }
     } catch (error: any) {
       console.error('Failed to export PDF:', error);
+
+      // On failure, close the pending window so the user isn't left with a blank tab
+      if (pendingWindow && !pendingWindow.closed) {
+        try {
+          pendingWindow.close();
+        } catch {
+          // Ignore close errors
+        }
+      }
+
       openSnackbar({
         open: true,
         message: error?.message || 'Failed to export PDF',
@@ -2244,7 +2283,7 @@ export default function ClientWorkoutPage() {
   };
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
+    <Box sx={{ width: '100%', overflowX: 'hidden', maxWidth: '100vw', px: { xs: 0, md: 0 } }}>
     <Stack spacing={1} sx={{ width: '100%', maxWidth: '100%' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 1, md: 0 } }}>

@@ -61,8 +61,21 @@ export default function WorkspaceNavigator() {
   const fetchWorkspaces = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/api/workspaces');
-      setWorkspaces(response.data.workspaces || []);
+      // Add cache-busting parameter to prevent 304 issues
+      const response = await api.get('/api/workspaces', {
+        params: { _t: Date.now() },
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      // Ensure we have valid data even if response is empty
+      if (response.data && response.data.workspaces) {
+        setWorkspaces(response.data.workspaces);
+      } else {
+        console.warn('Empty or invalid response from /api/workspaces');
+        setWorkspaces([]);
+      }
     } catch (error) {
       console.error('Failed to fetch workspaces:', error);
     } finally {

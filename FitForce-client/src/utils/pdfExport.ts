@@ -209,6 +209,26 @@ async function preloadImages(imageUrls: string[], timeout: number = 5000): Promi
   return imageMap;
 }
 
+// Helper to safely open a PDF URL in a new tab, reusing a pending window if provided.
+// This avoids popup blockers by ensuring the tab is created synchronously on click,
+// and later navigated once the URL is ready.
+function openPdfInNewTab(pdfUrl: string, pendingWindow?: Window | null) {
+  try {
+    if (pendingWindow && !pendingWindow.closed) {
+      pendingWindow.location.href = pdfUrl;
+      return;
+    }
+
+    const popup = window.open(pdfUrl, '_blank');
+    if (!popup) {
+      // Popup blocked – at least log the URL so it can be recovered from console if needed
+      console.warn('Popup blocked while opening PDF. URL:', pdfUrl);
+    }
+  } catch (e) {
+    console.warn('Failed to open PDF in new tab:', e, pdfUrl);
+  }
+}
+
 // Helper to calculate meal totals
 function calculateMealTotals(meal: NutritionPlanData['cycles'][0]['meals'][0]) {
   return meal.foodItems.reduce(
@@ -228,19 +248,30 @@ function calculateMealTotals(meal: NutritionPlanData['cycles'][0]['meals'][0]) {
 
 export async function exportNutritionPlanToPDF(
   data: NutritionPlanData,
-  planId?: string
+  planId?: string,
+  pendingWindow?: Window | null
 ): Promise<void> {
   // Try template-based generation first if planId is provided
   if (planId) {
     try {
       const { pdfUrl } = await generatePdfFromTemplate(planId, 'nutrition');
-      // Open PDF in new tab
-      window.open(pdfUrl, '_blank');
+      // Open PDF in new tab (or reuse pending window)
+      openPdfInNewTab(pdfUrl, pendingWindow);
       return;
     } catch (error: any) {
       // If template generation fails (no template assigned), fall back to client-side generation
       console.log('Template-based generation not available, using client-side generation:', error.message);
       // Continue to fallback - don't throw, just use client-side generation
+    }
+  }
+
+  // If we had opened a pending window for server-side generation,
+  // close it before falling back to client-side download to avoid a blank tab.
+  if (pendingWindow && !pendingWindow.closed) {
+    try {
+      pendingWindow.close();
+    } catch (e) {
+      console.warn('Failed to close pending nutrition PDF window:', e);
     }
   }
   
@@ -448,19 +479,30 @@ export async function exportNutritionPlanToPDF(
 export async function exportWorkoutPlanToPDF(
   data: WorkoutPlanData,
   onProgress?: (message: string) => void,
-  planId?: string
+  planId?: string,
+  pendingWindow?: Window | null
 ): Promise<void> {
   // Try template-based generation first if planId is provided
   if (planId) {
     try {
       const { pdfUrl } = await generatePdfFromTemplate(planId, 'workout');
-      // Open PDF in new tab
-      window.open(pdfUrl, '_blank');
+      // Open PDF in new tab (or reuse pending window)
+      openPdfInNewTab(pdfUrl, pendingWindow);
       return;
     } catch (error: any) {
       // If template generation fails (no template assigned), fall back to client-side generation
       console.log('Template-based generation not available, using client-side generation:', error.message);
       // Continue to fallback - don't throw, just use client-side generation
+    }
+  }
+
+  // If we had opened a pending window for server-side generation,
+  // close it before falling back to client-side download to avoid a blank tab.
+  if (pendingWindow && !pendingWindow.closed) {
+    try {
+      pendingWindow.close();
+    } catch (e) {
+      console.warn('Failed to close pending workout PDF window:', e);
     }
   }
   
