@@ -165,7 +165,7 @@ export default function ClientWorkoutPlanDetail() {
   const plan = data.plan;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default', maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -177,7 +177,7 @@ export default function ClientWorkoutPlanDetail() {
           color: 'white'
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={2}>
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
           {logoUrl ? (
             <Box sx={{ width: 56, height: 56, borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -188,7 +188,7 @@ export default function ClientWorkoutPlanDetail() {
               <FitnessCenter sx={{ fontSize: 32 }} />
             </Avatar>
           )}
-          <Box flex={1}>
+          <Box flex={1} sx={{ minWidth: 0 }}>
             <Typography variant="h4" fontWeight={700}>
               {(isArabic && (plan as any).titleArabic) || plan.title}
             </Typography>
@@ -203,8 +203,10 @@ export default function ClientWorkoutPlanDetail() {
         {plan.days.map((d, idx) => (
           <Card key={idx}>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">{d.label || `${t('client.workout.day')} ${d.dayIndex}`}</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ minWidth: 0, flex: 1 }}>
+                  {d.label || `${t('client.workout.day')} ${d.dayIndex}`}
+                </Typography>
                 <Button
                   variant="contained"
                   startIcon={<PlayArrow />}

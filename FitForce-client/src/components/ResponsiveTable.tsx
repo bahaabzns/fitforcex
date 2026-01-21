@@ -1,6 +1,6 @@
 "use client";
 import { ReactNode } from 'react';
-import { Box, TableContainer } from '@mui/material';
+import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -18,13 +18,17 @@ export default function ResponsiveTable({ children, minWidth = 750 }: Responsive
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
-    <TableContainer
+    <Box
       sx={{
         width: '100%',
+        // Ensure horizontal scrollbar is available when content overflows,
+        // especially on mobile.
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
         position: 'relative',
         display: 'block',
         maxWidth: '100%',
+        minWidth: isMobile ? minWidth : 'auto',
         '& td, & th': {
           whiteSpace: isMobile ? 'nowrap' : 'normal'
         },
@@ -40,7 +44,7 @@ export default function ResponsiveTable({ children, minWidth = 750 }: Responsive
           borderRadius: 4,
           '&:hover': {
             backgroundColor: theme.palette.grey[500]
-          }
+          },
         },
         // Scroll shadow indicators
         ...(isMobile && {
@@ -54,10 +58,10 @@ export default function ResponsiveTable({ children, minWidth = 750 }: Responsive
           backgroundSize: '40px 100%, 40px 100%, 14px 100%, 14px 100%',
           backgroundPosition: '0 0, 100%, 0 0, 100%',
           backgroundAttachment: 'local, local, scroll, scroll'
-        })
+        }),
       }}
     >
-      {children}
-    </TableContainer>
+      <Box sx={{ minWidth: isMobile ? minWidth : 'auto' }}>{children}</Box>
+    </Box>
   );
 }

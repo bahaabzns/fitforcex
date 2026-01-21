@@ -360,7 +360,7 @@ export default function ClientNutritionPlanDetail() {
 
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default', maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Header */}
       <Paper 
         elevation={2} 
@@ -372,7 +372,7 @@ export default function ClientNutritionPlanDetail() {
           color: 'white'
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
           <IconButton 
             onClick={() => router.back()}
             sx={{ 
@@ -393,7 +393,7 @@ export default function ClientNutritionPlanDetail() {
               <Restaurant sx={{ fontSize: 32 }} />
             </Avatar>
           )}
-          <Box flex={1}>
+          <Box flex={1} sx={{ minWidth: 0 }}>
             <Typography variant="h4" fontWeight={700}>
         {(isArabic && (planData.plan as any).titleArabic) || planData.plan.title}
             </Typography>
@@ -405,7 +405,7 @@ export default function ClientNutritionPlanDetail() {
 
         {/* Water Intake Info */}
         {(planData.plan.waterForDay || planData.plan.waterForTraining) && (
-          <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+          <Stack direction="row" spacing={2} sx={{ mt: 2, flexWrap: 'wrap', rowGap: 1 }}>
             {planData.plan.waterForDay && (
               <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Opacity />
@@ -443,7 +443,7 @@ export default function ClientNutritionPlanDetail() {
           gap: { xs: 3, md: 4 }
         }}
       >
-        <Box sx={{ flexGrow: 1, width: '100%' }}>
+        <Box sx={{ flexGrow: 1, width: '100%', minWidth: 0 }}>
           <Stack spacing={3}>
         {planData.cycles?.map((day, idx) => {
           const dayTotals = getDayTotals(day);
@@ -452,7 +452,7 @@ export default function ClientNutritionPlanDetail() {
             <Card key={idx} sx={{ borderRadius: 3, overflow: 'visible' }}>
               <CardContent>
                 {/* Day Header */}
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1.5 }}>
                   <Typography
                     variant="h5"
                     fontWeight={700}
@@ -489,10 +489,11 @@ export default function ClientNutritionPlanDetail() {
                       variant="subtitle2"
                       fontWeight={700}
                       color={(theme) => (theme.palette.mode === 'dark' ? 'primary.light' : 'primary.main')}
+                      sx={{ minWidth: 0, flex: 1 }}
                     >
                       {t('client.nutrition.dailySummary')}
                     </Typography>
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.75 }}>
                       <MacroChip icon={<LocalFireDepartment fontSize="inherit" />} label={`${dayTotals.calories} kcal`} color="error" />
                       <MacroChip icon={<FitnessCenter fontSize="inherit" />} label={`${dayTotals.protein}g`} color="info" />
                       <MacroChip icon={<Grain fontSize="inherit" />} label={`${dayTotals.carbs}g`} color="warning" />

@@ -106,6 +106,7 @@ export default function TutorialVideoHelper() {
   const { i18n } = useConfig();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TutorialVideosResponse | null>(null);
@@ -118,6 +119,7 @@ export default function TutorialVideoHelper() {
     // Reset when page changes
     setOpen(false);
     setMinimized(false);
+    setBannerDismissed(false);
     setSelectedVideo(null);
     setData(null); // Clear old data when page changes
     setCurrentPageId(pageId);
@@ -229,7 +231,7 @@ export default function TutorialVideoHelper() {
   return (
     <>
       {/* Floating Wide Banner Button */}
-      {!open && !minimized && (
+      {!open && !minimized && !bannerDismissed && (
         <Paper
           elevation={6}
           onClick={openMinimizedPlayer}
@@ -248,8 +250,38 @@ export default function TutorialVideoHelper() {
             <Typography variant="subtitle1" fontWeight={700}>
               Watch Tutorial
             </Typography>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                setBannerDismissed(true);
+              }}
+              sx={{ ml: 1 }}
+              aria-label="Dismiss tutorial banner"
+            >
+              <Close fontSize="small" />
+            </IconButton>
           </Box>
         </Paper>
+      )}
+
+      {/* Compact icon-only button when banner is dismissed */}
+      {!open && !minimized && bannerDismissed && (
+        <Fab
+          color="primary"
+          size="medium"
+          onClick={openMinimizedPlayer}
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 1300,
+            boxShadow: 6,
+          }}
+          aria-label="Watch tutorial"
+        >
+          <PlayArrow />
+        </Fab>
       )}
 
       {/* Minimized State */}

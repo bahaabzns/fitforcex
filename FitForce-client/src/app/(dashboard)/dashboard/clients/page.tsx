@@ -50,8 +50,7 @@ import {
   getFilteredRowModel,
   useReactTable,
   SortingState,
-  ColumnFiltersState,
-  FilterFn
+  ColumnFiltersState
 } from '@tanstack/react-table';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -72,7 +71,6 @@ import {
   HeaderSort,
   IndeterminateCheckbox,
   RowSelection,
-  SelectColumnSorting,
   TablePagination
 } from 'components/third-party/react-table';
 
@@ -111,6 +109,7 @@ type Client = {
 };
 
 type TableDensity = 'compact';
+type MobileViewMode = 'table' | 'cards';
 
 export default function ClientsPage() {
   const workspaceId = useAppSelector((s) => s.workspace.id);
@@ -127,7 +126,7 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [subscriptionRequired, setSubscriptionRequired] = useState<boolean>(false);
   const [clients, setClients] = useState<Client[]>([]);
-  const [tableDensity, setTableDensity] = useState<TableDensity>('compact');
+  const [tableDensity] = useState<TableDensity>('compact');
   const [activeTab, setActiveTab] = useState<number>(0); // 0 = Active, 1 = Archived
 
   const statusOptions = [
@@ -146,6 +145,8 @@ export default function ClientsPage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
+  const [mobileViewMode, setMobileViewMode] = useState<MobileViewMode>('table');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Invite form
   const [showForm, setShowForm] = useState(false);
@@ -189,7 +190,6 @@ export default function ClientsPage() {
   
   // Form scheduling options
   const [formAssignmentType, setFormAssignmentType] = useState<'immediate' | 'scheduled'>('immediate');
-  const [scheduledDate, setScheduledDate] = useState('');
   const [durationDays, setDurationDays] = useState<number>(7);
 
   // Password management
@@ -232,6 +232,12 @@ export default function ClientsPage() {
     };
     fetchClients();
   }, [workspaceId, activeTab]);
+
+  // Mobile-only view toggle defaults to cards; desktop uses table.
+  useEffect(() => {
+    if (isMobile) setMobileViewMode('cards');
+    else setMobileViewMode('table');
+  }, [isMobile]);
 
   // Load packages and forms
   useEffect(() => {
@@ -410,7 +416,6 @@ export default function ClientsPage() {
       setBulkFormDialogOpen(false);
       setSelectedFormId('');
       setFormAssignmentType('immediate');
-      setScheduledDate('');
       setDurationDays(7);
       setRowSelection({});
       setError(null);
@@ -1229,8 +1234,11 @@ export default function ClientsPage() {
             </Button>
           )}
         </Box>
-        <ResponsiveTable>
-          <Table size={tableDensity === 'compact' ? 'small' : 'small'}>
+        <ResponsiveTable minWidth={isMobile ? 1100 : 900}>
+          <Table
+            size={tableDensity === 'compact' ? 'small' : 'small'}
+            sx={{ minWidth: isMobile ? 1100 : 900 }}
+          >
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -1300,6 +1308,171 @@ export default function ClientsPage() {
         </>
       </Stack>
     </MainCard>
+    );
+  };
+
+  const renderMobileCardsFilters = () => {
+    const codeColumn = table.getColumn('code');
+    const nameColumn = table.getColumn('name');
+    const phoneColumn = table.getColumn('phone');
+    const passwordColumn = table.getColumn('password');
+    const statusColumn = table.getColumn('status');
+    const packageColumn = table.getColumn('packageName');
+    const createdAtColumn = table.getColumn('createdAt');
+
+    const activeFiltersCount = columnFilters.filter((f) => {
+      const value = f.value;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'string') return value.trim().length > 0;
+      return value != null && value !== '';
+    }).length;
+
+    const clearFilters = () => {
+      setColumnFilters([]);
+      setOpenFilter(null);
+    };
+
+    return (
+      <>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setMobileFiltersOpen(true)}
+            size="small"
+            sx={{ flex: 1 }}
+          >
+            Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
+          </Button>
+          {activeFiltersCount > 0 && (
+            <Button
+              variant="text"
+              color="secondary"
+              onClick={clearFilters}
+              size="small"
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              Clear
+            </Button>
+          )}
+        </Stack>
+
+        <Dialog open={mobileFiltersOpen} onClose={() => setMobileFiltersOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Filters</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              <Stack spacing={0.75}>
+                <Typography variant="caption">Code</Typography>
+                <DebouncedInput
+                  value={(codeColumn?.getFilterValue() as string) || ''}
+                  onFilterChange={(value) => codeColumn?.setFilterValue(value)}
+                  placeholder="Search by code..."
+                  size="small"
+                />
+              </Stack>
+
+              <Stack spacing={0.75}>
+                <Typography variant="caption">{t('client-name')}</Typography>
+                <DebouncedInput
+                  value={(nameColumn?.getFilterValue() as string) || ''}
+                  onFilterChange={(value) => nameColumn?.setFilterValue(value)}
+                  placeholder="Search by name..."
+                  size="small"
+                />
+              </Stack>
+
+              <Stack spacing={0.75}>
+                <Typography variant="caption">{t('contact')}</Typography>
+                <DebouncedInput
+                  value={(phoneColumn?.getFilterValue() as string) || ''}
+                  onFilterChange={(value) => phoneColumn?.setFilterValue(value)}
+                  placeholder="Search by contact..."
+                  size="small"
+                />
+              </Stack>
+
+              <Stack spacing={0.75}>
+                <Typography variant="caption">Password</Typography>
+                <DebouncedInput
+                  value={(passwordColumn?.getFilterValue() as string) || ''}
+                  onFilterChange={(value) => passwordColumn?.setFilterValue(value)}
+                  placeholder="Search by password..."
+                  size="small"
+                />
+              </Stack>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>{t('status')}</InputLabel>
+                <Select
+                  multiple
+                  label={t('status')}
+                  value={((statusColumn?.getFilterValue() as string[]) || [])}
+                  onChange={(e) => statusColumn?.setFilterValue(e.target.value)}
+                  renderValue={(selected) => (selected as string[]).join(', ')}
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      <Checkbox checked={(((statusColumn?.getFilterValue() as string[]) || []).includes(option.value))} />
+                      <ListItemText primary={option.label} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>{t('package')}</InputLabel>
+                <Select
+                  multiple
+                  label={t('package')}
+                  value={((packageColumn?.getFilterValue() as string[]) || [])}
+                  onChange={(e) => packageColumn?.setFilterValue(e.target.value)}
+                  renderValue={(selected) => (selected as string[]).join(', ')}
+                >
+                  {packages.map((pkg) => (
+                    <MenuItem key={pkg.id} value={pkg.name}>
+                      <Checkbox checked={(((packageColumn?.getFilterValue() as string[]) || []).includes(pkg.name))} />
+                      <ListItemText primary={pkg.name} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Stack spacing={0.75}>
+                <Typography variant="caption">Created</Typography>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    value={(createdAtColumn?.getFilterValue() as Date | null) || null}
+                    onChange={(newValue) => createdAtColumn?.setFilterValue(newValue)}
+                    slotProps={{
+                      textField: {
+                        size: 'small',
+                        fullWidth: true,
+                        placeholder: 'Select date',
+                      },
+                      actionBar: {
+                        actions: ['clear', 'today']
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
+              </Stack>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              color="secondary"
+              onClick={() => {
+                setMobileFiltersOpen(false);
+                clearFilters();
+              }}
+            >
+              Clear
+            </Button>
+            <Button variant="contained" onClick={() => setMobileFiltersOpen(false)}>
+              Done
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
     );
   };
 
@@ -1447,6 +1620,39 @@ export default function ClientsPage() {
     );
   };
 
+  const renderCardsViewWithControls = () => {
+    return (
+      <MainCard content={false}>
+        <Stack sx={{ p: 2 }} spacing={2}>
+          <Box>
+            <TablePagination
+              {...{
+                setPageSize: table.setPageSize,
+                setPageIndex: table.setPageIndex,
+                getState: table.getState,
+                getPageCount: table.getPageCount,
+                initialPageSize: 10
+              }}
+            />
+          </Box>
+          {renderCardsView()}
+          <Divider />
+          <Box sx={{ pt: 1 }}>
+            <TablePagination
+              {...{
+                setPageSize: table.setPageSize,
+                setPageIndex: table.setPageIndex,
+                getState: table.getState,
+                getPageCount: table.getPageCount,
+                initialPageSize: 10
+              }}
+            />
+          </Box>
+        </Stack>
+      </MainCard>
+    );
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header row */}
@@ -1458,6 +1664,28 @@ export default function ClientsPage() {
       >
         <Typography variant="h4">{t('clients')}</Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+          {isMobile && (
+            <ToggleButtonGroup
+              exclusive
+              value={mobileViewMode}
+              onChange={(_, next) => {
+                if (next) setMobileViewMode(next);
+              }}
+              size="small"
+              sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
+            >
+              <ToggleButton value="cards" aria-label="Cards view">
+                <Grid3 style={{ marginRight: 6 }} />
+                Cards
+              </ToggleButton>
+              <ToggleButton value="table" aria-label="Table view">
+                <Menu style={{ marginRight: 6 }} />
+                Table
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+
+          {isMobile && mobileViewMode === 'cards' && clients.length > 0 && renderMobileCardsFilters()}
 
           {activeTab === 0 && Object.keys(rowSelection).length > 0 && (
             <Button
@@ -1594,7 +1822,7 @@ export default function ClientsPage() {
           </CardContent>
         </Card>
       ) : (
-        renderTableView()
+        isMobile && mobileViewMode === 'cards' ? renderCardsViewWithControls() : renderTableView()
       )}
 
       {/* Edit Client Dialog */}
@@ -1935,6 +2163,28 @@ export default function ClientsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {isMobile && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            // Raise above other UI (like drawers/footers) so it stays visible on mobile.
+            zIndex: (theme) => theme.zIndex.drawer + 2,
+            boxShadow: 6
+          }}
+        >
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setCreateWizardOpen(true)}
+            sx={{ borderRadius: '999px' }}
+          >
+            Create Client
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }
