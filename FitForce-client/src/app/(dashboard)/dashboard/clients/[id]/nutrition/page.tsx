@@ -218,6 +218,10 @@ export default function ClientNutritionPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const plansRef = useRef<Plan[]>([]);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isAutoSavingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
+  const handleSavePlanRef = useRef<typeof handleSavePlan | null>(null);
 
   // Keep plansRef in sync with plans state to ensure we always have the latest state
   useEffect(() => {
@@ -1102,6 +1106,7 @@ export default function ClientNutritionPage() {
     }
   }, [selectedPlanId, plans]);
 
+
   // When switching to a different plan explicitly, clear selected meal
   useEffect(() => {
     // If plan changes, the meal context is no longer valid
@@ -1223,7 +1228,7 @@ export default function ClientNutritionPage() {
   };
 
   const handleAddFoodToMeal = () => {
-    if (!selectedFoodItems.length || !selectedMealId) return;
+    if (!selectedFoodItems.length || !selectedMealId || !selectedCycleId || !selectedPlanId) return;
     const baseMeal = currentMeals.find((m) => m.id === selectedMealId);
     if (!baseMeal) return;
     const added: MealFoodItem[] = selectedFoodItems
@@ -1248,25 +1253,31 @@ export default function ClientNutritionPage() {
     ));
     
     // Update the plan's meal with the new food items
-    setPlans((prev) => prev.map(plan => 
-      plan.id === selectedPlanId 
-        ? {
-            ...plan,
-            cycles: plan.cycles?.map(cycle =>
-              cycle.id === baseMeal.dayId
-                ? {
-                    ...cycle,
-                    meals: cycle.meals?.map(meal =>
-                      meal.id === baseMeal.id
-                        ? { ...meal, foodItems: [...(meal.foodItems || []), ...added] }
-                        : meal
-                    ) || []
-                  }
-                : cycle
-            ) || []
-          }
-        : plan
-    ));
+    // Use selectedCycleId instead of baseMeal.dayId to ensure we find the correct cycle
+    setPlans((prev) => {
+      const updated = prev.map(plan => 
+        plan.id === selectedPlanId 
+          ? {
+              ...plan,
+              cycles: plan.cycles?.map(cycle =>
+                cycle.id === selectedCycleId
+                  ? {
+                      ...cycle,
+                      meals: cycle.meals?.map(meal =>
+                        meal.id === baseMeal.id
+                          ? { ...meal, foodItems: [...(meal.foodItems || []), ...added] }
+                          : meal
+                      ) || []
+                    }
+                  : cycle
+              ) || []
+            }
+          : plan
+      );
+      // Also update plansRef to keep it in sync
+      plansRef.current = updated;
+      return updated;
+    });
     
     setSelectedFoodItems([]);
     setIsAddFoodDialogOpen(false);
@@ -1713,6 +1724,148 @@ export default function ClientNutritionPage() {
     }
   };
 
+  // Always update handleSavePlanRef
+  useEffect(() => {
+    handleSavePlanRef.current = handleSavePlan;
+  });
+
+  // Auto-save effect: saves automatically when plan becomes dirty
+  useEffect(() => {
+    // Don't auto-save if no plan is selected or if already saving
+    if (!selectedPlanId || isAutoSavingRef.current || saving) {
+      return;
+    }
+
+    // Only auto-save if plan is dirty
+    if (!isPlanDirty) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set pending save flag
+    pendingSaveRef.current = true;
+
+    // Debounce auto-save: wait 1 second after last change before saving
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      if (!selectedPlanId || !pendingSaveRef.current || !handleSavePlanRef.current) {
+        return;
+      }
+
+      try {
+        isAutoSavingRef.current = true;
+        pendingSaveRef.current = false;
+        
+        // Save silently (no reload, no error notifications)
+        await handleSavePlanRef.current({ reload: false, silent: true });
+      } catch (error) {
+        // On error, set pending save flag back so we can retry
+        pendingSaveRef.current = true;
+        console.error('Auto-save failed:', error);
+        // Retry after a longer delay (5 seconds)
+        autoSaveTimeoutRef.current = setTimeout(async () => {
+          if (!selectedPlanId || !pendingSaveRef.current || !handleSavePlanRef.current) {
+            return;
+          }
+          try {
+            await handleSavePlanRef.current({ reload: false, silent: true });
+            pendingSaveRef.current = false;
+          } catch (retryError) {
+            console.error('Auto-save retry failed:', retryError);
+          } finally {
+            isAutoSavingRef.current = false;
+          }
+        }, 5000);
+      } finally {
+        isAutoSavingRef.current = false;
+      }
+    }, 1000); // 1 second debounce
+
+    // Cleanup function
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [isPlanDirty, selectedPlanId, saving]);
+
+  // Auto-save when switching cycles (to preserve any unsaved changes)
+  useEffect(() => {
+    if (!selectedPlanId || !isPlanDirty || !handleSavePlanRef.current) return;
+    
+    // Clear any existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    // Save when cycle changes (shorter delay for navigation)
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      if (selectedPlanId && isPlanDirty && !isAutoSavingRef.current && !saving && handleSavePlanRef.current) {
+        try {
+          isAutoSavingRef.current = true;
+          await handleSavePlanRef.current({ reload: false, silent: true });
+        } catch (error) {
+          console.error('Auto-save on cycle change failed:', error);
+        } finally {
+          isAutoSavingRef.current = false;
+        }
+      }
+    }, 500); // Shorter delay for navigation changes
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [selectedCycleId, selectedPlanId, isPlanDirty, saving]);
+
+  // Auto-save when switching meals (to preserve any unsaved changes)
+  useEffect(() => {
+    if (!selectedPlanId || !isPlanDirty || !handleSavePlanRef.current) return;
+    
+    // Clear any existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    // Save when meal changes (shorter delay for navigation)
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      if (selectedPlanId && isPlanDirty && !isAutoSavingRef.current && !saving && handleSavePlanRef.current) {
+        try {
+          isAutoSavingRef.current = true;
+          await handleSavePlanRef.current({ reload: false, silent: true });
+        } catch (error) {
+          console.error('Auto-save on meal change failed:', error);
+        } finally {
+          isAutoSavingRef.current = false;
+        }
+      }
+    }, 500); // Shorter delay for navigation changes
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [selectedMealId, selectedPlanId, isPlanDirty, saving]);
+
+  // Auto-save before navigating away from plan (component unmount or plan change)
+  useEffect(() => {
+    return () => {
+      // Save immediately when plan changes or component unmounts
+      if (selectedPlanId && isPlanDirty && !isAutoSavingRef.current && !saving && handleSavePlanRef.current) {
+        // Clear any pending debounced save
+        if (autoSaveTimeoutRef.current) {
+          clearTimeout(autoSaveTimeoutRef.current);
+        }
+        // Save immediately (can't await in cleanup, but fire and forget)
+        handleSavePlanRef.current({ reload: false, silent: true }).catch(console.error);
+      }
+    };
+  }, [selectedPlanId, isPlanDirty, saving]);
 
   const handleActivatePlan = async () => {
     if (!selectedPlanId) return;

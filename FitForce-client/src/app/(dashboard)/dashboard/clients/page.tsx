@@ -80,6 +80,8 @@ import PauseCircleIcon from '@mui/icons-material/PauseCircle';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import useConfig from '@/hooks/useConfig';
 
 // Import translations
@@ -197,7 +199,7 @@ export default function ClientsPage() {
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [settingPassword, setSettingPassword] = useState(false);
   const [customPassword, setCustomPassword] = useState('');
-  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const [showFilterRow, setShowFilterRow] = useState(false);
 
   // Packages for filtering and display
   const [packages, setPackages] = useState<any[]>([]);
@@ -546,29 +548,7 @@ export default function ClientsPage() {
         )
       },
       {
-        header: ({ column }) => {
-          const filterValue = column.getFilterValue() as string;
-          const hasFilter = filterValue && String(filterValue).trim().length > 0;
-          if (openFilter === 'code') {
-            return <DebouncedInput
-              value={filterValue || ''}
-              onFilterChange={(value) => column.setFilterValue(value)}
-              onBlur={() => setOpenFilter(null)}
-              placeholder="Search by code..."
-              autoFocus
-            />
-          }
-          return (
-            <Button 
-              size="small" 
-              onClick={() => setOpenFilter('code')}
-              variant={hasFilter ? 'contained' : 'text'}
-              color={hasFilter ? 'primary' : 'inherit'}
-            >
-              #
-            </Button>
-          );
-        },
+        header: '#',
         accessorFn: (row) => row.code?.toString() || '',
         id: 'code',
         cell: ({ row }) => {
@@ -596,29 +576,7 @@ export default function ClientsPage() {
         meta: { align: 'center' }
       },
       {
-        header: ({ column }) => {
-          const filterValue = column.getFilterValue() as string;
-          const hasFilter = filterValue && String(filterValue).trim().length > 0;
-          if (openFilter === 'name') {
-            return <DebouncedInput
-              value={filterValue || ''}
-              onFilterChange={(value) => column.setFilterValue(value)}
-              onBlur={() => setOpenFilter(null)}
-              placeholder="Search by name..."
-              autoFocus
-            />
-          }
-          return (
-            <Button 
-              size="small" 
-              onClick={() => setOpenFilter('name')}
-              variant={hasFilter ? 'contained' : 'text'}
-              color={hasFilter ? 'primary' : 'inherit'}
-            >
-              {t('client-name')}
-            </Button>
-          );
-        },
+        header: t('client-name'),
         accessorFn: (row) => row.fullName || row.name || '',
         id: 'name',
         cell: ({ row }) => {
@@ -643,29 +601,7 @@ export default function ClientsPage() {
         },
       },
       {
-        header: ({ column }) => {
-          const filterValue = column.getFilterValue() as string;
-          const hasFilter = filterValue && String(filterValue).trim().length > 0;
-          if (openFilter === 'phone') {
-            return <DebouncedInput
-              value={filterValue || ''}
-              onFilterChange={(value) => column.setFilterValue(value)}
-              onBlur={() => setOpenFilter(null)}
-              placeholder="Search by contact..."
-              autoFocus
-            />
-          }
-          return (
-            <Button 
-              size="small" 
-              onClick={() => setOpenFilter('phone')}
-              variant={hasFilter ? 'contained' : 'text'}
-              color={hasFilter ? 'primary' : 'inherit'}
-            >
-              {t('contact')}
-            </Button>
-          );
-        },
+        header: t('contact'),
         accessorKey: 'phone',
         cell: ({ getValue }) => <Typography>{(getValue() as string) || t('no-phone')}</Typography>,
         filterFn: (row, id, filterValue) => {
@@ -676,29 +612,7 @@ export default function ClientsPage() {
         }
       },
       {
-        header: ({ column }) => {
-          const filterValue = column.getFilterValue() as string;
-          const hasFilter = filterValue && String(filterValue).trim().length > 0;
-          if (openFilter === 'password') {
-            return <DebouncedInput
-              value={filterValue || ''}
-              onFilterChange={(value) => column.setFilterValue(value)}
-              onBlur={() => setOpenFilter(null)}
-              placeholder="Search by password..."
-              autoFocus
-            />
-          }
-          return (
-            <Button 
-              size="small" 
-              onClick={() => setOpenFilter('password')}
-              variant={hasFilter ? 'contained' : 'text'}
-              color={hasFilter ? 'primary' : 'inherit'}
-            >
-              Password
-            </Button>
-          );
-        },
+        header: 'Password',
         accessorKey: 'password',
         cell: ({ getValue }) => (
           <Typography sx={{ fontFamily: 'monospace' }}>{(getValue() as string) || '—'}</Typography>
@@ -711,39 +625,7 @@ export default function ClientsPage() {
         }
       },
       {
-        header: ({ column }) => {
-          const filterValue = column.getFilterValue() as string[];
-          const hasFilter = filterValue && Array.isArray(filterValue) && filterValue.length > 0;
-          if (openFilter === 'status') {
-            return <FormControl size="small" sx={{minWidth: 120}}>
-              <Select
-                multiple
-                value={filterValue || []}
-                onChange={(e) => column.setFilterValue(e.target.value)}
-                onClose={() => setOpenFilter(null)}
-                open={true}
-                renderValue={(selected) => (selected as string[]).join(', ')}
-              >
-                {statusOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    <Checkbox checked={(filterValue || []).includes(option.value)} />
-                    <ListItemText primary={option.label} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          }
-          return (
-            <Button 
-              size="small" 
-              onClick={() => setOpenFilter('status')}
-              variant={hasFilter ? 'contained' : 'text'}
-              color={hasFilter ? 'primary' : 'inherit'}
-            >
-              {t('status')} {hasFilter && `(${filterValue.length})`}
-            </Button>
-          );
-        },
+        header: t('status'),
         accessorKey: 'status',
         filterFn: 'arrIncludes',
         cell: ({ getValue }) => {
@@ -752,39 +634,7 @@ export default function ClientsPage() {
         }
       },
       {
-        header: ({ column }) => {
-          const filterValue = column.getFilterValue() as string[];
-          const hasFilter = filterValue && Array.isArray(filterValue) && filterValue.length > 0;
-          if (openFilter === 'packageName') {
-            return <FormControl size="small" sx={{minWidth: 150}}>
-              <Select
-                multiple
-                value={filterValue || []}
-                onChange={(e) => column.setFilterValue(e.target.value)}
-                onClose={() => setOpenFilter(null)}
-                open={true}
-                renderValue={(selected) => selected.join(', ')}
-              >
-                {packages.map((pkg) => (
-                  <MenuItem key={pkg.id} value={pkg.name}>
-                    <Checkbox checked={(filterValue || []).includes(pkg.name)} />
-                    <ListItemText primary={pkg.name} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          }
-          return (
-            <Button 
-              size="small" 
-              onClick={() => setOpenFilter('packageName')}
-              variant={hasFilter ? 'contained' : 'text'}
-              color={hasFilter ? 'primary' : 'inherit'}
-            >
-              {t('package')} {hasFilter && `(${filterValue.length})`}
-            </Button>
-          );
-        },
+        header: t('package'),
         accessorKey: 'packageName',
         filterFn: 'arrIncludes',
         cell: ({ row }) => {
@@ -806,46 +656,7 @@ export default function ClientsPage() {
         }
       },
       {
-        header: ({ column }) => {
-          const filterValue = column.getFilterValue() as Date | null;
-          const hasFilter = filterValue !== null && filterValue !== undefined;
-          if (openFilter === 'createdAt') {
-            return (
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DatePicker
-                  value={filterValue}
-                  onChange={(newValue) => {
-                    column.setFilterValue(newValue);
-                    setOpenFilter(null);
-                  }}
-                  slotProps={{
-                    textField: {
-                      size: 'small',
-                      autoFocus: true,
-                      placeholder: 'Select date',
-                      sx: { minWidth: 150 }
-                    },
-                    actionBar: {
-                      actions: ['clear', 'today']
-                    }
-                  }}
-                  open
-                  onClose={() => setOpenFilter(null)}
-                />
-              </LocalizationProvider>
-            );
-          }
-          return (
-            <Button 
-              size="small"
-              onClick={() => setOpenFilter('createdAt')}
-              variant={hasFilter ? 'contained' : 'text'}
-              color={hasFilter ? 'primary' : 'inherit'}
-            >
-              Created
-            </Button>
-          );
-        },
+        header: 'Created',
         accessorKey: 'createdAt',
         cell: ({ getValue }) => {
           const date = getValue() as string;
@@ -863,7 +674,33 @@ export default function ClientsPage() {
       {
         header: 'Actions',
         meta: { align: 'center' },
-        disableSortBy: true,
+        enableSorting: false,
+      },
+      {
+        header: () => {
+          const activeFiltersCount = columnFilters.filter(f => {
+            const value = f.value;
+            if (Array.isArray(value)) return value.length > 0;
+            if (typeof value === 'string') return value.trim().length > 0;
+            return value != null && value !== '';
+          }).length;
+          
+          return (
+            <Tooltip title={showFilterRow ? 'Hide Filters' : 'Show Filters'}>
+              <IconButton
+                size="small"
+                onClick={() => setShowFilterRow(!showFilterRow)}
+                color={showFilterRow || activeFiltersCount > 0 ? 'primary' : 'default'}
+              >
+                {showFilterRow ? <FilterListOffIcon /> : <FilterListIcon />}
+              </IconButton>
+            </Tooltip>
+          );
+        },
+        id: 'filter',
+        enableSorting: false,
+        meta: { align: 'center' },
+        cell: () => null,
         cell: ({ row }) => {
           return (
             <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -945,7 +782,7 @@ export default function ClientsPage() {
         }
       }
     ],
-    [activeTab, handleFreezeClient, handleUnfreezeClient, setSelectedClient, setViewOpen, setEditOpen, setEditFullName, setEditEmail, setEditWorkspaceEmail, setEditPhone, handleDeleteClient, t, openFilter, setOpenFilter, statusOptions, packages]
+    [activeTab, handleFreezeClient, handleUnfreezeClient, setSelectedClient, setViewOpen, setEditOpen, setEditFullName, setEditEmail, setEditWorkspaceEmail, setEditPhone, handleDeleteClient, t, columnFilters, showFilterRow, statusOptions, packages]
   );
 
   // Table configuration
@@ -1215,9 +1052,27 @@ export default function ClientsPage() {
     const hasActiveFilters = activeFiltersCount > 0;
     
     return (
-    <MainCard content={false}>
-      <Stack>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, pb: 1 }}>
+    <MainCard content={false} sx={{ 
+      width: '100%', 
+      maxWidth: '100%', 
+      overflow: 'hidden',
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <Stack sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          p: { xs: 1, sm: 2 }, 
+          pb: 1,
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 1, sm: 0 },
+          width: '100%',
+          maxWidth: '100%',
+          flexShrink: 0
+        }}>
           <RowSelection selected={Object.keys(rowSelection).length} />
           {hasActiveFilters && (
             <Button
@@ -1226,35 +1081,292 @@ export default function ClientsPage() {
               color="secondary"
               onClick={() => {
                 setColumnFilters([]);
-                setOpenFilter(null);
+                setShowFilterRow(false);
               }}
-              sx={{ ml: 'auto' }}
+              sx={{ ml: { xs: 0, sm: 'auto' }, width: { xs: '100%', sm: 'auto' } }}
             >
               Clear Filters ({activeFiltersCount})
             </Button>
           )}
         </Box>
-        <ResponsiveTable minWidth={isMobile ? 1100 : 900}>
+        <Box sx={{ 
+          width: '100%', 
+          maxWidth: '100%',
+          overflow: 'hidden',
+          position: 'relative',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0
+        }}>
+          <ResponsiveTable minWidth={isMobile ? 1100 : 900}>
           <Table
             size={tableDensity === 'compact' ? 'small' : 'small'}
-            sx={{ minWidth: isMobile ? 1100 : 900 }}
+            sx={{ 
+              minWidth: isMobile ? 1100 : 900, 
+              tableLayout: 'auto',
+              width: '100%'
+            }}
           >
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableCell key={header.id} {...header.column.columnDef.meta}>
-                        {header.isPlaceholder ? null : (
-                          <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
-                            <Box>{flexRender(header.column.columnDef.header, header.getContext())}</Box>
-                            {header.column.getCanSort() && <HeaderSort column={header.column} />}
-                          </Stack>
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
+                <Fragment key={headerGroup.id}>
+                  <TableRow>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableCell key={header.id} {...header.column.columnDef.meta}>
+                          {header.isPlaceholder ? null : (
+                            <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                              <Box>{flexRender(header.column.columnDef.header, header.getContext())}</Box>
+                              {header.column.getCanSort() && header.column.id !== 'filter' && <HeaderSort column={header.column} />}
+                            </Stack>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {showFilterRow && (
+                    <TableRow sx={{ 
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05),
+                      '& td': {
+                        py: { xs: 1, sm: 1.5 },
+                        px: { xs: 0.5, sm: 1 },
+                        overflow: 'hidden',
+                        boxSizing: 'border-box',
+                        position: 'relative',
+                        maxWidth: '200px'
+                      }
+                    }}>
+                      {headerGroup.headers.map((header) => {
+                        if (header.id === 'Row Selection') {
+                          return <TableCell key={header.id} sx={{ maxWidth: '48px', width: '48px' }} />;
+                        }
+                        if (header.id === 'filter') {
+                          return <TableCell key={header.id} sx={{ maxWidth: '48px', width: '48px' }} />;
+                        }
+                        if (header.id === 'code') {
+                          const column = table.getColumn('code');
+                          return (
+                            <TableCell key={header.id} sx={{ 
+                              minWidth: 80, 
+                              maxWidth: 120, 
+                              width: 'auto',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}>
+                              <DebouncedInput
+                                value={(column?.getFilterValue() as string) || ''}
+                                onFilterChange={(value) => column?.setFilterValue(value)}
+                                placeholder="Code..."
+                                size="small"
+                                sx={{ 
+                                  width: '100%', 
+                                  maxWidth: '100%',
+                                  minWidth: 0,
+                                  '& .MuiOutlinedInput-input': {
+                                    padding: '8.5px 14px'
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                          );
+                        }
+                        if (header.id === 'name') {
+                          const column = table.getColumn('name');
+                          return (
+                            <TableCell key={header.id} sx={{ 
+                              minWidth: 150, 
+                              maxWidth: 250, 
+                              width: 'auto',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}>
+                              <DebouncedInput
+                                value={(column?.getFilterValue() as string) || ''}
+                                onFilterChange={(value) => column?.setFilterValue(value)}
+                                placeholder="Name..."
+                                size="small"
+                                sx={{ 
+                                  width: '100%', 
+                                  maxWidth: '100%',
+                                  minWidth: 0,
+                                  '& .MuiOutlinedInput-input': {
+                                    padding: '8.5px 14px'
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                          );
+                        }
+                        if (header.id === 'phone') {
+                          const column = table.getColumn('phone');
+                          return (
+                            <TableCell key={header.id} sx={{ 
+                              minWidth: 120, 
+                              maxWidth: 180, 
+                              width: 'auto',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}>
+                              <DebouncedInput
+                                value={(column?.getFilterValue() as string) || ''}
+                                onFilterChange={(value) => column?.setFilterValue(value)}
+                                placeholder="Contact..."
+                                size="small"
+                                sx={{ 
+                                  width: '100%', 
+                                  maxWidth: '100%',
+                                  minWidth: 0,
+                                  '& .MuiOutlinedInput-input': {
+                                    padding: '8.5px 14px'
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                          );
+                        }
+                        if (header.id === 'password') {
+                          const column = table.getColumn('password');
+                          return (
+                            <TableCell key={header.id} sx={{ 
+                              minWidth: 120, 
+                              maxWidth: 180, 
+                              width: 'auto',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}>
+                              <DebouncedInput
+                                value={(column?.getFilterValue() as string) || ''}
+                                onFilterChange={(value) => column?.setFilterValue(value)}
+                                placeholder="Password..."
+                                size="small"
+                                sx={{ 
+                                  width: '100%', 
+                                  maxWidth: '100%',
+                                  minWidth: 0,
+                                  '& .MuiOutlinedInput-input': {
+                                    padding: '8.5px 14px'
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                          );
+                        }
+                        if (header.id === 'status') {
+                          const column = table.getColumn('status');
+                          return (
+                            <TableCell key={header.id} sx={{ 
+                              minWidth: 150, 
+                              maxWidth: 220, 
+                              width: 'auto',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}>
+                              <FormControl size="small" sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
+                                <Select
+                                  multiple
+                                  value={((column?.getFilterValue() as string[]) || [])}
+                                  onChange={(e) => column?.setFilterValue(e.target.value)}
+                                  renderValue={(selected) => {
+                                    const selectedArray = selected as string[];
+                                    if (selectedArray.length === 0) return 'All';
+                                    if (isMobile && selectedArray.length > 1) return `${selectedArray.length} selected`;
+                                    return selectedArray.join(', ');
+                                  }}
+                                  displayEmpty
+                                  sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                >
+                                  {statusOptions.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                      <Checkbox checked={(((column?.getFilterValue() as string[]) || []).includes(option.value))} />
+                                      <ListItemText primary={option.label} />
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </TableCell>
+                          );
+                        }
+                        if (header.id === 'packageName') {
+                          const column = table.getColumn('packageName');
+                          return (
+                            <TableCell key={header.id} sx={{ 
+                              minWidth: 150, 
+                              maxWidth: 220, 
+                              width: 'auto',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}>
+                              <FormControl size="small" sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
+                                <Select
+                                  multiple
+                                  value={((column?.getFilterValue() as string[]) || [])}
+                                  onChange={(e) => column?.setFilterValue(e.target.value)}
+                                  renderValue={(selected) => {
+                                    const selectedArray = selected as string[];
+                                    if (selectedArray.length === 0) return 'All';
+                                    if (isMobile && selectedArray.length > 1) return `${selectedArray.length} selected`;
+                                    return selectedArray.join(', ');
+                                  }}
+                                  displayEmpty
+                                  sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                >
+                                  {packages.map((pkg) => (
+                                    <MenuItem key={pkg.id} value={pkg.name}>
+                                      <Checkbox checked={(((column?.getFilterValue() as string[]) || []).includes(pkg.name))} />
+                                      <ListItemText primary={pkg.name} />
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </TableCell>
+                          );
+                        }
+                        if (header.id === 'createdAt') {
+                          const column = table.getColumn('createdAt');
+                          return (
+                            <TableCell key={header.id} sx={{ 
+                              minWidth: 150, 
+                              maxWidth: 220, 
+                              width: 'auto',
+                              overflow: 'hidden',
+                              boxSizing: 'border-box'
+                            }}>
+                              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                                <DatePicker
+                                  value={(column?.getFilterValue() as Date | null) || null}
+                                  onChange={(newValue) => column?.setFilterValue(newValue)}
+                                  slotProps={{
+                                    textField: {
+                                      size: 'small',
+                                      fullWidth: true,
+                                      placeholder: 'Date...',
+                                      sx: { 
+                                        width: '100%', 
+                                        maxWidth: '100%',
+                                        minWidth: 0,
+                                        '& .MuiOutlinedInput-input': {
+                                          padding: '8.5px 14px'
+                                        }
+                                      }
+                                    },
+                                    actionBar: {
+                                      actions: ['clear', 'today']
+                                    }
+                                  }}
+                                />
+                              </LocalizationProvider>
+                            </TableCell>
+                          );
+                        }
+                        if (header.id === 'Actions') {
+                          return <TableCell key={header.id} sx={{ maxWidth: '200px', width: 'auto' }} />;
+                        }
+                        return <TableCell key={header.id} />;
+                      })}
+                    </TableRow>
+                  )}
+                </Fragment>
               ))}
             </TableHead>
             <TableBody>
@@ -1292,9 +1404,10 @@ export default function ClientsPage() {
             </TableBody>
           </Table>
         </ResponsiveTable>
+        </Box>
         <>
           <Divider />
-          <Box sx={{ p: 2 }}>
+          <Box sx={{ p: 2, flexShrink: 0 }}>
             <TablePagination
               {...{
                 setPageSize: table.setPageSize,
@@ -1329,7 +1442,7 @@ export default function ClientsPage() {
 
     const clearFilters = () => {
       setColumnFilters([]);
-      setOpenFilter(null);
+      setShowFilterRow(false);
     };
 
     return (
@@ -1356,7 +1469,13 @@ export default function ClientsPage() {
           )}
         </Stack>
 
-        <Dialog open={mobileFiltersOpen} onClose={() => setMobileFiltersOpen(false)} fullWidth maxWidth="sm">
+        <Dialog 
+          open={mobileFiltersOpen} 
+          onClose={() => setMobileFiltersOpen(false)} 
+          fullWidth 
+          maxWidth="sm"
+          fullScreen={isMobile}
+        >
           <DialogTitle>Filters</DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2}>
@@ -1654,7 +1773,17 @@ export default function ClientsPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 3,
+      width: '100%',
+      maxWidth: '100%',
+      overflowX: 'hidden',
+      position: 'relative',
+      boxSizing: 'border-box',
+      minWidth: 0
+    }}>
       {/* Header row */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
@@ -1693,22 +1822,29 @@ export default function ClientsPage() {
               color="primary"
               onClick={() => setBulkFormDialogOpen(true)}
               size="small"
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               Assign Form ({Object.keys(rowSelection).length})
             </Button>
           )}
           {activeTab === 0 && (
-            <Button variant="contained" onClick={() => setCreateWizardOpen(true)}>
+            <Button 
+              variant="contained" 
+              onClick={() => setCreateWizardOpen(true)}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
               Create Client
             </Button>
           )}
-          <CSVExport
-            {...{
-              data: clients,
-              headers,
-              filename: 'clients-list.csv'
-            }}
-          />
+          <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            <CSVExport
+              {...{
+                data: clients,
+                headers,
+                filename: 'clients-list.csv'
+              }}
+            />
+          </Box>
         </Stack>
       </Stack>
 
@@ -1826,7 +1962,13 @@ export default function ClientsPage() {
       )}
 
       {/* Edit Client Dialog */}
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={editOpen} 
+        onClose={() => setEditOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>Edit Client</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -1898,7 +2040,13 @@ export default function ClientsPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={viewOpen} 
+        onClose={() => setViewOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>Client Details</DialogTitle>
         <DialogContent dividers>
           {selectedClient ? (
@@ -1956,7 +2104,13 @@ export default function ClientsPage() {
       </Dialog>
 
       {/* Password Management Dialog */}
-      <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={passwordDialogOpen} 
+        onClose={() => setPasswordDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>Set/Reset Password</DialogTitle>
         <DialogContent>
           {selectedClient && (
@@ -2036,7 +2190,13 @@ export default function ClientsPage() {
       />
 
       {/* Bulk Form Assignment Dialog */}
-      <Dialog open={bulkFormDialogOpen} onClose={() => setBulkFormDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={bulkFormDialogOpen} 
+        onClose={() => setBulkFormDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>Assign Form to Selected Clients</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 2 }}>
@@ -2130,7 +2290,13 @@ export default function ClientsPage() {
       </Dialog>
 
       {/* Archive Client Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={deleteDialogOpen} 
+        onClose={() => !deleting && setDeleteDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>Archive Client</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -2170,8 +2336,8 @@ export default function ClientsPage() {
             position: 'fixed',
             bottom: 16,
             right: 16,
-            // Raise above other UI (like drawers/footers) so it stays visible on mobile.
-            zIndex: (theme) => theme.zIndex.drawer + 2,
+            // Raise above other UI (like drawers/footers and tutorial button) so it stays visible on mobile.
+            zIndex: 1400,
             boxShadow: 6
           }}
         >

@@ -21,14 +21,22 @@ export default function ResponsiveTable({ children, minWidth = 750 }: Responsive
     <Box
       sx={{
         width: '100%',
+        maxWidth: '100%',
         // Ensure horizontal scrollbar is available when content overflows,
         // especially on mobile.
         overflowX: 'auto',
+        overflowY: 'visible',
         WebkitOverflowScrolling: 'touch',
         position: 'relative',
         display: 'block',
-        maxWidth: '100%',
-        minWidth: isMobile ? minWidth : 'auto',
+        minWidth: 0,
+        // Reserve space for scrollbar to prevent layout shift
+        scrollbarGutter: 'stable',
+        // Prevent page shift
+        isolation: 'isolate',
+        // Strict containment to prevent expansion
+        contain: 'layout style',
+        boxSizing: 'border-box',
         '& td, & th': {
           whiteSpace: isMobile ? 'nowrap' : 'normal'
         },
