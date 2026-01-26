@@ -32,8 +32,6 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -75,7 +73,7 @@ import {
 } from 'components/third-party/react-table';
 
 // Assets
-import { Add, Edit, Eye, Trash, Grid3, Menu } from '@wandersonalwes/iconsax-react';
+import { Add, Edit, Eye, Trash } from '@wandersonalwes/iconsax-react';
 import PauseCircleIcon from '@mui/icons-material/PauseCircle';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
@@ -235,10 +233,13 @@ export default function ClientsPage() {
     fetchClients();
   }, [workspaceId, activeTab]);
 
-  // Mobile-only view toggle defaults to cards; desktop uses table.
+  // Mobile-only view is always cards; desktop uses table.
   useEffect(() => {
-    if (isMobile) setMobileViewMode('cards');
-    else setMobileViewMode('table');
+    if (isMobile) {
+      setMobileViewMode('cards');
+    } else {
+      setMobileViewMode('table');
+    }
   }, [isMobile]);
 
   // Load packages and forms
@@ -1055,12 +1056,13 @@ export default function ClientsPage() {
     <MainCard content={false} sx={{ 
       width: '100%', 
       maxWidth: '100%', 
-      overflow: 'hidden',
+      overflow: isMobile ? 'visible' : 'hidden',
       position: 'relative',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      minWidth: 0
     }}>
-      <Stack sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Stack sx={{ width: '100%', maxWidth: '100%', overflow: isMobile ? 'visible' : 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -1071,7 +1073,8 @@ export default function ClientsPage() {
           gap: { xs: 1, sm: 0 },
           width: '100%',
           maxWidth: '100%',
-          flexShrink: 0
+          flexShrink: 0,
+          minWidth: 0
         }}>
           <RowSelection selected={Object.keys(rowSelection).length} />
           {hasActiveFilters && (
@@ -1092,12 +1095,13 @@ export default function ClientsPage() {
         <Box sx={{ 
           width: '100%', 
           maxWidth: '100%',
-          overflow: 'hidden',
+          overflow: 'visible',
           position: 'relative',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          minHeight: 0
+          minHeight: 0,
+          minWidth: 0
         }}>
           <ResponsiveTable minWidth={isMobile ? 1100 : 900}>
           <Table
@@ -1623,9 +1627,20 @@ export default function ClientsPage() {
                 </Avatar>
               }
               title={
-                <Typography variant="h6">
-                  {c.fullName || c.name || 'Unnamed'}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                  <Typography variant="h6">
+                    {c.fullName || c.name || 'Unnamed'}
+                  </Typography>
+                  {c.code !== null && c.code !== undefined && (
+                    <Chip 
+                      label={`#${c.code}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )}
+                </Stack>
               }
               subheader={
                 <Stack spacing={0.5} sx={{ mt: 0.5 }}>
@@ -1644,47 +1659,75 @@ export default function ClientsPage() {
             />
             <CardContent>
               <Stack spacing={2}>
-                {/* Status, Package, and Joined in one row */}
-                <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start' }}>
-                {c.status && (
-                    <Box sx={{ flex: '0 0 auto' }}>
+                {/* Code, Status, Package, Created */}
+                <Stack spacing={1.5}>
+                  {/* Code */}
+                  {c.code !== null && c.code !== undefined && (
+                    <Box>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      {t('status')}
-                    </Typography>
+                        Code
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                        #{c.code}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {/* Status */}
+                  {c.status && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                        {t('status')}
+                      </Typography>
                       <Chip 
-                        label={c.status} 
+                        label={getStatusLabel(c.status)} 
                         size="small"
-                        color={
-                          c.status === 'active' ? 'success' :
-                          c.status === 'pending' ? 'warning' :
-                          'default'
-                        }
+                        color={getStatusColor(c.status) as any}
+                        variant="light"
                       />
-                  </Box>
-                )}
-                {c.packageName && (
-                    <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
+                    </Box>
+                  )}
+                  
+                  {/* Package */}
+                  {c.packageName && (
+                    <Box>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      {t('package')}
-                    </Typography>
+                        {t('package')}
+                      </Typography>
                       <Typography variant="body2" sx={{ lineHeight: 1.3 }}>
-                      {c.packageName}
-                    </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                      {c.packageDuration} month{c.packageDuration !== 1 ? 's' : ''}
-                    </Typography>
-                  </Box>
-                )}
-                {c.createdAt && (
-                    <Box sx={{ flex: '0 0 auto' }}>
+                        {c.packageName}
+                      </Typography>
+                      {c.packageDuration && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          {c.packageDuration} month{c.packageDuration !== 1 ? 's' : ''}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                  
+                  {/* Password */}
+                  {c.password && (
+                    <Box>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      {t('joined')}
-                    </Typography>
+                        Password
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                        {c.password}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {/* Created */}
+                  {c.createdAt && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                        {t('joined') || 'Created'}
+                      </Typography>
                       <Typography variant="body2" sx={{ lineHeight: 1.3 }}>
-                      {new Date(c.createdAt).toLocaleDateString()}
-                    </Typography>
-                  </Box>
-                )}
+                        {new Date(c.createdAt).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  )}
                 </Stack>
                 <Divider />
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
@@ -1779,7 +1822,7 @@ export default function ClientsPage() {
       gap: 3,
       width: '100%',
       maxWidth: '100%',
-      overflowX: 'hidden',
+      overflowX: isMobile && mobileViewMode === 'table' ? 'visible' : 'hidden',
       position: 'relative',
       boxSizing: 'border-box',
       minWidth: 0
@@ -1793,28 +1836,7 @@ export default function ClientsPage() {
       >
         <Typography variant="h4">{t('clients')}</Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-          {isMobile && (
-            <ToggleButtonGroup
-              exclusive
-              value={mobileViewMode}
-              onChange={(_, next) => {
-                if (next) setMobileViewMode(next);
-              }}
-              size="small"
-              sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
-            >
-              <ToggleButton value="cards" aria-label="Cards view">
-                <Grid3 style={{ marginRight: 6 }} />
-                Cards
-              </ToggleButton>
-              <ToggleButton value="table" aria-label="Table view">
-                <Menu style={{ marginRight: 6 }} />
-                Table
-              </ToggleButton>
-            </ToggleButtonGroup>
-          )}
-
-          {isMobile && mobileViewMode === 'cards' && clients.length > 0 && renderMobileCardsFilters()}
+          {isMobile && clients.length > 0 && renderMobileCardsFilters()}
 
           {activeTab === 0 && Object.keys(rowSelection).length > 0 && (
             <Button
@@ -1958,7 +1980,7 @@ export default function ClientsPage() {
           </CardContent>
         </Card>
       ) : (
-        isMobile && mobileViewMode === 'cards' ? renderCardsViewWithControls() : renderTableView()
+        isMobile ? renderCardsViewWithControls() : renderTableView()
       )}
 
       {/* Edit Client Dialog */}
@@ -2334,9 +2356,10 @@ export default function ClientsPage() {
         <Box
           sx={{
             position: 'fixed',
-            bottom: 16,
-            right: 16,
-            // Raise above other UI (like drawers/footers and tutorial button) so it stays visible on mobile.
+            bottom: 24,
+            left: 24,
+            // Raise above other UI (like drawers/footers) so it stays visible on mobile.
+            // Positioned on left side, opposite from the watch tutorial button on the right.
             zIndex: 1400,
             boxShadow: 6
           }}
