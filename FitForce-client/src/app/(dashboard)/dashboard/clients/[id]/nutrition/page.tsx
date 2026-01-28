@@ -218,6 +218,7 @@ export default function ClientNutritionPage() {
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const plansRef = useRef<Plan[]>([]);
+  const currentMealsRef = useRef<Meal[]>([]);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isAutoSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
@@ -227,6 +228,11 @@ export default function ClientNutritionPage() {
   useEffect(() => {
     plansRef.current = plans;
   }, [plans]);
+
+  // Keep currentMealsRef in sync with currentMeals state to ensure we always have the latest state
+  useEffect(() => {
+    currentMealsRef.current = currentMeals;
+  }, [currentMeals]);
   // Forms tab state
   const [formsLoading, setFormsLoading] = useState(false);
   const [formsError, setFormsError] = useState<string | null>(null);
@@ -1430,18 +1436,29 @@ export default function ClientNutritionPage() {
       }
 
       // 4) Sync all plan data using bulk upsert (includes recipe data)
-      // Use currentMeals as the source of truth for food items to ensure deletions are persisted
-      const daysData = cyclesToSync.map((cycle) => ({
+      // Use currentMealsRef as the source of truth for food items to ensure deletions are persisted
+      // Always use the ref to get the latest state, avoiding stale closure values
+      const latestCurrentMeals = currentMealsRef.current.length > 0 ? currentMealsRef.current : currentMeals;
+      
+      // Rebuild cyclesToSync from the latest plansRef to ensure we have the most up-to-date data
+      // This is critical to avoid saving deleted meals/food items
+      const latestPlans = plansRef.current.length > 0 ? plansRef.current : plans;
+      const latestSelectedPlan = latestPlans.find(p => p.id === selectedPlanId);
+      const latestCyclesToSync = latestSelectedPlan?.cycles || cyclesToSync;
+      
+      const daysData = latestCyclesToSync.map((cycle) => ({
         dayIndex: cycle.dayIndex,
         label: cycle.label || '',
         items: (cycle.meals || []).flatMap((meal) => {
           // Use the real meal ID if it was just created, otherwise use the meal ID
           const realMealId = createdMealIdMap[meal.id] || meal.id;
-          // Find the corresponding meal in currentMeals to get the most up-to-date food items
+          // Find the corresponding meal in latestCurrentMeals to get the most up-to-date food items
           // Check both the original ID and the real ID
-          const currentMeal = currentMeals.find(m => m.id === meal.id || m.id === realMealId);
+          const currentMeal = latestCurrentMeals.find(m => m.id === meal.id || m.id === realMealId);
           // Use currentMeal.foodItems if available (most up-to-date), otherwise fall back to meal.foodItems
-          const foodItemsToSave = currentMeal?.foodItems || meal.foodItems || [];
+          // But only if the meal exists in currentMeals (for selected cycle) or if it's a new meal
+          // If meal doesn't exist in currentMeals and it's not a new meal, it might have been deleted
+          const foodItemsToSave = currentMeal?.foodItems ?? meal.foodItems ?? [];
           const mealItems = foodItemsToSave.map((item) => {
             const servingSize = (item as any)?.foodItem?.servingSize || 100;
             const override = (editingQuantities as any)?.[item.id];
@@ -3096,13 +3113,24 @@ export default function ClientNutritionPage() {
                                 }}
                                 onDelete={() => {
                                   if (!selectedPlanId || !selectedCycleId) return;
-                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                  // Update plans state
+                                  const updatedPlans = plans.map((p) => p.id !== selectedPlanId ? p : ({
                                     ...p,
                                     cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
                                       ...c,
                                       meals: (c.meals || []).filter((m) => m.id !== meal.id)
                                     }))
-                                  })));
+                                  }));
+                                  setPlans(updatedPlans);
+                                  // Update plansRef synchronously to ensure auto-save uses latest data
+                                  plansRef.current = updatedPlans;
+                                  
+                                  // Also update currentMeals to keep it in sync
+                                  const updatedCurrentMeals = currentMeals.filter((m) => m.id !== meal.id);
+                                  setCurrentMeals(updatedCurrentMeals);
+                                  // Update currentMealsRef synchronously
+                                  currentMealsRef.current = updatedCurrentMeals;
+                                  
                                   if (selectedMealId === meal.id) setSelectedMealId(null);
                                   setIsPlanDirty(true);
                                 }}
@@ -3304,13 +3332,17 @@ export default function ClientNutritionPage() {
                               onClick={() => {
                                 const ids = new Set(selectedFoodItems);
                                 // Update currentMeals immediately for real-time calculation
-                                setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
+                                const updatedCurrentMeals = currentMeals.map(m => m.id !== (selectedMealId as string) ? m : {
                                   ...m,
                                   foodItems: m.foodItems.filter(fi => !ids.has(fi.foodItem.id))
-                                }));
+                                });
+                                setCurrentMeals(updatedCurrentMeals);
+                                // Update currentMealsRef synchronously
+                                currentMealsRef.current = updatedCurrentMeals;
+                                
                                 // Also update plans state to keep everything in sync
                                 if (selectedPlanId && selectedCycleId) {
-                                  setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                  const updatedPlans = plans.map((p) => p.id !== selectedPlanId ? p : ({
                                     ...p,
                                     cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
                                       ...c,
@@ -3319,7 +3351,10 @@ export default function ClientNutritionPage() {
                                         foodItems: (m.foodItems || []).filter((fi) => !ids.has(fi.foodItem.id))
                                       }))
                                     }))
-                                  })));
+                                  }));
+                                  setPlans(updatedPlans);
+                                  // Update plansRef synchronously to ensure auto-save uses latest data
+                                  plansRef.current = updatedPlans;
                                 }
                                 setSelectedFoodItems([]);
                                 setIsPlanDirty(true);
@@ -3427,13 +3462,17 @@ export default function ClientNutritionPage() {
                         }}><Copy size={16} /></IconButton>
                         <IconButton size="small" color="error" title="Delete" onClick={() => {
                           // Update currentMeals immediately for real-time calculation
-                          setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
+                          const updatedCurrentMeals = currentMeals.map(m => m.id !== (selectedMealId as string) ? m : {
                             ...m,
                             foodItems: m.foodItems.filter(fi => fi.id !== item.id)
-                          }));
+                          });
+                          setCurrentMeals(updatedCurrentMeals);
+                          // Update currentMealsRef synchronously
+                          currentMealsRef.current = updatedCurrentMeals;
+                          
                           // Also update plans state to keep everything in sync
                           if (selectedPlanId && selectedCycleId) {
-                            setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                            const updatedPlans = plans.map((p) => p.id !== selectedPlanId ? p : ({
                               ...p,
                               cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
                                 ...c,
@@ -3442,7 +3481,10 @@ export default function ClientNutritionPage() {
                                   foodItems: (m.foodItems || []).filter((fi) => fi.id !== item.id)
                                 }))
                               }))
-                            })));
+                            }));
+                            setPlans(updatedPlans);
+                            // Update plansRef synchronously to ensure auto-save uses latest data
+                            plansRef.current = updatedPlans;
                           }
                           setIsPlanDirty(true);
                         }}><Trash size={16} /></IconButton>
@@ -4211,13 +4253,24 @@ export default function ClientNutritionPage() {
                                   }}
                                   onDelete={() => {
                                     if (!selectedPlanId || !selectedCycleId) return;
-                                    setPlans((prev) => prev.map((p) => p.id !== selectedPlanId ? p : ({
+                                    // Update plans state
+                                    const updatedPlans = plans.map((p) => p.id !== selectedPlanId ? p : ({
                                       ...p,
                                       cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
                                         ...c,
                                         meals: (c.meals || []).filter((m) => m.id !== meal.id)
                                       }))
-                                    })));
+                                    }));
+                                    setPlans(updatedPlans);
+                                    // Update plansRef synchronously to ensure auto-save uses latest data
+                                    plansRef.current = updatedPlans;
+                                    
+                                    // Also update currentMeals to keep it in sync
+                                    const updatedCurrentMeals = currentMeals.filter((m) => m.id !== meal.id);
+                                    setCurrentMeals(updatedCurrentMeals);
+                                    // Update currentMealsRef synchronously
+                                    currentMealsRef.current = updatedCurrentMeals;
+                                    
                                     if (selectedMealId === meal.id) setSelectedMealId(null);
                                     setIsPlanDirty(true);
                                   }}
@@ -4502,10 +4555,31 @@ export default function ClientNutritionPage() {
                                   setIsReplaceFoodDialogOpen(true);
                                 }}><Refresh size={16} /></IconButton>
                                 <IconButton size="small" color="error" title="Delete" onClick={() => {
-                                  setCurrentMeals(prev => prev.map(m => m.id !== (selectedMealId as string) ? m : {
+                                  // Update currentMeals immediately for real-time calculation
+                                  const updatedCurrentMeals = currentMeals.map(m => m.id !== (selectedMealId as string) ? m : {
                                     ...m,
                                     foodItems: m.foodItems.filter(fi => fi.id !== item.id)
-                                  }));
+                                  });
+                                  setCurrentMeals(updatedCurrentMeals);
+                                  // Update currentMealsRef synchronously
+                                  currentMealsRef.current = updatedCurrentMeals;
+                                  
+                                  // Also update plans state to keep everything in sync
+                                  if (selectedPlanId && selectedCycleId) {
+                                    const updatedPlans = plans.map((p) => p.id !== selectedPlanId ? p : ({
+                                      ...p,
+                                      cycles: (p.cycles || []).map((c) => c.id !== selectedCycleId ? c : ({
+                                        ...c,
+                                        meals: (c.meals || []).map((m) => m.id !== selectedMealId ? m : ({
+                                          ...m,
+                                          foodItems: (m.foodItems || []).filter((fi) => fi.id !== item.id)
+                                        }))
+                                      }))
+                                    }));
+                                    setPlans(updatedPlans);
+                                    // Update plansRef synchronously to ensure auto-save uses latest data
+                                    plansRef.current = updatedPlans;
+                                  }
                                   setIsPlanDirty(true);
                                 }}><Trash size={16} /></IconButton>
                               </Box>
