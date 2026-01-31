@@ -29,7 +29,10 @@ import {
   Select,
   MenuItem,
   Divider,
-  Avatar
+  Avatar,
+  TextField,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -82,6 +85,8 @@ export default function ClientSubscriptionPage() {
   
   // Form states
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [customPrice, setCustomPrice] = useState<string>('');
+  const [useCustomPrice, setUseCustomPrice] = useState(false);
   
   const [saving, setSaving] = useState(false);
   
@@ -219,13 +224,27 @@ export default function ClientSubscriptionPage() {
     
     try {
       setSaving(true);
-      await api.post('/api/clients/subscription/manual', {
+      
+      const selectedPlan = subscriptionPlans.find(p => p.id === selectedPlanId);
+      const requestBody: any = {
         clientId,
         packageId: selectedPlanId
-      });
+      };
+      
+      // If custom price is enabled and provided, convert to cents
+      if (useCustomPrice && customPrice) {
+        const customPriceNum = parseFloat(customPrice);
+        if (!isNaN(customPriceNum) && customPriceNum >= 0) {
+          requestBody.customPriceCents = Math.round(customPriceNum * 100);
+        }
+      }
+      
+      await api.post('/api/clients/subscription/manual', requestBody);
       
       await refreshSubscriptions(); // Refresh the list
       setSelectedPlanId('');
+      setCustomPrice('');
+      setUseCustomPrice(false);
       setIsCreateSubscriptionDialogOpen(false);
       
       openSnackbar({
@@ -620,14 +639,23 @@ export default function ClientSubscriptionPage() {
       </Card>
 
       {/* Create Subscription Dialog */}
-      <Dialog open={isCreateSubscriptionDialogOpen} onClose={() => setIsCreateSubscriptionDialogOpen(false)}>
+      <Dialog open={isCreateSubscriptionDialogOpen} onClose={() => {
+        setIsCreateSubscriptionDialogOpen(false);
+        setCustomPrice('');
+        setUseCustomPrice(false);
+      }}>
         <DialogTitle><FormattedMessage id="client.subs.create" defaultMessage="Create Subscription" /></DialogTitle>
         <DialogContent>
           <FormControl fullWidth margin="normal">
             <InputLabel><FormattedMessage id="client.subs.plan" defaultMessage="Subscription Plan" /></InputLabel>
             <Select
               value={selectedPlanId}
-              onChange={(e) => setSelectedPlanId(e.target.value)}
+              onChange={(e) => {
+                setSelectedPlanId(e.target.value);
+                // Reset custom price when plan changes
+                setCustomPrice('');
+                setUseCustomPrice(false);
+              }}
             >
               {subscriptionPlans.map((plan) => (
                 <MenuItem key={plan.id} value={plan.id}>
@@ -636,10 +664,67 @@ export default function ClientSubscriptionPage() {
               ))}
             </Select>
           </FormControl>
+          
+          {selectedPlanId && (
+            <>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={useCustomPrice}
+                    onChange={(e) => {
+                      setUseCustomPrice(e.target.checked);
+                      if (!e.target.checked) {
+                        setCustomPrice('');
+                      }
+                    }}
+                  />
+                }
+                label={intl.formatMessage({ 
+                  id: 'client.subs.useCustomPrice', 
+                  defaultMessage: 'Use custom price (different from package price)' 
+                })}
+                sx={{ mt: 2 }}
+              />
+              
+              {useCustomPrice && (() => {
+                const selectedPlan = subscriptionPlans.find(p => p.id === selectedPlanId);
+                return (
+                  <TextField
+                    fullWidth
+                    margin="normal"
+                    label={intl.formatMessage({ 
+                      id: 'client.subs.customPrice', 
+                      defaultMessage: 'Custom Price' 
+                    })}
+                    type="number"
+                    value={customPrice}
+                    onChange={(e) => setCustomPrice(e.target.value)}
+                    placeholder={selectedPlan ? `${selectedPlan.currency} ${selectedPlan.price}` : ''}
+                    helperText={selectedPlan 
+                      ? intl.formatMessage(
+                          { id: 'client.subs.customPriceHelper', defaultMessage: 'Package price: {currency} {price}' },
+                          { currency: selectedPlan.currency, price: selectedPlan.price }
+                        )
+                      : ''}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                );
+              })()}
+            </>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsCreateSubscriptionDialogOpen(false)}><FormattedMessage id="cancel" defaultMessage="Cancel" /></Button>
-          <Button onClick={handleCreateSubscription} disabled={saving || !selectedPlanId}>
+          <Button onClick={() => {
+            setIsCreateSubscriptionDialogOpen(false);
+            setCustomPrice('');
+            setUseCustomPrice(false);
+          }}>
+            <FormattedMessage id="cancel" defaultMessage="Cancel" />
+          </Button>
+          <Button 
+            onClick={handleCreateSubscription} 
+            disabled={saving || !selectedPlanId || (useCustomPrice && (!customPrice || parseFloat(customPrice) < 0))}
+          >
             {saving ? <CircularProgress size={20} /> : intl.formatMessage({ id: 'create', defaultMessage: 'Create' })}
           </Button>
         </DialogActions>

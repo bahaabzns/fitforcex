@@ -122,6 +122,8 @@ export default function FormsPage() {
   const [customAllowOther, setCustomAllowOther] = useState<boolean>(false);
   const [customError, setCustomError] = useState<string>('');
   const [copying, setCopying] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<FormTemplate | null>(null);
   const [confirmDiscardTarget, setConfirmDiscardTarget] = useState<null | 'create' | 'edit'>(null);
   const [editInitialSnapshot, setEditInitialSnapshot] = useState<string>('');
 
@@ -458,6 +460,34 @@ export default function FormsPage() {
       }
     } finally {
       setCopying(null);
+    }
+  };
+
+  const handleDeleteTemplate = async (template: FormTemplate) => {
+    setDeleting(template.id);
+    setError(null);
+    try {
+      await api.delete(`/api/forms/templates/${template.id}`, { 
+        headers: { 'x-workspace-id': effectiveWorkspaceId } 
+      });
+
+      // Refresh templates list
+      const res = await api.get('/api/forms/templates', { headers: { 'x-workspace-id': effectiveWorkspaceId } });
+      setTemplates(Array.isArray(res.data?.templates) ? res.data.templates : []);
+      
+      openSnackbar('Form template deleted successfully', 'success');
+      setDeleteConfirmTarget(null);
+    } catch (err: any) {
+      console.error('Delete template error:', err);
+      const errorMessage = err?.response?.data?.error || 'Failed to delete form template';
+      setError(errorMessage);
+      openSnackbar(errorMessage, 'error');
+      // Keep the dialog open if deletion failed so user can see the error
+      if (err?.response?.status !== 400) {
+        setDeleteConfirmTarget(null);
+      }
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -888,6 +918,15 @@ export default function FormsPage() {
                       title="Copy form"
                     >
                       <Copy size={16} />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      color="error" 
+                      onClick={() => setDeleteConfirmTarget(t)}
+                      disabled={deleting === t.id}
+                      title="Delete form"
+                    >
+                      <Trash size={16} />
                     </IconButton>
                   </Stack>
                 </CardContent>
@@ -1454,6 +1493,32 @@ export default function FormsPage() {
           <Button onClick={handleCancelDiscard}>Keep editing</Button>
           <Button color="error" onClick={handleDiscardConfirmation}>
             Discard
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmTarget} onClose={() => { setDeleteConfirmTarget(null); setError(null); }} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Form Template?</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: error ? 2 : 0 }}>
+            Are you sure you want to delete "{deleteConfirmTarget ? ((isArabic ? (deleteConfirmTarget as any).titleArabic : undefined) || deleteConfirmTarget.title) : ''}"? This action cannot be undone.
+          </Typography>
+          {error && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {error}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setDeleteConfirmTarget(null); setError(null); }}>Cancel</Button>
+          <Button 
+            color="error" 
+            variant="contained"
+            onClick={() => deleteConfirmTarget && handleDeleteTemplate(deleteConfirmTarget)}
+            disabled={deleting === deleteConfirmTarget?.id}
+          >
+            {deleting === deleteConfirmTarget?.id ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

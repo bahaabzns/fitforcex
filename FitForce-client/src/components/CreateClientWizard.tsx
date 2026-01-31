@@ -133,6 +133,8 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
   const [packages, setPackages] = useState<Package[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [assignSubscription, setAssignSubscription] = useState(true);
+  const [useCustomPrice, setUseCustomPrice] = useState(false);
+  const [customPrice, setCustomPrice] = useState<string>('');
 
   // Step 3: Forms
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([]);
@@ -294,6 +296,8 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
     setSelectedNutritionFormId('');
     setAssignSubscription(true);
     setAssignForms(true);
+    setUseCustomPrice(false);
+    setCustomPrice('');
     setError(null);
     setEmailError(null);
     setPhoneError(null);
@@ -349,10 +353,20 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
       setLoading(true);
       setError(null);
 
-      await api.post('/api/clients/subscription/manual', {
+      const requestBody: any = {
         clientId: createdClientId,
         packageId: selectedPackageId,
-      });
+      };
+      
+      // If custom price is enabled and provided, convert to cents
+      if (useCustomPrice && customPrice) {
+        const customPriceNum = parseFloat(customPrice);
+        if (!isNaN(customPriceNum) && customPriceNum >= 0) {
+          requestBody.customPriceCents = Math.round(customPriceNum * 100);
+        }
+      }
+
+      await api.post('/api/clients/subscription/manual', requestBody);
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Failed to assign subscription');
       throw err;
@@ -506,20 +520,64 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
                     No packages available. Please create packages first from the Client Packages page.
                   </Alert>
                 ) : (
-                  <FormControl fullWidth required={assignSubscription}>
-                    <InputLabel>Select Package</InputLabel>
-                    <Select
-                      value={selectedPackageId}
-                      label="Select Package"
-                      onChange={(e) => setSelectedPackageId(e.target.value)}
-                    >
-                      {packages.map((pkg) => (
-                        <MenuItem key={pkg.id} value={pkg.id}>
-                          {pkg.name} - {pkg.durationMonths} month(s) - {pkg.priceCents / 100} {pkg.currency}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <>
+                    <FormControl fullWidth required={assignSubscription}>
+                      <InputLabel>Select Package</InputLabel>
+                      <Select
+                        value={selectedPackageId}
+                        label="Select Package"
+                        onChange={(e) => {
+                          setSelectedPackageId(e.target.value);
+                          // Reset custom price when package changes
+                          setCustomPrice('');
+                          setUseCustomPrice(false);
+                        }}
+                      >
+                        {packages.map((pkg) => (
+                          <MenuItem key={pkg.id} value={pkg.id}>
+                            {pkg.name} - {pkg.durationMonths} month(s) - {pkg.priceCents / 100} {pkg.currency}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    
+                    {selectedPackageId && (
+                      <>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={useCustomPrice}
+                              onChange={(e) => {
+                                setUseCustomPrice(e.target.checked);
+                                if (!e.target.checked) {
+                                  setCustomPrice('');
+                                }
+                              }}
+                            />
+                          }
+                          label="Use custom price (different from package price)"
+                        />
+                        
+                        {useCustomPrice && (() => {
+                          const selectedPkg = packages.find(p => p.id === selectedPackageId);
+                          return (
+                            <TextField
+                              fullWidth
+                              label="Custom Price"
+                              type="number"
+                              value={customPrice}
+                              onChange={(e) => setCustomPrice(e.target.value)}
+                              placeholder={selectedPkg ? `${selectedPkg.priceCents / 100} ${selectedPkg.currency}` : ''}
+                              helperText={selectedPkg 
+                                ? `Package price: ${selectedPkg.priceCents / 100} ${selectedPkg.currency}`
+                                : ''}
+                              inputProps={{ min: 0, step: 0.01 }}
+                            />
+                          );
+                        })()}
+                      </>
+                    )}
+                  </>
                 )}
 
                 <Alert severity="info">
@@ -681,7 +739,14 @@ export default function CreateClientWizard({ open, onClose, onSuccess }: CreateC
       case 0:
         return fullName.trim() && email.trim() && password.trim() && password.trim().length >= 6 && !emailError && !phoneError && !passwordError;
       case 1:
-        return !assignSubscription || selectedPackageId;
+        if (!assignSubscription) return true;
+        if (!selectedPackageId) return false;
+        // If custom price is enabled, it must be provided and valid
+        if (useCustomPrice) {
+          const customPriceNum = parseFloat(customPrice);
+          return !isNaN(customPriceNum) && customPriceNum >= 0;
+        }
+        return true;
       case 2:
         return true; // Forms are optional
       default:

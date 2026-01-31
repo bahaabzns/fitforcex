@@ -19,9 +19,6 @@ import MainCard from 'components/MainCard';
 
 import useConfig from 'hooks/useConfig';
 
-// assets
-import { LanguageSquare } from '@wandersonalwes/iconsax-react';
-
 // types
 import { I18n } from 'types/config';
 
@@ -50,25 +47,33 @@ export default function Localization() {
     setOpen(false);
   };
 
+  const currentLang = (i18n || 'en').toUpperCase();
+
   return (
     <Box sx={{ flexShrink: 0, ml: 0.5 }}>
       <IconButton
         color="secondary"
         variant="light"
-        aria-label="open localization"
+        aria-label={`open localization (${currentLang})`}
         ref={anchorRef}
         aria-controls={open ? 'localization-grow' : undefined}
         aria-haspopup="true"
         onClick={handleToggle}
         size="large"
         sx={(theme) => ({
-          p: 1,
+          px: 1.5,
+          py: 0.75,
           color: 'secondary.main',
           bgcolor: open ? 'secondary.200' : 'secondary.100',
+          fontWeight: 700,
+          fontSize: '0.875rem',
+          minWidth: 48,
           ...theme.applyStyles('dark', { bgcolor: open ? 'background.paper' : 'background.default' })
         })}
       >
-        <LanguageSquare variant="Bulk" size={26} />
+        <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', letterSpacing: 0.5 }}>
+          {currentLang}
+        </Typography>
       </IconButton>
       <Popper
         placement={downMD ? 'bottom-start' : 'bottom'}

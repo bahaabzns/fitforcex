@@ -15,9 +15,11 @@ import {
   DialogActions,
   TextField,
   Alert,
+  CircularProgress,
+  InputAdornment,
 } from '@mui/material';
-import { CalendarToday, Person, Domain, Email, Edit } from '@mui/icons-material';
-import { useState } from 'react';
+import { CalendarToday, Person, Domain, Email, Edit, CheckCircle, Cancel } from '@mui/icons-material';
+import { useState, useEffect, useCallback } from 'react';
 import api from '@/utils/axios';
 
 interface Workspace {
@@ -76,6 +78,13 @@ export default function OverviewTab({ workspace, onRefresh }: OverviewTabProps) 
   const [editName, setEditName] = useState(workspace.name);
   const [editSubdomain, setEditSubdomain] = useState(workspace.subdomain);
   const [editCustomDomain, setEditCustomDomain] = useState(workspace.customDomain || '');
+  
+  // Subdomain availability checking
+  const [subdomainAvailability, setSubdomainAvailability] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    reason?: string;
+  }>({ checking: false, available: null });
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -97,13 +106,25 @@ export default function OverviewTab({ workspace, onRefresh }: OverviewTabProps) 
       return;
     }
 
+    // Check if subdomain is available before submitting
+    if (editSubdomain !== workspace.subdomain) {
+      if (subdomainAvailability.checking) {
+        setError('Please wait while we check subdomain availability');
+        return;
+      }
+      if (subdomainAvailability.available === false) {
+        setError(subdomainAvailability.reason || 'Subdomain is not available');
+        return;
+      }
+    }
+
     try {
       setEditLoading(true);
       setError(null);
       
       await api.put(`/api/admin/workspaces/${workspace.id}`, {
         name: editName,
-        subdomain: editSubdomain,
+        subdomain: editSubdomain.trim(),
         customDomain: editCustomDomain || null,
       });
 
@@ -116,11 +137,64 @@ export default function OverviewTab({ workspace, onRefresh }: OverviewTabProps) 
     }
   };
 
+  // Check subdomain availability with debouncing
+  const checkSubdomainAvailability = useCallback(async (subdomain: string) => {
+    if (!subdomain || subdomain.trim() === '') {
+      setSubdomainAvailability({ checking: false, available: null });
+      return;
+    }
+
+    // If subdomain hasn't changed, don't check
+    if (subdomain === workspace.subdomain) {
+      setSubdomainAvailability({ checking: false, available: true });
+      return;
+    }
+
+    setSubdomainAvailability({ checking: true, available: null });
+
+    try {
+      const response = await api.get('/api/admin/workspaces/check-subdomain', {
+        params: {
+          subdomain: subdomain.trim(),
+          workspaceId: workspace.id,
+        },
+      });
+
+      setSubdomainAvailability({
+        checking: false,
+        available: response.data.available,
+        reason: response.data.reason,
+      });
+    } catch (err: any) {
+      setSubdomainAvailability({
+        checking: false,
+        available: false,
+        reason: err.response?.data?.error || 'Failed to check availability',
+      });
+    }
+  }, [workspace.id, workspace.subdomain]);
+
+  // Debounce subdomain checking
+  useEffect(() => {
+    if (!isEditDialogOpen) return;
+
+    const timer = setTimeout(() => {
+      if (editSubdomain) {
+        checkSubdomainAvailability(editSubdomain);
+      } else {
+        setSubdomainAvailability({ checking: false, available: null });
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [editSubdomain, isEditDialogOpen, checkSubdomainAvailability]);
+
   const openEditDialog = () => {
     setEditName(workspace.name);
     setEditSubdomain(workspace.subdomain);
     setEditCustomDomain(workspace.customDomain || '');
     setError(null);
+    setSubdomainAvailability({ checking: false, available: true }); // Current subdomain is always available
     setIsEditDialogOpen(true);
   };
 
@@ -370,9 +444,37 @@ export default function OverviewTab({ workspace, onRefresh }: OverviewTabProps) 
               fullWidth
               label="Subdomain"
               value={editSubdomain}
-              onChange={(e) => setEditSubdomain(e.target.value)}
-              helperText="Will be accessible at {subdomain}.fitforce.io"
+              onChange={(e) => {
+                const value = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+                setEditSubdomain(value);
+                setError(null);
+              }}
+              helperText={
+                subdomainAvailability.checking
+                  ? 'Checking availability...'
+                  : subdomainAvailability.available === false
+                  ? subdomainAvailability.reason || 'Subdomain is not available'
+                  : subdomainAvailability.available === true
+                  ? 'Subdomain is available'
+                  : 'Will be accessible at {subdomain}.fitforce.io'
+              }
+              error={subdomainAvailability.available === false}
               required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {subdomainAvailability.checking ? (
+                      <CircularProgress size={20} />
+                    ) : editSubdomain && editSubdomain !== workspace.subdomain ? (
+                      subdomainAvailability.available === true ? (
+                        <CheckCircle color="success" fontSize="small" />
+                      ) : subdomainAvailability.available === false ? (
+                        <Cancel color="error" fontSize="small" />
+                      ) : null
+                    ) : null}
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               fullWidth
@@ -389,9 +491,13 @@ export default function OverviewTab({ workspace, onRefresh }: OverviewTabProps) 
           <Button
             onClick={handleEditWorkspace}
             variant="contained"
-            disabled={editLoading}
+            disabled={
+              editLoading ||
+              subdomainAvailability.checking ||
+              (editSubdomain !== workspace.subdomain && subdomainAvailability.available === false)
+            }
           >
-            Update Workspace
+            {editLoading ? 'Updating...' : 'Update Workspace'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -9,6 +9,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import adminTheme from '@/theme/adminTheme';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
+import { PageTitleSetter } from '@/components/PageTitleSetter';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAdminAuth();
@@ -65,6 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <ThemeProvider theme={adminTheme}>
       <CssBaseline />
       <AdminAuthProvider>
+        <PageTitleSetter />
         {!isLoginPage && (
           <Box sx={{ px: { xs: 2, md: 4 }, pt: 2 }}>
             <Stack direction="row" alignItems="center" spacing={1}>
