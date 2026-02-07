@@ -33,7 +33,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Grid from '@mui/material/Grid';
 import Avatar from '@mui/material/Avatar';
-import { AttachFile, Assignment } from '@mui/icons-material';
+import { AttachFile, Assignment, FilterList, Close } from '@mui/icons-material';
 import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
 import { FormattedMessage } from 'react-intl';
@@ -188,6 +188,41 @@ export default function QueuePage() {
   const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false);
   const [bulkSelectedAssignee, setBulkSelectedAssignee] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
+
+  // Advanced filters state
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState({
+    clientNames: [] as string[],
+    clientCodes: [] as string[],
+    packages: [] as string[],
+    formTitles: [] as string[],
+    formTypes: [] as string[],
+    assignees: [] as string[],
+    statuses: [] as string[],
+    dateRange: {
+      createdFrom: '',
+      createdTo: '',
+      scheduledFrom: '',
+      scheduledTo: '',
+      sentFrom: '',
+      sentTo: '',
+      completedFrom: '',
+      completedTo: ''
+    }
+  });
+  
+  // Get unique values for filter options
+  const filterOptions = useMemo(() => {
+    return {
+      clientNames: [...new Set(items.map(item => item.clientName))].filter(Boolean).sort(),
+      clientCodes: [...new Set(items.map(item => item.clientCode).filter(Boolean))].sort(),
+      packages: [...new Set(items.map(item => item.clientPackageName).filter(Boolean))].sort(),
+      formTitles: [...new Set(items.map(item => item.formTitle))].filter(Boolean).sort(),
+      formTypes: [...new Set(items.map(item => item.formType).filter(Boolean))].sort(),
+      assignees: [...new Set(items.map(item => item.assignedToName).filter(Boolean))].sort(),
+      statuses: ['pending', 'sent', 'completed', 'archived']
+    };
+  }, [items]);
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -281,10 +316,76 @@ export default function QueuePage() {
         }
       }
 
-      return byStatus && byText;
+      // Apply advanced filters
+      let byAdvancedFilters = true;
+      
+      // Client names filter
+      if (advancedFilters.clientNames.length > 0) {
+        byAdvancedFilters = byAdvancedFilters && advancedFilters.clientNames.includes(it.clientName);
+      }
+      
+      // Client codes filter
+      if (advancedFilters.clientCodes.length > 0) {
+        byAdvancedFilters = byAdvancedFilters && advancedFilters.clientCodes.includes(String(it.clientCode));
+      }
+      
+      // Packages filter
+      if (advancedFilters.packages.length > 0) {
+        byAdvancedFilters = byAdvancedFilters && advancedFilters.packages.includes(it.clientPackageName || '');
+      }
+      
+      // Form titles filter
+      if (advancedFilters.formTitles.length > 0) {
+        byAdvancedFilters = byAdvancedFilters && advancedFilters.formTitles.includes(it.formTitle);
+      }
+      
+      // Form types filter
+      if (advancedFilters.formTypes.length > 0) {
+        byAdvancedFilters = byAdvancedFilters && advancedFilters.formTypes.includes(it.formType || '');
+      }
+      
+      // Assignees filter
+      if (advancedFilters.assignees.length > 0) {
+        byAdvancedFilters = byAdvancedFilters && advancedFilters.assignees.includes(it.assignedToName || '');
+      }
+      
+      // Statuses filter
+      if (advancedFilters.statuses.length > 0) {
+        byAdvancedFilters = byAdvancedFilters && advancedFilters.statuses.includes(it.status);
+      }
+      
+      // Date range filters
+      if (advancedFilters.dateRange.createdFrom) {
+        const createdDate = it.createdAt ? new Date(it.createdAt) : null;
+        const fromDate = new Date(advancedFilters.dateRange.createdFrom);
+        byAdvancedFilters = byAdvancedFilters && (!createdDate || createdDate >= fromDate);
+      }
+      
+      if (advancedFilters.dateRange.createdTo) {
+        const createdDate = it.createdAt ? new Date(it.createdAt) : null;
+        const toDate = new Date(advancedFilters.dateRange.createdTo);
+        toDate.setHours(23, 59, 59, 999); // End of day
+        byAdvancedFilters = byAdvancedFilters && (!createdDate || createdDate <= toDate);
+      }
+      
+      // Similar logic for other date filters...
+      if (advancedFilters.dateRange.completedFrom) {
+        const completedDate = it.completedAt ? new Date(it.completedAt) : null;
+        const fromDate = new Date(advancedFilters.dateRange.completedFrom);
+        byAdvancedFilters = byAdvancedFilters && (!completedDate || completedDate >= fromDate);
+      }
+      
+      if (advancedFilters.dateRange.completedTo) {
+        const completedDate = it.completedAt ? new Date(it.completedAt) : null;
+        const toDate = new Date(advancedFilters.dateRange.completedTo);
+        toDate.setHours(23, 59, 59, 999);
+        byAdvancedFilters = byAdvancedFilters && (!completedDate || completedDate <= toDate);
+      }
+
+      return byStatus && byText && byAdvancedFilters;
     });
 
-    // Apply package multi-select filter (if any)
+    // Apply package multi-select filter (if any) - keep for backward compatibility
     if (packageMultiFilter.length > 0) {
       result = result.filter((it) => packageMultiFilter.includes(it.clientPackageName || ''));
     }
@@ -318,7 +419,7 @@ export default function QueuePage() {
     });
 
     return result;
-  }, [items, search, statusFilter, sortField, sortDirection, activeColumnFilter, packageMultiFilter]);
+  }, [items, search, statusFilter, sortField, sortDirection, activeColumnFilter, packageMultiFilter, advancedFilters]);
 
   // Get only completed items for bulk operations
   const completedItems = useMemo(() => {
@@ -372,7 +473,44 @@ export default function QueuePage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [tab, statusFilter, search, assignedToMe, activeColumnFilter, packageMultiFilter]);
+  }, [tab, statusFilter, search, assignedToMe, activeColumnFilter, packageMultiFilter, advancedFilters]);
+
+  // Clear all advanced filters
+  const clearAdvancedFilters = () => {
+    setAdvancedFilters({
+      clientNames: [],
+      clientCodes: [],
+      packages: [],
+      formTitles: [],
+      formTypes: [],
+      assignees: [],
+      statuses: [],
+      dateRange: {
+        createdFrom: '',
+        createdTo: '',
+        scheduledFrom: '',
+        scheduledTo: '',
+        sentFrom: '',
+        sentTo: '',
+        completedFrom: '',
+        completedTo: ''
+      }
+    });
+  };
+
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    Object.keys(advancedFilters).forEach(key => {
+      if (key === 'dateRange') {
+        const dates = advancedFilters.dateRange;
+        count += Object.values(dates).filter(val => val).length;
+      } else {
+        count += (advancedFilters as any)[key].length;
+      }
+    });
+    return count;
+  }, [advancedFilters]);
 
   const openView = async (id: string) => {
     setViewOpen(true);
@@ -581,7 +719,7 @@ export default function QueuePage() {
           </Stack>
 
           {/* Column Filters (ID, Client, Package, Form) */}
-          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
             <Button size="small" variant={activeColumnFilter === 'id' ? 'contained' : 'text'} onClick={() => { setActiveColumnFilter(activeColumnFilter === 'id' ? null : 'id'); setSearch(''); }}>
               #
             </Button>
@@ -594,6 +732,49 @@ export default function QueuePage() {
             <Button size="small" variant={activeColumnFilter === 'form' ? 'contained' : 'text'} onClick={() => { setActiveColumnFilter(activeColumnFilter === 'form' ? null : 'form'); setSearch(''); }}>
               <FormattedMessage id="queue.col.form" defaultMessage="Form" />
             </Button>
+            
+            {/* Advanced Filters Button */}
+            <Button
+              size="small"
+              variant={activeFiltersCount > 0 ? 'contained' : 'outlined'}
+              startIcon={<FilterList />}
+              onClick={() => setAdvancedFiltersOpen(true)}
+              sx={{ 
+                ml: 2,
+                position: 'relative',
+                ...(activeFiltersCount > 0 && {
+                  '&::after': {
+                    content: `"${activeFiltersCount}"`,
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    bgcolor: 'error.main',
+                    color: 'error.contrastText',
+                    borderRadius: '50%',
+                    width: 20,
+                    height: 20,
+                    fontSize: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }
+                })
+              }}
+            >
+              Advanced Filters
+            </Button>
+            
+            {activeFiltersCount > 0 && (
+              <Button
+                size="small"
+                variant="text"
+                color="error"
+                onClick={clearAdvancedFilters}
+                sx={{ ml: 1 }}
+              >
+                Clear All
+              </Button>
+            )}
           </Stack>
 
           {/* Package multi-select */}
@@ -1153,6 +1334,560 @@ export default function QueuePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Advanced Filters Dialog */}
+      <Dialog 
+        open={advancedFiltersOpen} 
+        onClose={() => setAdvancedFiltersOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Advanced Filters
+          <IconButton onClick={() => setAdvancedFiltersOpen(false)} size="small">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* Filters Section Header */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ 
+                fontSize: '1.3rem', 
+                fontWeight: 700,
+                color: 'text.primary',
+                mb: 1,
+                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                Filter Options
+              </Typography>
+            </Grid>
+
+            {/* First Row - Primary Filters */}
+            <Grid item xs={6} sm={4} lg={3}>
+              <Typography variant="subtitle1" sx={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 600,
+                color: 'primary.main',
+                mb: 1,
+                display: 'block'
+              }}>
+                Client Names
+              </Typography>
+              <FormControl fullWidth sx={{ minHeight: 70 }}>
+                <Select
+                  multiple
+                  value={advancedFilters.clientNames}
+                  onChange={(e) => setAdvancedFilters(prev => ({
+                    ...prev,
+                    clientNames: typeof e.target.value === 'string' ? [e.target.value] : e.target.value
+                  }))}
+                  sx={{ 
+                    minHeight: 60,
+                    '& .MuiSelect-select': {
+                      minHeight: 60,
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.95rem'
+                    },
+                    boxShadow: '0 2px 8px rgba(33, 150, 243, 0.15)',
+                    borderRadius: 2
+                  }}
+                  displayEmpty
+                  renderValue={(selected) => (
+                    selected.length === 0 ? (
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem' }}>
+                        Select clients...
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} size="small" sx={{ fontSize: '0.75rem' }} />
+                        ))}
+                      </Box>
+                    )
+                  )}
+                >
+                  {filterOptions.clientNames.map((name) => (
+                    <MenuItem key={name} value={name}>
+                      <Checkbox checked={advancedFilters.clientNames.includes(name)} />
+                      <ListItemText primary={name} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={6} sm={4} lg={3}>
+              <Typography variant="subtitle1" sx={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 600,
+                color: 'secondary.main',
+                mb: 1,
+                display: 'block'
+              }}>
+                Client IDs
+              </Typography>
+              <FormControl fullWidth sx={{ minHeight: 70 }}>
+                <Select
+                  multiple
+                  value={advancedFilters.clientCodes}
+                  onChange={(e) => setAdvancedFilters(prev => ({
+                    ...prev,
+                    clientCodes: typeof e.target.value === 'string' ? [e.target.value] : e.target.value
+                  }))}
+                  sx={{ 
+                    minHeight: 60,
+                    '& .MuiSelect-select': {
+                      minHeight: 60,
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.95rem'
+                    },
+                    boxShadow: '0 2px 8px rgba(156, 39, 176, 0.15)',
+                    borderRadius: 2
+                  }}
+                  displayEmpty
+                  renderValue={(selected) => (
+                    selected.length === 0 ? (
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem' }}>
+                        Select IDs...
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} size="small" sx={{ fontSize: '0.75rem' }} />
+                        ))}
+                      </Box>
+                    )
+                  )}
+                >
+                  {filterOptions.clientCodes.map((code) => (
+                    <MenuItem key={code} value={String(code)}>
+                      <Checkbox checked={advancedFilters.clientCodes.includes(String(code))} />
+                      <ListItemText primary={code} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={6} sm={4} lg={3}>
+              <Typography variant="subtitle1" sx={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 600,
+                color: 'success.main',
+                mb: 1,
+                display: 'block'
+              }}>
+                Packages
+              </Typography>
+              <FormControl fullWidth sx={{ minHeight: 70 }}>
+                <Select
+                  multiple
+                  value={advancedFilters.packages}
+                  onChange={(e) => setAdvancedFilters(prev => ({
+                    ...prev,
+                    packages: typeof e.target.value === 'string' ? [e.target.value] : e.target.value
+                  }))}
+                  sx={{ 
+                    minHeight: 60,
+                    '& .MuiSelect-select': {
+                      minHeight: 60,
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.95rem'
+                    },
+                    boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)',
+                    borderRadius: 2
+                  }}
+                  displayEmpty
+                  renderValue={(selected) => (
+                    selected.length === 0 ? (
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem' }}>
+                        Select packages...
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} size="small" sx={{ fontSize: '0.75rem' }} />
+                        ))}
+                      </Box>
+                    )
+                  )}
+                >
+                  {filterOptions.packages.map((pkg) => (
+                    <MenuItem key={pkg} value={pkg}>
+                      <Checkbox checked={advancedFilters.packages.includes(pkg)} />
+                      <ListItemText primary={pkg} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={6} sm={4} lg={3}>
+              <Typography variant="subtitle1" sx={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 600,
+                color: 'warning.main',
+                mb: 1,
+                display: 'block'
+              }}>
+                Form Titles
+              </Typography>
+              <FormControl fullWidth sx={{ minHeight: 70 }}>
+                <Select
+                  multiple
+                  value={advancedFilters.formTitles}
+                  onChange={(e) => setAdvancedFilters(prev => ({
+                    ...prev,
+                    formTitles: typeof e.target.value === 'string' ? [e.target.value] : e.target.value
+                  }))}
+                  sx={{ 
+                    minHeight: 60,
+                    '& .MuiSelect-select': {
+                      minHeight: 60,
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.95rem'
+                    },
+                    boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)',
+                    borderRadius: 2
+                  }}
+                  displayEmpty
+                  renderValue={(selected) => (
+                    selected.length === 0 ? (
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem' }}>
+                        Select forms...
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} size="small" sx={{ fontSize: '0.75rem' }} />
+                        ))}
+                      </Box>
+                    )
+                  )}
+                >
+                  {filterOptions.formTitles.map((title) => (
+                    <MenuItem key={title} value={title}>
+                      <Checkbox checked={advancedFilters.formTitles.includes(title)} />
+                      <ListItemText primary={title} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Second Row - Additional Filters */}
+            <Grid item xs={6} sm={4} lg={3}>
+              <Typography variant="subtitle1" sx={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 600,
+                color: 'info.main',
+                mb: 1,
+                display: 'block'
+              }}>
+                Form Types
+              </Typography>
+              <FormControl fullWidth sx={{ minHeight: 70 }}>
+                <Select
+                  multiple
+                  value={advancedFilters.formTypes}
+                  onChange={(e) => setAdvancedFilters(prev => ({
+                    ...prev,
+                    formTypes: typeof e.target.value === 'string' ? [e.target.value] : e.target.value
+                  }))}
+                  sx={{ 
+                    minHeight: 60,
+                    '& .MuiSelect-select': {
+                      minHeight: 60,
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.95rem'
+                    },
+                    boxShadow: '0 2px 8px rgba(33, 150, 243, 0.15)',
+                    borderRadius: 2
+                  }}
+                  displayEmpty
+                  renderValue={(selected) => (
+                    selected.length === 0 ? (
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem' }}>
+                        Select types...
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={formatFormType(intl, value)} size="small" sx={{ fontSize: '0.75rem' }} />
+                        ))}
+                      </Box>
+                    )
+                  )}
+                >
+                  {filterOptions.formTypes.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      <Checkbox checked={advancedFilters.formTypes.includes(type)} />
+                      <ListItemText primary={formatFormType(intl, type)} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={6} sm={4} lg={3}>
+              <Typography variant="subtitle1" sx={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 600,
+                color: 'error.main',
+                mb: 1,
+                display: 'block'
+              }}>
+                Assigned To
+              </Typography>
+              <FormControl fullWidth sx={{ minHeight: 70 }}>
+                <Select
+                  multiple
+                  value={advancedFilters.assignees}
+                  onChange={(e) => setAdvancedFilters(prev => ({
+                    ...prev,
+                    assignees: typeof e.target.value === 'string' ? [e.target.value] : e.target.value
+                  }))}
+                  sx={{ 
+                    minHeight: 60,
+                    '& .MuiSelect-select': {
+                      minHeight: 60,
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.95rem'
+                    },
+                    boxShadow: '0 2px 8px rgba(244, 67, 54, 0.15)',
+                    borderRadius: 2
+                  }}
+                  displayEmpty
+                  renderValue={(selected) => (
+                    selected.length === 0 ? (
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem' }}>
+                        Select assignees...
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} size="small" sx={{ fontSize: '0.75rem' }} />
+                        ))}
+                      </Box>
+                    )
+                  )}
+                >
+                  {filterOptions.assignees.map((assignee) => (
+                    <MenuItem key={assignee} value={assignee}>
+                      <Checkbox checked={advancedFilters.assignees.includes(assignee)} />
+                      <ListItemText primary={assignee} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={6} sm={4} lg={3}>
+              <Typography variant="subtitle1" sx={{ 
+                fontSize: '1.1rem', 
+                fontWeight: 600,
+                color: 'primary.dark',
+                mb: 1,
+                display: 'block'
+              }}>
+                Status
+              </Typography>
+              <FormControl fullWidth sx={{ minHeight: 70 }}>
+                <Select
+                  multiple
+                  value={advancedFilters.statuses}
+                  onChange={(e) => setAdvancedFilters(prev => ({
+                    ...prev,
+                    statuses: typeof e.target.value === 'string' ? [e.target.value] : e.target.value
+                  }))}
+                  sx={{ 
+                    minHeight: 60,
+                    '& .MuiSelect-select': {
+                      minHeight: 60,
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.95rem'
+                    },
+                    boxShadow: '0 2px 8px rgba(25, 118, 210, 0.15)',
+                    borderRadius: 2
+                  }}
+                  displayEmpty
+                  renderValue={(selected) => (
+                    selected.length === 0 ? (
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem' }}>
+                        Select status...
+                      </Typography>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.3 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={statusLabelIntl(intl, value as QueueStatus)} size="small" sx={{ fontSize: '0.75rem' }} />
+                        ))}
+                      </Box>
+                    )
+                  )}
+                >
+                  {filterOptions.statuses.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      <Checkbox checked={advancedFilters.statuses.includes(status)} />
+                      <ListItemText primary={statusLabelIntl(intl, status as QueueStatus)} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Spacer for better layout on large screens */}
+            <Grid item xs={6} sm={4} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
+              <Box sx={{ minHeight: 85 }} />
+            </Grid>
+
+            {/* Date Range Filters */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom sx={{ 
+                fontSize: '1.2rem', 
+                fontWeight: 600,
+                color: 'text.primary',
+                mt: 2
+              }}>
+                Date Ranges
+              </Typography>
+            </Grid>
+
+            {/* Created Date Range */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Created From"
+                value={advancedFilters.dateRange.createdFrom}
+                onChange={(e) => setAdvancedFilters(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, createdFrom: e.target.value }
+                }))}
+                InputLabelProps={{ 
+                  shrink: true,
+                  sx: {
+                    fontSize: '1.1rem',
+                    fontWeight: 500,
+                    color: 'primary.main'
+                  }
+                }}
+                sx={{
+                  minHeight: 80,
+                  '& .MuiInputBase-root': {
+                    minHeight: 56,
+                    fontSize: '1rem'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Created To"
+                value={advancedFilters.dateRange.createdTo}
+                onChange={(e) => setAdvancedFilters(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, createdTo: e.target.value }
+                }))}
+                InputLabelProps={{ 
+                  shrink: true,
+                  sx: {
+                    fontSize: '1.1rem',
+                    fontWeight: 500,
+                    color: 'primary.main'
+                  }
+                }}
+                sx={{
+                  minHeight: 80,
+                  '& .MuiInputBase-root': {
+                    minHeight: 56,
+                    fontSize: '1rem'
+                  }
+                }}
+              />
+            </Grid>
+
+            {/* Completed Date Range */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Completed From"
+                value={advancedFilters.dateRange.completedFrom}
+                onChange={(e) => setAdvancedFilters(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, completedFrom: e.target.value }
+                }))}
+                InputLabelProps={{ 
+                  shrink: true,
+                  sx: {
+                    fontSize: '1.1rem',
+                    fontWeight: 500,
+                    color: 'success.main'
+                  }
+                }}
+                sx={{
+                  minHeight: 80,
+                  '& .MuiInputBase-root': {
+                    minHeight: 56,
+                    fontSize: '1rem'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Completed To"
+                value={advancedFilters.dateRange.completedTo}
+                onChange={(e) => setAdvancedFilters(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, completedTo: e.target.value }
+                }))}
+                InputLabelProps={{ 
+                  shrink: true,
+                  sx: {
+                    fontSize: '1.1rem',
+                    fontWeight: 500,
+                    color: 'success.main'
+                  }
+                }}
+                sx={{
+                  minHeight: 80,
+                  '& .MuiInputBase-root': {
+                    minHeight: 56,
+                    fontSize: '1rem'
+                  }
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={clearAdvancedFilters} color="error">
+            Clear All
+          </Button>
+          <Button onClick={() => setAdvancedFiltersOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => setAdvancedFiltersOpen(false)} variant="contained">
+            Apply Filters
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* View Submission Dialog */}
       <Dialog fullWidth maxWidth="md" open={viewOpen} onClose={() => setViewOpen(false)}>

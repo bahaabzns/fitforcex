@@ -52,6 +52,7 @@ interface WorkoutPlanData {
         muscleGroup: string;
         description?: string;
         gifImage?: string;
+        videoUrl?: string;
       };
       sets: number;
       reps: string;
@@ -610,6 +611,49 @@ export async function exportWorkoutPlanToPDF(
               imgData = preloadedCanvas.toDataURL('image/png', 0.8);
               if (imgData && imgData.length > 100) { // Ensure we have actual image data
                 doc.addImage(imgData, 'PNG', margin, yPos, pdfWidth, pdfHeight);
+                
+                // Add clickable link if YouTube video URL is available
+                if (exercise.videoUrl && (exercise.videoUrl.includes('youtube.com') || exercise.videoUrl.includes('youtu.be'))) {
+                  doc.link(margin, yPos, pdfWidth, pdfHeight, { url: exercise.videoUrl });
+                  
+                  // Add a simple play icon overlay to indicate clickability
+                  const playIconSize = 12;
+                  const playX = margin + pdfWidth - playIconSize - 5;
+                  const playY = yPos + 5;
+                  
+                  // Draw play button background circle (black with some transparency effect)
+                  doc.setFillColor(0, 0, 0);
+                  doc.circle(playX + playIconSize/2, playY + playIconSize/2, playIconSize/2, 'F');
+                  
+                  // Draw play triangle (white)
+                  doc.setFillColor(255, 255, 255);
+                  const triSize = 4;
+                  const centerX = playX + playIconSize/2;
+                  const centerY = playY + playIconSize/2;
+                  
+                  // Simple triangle using lines
+                  doc.setDrawColor(255, 255, 255);
+                  doc.setLineWidth(1);
+                  doc.lines([
+                    [triSize, 0], 
+                    [-triSize/2, triSize], 
+                    [-triSize/2, -triSize], 
+                    [triSize, 0]
+                  ], centerX - triSize/2, centerY, [1, 1], 'F');
+                  
+                  // Reset colors
+                  doc.setFillColor(0, 0, 0);
+                  doc.setDrawColor(0, 0, 0);
+                  
+                  // Add text indication below image
+                  doc.setFont('helvetica', 'italic');
+                  doc.setFontSize(8);
+                  doc.setTextColor(0, 100, 200); // Blue color
+                  doc.text('🎥 Click image to watch video', margin, yPos + pdfHeight + 10);
+                  doc.setTextColor(0, 0, 0); // Reset to black
+                  yPos += 12; // Extra space for the text
+                }
+                
                 yPos += Math.max(pdfHeight, 60) + 5;
               } else {
                 console.warn('Invalid image data for:', exercise.gifImage);
@@ -628,6 +672,52 @@ export async function exportWorkoutPlanToPDF(
           console.warn('Skipping image (not preloaded or invalid):', exercise.gifImage);
           yPos += 5;
         }
+      } else if (exercise.videoUrl && (exercise.videoUrl.includes('youtube.com') || exercise.videoUrl.includes('youtu.be'))) {
+        // No image but video URL available - show placeholder with link
+        doc.setFillColor(240, 240, 240);
+        const placeholderWidth = 80;
+        const placeholderHeight = 60;
+        doc.rect(margin, yPos, placeholderWidth, placeholderHeight, 'F');
+        doc.setFillColor(0, 0, 0);
+        
+        // Add video link
+        doc.link(margin, yPos, placeholderWidth, placeholderHeight, { url: exercise.videoUrl });
+        
+        // Draw play button in center
+        const centerX = margin + placeholderWidth / 2;
+        const centerY = yPos + placeholderHeight / 2;
+        const playIconSize = 20;
+        
+        // Play button background circle
+        doc.setFillColor(0, 0, 0);
+        doc.circle(centerX, centerY, playIconSize/2, 'F');
+        
+        // Play triangle (white)
+        doc.setFillColor(255, 255, 255);
+        const triSize = 6;
+        
+        // Simple triangle using lines
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(1);
+        doc.lines([
+          [triSize, 0], 
+          [-triSize/2, triSize], 
+          [-triSize/2, -triSize], 
+          [triSize, 0]
+        ], centerX - triSize/2, centerY, [1, 1], 'F');
+        
+        // Reset colors
+        doc.setFillColor(0, 0, 0);
+        doc.setDrawColor(0, 0, 0);
+        
+        // Add text indication
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(0, 100, 200);
+        doc.text('🎥 Click to watch exercise video', margin, yPos + placeholderHeight + 10);
+        doc.setTextColor(0, 0, 0);
+        
+        yPos += placeholderHeight + 15;
       }
 
       // Exercise details

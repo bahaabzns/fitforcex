@@ -7,7 +7,7 @@ import { useTheme } from '@mui/material/styles';
 
 // third-party
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import { atomOneDark, atomOneLight } from 'react-syntax-highlighter/dist/styles';
+import { atomOneDark, atomOneLight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 // project-imports
 import { ThemeMode } from 'config';

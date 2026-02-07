@@ -25,6 +25,7 @@ import {
   ListItemAvatar,
   Divider
 } from '@mui/material';
+import { keyframes } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
@@ -45,6 +46,22 @@ import useConfig from '@/hooks/useConfig';
 // Import translations
 import ar from '@/utils/locales/ar.json';
 import en from '@/utils/locales/en.json';
+
+// CSS Animation for pulse effect
+const pulseAnimation = keyframes`
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+`;
 
 const translations: Record<string, Record<string, string>> = {
   ar,
@@ -746,72 +763,333 @@ export default function DashboardEnhanced() {
           </CardContent>
         </Card>
 
-        {/* Advanced Filters Panel */}
+        {/* Enhanced Advanced Filters Panel */}
         {showAdvancedFilters && (
-          <Card sx={{ mb: 3 }}>
-            <CardHeader title="Advanced Filters" />
-            <CardContent>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 3 }}>
-                <FormControl fullWidth size="small">
+          <Card sx={{ mb: 3, background: 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.95) 100%)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+            <CardHeader 
+              title="Advanced Filters" 
+              sx={{ 
+                pb: 2,
+                '& .MuiCardHeader-title': {
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
+                  color: 'primary.main'
+                }
+              }}
+            />
+            <CardContent sx={{ pt: 0 }}>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr 1fr' }, 
+                gap: { xs: 3, sm: 4, md: 5 },
+                mb: 4 
+              }}>
+                <FormControl 
+                  fullWidth 
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      minHeight: '72px',
+                      fontSize: '1.1rem'
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontSize: '1.1rem',
+                      fontWeight: 600,
+                      transform: 'translate(14px, 24px) scale(1)',
+                      '&.MuiInputLabel-shrunk': {
+                        transform: 'translate(14px, -9px) scale(0.85)',
+                        fontSize: '1.2rem',
+                        fontWeight: 700
+                      }
+                    }
+                  }}
+                >
                   <InputLabel>Client Status</InputLabel>
                   <Select
                     value={advancedFilters.clientStatus}
+                    label="Client Status"
                     onChange={(e) => setAdvancedFilters(prev => ({ ...prev, clientStatus: e.target.value }))}
+                    sx={{
+                      '& .MuiSelect-select': {
+                        padding: '24px 14px',
+                        fontSize: '1.1rem',
+                        fontWeight: 500,
+                        minHeight: '24px'
+                      }
+                    }}
                   >
-                    <MenuItem value="all">All Clients</MenuItem>
-                    <MenuItem value="active">Active</MenuItem>
-                    <MenuItem value="inactive">Inactive</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="all" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'grey.400' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>All Clients</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="active" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'success.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Active</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="inactive" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'warning.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Inactive</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="pending" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'info.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Pending</Typography>
+                      </Box>
+                    </MenuItem>
                   </Select>
                 </FormControl>
                 
-                <FormControl fullWidth size="small">
+                <FormControl 
+                  fullWidth 
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      minHeight: '72px',
+                      fontSize: '1.1rem'
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontSize: '1.1rem',
+                      fontWeight: 600,
+                      transform: 'translate(14px, 24px) scale(1)',
+                      '&.MuiInputLabel-shrunk': {
+                        transform: 'translate(14px, -9px) scale(0.85)',
+                        fontSize: '1.2rem',
+                        fontWeight: 700
+                      }
+                    }
+                  }}
+                >
                   <InputLabel>Plan Type</InputLabel>
                   <Select
                     value={advancedFilters.planType}
+                    label="Plan Type"
                     onChange={(e) => setAdvancedFilters(prev => ({ ...prev, planType: e.target.value }))}
+                    sx={{
+                      '& .MuiSelect-select': {
+                        padding: '24px 14px',
+                        fontSize: '1.1rem',
+                        fontWeight: 500,
+                        minHeight: '24px'
+                      }
+                    }}
                   >
-                    <MenuItem value="all">All Plans</MenuItem>
-                    <MenuItem value="nutrition">Nutrition</MenuItem>
-                    <MenuItem value="workout">Workout</MenuItem>
-                    <MenuItem value="combined">Combined</MenuItem>
+                    <MenuItem value="all" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'grey.400' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>All Plans</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="nutrition" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'success.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Nutrition</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="workout" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'error.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Workout</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="combined" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'primary.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Combined</Typography>
+                      </Box>
+                    </MenuItem>
                   </Select>
                 </FormControl>
                 
-                <FormControl fullWidth size="small">
+                <FormControl 
+                  fullWidth 
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      minHeight: '72px',
+                      fontSize: '1.1rem'
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontSize: '1.1rem',
+                      fontWeight: 600,
+                      transform: 'translate(14px, 24px) scale(1)',
+                      '&.MuiInputLabel-shrunk': {
+                        transform: 'translate(14px, -9px) scale(0.85)',
+                        fontSize: '1.2rem',
+                        fontWeight: 700
+                      }
+                    }
+                  }}
+                >
                   <InputLabel>Revenue Range</InputLabel>
                   <Select
                     value={advancedFilters.revenueRange}
+                    label="Revenue Range"
                     onChange={(e) => setAdvancedFilters(prev => ({ ...prev, revenueRange: e.target.value }))}
+                    sx={{
+                      '& .MuiSelect-select': {
+                        padding: '24px 14px',
+                        fontSize: '1.1rem',
+                        fontWeight: 500,
+                        minHeight: '24px'
+                      }
+                    }}
                   >
-                    <MenuItem value="all">All Revenue</MenuItem>
-                    <MenuItem value="0-1000">$0 - $1,000</MenuItem>
-                    <MenuItem value="1000-5000">$1,000 - $5,000</MenuItem>
-                    <MenuItem value="5000+">$5,000+</MenuItem>
+                    <MenuItem value="all" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'grey.400' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>All Revenue</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="0-1000" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'info.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>$0 - $1,000</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="1000-5000" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'warning.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>$1,000 - $5,000</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="5000+" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'success.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>$5,000+</Typography>
+                      </Box>
+                    </MenuItem>
                   </Select>
                 </FormControl>
                 
-                <FormControl fullWidth size="small">
-                  <InputLabel>Engagement</InputLabel>
+                <FormControl 
+                  fullWidth 
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      minHeight: '72px',
+                      fontSize: '1.1rem'
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontSize: '1.1rem',
+                      fontWeight: 600,
+                      transform: 'translate(14px, 24px) scale(1)',
+                      '&.MuiInputLabel-shrunk': {
+                        transform: 'translate(14px, -9px) scale(0.85)',
+                        fontSize: '1.2rem',
+                        fontWeight: 700
+                      }
+                    }
+                  }}
+                >
+                  <InputLabel>Engagement Level</InputLabel>
                   <Select
                     value={advancedFilters.engagementLevel}
+                    label="Engagement Level"
                     onChange={(e) => setAdvancedFilters(prev => ({ ...prev, engagementLevel: e.target.value }))}
+                    sx={{
+                      '& .MuiSelect-select': {
+                        padding: '24px 14px',
+                        fontSize: '1.1rem',
+                        fontWeight: 500,
+                        minHeight: '24px'
+                      }
+                    }}
                   >
-                    <MenuItem value="all">All Levels</MenuItem>
-                    <MenuItem value="high">High</MenuItem>
-                    <MenuItem value="medium">Medium</MenuItem>
-                    <MenuItem value="low">Low</MenuItem>
+                    <MenuItem value="all" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'grey.400' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>All Levels</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="high" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'success.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>High Engagement</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="medium" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'warning.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Medium Engagement</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="low" sx={{ fontSize: '1.1rem', py: 2, minHeight: '48px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'error.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>Low Engagement</Typography>
+                      </Box>
+                    </MenuItem>
                   </Select>
                 </FormControl>
               </Box>
-              <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-                <Button variant="outlined" onClick={clearFilters} size="small">
-                  Clear Filters
-                </Button>
-                <Button variant="contained" onClick={applyFilters} size="small">
-                  Apply Filters
-                </Button>
-              </Stack>
+              
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 2,
+                pt: 2,
+                borderTop: '1px solid',
+                borderTopColor: 'divider'
+              }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  color: 'text.secondary',
+                  fontSize: '0.875rem'
+                }}>
+                  <Box sx={{ 
+                    width: 4, 
+                    height: 4, 
+                    borderRadius: '50%', 
+                    bgcolor: 'primary.main',
+                    animation: `${pulseAnimation} 2s infinite`
+                  }} />
+                  {Object.values(advancedFilters).filter(value => value !== 'all').length > 0 
+                    ? `${Object.values(advancedFilters).filter(value => value !== 'all').length} active filters` 
+                    : 'No active filters'
+                  }
+                </Box>
+                
+                <Stack direction="row" spacing={2}>
+                  <Button 
+                    variant="outlined" 
+                    onClick={clearFilters}
+                    sx={{ 
+                      minWidth: '120px',
+                      height: '40px',
+                      fontSize: '0.95rem',
+                      fontWeight: 500,
+                      textTransform: 'none',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                  <Button 
+                    variant="contained" 
+                    onClick={applyFilters}
+                    sx={{ 
+                      minWidth: '120px',
+                      height: '40px',
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                      '&:hover': {
+                        boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)'
+                      }
+                    }}
+                  >
+                    Apply Filters
+                  </Button>
+                </Stack>
+              </Box>
             </CardContent>
           </Card>
         )}

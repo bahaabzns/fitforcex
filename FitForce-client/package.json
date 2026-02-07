@@ -1,10 +1,9 @@
 {
   "name": "FitForce",
-  "version": "4.1.0",
+  "version": "5.0.0",
   "author": {
-    "name": "PhoenixCoded",
-    "email": "PhoenixCoded@gmail.com",
-    "url": "https://www.phoenixcoded.net/"
+    "name": "FitForce",
+    "email": "contact@fitforce.io"
   },
   "private": true,
   "scripts": {
@@ -41,15 +40,15 @@
     "copy-to-clipboard": "^3.3.3",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "fabric": "^6.7.1",
+    "fabric": "^7.1.0",
     "formik": "2.4.6",
     "framer-motion": "12.23.12",
     "history": "5.3.0",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.2",
-    "lodash-es": "4.17.21",
-    "next": "15.5.9",
-    "next-auth": "4.24.11",
+    "lodash-es": "^4.17.23",
+    "next": "^15.5.12",
+    "next-auth": "^4.24.13",
     "prop-types": "^15.8.1",
     "react": "19.1.1",
     "react-csv": "2.2.2",
@@ -61,7 +60,7 @@
     "react-joyride": "^3.0.0-7",
     "react-redux": "^9.2.0",
     "react-slick": "^0.31.0",
-    "react-syntax-highlighter": "^5.8.0",
+    "react-syntax-highlighter": "^16.1.0",
     "react-timer-hook": "4.0.5",
     "recharts": "^3.2.1",
     "simplebar-react": "3.3.2",
