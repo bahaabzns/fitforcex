@@ -1,3 +1,5 @@
+'use client';
+
 // next
 import Link from 'next/link';
 

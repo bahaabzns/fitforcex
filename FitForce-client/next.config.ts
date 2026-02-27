@@ -21,10 +21,7 @@ const nextConfig = {
   },
   experimental: {
     // Optimize package imports for better dev mode performance
-    optimizePackageImports: ['@mui/material', '@mui/icons-material', '@mui/lab'],
-  },
-  eslint: {
-    ignoreDuringBuilds: true
+    optimizePackageImports: ['@mui/material', '@mui/icons-material', '@mui/lab']
   },
   typescript: {
     ignoreBuildErrors: true
@@ -54,8 +51,7 @@ const nextConfig = {
     NEXT_APP_JWT_TIMEOUT: '86400',
     NEXTAUTH_SECRET_KEY: 'LlKq6ZtYbr+hTC073mAmAh9/h2HwMfsFo4hrfCx5mLg='
   },
-  outputFileTracingRoot: path.join(__dirname, './'),
- 
+  outputFileTracingRoot: path.join(__dirname, './')
 };
 
 module.exports = nextConfig;

@@ -106,8 +106,11 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
         console.log(`🔍 Workspace ID from API: ${workspaceData.id}`);
         setWorkspace(workspaceData);
         // Persist workspace in store so headers include x-workspace-id for guest flows
+        // Also store in sessionStorage as a fallback for axios interceptor
         try {
           dispatch(setWorkspaceStore({ id: workspaceData.id, subdomain: workspaceData.subdomain }));
+          sessionStorage.setItem('ff_workspace_id', workspaceData.id);
+          sessionStorage.setItem('ff_workspace_subdomain', workspaceData.subdomain || '');
         } catch {}
 
         // Check user role after workspace data is loaded
@@ -128,6 +131,8 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
         setWorkspace(workspaceData);
         try {
           dispatch(setWorkspaceStore({ id: workspaceData.id, subdomain: workspaceData.subdomain }));
+          sessionStorage.setItem('ff_workspace_id', workspaceData.id);
+          sessionStorage.setItem('ff_workspace_subdomain', workspaceData.subdomain || '');
         } catch {}
 
         // Check user role with fallback data
@@ -148,12 +153,12 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
         if (res.status === 200 || res.status === 304) {
           const data = await res.json();
           setApiLoggedIn(true);
-          
+
           // Set user type from API response
           if (data.user?.userType) {
             setUserType(data.user.userType);
             console.log('🔍 User type from API:', data.user.userType);
-            
+
             // Set client logged in status based on user type
             if (data.user.userType === 'client') {
               setClientLoggedIn(true);
@@ -223,12 +228,14 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
-      <Box sx={{ 
-        borderBottom: 1, 
-        borderColor: 'divider', 
-        bgcolor: 'background.paper',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-      }}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+        }}
+      >
         <Container maxWidth="lg">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -298,15 +305,15 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
           roleButtons={
             <>
               {/* Debug info */}
-              {console.log('🔍 Button render state:', { 
-                userRole, 
-                apiLoggedIn, 
+              {console.log('🔍 Button render state:', {
+                userRole,
+                apiLoggedIn,
                 clientLoggedIn,
                 userType,
                 isAuthenticated,
                 user: !!user
               })}
-              
+
               {/* Client Dashboard Button - Show if user is a client */}
               {userType === 'client' && (
                 <Button variant="contained" size="large" href="/client/dashboard">
@@ -339,10 +346,10 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
         {hasCustomLanding && config.features && config.features.length > 0 && (
           <Container maxWidth="lg">
             <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 10 } }}>
-              <Typography 
-                variant="h2" 
-                sx={{ 
-                  fontWeight: 900, 
+              <Typography
+                variant="h2"
+                sx={{
+                  fontWeight: 900,
                   mb: 3,
                   fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' },
                   color: 'text.primary'
@@ -350,11 +357,11 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
               >
                 What We Offer
               </Typography>
-              <Typography 
-                variant="h5" 
-                color="text.secondary" 
-                sx={{ 
-                  maxWidth: 700, 
+              <Typography
+                variant="h5"
+                color="text.secondary"
+                sx={{
+                  maxWidth: 700,
                   mx: 'auto',
                   fontSize: { xs: '1.25rem', sm: '1.5rem' },
                   lineHeight: 1.6
@@ -371,10 +378,10 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
         {hasCustomLanding && config.testimonials && config.testimonials.length > 0 && (
           <Container maxWidth="lg">
             <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 10 } }}>
-              <Typography 
-                variant="h2" 
-                sx={{ 
-                  fontWeight: 900, 
+              <Typography
+                variant="h2"
+                sx={{
+                  fontWeight: 900,
                   mb: 3,
                   fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' },
                   color: 'text.primary'
@@ -382,11 +389,11 @@ function WorkspaceLandingContent({ params }: WorkspaceLandingProps) {
               >
                 What Our Clients Say
               </Typography>
-              <Typography 
-                variant="h5" 
-                color="text.secondary" 
-                sx={{ 
-                  maxWidth: 700, 
+              <Typography
+                variant="h5"
+                color="text.secondary"
+                sx={{
+                  maxWidth: 700,
                   mx: 'auto',
                   fontSize: { xs: '1.25rem', sm: '1.5rem' },
                   lineHeight: 1.6

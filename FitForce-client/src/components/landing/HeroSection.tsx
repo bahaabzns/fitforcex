@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef, useMemo } from "react";
-import { useLanguage } from "@/lib/landing/LanguageContext";
-import Button from "./Button";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useLanguage } from '@/lib/landing/LanguageContext';
+import Button from './Button';
 
 export default function HeroSection() {
   const { t, dir } = useLanguage();
   const [isVisible, setIsVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [typedText, setTypedText] = useState("");
+  const [typedText, setTypedText] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -21,41 +21,35 @@ export default function HeroSection() {
 
   const workflows = useMemo(
     () => [
-      t?.workflows?.dietPlan ?? "make a diet plan",
-      t?.workflows?.workoutPlan ?? "make a workout plan",
-      t?.workflows?.createClient ?? "create new client",
-      t?.workflows?.chatClient ?? "chatting with a client",
-      t?.workflows?.createForm ?? "creating a form",
-      t?.workflows?.createPackages ?? "create new packages",
+      t?.workflows?.dietPlan ?? 'make a diet plan',
+      t?.workflows?.workoutPlan ?? 'make a workout plan',
+      t?.workflows?.createClient ?? 'create new client',
+      t?.workflows?.chatClient ?? 'chatting with a client',
+      t?.workflows?.createForm ?? 'creating a form',
+      t?.workflows?.createPackages ?? 'create new packages'
     ],
     [t]
   );
 
   const workflowDescriptions = useMemo(
     () => [
-      t?.workflows?.dietPlanDesc ??
-        "Design personalized diet plans with macros, meals, and substitutions.",
-      t?.workflows?.workoutPlanDesc ??
-        "Build structured workout plans with progression, rest, and equipment.",
-      t?.workflows?.createClientDesc ??
-        "Quickly onboard a new client with essential details and goals.",
-      t?.workflows?.chatClientDesc ??
-        "Keep conversations flowing with in-app chat and media.",
-      t?.workflows?.createFormDesc ??
-        "Create assessment forms and collect responses in one place.",
-      t?.workflows?.createPackagesDesc ??
-        "Set up package offerings, pricing, and renewals for clients.",
+      t?.workflows?.dietPlanDesc ?? 'Design personalized diet plans with macros, meals, and substitutions.',
+      t?.workflows?.workoutPlanDesc ?? 'Build structured workout plans with progression, rest, and equipment.',
+      t?.workflows?.createClientDesc ?? 'Quickly onboard a new client with essential details and goals.',
+      t?.workflows?.chatClientDesc ?? 'Keep conversations flowing with in-app chat and media.',
+      t?.workflows?.createFormDesc ?? 'Create assessment forms and collect responses in one place.',
+      t?.workflows?.createPackagesDesc ?? 'Set up package offerings, pricing, and renewals for clients.'
     ],
     [t]
   );
 
   const gifFiles = [
-    "Design Nutrition Plans.gif",
-    "Build Workout Plans.gif",
-    "Onboard Clients.gif",
-    "Start Conversations.gif",
-    "Create Forms.gif",
-    "Setup Packages.gif",
+    'Design Nutrition Plans.gif',
+    'Build Workout Plans.gif',
+    'Onboard Clients.gif',
+    'Start Conversations.gif',
+    'Create Forms.gif',
+    'Setup Packages.gif'
   ];
 
   // Approximate durations for each GIF in milliseconds (can be adjusted)
@@ -143,14 +137,14 @@ export default function HeroSection() {
       clearInterval(typingRef.current);
     }
 
-    const text = workflowDescriptions[activeIndex] || "";
-    setTypedText("");
+    const text = workflowDescriptions[activeIndex] || '';
+    setTypedText('');
     let charIndex = 0;
 
     typingRef.current = window.setInterval(() => {
       charIndex++;
       // For RTL languages, reveal from the beginning (first chars appear on right, new chars added to left)
-      if (dir === "rtl") {
+      if (dir === 'rtl') {
         setTypedText(text.slice(0, charIndex));
       } else {
         setTypedText(text.slice(0, charIndex));
@@ -198,7 +192,7 @@ export default function HeroSection() {
     <section
       className="min-h-screen bg-[var(--bg-primary)] relative scroll-snap-section scroll-snap-start overflow-hidden"
       dir={dir}
-      style={{ scrollSnapStop: "normal" }}
+      style={{ scrollSnapStop: 'normal' }}
     >
       {/* Base dark gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)]"></div>
@@ -214,58 +208,41 @@ export default function HeroSection() {
           {/* Hero Content */}
           <div
             className={`flex flex-col items-center text-center mb-8 transition-all duration-700 ${
-              isVisible
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-10"
+              isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
             }`}
           >
             <div className="mb-0 max-w-5xl">
               {/* Super Sheets Badge - Above title */}
               <div
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 mb-4 sm:mb-5 bg-cyan-500/10 border border-cyan-500/30 rounded-full backdrop-blur-sm shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all duration-500 delay-75 ${
-                  isVisible
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-10"
+                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
                 }`}
               >
                 <span className="text-cyan-400 text-lg animate-pulse">✨</span>
-                <span
-                  className="text-xs font-semibold text-cyan-300 tracking-wide"
-                  style={{ lineHeight: dir === "rtl" ? "1.6" : "1.4" }}
-                >
+                <span className="text-xs font-semibold text-cyan-300 tracking-wide" style={{ lineHeight: dir === 'rtl' ? '1.6' : '1.4' }}>
                   {t.hero.superSheetsBadge}
                 </span>
               </div>
 
               <h1
                 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black text-[var(--text-primary)] mb-4 sm:mb-6 leading-[1.2] tracking-tight transition-all duration-500 delay-75 ${
-                  isVisible
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-10"
+                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
                 }`}
-                style={{ lineHeight: dir === "rtl" ? "1.3" : "1.2" }}
+                style={{ lineHeight: dir === 'rtl' ? '1.3' : '1.2' }}
               >
                 {t.hero.title}
               </h1>
 
               <p
                 className={`text-base sm:text-lg md:text-xl lg:text-2xl text-[var(--text-secondary)] mb-6 sm:mb-8 leading-relaxed max-w-3xl mx-auto transition-all duration-500 delay-150 ${
-                  isVisible
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-10"
-                } ${dir === "rtl" ? "text-center" : "text-center"}`}
-                style={{ lineHeight: dir === "rtl" ? "1.8" : "1.6" }}
+                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+                } ${dir === 'rtl' ? 'text-center' : 'text-center'}`}
+                style={{ lineHeight: dir === 'rtl' ? '1.8' : '1.6' }}
                 dangerouslySetInnerHTML={{
                   __html:
-                    dir === "rtl"
-                      ? t.hero.subtitle.replace(
-                          "غير محدود",
-                          '<span class="text-cyan-400 font-bold">غير محدود</span>'
-                        )
-                      : t.hero.subtitle.replace(
-                          "unlimited",
-                          '<span class="text-cyan-400 font-bold">unlimited</span>'
-                        ),
+                    dir === 'rtl'
+                      ? t.hero.subtitle.replace('غير محدود', '<span class="text-cyan-400 font-bold">غير محدود</span>')
+                      : t.hero.subtitle.replace('unlimited', '<span class="text-cyan-400 font-bold">unlimited</span>')
                 }}
               />
 
@@ -274,7 +251,7 @@ export default function HeroSection() {
 
               <div
                 className={`flex flex-col sm:flex-row gap-4 justify-center mb-4 transition-all duration-500 delay-300 ${
-                  isVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"
+                  isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
                 }`}
               >
                 <Button href="/register" size="lg">
@@ -283,9 +260,9 @@ export default function HeroSection() {
               </div>
               <p
                 className={`text-sm text-[var(--text-tertiary)] transition-all duration-500 delay-400 ${
-                  isVisible ? "opacity-100" : "opacity-0"
+                  isVisible ? 'opacity-100' : 'opacity-0'
                 }`}
-                style={{ lineHeight: dir === "rtl" ? "1.7" : "1.5" }}
+                style={{ lineHeight: dir === 'rtl' ? '1.7' : '1.5' }}
               >
                 ✓ {t.hero.noCreditCard}
               </p>
@@ -297,7 +274,7 @@ export default function HeroSection() {
             {/* Controls aligned on same row - visible only on mobile */}
             <button
               type="button"
-              aria-label={dir === "rtl" ? "تبويب سابق" : "Previous tab"}
+              aria-label={dir === 'rtl' ? 'تبويب سابق' : 'Previous tab'}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -311,7 +288,7 @@ export default function HeroSection() {
             </button>
             <button
               type="button"
-              aria-label={dir === "rtl" ? "تبويب لاحق" : "Next tab"}
+              aria-label={dir === 'rtl' ? 'تبويب لاحق' : 'Next tab'}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -325,9 +302,9 @@ export default function HeroSection() {
             </button>
             <div
               role="tablist"
-              aria-label={t?.workflows?.ariaLabel ?? "Workflows"}
+              aria-label={t?.workflows?.ariaLabel ?? 'Workflows'}
               className="flex gap-2 overflow-x-hidden overflow-y-visible px-10 sm:px-12 md:px-8 lg:px-1 py-2 md:py-3 justify-center items-center min-h-[3rem]"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {workflows.map((label, idx) => (
                 <button
@@ -344,14 +321,14 @@ export default function HeroSection() {
                   }}
                   className={`flex-shrink-0 whitespace-nowrap rounded-full border-2 bg-black/40 text-[var(--text-secondary)] hover:text-cyan-300 hover:border-cyan-500/60 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm md:text-base lg:px-5 lg:py-2.5 transition-all duration-500 min-h-[2.25rem] sm:min-h-[2.5rem] md:min-h-[2.75rem] flex items-center ${
                     activeIndex === idx
-                      ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/50 ring-2 ring-cyan-500/30 lg:scale-105 block opacity-100 translate-x-0"
+                      ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/50 ring-2 ring-cyan-500/30 lg:scale-105 block opacity-100 translate-x-0'
                       : `border-cyan-500/30 ${
                           Math.abs(idx - activeIndex) <= 1
-                            ? "hidden sm:inline-flex opacity-60 hover:opacity-100"
-                            : "hidden lg:inline-flex opacity-60 hover:opacity-100"
+                            ? 'hidden sm:inline-flex opacity-60 hover:opacity-100'
+                            : 'hidden lg:inline-flex opacity-60 hover:opacity-100'
                         }`
                   }`}
-                  style={{ lineHeight: dir === "rtl" ? "1.6" : "1.4" }}
+                  style={{ lineHeight: dir === 'rtl' ? '1.6' : '1.4' }}
                 >
                   {label}
                 </button>
@@ -376,32 +353,29 @@ export default function HeroSection() {
                 {/* Descriptions with typewriter effect */}
                 <div
                   className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold text-cyan-300 min-h-[2rem] sm:min-h-[2.5rem] md:min-h-[3rem] lg:min-h-[3.5rem] xl:min-h-[4rem] pb-1 px-2 ${
-                    dir === "rtl" ? "text-right" : "text-left"
+                    dir === 'rtl' ? 'text-right' : 'text-left'
                   }`}
                   dir={dir}
                   style={{
-                    direction: dir === "rtl" ? "rtl" : "ltr",
-                    lineHeight: dir === "rtl" ? "1.7" : "1.6",
-                    textShadow: "0 0 20px rgba(6, 182, 212, 0.5)",
-                    wordBreak: "break-word",
+                    direction: dir === 'rtl' ? 'rtl' : 'ltr',
+                    lineHeight: dir === 'rtl' ? '1.7' : '1.6',
+                    textShadow: '0 0 20px rgba(6, 182, 212, 0.5)',
+                    wordBreak: 'break-word'
                   }}
                 >
-                  <span
-                    className="inline-block"
-                    style={{ verticalAlign: "baseline" }}
-                  >
+                  <span className="inline-block" style={{ verticalAlign: 'baseline' }}>
                     {typedText}
                   </span>
-                  {dir === "rtl" ? (
+                  {dir === 'rtl' ? (
                     <span
                       className="inline-block w-1.5 sm:w-2 h-5 sm:h-6 md:h-7 lg:h-8 bg-cyan-400 animate-pulse mr-1 sm:mr-1.5"
-                      style={{ verticalAlign: "baseline" }}
+                      style={{ verticalAlign: 'baseline' }}
                       aria-hidden="true"
                     ></span>
                   ) : (
                     <span
                       className="inline-block w-1.5 sm:w-2 h-5 sm:h-6 md:h-7 lg:h-8 bg-cyan-400 animate-pulse ml-1 sm:ml-1.5"
-                      style={{ verticalAlign: "baseline" }}
+                      style={{ verticalAlign: 'baseline' }}
                       aria-hidden="true"
                     ></span>
                   )}
@@ -413,11 +387,8 @@ export default function HeroSection() {
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin"></div>
-                        <span
-                          className="text-cyan-300 text-sm font-medium"
-                          style={{ lineHeight: dir === "rtl" ? "1.7" : "1.5" }}
-                        >
-                          {dir === "rtl" ? "جاري التحميل..." : "Loading..."}
+                        <span className="text-cyan-300 text-sm font-medium" style={{ lineHeight: dir === 'rtl' ? '1.7' : '1.5' }}>
+                          {dir === 'rtl' ? 'جاري التحميل...' : 'Loading...'}
                         </span>
                       </div>
                     </div>
@@ -429,19 +400,10 @@ export default function HeroSection() {
                       onClick={restartGif}
                       type="button"
                       className="p-2 rounded-full bg-black/70 hover:bg-black/80 text-cyan-300 border border-cyan-500/50 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm"
-                      title={dir === "rtl" ? "إعادة من البداية" : "Restart"}
-                      aria-label={
-                        dir === "rtl"
-                          ? "إعادة من البداية"
-                          : "Restart from beginning"
-                      }
+                      title={dir === 'rtl' ? 'إعادة من البداية' : 'Restart'}
+                      aria-label={dir === 'rtl' ? 'إعادة من البداية' : 'Restart from beginning'}
                     >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -454,46 +416,22 @@ export default function HeroSection() {
                       onClick={togglePlayPause}
                       type="button"
                       className="p-2 rounded-full bg-black/70 hover:bg-black/80 text-cyan-300 border border-cyan-500/50 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm"
-                      title={
-                        isPaused
-                          ? dir === "rtl"
-                            ? "تشغيل"
-                            : "Play"
-                          : dir === "rtl"
-                          ? "إيقاف مؤقت"
-                          : "Pause"
-                      }
-                      aria-label={
-                        isPaused
-                          ? dir === "rtl"
-                            ? "تشغيل"
-                            : "Play"
-                          : dir === "rtl"
-                          ? "إيقاف مؤقت"
-                          : "Pause"
-                      }
+                      title={isPaused ? (dir === 'rtl' ? 'تشغيل' : 'Play') : dir === 'rtl' ? 'إيقاف مؤقت' : 'Pause'}
+                      aria-label={isPaused ? (dir === 'rtl' ? 'تشغيل' : 'Play') : dir === 'rtl' ? 'إيقاف مؤقت' : 'Pause'}
                     >
                       {isPaused ? (
-                        <svg
-                          className="w-5 h-5"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       ) : (
-                        <svg
-                          className="w-5 h-5"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                         </svg>
                       )}
                     </button>
                   </div>
 
-                  {/* Video container with all videos pre-loaded */}
+                  {/* Video container with lazy loading - only load current video */}
                   <div ref={containerRef} className="relative w-full">
                     {gifFiles.map((fileName, idx) => (
                       <video
@@ -505,26 +443,22 @@ export default function HeroSection() {
                         loop
                         muted
                         playsInline
-                        preload="auto"
+                        preload={activeIndex === idx ? 'auto' : 'none'}
                         style={{
                           opacity: activeIndex === idx ? 1 : 0,
-                          position:
-                            activeIndex === idx ? "relative" : "absolute",
+                          position: activeIndex === idx ? 'relative' : 'absolute',
                           top: 0,
                           left: 0,
-                          pointerEvents: activeIndex === idx ? "auto" : "none",
+                          pointerEvents: activeIndex === idx ? 'auto' : 'none'
                         }}
                         onLoadedData={() => {
-                          if (idx === 0) setIsLoading(false);
+                          if (idx === activeIndex) setIsLoading(false);
+                        }}
+                        onCanPlay={() => {
+                          if (idx === activeIndex) setIsLoading(false);
                         }}
                       >
-                        <source
-                          src={`/hero_videos/${fileName.replace(
-                            ".gif",
-                            ".mp4"
-                          )}`}
-                          type="video/mp4"
-                        />
+                        <source src={`/hero_videos/${fileName.replace('.gif', '.mp4')}`} type="video/mp4" />
                       </video>
                     ))}
                   </div>

@@ -17,6 +17,12 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { store } from '@/store';
 import Customization from 'components/customization';
 import { TourProvider } from '@/contexts/TourContext';
+import { useWorkspaceInitializer } from '@/hooks/useWorkspaceInitializer';
+
+function WorkspaceInitializer() {
+  useWorkspaceInitializer();
+  return null;
+}
 
 // ==============================|| PROVIDER WRAPPER  ||============================== //
 
@@ -29,6 +35,7 @@ export default function ProviderWrapper({ children }: { children: ReactNode }) {
             <ScrollTop>
               <SessionProvider refetchInterval={0}>
                 <ReduxProvider store={store}>
+                  <WorkspaceInitializer />
                   <Snackbar />
                   <TourProvider>
                     {children}

@@ -17,10 +17,10 @@ import { ThemeDirection } from 'config';
 import { track } from '@/lib/pixel';
 
 // Dynamically import WorkspaceLanding to avoid circular dependencies
-const WorkspaceLandingContent = dynamic(
-  () => import('./landing/workspace/[id]/page').then(mod => mod.WorkspaceLandingContentExport),
-  { loading: () => <Loader />, ssr: false }
-);
+const WorkspaceLandingContent = dynamic(() => import('./landing/workspace/[id]/page').then((mod) => mod.WorkspaceLandingContentExport), {
+  loading: () => <Loader />,
+  ssr: false
+});
 
 // ==============================|| LANDING PAGE ||============================== //
 
@@ -41,12 +41,12 @@ export default function Landing() {
     } else {
       onChangeDirection(ThemeDirection.RTL);
     }
-    
+
     // Force dark mode on landing page
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -61,21 +61,21 @@ export default function Landing() {
 
       const workspaceId = getCookie('ff_workspace_id');
       const workspaceSubdomain = getCookie('ff_workspace_subdomain');
-      
+
       // Also check the hostname directly as a fallback
       const host = window.location.host;
       const parts = host.split('.');
       const isLocalhost = host.includes('localhost');
-      const isMainDomain = isLocalhost 
+      const isMainDomain = isLocalhost
         ? host === 'localhost:3000' || host === 'localhost'
         : host === APP_CONFIG.frontendDomain || host === `app.${APP_CONFIG.frontendDomain}`;
 
-      console.log('🔍 Main landing page - Workspace check:', { 
-        host, 
+      console.log('🔍 Main landing page - Workspace check:', {
+        host,
         parts,
         isMainDomain,
-        workspaceId, 
-        workspaceSubdomain 
+        workspaceId,
+        workspaceSubdomain
       });
 
       // Only show workspace landing if we're actually on a workspace subdomain
@@ -86,41 +86,44 @@ export default function Landing() {
         setIsCheckingWorkspace(false);
         return;
       }
-      
+
       // If we're on main domain but have workspace cookies, clear them and show main landing
       if (workspaceId && workspaceSubdomain && isMainDomain) {
         console.log('🧹 Main domain detected with stale workspace cookies, clearing them and showing main landing');
         // Clear workspace cookies on main domain
         document.cookie = `ff_workspace_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
         document.cookie = `ff_workspace_subdomain=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-        
+
         // Also clear cookies with domain attribute to be extra sure
         if (!isLocalhost) {
           document.cookie = `ff_workspace_id=; path=/; domain=.${APP_CONFIG.frontendDomain}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
           document.cookie = `ff_workspace_subdomain=; path=/; domain=.${APP_CONFIG.frontendDomain}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
         }
-        
+
         setIsCheckingWorkspace(false);
         return;
       }
-      
+
       // If we're on a subdomain but no cookies (middleware might have failed), check directly
       if (!isMainDomain) {
         const subdomain = parts[0];
         console.log(`🔍 On subdomain ${subdomain} but no cookies, checking API directly...`);
-        
+
         try {
           const apiUrl = `${APP_CONFIG.apiUrl}/api/workspaces/resolve?host=${host}`;
           console.log(`🔗 Fetching from: ${apiUrl}`);
-          
+
           const response = await fetch(apiUrl, {
             cache: 'no-store'
           });
-          
+
           if (response.ok) {
             const data = await response.json();
             console.log('✅ Workspace found via direct API check:', data.workspace);
             setWorkspaceData({ id: data.workspace.id, subdomain: data.workspace.subdomain });
+            // Store in sessionStorage for axios interceptor
+            sessionStorage.setItem('ff_workspace_id', data.workspace.id);
+            sessionStorage.setItem('ff_workspace_subdomain', data.workspace.subdomain || '');
             setIsCheckingWorkspace(false);
             return;
           } else {
@@ -143,17 +146,17 @@ export default function Landing() {
       // Check for error messages
       const error = searchParams.get('error');
       const workspace = searchParams.get('workspace');
-      
+
       if (error === 'workspace_not_found' || error === 'workspace_error') {
         setShowError(true);
         setErrorType(error);
         setWorkspaceName(workspace);
-        
+
         // Auto-hide after 10 seconds
         const timer = setTimeout(() => {
           setShowError(false);
         }, 10000);
-        
+
         return () => clearTimeout(timer);
       }
     };
@@ -188,10 +191,10 @@ export default function Landing() {
       {/* Error Alert for Non-existent Workspace */}
       {showError && (
         <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, width: '100%' }}>
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             onClose={() => setShowError(false)}
-            sx={{ 
+            sx={{
               borderRadius: 0,
               '& .MuiAlert-message': { width: '100%' }
             }}
@@ -202,13 +205,9 @@ export default function Landing() {
                 The workspace <strong>"{workspaceName}"</strong> doesn't exist or has been removed.
               </>
             ) : (
-              <>
-                The workspace you tried to access doesn't exist or has been removed.
-              </>
+              <>The workspace you tried to access doesn't exist or has been removed.</>
             )}
-            {errorType === 'workspace_error' && (
-              <> There was also an error connecting to the server.</>
-            )}
+            {errorType === 'workspace_error' && <> There was also an error connecting to the server.</>}
           </Alert>
         </Box>
       )}
