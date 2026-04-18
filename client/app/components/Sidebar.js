@@ -2,9 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import api from "@/lib/axios";
+import { useRouter } from "next/navigation";
+
 
 export default function Sidebar() {
     const pathname =usePathname();
+    const router = useRouter();
+    const handleLogout = async () => {
+        try {
+            await api.post('/api/auth/logout');
+            router.push('/login');
+        } catch (err) {
+            console.log(err);
+        }
+    }
     return (
         <aside className="w-64 h-screen bg-gray-900 text-white flex flex-col">
             <h1 className="text-xl font-bold text-white border-b border-gray-700 p-6">FitForce X</h1>
@@ -24,6 +36,9 @@ export default function Sidebar() {
                     </Link></li>
                 </ul>
             </nav>
+            <button onClick={handleLogout} className="mt-auto mb-4 mx-4 py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700">
+                Logout
+            </button>
         </aside>
     );
 }
