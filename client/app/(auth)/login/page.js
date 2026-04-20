@@ -28,21 +28,30 @@ export default function LoginPage() {
         });
     }
     return (
-        <div className="p-8">
-            <h1 className="text-3xl font-bold">Coach Login</h1>
-            <form onSubmit={handleSubmit}>
-                <input type="email" placeholder="Email"
-                value={formData.email}
-                onChange={handleChange}
-                name="email"></input>
-                
-                <input type="password" placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                name="password"></input>
+        <div className="auth-wrapper">
+            <div className="auth-card">
+                <h1 className="auth-title">Coach Login</h1>
+                <form className="auth-form" onSubmit={handleSubmit}>
+                    <input type="email" placeholder="Email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    name="email"
+                    className="input-field"></input>
+                    
+                    <input type="password" placeholder="Password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    name="password"
+                    className="input-field"></input>
 
-                <button type="submit">Login</button>
-            </form>
+                    <button type="submit" className="btn-primary">Login</button>
+
+                    <p className="auth-link">
+                        Don't have an account?
+                        <a href="/register"> Register here</a>
+                    </p>
+                </form>
+            </div>
         </div>
     );
 }

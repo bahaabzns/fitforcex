@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F5F5F7;
+  --foreground: #1D1D1F;
+  --accent: #007AFF;
+  --accent-hover: #0056CC;
+  --secondary-text: #86868B;
+  --card-bg: #FFFFFF;
+  --border-color: #D2D2D7;
+  --sidebar-bg: #F0F0F5;
+  --danger: #FF3B30;
+  --success: #34C759;
 }
 
 @theme inline {
@@ -14,13 +22,114 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #F5F5F7;
+    --foreground: #1D1D1F;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .auth-wrapper {
+    @apply min-h-screen flex items-center justify-center;
+    background: var(--background);
+  }
+  .auth-card {
+    @apply p-10 rounded-2xl shadow-lg w-full max-w-md;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  .auth-title {
+    @apply text-2xl font-semibold text-center mb-8;
+    color: var(--foreground);
+  }
+  .auth-form {
+    @apply flex flex-col gap-4;
+  }
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition;
+    border: 1px solid var(--border-color);
+    background: #FAFAFA;
+    focus-ring-color: var(--accent);
+  }
+  .input-field::placeholder {
+    color: var(--secondary-text);
+  }
+  .input-field:focus {
+    ring-color: var(--accent);
+    border-color: var(--accent);
+  }
+  .btn-primary {
+    @apply py-3 rounded-xl text-white font-medium transition cursor-pointer;
+    background: var(--accent);
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+  .btn-danger {
+    @apply py-3 rounded-xl text-white font-medium transition cursor-pointer;
+    background: var(--danger);
+  }
+  .btn-danger:hover {
+    background: #E0312B;
+  }
+  .auth-link {
+    @apply text-center text-sm mt-4;
+    color: var(--secondary-text);
+  }
+  .auth-link a {
+    color: var(--accent);
+  }
+  .auth-link a:hover {
+    text-decoration: underline;
+  }
+  .card {
+    @apply rounded-2xl shadow-sm p-6;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  .card-title {
+  @apply text-sm font-medium;
+  color: var(--foreground);
+  }
+  .card-number {
+    @apply text-3xl font-bold mt-2;
+    color: var(--accent);
+  }
+  .card-wrapper { @apply flex gap-6 mt-6; }
+  .sidebar {
+    @apply w-64 h-screen flex flex-col;
+    background: rgba(240, 240, 245, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-right: 1px solid rgba(210, 210, 215, 0.5);
+  }
+  .sidebar-title {
+    @apply text-xl font-semibold p-6;
+    color: var(--foreground);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .sidebar-link {
+    @apply block py-2 px-4 rounded-lg transition;
+    color: var(--secondary-text);
+  }
+  .sidebar-link:hover {
+    background: #E8E8ED;
+    color: var(--foreground);
+  }
+  .sidebar-link-active {
+    @apply block py-2 px-4 rounded-lg font-medium;
+    background: var(--accent);
+    color: white;
+  }
 }
