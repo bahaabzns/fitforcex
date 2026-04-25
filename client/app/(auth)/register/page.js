@@ -43,7 +43,7 @@ export default function RegisterPage() {
                         placeholder="First Name" 
                         value={formData.fname} 
                         onChange={handleChange}
-                        name="fname" 
+                        name="fname"
                         className="input-field">
                     </input>
 

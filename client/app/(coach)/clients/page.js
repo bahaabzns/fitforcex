@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function ClientsPage() {
     const [clients, setClients] = useState([]);
@@ -39,9 +39,7 @@ export default function ClientsPage() {
 
     }
 
-
-    useEffect(() => {
-        const fetchClients = async () => {
+    const fetchClients = async () => {
             try {
                 const result = await api.get('/api/clients');
                 setClients(result.data);
@@ -49,6 +47,9 @@ export default function ClientsPage() {
                 console.log(err);
             }
         }
+
+
+    useEffect(() => {
         fetchClients();
     }, []);
     
@@ -57,14 +58,22 @@ export default function ClientsPage() {
 
             <div className="flex items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold flex-1">Clients</h1>
-                <button onClick={() => setShowForm(!showForm)} className="btn-primary px-4 flex-shrink-0">
+                <button onClick={() => setShowForm(!showForm)} className="btn-primary px-4 shrink-0">
                     + Add Client
                 </button>
                 {showForm && (
-                    <form>
-                        <input type="text" name="fname" value={formData.fname} placeholder="First Name" onChange={handle}></input>
+                    <div onClick={() => setShowForm(false)} className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
+                        <div onClick={(e) => e.stopPropagation()} className="card p-6 w-80">
+                            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                                <input type="text" name="fname" value={formData.fname} placeholder="First Name" onChange={handleChange} className="input-field"></input>
+                                <input type="text" name="lname" value={formData.lname} placeholder="Last Name" onChange={handleChange} className="input-field"></input>
+                                <input type="text" name="email" value={formData.email} placeholder="Email" onChange={handleChange} className="input-field"></input>
+                                <input type="text" name="phone" value={formData.phone} placeholder="Phone" onChange={handleChange} className="input-field"></input>
+                                <button type="submit" className="btn-primary px-4">Create</button>
+                            </form>
+                        </div>
                         
-                    </form>
+                    </div>
                 )}
             </div>
 
@@ -82,7 +91,7 @@ export default function ClientsPage() {
                         {clients.map((client) => (
                             <tr key={client.id}>
                                 <td className="py-3 px-4">{client.client_code}</td>
-                                <td className="py-3 px-4">{client.fname} {client.lname}</td>
+                                <td className="py-3 px-4"><Link href={`/clients/${client.id}`}>{client.fname} {client.lname}</Link></td>
                                 <td className="py-3 px-4">{client.email}</td>
                                 <td className="py-3 px-4">{client.phone}</td>
                             </tr>

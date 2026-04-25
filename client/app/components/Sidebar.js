@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 
 export default function Sidebar() {
@@ -17,6 +18,7 @@ export default function Sidebar() {
             console.log(err);
         }
     }
+    const [dbOpen, setDbOpen] = useState(false);
     return (
         <aside className="sidebar">
             <h1 className="sidebar-title">FitForce X</h1>
@@ -30,10 +32,24 @@ export default function Sidebar() {
                         className={pathname === '/clients' ? 'sidebar-link-active' : 'sidebar-link'}>
                             Clients
                     </Link></li>
-                    <li><Link href="/databases" 
+                    <li>
+                        <button onClick={() => setDbOpen(!dbOpen)} 
                         className={pathname.startsWith('/databases') ? 'sidebar-link-active' : 'sidebar-link'}>
-                            Databases
-                    </Link></li>
+                            Databases {dbOpen ? '▲' : '▼'}
+                        </button>
+                        {
+                            dbOpen && (
+                                <ul>
+                                    <li><Link href="/databases/nutrition/food-items" 
+                                    className={pathname === '/databases/nutrition/food-items' ? 'sidebar-link-active' : 'sidebar-link'}>Nutrition</Link></li>
+
+                                    <li><Link href="/databases/training/exercise-library" 
+                                    className={pathname === '/databases/training/exercise-library' ? 'sidebar-link-active' : 'sidebar-link'}>Training</Link></li>
+
+                                </ul>
+                            )
+                        }
+                    </li>
                 </ul>
             </nav>
             <button onClick={handleLogout} className="btn-danger mt-auto mb-4 mx-4">
