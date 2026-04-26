@@ -21,7 +21,6 @@ export function useNutritionPlan(clientId) {
     const [loading, setLoading] = useState(true);
 
 
-
     // Effects ------------------------------------------------------------------
 
     useEffect(() => {
@@ -202,6 +201,7 @@ export function useNutritionPlan(clientId) {
 
 
 
+
     // Return all state and handlers ------------------------------------------------------------------
 
     return {
@@ -227,5 +227,5 @@ export function useNutritionPlan(clientId) {
         handleAddFoodItem,
         handleAmountChange,
         handleFoodSearch,
-    };
+    }
 }

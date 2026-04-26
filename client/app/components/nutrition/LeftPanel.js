@@ -3,6 +3,7 @@ import NameModal from "../NameModal";
 export default function LeftPanel ({ plans, selectedPlan, planNameModalOpen, setPlanNameModalOpen, planName, setPlanName, handleCreatePlan, handleSelectedPlan }) {
     return (
         <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
+            {/* Header */}
             <div className="flex flex-row justify-center items-center gap-4 mb-4">
                 <h2 className="flex-1 text-xl font-bold">Plans</h2>
 
@@ -14,6 +15,8 @@ export default function LeftPanel ({ plans, selectedPlan, planNameModalOpen, set
                 </button>
 
             </div>
+
+            {/* Modal For Creating Plan */}
             {planNameModalOpen && (
                 <NameModal
                     title="Enter Plan Name"
@@ -26,6 +29,7 @@ export default function LeftPanel ({ plans, selectedPlan, planNameModalOpen, set
                 />
             )}
 
+            {/* Plans List */}
             <div className="flex-1 overflow-y-auto min-h-0">
                 {plans.map((plan) => (
                 <div
