@@ -29,7 +29,7 @@ export default function CoachLayout({ children }) {
     return (
         <div className="flex h-screen">
             <Sidebar />
-            <main className="flex-1 overflow-auto bg-gray-50 text-gray-900">
+            <main className="flex-1 h-full flex flex-col overflow-hidden bg-gray-50 text-gray-900 p-6">
                 {children}
             </main>
         </div>

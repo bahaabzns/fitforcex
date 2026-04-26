@@ -231,9 +231,9 @@
     }
 
     return (
-        <div className="flex flex-row h-full gap-4 overflow-hidden">
-            {/* Panel 1: Plans List */}
-            <div className="card w-1/3 flex flex-col overflow-hidden">
+<div className="flex-1 h-full flex flex-row gap-4 overflow-hidden min-h-0">
+    {/* Panel 1: Plans List */}
+<div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
                 <div className="flex flex-row justify-center items-center gap-4 mb-4">
                     <h2 className="flex-1 text-xl font-bold">Plans</h2>
 
@@ -273,7 +273,7 @@
                 </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto min-h-0">
                     {plans.map((plan) => (
                     <div
                         key={plan.id}
@@ -297,7 +297,7 @@
 
             {/* Panel 2: Plan Detail — يظهر بس لو selectedPlan مش null */}
             {selectedPlan ? (
-                <div className="card w-1/3 flex flex-col overflow-hidden">
+<div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold">{selectedPlan.name}</h2>
                     <button
@@ -308,7 +308,7 @@
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
+                <div className="mb-6 flex flex-col flex-shrink-0">
                 {/* Cycles List */}
                 <div className="mb-6 flex flex-col">
                     {/* Header + Add Cycle Button */}
@@ -408,10 +408,15 @@
                     </div>
                     )}
                 </div>
+                </div>
 
-                <div>
-                    <div className="flex gap-4 justify-start items-center mb-4">
-                        <h3 className="flex-1 text-lg font-semibold">Meals</h3>
+                {/* Meals List */}
+
+                <div className="flex flex-col flex-1 min-h-0">
+                    <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
+                        <h3 className="flex-1 text-lg font-semibold">
+                            Meals
+                        </h3>
                         <button
                             className="flex-2 btn-primary px-4 w-full"
                             onClick={() => setMealModalOpen(true)}
@@ -448,31 +453,38 @@
                     </div>
                     )}
 
-                    {selectedPlan.cycles.length === 0 ? (
-                    <p className="text-gray-600">No meals added yet.</p>
-                    ) : (
-                    selectedPlan.cycles[selectedCycleIndex].meals.map(
-                        (meal, index) => (
-                        <div
-                            key={index}
-                            className={`card px-6 py-4 mb-2 cursor-pointer ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
-                            onClick={() => setSelectedMeal(meal)}
-                        >
-                            <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-md font-semibold">{meal.name}</h4>
-                                <span className="text-xs text-gray-500">{meal.items.length} items</span>
+
+
+                    <div className="flex-1 overflow-y-auto min-h-0">
+
+                        {selectedPlan.cycles.length === 0 ? (
+                        <p className="text-gray-600">No meals added yet.</p>
+                        ) : (
+                        selectedPlan.cycles[selectedCycleIndex].meals.map(
+                            (meal, index) => (
+                            
+                            <div
+                                key={index}
+                                className={`card px-6 py-4 mb-2 cursor-pointer ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
+                                onClick={() => setSelectedMeal(meal)}
+                            >
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="text-md font-semibold">{meal.name}</h4>
+                                    <span className="text-xs text-gray-500">{meal.items.length} items</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs">{calcMeal(meal).calories} kcal</span>
+                                    <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs"><span className="font-semibold">P:</span> {calcMeal(meal).protein} g</span>
+                                    <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs"><span className="font-semibold">C:</span> {calcMeal(meal).carbs} g</span>
+                                    <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs"><span className="font-semibold">F:</span> {calcMeal(meal).fats} g</span>
+                                </div>
                             </div>
-                            <div className="flex gap-2">
-                                <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs">{calcMeal(meal).calories} kcal</span>
-                                <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs"><span className="font-semibold">P:</span> {calcMeal(meal).protein} g</span>
-                                <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs"><span className="font-semibold">C:</span> {calcMeal(meal).carbs} g</span>
-                                <span className="flex-1 px-2 py-1 bg-yellow-200 rounded text-center text-xs"><span className="font-semibold">F:</span> {calcMeal(meal).fats} g</span>
-                            </div>
-                        </div>
-                        ),
-                    )
-                    )}
-                </div>
+
+                            
+                            ),
+                        )
+                        )}
+                    </div>
                 </div>
                 </div>
             ) : (
@@ -485,7 +497,7 @@
 
             {/* Panel 3: Meal Detail — يظهر بس لو selectedMeal مش null */}
             {selectedMeal && selectedPlan ? (
-                <div className="card w-1/3 flex flex-col overflow-hidden">
+            <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">{selectedMeal.name}</h3>
@@ -532,7 +544,7 @@
                 }
 
                 {/* ليستة الـ items */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto min-h-0">
                 {selectedMeal.items.map((item) => (
                     /* كل item: اسم + كالوريز محسوبة + input للـ amount */
                     <div
@@ -569,7 +581,7 @@
                 </div>
                 </div>
             ) : (
-                <div className="card w-1/3 flex flex-col overflow-hidden">
+                <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
                     <p className="text-gray-600 text-center flex justify-center items-center h-full">
                         Select a meal to view details
                         </p>
@@ -600,7 +612,7 @@
                     onChange={(e) => setFoodSearchQuery(e.target.value)}
                     autoFocus
                     />
-                    <div className="flex-1 overflow-y-auto mt-2">
+                    <div className="flex-1 overflow-y-auto min-h-0 mt-2">
                     {foodItems
                         .filter((fi) =>
                         fi.name.toLowerCase().includes(foodSearchQuery.toLowerCase()),
