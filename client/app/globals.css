@@ -71,6 +71,10 @@ body {
     @apply py-3 rounded-xl text-white font-medium transition cursor-pointer;
     background: var(--accent);
   }
+  .btn-secondary {
+    @apply py-2 font-semibold text-sm cursor-pointer;
+    color: var(--accent);
+  }
   .btn-primary:hover {
     background: var(--accent-hover);
   }
