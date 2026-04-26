@@ -1,0 +1,231 @@
+import { useState, useEffect } from "react";
+import api from "@/lib/axios";
+
+export function useNutritionPlan(clientId) {
+
+    // State variables ------------------------------------------------------------------
+
+    const [plans, setPlans] = useState([]);
+    const [selectedPlan, setSelectedPlan] = useState(null);
+    const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
+    const [selectedMeal, setSelectedMeal] = useState(null);
+    const [planNameModalOpen, setPlanNameModalOpen] = useState(false);
+    const [planName, setPlanName] = useState("");
+    const [cycleNameModalOpen, setCycleNameModalOpen] = useState(false);
+    const [cycleName, setCycleName] = useState("");
+    const [mealModalOpen, setMealModalOpen] = useState(false);
+    const [mealName, setMealName] = useState("");
+    const [foodItems, setFoodItems] = useState([]);
+    const [foodItemModalOpen, setFoodItemModalOpen] = useState(false);
+    const [foodSearchQuery, setFoodSearchQuery] = useState("");
+    const [loading, setLoading] = useState(true);
+
+
+
+    // Effects ------------------------------------------------------------------
+
+    useEffect(() => {
+            const fetchClientPlans = async () => {
+            try {
+                const response = await api.get(`/api/nutrition/plans?clientId=${clientId}`); // ✅ الصح
+                setPlans(response.data);
+                setLoading(false);
+            } catch (error) {
+                console.error("Error fetching nutrition plans:", error);
+                setLoading(false);
+            }
+            };
+
+            fetchClientPlans();
+    }, [clientId]);
+
+    useEffect(() => {
+        if (!foodItemModalOpen) return;
+        api.get("/api/nutrition/food-items").then((res) => setFoodItems(res.data));
+    }, [foodItemModalOpen]);
+
+
+
+    // Handlers ------------------------------------------------------------------
+
+    const handleSelectedPlan = async (plan) => {
+        try {
+        const response = await api.get(`/api/nutrition/plans/${plan.id}`);
+        setSelectedPlan(response.data);
+        setSelectedCycleIndex(0);
+        setSelectedMeal(null);
+        } catch (error) {
+        console.error("Error fetching plan details:", error);
+        }
+    };
+
+    const handleCreatePlan = async (planName) => {
+        setPlanNameModalOpen(false);
+        try {
+        const newPlan = {
+            name: planName,
+            client_id: clientId,
+        };
+        await api
+            .post("/api/nutrition/plans", newPlan)
+            .then((response) => {
+            setPlans([...plans, response.data]);
+            handleSelectedPlan(response.data);
+            })
+            .catch((error) => {
+            console.error("Error creating new plan:", error);
+            });
+        } catch (error) {
+        console.error("Error creating new plan:", error);
+        }
+    };
+
+    const handleCreateCycle = async (cycleName) => {
+        setCycleNameModalOpen(false);
+        try {
+        const newCycle = {
+            name: cycleName,
+            planId: selectedPlan.id,
+        };
+        const response = await api.post("/api/nutrition/cycles", newCycle);
+        setSelectedPlan({
+            ...selectedPlan,
+            cycles: [...selectedPlan.cycles, { ...response.data, meals: [] }],
+        });
+        setCycleName(""); // Reset cycle name input after creation
+        } catch (error) {
+        console.error("Error adding new cycle:", error);
+        }
+    };
+
+    const handleDeleteCycle = async (cycleIndex) => {
+        const cycleToDelete = selectedPlan.cycles[cycleIndex];
+        try {
+        await api.delete(`/api/nutrition/cycles/${cycleToDelete.id}`);
+        const updatedCycles = selectedPlan.cycles.filter(
+            (_, index) => index !== cycleIndex,
+        );
+        setSelectedPlan({
+            ...selectedPlan,
+            cycles: updatedCycles,
+        });
+        setSelectedCycleIndex(0);
+        setSelectedMeal(null);
+        } catch (error) {
+        console.error("Error deleting cycle:", error);
+        }
+    };
+
+    const handleCreateMeal = async (mealName) => {
+        setMealModalOpen(false);
+        try {
+        const response = await api.post("/api/nutrition/meals", {
+            cycleId: selectedPlan.cycles[selectedCycleIndex].id,
+            name: mealName,
+        });
+        const updatedCycles = selectedPlan.cycles.map((cycle, index) => {
+            if (index === selectedCycleIndex) {
+            return {
+                ...cycle,
+                meals: [...cycle.meals, { ...response.data, items: [] }],
+            };
+            }
+            return cycle;
+        });
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setMealName(""); // Reset meal name input after creation
+        } catch (error) {
+        console.error("Error creating meal:", error);
+        }
+    };
+
+    const handleFoodSearch = async (query) => {
+        setFoodSearchQuery(query);
+        try {
+        const response = await api.get(`/api/nutrition/food-items?search=${query}`);
+        setFoodItems(response.data);
+        } catch (error) {
+        console.error("Error searching food items:", error);
+        }
+    };
+
+    const handleAddFoodItem = async (mealId, foodItem) => {
+        try {
+        const response = await api.post("/api/nutrition/meal-items", {
+            mealId,
+            foodItemId: foodItem.id,
+            amount: foodItem.serving_size,
+            unit: foodItem.serving_unit,
+        });
+        const updatedCycles = selectedPlan.cycles.map((cycle) => {
+            return {
+            ...cycle,
+            meals: cycle.meals.map((meal) => {
+                if (meal.id === mealId) {
+                return { ...meal, items: [...meal.items, response.data] };
+                }
+                return meal;
+            }),
+            };
+        });
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setFoodItemModalOpen(false);
+        setFoodSearchQuery("");
+        setSelectedMeal((prev) => ({
+            ...prev,
+            items: [...prev.items, response.data],
+        }));
+        } catch (error) {
+        console.error("Error adding food item:", error);
+        }
+    };
+
+    const handleAmountChange = async (itemId, newAmount) => {
+        const response = await api.put(`/api/nutrition/meal-items/${itemId}`, {
+            amount: newAmount,
+            unit: selectedMeal.items.find((i) => i.id === itemId).serving_unit,
+        });
+        // عدّل selectedMeal.items
+        const updatedItems = selectedMeal.items.map((i) =>
+        i.id === itemId ? response.data : i,
+        );
+        setSelectedMeal({ ...selectedMeal, items: updatedItems });
+        // عدّل selectedPlan برضو
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+        ...cycle,
+        meals: cycle.meals.map((meal) =>
+            meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal,
+        ),
+        }));
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+    };
+
+
+
+    // Return all state and handlers ------------------------------------------------------------------
+
+    return {
+        plans, setPlans,
+        selectedPlan, setSelectedPlan,
+        selectedCycleIndex, setSelectedCycleIndex,
+        selectedMeal, setSelectedMeal,
+        planNameModalOpen, setPlanNameModalOpen,
+        planName, setPlanName,
+        cycleNameModalOpen, setCycleNameModalOpen,
+        cycleName, setCycleName,
+        mealModalOpen, setMealModalOpen,
+        mealName, setMealName,
+        foodItems, setFoodItems,
+        foodItemModalOpen, setFoodItemModalOpen,
+        foodSearchQuery, setFoodSearchQuery,
+        loading, setLoading,
+        handleSelectedPlan,
+        handleCreatePlan,
+        handleCreateCycle,
+        handleDeleteCycle,
+        handleCreateMeal,
+        handleAddFoodItem,
+        handleAmountChange,
+        handleFoodSearch,
+    };
+}
