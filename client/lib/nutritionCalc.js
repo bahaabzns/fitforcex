@@ -1,4 +1,5 @@
 
+
 export function calcItem(item) {
     const factor = item.amount / item.serving_size;
     return {
