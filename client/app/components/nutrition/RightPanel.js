@@ -205,14 +205,9 @@ export default function RightPanel({
                                     <span className="flex-2 flex gap-2 items-center">
                                         <input
                                             type="number"
-                                            defaultValue={alt.amount}
-                                            onClick={(e) => e.target.select()}
-                                            onBlur={(e) => handleAlternativeAmountChange(item.id, alt.id, e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") e.target.blur();
-                                                if (e.key === "Escape") { e.target.value = alt.amount; e.target.blur(); }
-                                            }}
-                                            className="flex-1 p-1 w-16 border rounded-lg text-center border-gray-200 bg-gray-50"
+                                            value={alt.amount}
+                                            readOnly
+                                            className="flex-1 p-1 w-16 border rounded-lg text-center border-gray-200 bg-gray-100 cursor-not-allowed"
                                         />
                                         <span className="flex-1">{alt.serving_unit}</span>
                                     </span>

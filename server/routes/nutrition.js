@@ -222,15 +222,15 @@ router.get('/plans/:id', async (req, res) => {
                 const mealsWithItems = await Promise.all(
                     meals.map(async meal => {
                         const itemsResult = await pool.query(
-                            'SELECT nmi.id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
+                            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
                             [meal.id]
                         );
                         const itemsWithAlts = await Promise.all(
                             itemsResult.rows.map(async item => {
                                 const altsResult = await pool.query(
-                                    `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+                                    `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                                             fi.name, fi.serving_unit, fi.calories_per_serving,
-                                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+                                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
                                      FROM nutrition_meal_item_alternatives nmia
                                      JOIN food_items fi ON fi.id = nmia.food_item_id
                                      WHERE nmia.meal_item_id = $1
@@ -482,7 +482,7 @@ router.post('/cycles/:id/duplicate', async (req, res) => {
         );
         const mealsWithItems = await Promise.all(fullMeals.rows.map(async (m) => {
             const itemsRes = await pool.query(
-                'SELECT nmi.id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
+                'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
                 [m.id]
             );
             return { ...m, items: itemsRes.rows };
@@ -622,15 +622,15 @@ router.post('/meals/:id/duplicate', async (req, res) => {
         await client.query('COMMIT');
 
         const itemsRes = await pool.query(
-            'SELECT nmi.id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
+            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
             [newMealId]
         );
         const itemsWithAlts = await Promise.all(
             itemsRes.rows.map(async item => {
                 const altsRes = await pool.query(
-                    `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+                    `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                             fi.name, fi.serving_unit, fi.calories_per_serving,
-                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
                      FROM nutrition_meal_item_alternatives nmia
                      JOIN food_items fi ON fi.id = nmia.food_item_id
                      WHERE nmia.meal_item_id = $1 ORDER BY nmia.alt_order ASC`,
@@ -742,7 +742,7 @@ router.post('/meal-items', async (req, res) => {
             [mealId]
         );
         const itemDetailsResult = await pool.query(
-            'SELECT nmi.id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
+            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
             [itemResult.rows[0].id]
         );
         res.status(201).json(itemDetailsResult.rows[0]);
@@ -785,7 +785,7 @@ router.put('/meal-items/:id', async (req, res) => {
             return res.status(404).json({ error: 'Meal item not found' });
         }
         const itemDetailsResult = await pool.query(
-            'SELECT nmi.id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
+            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
             [result.rows[0].id]
         );
         await pool.query(
@@ -827,6 +827,25 @@ router.post('/meal-items/:id/alternatives', async (req, res) => {
     const { foodItemId, amount } = req.body;
     const mealItemId = req.params.id;
     try {
+        // Prevent adding the main item as its own alternative
+        const mainItem = await pool.query(
+            'SELECT food_item_id FROM nutrition_meal_items WHERE id = $1',
+            [mealItemId]
+        );
+        if (mainItem.rows.length === 0) return res.status(404).json({ error: 'Meal item not found' });
+        if (mainItem.rows[0].food_item_id === parseInt(foodItemId)) {
+            return res.status(409).json({ error: 'Cannot add the main item as its own alternative' });
+        }
+
+        // Prevent duplicate alternatives
+        const existing = await pool.query(
+            'SELECT id FROM nutrition_meal_item_alternatives WHERE meal_item_id = $1 AND food_item_id = $2',
+            [mealItemId, foodItemId]
+        );
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ error: 'This food item is already an alternative for this item' });
+        }
+
         const nextOrderResult = await pool.query(
             'SELECT COALESCE(MAX(alt_order), 0) + 1 AS next_order FROM nutrition_meal_item_alternatives WHERE meal_item_id = $1',
             [mealItemId]
@@ -839,9 +858,9 @@ router.post('/meal-items/:id/alternatives', async (req, res) => {
         );
 
         const details = await pool.query(
-            `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+            `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                     fi.name, fi.serving_unit, fi.calories_per_serving,
-                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
              FROM nutrition_meal_item_alternatives nmia
              JOIN food_items fi ON fi.id = nmia.food_item_id
              WHERE nmia.id = $1`,
@@ -866,9 +885,9 @@ router.put('/meal-item-alternatives/:id', async (req, res) => {
             return res.status(404).json({ error: 'Alternative not found' });
         }
         const details = await pool.query(
-            `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+            `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
                     fi.name, fi.serving_unit, fi.calories_per_serving,
-                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
              FROM nutrition_meal_item_alternatives nmia
              JOIN food_items fi ON fi.id = nmia.food_item_id
              WHERE nmia.id = $1`,

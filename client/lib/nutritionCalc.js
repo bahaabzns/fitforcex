@@ -3,10 +3,10 @@
 export function calcItem(item) {
     const factor = item.amount / item.serving_size;
     return {
-    calories: Math.round(item.calories_per_serving * factor),
-    protein: Math.round(item.protein_per_serving * factor),
-    carbs: Math.round(item.carbs_per_serving * factor),
-    fats: Math.round(item.fats_per_serving * factor),
+    calories: Math.round(item.calories_per_serving * factor * 10) / 10,
+    protein: Math.round(item.protein_per_serving * factor * 10) / 10,
+    carbs: Math.round(item.carbs_per_serving * factor * 10) / 10,
+    fats: Math.round(item.fats_per_serving * factor * 10) / 10,
     };
 }
 

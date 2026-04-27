@@ -265,9 +265,23 @@ export function useNutritionPlan(clientId) {
             amount: newAmount,
             unit: selectedMeal.items.find((i) => i.id === itemId).serving_unit,
         });
+        const mainItemAlts = selectedMeal.items.find(i => i.id === itemId)?.alternatives ?? [];
+        const targetCalories = (response.data.amount / response.data.serving_size) * response.data.calories_per_serving;
+        let finalAlts = mainItemAlts;
+        if (mainItemAlts.length > 0) {
+            const updatedAlts = await Promise.all(
+                mainItemAlts.map(alt => {
+                    const newAltAmount = Math.round((targetCalories / alt.calories_per_serving) * alt.serving_size * 10) / 10;
+                    return api.put(`/api/nutrition/meal-item-alternatives/${alt.id}`, { amount: newAltAmount })
+                        .then(res => res.data)
+                        .catch(() => alt);
+                })
+            );
+            finalAlts = updatedAlts;
+        }
         // عدّل selectedMeal.items
         const updatedItems = selectedMeal.items.map((i) =>
-        i.id === itemId ? { ...response.data, alternatives: i.alternatives ?? [] } : i,
+        i.id === itemId ? { ...response.data, alternatives: finalAlts } : i,
         );
         setSelectedMeal({ ...selectedMeal, items: updatedItems });
         // عدّل selectedPlan برضو
@@ -398,11 +412,13 @@ export function useNutritionPlan(clientId) {
 
     const handleAddAlternatives = async (mealItemId, foodItems) => {
         try {
+            const mainItem = selectedMeal.items.find(i => i.id === mealItemId);
+            const targetCalories = (mainItem.amount / mainItem.serving_size) * mainItem.calories_per_serving;
             const added = await Promise.all(
                 foodItems.map((foodItem) =>
                     api.post(`/api/nutrition/meal-items/${mealItemId}/alternatives`, {
                         foodItemId: foodItem.id,
-                        amount: foodItem.serving_size,
+                        amount: Math.round((targetCalories / foodItem.calories_per_serving) * foodItem.serving_size * 10) / 10,
                     }).then((res) => res.data)
                 )
             );

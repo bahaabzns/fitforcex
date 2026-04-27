@@ -1,16 +1,19 @@
 
 import { useState } from 'react';
 
-export default function FoodItemsModal({ foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems }) {
+export default function FoodItemsModal({ foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
-    const [categoryFilter, setCategoryFilter] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState(lockedCategory || '');
 
     const categories = [...new Set(foodItems.map(fi => fi.food_category).filter(Boolean))];
 
     const filtered = foodItems.filter(fi => {
         const matchesSearch = fi.name.toLowerCase().includes(foodSearchQuery.toLowerCase());
-        const matchesCategory = !categoryFilter || fi.food_category === categoryFilter;
-        return matchesSearch && matchesCategory;
+        const matchesCategory = lockedCategory
+            ? fi.food_category === lockedCategory
+            : (!categoryFilter || fi.food_category === categoryFilter);
+        const notExcluded = !excludedFoodItemIds || !excludedFoodItemIds.has(fi.id);
+        return matchesSearch && matchesCategory && notExcluded;
     });
 
     const toggleItem = (id) => {
@@ -78,21 +81,28 @@ export default function FoodItemsModal({ foodItems, foodSearchQuery, onSearchCha
                 </div>
 
                 {/* #4 — pill-style category filter (replaces native <select>) */}
-                <div className="flex gap-2 flex-wrap mb-4">
-                    {['', ...categories].map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setCategoryFilter(cat)}
-                            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                                categoryFilter === cat
-                                    ? 'bg-blue-500 border-blue-500 text-white'
-                                    : 'border-gray-300 text-gray-500 hover:border-gray-400'
-                            }`}
-                        >
-                            {cat || 'All'}
-                        </button>
-                    ))}
-                </div>
+                {!lockedCategory ? (
+                    <div className="flex gap-2 flex-wrap mb-4">
+                        {['', ...categories].map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setCategoryFilter(cat)}
+                                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                                    categoryFilter === cat
+                                        ? 'bg-blue-500 border-blue-500 text-white'
+                                        : 'border-gray-300 text-gray-500 hover:border-gray-400'
+                                }`}
+                            >
+                                {cat || 'All'}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex gap-2 flex-wrap mb-4 items-center">
+                        <span className="text-xs px-3 py-1 rounded-full bg-blue-500 border-blue-500 text-white">{lockedCategory}</span>
+                        <span className="text-xs text-gray-400">Alternatives are filtered to this category</span>
+                    </div>
+                )}
 
                 {/* Table */}
                 <div className="flex-1 overflow-y-auto min-h-0">

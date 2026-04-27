@@ -206,6 +206,14 @@ return (
                 onSearchChange={setFoodSearchQuery}
                 onClose={() => { setAlternativeModalOpenForItemId(null); setFoodSearchQuery(""); }}
                 onAddItems={(items) => handleAddAlternatives(alternativeModalOpenForItemId, items)}
+                lockedCategory={selectedMeal?.items.find(i => i.id === alternativeModalOpenForItemId)?.food_category}
+                excludedFoodItemIds={(() => {
+                    const mainItem = selectedMeal?.items.find(i => i.id === alternativeModalOpenForItemId);
+                    if (!mainItem) return new Set();
+                    const ids = new Set((mainItem.alternatives ?? []).map(a => a.food_item_id));
+                    if (mainItem.food_item_id) ids.add(mainItem.food_item_id);
+                    return ids;
+                })()}
             />
         )}
     </div>

@@ -114,12 +114,12 @@ export default function FoodItemsPage() {
                                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                                 ))}
                             </select>
-                            <input type="number" name="serving_size" value={formData.serving_size} placeholder="Serving Size" onChange={handleChange} className="input-field" />
+                            <input type="number" step="any" name="serving_size" value={formData.serving_size} placeholder="Serving Size" onChange={handleChange} className="input-field" />
                             <input type="text" name="serving_unit" value={formData.serving_unit} placeholder="Serving Unit" onChange={handleChange} className="input-field" />
-                            <input type="number" name="calories_per_serving" value={formData.calories_per_serving} placeholder="Calories per Serving" onChange={handleChange} className="input-field" />
-                            <input type="number" name="carbs_per_serving" value={formData.carbs_per_serving} placeholder="Carbs per Serving" onChange={handleChange} className="input-field" />
-                            <input type="number" name="protein_per_serving" value={formData.protein_per_serving} placeholder="Protein per Serving" onChange={handleChange} className="input-field" />
-                            <input type="number" name="fats_per_serving" value={formData.fats_per_serving} placeholder="Fats per Serving" onChange={handleChange} className="input-field" />
+                            <input type="number" step="any" name="calories_per_serving" value={formData.calories_per_serving} placeholder="Calories per Serving" onChange={handleChange} className="input-field" />
+                            <input type="number" step="any" name="carbs_per_serving" value={formData.carbs_per_serving} placeholder="Carbs per Serving" onChange={handleChange} className="input-field" />
+                            <input type="number" step="any" name="protein_per_serving" value={formData.protein_per_serving} placeholder="Protein per Serving" onChange={handleChange} className="input-field" />
+                            <input type="number" step="any" name="fats_per_serving" value={formData.fats_per_serving} placeholder="Fats per Serving" onChange={handleChange} className="input-field" />
                             <button type="submit" className="btn-primary px-4">Add Food Item</button>
                         </form>
                     </div>
@@ -138,12 +138,12 @@ export default function FoodItemsPage() {
                                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                                 ))}
                             </select>
-                            <input type="number" name="serving_size" value={editingItem.serving_size} placeholder="Serving Size" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="serving_size" value={editingItem.serving_size} placeholder="Serving Size" onChange={handleEditChange} className="input-field" />
                             <input type="text" name="serving_unit" value={editingItem.serving_unit} placeholder="Serving Unit" onChange={handleEditChange} className="input-field" />
-                            <input type="number" name="calories_per_serving" value={editingItem.calories_per_serving} placeholder="Calories per Serving" onChange={handleEditChange} className="input-field" />
-                            <input type="number" name="carbs_per_serving" value={editingItem.carbs_per_serving} placeholder="Carbs per Serving" onChange={handleEditChange} className="input-field" />
-                            <input type="number" name="protein_per_serving" value={editingItem.protein_per_serving} placeholder="Protein per Serving" onChange={handleEditChange} className="input-field" />
-                            <input type="number" name="fats_per_serving" value={editingItem.fats_per_serving} placeholder="Fats per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="calories_per_serving" value={editingItem.calories_per_serving} placeholder="Calories per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="carbs_per_serving" value={editingItem.carbs_per_serving} placeholder="Carbs per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="protein_per_serving" value={editingItem.protein_per_serving} placeholder="Protein per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="fats_per_serving" value={editingItem.fats_per_serving} placeholder="Fats per Serving" onChange={handleEditChange} className="input-field" />
                             <button type="submit" className="btn-primary px-4">Save Changes</button>
                         </form>
                     </div>
