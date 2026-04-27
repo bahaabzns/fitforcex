@@ -267,7 +267,7 @@ export function useNutritionPlan(clientId) {
         });
         // عدّل selectedMeal.items
         const updatedItems = selectedMeal.items.map((i) =>
-        i.id === itemId ? response.data : i,
+        i.id === itemId ? { ...response.data, alternatives: i.alternatives ?? [] } : i,
         );
         setSelectedMeal({ ...selectedMeal, items: updatedItems });
         // عدّل selectedPlan برضو
