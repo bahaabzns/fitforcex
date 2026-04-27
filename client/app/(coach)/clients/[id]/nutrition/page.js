@@ -74,6 +74,7 @@ export default function NutritionPage() {
         sortedPlans,
         sortOrder, setSortOrder,
         handleReorderMeals,
+        handleReorderCycles,
         handleReorderFoodItems,
         handleUpdateCycleNote,
         handleUpdateMealNote,
@@ -133,6 +134,7 @@ return (
                     handleDuplicateMeal={handleDuplicateMeal}
                     handleDuplicateCycle={handleDuplicateCycle}
                     handleReorderMeals={handleReorderMeals}
+                    handleReorderCycles={handleReorderCycles}
                     handleUpdateCycleNote={handleUpdateCycleNote}
                     pendingFocusPlanId={pendingFocusPlanId}
                     setPendingFocusPlanId={setPendingFocusPlanId}

@@ -379,6 +379,15 @@ export function useNutritionPlan(clientId) {
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
     };
 
+    const handleReorderCycles = (fromIndex, toIndex) => {
+        if (fromIndex === toIndex) return;
+        const cycles = [...selectedPlan.cycles];
+        const [moved] = cycles.splice(fromIndex, 1);
+        cycles.splice(toIndex, 0, moved);
+        setSelectedPlan({ ...selectedPlan, cycles });
+        setSelectedCycleIndex(toIndex);
+    };
+
     const handleReorderFoodItems = (fromIndex, toIndex) => {
         if (fromIndex === toIndex) return;
         const items = [...selectedMeal.items];
@@ -511,6 +520,7 @@ export function useNutritionPlan(clientId) {
         sortedPlans,
         sortOrder, setSortOrder,
         handleReorderMeals,
+        handleReorderCycles,
         handleReorderFoodItems,
         handleUpdateCycleNote,
         handleUpdateMealNote,

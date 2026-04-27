@@ -147,25 +147,17 @@ export default function RightPanel({
                                 <button
                                     title={isExpanded ? "Collapse alternatives" : "Expand alternatives"}
                                     onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
-                                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-150 shrink-0 text-xs font-semibold ${
+                                    className={`cursor-pointer px-2.5 py-2 rounded-lg border transition-all duration-150 shrink-0 text-xs font-semibold ${
                                         isExpanded
                                             ? "border-blue-400 bg-blue-100 text-blue-600 hover:bg-blue-200"
                                             : "border-blue-200 bg-blue-50 text-blue-500 hover:bg-blue-100 hover:border-blue-300"
                                     }`}
                                 >
-                                    <span className="flex items-center gap-1">
-                                        {/* layers / alternatives icon */}
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                                            <polyline points="2 17 12 22 22 17"/>
-                                            <polyline points="2 12 12 17 22 12"/>
-                                        </svg>
-                                        {alternatives.length > 0 && <span className="text-xs font-bold">{alternatives.length}</span>}
-                                    </span>
+                                    {alternatives.length} alters
                                 </button>
                             </div>
-                            <div className="flex justify-end items-center gap-4">
-                                <span className="flex-2 flex gap-2 items-center">
+                            <div className="flex items-center gap-3 mt-1">
+                                <span className="flex gap-1.5 items-center shrink-0">
                                     <input
                                         type="number"
                                         defaultValue={item.amount}
@@ -178,14 +170,28 @@ export default function RightPanel({
                                                 e.target.blur();
                                             }
                                         }}
-                                        className="flex-1 p-1 w-16 border rounded-lg text-center border-gray-200 bg-white"
+                                        className="p-1 w-16 border rounded-lg text-center border-gray-200 bg-white text-sm"
                                     />
-                                    <span className="flex-1">{item.serving_unit}</span>
+                                    <span className="text-sm text-gray-500">{item.serving_unit}</span>
                                 </span>
-                                <span className="flex-1 text-sm">{calcItem(item).calories} kcal</span>
-                                <span className="flex-1 text-sm"><span className="font-semibold">P: </span>{calcItem(item).protein} g</span>
-                                <span className="flex-1 text-sm"><span className="font-semibold">C: </span>{calcItem(item).carbs} g</span>
-                                <span className="flex-1 text-sm"><span className="font-semibold">F: </span>{calcItem(item).fats} g</span>
+                                <div className="h-5 w-px bg-gray-200 shrink-0" />
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-base font-bold text-gray-800">{calcItem(item).calories}</span>
+                                    <span className="text-xs text-gray-400">kcal</span>
+                                </div>
+                                <div className="h-5 w-px bg-gray-200 shrink-0" />
+                                <div className="flex gap-3">
+                                    {[
+                                        { label: "C", value: calcItem(item).carbs,   color: "text-teal-600" },
+                                        { label: "P", value: calcItem(item).protein, color: "text-red-500" },
+                                        { label: "F", value: calcItem(item).fats,    color: "text-yellow-600" },
+                                    ].map(({ label, value, color }) => (
+                                        <p key={label} className="text-sm font-semibold text-gray-800 flex items-baseline gap-0.5">
+                                            <span className={`text-xs font-bold ${color}`}>{label}</span>
+                                            {value}<span className="text-xs text-gray-400 font-normal">g</span>
+                                        </p>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -206,20 +212,34 @@ export default function RightPanel({
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                     </button>
                                 </div>
-                                <div className="flex justify-end items-center gap-4">
-                                    <span className="flex-2 flex gap-2 items-center">
+                                <div className="flex items-center gap-3 mt-1">
+                                    <span className="flex gap-1.5 items-center shrink-0">
                                         <input
                                             type="number"
                                             value={alt.amount}
                                             readOnly
-                                            className="flex-1 p-1 w-16 border rounded-lg text-center border-gray-200 bg-gray-100 cursor-not-allowed"
+                                            className="p-1 w-16 border rounded-lg text-center border-gray-200 bg-gray-100 cursor-not-allowed text-sm"
                                         />
-                                        <span className="flex-1">{alt.serving_unit}</span>
+                                        <span className="text-sm text-gray-500">{alt.serving_unit}</span>
                                     </span>
-                                    <span className="flex-1 text-sm">{calcItem(alt).calories} kcal</span>
-                                    <span className="flex-1 text-sm"><span className="font-semibold">P: </span>{calcItem(alt).protein} g</span>
-                                    <span className="flex-1 text-sm"><span className="font-semibold">C: </span>{calcItem(alt).carbs} g</span>
-                                    <span className="flex-1 text-sm"><span className="font-semibold">F: </span>{calcItem(alt).fats} g</span>
+                                    <div className="h-5 w-px bg-gray-200 shrink-0" />
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-base font-bold text-gray-800">{calcItem(alt).calories}</span>
+                                        <span className="text-xs text-gray-400">kcal</span>
+                                    </div>
+                                    <div className="h-5 w-px bg-gray-200 shrink-0" />
+                                    <div className="flex gap-3">
+                                        {[
+                                            { label: "C", value: calcItem(alt).carbs,   color: "text-teal-600" },
+                                            { label: "P", value: calcItem(alt).protein, color: "text-red-500" },
+                                            { label: "F", value: calcItem(alt).fats,    color: "text-yellow-600" },
+                                        ].map(({ label, value, color }) => (
+                                            <p key={label} className="text-sm font-semibold text-gray-800 flex items-baseline gap-0.5">
+                                                <span className={`text-xs font-bold ${color}`}>{label}</span>
+                                                {value}<span className="text-xs text-gray-400 font-normal">g</span>
+                                            </p>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         ))}
