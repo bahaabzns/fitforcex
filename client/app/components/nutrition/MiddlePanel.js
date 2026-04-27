@@ -40,7 +40,7 @@ export default function MiddlePanel({
     })();
 
     return (
-        <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
+        <div className="card w-full flex flex-col overflow-hidden min-h-0">
             {/* Header */}
             <div className="flex justify-between items-center mb-4 gap-4">
                 <input

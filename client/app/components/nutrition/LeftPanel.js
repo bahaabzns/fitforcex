@@ -22,7 +22,7 @@ export default function LeftPanel ({
     sortOrder, setSortOrder,
 }) {
     return (
-        <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
+        <div className="card w-full flex flex-col overflow-hidden min-h-0">
             {/* Header */}
             <div className="flex flex-row justify-center items-center gap-4 mb-4">
                 <h2 className="flex-1 text-xl font-bold">Plans</h2>
