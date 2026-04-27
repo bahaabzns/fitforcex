@@ -100,6 +100,50 @@ export function useNutritionPlan(clientId) {
         }
     };
 
+    const handleDeleteMeal = async (mealId) => {
+        try {
+            await api.delete(`/api/nutrition/meals/${mealId}`);
+            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+                ...cycle,
+                meals: cycle.meals.filter((meal) => meal.id !== mealId),
+            }));
+            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+            if (selectedMeal && selectedMeal.id === mealId) setSelectedMeal(null);
+            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+        } catch (error) {
+            console.error("Error deleting meal:", error);
+        }
+    };
+
+    const handleDuplicateMeal = async (mealId) => {
+        try {
+            const response = await api.post(`/api/nutrition/meals/${mealId}/duplicate`);
+            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+                ...cycle,
+                meals: cycle.meals.some((m) => m.id === mealId)
+                    ? [...cycle.meals, response.data]
+                    : cycle.meals,
+            }));
+            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+        } catch (error) {
+            console.error("Error duplicating meal:", error);
+        }
+    };
+
+    const handleDuplicateCycle = async (cycleId) => {
+        try {
+            const response = await api.post(`/api/nutrition/cycles/${cycleId}/duplicate`);
+            setSelectedPlan({
+                ...selectedPlan,
+                cycles: [...selectedPlan.cycles, response.data],
+            });
+            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: selectedPlan.cycles.length + 1, updated_at: new Date().toISOString() } : p));
+        } catch (error) {
+            console.error("Error duplicating cycle:", error);
+        }
+    };
+
     const handleDeleteCycle = async (cycleIndex) => {
         const cycleToDelete = selectedPlan.cycles[cycleIndex];
         try {
@@ -297,6 +341,9 @@ export function useNutritionPlan(clientId) {
         handleRenameCycle,
         handleDeletePlan,
         handleDuplicatePlan,
+        handleDeleteMeal,
+        handleDuplicateMeal,
+        handleDuplicateCycle,
         sortedPlans,
         sortOrder, setSortOrder,
     }

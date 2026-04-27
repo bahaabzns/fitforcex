@@ -18,6 +18,9 @@ export default function MiddlePanel({
     handleCreateMeal,
     handleRenamePlan,
     handleRenameCycle,
+    handleDeleteMeal,
+    handleDuplicateMeal,
+    handleDuplicateCycle,
 }) {    
     return (
         <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
@@ -63,6 +66,12 @@ export default function MiddlePanel({
                             onClick={() => handleDeleteCycle(selectedCycleIndex)}
                         >
                             - Delete Cycle
+                        </button>
+                        <button
+                            className="btn btn-secondary px-4 w-full"
+                            onClick={() => handleDuplicateCycle(selectedPlan.cycles[selectedCycleIndex].id)}
+                        >
+                            Duplicate Cycle
                         </button>
                         <button
                             className="btn btn-primary px-4 w-full"
@@ -193,9 +202,23 @@ export default function MiddlePanel({
                         >
                             <div className="flex justify-between items-center mb-2 gap-2">
                                 <h4 className="flex-1 text-md font-semibold truncate">{meal.name}</h4>
-                                <span className="text-xs text-gray-500">{meal.items.length} items</span>
+                                <span className="text-xs text-gray-500 shrink-0">{meal.items.length} items</span>
                             </div>
                             <MacrosBadges {...calcMeal(meal)} />
+                            <div className="flex gap-2 mt-3">
+                                <button
+                                    className="flex-1 btn btn-secondary text-sm py-1"
+                                    onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
+                                >
+                                    Duplicate
+                                </button>
+                                <button
+                                    className="btn btn-danger text-sm py-1 px-3"
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteMeal(meal.id); }}
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
 
                         

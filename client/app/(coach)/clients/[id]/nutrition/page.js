@@ -39,6 +39,9 @@ export default function NutritionPage() {
         handleRenameCycle,
         handleDeletePlan,
         handleDuplicatePlan,
+        handleDeleteMeal,
+        handleDuplicateMeal,
+        handleDuplicateCycle,
         sortedPlans,
         sortOrder, setSortOrder,
     } = useNutritionPlan(id);
@@ -89,6 +92,9 @@ return (
             handleCreateMeal={handleCreateMeal}
             handleRenamePlan={handleRenamePlan}
             handleRenameCycle={handleRenameCycle}
+            handleDeleteMeal={handleDeleteMeal}
+            handleDuplicateMeal={handleDuplicateMeal}
+            handleDuplicateCycle={handleDuplicateCycle}
         />
 
         ) : (
