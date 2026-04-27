@@ -120,7 +120,7 @@ export default function CycleCalculator({ cycle, onApply }) {
     const bfCategories = gender === "male" ? BF_CATEGORIES_MALE : BF_CATEGORIES_FEMALE;
 
     return (
-        <div className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 pr-1">
+        <div className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 pr-1 p-1">
 
             {/* Formula */}
             <div>

@@ -37,12 +37,14 @@ export default function LeftPanel ({
     sortOrder, setSortOrder,
 }) {
     return (
-        <div className="card w-full flex flex-col overflow-hidden min-h-0">
+        <div className="card w-full flex flex-col overflow-hidden min-h-full">
             {/* Header */}
             <div className="flex flex-row justify-center items-center gap-4 mb-4">
                 <h2 className="flex-1 text-xl font-bold">Plans</h2>
                 <button
-                    className="flex-2 btn-primary px-4 w-full"
+                    className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
+                    "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
+                    }`}
                     onClick={() => setPlanNameModalOpen(true)}
                 >
                     + Create Plan

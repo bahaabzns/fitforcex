@@ -71,6 +71,7 @@ export function useNutritionPlan(clientId) {
             .then((response) => {
             setPlans([...plans, response.data]);
             handleSelectedPlan(response.data);
+            setPlanName(""); // Reset plan name input after creation
             })
             .catch((error) => {
             console.error("Error creating new plan:", error);

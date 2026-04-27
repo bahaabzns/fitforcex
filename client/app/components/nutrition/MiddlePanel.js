@@ -72,31 +72,39 @@ export default function MiddlePanel({
             </div>
             
             {/* Cycles List + Add/Delete Cycle */}
-            <div className="mb-6 flex flex-col shrink-0">
+            <div className="flex flex-col shrink-0">
             {/* Cycles List */}
             <div className="mb-6 flex flex-col">
                 {/* Header + Add Cycle Button */}
-                <div className="flex flex-row justify-between items-center gap-4 mb-4">
-                    <h3 className="flex-1 text-lg font-semibold">Cycles</h3>
+                <div className="flex flex-row justify-between items-center gap-4 mb-2">
+                    <div  className="flex gap-2 items-center">
+                        <h3 className="flex-1 text-lg font-semibold">Cycles</h3>
+                        <p className="text-sm text-gray-600 shrink-0">
+                            ({selectedPlan.cycles.length} cycles)
+                        </p>
+                    </div>
                     <button
-                        className="btn btn-primary px-4 shrink-0"
-                        onClick={() => setCycleNameModalOpen(true)}
-                    >
-                        + Create Cycle
-                    </button>
+                            className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
+                                "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
+                            }`}
+                            onClick={() => setCycleNameModalOpen(true)}
+                        >
+                            + Create Cycle
+                        </button>
                 </div>
 
                 {/* Cycles Navigation */}
                 <div className="flex flex-col">
                     
-                    <div className="flex-1">
+                    
+                    <div className="flex-1 mb-2">
                         {/* Current Cycle Card */}
                         {selectedPlan.cycles.length > 0 && (() => {
                             const cycle = selectedPlan.cycles[selectedCycleIndex];
                             const cycleTotals = calcCycle(cycle);
                             return (
-                                <div className="card px-6 py-4 bg-gray-100">
-                                    <div className="flex justify-between items-center gap-2">
+                                <div className="card px-4 py-4 mb-2 bg-gray-100">
+                                    <div className="flex justify-between items-center gap-2 mb-4">
                                         <input
                                             key={cycle.id}
                                             type="text"
@@ -139,10 +147,10 @@ export default function MiddlePanel({
                                     
 
                                 </div>
-                                    <p className="ml-2 text-sm text-gray-600 shrink-0 mb-4">{cycle.meals.length} meals</p>
+                                    
                                     <MacrosBadges {...cycleTotals} />
                                     {cycle.goal_calories && (
-                                        <div className="flex gap-2 mt-1 mb-2">
+                                        <div className="flex gap-2 mt-3">
                                             <span className="text-xs text-gray-400">Target:</span>
                                             <span className="text-xs font-semibold text-green-600">{cycle.goal_calories} kcal</span>
                                             <span className="text-xs text-gray-400">P:{cycle.goal_protein}g</span>
@@ -151,36 +159,31 @@ export default function MiddlePanel({
                                         </div>
                                     )}
 
-                                    <div className="flex flex-col gap-3 rounded">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="text-sm font-semibold text-gray-500">
-                                                Cycle {selectedCycleIndex + 1} of {selectedPlan.cycles.length}
-                                            </span>
-                                            <span className="text-xs text-gray-400">
-                                                Jump to cycle
-                                            </span>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            {selectedPlan.cycles.map((planCycle, index) => (
-                                                <button
-                                                    key={planCycle.id}
-                                                    className={`h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
-                                                        index === selectedCycleIndex
-                                                            ? "bg-blue-500 text-white"
-                                                            : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                                                    }`}
-                                                    onClick={() => setSelectedCycleIndex(index)}
-                                                    aria-label={`Select cycle ${index + 1}`}
-                                                >
-                                                    {index + 1}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
+                                    
                                 </div>
                             );
                         })()}
+                    </div>
+                    <div className="flex flex-col gap-3 items-center rounded">
+                    
+                        <div className="flex flex-wrap gap-2">
+                            {selectedPlan.cycles.map((planCycle, index) => (
+                                <button
+                                    key={planCycle.id}
+                                    className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
+                                        index === selectedCycleIndex
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                                    }`}
+                                    onClick={() => setSelectedCycleIndex(index)}
+                                    aria-label={`Select cycle ${index + 1}`}
+                                >
+                                    {index + 1}
+                                </button>
+                                
+                            ))}
+                        
+                        </div>
                     </div>
                     
                 </div>
@@ -217,7 +220,7 @@ export default function MiddlePanel({
                     }`}
                     onClick={() => setActiveTab("calculator")}
                 >
-                    ⚡ Calculator
+                    Calculator
                 </button>
             </div>
 
@@ -236,11 +239,19 @@ export default function MiddlePanel({
             {activeTab === "meals" && (
             <div className="flex flex-col flex-1 min-h-0">
                         <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
-                            <h3 className="flex-1 text-lg font-semibold">
-                                Meals
-                            </h3>
+                            <div  className="flex-1 flex gap-2 items-center">
+                                <h3 className="text-lg font-semibold">
+                                    Meals
+                                </h3>
+                                <p className="text-sm text-gray-600 shrink-0">
+                                    ({selectedPlan.cycles[selectedCycleIndex].meals.length} meals)
+                                </p>
+
+                            </div>
                             <button
-                                className="flex-2 btn-primary px-4 w-full"
+                                className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
+                                "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
+                                }`}
                                 onClick={() => setMealModalOpen(true)}
                             >
                                 + Create Meal

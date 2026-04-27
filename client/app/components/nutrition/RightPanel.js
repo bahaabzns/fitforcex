@@ -58,15 +58,22 @@ export default function RightPanel({
 
             {/* Totals */}
             <MacrosBadges {...calcMeal(selectedMeal)} />
+            <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
 
+                <h3 className="flex-1 text-lg font-semibold">
+                    Food Items
+                </h3>
+                {/* زرار Add Food */}
 
-            {/* زرار Add Food */}
-            <button
-                className="btn btn-primary mb-4 w-full"
-                onClick={() => setFoodItemModalOpen(true)}
-            >
-                + Add Food
-            </button>
+                <button
+                    className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
+                    "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
+                    }`}
+                    onClick={() => setFoodItemModalOpen(true)}
+                >
+                    + Add Food
+                </button>
+            </div>
 
             {/* Food Items List */}
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -95,7 +102,7 @@ export default function RightPanel({
                                 <circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/>
                             </svg>
                         </span>
-                        <div className="font-bold truncate">{item.name}</div>
+                        <div className="flex-1 font-bold truncate">{item.name}</div>
                         <button
                             title="Remove food item"
                             className="cursor-pointer p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-all duration-150 shrink-0 opacity-0 group-hover:opacity-100"
@@ -110,6 +117,13 @@ export default function RightPanel({
                                 type="number"
                                 defaultValue={item.amount}
                                 onBlur={(e) => handleAmountChange(item.id, e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") e.target.blur();
+                                    if (e.key === "Escape") {
+                                        e.target.value = item.amount;
+                                        e.target.blur();
+                                    }
+                                }}
                                 className="flex-1 p-1 w-16 border rounded-lg text-center border-gray-200 bg-white"
                             />
                             <span className="flex-1">{item.serving_unit}</span>

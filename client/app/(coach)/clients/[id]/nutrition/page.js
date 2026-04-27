@@ -85,10 +85,10 @@ if (loading) {
 }
 
 return (
-    <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-0">
+    <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-full">
 
         {/* Panel 1: Plans List */}
-        <div style={{ width: `${widths[0]}%` }} className="flex flex-col min-h-0 overflow-hidden">
+        <div style={{ width: `${widths[0]}%` }} className="flex flex-col min-h-full overflow-hidden">
             <LeftPanel
                 plans={sortedPlans}
                 selectedPlan={selectedPlan}
@@ -107,7 +107,7 @@ return (
 
         {/* Divider 1 */}
         <div
-            className="w-1.5 h-12 my-auto mx-1 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
+            className="w-1.5 h-12 my-auto mx-2 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
             onMouseDown={(e) => handleDividerMouseDown(0, e)}
         />
 
@@ -152,7 +152,7 @@ return (
 
         {/* Divider 2 */}
         <div
-            className="w-1.5 h-12 my-auto mx-1 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
+            className="w-1.5 h-12 my-auto mx-2 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
             onMouseDown={(e) => handleDividerMouseDown(1, e)}
         />
 
