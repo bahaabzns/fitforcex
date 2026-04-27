@@ -168,16 +168,52 @@ export default function MiddlePanel({
 
                                 </div>
                                     
-                                    <MacrosBadges {...cycleTotals} />
-                                    {cycle.goal_calories && (
-                                        <div className="flex gap-2 mt-3">
-                                            <span className="text-xs text-gray-400">Target:</span>
-                                            <span className="text-xs font-semibold text-green-600">{cycle.goal_calories} kcal</span>
-                                            <span className="text-xs text-gray-400">P:{cycle.goal_protein}g</span>
-                                            <span className="text-xs text-gray-400">C:{cycle.goal_carbs}g</span>
-                                            <span className="text-xs text-gray-400">F:{cycle.goal_fats}g</span>
+                                    {/* Calories & Macros Progress */}
+                                    <div className="rounded-xl bg-white border border-gray-200 p-4 mt-1">
+                                        {cycle.goal_calories && (
+                                            <p className="text-xs text-gray-500 mb-2">Daily Goal</p>
+                                        )}
+                                        {cycle.goal_calories && (
+                                            <div className="h-2 bg-gray-100 rounded-full mb-3 overflow-hidden">
+                                                <div
+                                                    className="h-full bg-blue-400 rounded-full transition-all"
+                                                    style={{ width: `${Math.min(100, (cycleTotals.calories / cycle.goal_calories) * 100)}%` }}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="flex items-baseline gap-1 mb-4">
+                                            <span className="text-2xl font-bold text-gray-800">{cycleTotals.calories}</span>
+                                            {cycle.goal_calories
+                                                ? <span className="text-sm text-gray-400">/{cycle.goal_calories} kcal</span>
+                                                : <span className="text-sm text-gray-400">kcal</span>
+                                            }
                                         </div>
-                                    )}
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {[
+                                                { label: "C", current: cycleTotals.carbs,   target: cycle.goal_carbs,   color: "text-teal-600",   bar: "bg-teal-400" },
+                                                { label: "P", current: cycleTotals.protein, target: cycle.goal_protein, color: "text-red-500",    bar: "bg-red-400" },
+                                                { label: "F", current: cycleTotals.fats,    target: cycle.goal_fats,    color: "text-yellow-600", bar: "bg-yellow-400" },
+                                            ].map(({ label, current, target, color, bar }) => (
+                                                <div key={label}>
+                                                    <p className="text-sm font-semibold text-gray-800 flex items-baseline gap-1">
+                                                        <span className={`text-xs font-bold ${color}`}>{label}</span>
+                                                        {current}
+                                                        <span className="text-xs text-gray-400 font-normal">
+                                                            {target ? `/${target}g` : "g"}
+                                                        </span>
+                                                    </p>
+                                                    {target && (
+                                                        <div className="h-1 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full ${bar}`}
+                                                                style={{ width: `${Math.min(100, (current / target) * 100)}%` }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                     <textarea
                                         key={cycle.id + '-note'}
                                         defaultValue={cycle.note ?? ""}

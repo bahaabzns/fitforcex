@@ -1,10 +1,23 @@
 export default function MacrosBadges({ calories, protein, carbs, fats }) {
     return (
-        <div className="flex gap-2">
-            <span className="flex-1 px-2 py-1 bg-amber-100 border border-amber-300 rounded text-center text-amber-800">{calories} kcal</span>
-            <span className="flex-1 px-2 py-1 bg-blue-100 border border-blue-300 rounded text-center text-blue-800"><span className="font-semibold">P: </span>{protein} g</span>
-            <span className="flex-1 px-2 py-1 bg-lime-100 border border-lime-300 rounded text-center text-lime-800"><span className="font-semibold">C: </span>{carbs} g</span>
-            <span className="flex-1 px-2 py-1 bg-purple-100 border border-purple-300 rounded text-center text-purple-800"><span className="font-semibold">F: </span>{fats} g</span>
+        <div className="rounded-xl bg-white border border-gray-200 px-4 py-3 flex items-center gap-4">
+            <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-gray-800">{calories}</span>
+                <span className="text-sm text-gray-400">kcal</span>
+            </div>
+            <div className="h-6 w-px bg-gray-200 shrink-0" />
+            <div className="flex gap-4 flex-1">
+                {[
+                    { label: "C", value: carbs,   color: "text-teal-600" },
+                    { label: "P", value: protein, color: "text-red-500" },
+                    { label: "F", value: fats,    color: "text-yellow-600" },
+                ].map(({ label, value, color }) => (
+                    <p key={label} className="text-sm font-semibold text-gray-800 flex items-baseline gap-1">
+                        <span className={`text-xs font-bold ${color}`}>{label}</span>
+                        {value}<span className="text-xs text-gray-400 font-normal">g</span>
+                    </p>
+                ))}
+            </div>
         </div>
-    )
+    );
 }
