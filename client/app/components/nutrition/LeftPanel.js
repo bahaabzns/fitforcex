@@ -201,7 +201,7 @@ export default function LeftPanel ({
                             <polyline points={calcCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
                         </svg>
                     </div>
-                    <h2 className="text-xl font-bold">Calculator</h2>
+                    <h2 className="text-xl font-bold">Calorie Calculator</h2>
                 </div>
                 {!calcCollapsed && (
                     <div className="overflow-y-auto flex-1 min-h-0">

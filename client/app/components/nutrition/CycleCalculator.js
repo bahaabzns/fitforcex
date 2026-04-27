@@ -66,12 +66,13 @@ export default function CycleCalculator({ cycle, onApply }) {
     const [neck, setNeck]             = useState("38");
     const [waist, setWaist]           = useState("80");
     const [hip, setHip]               = useState("95");
+    const [bfMode, setBfMode]         = useState("navy"); // "direct" | "navy"
+    const [directBf, setDirectBf]     = useState("");
     const [result, setResult]         = useState(null);
     const [tdee, setTdee]             = useState("");
     const [macros, setMacros]         = useState({ protein: 30, carbs: 40, fats: 30 });
 
-    const needsMeasurements = formula === "katch";
-    const needsHip = needsMeasurements && gender === "female";
+    const needsMeasurements = formula === "katch" && bfMode === "navy";
 
     const totalPct = macros.protein + macros.carbs + macros.fats;
 
@@ -84,20 +85,39 @@ export default function CycleCalculator({ cycle, onApply }) {
 
     const handleCalculate = () => {
         const a = Number(age), w = Number(weight), h = Number(height);
-        const n = Number(neck), wa = Number(waist), hi = Number(hip);
         if (!a || !w || !h) return;
-        if (needsMeasurements && (!n || !wa)) return;
-        if (needsHip && !hi) return;
 
-        const bmr = calcBMR(formula, gender, { age: a, weight: w, height: h, neck: n, waist: wa, hip: hi });
-        if (bmr === null) return;
+        let bmr;
+        let bf = null;
+
+        if (formula === "katch") {
+            if (bfMode === "direct") {
+                const bfVal = Number(directBf);
+                if (!directBf || isNaN(bfVal) || bfVal <= 0) return;
+                const lbm = w * (1 - bfVal / 100);
+                bmr = 370 + 21.6 * lbm;
+                bf = bfVal;
+            } else {
+                const n = Number(neck), wa = Number(waist), hi = Number(hip);
+                if (!n || !wa) return;
+                if (gender === "female" && !hi) return;
+                bmr = calcBMR(formula, gender, { age: a, weight: w, height: h, neck: n, waist: wa, hip: hi });
+                bf = calcNavyBodyFat(gender, { neck: n, waist: wa, hip: hi, height: h });
+            }
+        } else {
+            const n = Number(neck), wa = Number(waist), hi = Number(hip);
+            bmr = calcBMR(formula, gender, { age: a, weight: w, height: h, neck: n, waist: wa, hip: hi });
+            if (bfMode === "navy" && n && wa && h && (gender === "male" || (gender === "female" && hi))) {
+                bf = calcNavyBodyFat(gender, { neck: n, waist: wa, hip: hi, height: h });
+            } else if (bfMode === "direct" && directBf) {
+                bf = Number(directBf);
+            }
+        }
+
+        if (bmr === null || bmr === undefined) return;
 
         const bmrRounded = Math.round(bmr);
         const tdeeVal = Math.round(bmr * Number(activity));
-        const bf = (needsMeasurements)
-            ? calcNavyBodyFat(gender, { neck: n, waist: wa, hip: hi, height: h })
-            : null;
-
         setResult({ bmr: bmrRounded, bodyFat: bf });
         setTdee(String(tdeeVal));
     };
@@ -132,7 +152,10 @@ export default function CycleCalculator({ cycle, onApply }) {
                 </select>
                 {formula === "katch" && (
                     <p className="text-xs text-amber-600 mt-1">
-                        Katch-McArdle requires body measurements (neck, waist{needsHip ? ", hip" : ""}) to estimate body fat.
+                        Katch-McArdle requires body fat %
+                        {bfMode === "navy"
+                            ? ` — estimated from measurements (neck, waist${gender === "female" ? ", hip" : ""})`
+                            : " — enter it directly in the Body Fat section below"}.
                     </p>
                 )}
             </div>
@@ -174,28 +197,66 @@ export default function CycleCalculator({ cycle, onApply }) {
                 ))}
             </div>
 
-            {/* Body Measurements */}
+            {/* Body Fat */}
             <div>
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-gray-500">Body Measurements</span>
-                    <span className={`text-xs ${needsMeasurements ? "text-red-500 font-medium" : "text-gray-400"}`}>
-                        {needsMeasurements ? `required for Katch-McArdle` : "optional — used for body fat estimate"}
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-500">
+                        Body Fat %{formula === "katch" && <span className="text-red-500 ml-1">*</span>}
                     </span>
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                        <button
+                            className={`cursor-pointer px-3 py-1 transition-colors ${
+                                bfMode === "direct" ? "bg-blue-500 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                            }`}
+                            onClick={() => setBfMode("direct")}
+                        >
+                            Direct %
+                        </button>
+                        <button
+                            className={`cursor-pointer px-3 py-1 border-l border-gray-200 transition-colors ${
+                                bfMode === "navy" ? "bg-blue-500 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                            }`}
+                            onClick={() => setBfMode("navy")}
+                        >
+                            Measure
+                        </button>
+                    </div>
                 </div>
-                <div className={`grid gap-3 ${needsHip ? "grid-cols-3" : "grid-cols-2"}`}>
-                    {[
-                        { label: "Neck (cm)", val: neck, set: setNeck },
-                        { label: "Waist (cm)", val: waist, set: setWaist },
-                        ...(needsHip ? [{ label: "Hip (cm)", val: hip, set: setHip }] : []),
-                    ].map(({ label, val, set }) => (
-                        <div key={label}>
-                            <label className="block text-xs text-gray-500 mb-1">
-                                {label} {needsMeasurements && <span className="text-red-500">*</span>}
-                            </label>
-                            <input type="number" className="input-field w-full" value={val} onChange={e => set(e.target.value)} min={0} />
+                {bfMode === "direct" ? (
+                    <div>
+                        {/* <label className="block text-xs text-gray-500 mb-1">
+                            Body Fat %{formula === "katch" && <span className="text-red-500"> *</span>}
+                        </label> */}
+                        <input
+                            type="number" step="0.1"
+                            className="input-field w-full"
+                            value={directBf}
+                            onChange={e => setDirectBf(e.target.value)}
+                            min={0} max={70}
+                            placeholder="e.g. 18"
+                        />
+                    </div>
+                ) : (
+                    <div>
+                        <p className={`text-xs mb-2 ${needsMeasurements ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                            {needsMeasurements ? "Required for Katch-McArdle" : "Optional — used for body fat estimate"}
+                        </p>
+                        <div className={`grid gap-3 ${gender === "female" ? "grid-cols-3" : "grid-cols-2"}`}>
+                            {[
+                                { label: "Neck (cm)", val: neck, set: setNeck },
+                                { label: "Waist (cm)", val: waist, set: setWaist },
+                                ...(gender === "female" ? [{ label: "Hip (cm)", val: hip, set: setHip }] : []),
+                            ].map(({ label, val, set }) => (
+                                <div key={label}>
+                                    <label className="block text-xs text-gray-500 mb-1">
+                                        {label}{needsMeasurements && <span className="text-red-500"> *</span>}
+                                    </label>
+                                    <input type="number" className="input-field w-full" value={val} onChange={e => set(e.target.value)} min={0} />
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Calculate */}
