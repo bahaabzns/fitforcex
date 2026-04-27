@@ -1,3 +1,4 @@
+import { useState } from "react";
 import MacrosBadges from "../MacrosBadges";
 import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 
@@ -9,7 +10,20 @@ export default function RightPanel({
     handleAmountChange,
     handleDeleteMealItem,
     handleRenameMeal,
+    handleReorderFoodItems,
 }) {
+    const [dragIndex, setDragIndex] = useState(null);
+    const [hoverIndex, setHoverIndex] = useState(null);
+
+    const currentItems = selectedMeal.items;
+    const previewItems = (() => {
+        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return currentItems;
+        const arr = [...currentItems];
+        const [moved] = arr.splice(dragIndex, 1);
+        arr.splice(hoverIndex, 0, moved);
+        return arr;
+    })();
+
     return (
         <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
             {/* Header */}
@@ -55,14 +69,33 @@ export default function RightPanel({
 
             {/* Food Items List */}
             <div className="flex-1 overflow-y-auto min-h-0">
-            {selectedMeal.items.map((item) => (
+            {previewItems.map((item) => {
+                const originalIndex = currentItems.findIndex(i => i.id === item.id);
+                const isDragging = dragIndex !== null && currentItems[dragIndex]?.id === item.id;
+                return (
                 <div
                     key={item.id}
-                    className="card px-6 py-4 flex justify-between items-center mb-2 bg-gray-100"
+                    draggable
+                    onDragStart={() => setDragIndex(originalIndex)}
+                    onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
+                    onDrop={() => { handleReorderFoodItems(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
+                    onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
+                    className={`card px-6 py-4 flex justify-between items-center mb-2 bg-gray-100 transition-all duration-150 ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""}`}
                 >
                 <div className="flex flex-col w-full">
-                    <div className="font-bold mb-2 truncate">{item.name}</div>
-
+                    <div className="flex items-center gap-2 mb-2">
+                        <span
+                            className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0 select-none"
+                            title="Drag to reorder"
+                        >
+                            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                                <circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/>
+                                <circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/>
+                                <circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/>
+                            </svg>
+                        </span>
+                        <div className="font-bold truncate">{item.name}</div>
+                    </div>
                     <div className="flex justify-end items-center gap-4">
                         <span className="flex-2 flex gap-2 items-center">
                             <input
@@ -86,7 +119,8 @@ export default function RightPanel({
                     </div>
                 </div>
                 </div>
-            ))}
+                );
+            })}
             </div>
         </div>
             

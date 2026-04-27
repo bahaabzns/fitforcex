@@ -370,6 +370,33 @@ export function useNutritionPlan(clientId) {
         setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
     };
 
+    const handleReorderMeals = (fromIndex, toIndex) => {
+        if (fromIndex === toIndex) return;
+        const cycle = selectedPlan.cycles[selectedCycleIndex];
+        const meals = [...cycle.meals];
+        const [moved] = meals.splice(fromIndex, 1);
+        meals.splice(toIndex, 0, moved);
+        const updatedCycles = selectedPlan.cycles.map((c, i) =>
+            i === selectedCycleIndex ? { ...c, meals } : c
+        );
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+    };
+
+    const handleReorderFoodItems = (fromIndex, toIndex) => {
+        if (fromIndex === toIndex) return;
+        const items = [...selectedMeal.items];
+        const [moved] = items.splice(fromIndex, 1);
+        items.splice(toIndex, 0, moved);
+        setSelectedMeal({ ...selectedMeal, items });
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === selectedMeal.id ? { ...meal, items } : meal
+            ),
+        }));
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+    };
+
 
 
 
@@ -411,5 +438,7 @@ export function useNutritionPlan(clientId) {
         handleDuplicateCycle,
         sortedPlans,
         sortOrder, setSortOrder,
+        handleReorderMeals,
+        handleReorderFoodItems,
     }
 }

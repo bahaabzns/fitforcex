@@ -47,6 +47,8 @@ export default function NutritionPage() {
         handleDuplicateCycle,
         sortedPlans,
         sortOrder, setSortOrder,
+        handleReorderMeals,
+        handleReorderFoodItems,
     } = useNutritionPlan(id);
 
 if (loading) {
@@ -99,6 +101,7 @@ return (
             handleDeleteMeal={handleDeleteMeal}
             handleDuplicateMeal={handleDuplicateMeal}
             handleDuplicateCycle={handleDuplicateCycle}
+            handleReorderMeals={handleReorderMeals}
         />
 
         ) : (
@@ -125,6 +128,7 @@ return (
                 handleAmountChange={handleAmountChange}
                 handleDeleteMealItem={handleDeleteMealItem}
                 handleRenameMeal={handleRenameMeal}
+                handleReorderFoodItems={handleReorderFoodItems}
             />
         ) : (
             <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">

@@ -24,8 +24,20 @@ export default function MiddlePanel({
     handleDuplicateMeal,
     handleDuplicateCycle,
     handleUpdateCycleGoals,
+    handleReorderMeals,
 }) {
     const [activeTab, setActiveTab] = useState("meals");
+    const [dragIndex, setDragIndex] = useState(null);
+    const [hoverIndex, setHoverIndex] = useState(null);
+
+    const currentMeals = selectedPlan.cycles[selectedCycleIndex]?.meals ?? [];
+    const previewMeals = (() => {
+        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return currentMeals;
+        const arr = [...currentMeals];
+        const [moved] = arr.splice(dragIndex, 1);
+        arr.splice(hoverIndex, 0, moved);
+        return arr;
+    })();
 
     return (
         <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
@@ -238,15 +250,32 @@ export default function MiddlePanel({
                     {selectedPlan.cycles.length === 0 ? (
                     <p className="text-gray-600">No meals added yet.</p>
                     ) : (
-                    selectedPlan.cycles[selectedCycleIndex].meals.map(
-                        (meal, index) => (
-                        
+                    previewMeals.map((meal) => {
+                        const originalIndex = currentMeals.findIndex(m => m.id === meal.id);
+                        const isDragging = dragIndex !== null && currentMeals[dragIndex]?.id === meal.id;
+                        return (
                         <div
-                            key={index}
-                            className={`card px-6 py-4 mb-2 cursor-pointer ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
+                            key={meal.id}
+                            draggable
+                            onDragStart={() => setDragIndex(originalIndex)}
+                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
+                            onDrop={() => { handleReorderMeals(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
+                            onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
+                            className={`card px-6 py-4 mb-2 cursor-pointer transition-all duration-150 ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""} ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
                             onClick={() => setSelectedMeal(meal)}
                         >
-                            <div className="flex justify-between items-center mb-2 gap-2">
+                            <div className="flex items-center mb-2 gap-2">
+                                <span
+                                    className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0 select-none"
+                                    title="Drag to reorder"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                                        <circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/>
+                                        <circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/>
+                                        <circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/>
+                                    </svg>
+                                </span>
                                 <h4 className="flex-1 text-md font-semibold truncate">{meal.name}</h4>
                                 <span className="text-xs text-gray-500 shrink-0">{meal.items.length} items</span>
                             </div>
@@ -266,10 +295,8 @@ export default function MiddlePanel({
                                 </button>
                             </div>
                         </div>
-
-                        
-                        ),
-                    )
+                        );
+                    })
                     )}
                 </div>
             </div>
