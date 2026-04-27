@@ -80,7 +80,7 @@ export default function RightPanel({
                     onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                     onDrop={() => { handleReorderFoodItems(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                     onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                    className={`card px-6 py-4 flex justify-between items-center mb-2 bg-gray-100 transition-all duration-150 ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""}`}
+                    className={`card px-6 py-4 flex justify-between items-center mb-2 bg-gray-100 transition-all duration-150 group ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""}`}
                 >
                 <div className="flex flex-col w-full">
                     <div className="flex items-center gap-2 mb-2">
@@ -111,7 +111,7 @@ export default function RightPanel({
                         <span className="flex-1 text-sm"><span className="font-semibold">C: </span>{calcItem(item).carbs} g</span>
                         <span className="flex-1 text-sm"><span className="font-semibold">F: </span>{calcItem(item).fats} g</span>
                         <button
-                            className="btn btn-danger text-sm py-1 px-3 shrink-0"
+                            className="btn btn-danger text-sm py-1 px-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                             onClick={() => handleDeleteMealItem(item.id)}
                         >
                             Delete

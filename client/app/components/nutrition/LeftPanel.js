@@ -75,7 +75,7 @@ export default function LeftPanel ({
                 <div
                     key={plan.id}
                     onClick={() => handleSelectedPlan(plan)}
-                    className={`card px-6 py-4 mb-2 cursor-pointer bg-gray-100 ${selectedPlan && selectedPlan.id === plan.id ? "bg-gray-200" : ""}`}
+                    className={`card px-6 py-4 mb-2 cursor-pointer bg-gray-100 group ${selectedPlan && selectedPlan.id === plan.id ? "bg-gray-200" : ""}`}
                 >
                     {/* Row 1: index + name + status */}
                     <div className="flex items-center gap-2 mb-1">
@@ -95,7 +95,7 @@ export default function LeftPanel ({
                     </div>
 
                     {/* Row 3: action buttons */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <button
                             className="flex-1 btn btn-secondary text-sm py-1"
                             onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}

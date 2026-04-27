@@ -75,28 +75,14 @@ export default function MiddlePanel({
             {/* Cycles List */}
             <div className="mb-6 flex flex-col">
                 {/* Header + Add Cycle Button */}
-                <div className="flex flex-row justify-start items-center gap-4 mb-4">
+                <div className="flex flex-row justify-between items-center gap-4 mb-4">
                     <h3 className="flex-1 text-lg font-semibold">Cycles</h3>
-                    <div className=" flex flex-2 justify-center items-center gap-4">
-                        <button
-                            className="btn-danger px-4 w-full"
-                            onClick={() => handleDeleteCycle(selectedCycleIndex)}
-                        >
-                            - Delete Cycle
-                        </button>
-                        <button
-                            className="btn btn-secondary px-4 w-full"
-                            onClick={() => handleDuplicateCycle(selectedPlan.cycles[selectedCycleIndex].id)}
-                        >
-                            Duplicate Cycle
-                        </button>
-                        <button
-                            className="btn btn-primary px-4 w-full"
-                            onClick={() => setCycleNameModalOpen(true)}
-                        >
-                            + Create Cycle
-                        </button>
-                    </div>
+                    <button
+                        className="btn btn-primary px-4 shrink-0"
+                        onClick={() => setCycleNameModalOpen(true)}
+                    >
+                        + Create Cycle
+                    </button>
                 </div>
 
                 {/* Cycles Navigation */}
@@ -130,6 +116,18 @@ export default function MiddlePanel({
                                             className="flex-1 text-md font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
                                         />
                                         <p className="inline-block ml-2 text-sm text-gray-600 shrink-0">{cycle.meals.length} meals</p>
+                                        <button
+                                            className="btn btn-secondary text-sm py-1 px-3 shrink-0"
+                                            onClick={() => handleDuplicateCycle(cycle.id)}
+                                        >
+                                            Duplicate
+                                        </button>
+                                        <button
+                                            className="btn btn-danger text-sm py-1 px-3 shrink-0"
+                                            onClick={() => handleDeleteCycle(selectedCycleIndex)}
+                                        >
+                                            Delete
+                                        </button>
                                     </div>
                                     <MacrosBadges {...cycleTotals} />
                                     {cycle.goal_calories && (
@@ -261,7 +259,7 @@ export default function MiddlePanel({
                             onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                             onDrop={() => { handleReorderMeals(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                             onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                            className={`card px-6 py-4 mb-2 cursor-pointer transition-all duration-150 ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""} ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
+                            className={`card px-6 py-4 mb-2 cursor-pointer transition-all duration-150 group ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""} ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
                             onClick={() => setSelectedMeal(meal)}
                         >
                             <div className="flex items-center mb-2 gap-2">
@@ -280,7 +278,7 @@ export default function MiddlePanel({
                                 <span className="text-xs text-gray-500 shrink-0">{meal.items.length} items</span>
                             </div>
                             <MacrosBadges {...calcMeal(meal)} />
-                            <div className="flex gap-2 mt-3">
+                            <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                                 <button
                                     className="flex-1 btn btn-secondary text-sm py-1"
                                     onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
