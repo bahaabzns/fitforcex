@@ -95,7 +95,8 @@ export default function MiddlePanel({
                             const cycleTotals = calcCycle(cycle);
                             return (
                                 <div className="card px-6 py-4 bg-gray-100">
-                                    <div className="flex flex-row mb-4 items-center gap-2">
+                                    <div className="grid grid-cols-4 mb-4 items-center gap-x-2 jus">
+                                        
                                         <input
                                             key={cycle.id}
                                             type="text"
@@ -113,9 +114,10 @@ export default function MiddlePanel({
                                                     e.target.blur();
                                                 }
                                             }}
-                                            className="flex-1 text-md font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                                            className="col-span-2 text-md font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
                                         />
-                                        <p className="inline-block ml-2 text-sm text-gray-600 shrink-0">{cycle.meals.length} meals</p>
+                                        
+                                    
                                         <button
                                             className="btn btn-secondary text-sm py-1 px-3 shrink-0"
                                             onClick={() => handleDuplicateCycle(cycle.id)}
@@ -128,6 +130,9 @@ export default function MiddlePanel({
                                         >
                                             Delete
                                         </button>
+                                    
+                                        <p className="ml-2 text-sm text-gray-600 shrink-0">{cycle.meals.length} meals</p>
+
                                     </div>
                                     <MacrosBadges {...cycleTotals} />
                                     {cycle.goal_calories && (
@@ -140,25 +145,32 @@ export default function MiddlePanel({
                                         </div>
                                     )}
 
-                                    <div className="flex flex-row gap-2 rounded">
+                                    <div className="flex flex-col gap-3 rounded">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="text-sm font-semibold text-gray-500">
+                                                Cycle {selectedCycleIndex + 1} of {selectedPlan.cycles.length}
+                                            </span>
+                                            <span className="text-xs text-gray-400">
+                                                Jump to cycle
+                                            </span>
+                                        </div>
 
-                                        <button
-                                            className="flex-1 btn btn-secondary"
-                                            onClick={() => setSelectedCycleIndex(i => Math.max(0, i - 1))}
-                                            disabled={selectedCycleIndex === 0}>
-                                            Back
-                                        </button>
-
-                                        <span className="flex-1 font-semibold text-sm text-gray-500 flex justify-center items-center">
-                                            Cycle {selectedCycleIndex + 1} of {selectedPlan.cycles.length}
-                                        </span>
-                                        
-                                        <button
-                                            className="flex-1 btn btn-secondary"
-                                            onClick={() => setSelectedCycleIndex(i => Math.min(selectedPlan.cycles.length - 1, i + 1))}
-                                            disabled={selectedCycleIndex === selectedPlan.cycles.length - 1}>
-                                            Next
-                                        </button>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedPlan.cycles.map((planCycle, index) => (
+                                                <button
+                                                    key={planCycle.id}
+                                                    className={`h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
+                                                        index === selectedCycleIndex
+                                                            ? "bg-blue-500 text-white"
+                                                            : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                                                    }`}
+                                                    onClick={() => setSelectedCycleIndex(index)}
+                                                    aria-label={`Select cycle ${index + 1}`}
+                                                >
+                                                    {index + 1}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             );
