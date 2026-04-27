@@ -7,6 +7,7 @@ export default function RightPanel({
     setSelectedMeal, 
     setFoodItemModalOpen, 
     handleAmountChange,
+    handleDeleteMealItem,
     handleRenameMeal,
 }) {
     return (
@@ -76,11 +77,14 @@ export default function RightPanel({
                         <span className="flex-1 text-sm"><span className="font-semibold">P: </span>{calcItem(item).protein} g</span>
                         <span className="flex-1 text-sm"><span className="font-semibold">C: </span>{calcItem(item).carbs} g</span>
                         <span className="flex-1 text-sm"><span className="font-semibold">F: </span>{calcItem(item).fats} g</span>
+                        <button
+                            className="btn btn-danger text-sm py-1 px-3 shrink-0"
+                            onClick={() => handleDeleteMealItem(item.id)}
+                        >
+                            Delete
+                        </button>
                     </div>
                 </div>
-                
-                
-                
                 </div>
             ))}
             </div>

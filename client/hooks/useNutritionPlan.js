@@ -229,6 +229,54 @@ export function useNutritionPlan(clientId) {
         }
     };
 
+    const handleAddMultipleFoodItems = async (mealId, items) => {
+        try {
+            const addedItems = await Promise.all(
+                items.map(foodItem =>
+                    api.post("/api/nutrition/meal-items", {
+                        mealId,
+                        foodItemId: foodItem.id,
+                        amount: foodItem.serving_size,
+                        unit: foodItem.serving_unit,
+                    }).then(res => res.data)
+                )
+            );
+            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+                ...cycle,
+                meals: cycle.meals.map((meal) =>
+                    meal.id === mealId
+                        ? { ...meal, items: [...meal.items, ...addedItems] }
+                        : meal
+                ),
+            }));
+            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+            setFoodItemModalOpen(false);
+            setFoodSearchQuery("");
+            setSelectedMeal((prev) => ({ ...prev, items: [...prev.items, ...addedItems] }));
+            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+        } catch (error) {
+            console.error("Error adding food items:", error);
+        }
+    };
+
+    const handleDeleteMealItem = async (itemId) => {
+        try {
+            await api.delete(`/api/nutrition/meal-items/${itemId}`);
+            const updatedItems = selectedMeal.items.filter((i) => i.id !== itemId);
+            setSelectedMeal({ ...selectedMeal, items: updatedItems });
+            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+                ...cycle,
+                meals: cycle.meals.map((meal) =>
+                    meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal
+                ),
+            }));
+            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+        } catch (error) {
+            console.error("Error deleting meal item:", error);
+        }
+    };
+
     const handleAmountChange = async (itemId, newAmount) => {
         const response = await api.put(`/api/nutrition/meal-items/${itemId}`, {
             amount: newAmount,
@@ -334,6 +382,8 @@ export function useNutritionPlan(clientId) {
         handleDeleteCycle,
         handleCreateMeal,
         handleAddFoodItem,
+        handleAddMultipleFoodItems,
+        handleDeleteMealItem,
         handleAmountChange,
         handleFoodSearch,
         handleRenameMeal,

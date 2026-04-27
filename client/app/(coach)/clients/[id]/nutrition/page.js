@@ -32,6 +32,8 @@ export default function NutritionPage() {
         handleDeleteCycle,
         handleCreateMeal,
         handleAddFoodItem,
+        handleAddMultipleFoodItems,
+        handleDeleteMealItem,
         handleAmountChange,
         handleFoodSearch,
         handleRenameMeal,
@@ -119,6 +121,7 @@ return (
                 handleFoodSearch={handleFoodSearch}
                 handleAddFoodItem={handleAddFoodItem}
                 handleAmountChange={handleAmountChange}
+                handleDeleteMealItem={handleDeleteMealItem}
                 handleRenameMeal={handleRenameMeal}
             />
         ) : (
@@ -138,7 +141,7 @@ return (
                 foodSearchQuery={foodSearchQuery}
                 onSearchChange={setFoodSearchQuery}
                 onClose={() => setFoodItemModalOpen(false)}
-                onSelectItem={(fi) => handleAddFoodItem(selectedMeal.id, fi)}
+                onAddItems={(items) => handleAddMultipleFoodItems(selectedMeal.id, items)}
             />
         )}
     </div>
