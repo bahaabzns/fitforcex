@@ -77,6 +77,10 @@ export default function NutritionPage() {
         handleReorderFoodItems,
         handleUpdateCycleNote,
         handleUpdateMealNote,
+        alternativeModalOpenForItemId, setAlternativeModalOpenForItemId,
+        handleAddAlternatives,
+        handleDeleteAlternative,
+        handleAlternativeAmountChange,
     } = useNutritionPlan(id);
 
 if (loading) {
@@ -169,6 +173,10 @@ return (
                     handleUpdateMealNote={handleUpdateMealNote}
                     pendingFocusMealId={pendingFocusMealId}
                     setPendingFocusMealId={setPendingFocusMealId}
+                    alternativeModalOpenForItemId={alternativeModalOpenForItemId}
+                    setAlternativeModalOpenForItemId={setAlternativeModalOpenForItemId}
+                    handleDeleteAlternative={handleDeleteAlternative}
+                    handleAlternativeAmountChange={handleAlternativeAmountChange}
                 />
             ) : (
                 <div className="card w-full flex flex-col overflow-hidden min-h-full">
@@ -187,6 +195,17 @@ return (
                 onSearchChange={setFoodSearchQuery}
                 onClose={() => setFoodItemModalOpen(false)}
                 onAddItems={(items) => handleAddMultipleFoodItems(selectedMeal.id, items)}
+            />
+        )}
+
+        {/* Alternatives Modal */}
+        {alternativeModalOpenForItemId && (
+            <FoodItemsModal
+                foodItems={foodItems}
+                foodSearchQuery={foodSearchQuery}
+                onSearchChange={setFoodSearchQuery}
+                onClose={() => { setAlternativeModalOpenForItemId(null); setFoodSearchQuery(""); }}
+                onAddItems={(items) => handleAddAlternatives(alternativeModalOpenForItemId, items)}
             />
         )}
     </div>

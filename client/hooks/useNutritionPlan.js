@@ -17,6 +17,7 @@ export function useNutritionPlan(clientId) {
     const [foodSearchQuery, setFoodSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
     const [sortOrder, setSortOrder] = useState("created_desc");
+    const [alternativeModalOpenForItemId, setAlternativeModalOpenForItemId] = useState(null);
 
 
     // Effects ------------------------------------------------------------------
@@ -37,9 +38,9 @@ export function useNutritionPlan(clientId) {
     }, [clientId]);
 
     useEffect(() => {
-        if (!foodItemModalOpen) return;
+        if (!foodItemModalOpen && !alternativeModalOpenForItemId) return;
         api.get("/api/nutrition/food-items").then((res) => setFoodItems(res.data));
-    }, [foodItemModalOpen]);
+    }, [foodItemModalOpen, alternativeModalOpenForItemId]);
 
 
 
@@ -198,10 +199,11 @@ export function useNutritionPlan(clientId) {
         });
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
         setFoodItemModalOpen(false);
+        setAlternativeModalOpenForItemId(null);
         setFoodSearchQuery("");
         setSelectedMeal((prev) => ({
             ...prev,
-            items: [...prev.items, response.data],
+            items: [...prev.items, { ...response.data, alternatives: [] }],
         }));
         setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
         } catch (error) {
@@ -231,8 +233,9 @@ export function useNutritionPlan(clientId) {
             }));
             setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
             setFoodItemModalOpen(false);
+            setAlternativeModalOpenForItemId(null);
             setFoodSearchQuery("");
-            setSelectedMeal((prev) => ({ ...prev, items: [...prev.items, ...addedItems] }));
+            setSelectedMeal((prev) => ({ ...prev, items: [...prev.items, ...addedItems.map(i => ({ ...i, alternatives: [] }))] }));
             setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
         } catch (error) {
             console.error("Error adding food items:", error);
@@ -377,6 +380,58 @@ export function useNutritionPlan(clientId) {
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
     };
 
+    // ── Alternatives ────────────────────────────────────────────────────────────
+
+    const updateItemAlts = (mealItemId, updater) => {
+        const updatedItems = selectedMeal.items.map((i) =>
+            i.id === mealItemId ? { ...i, alternatives: updater(i.alternatives ?? []) } : i
+        );
+        setSelectedMeal({ ...selectedMeal, items: updatedItems });
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal
+            ),
+        }));
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+    };
+
+    const handleAddAlternatives = async (mealItemId, foodItems) => {
+        try {
+            const added = await Promise.all(
+                foodItems.map((foodItem) =>
+                    api.post(`/api/nutrition/meal-items/${mealItemId}/alternatives`, {
+                        foodItemId: foodItem.id,
+                        amount: foodItem.serving_size,
+                    }).then((res) => res.data)
+                )
+            );
+            updateItemAlts(mealItemId, (alts) => [...alts, ...added]);
+            setAlternativeModalOpenForItemId(null);
+            setFoodSearchQuery("");
+        } catch (error) {
+            console.error("Error adding alternatives:", error);
+        }
+    };
+
+    const handleDeleteAlternative = async (mealItemId, altId) => {
+        try {
+            await api.delete(`/api/nutrition/meal-item-alternatives/${altId}`);
+            updateItemAlts(mealItemId, (alts) => alts.filter((a) => a.id !== altId));
+        } catch (error) {
+            console.error("Error deleting alternative:", error);
+        }
+    };
+
+    const handleAlternativeAmountChange = async (mealItemId, altId, newAmount) => {
+        try {
+            const response = await api.put(`/api/nutrition/meal-item-alternatives/${altId}`, { amount: newAmount });
+            updateItemAlts(mealItemId, (alts) => alts.map((a) => (a.id === altId ? response.data : a)));
+        } catch (error) {
+            console.error("Error updating alternative amount:", error);
+        }
+    };
+
     const handleUpdateCycleNote = async (cycleId, note) => {
         const cycle = selectedPlan.cycles.find(c => c.id === cycleId);
         if (!cycle) return;
@@ -443,5 +498,9 @@ export function useNutritionPlan(clientId) {
         handleReorderFoodItems,
         handleUpdateCycleNote,
         handleUpdateMealNote,
+        alternativeModalOpenForItemId, setAlternativeModalOpenForItemId,
+        handleAddAlternatives,
+        handleDeleteAlternative,
+        handleAlternativeAmountChange,
     }
 }

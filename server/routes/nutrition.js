@@ -146,9 +146,24 @@ router.get('/plans/:id', async (req, res) => {
                             'SELECT nmi.id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
                             [meal.id]
                         );
+                        const itemsWithAlts = await Promise.all(
+                            itemsResult.rows.map(async item => {
+                                const altsResult = await pool.query(
+                                    `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+                                            fi.name, fi.serving_unit, fi.calories_per_serving,
+                                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+                                     FROM nutrition_meal_item_alternatives nmia
+                                     JOIN food_items fi ON fi.id = nmia.food_item_id
+                                     WHERE nmia.meal_item_id = $1
+                                     ORDER BY nmia.alt_order ASC`,
+                                    [item.id]
+                                );
+                                return { ...item, alternatives: altsResult.rows };
+                            })
+                        );
                         return {
                             ...meal,
-                            items: itemsResult.rows
+                            items: itemsWithAlts
                         };
                     })
                 );
@@ -505,10 +520,20 @@ router.post('/meals/:id/duplicate', async (req, res) => {
             [meal.id]
         );
         for (const item of items.rows) {
-            await client.query(
-                'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4)',
+            const newItem = await client.query(
+                'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4) RETURNING *',
                 [newMealId, item.food_item_id, item.amount, item.meal_item_order]
             );
+            const alts = await client.query(
+                'SELECT * FROM nutrition_meal_item_alternatives WHERE meal_item_id = $1 ORDER BY alt_order ASC',
+                [item.id]
+            );
+            for (const alt of alts.rows) {
+                await client.query(
+                    'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order) VALUES ($1, $2, $3, $4)',
+                    [newItem.rows[0].id, alt.food_item_id, alt.amount, alt.alt_order]
+                );
+            }
         }
 
         await client.query(
@@ -521,7 +546,21 @@ router.post('/meals/:id/duplicate', async (req, res) => {
             'SELECT nmi.id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
             [newMealId]
         );
-        res.status(201).json({ ...newMeal.rows[0], items: itemsRes.rows });
+        const itemsWithAlts = await Promise.all(
+            itemsRes.rows.map(async item => {
+                const altsRes = await pool.query(
+                    `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+                            fi.name, fi.serving_unit, fi.calories_per_serving,
+                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+                     FROM nutrition_meal_item_alternatives nmia
+                     JOIN food_items fi ON fi.id = nmia.food_item_id
+                     WHERE nmia.meal_item_id = $1 ORDER BY nmia.alt_order ASC`,
+                    [item.id]
+                );
+                return { ...item, alternatives: altsRes.rows };
+            })
+        );
+        res.status(201).json({ ...newMeal.rows[0], items: itemsWithAlts });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error(err);
@@ -692,6 +731,85 @@ router.delete('/meal-items/:id', async (req, res) => {
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Meal item not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+
+
+// ── Meal Item Alternatives ────────────────────────────────────────────────────
+
+router.post('/meal-items/:id/alternatives', async (req, res) => {
+    const { foodItemId, amount } = req.body;
+    const mealItemId = req.params.id;
+    try {
+        const nextOrderResult = await pool.query(
+            'SELECT COALESCE(MAX(alt_order), 0) + 1 AS next_order FROM nutrition_meal_item_alternatives WHERE meal_item_id = $1',
+            [mealItemId]
+        );
+        const nextOrder = nextOrderResult.rows[0].next_order;
+
+        const result = await pool.query(
+            'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order) VALUES ($1, $2, $3, $4) RETURNING *',
+            [mealItemId, foodItemId, amount, nextOrder]
+        );
+
+        const details = await pool.query(
+            `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+                    fi.name, fi.serving_unit, fi.calories_per_serving,
+                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+             FROM nutrition_meal_item_alternatives nmia
+             JOIN food_items fi ON fi.id = nmia.food_item_id
+             WHERE nmia.id = $1`,
+            [result.rows[0].id]
+        );
+
+        res.status(201).json(details.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.put('/meal-item-alternatives/:id', async (req, res) => {
+    const { amount } = req.body;
+    try {
+        const result = await pool.query(
+            'UPDATE nutrition_meal_item_alternatives SET amount = $1 WHERE id = $2 RETURNING *',
+            [amount, req.params.id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Alternative not found' });
+        }
+        const details = await pool.query(
+            `SELECT nmia.id, nmia.meal_item_id, nmia.amount, nmia.alt_order,
+                    fi.name, fi.serving_unit, fi.calories_per_serving,
+                    fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size
+             FROM nutrition_meal_item_alternatives nmia
+             JOIN food_items fi ON fi.id = nmia.food_item_id
+             WHERE nmia.id = $1`,
+            [result.rows[0].id]
+        );
+        res.json(details.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.delete('/meal-item-alternatives/:id', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'DELETE FROM nutrition_meal_item_alternatives WHERE id = $1 RETURNING *',
+            [req.params.id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Alternative not found' });
         }
         res.json(result.rows[0]);
     } catch (err) {
