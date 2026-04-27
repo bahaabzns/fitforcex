@@ -271,7 +271,7 @@ export default function MiddlePanel({
                             onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                             onDrop={() => { handleReorderMeals(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                             onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                            className={`card px-6 py-4 mb-2 cursor-pointer transition-all duration-150 group ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""} ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
+                            className={`card px-6 py-4 mb-2 cursor-pointer transition-all duration-150 group ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""} ${selectedMeal && selectedMeal.id === meal.id ? "bg-blue-50 ring-2 ring-blue-200 shadow-sm" : "bg-gray-100"}`}
                             onClick={() => setSelectedMeal(meal)}
                         >
                             <div className="flex items-center mb-2 gap-2">
