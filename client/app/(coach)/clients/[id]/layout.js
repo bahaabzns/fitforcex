@@ -12,7 +12,7 @@ export default function ClientLayout({ children }) {
     ]
 
     return (
-        <div className="p-6 flex flex-col h-full">
+        <div className="p-6 flex flex-col h-full ">
             <nav className="border-b border-gray-200 mb-6">
                 <ul className="flex gap-1 -mb-px">
                     {tabs.map(tab => (
@@ -24,7 +24,7 @@ export default function ClientLayout({ children }) {
                     ))}
                 </ul>
             </nav>
-            <div className="flex-1 min-h-0">{children}</div>
+            <div className="flex-1 min-h-0 ">{children}</div>
         </div>
     );
 }

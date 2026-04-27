@@ -126,18 +126,20 @@ export default function LeftPanel ({
                     </div>
 
                     {/* Row 3: action buttons */}
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <button
-                            className="flex-1 btn btn-secondary text-sm py-1"
+                            title="Duplicate plan"
+                            className="p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors"
                             onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
                         >
-                            Duplicate
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                         </button>
                         <button
-                            className="btn btn-danger text-sm py-1 px-3"
+                            title="Delete plan"
+                            className="p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors"
                             onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
                         >
-                            Delete
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                         </button>
                     </div>
                 </div>
