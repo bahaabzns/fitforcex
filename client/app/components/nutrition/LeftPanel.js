@@ -55,7 +55,7 @@ export default function LeftPanel ({
 
             {/* Sorting */}
             <div className="flex gap-2 mb-4 shrink-0">
-                <span className="text-sm text-gray-500 flex items-center">Sort:</span>
+                {/* <span className="text-sm text-gray-500 flex items-center">Sort:</span> */}
                 {[
                     { value: "created_desc", label: "Newest" },
                     { value: "created_asc",  label: "Oldest" },

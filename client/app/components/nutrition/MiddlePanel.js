@@ -66,8 +66,9 @@ export default function MiddlePanel({
                     type="text"
                     defaultValue={selectedPlan.name}
                     onBlur={(e) => {
-                        const trimmed = e.target.value.trim();
-                        if (trimmed && trimmed !== selectedPlan.name) {
+                        const trimmed = e.target.value.trim() || "Untitled Plan";
+                        e.target.value = trimmed;
+                        if (trimmed !== selectedPlan.name) {
                             handleRenamePlan(selectedPlan.id, trimmed);
                         }
                     }}
@@ -92,7 +93,7 @@ export default function MiddlePanel({
             {/* Cycles List + Add/Delete Cycle */}
             <div className="flex flex-col shrink-0">
             {/* Cycles List */}
-            <div className="mb-6 flex flex-col">
+            <div className="flex flex-col">
                 {/* Header + Add Cycle Button */}
                 <div className="flex flex-row justify-between items-center gap-4 mb-4">
                     <div  className="flex gap-2 items-center">
@@ -129,8 +130,9 @@ export default function MiddlePanel({
                                             type="text"
                                             defaultValue={cycle.name}
                                             onBlur={(e) => {
-                                                const trimmed = e.target.value.trim();
-                                                if (trimmed && trimmed !== cycle.name) {
+                                                const trimmed = e.target.value.trim() || "Untitled Cycle";
+                                                e.target.value = trimmed;
+                                                if (trimmed !== cycle.name) {
                                                     handleRenameCycle(cycle.id, trimmed);
                                                 }
                                             }}
@@ -197,7 +199,7 @@ export default function MiddlePanel({
                         })()}
                     </div>
                     {selectedPlan.cycles.length > 1 && (
-                    <div className="flex flex-col gap-3 items-center rounded">
+                    <div className="flex flex-col gap-3 items-center rounded mb-4">
                     
                         <div className="flex flex-wrap gap-2">
                             {selectedPlan.cycles.map((planCycle, index) => (

@@ -140,7 +140,7 @@ export function useNutritionPlan(clientId) {
             cycles: updatedCycles,
         });
         setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedCycles.length, updated_at: new Date().toISOString() } : p));
-        setSelectedCycleIndex(0);
+        setSelectedCycleIndex(Math.max(0, cycleIndex - 1));
         setSelectedMeal(null);
         } catch (error) {
         console.error("Error deleting cycle:", error);
@@ -385,6 +385,7 @@ export function useNutritionPlan(clientId) {
             c.id === cycleId ? { ...c, note } : c
         );
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
     };
 
     const handleUpdateMealNote = async (mealId, note) => {
@@ -397,6 +398,7 @@ export function useNutritionPlan(clientId) {
             ),
         }));
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
     };
 
 

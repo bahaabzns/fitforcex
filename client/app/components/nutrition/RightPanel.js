@@ -46,8 +46,9 @@ export default function RightPanel({
                     type="text"
                     defaultValue={selectedMeal.name}
                     onBlur={(e) => {
-                        const trimmed = e.target.value.trim();
-                        if (trimmed && trimmed !== selectedMeal.name) {
+                        const trimmed = e.target.value.trim() || "Untitled Meal";
+                        e.target.value = trimmed;
+                        if (trimmed !== selectedMeal.name) {
                             handleRenameMeal(selectedMeal.id, trimmed);
                         }
                     }}
@@ -73,9 +74,17 @@ export default function RightPanel({
             <MacrosBadges {...calcMeal(selectedMeal)} />
             <div className="flex gap-4 justify-start items-center my-4 shrink-0">
 
-                <h3 className="flex-1 text-lg font-semibold">
-                    Food Items
-                </h3>
+                <div  className="flex-1 flex gap-2 items-center">
+                    <h3 className="text-lg font-semibold">
+                        Food Items
+                    </h3>
+                    <p className="text-sm text-gray-600 shrink-0">
+                        ({selectedMeal.items.length} items)
+                    </p>
+
+                </div>
+                
+
                 {/* زرار Add Food */}
 
                 <button
@@ -129,6 +138,7 @@ export default function RightPanel({
                             <input
                                 type="number"
                                 defaultValue={item.amount}
+                                onClick={(e) => e.target.select()}
                                 onBlur={(e) => handleAmountChange(item.id, e.target.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") e.target.blur();
