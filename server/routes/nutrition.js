@@ -84,6 +84,85 @@ router.delete('/food-items/:id', async (req, res) => {
     }
 });
 
+// ─── Food Categories ───────────────────────────────────────────────────────────
+
+router.get('/food-categories', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT fc.*, COUNT(fi.id)::int AS food_item_count
+             FROM food_categories fc
+             LEFT JOIN food_items fi ON fi.food_category = fc.name AND fi.coach_id = fc.coach_id
+             WHERE fc.coach_id = $1
+             GROUP BY fc.id
+             ORDER BY fc.name ASC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/food-categories', async (req, res) => {
+    const { name } = req.body;
+    try {
+        const result = await pool.query(
+            'INSERT INTO food_categories (name, coach_id) VALUES ($1, $2) RETURNING *',
+            [name, req.user.id]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.put('/food-categories/:id', async (req, res) => {
+    const { name } = req.body;
+    try {
+        const oldResult = await pool.query(
+            'SELECT name FROM food_categories WHERE id = $1 AND coach_id = $2',
+            [req.params.id, req.user.id]
+        );
+        if (oldResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Food category not found' });
+        }
+        const oldName = oldResult.rows[0].name;
+
+        const result = await pool.query(
+            'UPDATE food_categories SET name = $1 WHERE id = $2 AND coach_id = $3 RETURNING *',
+            [name, req.params.id, req.user.id]
+        );
+
+        await pool.query(
+            'UPDATE food_items SET food_category = $1 WHERE food_category = $2 AND coach_id = $3',
+            [name, oldName, req.user.id]
+        );
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.delete('/food-categories/:id', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'DELETE FROM food_categories WHERE id = $1 AND coach_id = $2 RETURNING *',
+            [req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Food category not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 
 

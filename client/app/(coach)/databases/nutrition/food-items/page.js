@@ -4,6 +4,7 @@ import api from "@/lib/axios";
 
 export default function FoodItemsPage() {
     const [foodItems, setFoodItems] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
@@ -19,18 +20,22 @@ export default function FoodItemsPage() {
     });
 
     useEffect(() => {
-        const fetchFoodItems = async () => {
+        const fetchData = async () => {
             try {
-                const response = await api.get('/api/nutrition/food-items');
-                setFoodItems(response.data);
+                const [itemsRes, categoriesRes] = await Promise.all([
+                    api.get('/api/nutrition/food-items'),
+                    api.get('/api/nutrition/food-categories'),
+                ]);
+                setFoodItems(itemsRes.data);
+                setCategories(categoriesRes.data);
             } catch (error) {
-                console.error('Error fetching food items:', error);
+                console.error('Error fetching data:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchFoodItems();
+        fetchData();
     }, []);
 
     const handleSubmit = async (e) => {
@@ -103,7 +108,12 @@ export default function FoodItemsPage() {
                     <div onClick={(e) => e.stopPropagation()} className="card p-6 w-96">
                         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                             <input type="text" name="name" value={formData.name} placeholder="Name" onChange={handleChange} className="input-field" />
-                            <input type="text" name="food_category" value={formData.food_category} placeholder="Food Category" onChange={handleChange} className="input-field" />
+                            <select name="food_category" value={formData.food_category} onChange={handleChange} className="input-field">
+                                <option value="">Select Category</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                ))}
+                            </select>
                             <input type="number" name="serving_size" value={formData.serving_size} placeholder="Serving Size" onChange={handleChange} className="input-field" />
                             <input type="text" name="serving_unit" value={formData.serving_unit} placeholder="Serving Unit" onChange={handleChange} className="input-field" />
                             <input type="number" name="calories_per_serving" value={formData.calories_per_serving} placeholder="Calories per Serving" onChange={handleChange} className="input-field" />
@@ -122,7 +132,12 @@ export default function FoodItemsPage() {
                         <h2 className="text-lg font-semibold mb-4">Edit Food Item</h2>
                         <form onSubmit={handleUpdate} className="flex flex-col gap-4">
                             <input type="text" name="name" value={editingItem.name} placeholder="Name" onChange={handleEditChange} className="input-field" />
-                            <input type="text" name="food_category" value={editingItem.food_category} placeholder="Food Category" onChange={handleEditChange} className="input-field" />
+                            <select name="food_category" value={editingItem.food_category} onChange={handleEditChange} className="input-field">
+                                <option value="">Select Category</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                ))}
+                            </select>
                             <input type="number" name="serving_size" value={editingItem.serving_size} placeholder="Serving Size" onChange={handleEditChange} className="input-field" />
                             <input type="text" name="serving_unit" value={editingItem.serving_unit} placeholder="Serving Unit" onChange={handleEditChange} className="input-field" />
                             <input type="number" name="calories_per_serving" value={editingItem.calories_per_serving} placeholder="Calories per Serving" onChange={handleEditChange} className="input-field" />
