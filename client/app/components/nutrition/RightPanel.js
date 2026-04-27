@@ -85,7 +85,7 @@ export default function RightPanel({
                 <div className="flex flex-col w-full">
                     <div className="flex items-center gap-2 mb-2">
                         <span
-                            className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0 select-none"
+                            className="text-gray-400 hover:text-gray-600 cursor-grab shrink-0 select-none"
                             title="Drag to reorder"
                         >
                             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">

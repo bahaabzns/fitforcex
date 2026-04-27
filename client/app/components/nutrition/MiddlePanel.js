@@ -266,7 +266,7 @@ export default function MiddlePanel({
                         >
                             <div className="flex items-center mb-2 gap-2">
                                 <span
-                                    className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0 select-none"
+                                    className="text-gray-400 hover:text-gray-600 cursor-grab shrink-0 select-none"
                                     title="Drag to reorder"
                                     onClick={(e) => e.stopPropagation()}
                                 >
