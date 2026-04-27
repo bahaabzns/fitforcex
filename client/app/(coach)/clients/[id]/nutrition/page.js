@@ -107,12 +107,12 @@ return (
 
         {/* Divider 1 */}
         <div
-            className="w-1.5 flex-shrink-0 bg-[#2a2a2a] hover:bg-primary cursor-col-resize rounded-full mx-0.5 transition-colors"
+            className="w-1.5 h-12 my-auto mx-1 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
             onMouseDown={(e) => handleDividerMouseDown(0, e)}
         />
 
         {/* Panel 2: Plan Detail */}
-        <div style={{ width: `${widths[1]}%` }} className="flex flex-col min-h-0 overflow-hidden">
+        <div style={{ width: `${widths[1]}%` }} className="flex flex-col min-h-full overflow-hidden">
             {selectedPlan ? (
                 <MiddlePanel
                     selectedPlan={selectedPlan}
@@ -142,7 +142,7 @@ return (
                     handleReorderMeals={handleReorderMeals}
                 />
             ) : (
-                <div className="card w-full flex flex-col overflow-hidden">
+                <div className="card w-full flex flex-col overflow-hidden min-h-full">
                     <p className="text-gray-600 text-center flex justify-center items-center h-full">
                         Select a plan to view details
                     </p>
@@ -152,12 +152,12 @@ return (
 
         {/* Divider 2 */}
         <div
-            className="w-1.5 flex-shrink-0 bg-[#2a2a2a] hover:bg-primary cursor-col-resize rounded-full mx-0.5 transition-colors"
+            className="w-1.5 h-12 my-auto mx-1 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
             onMouseDown={(e) => handleDividerMouseDown(1, e)}
         />
 
         {/* Panel 3: Meal Detail */}
-        <div style={{ width: `${widths[2]}%` }} className="flex flex-col min-h-0 overflow-hidden">
+        <div style={{ width: `${widths[2]}%` }} className="flex flex-col min-h-full overflow-hidden">
             {selectedMeal && selectedPlan ? (
                 <RightPanel
                     selectedMeal={selectedMeal}
@@ -176,7 +176,7 @@ return (
                     handleReorderFoodItems={handleReorderFoodItems}
                 />
             ) : (
-                <div className="card w-full flex flex-col overflow-hidden min-h-0">
+                <div className="card w-full flex flex-col overflow-hidden min-h-full">
                     <p className="text-gray-600 text-center flex justify-center items-center h-full">
                         Select a meal to view details
                     </p>

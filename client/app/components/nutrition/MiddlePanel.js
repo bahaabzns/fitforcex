@@ -40,7 +40,7 @@ export default function MiddlePanel({
     })();
 
     return (
-        <div className="card w-full flex flex-col overflow-hidden min-h-0">
+        <div className="card w-full flex flex-col overflow-hidden min-h-full">
             {/* Header */}
             <div className="flex justify-between items-center mb-4 gap-4">
                 <input
@@ -64,7 +64,7 @@ export default function MiddlePanel({
                 />
                 <button
                     title="Close plan"
-                    className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                    className="cursor-pointer p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
                     onClick={() => setSelectedPlan(null)}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -96,8 +96,7 @@ export default function MiddlePanel({
                             const cycleTotals = calcCycle(cycle);
                             return (
                                 <div className="card px-6 py-4 bg-gray-100">
-                                    <div className="grid grid-cols-4 mb-4 items-center gap-x-2 jus">
-                                        
+                                    <div className="flex justify-between items-center gap-2">
                                         <input
                                             key={cycle.id}
                                             type="text"
@@ -115,28 +114,32 @@ export default function MiddlePanel({
                                                     e.target.blur();
                                                 }
                                             }}
-                                            className="col-span-2 text-md font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                                            className="flex-1 text-md font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
                                         />
                                         
-                                    
-                                        <button
-                                            title="Duplicate cycle"
-                                            className="p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0"
-                                            onClick={() => handleDuplicateCycle(cycle.id)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                        </button>
-                                        <button
-                                            title="Delete cycle"
-                                            className="p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors shrink-0"
-                                            onClick={() => handleDeleteCycle(selectedCycleIndex)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                        </button>
-                                    
-                                        <p className="ml-2 text-sm text-gray-600 shrink-0">{cycle.meals.length} meals</p>
+                                        <div className="flex justify-end gap-2 shrink-0">
+                                            <button
+                                                title="Duplicate cycle"
+                                                className="cursor-pointer p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors shrink-0"
+                                                onClick={() => handleDuplicateCycle(cycle.id)}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                            </button>
 
-                                    </div>
+                                            <button
+                                                title="Delete cycle"
+                                                className="cursor-pointer p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors shrink-0"
+                                                onClick={() => handleDeleteCycle(selectedCycleIndex)}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                            </button>
+                                        </div>
+                                        
+                                        
+                                    
+
+                                </div>
+                                    <p className="ml-2 text-sm text-gray-600 shrink-0 mb-4">{cycle.meals.length} meals</p>
                                     <MacrosBadges {...cycleTotals} />
                                     {cycle.goal_calories && (
                                         <div className="flex gap-2 mt-1 mb-2">
@@ -201,7 +204,7 @@ export default function MiddlePanel({
             {/* Tab Bar */}
             <div className="flex gap-2 mb-4 shrink-0">
                 <button
-                    className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`cursor-pointer flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                         activeTab === "meals" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                     onClick={() => setActiveTab("meals")}
@@ -209,7 +212,7 @@ export default function MiddlePanel({
                     Meals
                 </button>
                 <button
-                    className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`cursor-pointer flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                         activeTab === "calculator" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                     onClick={() => setActiveTab("calculator")}
@@ -258,7 +261,7 @@ export default function MiddlePanel({
         
         
         
-                <div className="flex-1 overflow-y-auto min-h-0">
+                <div className="flex-1 overflow-y-auto min-h-0 p-1">
 
                     {selectedPlan.cycles.length === 0 ? (
                     <p className="text-gray-600">No meals added yet.</p>
@@ -277,7 +280,7 @@ export default function MiddlePanel({
                             className={`card px-6 py-4 mb-2 cursor-pointer transition-all duration-150 group ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""} ${selectedMeal && selectedMeal.id === meal.id ? "bg-blue-50 ring-2 ring-blue-200 shadow-sm" : "bg-gray-100"}`}
                             onClick={() => setSelectedMeal(meal)}
                         >
-                            <div className="flex items-center mb-2 gap-2">
+                            <div className="flex items-center justify-center mb-2 gap-2">
                                 <span
                                     className="text-gray-400 hover:text-gray-600 cursor-grab shrink-0 select-none"
                                     title="Drag to reorder"
@@ -290,25 +293,26 @@ export default function MiddlePanel({
                                     </svg>
                                 </span>
                                 <h4 className="flex-1 text-md font-semibold truncate">{meal.name}</h4>
+                                <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                    <button
+                                        title="Duplicate meal"
+                                        className="cursor-pointer p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                                        onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    </button>
+                                    <button
+                                        title="Delete meal"
+                                        className="cursor-pointer p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteMeal(meal.id); }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                    </button>
+                                </div>
                                 <span className="text-xs text-gray-500 shrink-0">{meal.items.length} items</span>
                             </div>
                             <MacrosBadges {...calcMeal(meal)} />
-                            <div className="flex gap-2 justify-end mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                                <button
-                                    title="Duplicate meal"
-                                    className="p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors"
-                                    onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                </button>
-                                <button
-                                    title="Delete meal"
-                                    className="p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors"
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteMeal(meal.id); }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                </button>
-                            </div>
+                            
                         </div>
                         );
                     })

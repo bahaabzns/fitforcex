@@ -85,7 +85,7 @@ export default function LeftPanel ({
             )}
 
             {/* Plans List */}
-            <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex-1 overflow-y-auto min-h-0 p-1">
                 {plans.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-12">
                         <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,10 +110,29 @@ export default function LeftPanel ({
                 >
                     {/* Row 1: index + name + status */}
                     <div className="flex items-center gap-2 mb-1">
-                        <h3 className="flex-1 text-lg font-bold truncate">{plan.name}</h3>
                         <span className={`text-xs px-2 py-0.5 rounded shrink-0 ${plan.status === "active" ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700"}`}>
                             {plan.status}
                         </span>
+                        <h3 className="flex-1 text-lg font-bold truncate">{plan.name}</h3>
+                        
+                        
+                    {/* Row 3: action buttons */}
+                    <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <button
+                            title="Duplicate plan"
+                            className="cursor-pointer p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                        <button
+                            title="Delete plan"
+                            className="cursor-pointer p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                        </button>
+                    </div>
                     </div>
 
                     {/* Row 2: cycle count + created date */}
@@ -125,23 +144,6 @@ export default function LeftPanel ({
                         <span title={formatDate(plan.updated_at)}>Edited {formatRelativeTime(plan.updated_at)}</span>
                     </div>
 
-                    {/* Row 3: action buttons */}
-                    <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <button
-                            title="Duplicate plan"
-                            className="p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors"
-                            onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                        </button>
-                        <button
-                            title="Delete plan"
-                            className="p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors"
-                            onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                        </button>
-                    </div>
                 </div>
                 ))}
             </div>

@@ -93,7 +93,7 @@ export function useNutritionPlan(clientId) {
             cycles: [...selectedPlan.cycles, { ...response.data, meals: [] }],
         };
         setSelectedPlan(updatedPlan);
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedPlan.cycles.length, updated_at: new Date().toISOString() } : p));
+        setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedPlan.cycles.length, updated_at: new Date().toISOString() } : p));
         setCycleName(""); // Reset cycle name input after creation
         } catch (error) {
         console.error("Error adding new cycle:", error);
@@ -138,7 +138,7 @@ export function useNutritionPlan(clientId) {
                 ...selectedPlan,
                 cycles: [...selectedPlan.cycles, response.data],
             });
-            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: selectedPlan.cycles.length + 1, updated_at: new Date().toISOString() } : p));
+            setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: selectedPlan.cycles.length + 1, updated_at: new Date().toISOString() } : p));
         } catch (error) {
             console.error("Error duplicating cycle:", error);
         }
@@ -155,7 +155,7 @@ export function useNutritionPlan(clientId) {
             ...selectedPlan,
             cycles: updatedCycles,
         });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedCycles.length, updated_at: new Date().toISOString() } : p));
+        setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedCycles.length, updated_at: new Date().toISOString() } : p));
         setSelectedCycleIndex(0);
         setSelectedMeal(null);
         } catch (error) {
