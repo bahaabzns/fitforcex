@@ -45,7 +45,7 @@ export default function RightPanel({
     return (
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
             {/* Header */}
-            <div className="flex justify-between items-center mb-4 gap-4">
+            <div className="flex justify-between items-center mb-3 gap-4">
                 <input
                     ref={mealTitleRef}
                     key={selectedMeal.id}
@@ -82,7 +82,7 @@ export default function RightPanel({
             {/* Food Items Section */}
             <div className="flex flex-col min-h-0" style={{ flex: itemsCollapsed ? '0 0 auto' : '1 1 0' }}>
             <div
-                className="flex gap-4 justify-start items-center my-4 shrink-0 cursor-pointer select-none"
+                className="flex gap-4 justify-start items-center my-3 shrink-0 cursor-pointer select-none"
                 onClick={() => setItemsCollapsed(v => !v)}
             >
                 <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
@@ -91,7 +91,7 @@ export default function RightPanel({
                     </svg>
                 </div>
                 <div className="flex-1 flex gap-2 items-center">
-                    <h3 className="text-lg font-semibold">Food Items</h3>
+                    <h3 className="text-lg font-semibold text-blue-500">Food Items</h3>
                     <p className="text-sm text-gray-600 shrink-0">({selectedMeal.items.length} items)</p>
                 </div>
                 {!itemsCollapsed && (
@@ -123,9 +123,9 @@ export default function RightPanel({
                     className={`flex gap-2 items-stretch mb-1 transition-all duration-150 ${isDragging ? "opacity-30 scale-95" : ""}`}
                 >
                     {/* Item card */}
-                    <div className={`flex-1 card px-4 py-3 flex justify-between items-center group ${isExpanded ? "border-blue-400 bg-blue-50" : "bg-gray-100"}`}>
+                    <div className={`flex-1 card px-3 py-2 flex justify-between items-center group ${isExpanded ? "border-blue-400 bg-blue-50" : "bg-gray-100"}`}>
                         <div className="flex flex-col w-full">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2 mb-1">
                                 <span
                                     className="text-gray-400 hover:text-gray-600 cursor-grab shrink-0 select-none"
                                     title="Drag to reorder"
@@ -201,8 +201,8 @@ export default function RightPanel({
                 {isExpanded && (
                     <div className="mb-2">
                         {alternatives.map((alt) => (
-                            <div key={alt.id} className="card px-4 py-3 mb-1 bg-white border border-blue-100 group">
-                                <div className="flex items-center gap-2 mb-2">
+                            <div key={alt.id} className="card px-3 py-2 mb-1 bg-white border border-blue-100 group">
+                                <div className="flex items-center gap-2 mb-1">
                                     <div className="flex-1 font-bold truncate text-gray-700">{alt.name}</div>
                                     <button
                                         title="Remove alternative"
@@ -272,7 +272,7 @@ export default function RightPanel({
                             <polyline points={notesCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
                         </svg>
                     </div>
-                    <h3 className="text-lg font-semibold">Notes</h3>
+                    <h3 className="text-lg font-semibold text-blue-500">Notes</h3>
                 </div>
                 {!notesCollapsed && (
                     <textarea

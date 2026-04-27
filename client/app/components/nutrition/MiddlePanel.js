@@ -71,7 +71,7 @@ export default function MiddlePanel({
     return (
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
             {/* Header */}
-            <div className="flex justify-between items-center mb-4 gap-4">
+            <div className="flex justify-between items-center mb-3 gap-4">
                 <input
                     ref={planTitleRef}
                     key={selectedPlan.id}
@@ -102,11 +102,84 @@ export default function MiddlePanel({
                 </button>
             </div>
             
+            {/* Current Cycle Name + Daily Goal */}
+            {selectedPlan.cycles.length > 0 && (() => {
+                const cycle = selectedPlan.cycles[selectedCycleIndex];
+                const cycleTotals = calcCycle(cycle);
+                return (
+                    <>
+                        <div className="flex items-center mb-2 gap-4 shrink-0">
+                            <input
+                                ref={cycleTitleRef}
+                                key={cycle.id}
+                                type="text"
+                                defaultValue={cycle.name}
+                                onBlur={(e) => {
+                                    const trimmed = e.target.value.trim() || "Untitled Cycle";
+                                    e.target.value = trimmed;
+                                    if (trimmed !== cycle.name) handleRenameCycle(cycle.id, trimmed);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') e.target.blur();
+                                    if (e.key === 'Escape') { e.target.value = cycle.name; e.target.blur(); }
+                                }}
+                                className="flex-1 text-xl font-bold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                            />
+                        </div>
+                        <div className="rounded-xl bg-white border border-gray-200 p-3 mb-2 shrink-0">
+                            {cycle.goal_calories && (
+                                <p className="text-xs text-gray-500 mb-2">Daily Goal</p>
+                            )}
+                            {cycle.goal_calories && (
+                                <div className="h-2 bg-gray-100 rounded-full mb-3 overflow-hidden">
+                                    <div
+                                        className="h-full bg-blue-400 rounded-full transition-all"
+                                        style={{ width: `${Math.min(100, (cycleTotals.calories / cycle.goal_calories) * 100)}%` }}
+                                    />
+                                </div>
+                            )}
+                            <div className="flex items-baseline gap-1 mb-2">
+                                <span className="text-2xl font-bold text-gray-800">{cycleTotals.calories}</span>
+                                {cycle.goal_calories
+                                    ? <span className="text-sm text-gray-400">/{cycle.goal_calories} kcal</span>
+                                    : <span className="text-sm text-gray-400">kcal</span>
+                                }
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                {[
+                                    { label: "C", current: cycleTotals.carbs,   target: cycle.goal_carbs,   color: "text-teal-600",   bar: "bg-teal-400" },
+                                    { label: "P", current: cycleTotals.protein, target: cycle.goal_protein, color: "text-red-500",    bar: "bg-red-400" },
+                                    { label: "F", current: cycleTotals.fats,    target: cycle.goal_fats,    color: "text-yellow-600", bar: "bg-yellow-400" },
+                                ].map(({ label, current, target, color, bar }) => (
+                                    <div key={label}>
+                                        <p className="text-sm font-semibold text-gray-800 flex items-baseline gap-1">
+                                            <span className={`text-xs font-bold ${color}`}>{label}</span>
+                                            {current}
+                                            <span className="text-xs text-gray-400 font-normal">
+                                                {target ? `/${target}g` : "g"}
+                                            </span>
+                                        </p>
+                                        {target && (
+                                            <div className="h-1 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full ${bar}`}
+                                                    style={{ width: `${Math.min(100, (current / target) * 100)}%` }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                );
+            })()}
+
             {/* Cycles Section */}
             <div className="flex flex-col shrink-0">
                 {/* Cycles Header */}
                 <div
-                    className="flex gap-4 justify-start items-center mb-4 shrink-0 cursor-pointer select-none"
+                    className="flex gap-4 justify-start items-center mb-2 shrink-0 cursor-pointer select-none"
                     onClick={() => setCyclesCollapsed(p => !p)}
                 >
                     <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
@@ -115,7 +188,7 @@ export default function MiddlePanel({
                         </svg>
                     </div>
                     <div className="flex-1 flex gap-2 items-center">
-                        <h3 className="text-lg font-semibold">Cycles</h3>
+                        <h3 className="text-lg font-semibold text-blue-500">Cycles</h3>
                         <p className="text-sm text-gray-600 shrink-0">({selectedPlan.cycles.length} cycles)</p>
                         {cyclesCollapsed && selectedPlan.cycles.length > 0 && (
                             <span className="text-sm text-gray-400 shrink-0">· {selectedPlan.cycles[selectedCycleIndex]?.name}</span>
@@ -195,80 +268,7 @@ export default function MiddlePanel({
             </div>
 
             {/* Divider */}
-            <div className="shrink-0 border-t border-gray-200 my-2" />
-
-            {/* Current Cycle Name + Daily Goal */}
-            {selectedPlan.cycles.length > 0 && (() => {
-                const cycle = selectedPlan.cycles[selectedCycleIndex];
-                const cycleTotals = calcCycle(cycle);
-                return (
-                    <>
-                        <div className="flex items-center mb-4 gap-4 shrink-0">
-                            <input
-                                ref={cycleTitleRef}
-                                key={cycle.id}
-                                type="text"
-                                defaultValue={cycle.name}
-                                onBlur={(e) => {
-                                    const trimmed = e.target.value.trim() || "Untitled Cycle";
-                                    e.target.value = trimmed;
-                                    if (trimmed !== cycle.name) handleRenameCycle(cycle.id, trimmed);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') e.target.blur();
-                                    if (e.key === 'Escape') { e.target.value = cycle.name; e.target.blur(); }
-                                }}
-                                className="flex-1 text-xl font-bold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
-                            />
-                        </div>
-                        <div className="rounded-xl bg-white border border-gray-200 p-4 mb-3 shrink-0">
-                            {cycle.goal_calories && (
-                                <p className="text-xs text-gray-500 mb-2">Daily Goal</p>
-                            )}
-                            {cycle.goal_calories && (
-                                <div className="h-2 bg-gray-100 rounded-full mb-3 overflow-hidden">
-                                    <div
-                                        className="h-full bg-blue-400 rounded-full transition-all"
-                                        style={{ width: `${Math.min(100, (cycleTotals.calories / cycle.goal_calories) * 100)}%` }}
-                                    />
-                                </div>
-                            )}
-                            <div className="flex items-baseline gap-1 mb-4">
-                                <span className="text-2xl font-bold text-gray-800">{cycleTotals.calories}</span>
-                                {cycle.goal_calories
-                                    ? <span className="text-sm text-gray-400">/{cycle.goal_calories} kcal</span>
-                                    : <span className="text-sm text-gray-400">kcal</span>
-                                }
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { label: "C", current: cycleTotals.carbs,   target: cycle.goal_carbs,   color: "text-teal-600",   bar: "bg-teal-400" },
-                                    { label: "P", current: cycleTotals.protein, target: cycle.goal_protein, color: "text-red-500",    bar: "bg-red-400" },
-                                    { label: "F", current: cycleTotals.fats,    target: cycle.goal_fats,    color: "text-yellow-600", bar: "bg-yellow-400" },
-                                ].map(({ label, current, target, color, bar }) => (
-                                    <div key={label}>
-                                        <p className="text-sm font-semibold text-gray-800 flex items-baseline gap-1">
-                                            <span className={`text-xs font-bold ${color}`}>{label}</span>
-                                            {current}
-                                            <span className="text-xs text-gray-400 font-normal">
-                                                {target ? `/${target}g` : "g"}
-                                            </span>
-                                        </p>
-                                        {target && (
-                                            <div className="h-1 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
-                                                <div
-                                                    className={`h-full rounded-full ${bar}`}
-                                                    style={{ width: `${Math.min(100, (current / target) * 100)}%` }}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </>
-                );
-            })()}
+            <div className="shrink-0 border-t  border-gray-100 my-2" />
 
             {/* Lower block: Meals + Notes */}
             <div className="flex flex-col flex-1 min-h-0">
@@ -286,7 +286,7 @@ export default function MiddlePanel({
                             </svg>
                         </div>
                         <div className="flex-1 flex gap-2 items-center">
-                            <h3 className="text-lg font-semibold">Meals</h3>
+                            <h3 className="text-lg font-semibold text-blue-500">Meals</h3>
                             <p className="text-sm text-gray-600 shrink-0">({selectedPlan.cycles[selectedCycleIndex].meals.length} meals)</p>
                         </div>
                         {!mealsCollapsed && (
@@ -374,7 +374,7 @@ export default function MiddlePanel({
                                 <polyline points={notesCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
                             </svg>
                         </div>
-                        <h3 className="text-lg font-semibold">Notes</h3>
+                        <h3 className="text-lg font-semibold text-blue-500">Notes</h3>
                     </div>
                     {!notesCollapsed && selectedPlan.cycles.length > 0 && (() => {
                         const cycle = selectedPlan.cycles[selectedCycleIndex];

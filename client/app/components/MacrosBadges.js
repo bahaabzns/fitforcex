@@ -1,8 +1,8 @@
 export default function MacrosBadges({ calories, protein, carbs, fats }) {
     return (
-        <div className="rounded-xl bg-white border border-gray-200 px-4 py-3 flex items-center gap-4">
+        <div className="rounded-xl bg-white border border-gray-200 px-3 py-2 flex items-center gap-4">
             <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold text-gray-800">{calories}</span>
+                <span className="text-xl font-bold text-gray-800">{calories}</span>
                 <span className="text-sm text-gray-400">kcal</span>
             </div>
             <div className="h-6 w-px bg-gray-200 shrink-0" />
