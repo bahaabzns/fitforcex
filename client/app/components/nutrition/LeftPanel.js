@@ -1,5 +1,3 @@
-import NameModal from "../NameModal";
-
 function formatDate(dateStr) {
     const d = new Date(dateStr);
     const day = d.getDate();
@@ -30,8 +28,6 @@ function formatRelativeTime(dateStr) {
 export default function LeftPanel ({
     plans,
     selectedPlan,
-    planNameModalOpen, setPlanNameModalOpen,
-    planName, setPlanName,
     handleCreatePlan, handleSelectedPlan,
     handleDeletePlan, handleDuplicatePlan,
     sortOrder, setSortOrder,
@@ -39,13 +35,19 @@ export default function LeftPanel ({
     return (
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
             {/* Header */}
-            <div className="flex flex-row justify-center items-center gap-4 mb-4">
-                <h2 className="flex-1 text-xl font-bold">Plans</h2>
+            <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
+                <div  className="flex-1 flex gap-2 items-center">
+                    <h2 className="text-xl font-bold">Plans</h2>
+
+                    <p className="text-sm text-gray-600 shrink-0">
+                        ({plans.length} plans)
+                    </p>
+                </div>
                 <button
                     className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
-                    "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
+                                "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
                     }`}
-                    onClick={() => setPlanNameModalOpen(true)}
+                    onClick={() => handleCreatePlan()}
                 >
                     + Create Plan
                 </button>
@@ -74,17 +76,6 @@ export default function LeftPanel ({
             </div>
 
             {/* Modal For Creating Plan */}
-            {planNameModalOpen && (
-                <NameModal
-                    title="Enter Plan Name"
-                    value={planName}
-                    placeholder="Plan Name"
-                    submitText="Create"
-                    onChange={setPlanName}
-                    onSubmit={() => handleCreatePlan(planName)}
-                    onClose={() => setPlanNameModalOpen(false)}
-                />
-            )}
 
             {/* Plans List */}
             <div className="flex-1 overflow-y-auto min-h-0 p-1">
@@ -99,7 +90,7 @@ export default function LeftPanel ({
                         </div>
                         <button
                             className="btn btn-primary px-6"
-                            onClick={() => setPlanNameModalOpen(true)}
+                            onClick={() => handleCreatePlan()}
                         >
                             + Create Plan
                         </button>

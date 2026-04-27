@@ -1,5 +1,4 @@
-import { useState } from "react";
-import NameModal from "../NameModal";
+import { useState, useRef, useEffect } from "react";
 import MacrosBadges from "../MacrosBadges";
 import CycleCalculator from "./CycleCalculator";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
@@ -11,10 +10,6 @@ export default function MiddlePanel({
     setSelectedCycleIndex,
     selectedMeal,
     setSelectedMeal,
-    cycleNameModalOpen, setCycleNameModalOpen,
-    cycleName, setCycleName,
-    mealModalOpen, setMealModalOpen,
-    mealName, setMealName,
     handleDeleteCycle,
     handleCreateCycle,
     handleCreateMeal,
@@ -25,10 +20,32 @@ export default function MiddlePanel({
     handleDuplicateCycle,
     handleUpdateCycleGoals,
     handleReorderMeals,
+    handleUpdateCycleNote,
+    pendingFocusPlanId, setPendingFocusPlanId,
+    pendingFocusCycleId, setPendingFocusCycleId,
 }) {
     const [activeTab, setActiveTab] = useState("meals");
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
+
+    const planTitleRef = useRef(null);
+    const cycleTitleRef = useRef(null);
+
+    useEffect(() => {
+        if (pendingFocusPlanId && selectedPlan?.id === pendingFocusPlanId) {
+            planTitleRef.current?.focus();
+            planTitleRef.current?.select();
+            setPendingFocusPlanId(null);
+        }
+    }, [pendingFocusPlanId, selectedPlan?.id, setPendingFocusPlanId]);
+
+    useEffect(() => {
+        if (pendingFocusCycleId && selectedPlan.cycles[selectedCycleIndex]?.id === pendingFocusCycleId) {
+            cycleTitleRef.current?.focus();
+            cycleTitleRef.current?.select();
+            setPendingFocusCycleId(null);
+        }
+    }, [pendingFocusCycleId, selectedCycleIndex, selectedPlan.cycles, setPendingFocusCycleId]);
 
     const currentMeals = selectedPlan.cycles[selectedCycleIndex]?.meals ?? [];
     const previewMeals = (() => {
@@ -44,6 +61,7 @@ export default function MiddlePanel({
             {/* Header */}
             <div className="flex justify-between items-center mb-4 gap-4">
                 <input
+                    ref={planTitleRef}
                     key={selectedPlan.id}
                     type="text"
                     defaultValue={selectedPlan.name}
@@ -76,7 +94,7 @@ export default function MiddlePanel({
             {/* Cycles List */}
             <div className="mb-6 flex flex-col">
                 {/* Header + Add Cycle Button */}
-                <div className="flex flex-row justify-between items-center gap-4 mb-2">
+                <div className="flex flex-row justify-between items-center gap-4 mb-4">
                     <div  className="flex gap-2 items-center">
                         <h3 className="flex-1 text-lg font-semibold">Cycles</h3>
                         <p className="text-sm text-gray-600 shrink-0">
@@ -87,7 +105,7 @@ export default function MiddlePanel({
                             className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
                                 "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
                             }`}
-                            onClick={() => setCycleNameModalOpen(true)}
+                        onClick={() => handleCreateCycle()}
                         >
                             + Create Cycle
                         </button>
@@ -106,6 +124,7 @@ export default function MiddlePanel({
                                 <div className="card px-4 py-4 mb-2 bg-gray-100">
                                     <div className="flex justify-between items-center gap-2 mb-4">
                                         <input
+                                            ref={cycleTitleRef}
                                             key={cycle.id}
                                             type="text"
                                             defaultValue={cycle.name}
@@ -136,7 +155,8 @@ export default function MiddlePanel({
 
                                             <button
                                                 title="Delete cycle"
-                                                className="cursor-pointer p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors shrink-0"
+                                                disabled={selectedPlan.cycles.length === 1}
+                                                className={`p-2 rounded-lg border transition-colors shrink-0 ${selectedPlan.cycles.length === 1 ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-300" : "cursor-pointer border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300"}`}
                                                 onClick={() => handleDeleteCycle(selectedCycleIndex)}
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
@@ -158,12 +178,25 @@ export default function MiddlePanel({
                                             <span className="text-xs text-gray-400">F:{cycle.goal_fats}g</span>
                                         </div>
                                     )}
-
+                                    <textarea
+                                        key={cycle.id + '-note'}
+                                        defaultValue={cycle.note ?? ""}
+                                        placeholder="Add a cycle note..."
+                                        rows={2}
+                                        onBlur={(e) => {
+                                            const val = e.target.value;
+                                            if (val !== (cycle.note ?? "")) {
+                                                handleUpdateCycleNote(cycle.id, val);
+                                            }
+                                        }}
+                                        className="w-full mt-3 p-2 text-sm text-gray-600 bg-white border border-transparent rounded-md outline-none resize-none hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                                    />
                                     
                                 </div>
                             );
                         })()}
                     </div>
+                    {selectedPlan.cycles.length > 1 && (
                     <div className="flex flex-col gap-3 items-center rounded">
                     
                         <div className="flex flex-wrap gap-2">
@@ -175,7 +208,7 @@ export default function MiddlePanel({
                                             ? "bg-blue-500 text-white"
                                             : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                                     }`}
-                                    onClick={() => setSelectedCycleIndex(index)}
+                                    onClick={() => { setSelectedCycleIndex(index); setSelectedMeal(null); }}
                                     aria-label={`Select cycle ${index + 1}`}
                                 >
                                     {index + 1}
@@ -185,22 +218,12 @@ export default function MiddlePanel({
                         
                         </div>
                     </div>
+                    )}
                     
                 </div>
             </div>
 
             <div>
-                {cycleNameModalOpen && (
-                    <NameModal 
-                        title="Enter Cycle Name"
-                        value={cycleName}
-                        placeholder="Cycle Name"
-                        submitText="Create"
-                        onChange={setCycleName}
-                        onSubmit={() => handleCreateCycle(cycleName)}
-                        onClose={() => setCycleNameModalOpen(false)}
-                    />
-                )}
             </div>
             </div>
 
@@ -252,26 +275,15 @@ export default function MiddlePanel({
                                 className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
                                 "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
                                 }`}
-                                onClick={() => setMealModalOpen(true)}
+                                onClick={() => handleCreateMeal()}
                             >
                                 + Create Meal
                             </button>
                         </div>
                         
-                        {mealModalOpen && (
-                        <NameModal 
-                            title="Enter Meal Name"
-                            value={mealName}
-                            placeholder="Meal Name"
-                            submitText="Create"
-                            onChange={setMealName}
-                            onSubmit={() => handleCreateMeal(mealName)}
-                            onClose={() => setMealModalOpen(false)}
-                        />
-                        )}
-        
-        
-        
+
+
+
                 <div className="flex-1 overflow-y-auto min-h-0 p-1">
 
                     {selectedPlan.cycles.length === 0 ? (

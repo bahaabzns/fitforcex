@@ -429,17 +429,18 @@ router.post('/cycles', async (req, res) => {
 });
 
 router.put('/cycles/:id', async (req, res) => {
-    const { name, goal_calories, goal_protein, goal_carbs, goal_fats } = req.body;
+    const { name, goal_calories, goal_protein, goal_carbs, goal_fats, note } = req.body;
     try {
         const result = await pool.query(
             `UPDATE nutrition_cycles
              SET name = $1,
-                 goal_calories = COALESCE($3, goal_calories),
-                 goal_protein  = COALESCE($4, goal_protein),
-                 goal_carbs    = COALESCE($5, goal_carbs),
-                 goal_fats     = COALESCE($6, goal_fats)
+                 note = COALESCE($3, note),
+                 goal_calories = COALESCE($4, goal_calories),
+                 goal_protein  = COALESCE($5, goal_protein),
+                 goal_carbs    = COALESCE($6, goal_carbs),
+                 goal_fats     = COALESCE($7, goal_fats)
              WHERE id = $2 RETURNING *`,
-            [name, req.params.id, goal_calories ?? null, goal_protein ?? null, goal_carbs ?? null, goal_fats ?? null]
+            [name, req.params.id, note ?? null, goal_calories ?? null, goal_protein ?? null, goal_carbs ?? null, goal_fats ?? null]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Cycle not found' });
@@ -557,11 +558,11 @@ router.post('/meals', async (req, res) => {
 
 
 router.put('/meals/:id', async (req, res) => {
-    const { name } = req.body;
+    const { name, note } = req.body;
     try {
         const result = await pool.query(
-            'UPDATE nutrition_meals SET name = $1 WHERE id = $2 RETURNING *',
-            [name, req.params.id]
+            'UPDATE nutrition_meals SET name = $1, note = COALESCE($3, note) WHERE id = $2 RETURNING *',
+            [name, req.params.id, note ?? null]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Meal not found' });

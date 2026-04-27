@@ -9,12 +9,9 @@ export function useNutritionPlan(clientId) {
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
     const [selectedMeal, setSelectedMeal] = useState(null);
-    const [planNameModalOpen, setPlanNameModalOpen] = useState(false);
-    const [planName, setPlanName] = useState("");
-    const [cycleNameModalOpen, setCycleNameModalOpen] = useState(false);
-    const [cycleName, setCycleName] = useState("");
-    const [mealModalOpen, setMealModalOpen] = useState(false);
-    const [mealName, setMealName] = useState("");
+    const [pendingFocusPlanId, setPendingFocusPlanId] = useState(null);
+    const [pendingFocusCycleId, setPendingFocusCycleId] = useState(null);
+    const [pendingFocusMealId, setPendingFocusMealId] = useState(null);
     const [foodItems, setFoodItems] = useState([]);
     const [foodItemModalOpen, setFoodItemModalOpen] = useState(false);
     const [foodSearchQuery, setFoodSearchQuery] = useState("");
@@ -59,45 +56,31 @@ export function useNutritionPlan(clientId) {
         }
     };
 
-    const handleCreatePlan = async (planName) => {
-        setPlanNameModalOpen(false);
+    const handleCreatePlan = async () => {
         try {
-        const newPlan = {
-            name: planName,
-            client_id: clientId,
-        };
-        await api
-            .post("/api/nutrition/plans", newPlan)
-            .then((response) => {
-            setPlans([...plans, response.data]);
-            handleSelectedPlan(response.data);
-            setPlanName(""); // Reset plan name input after creation
-            })
-            .catch((error) => {
-            console.error("Error creating new plan:", error);
-            });
+            const response = await api.post("/api/nutrition/plans", { name: "New Plan", client_id: clientId });
+            setPlans(prev => [...prev, response.data]);
+            await handleSelectedPlan(response.data);
+            setPendingFocusPlanId(response.data.id);
         } catch (error) {
-        console.error("Error creating new plan:", error);
+            console.error("Error creating new plan:", error);
         }
     };
 
-    const handleCreateCycle = async (cycleName) => {
-        setCycleNameModalOpen(false);
+    const handleCreateCycle = async () => {
         try {
-        const newCycle = {
-            name: cycleName,
-            planId: selectedPlan.id,
-        };
-        const response = await api.post("/api/nutrition/cycles", newCycle);
-        const updatedPlan = {
-            ...selectedPlan,
-            cycles: [...selectedPlan.cycles, { ...response.data, meals: [] }],
-        };
-        setSelectedPlan(updatedPlan);
-        setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedPlan.cycles.length, updated_at: new Date().toISOString() } : p));
-        setCycleName(""); // Reset cycle name input after creation
+            const response = await api.post("/api/nutrition/cycles", { name: "New Cycle", planId: selectedPlan.id });
+            const updatedPlan = {
+                ...selectedPlan,
+                cycles: [...selectedPlan.cycles, { ...response.data, meals: [] }],
+            };
+            setSelectedPlan(updatedPlan);
+            setSelectedCycleIndex(updatedPlan.cycles.length - 1);
+            setSelectedMeal(null);
+            setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedPlan.cycles.length, updated_at: new Date().toISOString() } : p));
+            setPendingFocusCycleId(response.data.id);
         } catch (error) {
-        console.error("Error adding new cycle:", error);
+            console.error("Error adding new cycle:", error);
         }
     };
 
@@ -164,27 +147,23 @@ export function useNutritionPlan(clientId) {
         }
     };
 
-    const handleCreateMeal = async (mealName) => {
-        setMealModalOpen(false);
+    const handleCreateMeal = async () => {
         try {
-        const response = await api.post("/api/nutrition/meals", {
-            cycleId: selectedPlan.cycles[selectedCycleIndex].id,
-            name: mealName,
-        });
-        const updatedCycles = selectedPlan.cycles.map((cycle, index) => {
-            if (index === selectedCycleIndex) {
-            return {
-                ...cycle,
-                meals: [...cycle.meals, { ...response.data, items: [] }],
-            };
-            }
-            return cycle;
-        });
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-        setMealName(""); // Reset meal name input after creation
+            const newMeal = { ...( await api.post("/api/nutrition/meals", {
+                cycleId: selectedPlan.cycles[selectedCycleIndex].id,
+                name: "New Meal",
+            }) ).data, items: [] };
+            const updatedCycles = selectedPlan.cycles.map((cycle, index) =>
+                index === selectedCycleIndex
+                    ? { ...cycle, meals: [...cycle.meals, newMeal] }
+                    : cycle
+            );
+            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+            setSelectedMeal(newMeal);
+            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+            setPendingFocusMealId(newMeal.id);
         } catch (error) {
-        console.error("Error creating meal:", error);
+            console.error("Error creating meal:", error);
         }
     };
 
@@ -398,6 +377,28 @@ export function useNutritionPlan(clientId) {
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
     };
 
+    const handleUpdateCycleNote = async (cycleId, note) => {
+        const cycle = selectedPlan.cycles.find(c => c.id === cycleId);
+        if (!cycle) return;
+        await api.put(`/api/nutrition/cycles/${cycleId}`, { name: cycle.name, note });
+        const updatedCycles = selectedPlan.cycles.map((c) =>
+            c.id === cycleId ? { ...c, note } : c
+        );
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+    };
+
+    const handleUpdateMealNote = async (mealId, note) => {
+        await api.put(`/api/nutrition/meals/${mealId}`, { name: selectedMeal.name, note });
+        setSelectedMeal({ ...selectedMeal, note });
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === mealId ? { ...meal, note } : meal
+            ),
+        }));
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+    };
+
 
 
 
@@ -408,12 +409,9 @@ export function useNutritionPlan(clientId) {
         selectedPlan, setSelectedPlan,
         selectedCycleIndex, setSelectedCycleIndex,
         selectedMeal, setSelectedMeal,
-        planNameModalOpen, setPlanNameModalOpen,
-        planName, setPlanName,
-        cycleNameModalOpen, setCycleNameModalOpen,
-        cycleName, setCycleName,
-        mealModalOpen, setMealModalOpen,
-        mealName, setMealName,
+        pendingFocusPlanId, setPendingFocusPlanId,
+        pendingFocusCycleId, setPendingFocusCycleId,
+        pendingFocusMealId, setPendingFocusMealId,
         foodItems, setFoodItems,
         foodItemModalOpen, setFoodItemModalOpen,
         foodSearchQuery, setFoodSearchQuery,
@@ -441,5 +439,7 @@ export function useNutritionPlan(clientId) {
         sortOrder, setSortOrder,
         handleReorderMeals,
         handleReorderFoodItems,
+        handleUpdateCycleNote,
+        handleUpdateMealNote,
     }
 }

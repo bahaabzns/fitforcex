@@ -45,12 +45,9 @@ export default function NutritionPage() {
         selectedPlan, setSelectedPlan,
         selectedCycleIndex, setSelectedCycleIndex,
         selectedMeal, setSelectedMeal,
-        planNameModalOpen, setPlanNameModalOpen,
-        planName, setPlanName,
-        cycleNameModalOpen, setCycleNameModalOpen,
-        cycleName, setCycleName,
-        mealModalOpen, setMealModalOpen,
-        mealName, setMealName,
+        pendingFocusPlanId, setPendingFocusPlanId,
+        pendingFocusCycleId, setPendingFocusCycleId,
+        pendingFocusMealId, setPendingFocusMealId,
         foodItems, setFoodItems,
         foodItemModalOpen, setFoodItemModalOpen,
         foodSearchQuery, setFoodSearchQuery,
@@ -78,6 +75,8 @@ export default function NutritionPage() {
         sortOrder, setSortOrder,
         handleReorderMeals,
         handleReorderFoodItems,
+        handleUpdateCycleNote,
+        handleUpdateMealNote,
     } = useNutritionPlan(id);
 
 if (loading) {
@@ -92,10 +91,6 @@ return (
             <LeftPanel
                 plans={sortedPlans}
                 selectedPlan={selectedPlan}
-                planNameModalOpen={planNameModalOpen}
-                setPlanNameModalOpen={setPlanNameModalOpen}
-                planName={planName}
-                setPlanName={setPlanName}
                 handleCreatePlan={handleCreatePlan}
                 handleSelectedPlan={handleSelectedPlan}
                 handleDeletePlan={handleDeletePlan}
@@ -122,14 +117,6 @@ return (
                     setSelectedCycleIndex={setSelectedCycleIndex}
                     selectedMeal={selectedMeal}
                     setSelectedMeal={setSelectedMeal}
-                    cycleNameModalOpen={cycleNameModalOpen}
-                    setCycleNameModalOpen={setCycleNameModalOpen}
-                    cycleName={cycleName}
-                    setCycleName={setCycleName}
-                    mealModalOpen={mealModalOpen}
-                    setMealModalOpen={setMealModalOpen}
-                    mealName={mealName}
-                    setMealName={setMealName}
                     handleDeleteCycle={handleDeleteCycle}
                     handleCreateCycle={handleCreateCycle}
                     handleCreateMeal={handleCreateMeal}
@@ -140,6 +127,11 @@ return (
                     handleDuplicateMeal={handleDuplicateMeal}
                     handleDuplicateCycle={handleDuplicateCycle}
                     handleReorderMeals={handleReorderMeals}
+                    handleUpdateCycleNote={handleUpdateCycleNote}
+                    pendingFocusPlanId={pendingFocusPlanId}
+                    setPendingFocusPlanId={setPendingFocusPlanId}
+                    pendingFocusCycleId={pendingFocusCycleId}
+                    setPendingFocusCycleId={setPendingFocusCycleId}
                 />
             ) : (
                 <div className="card w-full flex flex-col overflow-hidden min-h-full">
@@ -174,6 +166,9 @@ return (
                     handleDeleteMealItem={handleDeleteMealItem}
                     handleRenameMeal={handleRenameMeal}
                     handleReorderFoodItems={handleReorderFoodItems}
+                    handleUpdateMealNote={handleUpdateMealNote}
+                    pendingFocusMealId={pendingFocusMealId}
+                    setPendingFocusMealId={setPendingFocusMealId}
                 />
             ) : (
                 <div className="card w-full flex flex-col overflow-hidden min-h-full">

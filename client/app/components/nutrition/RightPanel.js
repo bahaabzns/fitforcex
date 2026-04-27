@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import MacrosBadges from "../MacrosBadges";
 import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 
@@ -11,9 +11,21 @@ export default function RightPanel({
     handleDeleteMealItem,
     handleRenameMeal,
     handleReorderFoodItems,
+    handleUpdateMealNote,
+    pendingFocusMealId, setPendingFocusMealId,
 }) {
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
+
+    const mealTitleRef = useRef(null);
+
+    useEffect(() => {
+        if (pendingFocusMealId && selectedMeal?.id === pendingFocusMealId) {
+            mealTitleRef.current?.focus();
+            mealTitleRef.current?.select();
+            setPendingFocusMealId(null);
+        }
+    }, [pendingFocusMealId, selectedMeal?.id, setPendingFocusMealId]);
 
     const currentItems = selectedMeal.items;
     const previewItems = (() => {
@@ -29,6 +41,7 @@ export default function RightPanel({
             {/* Header */}
             <div className="flex justify-between items-center mb-4 gap-4">
                 <input
+                    ref={mealTitleRef}
                     key={selectedMeal.id}
                     type="text"
                     defaultValue={selectedMeal.name}
@@ -58,7 +71,7 @@ export default function RightPanel({
 
             {/* Totals */}
             <MacrosBadges {...calcMeal(selectedMeal)} />
-            <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
+            <div className="flex gap-4 justify-start items-center my-4 shrink-0">
 
                 <h3 className="flex-1 text-lg font-semibold">
                     Food Items
@@ -138,6 +151,22 @@ export default function RightPanel({
                 </div>
                 );
             })}
+            </div>
+            {/* Meal Note */}
+            <div className="shrink-0 pt-3 border-t border-gray-100 mt-2">
+                <textarea
+                    key={selectedMeal.id + '-note'}
+                    defaultValue={selectedMeal.note ?? ""}
+                    placeholder="Add a meal note..."
+                    rows={3}
+                    onBlur={(e) => {
+                        const val = e.target.value;
+                        if (val !== (selectedMeal.note ?? "")) {
+                            handleUpdateMealNote(selectedMeal.id, val);
+                        }
+                    }}
+                    className="w-full p-2 text-sm text-gray-600 bg-transparent border border-gray-200 rounded-md outline-none resize-none hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                />
             </div>
         </div>
             
