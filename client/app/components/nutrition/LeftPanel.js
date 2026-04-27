@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import CycleCalculator from "./CycleCalculator";
 
 function formatDate(dateStr) {
@@ -39,32 +39,13 @@ export default function LeftPanel ({
 }) {
     const [plansCollapsed, setPlansCollapsed] = useState(false);
     const [calcCollapsed, setCalcCollapsed] = useState(false);
-    const [splitPct, setSplitPct] = useState(60);
-    const containerRef = useRef(null);
 
     const currentCycle = selectedPlan?.cycles?.[selectedCycleIndex] ?? null;
 
-    const handleDividerMouseDown = (e) => {
-        e.preventDefault();
-        const container = containerRef.current;
-        if (!container) return;
-        const onMouseMove = (moveEvent) => {
-            const rect = container.getBoundingClientRect();
-            const pct = ((moveEvent.clientY - rect.top) / rect.height) * 100;
-            setSplitPct(Math.min(85, Math.max(15, pct)));
-        };
-        const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        };
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-    };
-
     return (
-        <div ref={containerRef} className="card w-full flex flex-col overflow-hidden min-h-full">
+        <div className="card w-full flex flex-col overflow-hidden min-h-full">
             {/* Plans Section */}
-            <div className="flex flex-col min-h-0" style={{ flex: plansCollapsed ? '0 0 auto' : calcCollapsed ? '1 1 0' : `0 0 ${splitPct}%` }}>
+            <div className="flex flex-col min-h-0" style={{ flex: plansCollapsed ? '0 0 auto' : '1 1 0' }}>
                 {/* Plans Header */}
                 <div
                     className="flex gap-4 justify-start items-center mb-4 shrink-0 cursor-pointer select-none"
@@ -182,16 +163,11 @@ export default function LeftPanel ({
             )}
             </div>
 
-            {/* Drag Divider */}
-            <div
-                className="shrink-0 h-2 flex items-center justify-center cursor-row-resize group my-1"
-                onMouseDown={handleDividerMouseDown}
-            >
-                <div className="w-10 h-1 rounded-full bg-gray-200 group-hover:bg-blue-400 transition-colors duration-150" />
-            </div>
+            {/* Divider */}
+            <div className="shrink-0 border-t border-gray-200 my-2" />
 
             {/* Calculator Section */}
-            <div className="flex flex-col min-h-0" style={{ flex: calcCollapsed ? '0 0 auto' : plansCollapsed ? '1 1 0' : `0 0 ${100 - splitPct}%` }}>
+            <div className="flex flex-col min-h-0" style={{ flex: calcCollapsed ? '0 0 auto' : '1 1 0' }}>
                 <div
                     className="flex gap-2 items-center mb-3 shrink-0 cursor-pointer select-none"
                     onClick={() => setCalcCollapsed(c => !c)}

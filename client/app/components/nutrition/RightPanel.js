@@ -20,6 +20,8 @@ export default function RightPanel({
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [expandedItemId, setExpandedItemId] = useState(null);
+    const [itemsCollapsed, setItemsCollapsed] = useState(false);
+    const [notesCollapsed, setNotesCollapsed] = useState(false);
 
     const mealTitleRef = useRef(null);
 
@@ -76,32 +78,34 @@ export default function RightPanel({
 
             {/* Totals */}
             <MacrosBadges {...calcMeal(selectedMeal)} />
-            <div className="flex gap-4 justify-start items-center my-4 shrink-0">
 
-                <div  className="flex-1 flex gap-2 items-center">
-                    <h3 className="text-lg font-semibold">
-                        Food Items
-                    </h3>
-                    <p className="text-sm text-gray-600 shrink-0">
-                        ({selectedMeal.items.length} items)
-                    </p>
-
+            {/* Food Items Section */}
+            <div className="flex flex-col min-h-0" style={{ flex: itemsCollapsed ? '0 0 auto' : '1 1 0' }}>
+            <div
+                className="flex gap-4 justify-start items-center my-4 shrink-0 cursor-pointer select-none"
+                onClick={() => setItemsCollapsed(v => !v)}
+            >
+                <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points={itemsCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
+                    </svg>
                 </div>
-                
-
-                {/* زرار Add Food */}
-
+                <div className="flex-1 flex gap-2 items-center">
+                    <h3 className="text-lg font-semibold">Food Items</h3>
+                    <p className="text-sm text-gray-600 shrink-0">({selectedMeal.items.length} items)</p>
+                </div>
+                {!itemsCollapsed && (
                 <button
-                    className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
-                    "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
-                    }`}
-                    onClick={() => setFoodItemModalOpen(true)}
+                    className="cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
+                    onClick={(e) => { e.stopPropagation(); setFoodItemModalOpen(true); }}
                 >
                     + Add Food
                 </button>
+                )}
             </div>
 
             {/* Food Items List */}
+            {!itemsCollapsed && (
             <div className="flex-1 overflow-y-auto min-h-0">
             {previewItems.map((item) => {
                 const originalIndex = currentItems.findIndex(i => i.id === item.id);
@@ -231,23 +235,41 @@ export default function RightPanel({
                 );
             })}
             </div>
-            {/* Meal Note */}
-            <div className="shrink-0 pt-3 border-t border-gray-100 mt-2">
-                <textarea
-                    key={selectedMeal.id + '-note'}
-                    defaultValue={selectedMeal.note ?? ""}
-                    placeholder="Add a meal note..."
-                    rows={3}
-                    onBlur={(e) => {
-                        const val = e.target.value;
-                        if (val !== (selectedMeal.note ?? "")) {
-                            handleUpdateMealNote(selectedMeal.id, val);
-                        }
-                    }}
-                    className="w-full p-2 text-sm text-gray-600 bg-transparent border border-gray-200 rounded-md outline-none resize-none hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 transition-colors"
-                />
+            )}
+            </div>
+
+            {/* Divider */}
+            <div className="shrink-0 border-t border-gray-100 my-1" />
+
+            {/* Meal Notes Section */}
+            <div className="flex flex-col shrink-0">
+                <div
+                    className="flex gap-2 items-center mb-2 cursor-pointer select-none"
+                    onClick={() => setNotesCollapsed(v => !v)}
+                >
+                    <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points={notesCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
+                        </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold">Notes</h3>
+                </div>
+                {!notesCollapsed && (
+                    <textarea
+                        key={selectedMeal.id + '-note'}
+                        defaultValue={selectedMeal.note ?? ""}
+                        placeholder="Add a meal note..."
+                        rows={3}
+                        onBlur={(e) => {
+                            const val = e.target.value;
+                            if (val !== (selectedMeal.note ?? "")) {
+                                handleUpdateMealNote(selectedMeal.id, val);
+                            }
+                        }}
+                        className="w-full mb-2 p-2 text-sm text-gray-600 bg-white border border-transparent rounded-md outline-none resize-none hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                    />
+                )}
             </div>
         </div>
-            
     )
 }
