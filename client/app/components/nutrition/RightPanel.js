@@ -1,24 +1,46 @@
-import NameModal from "../NameModal";
 import MacrosBadges from "../MacrosBadges";
-import { calcCycle, calcMeal, calcItem } from "@/lib/nutritionCalc";
+import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 
-export default function RightPanel({ selectedMeal, foodItems, setSelectedMeal, setFoodItemModalOpen, handleAmountChange }) {
+export default function RightPanel({ 
+    selectedMeal, 
+    foodItems, 
+    setSelectedMeal, 
+    setFoodItemModalOpen, 
+    handleAmountChange,
+    handleRenameMeal,
+}) {
     return (
         <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
             {/* Header */}
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">{selectedMeal.name}</h3>
+            <div className="flex justify-between items-center mb-4 gap-4">
+                <input
+                    key={selectedMeal.id}
+                    type="text"
+                    defaultValue={selectedMeal.name}
+                    onBlur={(e) => {
+                        const trimmed = e.target.value.trim();
+                        if (trimmed && trimmed !== selectedMeal.name) {
+                            handleRenameMeal(selectedMeal.id, trimmed);
+                        }
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") e.target.blur();
+                        if (e.key === "Escape") {
+                            e.target.value = selectedMeal.name;
+                            e.target.blur();
+                        }
+                    }}
+                    className="flex-1 text-xl font-bold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                />
                 <button
-                className="btn btn-secondary"
-                onClick={() => setSelectedMeal(null)}
-                >
+                    className="btn btn-secondary"
+                    onClick={() => setSelectedMeal(null)}
+                    >
                 Close
                 </button>
             </div>
 
             {/* Totals */}
-            {/* احسب totals بـ calcMeal(selectedMeal) */}
-
             <MacrosBadges {...calcMeal(selectedMeal)} />
 
 
@@ -30,26 +52,15 @@ export default function RightPanel({ selectedMeal, foodItems, setSelectedMeal, s
                 + Add Food
             </button>
 
-            {
-                /* لما showFoodSearch = true، اعمل useEffect يجيب /api/nutrition/food-items */
-                <div
-                className={`absolute top-full left-0 mt-2 w-full bg-white border rounded shadow-lg z-50 ${foodItems.length > 0 ? "" : "hidden"}`}
-                ></div>
-            }
-
-            {/* ليستة الـ items */}
+            {/* Food Items List */}
             <div className="flex-1 overflow-y-auto min-h-0">
             {selectedMeal.items.map((item) => (
-                /* كل item: اسم + كالوريز محسوبة + input للـ amount */
                 <div
-                key={item.id}
-                className="card px-6 py-4 flex justify-between items-center mb-2 bg-gray-100"
+                    key={item.id}
+                    className="card px-6 py-4 flex justify-between items-center mb-2 bg-gray-100"
                 >
-                <div className="flex-1 flex-col">
-                    <div className="font-bold mb-2">{item.name}</div>
-                    <div>
-                        
-                    </div>
+                <div className="flex flex-col w-full">
+                    <div className="font-bold mb-2 truncate">{item.name}</div>
 
                     <div className="flex justify-end items-center gap-4">
                         <span className="flex-2 flex gap-2 items-center">
@@ -73,7 +84,7 @@ export default function RightPanel({ selectedMeal, foodItems, setSelectedMeal, s
                 </div>
             ))}
             </div>
-            </div>
+        </div>
             
     )
 }

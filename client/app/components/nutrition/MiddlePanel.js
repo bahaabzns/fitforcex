@@ -16,12 +16,32 @@ export default function MiddlePanel({
     handleDeleteCycle,
     handleCreateCycle,
     handleCreateMeal,
+    handleRenamePlan,
+    handleRenameCycle,
 }) {    
     return (
         <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
             {/* Header */}
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">{selectedPlan.name}</h2>
+            <div className="flex justify-between items-center mb-4 gap-4">
+                <input
+                    key={selectedPlan.id}
+                    type="text"
+                    defaultValue={selectedPlan.name}
+                    onBlur={(e) => {
+                        const trimmed = e.target.value.trim();
+                        if (trimmed && trimmed !== selectedPlan.name) {
+                            handleRenamePlan(selectedPlan.id, trimmed);
+                        }
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.target.blur();
+                        if (e.key === 'Escape') {
+                            e.target.value = selectedPlan.name;
+                            e.target.blur();
+                        }
+                    }}
+                    className="flex-1 text-xl font-bold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                />
                 <button
                 className="btn btn-secondary"
                 onClick={() => setSelectedPlan(null)}
@@ -63,9 +83,27 @@ export default function MiddlePanel({
                             const cycleTotals = calcCycle(cycle);
                             return (
                                 <div className="card px-6 py-4 bg-gray-100">
-                                    <div className="flex flex-row mb-4 items-center">
-                                        <h4 className="flex-1 inline-block text-md font-semibold">{cycle.name}</h4>
-                                        <p className="inline-block ml-2 text-sm text-gray-600">{cycle.meals.length} meals</p>
+                                    <div className="flex flex-row mb-4 items-center gap-2">
+                                        <input
+                                            key={cycle.id}
+                                            type="text"
+                                            defaultValue={cycle.name}
+                                            onBlur={(e) => {
+                                                const trimmed = e.target.value.trim();
+                                                if (trimmed && trimmed !== cycle.name) {
+                                                    handleRenameCycle(cycle.id, trimmed);
+                                                }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') e.target.blur();
+                                                if (e.key === 'Escape') {
+                                                    e.target.value = cycle.name;
+                                                    e.target.blur();
+                                                }
+                                            }}
+                                            className="flex-1 text-md font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                                        />
+                                        <p className="inline-block ml-2 text-sm text-gray-600 shrink-0">{cycle.meals.length} meals</p>
                                     </div>
                                     <MacrosBadges {...cycleTotals} />
 
@@ -153,8 +191,8 @@ export default function MiddlePanel({
                             className={`card px-6 py-4 mb-2 cursor-pointer ${selectedMeal && selectedMeal.id === meal.id ? "bg-gray-200" : "bg-gray-100"}`}
                             onClick={() => setSelectedMeal(meal)}
                         >
-                            <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-md font-semibold">{meal.name}</h4>
+                            <div className="flex justify-between items-center mb-2 gap-2">
+                                <h4 className="flex-1 text-md font-semibold truncate">{meal.name}</h4>
                                 <span className="text-xs text-gray-500">{meal.items.length} items</span>
                             </div>
                             <MacrosBadges {...calcMeal(meal)} />

@@ -19,6 +19,7 @@ export function useNutritionPlan(clientId) {
     const [foodItemModalOpen, setFoodItemModalOpen] = useState(false);
     const [foodSearchQuery, setFoodSearchQuery] = useState("");
     const [loading, setLoading] = useState(true);
+    const [sortOrder, setSortOrder] = useState("created_desc");
 
 
     // Effects ------------------------------------------------------------------
@@ -87,10 +88,12 @@ export function useNutritionPlan(clientId) {
             planId: selectedPlan.id,
         };
         const response = await api.post("/api/nutrition/cycles", newCycle);
-        setSelectedPlan({
+        const updatedPlan = {
             ...selectedPlan,
             cycles: [...selectedPlan.cycles, { ...response.data, meals: [] }],
-        });
+        };
+        setSelectedPlan(updatedPlan);
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedPlan.cycles.length, updated_at: new Date().toISOString() } : p));
         setCycleName(""); // Reset cycle name input after creation
         } catch (error) {
         console.error("Error adding new cycle:", error);
@@ -108,6 +111,7 @@ export function useNutritionPlan(clientId) {
             ...selectedPlan,
             cycles: updatedCycles,
         });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedCycles.length, updated_at: new Date().toISOString() } : p));
         setSelectedCycleIndex(0);
         setSelectedMeal(null);
         } catch (error) {
@@ -132,6 +136,7 @@ export function useNutritionPlan(clientId) {
             return cycle;
         });
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
         setMealName(""); // Reset meal name input after creation
         } catch (error) {
         console.error("Error creating meal:", error);
@@ -174,6 +179,7 @@ export function useNutritionPlan(clientId) {
             ...prev,
             items: [...prev.items, response.data],
         }));
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
         } catch (error) {
         console.error("Error adding food item:", error);
         }
@@ -197,6 +203,65 @@ export function useNutritionPlan(clientId) {
         ),
         }));
         setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+    };
+
+    const handleDeletePlan = async (planId) => {
+        try {
+            await api.delete(`/api/nutrition/plans/${planId}`);
+            setPlans(plans.filter((p) => p.id !== planId));
+            if (selectedPlan && selectedPlan.id === planId) {
+                setSelectedPlan(null);
+                setSelectedMeal(null);
+                setSelectedCycleIndex(0);
+            }
+        } catch (error) {
+            console.error("Error deleting plan:", error);
+        }
+    };
+
+    const handleDuplicatePlan = async (planId) => {
+        try {
+            const response = await api.post(`/api/nutrition/plans/${planId}/duplicate`);
+            setPlans([response.data, ...plans]);
+        } catch (error) {
+            console.error("Error duplicating plan:", error);
+        }
+    };
+
+    const sortedPlans = [...plans].sort((a, b) => {
+        if (sortOrder === "created_desc") return new Date(b.created_at) - new Date(a.created_at);
+        if (sortOrder === "created_asc")  return new Date(a.created_at) - new Date(b.created_at);
+        if (sortOrder === "updated_desc") return new Date(b.updated_at) - new Date(a.updated_at);
+        return 0;
+    });
+
+    const handleRenameCycle = async (cycleId, newName) => {
+        const response = await api.put(`/api/nutrition/cycles/${cycleId}`, { name: newName });
+        const updatedCycles = selectedPlan.cycles.map((cycle) =>
+            cycle.id === cycleId ? { ...cycle, name: response.data.name } : cycle
+        );
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+    };
+
+    const handleRenamePlan = async (planId, newName) => {
+        const response = await api.put(`/api/nutrition/plans/${planId}`, { name: newName, status: selectedPlan.status });
+        setSelectedPlan({ ...selectedPlan, name: response.data.name });
+        setPlans(plans.map((p) => p.id === planId ? { ...p, name: response.data.name, updated_at: response.data.updated_at } : p));
+    };
+
+    const handleRenameMeal = async (mealId, newName) => {
+        const response = await api.put(`/api/nutrition/meals/${mealId}`, { name: newName });
+        setSelectedMeal({ ...selectedMeal, name: response.data.name });
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === mealId ? { ...meal, name: response.data.name } : meal,
+            ),
+        }));
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
     };
 
 
@@ -227,5 +292,12 @@ export function useNutritionPlan(clientId) {
         handleAddFoodItem,
         handleAmountChange,
         handleFoodSearch,
+        handleRenameMeal,
+        handleRenamePlan,
+        handleRenameCycle,
+        handleDeletePlan,
+        handleDuplicatePlan,
+        sortedPlans,
+        sortOrder, setSortOrder,
     }
 }

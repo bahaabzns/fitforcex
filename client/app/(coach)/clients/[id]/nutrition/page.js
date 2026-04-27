@@ -34,6 +34,13 @@ export default function NutritionPage() {
         handleAddFoodItem,
         handleAmountChange,
         handleFoodSearch,
+        handleRenameMeal,
+        handleRenamePlan,
+        handleRenameCycle,
+        handleDeletePlan,
+        handleDuplicatePlan,
+        sortedPlans,
+        sortOrder, setSortOrder,
     } = useNutritionPlan(id);
 
 if (loading) {
@@ -44,7 +51,7 @@ return (
 <div className="flex-1 h-full flex flex-row gap-4 overflow-hidden min-h-0">
 {/* Panel 1: Plans List */}
         <LeftPanel
-            plans={plans}
+            plans={sortedPlans}
             selectedPlan={selectedPlan}
             planNameModalOpen={planNameModalOpen}
             setPlanNameModalOpen={setPlanNameModalOpen}
@@ -52,6 +59,10 @@ return (
             setPlanName={setPlanName}
             handleCreatePlan={handleCreatePlan}
             handleSelectedPlan={handleSelectedPlan}
+            handleDeletePlan={handleDeletePlan}
+            handleDuplicatePlan={handleDuplicatePlan}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
         />
 
         {/* Panel 2: Plan Detail — يظهر بس لو selectedPlan مش null */}
@@ -76,6 +87,8 @@ return (
             handleDeleteCycle={handleDeleteCycle}
             handleCreateCycle={handleCreateCycle}
             handleCreateMeal={handleCreateMeal}
+            handleRenamePlan={handleRenamePlan}
+            handleRenameCycle={handleRenameCycle}
         />
 
         ) : (
@@ -100,6 +113,7 @@ return (
                 handleFoodSearch={handleFoodSearch}
                 handleAddFoodItem={handleAddFoodItem}
                 handleAmountChange={handleAmountChange}
+                handleRenameMeal={handleRenameMeal}
             />
         ) : (
             <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
