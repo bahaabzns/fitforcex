@@ -1,5 +1,7 @@
+import { useState } from "react";
 import NameModal from "../NameModal";
 import MacrosBadges from "../MacrosBadges";
+import CycleCalculator from "./CycleCalculator";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
 
 export default function MiddlePanel({
@@ -21,7 +23,10 @@ export default function MiddlePanel({
     handleDeleteMeal,
     handleDuplicateMeal,
     handleDuplicateCycle,
-}) {    
+    handleUpdateCycleGoals,
+}) {
+    const [activeTab, setActiveTab] = useState("meals");
+
     return (
         <div className="card w-1/3 flex flex-col overflow-hidden min-h-0">
             {/* Header */}
@@ -115,6 +120,15 @@ export default function MiddlePanel({
                                         <p className="inline-block ml-2 text-sm text-gray-600 shrink-0">{cycle.meals.length} meals</p>
                                     </div>
                                     <MacrosBadges {...cycleTotals} />
+                                    {cycle.goal_calories && (
+                                        <div className="flex gap-2 mt-1 mb-2">
+                                            <span className="text-xs text-gray-400">Target:</span>
+                                            <span className="text-xs font-semibold text-green-600">{cycle.goal_calories} kcal</span>
+                                            <span className="text-xs text-gray-400">P:{cycle.goal_protein}g</span>
+                                            <span className="text-xs text-gray-400">C:{cycle.goal_carbs}g</span>
+                                            <span className="text-xs text-gray-400">F:{cycle.goal_fats}g</span>
+                                        </div>
+                                    )}
 
                                     <div className="flex flex-row gap-2 rounded">
 
@@ -159,7 +173,39 @@ export default function MiddlePanel({
             </div>
             </div>
 
+            {/* Tab Bar */}
+            <div className="flex gap-2 mb-4 shrink-0">
+                <button
+                    className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        activeTab === "meals" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                    onClick={() => setActiveTab("meals")}
+                >
+                    Meals
+                </button>
+                <button
+                    className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        activeTab === "calculator" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                    onClick={() => setActiveTab("calculator")}
+                >
+                    ⚡ Calculator
+                </button>
+            </div>
+
+            {/* Calculator Tab */}
+            {activeTab === "calculator" && selectedPlan.cycles.length > 0 && (
+                <CycleCalculator
+                    cycle={selectedPlan.cycles[selectedCycleIndex]}
+                    onApply={(goals) => {
+                        handleUpdateCycleGoals(selectedPlan.cycles[selectedCycleIndex].id, goals);
+                        setActiveTab("meals");
+                    }}
+                />
+            )}
+
             {/* Meals List */}
+            {activeTab === "meals" && (
             <div className="flex flex-col flex-1 min-h-0">
                         <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
                             <h3 className="flex-1 text-lg font-semibold">
@@ -227,6 +273,7 @@ export default function MiddlePanel({
                     )}
                 </div>
             </div>
+            )}
         </div>
     )
 }

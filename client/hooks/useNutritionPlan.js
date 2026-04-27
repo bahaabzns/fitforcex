@@ -337,6 +337,20 @@ export function useNutritionPlan(clientId) {
         setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
     };
 
+    const handleUpdateCycleGoals = async (cycleId, goals) => {
+        const cycle = selectedPlan.cycles.find(c => c.id === cycleId);
+        if (!cycle) return;
+        const response = await api.put(`/api/nutrition/cycles/${cycleId}`, {
+            name: cycle.name,
+            ...goals,
+        });
+        const updatedCycles = selectedPlan.cycles.map((c) =>
+            c.id === cycleId ? { ...c, ...response.data } : c
+        );
+        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+    };
+
     const handleRenamePlan = async (planId, newName) => {
         const response = await api.put(`/api/nutrition/plans/${planId}`, { name: newName, status: selectedPlan.status });
         setSelectedPlan({ ...selectedPlan, name: response.data.name });
@@ -389,6 +403,7 @@ export function useNutritionPlan(clientId) {
         handleRenameMeal,
         handleRenamePlan,
         handleRenameCycle,
+        handleUpdateCycleGoals,
         handleDeletePlan,
         handleDuplicatePlan,
         handleDeleteMeal,
