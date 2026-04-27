@@ -101,6 +101,8 @@ return (
                 handleDuplicatePlan={handleDuplicatePlan}
                 sortOrder={sortOrder}
                 setSortOrder={setSortOrder}
+                selectedCycleIndex={selectedCycleIndex}
+                handleUpdateCycleGoals={handleUpdateCycleGoals}
             />
         </div>
 

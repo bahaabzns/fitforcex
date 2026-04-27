@@ -1,3 +1,6 @@
+import { useState, useRef } from "react";
+import CycleCalculator from "./CycleCalculator";
+
 function formatDate(dateStr) {
     const d = new Date(dateStr);
     const day = d.getDate();
@@ -31,29 +34,65 @@ export default function LeftPanel ({
     handleCreatePlan, handleSelectedPlan,
     handleDeletePlan, handleDuplicatePlan,
     sortOrder, setSortOrder,
+    selectedCycleIndex,
+    handleUpdateCycleGoals,
 }) {
-    return (
-        <div className="card w-full flex flex-col overflow-hidden min-h-full">
-            {/* Header */}
-            <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
-                <div  className="flex-1 flex gap-2 items-center">
-                    <h2 className="text-xl font-bold">Plans</h2>
+    const [plansCollapsed, setPlansCollapsed] = useState(false);
+    const [calcCollapsed, setCalcCollapsed] = useState(false);
+    const [splitPct, setSplitPct] = useState(60);
+    const containerRef = useRef(null);
 
-                    <p className="text-sm text-gray-600 shrink-0">
-                        ({plans.length} plans)
-                    </p>
-                </div>
-                <button
-                    className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
-                                "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
-                    }`}
-                    onClick={() => handleCreatePlan()}
+    const currentCycle = selectedPlan?.cycles?.[selectedCycleIndex] ?? null;
+
+    const handleDividerMouseDown = (e) => {
+        e.preventDefault();
+        const container = containerRef.current;
+        if (!container) return;
+        const onMouseMove = (moveEvent) => {
+            const rect = container.getBoundingClientRect();
+            const pct = ((moveEvent.clientY - rect.top) / rect.height) * 100;
+            setSplitPct(Math.min(85, Math.max(15, pct)));
+        };
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    };
+
+    return (
+        <div ref={containerRef} className="card w-full flex flex-col overflow-hidden min-h-full">
+            {/* Plans Section */}
+            <div className="flex flex-col min-h-0" style={{ flex: plansCollapsed ? '0 0 auto' : calcCollapsed ? '1 1 0' : `0 0 ${splitPct}%` }}>
+                {/* Plans Header */}
+                <div
+                    className="flex gap-4 justify-start items-center mb-4 shrink-0 cursor-pointer select-none"
+                    onClick={() => setPlansCollapsed(p => !p)}
                 >
-                    + Create Plan
-                </button>
-            </div>
+                    <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points={plansCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
+                        </svg>
+                    </div>
+                    <div className="flex-1 flex gap-2 items-center">
+                        <h2 className="text-xl font-bold">Plans</h2>
+                        <p className="text-sm text-gray-600 shrink-0">({plans.length} plans)</p>
+                    </div>
+                    {!plansCollapsed && (
+                        <button
+                            className={`cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors ${
+                                        "bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
+                            }`}
+                            onClick={(e) => { e.stopPropagation(); handleCreatePlan(); }}
+                        >
+                            + Create Plan
+                        </button>
+                    )}
+                </div>
 
             {/* Sorting */}
+            {!plansCollapsed && (
             <div className="flex gap-2 mb-4 shrink-0">
                 {/* <span className="text-sm text-gray-500 flex items-center">Sort:</span> */}
                 {[
@@ -74,10 +113,10 @@ export default function LeftPanel ({
                     </button>
                 ))}
             </div>
-
-            {/* Modal For Creating Plan */}
+            )}
 
             {/* Plans List */}
+            {!plansCollapsed && (
             <div className="flex-1 overflow-y-auto min-h-0 p-1">
                 {plans.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-12">
@@ -139,6 +178,43 @@ export default function LeftPanel ({
 
                 </div>
                 ))}
+            </div>
+            )}
+            </div>
+
+            {/* Drag Divider */}
+            <div
+                className="shrink-0 h-2 flex items-center justify-center cursor-row-resize group my-1"
+                onMouseDown={handleDividerMouseDown}
+            >
+                <div className="w-10 h-1 rounded-full bg-gray-200 group-hover:bg-blue-400 transition-colors duration-150" />
+            </div>
+
+            {/* Calculator Section */}
+            <div className="flex flex-col min-h-0" style={{ flex: calcCollapsed ? '0 0 auto' : plansCollapsed ? '1 1 0' : `0 0 ${100 - splitPct}%` }}>
+                <div
+                    className="flex gap-2 items-center mb-3 shrink-0 cursor-pointer select-none"
+                    onClick={() => setCalcCollapsed(c => !c)}
+                >
+                    <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points={calcCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
+                        </svg>
+                    </div>
+                    <h2 className="text-xl font-bold">Calculator</h2>
+                </div>
+                {!calcCollapsed && (
+                    <div className="overflow-y-auto flex-1 min-h-0">
+                        {currentCycle ? (
+                            <CycleCalculator
+                                cycle={currentCycle}
+                                onApply={(goals) => handleUpdateCycleGoals(currentCycle.id, goals)}
+                            />
+                        ) : (
+                            <p className="text-sm text-gray-400 text-center py-4">Select a plan and cycle to use the calculator</p>
+                        )}
+                    </div>
+                )}
             </div>
 
         </div>

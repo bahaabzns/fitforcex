@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import MacrosBadges from "../MacrosBadges";
-import CycleCalculator from "./CycleCalculator";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
 
 export default function MiddlePanel({
@@ -24,7 +23,6 @@ export default function MiddlePanel({
     pendingFocusPlanId, setPendingFocusPlanId,
     pendingFocusCycleId, setPendingFocusCycleId,
 }) {
-    const [activeTab, setActiveTab] = useState("meals");
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
 
@@ -229,39 +227,7 @@ export default function MiddlePanel({
             </div>
             </div>
 
-            {/* Tab Bar */}
-            <div className="flex gap-2 mb-4 shrink-0">
-                <button
-                    className={`cursor-pointer flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activeTab === "meals" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                    onClick={() => setActiveTab("meals")}
-                >
-                    Meals
-                </button>
-                <button
-                    className={`cursor-pointer flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        activeTab === "calculator" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                    onClick={() => setActiveTab("calculator")}
-                >
-                    Calculator
-                </button>
-            </div>
-
-            {/* Calculator Tab */}
-            {activeTab === "calculator" && selectedPlan.cycles.length > 0 && (
-                <CycleCalculator
-                    cycle={selectedPlan.cycles[selectedCycleIndex]}
-                    onApply={(goals) => {
-                        handleUpdateCycleGoals(selectedPlan.cycles[selectedCycleIndex].id, goals);
-                        setActiveTab("meals");
-                    }}
-                />
-            )}
-
             {/* Meals List */}
-            {activeTab === "meals" && (
             <div className="flex flex-col flex-1 min-h-0">
                         <div className="flex gap-4 justify-start items-center mb-4 shrink-0">
                             <div  className="flex-1 flex gap-2 items-center">
@@ -344,7 +310,6 @@ export default function MiddlePanel({
                     )}
                 </div>
             </div>
-            )}
         </div>
     )
 }

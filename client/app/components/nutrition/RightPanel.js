@@ -118,24 +118,6 @@ export default function RightPanel({
                     onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
                     className={`flex gap-2 items-stretch mb-1 transition-all duration-150 ${isDragging ? "opacity-30 scale-95" : ""}`}
                 >
-                    {/* Expand / collapse button */}
-                    <button
-                        title={isExpanded ? "Collapse alternatives" : "Expand alternatives"}
-                        onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
-                        className={`cursor-pointer shrink-0 w-10 flex flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
-                            isExpanded
-                                ? "bg-blue-500 border-blue-500 text-white"
-                                : "border-gray-200 bg-white text-gray-400 hover:border-blue-300 hover:text-blue-400"
-                        }`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points={isExpanded ? "18 15 12 9 6 15" : "6 9 12 15 18 9"}/>
-                        </svg>
-                        {!isExpanded && alternatives.length > 0 && (
-                            <span className="text-xs font-bold leading-none">{alternatives.length}</span>
-                        )}
-                    </button>
-
                     {/* Item card */}
                     <div className={`flex-1 card px-4 py-3 flex justify-between items-center group ${isExpanded ? "border-blue-400 bg-blue-50" : "bg-gray-100"}`}>
                         <div className="flex flex-col w-full">
@@ -157,6 +139,25 @@ export default function RightPanel({
                                     onClick={() => handleDeleteMealItem(item.id)}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                </button>
+                                <button
+                                    title={isExpanded ? "Collapse alternatives" : "Expand alternatives"}
+                                    onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                                    className={`cursor-pointer p-2 rounded-lg border transition-all duration-150 shrink-0 text-xs font-semibold ${
+                                        isExpanded
+                                            ? "border-blue-400 bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                            : "border-blue-200 bg-blue-50 text-blue-500 hover:bg-blue-100 hover:border-blue-300"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1">
+                                        {/* layers / alternatives icon */}
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                                            <polyline points="2 17 12 22 22 17"/>
+                                            <polyline points="2 12 12 17 22 12"/>
+                                        </svg>
+                                        {alternatives.length > 0 && <span className="text-xs font-bold">{alternatives.length}</span>}
+                                    </span>
                                 </button>
                             </div>
                             <div className="flex justify-end items-center gap-4">
@@ -188,7 +189,7 @@ export default function RightPanel({
 
                 {/* Alternatives section */}
                 {isExpanded && (
-                    <div className="ml-12 mb-2">
+                    <div className="mb-2">
                         {alternatives.map((alt) => (
                             <div key={alt.id} className="card px-4 py-3 mb-1 bg-white border border-blue-100 group">
                                 <div className="flex items-center gap-2 mb-2">
