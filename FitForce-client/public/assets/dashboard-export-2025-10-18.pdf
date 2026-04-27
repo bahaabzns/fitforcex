@@ -1,0 +1,1321 @@
+{
+  "format": "pdf",
+  "data": {
+    "workspace": {
+      "id": "cmgvmjy6m00d2qu0v3uzgn092",
+      "name": "FitForce",
+      "subdomain": "fitforce",
+      "createdAt": "2025-10-18T01:54:21.262Z"
+    },
+    "clientsOverview": {
+      "all": 100,
+      "active": 23,
+      "expired": 28,
+      "frozen": 20,
+      "pre_start": 29,
+      "refunded": 0,
+      "no_subscription": 0
+    },
+    "growthData": {
+      "newClients": 100,
+      "returningClients": 0,
+      "expiredClients": 28,
+      "total": 128
+    },
+    "financeData": {
+      "subscriptions": {
+        "firstPlan": 100,
+        "renewal": 0,
+        "total": 100
+      },
+      "packages": [
+        {
+          "id": "cmgvml15c00d7nz0txlt21rjd",
+          "name": "Basic Monthly",
+          "currency": "EGP"
+        },
+        {
+          "id": "cmgvml15g00d9nz0tfo7ykueu",
+          "name": "Standard 3 Months",
+          "currency": "EGP"
+        },
+        {
+          "id": "cmgvml15i00dbnz0t5u3viqsq",
+          "name": "Premium 6 Months",
+          "currency": "EGP"
+        },
+        {
+          "id": "cmgvml15k00ddnz0t7n6pixav",
+          "name": "Elite 12 Months",
+          "currency": "EGP"
+        }
+      ],
+      "packageRevenueOverTime": [
+        {
+          "date": "2025-09-18",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-19",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-20",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-21",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-22",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-23",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-24",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-25",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-26",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-27",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-28",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-29",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-09-30",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-01",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-02",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-03",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-04",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-05",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-06",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-07",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-08",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-09",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-10",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-11",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-12",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-13",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-14",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-15",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-16",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-17",
+          "Basic Monthly": 0,
+          "Standard 3 Months": 0,
+          "Premium 6 Months": 0,
+          "Elite 12 Months": 0
+        },
+        {
+          "date": "2025-10-18",
+          "Basic Monthly": 1200000,
+          "Standard 3 Months": 3720000,
+          "Premium 6 Months": 4200000,
+          "Elite 12 Months": 8400000
+        }
+      ]
+    },
+    "formsData": {
+      "scheduled": {
+        "total": 0,
+        "overTime": [
+          {
+            "date": "2025-09-18",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-20",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-21",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-22",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-23",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-24",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-25",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-26",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-27",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-28",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-29",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-30",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-01",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-02",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-03",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-04",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-05",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-06",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-07",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-08",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-09",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-10",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-11",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-12",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-13",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-14",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-15",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-16",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-17",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-18",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          }
+        ]
+      },
+      "requested": {
+        "total": 0,
+        "overTime": [
+          {
+            "date": "2025-09-18",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-20",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-21",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-22",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-23",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-24",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-25",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-26",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-27",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-28",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-29",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-30",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-01",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-02",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-03",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-04",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-05",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-06",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-07",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-08",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-09",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-10",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-11",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-12",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-13",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-14",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-15",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-16",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-17",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-18",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          }
+        ]
+      },
+      "submitted": {
+        "total": 105,
+        "overTime": [
+          {
+            "date": "2025-09-18",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-20",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-21",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-22",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-23",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-24",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-25",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-26",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-27",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-28",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-29",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-30",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-01",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-02",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-03",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-04",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-05",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-06",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-07",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-08",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-09",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-10",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-11",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-12",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-13",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-14",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-15",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-16",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-17",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-18",
+            "Initial Assessment": 34,
+            "Weekly Check-in": 39,
+            "Training Feedback": 32
+          },
+          {
+            "date": "2025-10-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          }
+        ]
+      },
+      "done": {
+        "total": 0,
+        "overTime": [
+          {
+            "date": "2025-09-18",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-20",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-21",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-22",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-23",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-24",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-25",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-26",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-27",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-28",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-29",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-09-30",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-01",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-02",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-03",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-04",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-05",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-06",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-07",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-08",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-09",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-10",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-11",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-12",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-13",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-14",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-15",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-16",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-17",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-18",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          },
+          {
+            "date": "2025-10-19",
+            "Initial Assessment": 0,
+            "Weekly Check-in": 0,
+            "Training Feedback": 0
+          }
+        ]
+      },
+      "total": 400,
+      "pending": 400,
+      "formTemplates": [
+        {
+          "id": "cmgvml15m00dfnz0trbjfm8mv",
+          "title": "Initial Assessment",
+          "type": "nutrition"
+        },
+        {
+          "id": "cmgvml15p00dhnz0twyd7atlt",
+          "title": "Weekly Check-in",
+          "type": "nutrition"
+        },
+        {
+          "id": "cmgvml15r00djnz0t58iro1t2",
+          "title": "Training Feedback",
+          "type": "workout"
+        }
+      ],
+      "templatePerformance": [
+        {
+          "id": "cmgvml15m00dfnz0trbjfm8mv",
+          "title": "Initial Assessment",
+          "type": "nutrition",
+          "scheduled": 0,
+          "requested": 0,
+          "submitted": 34,
+          "done": 0,
+          "total": 133,
+          "completionRate": 0
+        },
+        {
+          "id": "cmgvml15p00dhnz0twyd7atlt",
+          "title": "Weekly Check-in",
+          "type": "nutrition",
+          "scheduled": 0,
+          "requested": 0,
+          "submitted": 39,
+          "done": 0,
+          "total": 127,
+          "completionRate": 0
+        },
+        {
+          "id": "cmgvml15r00djnz0t58iro1t2",
+          "title": "Training Feedback",
+          "type": "workout",
+          "scheduled": 0,
+          "requested": 0,
+          "submitted": 32,
+          "done": 0,
+          "total": 140,
+          "completionRate": 0
+        }
+      ]
+    },
+    "chatsData": {
+      "totalMessages": 459,
+      "unreadMessages": 78,
+      "unansweredMessages": 35,
+      "chatInitiations": 83,
+      "averageResponseTime": 2.0000003765139547,
+      "messagesOverTime": [
+        {
+          "date": "2025-09-18",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-19",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-20",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-21",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-22",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-23",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-24",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-25",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-26",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-27",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-28",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-29",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-09-30",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-01",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-02",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-03",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-04",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-05",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-06",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-07",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-08",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-09",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-10",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-11",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-12",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-13",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-14",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-15",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-16",
+          "messages": 0,
+          "responses": 0
+        },
+        {
+          "date": "2025-10-17",
+          "messages": 377,
+          "responses": 171
+        },
+        {
+          "date": "2025-10-18",
+          "messages": 82,
+          "responses": 42
+        },
+        {
+          "date": "2025-10-19",
+          "messages": 0,
+          "responses": 0
+        }
+      ]
+    },
+    "dateRange": {
+      "start": "2025-09-18T05:20:17.639Z",
+      "end": "2025-10-18T05:20:17.639Z"
+    },
+    "metrics": {
+      "clients": {
+        "total": 100,
+        "active": 23,
+        "growthPercentage": 0
+      },
+      "revenue": {
+        "monthlyCents": 17520000,
+        "growthPercentage": 0
+      },
+      "subscriptions": {
+        "active": 28,
+        "expiring": 2
+      },
+      "forms": {
+        "total": 400,
+        "pending": 400
+      },
+      "nutritionPlans": {
+        "total": 30,
+        "active": 30
+      },
+      "workoutPlans": {
+        "total": 30,
+        "active": 30
+      }
+    },
+    "recentClients": [],
+    "recentActivities": []
+  },
+  "timestamp": "2025-10-18T05:20:26.259Z"
+}

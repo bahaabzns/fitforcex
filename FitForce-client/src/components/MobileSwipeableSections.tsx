@@ -1,0 +1,312 @@
+'use client';
+
+import { useState, useRef, useEffect, ReactNode } from 'react';
+import { Box, IconButton } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { ArrowLeft2, ArrowRight2 } from '@wandersonalwes/iconsax-react';
+
+interface MobileSwipeableSectionsProps {
+  sections: ReactNode[];
+  activeSection: number;
+  onSectionChange?: (index: number) => void;
+  showNavigation?: boolean;
+}
+
+export default function MobileSwipeableSections({
+  sections,
+  activeSection,
+  onSectionChange,
+  showNavigation = true
+}: MobileSwipeableSectionsProps) {
+  const theme = useTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [currentSection, setCurrentSection] = useState(activeSection);
+  const isScrollingProgrammatically = useRef(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentSectionRef = useRef(activeSection);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCurrentSection(activeSection);
+    currentSectionRef.current = activeSection;
+    // Scroll to the active section when it changes from parent
+    if (containerRef.current && activeSection !== currentSection) {
+      isScrollingProgrammatically.current = true;
+      const sectionWidth = containerRef.current.offsetWidth;
+      containerRef.current.scrollTo({
+        left: sectionWidth * activeSection,
+        behavior: 'smooth'
+      });
+      
+      // Reset flag after scroll animation completes
+      setTimeout(() => {
+        isScrollingProgrammatically.current = false;
+      }, 500);
+    }
+  }, [activeSection]);
+
+  // Listen to scroll events to update current section
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Don't update if we're scrolling programmatically
+      if (isScrollingProgrammatically.current) return;
+      
+      const scrollLeft = container.scrollLeft;
+      const sectionWidth = container.offsetWidth;
+      const newSection = Math.round(scrollLeft / sectionWidth);
+      
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Only update section when scrolling has stopped or is very slow
+      // This prevents jumping multiple sections during fast swipes
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (newSection !== currentSectionRef.current && newSection >= 0 && newSection < sections.length) {
+          setCurrentSection(newSection);
+          currentSectionRef.current = newSection;
+          onSectionChange?.(newSection);
+        }
+      }, 100); // Wait 100ms after scrolling stops
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [sections.length, onSectionChange]);
+
+
+  // Measure available height so each section fits exactly one screen below any fixed headers
+  useEffect(() => {
+    const measure = () => {
+      // Determine viewport height (handle mobile browser UI with visualViewport if available)
+      const viewportHeight = (typeof window !== 'undefined' && (window as any).visualViewport?.height)
+        ? (window as any).visualViewport.height
+        : (typeof window !== 'undefined' ? window.innerHeight : 0);
+      const topOffset = wrapperRef.current ? wrapperRef.current.getBoundingClientRect().top : 0;
+      const computed = Math.max(0, Math.floor(viewportHeight - topOffset));
+      if (!Number.isNaN(computed) && computed !== containerHeight) {
+        setContainerHeight(computed);
+      }
+    };
+
+    measure();
+
+    // Listen to resize/orientation changes and visualViewport resize for mobile address bar changes
+    const handleResize = () => {
+      // Use rAF to avoid layout thrashing during continuous resize
+      requestAnimationFrame(measure);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize, { passive: true } as any);
+      window.addEventListener('orientationchange', handleResize as any, { passive: true } as any);
+      if ((window as any).visualViewport) {
+        (window as any).visualViewport.addEventListener('resize', handleResize, { passive: true } as any);
+      }
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize as any);
+        window.removeEventListener('orientationchange', handleResize as any);
+        if ((window as any).visualViewport) {
+          (window as any).visualViewport.removeEventListener('resize', handleResize as any);
+        }
+      }
+    };
+  }, [containerHeight]);
+
+
+  const goToSection = (index: number) => {
+    if (index >= 0 && index < sections.length && index !== currentSection) {
+      setCurrentSection(index);
+      onSectionChange?.(index);
+      
+      // Smooth scroll to section
+      if (containerRef.current) {
+        const sectionWidth = containerRef.current.offsetWidth;
+        containerRef.current.scrollTo({
+          left: sectionWidth * index,
+          behavior: 'smooth'
+        });
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentSection > 0) {
+      goToSection(currentSection - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentSection < sections.length - 1) {
+      goToSection(currentSection + 1);
+    }
+  };
+
+  return (
+    <Box
+      ref={wrapperRef}
+      sx={{
+        position: 'relative',
+        width: '100%',
+        height: containerHeight ? `${containerHeight}px` : '100dvh',
+        overflow: 'hidden',
+        bgcolor: 'background.default'
+      }}
+    >
+      {/* Sections Container */}
+      <Box
+        ref={containerRef}
+        sx={{
+          display: 'flex',
+          width: '100%',
+          height: '100%',
+          boxSizing: 'border-box',
+          overflowX: 'scroll',
+          overflowY: 'hidden',
+          scrollSnapType: 'x mandatory',
+          scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch',
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          }
+        }}
+      >
+        {sections.map((section, index) => (
+          <Box
+            key={index}
+            sx={{
+              flex: '0 0 100%',
+              width: '100%',
+              height: '100%',
+              boxSizing: 'border-box',
+              scrollSnapAlign: 'start',
+              scrollSnapStop: 'always',
+              overflowY: 'auto',
+              px: 2,
+              py: 2,
+              WebkitOverflowScrolling: 'touch',
+              '&::-webkit-scrollbar': {
+                width: '4px'
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'rgba(0,0,0,0.2)',
+                borderRadius: '4px'
+              }
+            }}
+          >
+            {section}
+          </Box>
+        ))}
+      </Box>
+
+      {/* Progress Indicators */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 8,
+          left: 0,
+          right: 0,
+          display: 'flex',
+          gap: 0.5,
+          px: 2,
+          zIndex: 10
+        }}
+      >
+        {sections.map((_, index) => (
+          <Box
+            key={index}
+            sx={{
+              flex: 1,
+              height: 3,
+              bgcolor: index === currentSection ? 'primary.main' : 'rgba(255,255,255,0.3)',
+              borderRadius: 1.5,
+              transition: 'background-color 0.3s ease'
+            }}
+          />
+        ))}
+      </Box>
+
+      {/* Navigation Buttons */}
+      {showNavigation && (
+        <>
+          {currentSection > 0 && (
+            <IconButton
+              onClick={handlePrevious}
+              sx={{
+                position: 'absolute',
+                left: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                bgcolor: 'background.paper',
+                boxShadow: 2,
+                zIndex: 10,
+                '&:hover': {
+                  bgcolor: 'background.paper',
+                  boxShadow: 4
+                }
+              }}
+            >
+              <ArrowLeft2 size={24} />
+            </IconButton>
+          )}
+
+          {currentSection < sections.length - 1 && (
+            <IconButton
+              onClick={handleNext}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                bgcolor: 'background.paper',
+                boxShadow: 2,
+                zIndex: 10,
+                '&:hover': {
+                  bgcolor: 'background.paper',
+                  boxShadow: 4
+                }
+              }}
+            >
+              <ArrowRight2 size={24} />
+            </IconButton>
+          )}
+        </>
+      )}
+
+      {/* Section Labels */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bgcolor: 'rgba(0,0,0,0.6)',
+          color: 'white',
+          px: 2,
+          py: 1,
+          borderRadius: 2,
+          zIndex: 10,
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        {currentSection + 1} / {sections.length}
+      </Box>
+    </Box>
+  );
+}

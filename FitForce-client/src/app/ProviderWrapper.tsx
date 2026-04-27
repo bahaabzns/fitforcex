@@ -1,0 +1,52 @@
+'use client';
+
+import { ReactNode } from 'react';
+
+// next
+import { SessionProvider } from 'next-auth/react';
+
+// project-imports
+import ThemeCustomization from 'themes';
+import { ConfigProvider } from 'contexts/ConfigContext';
+import RTLLayout from 'components/RTLLayout';
+import Locales from 'components/Locales';
+import ScrollTop from 'components/ScrollTop';
+
+import Snackbar from 'components/@extended/Snackbar';
+import { Provider as ReduxProvider } from 'react-redux';
+import { store } from '@/store';
+import Customization from 'components/customization';
+import { TourProvider } from '@/contexts/TourContext';
+import { useWorkspaceInitializer } from '@/hooks/useWorkspaceInitializer';
+
+function WorkspaceInitializer() {
+  useWorkspaceInitializer();
+  return null;
+}
+
+// ==============================|| PROVIDER WRAPPER  ||============================== //
+
+export default function ProviderWrapper({ children }: { children: ReactNode }) {
+  return (
+    <ConfigProvider>
+      <ThemeCustomization>
+        <RTLLayout>
+          <Locales>
+            <ScrollTop>
+              <SessionProvider refetchInterval={0}>
+                <ReduxProvider store={store}>
+                  <WorkspaceInitializer />
+                  <Snackbar />
+                  <TourProvider>
+                    {children}
+                    <Customization />
+                  </TourProvider>
+                </ReduxProvider>
+              </SessionProvider>
+            </ScrollTop>
+          </Locales>
+        </RTLLayout>
+      </ThemeCustomization>
+    </ConfigProvider>
+  );
+}

@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>{{plan.title}} — {{client.fullName}}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial; color: #0f172a; }
+
+    .page { position: relative; width: 210mm; height: 297mm; page-break-after: always; overflow: hidden; }
+    .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.45), rgba(0,0,0,.15)); }
+    .content { position: absolute; inset: 0; padding: 18mm 16mm; display: flex; flex-direction: column; justify-content: flex-end; }
+    .title { font-size: 28px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.4); }
+    .subtitle { font-size: 14px; color: #e5e7eb; margin-top: 6px; text-shadow: 0 2px 6px rgba(0,0,0,.35); }
+    .tag { position: absolute; left: 16mm; bottom: 10mm; background: rgba(17,24,39,.8); color: #fff; font-size: 10px; padding: 4px 8px; border-radius: 999px; }
+
+    /* Links */
+    .links-wrap { display: flex; justify-content: center; align-items: center; height: 100%; padding: 16mm; }
+    .links { width: 100%; max-width: 150mm; background: rgba(255,255,255,.9); border: 1px solid #e5e7eb; border-radius: 12px; padding: 10mm; }
+    .links h2 { margin: 0 0 6mm; font-size: 18px; color: #111827; }
+    .link { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; padding: 8px 10px; font-size: 12px; margin-bottom: 6px; }
+    .link a { color: #2563eb; text-decoration: none; word-break: break-all; }
+    .muted { color: #6b7280; }
+
+    /* Cycle intro */
+    .cycle-card { position: absolute; left: 16mm; right: 16mm; bottom: 18mm; background: rgba(255,255,255,.9); border: 1px solid #e5e7eb; border-radius: 12px; padding: 10mm; box-shadow: 0 1px 12px rgba(0,0,0,.08); }
+    .cycle-name { font-size: 24px; font-weight: 800; margin: 0 0 4mm; color: #111827; }
+    .client-name { font-size: 14px; color: #374151; }
+
+    /* Meal page */
+    .meal-wrap { position: absolute; inset: 0; padding: 16mm; display: grid; grid-template-columns: 1.35fr 0.65fr; gap: 10mm; align-items: start; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 10px rgba(0,0,0,.05); }
+    .card .hd { padding: 10px 14px; border-bottom: 1px solid #e5e7eb; background: #f8fafc; border-radius: 12px 12px 0 0; }
+    .card .bd { padding: 12px 14px; }
+    .meal-title { margin: 0 0 4mm; font-size: 20px; font-weight: 800; color: #111827; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eef2f7; }
+    th { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+    tr:nth-child(even) td { background: #fbfdff; }
+    .macro-title { margin: 0 0 6mm; font-size: 16px; font-weight: 700; color: #111827; }
+    .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 12px; text-align: center; }
+    .metric .lbl { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+    .metric .val { font-size: 18px; font-weight: 800; color: #0f172a; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover (use your uploaded image URL or any public image) -->
+  <section class="page">
+    <img class="bg" src="https://picsum.photos/1200/1800" alt="Cover" />
+    <div class="overlay"></div>
+    <div class="content">
+      <div class="title">{{plan.title}}</div>
+      <div class="subtitle">{{client.fullName}} • {{generatedAt}}</div>
+    </div>
+    <div class="tag">Nutrition Plan</div>
+  </section>
+
+  <!-- Links (optional) -->
+  <section class="page">
+    <img class="bg" src="https://picsum.photos/1200/1801" alt="Links" />
+    <div class="overlay"></div>
+    <div class="links-wrap">
+      <div class="links">
+        <h2>Useful Links</h2>
+        {{#links}}
+          <div class="link">
+            <div>
+              <div style="font-weight:600">{{label}}</div>
+              <div class="muted">{{description}}</div>
+            </div>
+            <div><a href="{{url}}">{{url}}</a></div>
+          </div>
+        {{/links}}
+        {{^links}}
+          <div class="muted">No links provided</div>
+        {{/links}}
+      </div>
+    </div>
+    <div class="tag">Links</div>
+  </section>
+
+  <!-- Cycles and one page per meal -->
+  {{#cycles}}
+    <!-- Cycle intro page -->
+    <section class="page">
+      <img class="bg" src="https://picsum.photos/1200/1802" alt="Cycle" />
+      <div class="overlay"></div>
+      <div class="cycle-card">
+        <div class="cycle-name">{{name}}</div>
+        <div class="client-name">{{client.fullName}}</div>
+      </div>
+      <div class="tag">Cycle</div>
+    </section>
+
+    {{#meals}}
+      <section class="page">
+        <img class="bg" src="https://picsum.photos/1200/1803" alt="Meal" />
+        <div class="overlay"></div>
+
+        <div class="meal-wrap">
+          <!-- Foods table -->
+          <div class="card">
+            <div class="hd"><strong>Food Items — {{meal_name}}</strong></div>
+            <div class="bd">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Food</th>
+                    <th style="width: 16%;">Servings</th>
+                    <th style="width: 14%;">Kcal</th>
+                    <th style="width: 14%;">P</th>
+                    <th style="width: 14%;">C</th>
+                    <th style="width: 14%;">F</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{#foods}}
+                  <tr>
+                    <td>{{food_name}}</td>
+                    <td>{{servings}}</td>
+                    <td>{{calories}}</td>
+                    <td>{{protein}}</td>
+                    <td>{{carbs}}</td>
+                    <td>{{fat}}</td>
+                  </tr>
+                  {{/foods}}
+                  {{^foods}}
+                  <tr><td colspan="6" style="color:#94a3b8;">No items</td></tr>
+                  {{/foods}}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Meal totals -->
+          <div class="card">
+            <div class="hd"><strong>Meal Macros</strong></div>
+            <div class="bd">
+              <div class="totals">
+                <div class="metric">
+                  <div class="lbl">Calories</div>
+                  <div class="val">{{meal_total_calories}}</div>
+                </div>
+                <div class="metric">
+                  <div class="lbl">Protein (g)</div>
+                  <div class="val">{{meal_total_protein}}</div>
+                </div>
+                <div class="metric">
+                  <div class="lbl">Carbs (g)</div>
+                  <div class="val">{{meal_total_carbs}}</div>
+                </div>
+                <div class="metric">
+                  <div class="lbl">Fat (g)</div>
+                  <div class="val">{{meal_total_fats}}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tag">{{../name}} • {{meal_name}}</div>
+      </section>
+    {{/meals}}
+  {{/cycles}}
+
+  <!-- End cover -->
+  <section class="page">
+    <img class="bg" src="https://picsum.photos/1200/1804" alt="End Cover" />
+    <div class="overlay"></div>
+    <div class="content" style="justify-content:center; align-items:center; gap:10px;">
+      <div class="title" style="text-align:center;">شكراً / Thank you</div>
+      <div class="subtitle">{{coach.name}} • {{coach.email}}</div>
+    </div>
+    <div class="tag">End</div>
+  </section>
+
+  <!-- Optional legacy summary page using flat totals -->
+  <section class="page">
+    <div class="content" style="justify-content:center; align-items:center; gap:10px;">
+      <div class="title" style="color:#0f172a; text-shadow:none;">Daily Totals</div>
+      <div class="subtitle" style="color:#334155;">Calories: {{totals.calories}} • P: {{totals.protein}} • C: {{totals.carbs}} • F: {{totals.fat}}</div>
+    </div>
+  </section>
+
+</body>
+</html>
+
+

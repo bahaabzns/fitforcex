@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  seed:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.nano.com}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://captinmaged.nano.com}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+    restart: unless-stopped
