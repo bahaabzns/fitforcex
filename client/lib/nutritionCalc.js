@@ -1,17 +1,19 @@
 
 
+const r2 = (n) => Math.round(n * 100) / 100;
+
 export function calcItem(item) {
     const factor = item.amount / item.serving_size;
     return {
-    calories: Math.round(item.calories_per_serving * factor * 10) / 10,
-    protein: Math.round(item.protein_per_serving * factor * 10) / 10,
-    carbs: Math.round(item.carbs_per_serving * factor * 10) / 10,
-    fats: Math.round(item.fats_per_serving * factor * 10) / 10,
+    calories: r2(item.calories_per_serving * factor),
+    protein: r2(item.protein_per_serving * factor),
+    carbs: r2(item.carbs_per_serving * factor),
+    fats: r2(item.fats_per_serving * factor),
     };
 }
 
 export function calcMeal(meal) {
-    return meal.items.reduce(
+    const raw = meal.items.reduce(
     (totals, item) => {
         const itemTotals = calcItem(item);
         totals.calories += itemTotals.calories;
@@ -22,10 +24,11 @@ export function calcMeal(meal) {
     },
     { calories: 0, protein: 0, carbs: 0, fats: 0 },
     );
+    return { calories: r2(raw.calories), protein: r2(raw.protein), carbs: r2(raw.carbs), fats: r2(raw.fats) };
 }
 
 export function calcCycle(cycle) {
-    return cycle.meals.reduce(
+    const raw = cycle.meals.reduce(
     (totals, meal) => {
         const mealTotals = calcMeal(meal);
         totals.calories += mealTotals.calories;
@@ -36,4 +39,5 @@ export function calcCycle(cycle) {
     },
     { calories: 0, protein: 0, carbs: 0, fats: 0 },
     );
+    return { calories: r2(raw.calories), protein: r2(raw.protein), carbs: r2(raw.carbs), fats: r2(raw.fats) };
 }
