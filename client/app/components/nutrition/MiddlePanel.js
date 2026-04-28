@@ -91,7 +91,7 @@ export default function MiddlePanel({
                             e.target.blur();
                         }
                     }}
-                    className="flex-1 text-xl font-bold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                    className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 truncate text-gray-900"
                 />
                 <button
                     title="Close plan"
@@ -108,7 +108,7 @@ export default function MiddlePanel({
                 const cycleTotals = calcCycle(cycle);
                 return (
                     <>
-                        <div className="flex items-center mb-2 gap-4 shrink-0">
+                        <div className="flex items-center mb-3 gap-3 shrink-0">
                             <input
                                 ref={cycleTitleRef}
                                 key={cycle.id}
@@ -123,38 +123,40 @@ export default function MiddlePanel({
                                     if (e.key === 'Enter') e.target.blur();
                                     if (e.key === 'Escape') { e.target.value = cycle.name; e.target.blur(); }
                                 }}
-                                className="flex-1 text-xl font-bold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 truncate"
+                                className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 truncate text-gray-900"
                             />
                         </div>
-                        <div className="rounded-xl bg-white border border-gray-200 p-3 mb-2 shrink-0">
+                        <div className="rounded-xl bg-white border border-gray-200 p-4 mb-3 shrink-0">
+                            <div className="flex items-baseline gap-2 mb-2">
+                                <span className="text-2xl font-bold text-gray-900">{cycleTotals.calories}</span>
+                                {cycle.goal_calories
+                                    ? <span className="text-sm text-gray-400">/ {cycle.goal_calories} kcal</span>
+                                    : <span className="text-sm text-gray-400">kcal</span>
+                                }
+                                {cycle.goal_calories && (
+                                    <span className="ml-auto text-xs text-gray-400">
+                                        {Math.round((cycleTotals.calories / cycle.goal_calories) * 100)}%
+                                    </span>
+                                )}
+                            </div>
                             {cycle.goal_calories && (
-                                <p className="text-xs text-gray-500 mb-2">Daily Goal</p>
-                            )}
-                            {cycle.goal_calories && (
-                                <div className="h-2 bg-gray-100 rounded-full mb-3 overflow-hidden">
+                                <div className="h-1.5 bg-gray-100 rounded-full mb-3 overflow-hidden">
                                     <div
-                                        className="h-full bg-blue-400 rounded-full transition-all"
+                                        className="h-full bg-blue-500 rounded-full transition-all"
                                         style={{ width: `${Math.min(100, (cycleTotals.calories / cycle.goal_calories) * 100)}%` }}
                                     />
                                 </div>
                             )}
-                            <div className="flex items-baseline gap-1 mb-2">
-                                <span className="text-2xl font-bold text-gray-800">{cycleTotals.calories}</span>
-                                {cycle.goal_calories
-                                    ? <span className="text-sm text-gray-400">/{cycle.goal_calories} kcal</span>
-                                    : <span className="text-sm text-gray-400">kcal</span>
-                                }
-                            </div>
                             <div className="grid grid-cols-3 gap-3">
                                 {[
-                                    { label: "C", current: cycleTotals.carbs,   target: cycle.goal_carbs,   color: "text-teal-600",   bar: "bg-teal-400" },
-                                    { label: "P", current: cycleTotals.protein, target: cycle.goal_protein, color: "text-red-500",    bar: "bg-red-400" },
-                                    { label: "F", current: cycleTotals.fats,    target: cycle.goal_fats,    color: "text-yellow-600", bar: "bg-yellow-400" },
-                                ].map(({ label, current, target, color, bar }) => (
+                                    { label: "C", current: cycleTotals.carbs,   target: cycle.goal_carbs },
+                                    { label: "P", current: cycleTotals.protein, target: cycle.goal_protein },
+                                    { label: "F", current: cycleTotals.fats,    target: cycle.goal_fats },
+                                ].map(({ label, current, target }) => (
                                     <div key={label}>
-                                        <p className="text-sm font-semibold text-gray-800 flex items-baseline gap-1">
-                                            <span className={`text-xs font-bold ${color}`}>{label}</span>
-                                            {current}
+                                        <p className="text-sm text-gray-700 flex items-baseline gap-0.5">
+                                            <span className="text-xs text-gray-400 mr-0.5">{label}</span>
+                                            <span className="font-medium">{current}</span>
                                             <span className="text-xs text-gray-400 font-normal">
                                                 {target ? `/${target}g` : "g"}
                                             </span>
@@ -162,7 +164,7 @@ export default function MiddlePanel({
                                         {target && (
                                             <div className="h-1 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
                                                 <div
-                                                    className={`h-full rounded-full ${bar}`}
+                                                    className="h-full bg-gray-400 rounded-full"
                                                     style={{ width: `${Math.min(100, (current / target) * 100)}%` }}
                                                 />
                                             </div>
@@ -178,28 +180,28 @@ export default function MiddlePanel({
             {/* Cycles Section */}
             <div className="flex flex-col shrink-0">
                 {/* Cycles Header */}
-                <div
-                    className="flex gap-4 justify-start items-center mb-2 shrink-0 cursor-pointer select-none"
-                    onClick={() => setCyclesCollapsed(p => !p)}
-                >
-                    <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <div className="flex items-center gap-3 mb-3 shrink-0">
+                    <button
+                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        onClick={() => setCyclesCollapsed(p => !p)}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points={cyclesCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
                         </svg>
-                    </div>
-                    <div className="flex-1 flex gap-2 items-center">
-                        <h3 className="text-lg font-semibold text-blue-500">Cycles</h3>
-                        <p className="text-sm text-gray-600 shrink-0">({selectedPlan.cycles.length} cycles)</p>
+                    </button>
+                    <h3 className="text-base font-semibold text-gray-900 flex-1">
+                        Cycles
+                        <span className="ml-2 text-xs font-normal text-gray-400">{selectedPlan.cycles.length}</span>
                         {cyclesCollapsed && selectedPlan.cycles.length > 0 && (
-                            <span className="text-sm text-gray-400 shrink-0">· {selectedPlan.cycles[selectedCycleIndex]?.name}</span>
+                            <span className="ml-2 text-xs font-normal text-gray-400">· {selectedPlan.cycles[selectedCycleIndex]?.name}</span>
                         )}
-                    </div>
+                    </h3>
                     {!cyclesCollapsed && (
                         <button
-                            className="cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
-                            onClick={(e) => { e.stopPropagation(); handleCreateCycle(); }}
+                            className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                            onClick={handleCreateCycle}
                         >
-                            + Create Cycle
+                            + Cycle
                         </button>
                     )}
                 </div>
@@ -276,25 +278,25 @@ export default function MiddlePanel({
                 {/* Meals Section */}
                 <div className="flex flex-col min-h-0" style={{ flex: mealsCollapsed ? '0 0 auto' : '1 1 0' }}>
                     {/* Meals Header */}
-                    <div
-                        className="flex gap-4 justify-start items-center mb-2 shrink-0 cursor-pointer select-none"
-                        onClick={() => setMealsCollapsed(m => !m)}
-                    >
-                        <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <div className="flex items-center gap-3 mb-3 shrink-0">
+                        <button
+                            className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                            onClick={() => setMealsCollapsed(m => !m)}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points={mealsCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
                             </svg>
-                        </div>
-                        <div className="flex-1 flex gap-2 items-center">
-                            <h3 className="text-lg font-semibold text-blue-500">Meals</h3>
-                            <p className="text-sm text-gray-600 shrink-0">({selectedPlan.cycles[selectedCycleIndex].meals.length} meals)</p>
-                        </div>
+                        </button>
+                        <h3 className="text-base font-semibold text-gray-900 flex-1">
+                            Meals
+                            <span className="ml-2 text-xs font-normal text-gray-400">{selectedPlan.cycles[selectedCycleIndex].meals.length}</span>
+                        </h3>
                         {!mealsCollapsed && (
                             <button
-                                className="cursor-pointer h-9 min-w-9 rounded-full px-3 text-sm font-semibold transition-colors bg-blue-500 text-white border border-gray-200 hover:border-gray-300 hover:bg-blue-600"
-                                onClick={(e) => { e.stopPropagation(); handleCreateMeal(); }}
+                                className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                                onClick={handleCreateMeal}
                             >
-                                + Create Meal
+                                + Meal
                             </button>
                         )}
                     </div>
@@ -308,6 +310,8 @@ export default function MiddlePanel({
                             previewMeals.map((meal) => {
                                 const originalIndex = currentMeals.findIndex(m => m.id === meal.id);
                                 const isDragging = dragIndex !== null && currentMeals[dragIndex]?.id === meal.id;
+                                const mealTotals = calcMeal(meal);
+                                const isSelected = selectedMeal && selectedMeal.id === meal.id;
                                 return (
                                 <div
                                     key={meal.id}
@@ -316,41 +320,61 @@ export default function MiddlePanel({
                                     onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                                     onDrop={() => { handleReorderMeals(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                     onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                    className={`card px-6 py-4 mb-2 cursor-pointer transition-all duration-150 group ${isDragging ? "opacity-30 scale-95 ring-2 ring-blue-300" : ""} ${selectedMeal && selectedMeal.id === meal.id ? "bg-blue-50 ring-2 ring-blue-200 shadow-sm" : "bg-gray-100"}`}
+                                    className={`group flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all duration-150 mb-1.5 ${
+                                        isDragging ? "opacity-30 scale-95" : ""
+                                    } ${
+                                        isSelected
+                                            ? "bg-blue-50 border-blue-200 shadow-sm"
+                                            : "bg-white border-gray-200 hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm"
+                                    }`}
                                     onClick={() => setSelectedMeal(meal)}
                                 >
-                                    <div className="flex items-center justify-center mb-2 gap-2">
-                                        <span
-                                            className="text-gray-400 hover:text-gray-600 cursor-grab shrink-0 select-none"
-                                            title="Drag to reorder"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-                                                <circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/>
-                                                <circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/>
-                                                <circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/>
-                                            </svg>
-                                        </span>
-                                        <h4 className="flex-1 text-md font-semibold truncate">{meal.name}</h4>
-                                        <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                                            <button
-                                                title="Duplicate meal"
-                                                className="cursor-pointer p-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:border-gray-300 transition-colors"
-                                                onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                            </button>
-                                            <button
-                                                title="Delete meal"
-                                                className="cursor-pointer p-2 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors"
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteMeal(meal.id); }}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                            </button>
-                                        </div>
-                                        <span className="text-xs text-gray-500 shrink-0">{meal.items.length} items</span>
+                                    {/* Drag grip */}
+                                    <span
+                                        className="text-gray-300 hover:text-gray-500 cursor-grab shrink-0 select-none"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
+                                            <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+                                            <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
+                                            <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
+                                        </svg>
+                                    </span>
+
+                                    {/* Meal info */}
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-sm font-medium truncate ${isSelected ? "text-blue-700" : "text-gray-800"}`}>
+                                            {meal.name}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            C {mealTotals.carbs}g · P {mealTotals.protein}g · F {mealTotals.fats}g
+                                            <span className="ml-2">{meal.items.length} items</span>
+                                        </p>
                                     </div>
-                                    <MacrosBadges {...calcMeal(meal)} />
+
+                                    {/* Calories — primary focus */}
+                                    <div className="flex items-baseline gap-0.5 shrink-0">
+                                        <span className="text-base font-bold text-gray-900">{mealTotals.calories}</span>
+                                        <span className="text-xs text-gray-400">kcal</span>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                        <button
+                                            title="Duplicate meal"
+                                            className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                            onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                        </button>
+                                        <button
+                                            title="Delete meal"
+                                            className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteMeal(meal.id); }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                        </button>
+                                    </div>
                                 </div>
                                 );
                             })
@@ -365,16 +389,16 @@ export default function MiddlePanel({
 
                 {/* Notes Section */}
                 <div className="flex flex-col shrink-0">
-                    <div
-                        className="flex gap-2 items-center mb-2 cursor-pointer select-none"
-                        onClick={() => setNotesCollapsed(n => !n)}
-                    >
-                        <div className="p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <div className="flex items-center gap-3 mb-3">
+                        <button
+                            className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                            onClick={() => setNotesCollapsed(n => !n)}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points={notesCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
                             </svg>
-                        </div>
-                        <h3 className="text-lg font-semibold text-blue-500">Notes</h3>
+                        </button>
+                        <h3 className="text-base font-semibold text-gray-900">Notes</h3>
                     </div>
                     {!notesCollapsed && selectedPlan.cycles.length > 0 && (() => {
                         const cycle = selectedPlan.cycles[selectedCycleIndex];
@@ -388,7 +412,7 @@ export default function MiddlePanel({
                                     const val = e.target.value;
                                     if (val !== (cycle.note ?? "")) handleUpdateCycleNote(cycle.id, val);
                                 }}
-                                className="w-full mb-2 p-2 text-sm text-gray-600 bg-white border border-transparent rounded-md outline-none resize-none hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                                className="w-full mb-2 px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none resize-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
                             />
                         );
                     })()}

@@ -144,28 +144,28 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* Formula */}
             <div>
-                <label className="block text-xs text-gray-500 mb-1">BMR Formula <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">BMR Formula <span className="text-red-400">*</span></label>
                 <select className="input-field w-full" value={formula} onChange={e => setFormula(e.target.value)}>
                     <option value="mifflin">Mifflin-St Jeor</option>
                     <option value="harris">Revised Harris-Benedict</option>
                     <option value="katch">Katch-McArdle</option>
                 </select>
                 {formula === "katch" && (
-                    <p className="text-xs text-amber-600 mt-1">
-                        Katch-McArdle requires body fat %
+                    <p className="text-xs text-amber-600 mt-1.5">
+                        Requires body fat %
                         {bfMode === "navy"
                             ? ` — estimated from measurements (neck, waist${gender === "female" ? ", hip" : ""})`
-                            : " — enter it directly in the Body Fat section below"}.
+                            : " — enter directly below"}.
                     </p>
                 )}
             </div>
 
             {/* Gender */}
             <div>
-                <label className="block text-xs text-gray-500 mb-1">Gender <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Gender <span className="text-red-400">*</span></label>
                 <div className="flex gap-4">
                     {["male", "female"].map(g => (
-                        <label key={g} className="flex items-center gap-2 cursor-pointer capitalize">
+                        <label key={g} className="flex items-center gap-2 cursor-pointer capitalize text-sm text-gray-700">
                             <input type="radio" name="gender" value={g} checked={gender === g} onChange={() => setGender(g)} />
                             {g.charAt(0).toUpperCase() + g.slice(1)}
                         </label>
@@ -175,7 +175,7 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* Activity */}
             <div>
-                <label className="block text-xs text-gray-500 mb-1">Activity Level</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Activity Level</label>
                 <select className="input-field w-full" value={activity} onChange={e => setActivity(Number(e.target.value))}>
                     {ACTIVITY_LEVELS.map(l => (
                         <option key={l.value} value={l.value}>{l.label}</option>
@@ -191,7 +191,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                     { label: "Height (cm)", val: height, set: setHeight },
                 ].map(({ label, val, set }) => (
                     <div key={label}>
-                        <label className="block text-xs text-gray-500 mb-1">{label} <span className="text-red-500">*</span></label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1.5">{label} <span className="text-red-400">*</span></label>
                         <input type="number" className="input-field w-full" value={val} onChange={e => set(e.target.value)} min={0} />
                     </div>
                 ))}
@@ -266,20 +266,20 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* Results */}
             {result && (
-                <div className="flex flex-col gap-4 border-t pt-4">
+                <div className="flex flex-col gap-4 border-t border-gray-100 pt-4">
 
                     {/* BMR */}
                     <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">BMR</span>
-                        <span className="font-bold text-green-500">{result.bmr.toLocaleString()} cal/day</span>
+                        <span className="text-xs font-medium text-gray-500">BMR</span>
+                        <span className="text-sm font-semibold text-gray-800">{result.bmr.toLocaleString()} kcal/day</span>
                     </div>
 
                     {/* TDEE */}
                     <div>
-                        <label className="block text-xs text-gray-500 mb-1">CALORIE TARGET (TDEE)</label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Calorie Target (TDEE)</label>
                         <input
                             type="number"
-                            className="input-field w-full text-center text-lg font-bold text-green-500"
+                            className="input-field w-full text-center text-lg font-bold text-gray-900"
                             value={tdee}
                             onChange={e => setTdee(e.target.value)}
                             min={0}
@@ -289,19 +289,19 @@ export default function CycleCalculator({ cycle, onApply }) {
                     {/* Macros */}
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs text-gray-500 uppercase tracking-wide">Daily Macros</span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${totalPct === 100 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                            <span className="text-xs font-medium text-gray-500">Daily Macros</span>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${totalPct === 100 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
                                 {totalPct}%
                             </span>
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                             {[
-                                { key: "protein", label: "Protein", color: "text-pink-500" },
-                                { key: "carbs",   label: "Carbs",   color: "text-blue-500" },
-                                { key: "fats",    label: "Fats",    color: "text-teal-500" },
-                            ].map(({ key, label, color }) => (
-                                <div key={key} className="card px-3 py-2 bg-gray-100 flex flex-col gap-1">
-                                    <span className={`text-xs font-semibold ${color}`}>{label}</span>
+                                { key: "protein", label: "Protein" },
+                                { key: "carbs",   label: "Carbs" },
+                                { key: "fats",    label: "Fats" },
+                            ].map(({ key, label }) => (
+                                <div key={key} className="rounded-xl border border-gray-200 px-3 py-2.5 bg-gray-50 flex flex-col gap-1">
+                                    <span className="text-xs font-medium text-gray-500">{label}</span>
                                     <div className="flex items-center gap-1">
                                         <input
                                             type="number"
@@ -310,9 +310,9 @@ export default function CycleCalculator({ cycle, onApply }) {
                                             onChange={e => handleMacroPct(key, e.target.value)}
                                             min={0} max={100}
                                         />
-                                        <span className="text-xs text-gray-500">%</span>
+                                        <span className="text-xs text-gray-400">%</span>
                                     </div>
-                                    <span className="text-xs text-gray-600">
+                                    <span className="text-xs text-gray-600 font-medium">
                                         {key === "protein" ? proteinG : key === "carbs" ? carbsG : fatsG} g
                                     </span>
                                 </div>
@@ -324,8 +324,8 @@ export default function CycleCalculator({ cycle, onApply }) {
                     {result.bodyFat !== null && (
                         <div>
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs text-gray-500 uppercase tracking-wide">Estimated Body Fat</span>
-                                <span className="font-bold text-pink-500">{result.bodyFat}%</span>
+                                <span className="text-xs font-medium text-gray-500">Estimated Body Fat</span>
+                                <span className="text-sm font-semibold text-gray-800">{result.bodyFat}%</span>
                             </div>
                             <table className="w-full text-xs">
                                 <tbody>
