@@ -10,8 +10,22 @@ function formatRelativeTime(dateStr) {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays === 1) return "yesterday";
     if (diffDays < 7) return `${diffDays}d ago`;
-    return `${Math.floor(diffDays / 7)}w ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+    return `${Math.floor(diffDays / 365)}y ago`;
 }
+
+const ChevronIcon = ({ up }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points={up ? "18 15 12 9 6 15" : "6 9 12 15 18 9"}/>
+    </svg>
+);
+
+const CheckIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+    </svg>
+);
 
 const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -38,36 +52,37 @@ export default function FormsPanel({
     handleDeleteForm,
     handleDuplicateForm,
 }) {
-    const [collapsed, setCollapsed] = useState(false);
+    const [formsCollapsed, setFormsCollapsed] = useState(false);
 
     return (
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
 
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-4 shrink-0">
-                <button
-                    className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
-                    onClick={() => setCollapsed(c => !c)}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points={collapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
-                    </svg>
-                </button>
-                <h2 className="text-base font-semibold text-gray-900 flex-1">
-                    Forms
-                    <span className="ml-2 text-xs font-normal text-gray-400">{forms.length}</span>
-                </h2>
-                {!collapsed && (
-                    <button
-                        className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
-                        onClick={handleCreateForm}
-                    >
-                        + New Form
-                    </button>
-                )}
-            </div>
+            {/* ── Forms Section ── */}
+            <div className="flex flex-col min-h-0" style={{ flex: formsCollapsed ? "0 0 auto" : "1 1 0" }}>
 
-            {!collapsed && (
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4 shrink-0">
+                    <button
+                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        onClick={() => setFormsCollapsed(c => !c)}
+                    >
+                        <ChevronIcon up={!formsCollapsed} />
+                    </button>
+                    <h2 className="text-base font-semibold text-gray-900 flex-1">
+                        Forms
+                        <span className="ml-2 text-xs font-normal text-gray-400">{forms.length}</span>
+                    </h2>
+                    {!formsCollapsed && (
+                        <button
+                            className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                            onClick={handleCreateForm}
+                        >
+                            + New Form
+                        </button>
+                    )}
+                </div>
+
+                {!formsCollapsed && (
                 <>
                     {/* Sort Pills */}
                     <div className="flex gap-2 mb-4 shrink-0">
@@ -130,21 +145,14 @@ export default function FormsPanel({
                         )}
                     </div>
                 </>
-            )}
+                )}
+            </div>
         </div>
     );
 }
 
 function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onDuplicate }) {
     const titleRef = useRef(null);
-
-    useEffect(() => {
-        if (pendingFocusFormId === form.id) {
-            titleRef.current?.focus();
-            titleRef.current?.select();
-            setPendingFocusFormId(null);
-        }
-    }, [pendingFocusFormId, form.id, setPendingFocusFormId]);
 
     return (
         <div
@@ -158,52 +166,28 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
             {/* Active dot */}
             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-blue-500" : "bg-gray-200 group-hover:bg-gray-300"}`} />
 
-            {/* Info */}
+            {/* Name + meta */}
             <div className="flex-1 min-w-0">
-                {isActive ? (
-                    <input
-                        ref={titleRef}
-                        key={form.id}
-                        type="text"
-                        defaultValue={form.title}
-                        onClick={(e) => e.stopPropagation()}
-                        onBlur={(e) => {
-                            const trimmed = e.target.value.trim() || "Untitled Form";
-                            e.target.value = trimmed;
-                            if (trimmed !== form.title) onUpdate({ title: trimmed });
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') e.target.blur();
-                            if (e.key === 'Escape') { e.target.value = form.title; e.target.blur(); }
-                        }}
-                        className="text-sm font-medium w-full bg-transparent border border-transparent rounded px-1 py-0.5 outline-none hover:border-blue-200 focus:border-blue-500 focus:bg-blue-100 text-blue-700 truncate"
-                    />
-                ) : (
-                    <p className="text-sm font-medium truncate text-gray-800">{form.title}</p>
-                )}
+                <div className="flex items-center gap-2">
+                    
+                    <p className="text-sm font-medium truncate text-gray-800 flex-1">{form.title}</p>
+                    
+                    {form.status === 'active' && (
+                        <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 text-xs font-semibold">
+                            <CheckIcon /> Active
+                        </span>
+                    )}
+                </div>
                 <p className="text-xs text-gray-400 mt-0.5">
                     {form.question_count} {form.question_count === 1 ? "question" : "questions"}
-                    {" · "}
-                    {form.status === 'active'
-                        ? <span className="text-green-600 font-medium">Active</span>
-                        : <span>Draft</span>
-                    }
                     {" · "}
                     edited {formatRelativeTime(form.updated_at)}
                 </p>
             </div>
 
-            {/* Actions on hover */}
+            {/* Actions — visible on hover */}
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                {form.status === 'active' ? (
-                    <button
-                        title="Set to Draft"
-                        className="cursor-pointer px-2 py-0.5 rounded-full border border-gray-300 text-gray-500 hover:border-gray-400 text-xs font-medium transition-colors"
-                        onClick={(e) => { e.stopPropagation(); onUpdate({ status: 'draft' }); }}
-                    >
-                        Draft
-                    </button>
-                ) : (
+                {form.status !== 'active' && (
                     <button
                         title="Set to Active"
                         className="cursor-pointer px-2 py-0.5 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-600 hover:bg-green-50 text-xs font-medium transition-colors"

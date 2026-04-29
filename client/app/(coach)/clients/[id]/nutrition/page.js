@@ -106,14 +106,17 @@ return (
                 selectedCycleIndex={selectedCycleIndex}
                 handleUpdateCycleGoals={handleUpdateCycleGoals}
                 handleActivatePlan={handleActivatePlan}
+                clientId={id}
             />
         </div>
 
         {/* Divider 1 */}
         <div
-            className="w-1.5 h-12 my-auto mx-2 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
-            onMouseDown={(e) => handleDividerMouseDown(0, e)}
-        />
+                className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
+                onMouseDown={(e) => handleDividerMouseDown(0, e)}
+            >
+                <div className="w-1.5 h-12 bg-blue-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+            </div>
 
         {/* Panel 2: Plan Detail */}
         <div style={{ width: `${widths[1]}%` }} className="flex flex-col min-h-full overflow-hidden">
@@ -154,9 +157,11 @@ return (
 
         {/* Divider 2 */}
         <div
-            className="w-1.5 h-12 my-auto mx-2 shrink-0 bg-blue-300 hover:h-16 hover:bg-blue-500 cursor-col-resize rounded-full mx-0.5 transition-colors"
-            onMouseDown={(e) => handleDividerMouseDown(1, e)}
-        />
+                className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
+                onMouseDown={(e) => handleDividerMouseDown(1, e)}
+            >
+                <div className="w-1.5 h-12 bg-blue-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+            </div>
 
         {/* Panel 3: Meal Detail */}
         <div style={{ width: `${widths[2]}%` }} className="flex flex-col min-h-full overflow-hidden">

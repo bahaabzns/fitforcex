@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import Link from "next/link";
-import { Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
+import { Eye, EyeOff, RefreshCw, Copy, Check, Send } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 
@@ -42,6 +42,14 @@ export default function ClientsPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [copiedId, setCopiedId] = useState(null);
+
+    // Request Form state
+    const [requestModal, setRequestModal] = useState(false);
+    const [requestClientId, setRequestClientId] = useState(null);
+    const [activeForms, setActiveForms] = useState([]);
+    const [selectedFormIds, setSelectedFormIds] = useState([]);
+    const [requestSending, setRequestSending] = useState(false);
+    const [requestError, setRequestError] = useState('');
 
     const copyCredentials = (client) => {
         if (!client.plain_password) return;
@@ -92,6 +100,37 @@ export default function ClientsPage() {
         setSubmitError('');
     };
 
+    const openRequestModal = async (clientId) => {
+        setRequestClientId(clientId);
+        setSelectedFormIds([]);
+        setRequestError('');
+        try {
+            const res = await api.get('/api/forms');
+            setActiveForms(res.data.filter(f => f.status === 'active'));
+        } catch (e) {
+            setActiveForms([]);
+        }
+        setRequestModal(true);
+    };
+
+    const handleSendRequests = async () => {
+        if (selectedFormIds.length === 0) { setRequestError('Select at least one form'); return; }
+        setRequestSending(true);
+        setRequestError('');
+        try {
+            await api.post('/api/forms/requests', { form_ids: selectedFormIds, client_id: requestClientId });
+            setRequestModal(false);
+        } catch (e) {
+            setRequestError(e.response?.data?.error || 'Failed to send requests');
+        } finally {
+            setRequestSending(false);
+        }
+    };
+
+    const toggleFormSelection = (id) => {
+        setSelectedFormIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
     const fetchClients = async () => {
         try {
             const result = await api.get('/api/clients');
@@ -116,18 +155,28 @@ export default function ClientsPage() {
         { key: "email", label: "Email", filterType: "text", sortable: true },
         { key: "phone", label: "Phone", filterType: "text" },
         { key: "actions", label: "Actions", cardPriority: "hidden", render: (row) => (
-            row.plain_password ? (
+            <div className="flex items-center gap-2">
                 <button
-                    onClick={() => copyCredentials(row)}
-                    title="Copy credentials"
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-blue-500 hover:border-blue-300 transition-colors cursor-pointer"
+                    onClick={() => openRequestModal(row.id)}
+                    title="Request Form"
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-purple-500 hover:border-purple-300 transition-colors cursor-pointer"
                 >
-                    {copiedId === row.id ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
-                    {copiedId === row.id ? 'Copied!' : 'Copy Credentials'}
+                    <Send size={13} />
+                    Request Form
                 </button>
-            ) : (
-                <span className="text-xs text-gray-400">—</span>
-            )
+                {row.plain_password ? (
+                    <button
+                        onClick={() => copyCredentials(row)}
+                        title="Copy credentials"
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-blue-500 hover:border-blue-300 transition-colors cursor-pointer"
+                    >
+                        {copiedId === row.id ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                        {copiedId === row.id ? 'Copied!' : 'Copy Credentials'}
+                    </button>
+                ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                )}
+            </div>
         )},
     ];
 
@@ -250,6 +299,44 @@ export default function ClientsPage() {
             </Modal>
 
             <DataTable columns={clientColumns} data={clientsData} rowKey="id" />
+
+            {/* Request Form Modal */}
+            <Modal open={requestModal} onClose={() => setRequestModal(false)} title="Request Form from Client">
+                <div className="flex flex-col gap-3">
+                    {activeForms.length === 0 ? (
+                        <p className="text-sm text-gray-500 py-4 text-center">No active forms available. Activate a form first.</p>
+                    ) : (
+                        <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+                            {activeForms.map(form => (
+                                <label key={form.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 cursor-pointer transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedFormIds.includes(form.id)}
+                                        onChange={() => toggleFormSelection(form.id)}
+                                        className="mt-0.5 cursor-pointer"
+                                    />
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-800">{form.title}</p>
+                                        {form.description && <p className="text-xs text-gray-400 mt-0.5">{form.description}</p>}
+                                        <p className="text-xs text-gray-400">{form.question_count} question{form.question_count !== 1 ? 's' : ''}</p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                    {requestError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{requestError}</p>}
+                    <div className="flex gap-2 mt-1">
+                        <button
+                            onClick={handleSendRequests}
+                            disabled={requestSending || activeForms.length === 0}
+                            className="btn-primary flex-1 disabled:opacity-50"
+                        >
+                            {requestSending ? 'Sending...' : 'Send Request'}
+                        </button>
+                        <button onClick={() => setRequestModal(false)} className="btn-danger flex-1">Cancel</button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

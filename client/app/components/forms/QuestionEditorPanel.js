@@ -18,7 +18,7 @@ const TrashIcon = () => (
 );
 
 export default function QuestionEditorPanel({
-    selectedQuestion,
+    selectedQuestion, setSelectedQuestion,
     pendingFocusQuestionId, setPendingFocusQuestionId,
     handleUpdateQuestion,
 }) {
@@ -69,20 +69,14 @@ export default function QuestionEditorPanel({
     }
 
     return (
-        <div className="card w-full flex flex-col overflow-y-auto min-h-full gap-5 pb-4">
+        <div className="card w-full flex flex-col overflow-hidden min-h-full">
 
-            {/* Header */}
-            <div className="shrink-0">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Editing Question</p>
-                <div className="h-px bg-gray-100" />
-            </div>
-
-            {/* Label */}
-            <Field label="Question Label" required>
-                <textarea
+            {/* Header — inline label input + close */}
+            <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
+                <input
                     ref={labelRef}
                     key={`label-${q.id}`}
-                    rows={2}
+                    type="text"
                     defaultValue={q.label}
                     onBlur={(e) => {
                         const trimmed = e.target.value.trim() || "Question";
@@ -90,13 +84,25 @@ export default function QuestionEditorPanel({
                         if (trimmed !== q.label) save({ label: trimmed });
                     }}
                     onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); }
+                        if (e.key === 'Enter') e.target.blur();
                         if (e.key === 'Escape') { e.target.value = q.label; e.target.blur(); }
                     }}
-                    className="input-field resize-none text-sm"
-                    placeholder="Enter question text..."
+                    className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 truncate text-gray-900"
                 />
-            </Field>
+                <button
+                    title="Close"
+                    className="cursor-pointer p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                    onClick={() => setSelectedQuestion(null)}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            {/* Divider */}
+            <div className="shrink-0 border-t border-gray-100 mb-4" />
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-5 pb-4">
 
             {/* Type */}
             <Field label="Question Type">
@@ -104,7 +110,7 @@ export default function QuestionEditorPanel({
                     key={`type-${q.id}`}
                     defaultValue={q.type}
                     onChange={(e) => save({ type: e.target.value })}
-                    className="input-field text-sm"
+                    className="w-full px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
                 >
                     {QUESTION_TYPES.map(({ value, label, icon }) => (
                         <option key={value} value={value}>{icon} {label}</option>
@@ -145,7 +151,7 @@ export default function QuestionEditorPanel({
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                         placeholder="e.g. Your answer here…"
-                        className="input-field text-sm"
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
                     />
                 </Field>
             )}
@@ -161,7 +167,7 @@ export default function QuestionEditorPanel({
                                 type="number"
                                 defaultValue={q.min_value ?? 1}
                                 onBlur={(e) => save({ min_value: parseInt(e.target.value) || 1 })}
-                                className="input-field text-sm text-center"
+                                className="w-full px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none text-center hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
                                 min={0} max={10}
                             />
                         </div>
@@ -173,7 +179,7 @@ export default function QuestionEditorPanel({
                                 type="number"
                                 defaultValue={q.max_value ?? 10}
                                 onBlur={(e) => save({ max_value: parseInt(e.target.value) || 10 })}
-                                className="input-field text-sm text-center"
+                                className="w-full px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none text-center hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
                                 min={1} max={100}
                             />
                         </div>
@@ -223,7 +229,7 @@ export default function QuestionEditorPanel({
                             onChange={(e) => setNewOption(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption(); } }}
                             placeholder="Add option…"
-                            className="input-field flex-1 text-sm"
+                            className="flex-1 px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
                         />
                         <button
                             onClick={addOption}
@@ -235,11 +241,13 @@ export default function QuestionEditorPanel({
                 </Field>
             )}
 
-            {/* Preview hint */}
-            <div className="mt-auto shrink-0 rounded-xl bg-gray-50 border border-gray-100 p-4">
+            {/* Preview */}
+            <div className="rounded-xl bg-gray-50 border border-gray-100 p-4">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Preview</p>
                 <QuestionPreview question={q} />
             </div>
+
+            </div>{/* end scrollable content */}
         </div>
     );
 }
@@ -247,7 +255,7 @@ export default function QuestionEditorPanel({
 function Field({ label, required, children }) {
     return (
         <div className="shrink-0">
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
                 {label}
                 {required && <span className="text-red-400 ml-1">*</span>}
             </label>
@@ -274,7 +282,7 @@ function QuestionPreview({ question: q }) {
             return (
                 <div className="flex gap-1 flex-wrap">
                     {[...Array(count)].map((_, i) => (
-                        <div key={i} className="flex-1 min-w-[28px] h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-xs text-gray-500 font-medium">
+                        <div key={i} className="flex-1 min-w-7 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-xs text-gray-500 font-medium">
                             {min + i}
                         </div>
                     ))}

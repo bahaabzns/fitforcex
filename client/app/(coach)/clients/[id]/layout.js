@@ -9,6 +9,7 @@ export default function ClientLayout({ children }) {
         { name: 'Overview', href: `/clients/${id}`, label: 'Overview' },
         { name: 'Nutrition', href: `/clients/${id}/nutrition`, label: 'Nutrition' },
         { name: 'Training', href: `/clients/${id}/training`, label: 'Training' },
+        { name: 'Forms', href: `/clients/${id}/forms`, label: 'Forms' },
     ]
 
     return (

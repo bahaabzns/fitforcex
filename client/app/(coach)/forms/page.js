@@ -92,11 +92,12 @@ export default function FormsPage() {
 
             {/* ── Divider 1 ───────────────────────────────────────── */}
             <div
-                className="w-2 shrink-0 flex items-center justify-center cursor-col-resize group"
+                className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
                 onMouseDown={(e) => handleDividerMouseDown(0, e)}
             >
-                <div className="w-0.5 h-12 bg-gray-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+                <div className="w-1.5 h-12 bg-blue-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
             </div>
+            
 
             {/* ── Panel 2: Questions List ──────────────────────────── */}
             <div
@@ -105,9 +106,12 @@ export default function FormsPage() {
             >
                 <QuestionsPanel
                     selectedForm={selectedForm}
+                    setSelectedForm={setSelectedForm}
                     questions={questions}
                     selectedQuestion={selectedQuestion}
                     setSelectedQuestion={setSelectedQuestion}
+                    pendingFocusFormId={pendingFocusFormId}
+                    setPendingFocusFormId={setPendingFocusFormId}
                     pendingFocusQuestionId={pendingFocusQuestionId}
                     setPendingFocusQuestionId={setPendingFocusQuestionId}
                     handleCreateQuestion={handleCreateQuestion}
@@ -120,10 +124,10 @@ export default function FormsPage() {
 
             {/* ── Divider 2 ───────────────────────────────────────── */}
             <div
-                className="w-2 shrink-0 flex items-center justify-center cursor-col-resize group"
+                className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
                 onMouseDown={(e) => handleDividerMouseDown(1, e)}
             >
-                <div className="w-0.5 h-12 bg-gray-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+                <div className="w-1.5 h-12 bg-blue-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
             </div>
 
             {/* ── Panel 3: Question Editor ─────────────────────────── */}
@@ -133,6 +137,7 @@ export default function FormsPage() {
             >
                 <QuestionEditorPanel
                     selectedQuestion={selectedQuestion}
+                    setSelectedQuestion={setSelectedQuestion}
                     pendingFocusQuestionId={pendingFocusQuestionId}
                     setPendingFocusQuestionId={setPendingFocusQuestionId}
                     handleUpdateQuestion={handleUpdateQuestion}

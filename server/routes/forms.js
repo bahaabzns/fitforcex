@@ -199,4 +199,101 @@ router.put('/:id/questions/reorder', async (req, res) => {
     }
 });
 
+// ── Form Requests (coach → client) ────────────────────────────────────────────
+
+// POST /api/forms/requests — coach requests one or more forms from a client
+router.post('/requests', async (req, res) => {
+    const { form_ids, client_id } = req.body;
+    if (!form_ids || !Array.isArray(form_ids) || form_ids.length === 0) {
+        return res.status(400).json({ error: 'form_ids array is required' });
+    }
+    if (!client_id) return res.status(400).json({ error: 'client_id is required' });
+    try {
+        // Verify client belongs to this workspace
+        const clientCheck = await pool.query(
+            'SELECT id FROM clients WHERE id = $1 AND coach_id = $2',
+            [client_id, req.user.id]
+        );
+        if (clientCheck.rows.length === 0) return res.status(403).json({ error: 'Client not found' });
+
+        const inserted = [];
+        for (const form_id of form_ids) {
+            // Verify form belongs to this workspace
+            const formCheck = await pool.query(
+                'SELECT id FROM forms WHERE id = $1 AND workspace_id = $2',
+                [form_id, req.user.id]
+            );
+            if (formCheck.rows.length === 0) continue;
+
+            const result = await pool.query(
+                `INSERT INTO form_requests (form_id, client_id, workspace_id)
+                 VALUES ($1, $2, $3) RETURNING *`,
+                [form_id, client_id, req.user.id]
+            );
+            inserted.push(result.rows[0]);
+        }
+        res.status(201).json(inserted);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/forms/requests/client/:client_id — get all form requests for a client
+router.get('/requests/client/:client_id', async (req, res) => {
+    try {
+        const clientCheck = await pool.query(
+            'SELECT id FROM clients WHERE id = $1 AND coach_id = $2',
+            [req.params.client_id, req.user.id]
+        );
+        if (clientCheck.rows.length === 0) return res.status(403).json({ error: 'Client not found' });
+
+        const result = await pool.query(
+            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at,
+                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+             FROM form_requests fr
+             JOIN forms f ON f.id = fr.form_id
+             WHERE fr.client_id = $1 AND fr.workspace_id = $2
+             ORDER BY fr.requested_at DESC`,
+            [req.params.client_id, req.user.id]
+        );
+
+        // For submitted ones, also attach responses with question labels
+        const requests = await Promise.all(result.rows.map(async (req_row) => {
+            if (req_row.status !== 'submitted') return { ...req_row, responses: [] };
+            const responses = await pool.query(
+                `SELECT fr.answer, fq.label, fq.type, fq.order_index
+                 FROM form_responses fr
+                 JOIN form_questions fq ON fq.id = fr.question_id
+                 WHERE fr.request_id = $1
+                 ORDER BY fq.order_index ASC, fq.id ASC`,
+                [req_row.id]
+            );
+            return { ...req_row, responses: responses.rows };
+        }));
+
+        res.json(requests);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// DELETE /api/forms/requests/:request_id — cancel a pending request
+router.delete('/requests/:request_id', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `DELETE FROM form_requests
+             WHERE id = $1 AND workspace_id = $2 AND status = 'pending'
+             RETURNING *`,
+            [req.params.request_id, req.user.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found or already submitted' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;

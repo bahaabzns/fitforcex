@@ -26,10 +26,11 @@ const GripIcon = () => (
 );
 
 export default function QuestionsPanel({
-    selectedForm,
+    selectedForm, setSelectedForm,
     questions,
     selectedQuestion,
     setSelectedQuestion,
+    pendingFocusFormId, setPendingFocusFormId,
     pendingFocusQuestionId, setPendingFocusQuestionId,
     handleCreateQuestion,
     handleUpdateQuestion,
@@ -39,6 +40,7 @@ export default function QuestionsPanel({
 }) {
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
+    const [questionsCollapsed, setQuestionsCollapsed] = useState(false);
     const [showTypePicker, setShowTypePicker] = useState(false);
     const typePickerRef = useRef(null);
 
@@ -79,24 +81,19 @@ export default function QuestionsPanel({
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
 
             {/* Form Title (inline edit) + close */}
-            <div className="flex items-center gap-2 mb-3 shrink-0">
+            <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
                 <FormTitleInput
                     form={selectedForm}
                     onUpdate={handleUpdateForm}
+                    pendingFocusFormId={pendingFocusFormId}
+                    setPendingFocusFormId={setPendingFocusFormId}
                 />
-                {/* Status toggle */}
                 <button
-                    title={selectedForm.status === 'active' ? 'Set to Draft' : 'Set to Active'}
-                    onClick={() => handleUpdateForm(selectedForm.id, {
-                        status: selectedForm.status === 'active' ? 'draft' : 'active'
-                    })}
-                    className={`cursor-pointer shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                        selectedForm.status === 'active'
-                            ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
-                            : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
-                    }`}
+                    title="Close form"
+                    className="cursor-pointer p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                    onClick={() => setSelectedForm(null)}
                 >
-                    {selectedForm.status === 'active' ? 'Active' : 'Draft'}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
 
@@ -112,115 +109,132 @@ export default function QuestionsPanel({
                         handleUpdateForm(selectedForm.id, { description: val });
                     }
                 }}
-                className="mb-4 w-full text-sm text-gray-600 bg-transparent border border-transparent rounded-lg px-2 py-1.5 outline-none resize-none hover:border-gray-200 focus:border-blue-400 focus:bg-blue-50 placeholder-gray-300 shrink-0 transition-colors"
+                className="w-full mb-3 px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none resize-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors shrink-0"
             />
 
-            {/* Section header */}
-            <div className="flex items-center gap-2 mb-3 shrink-0">
-                <h3 className="text-sm font-semibold text-gray-700 flex-1">
-                    Questions
-                    <span className="ml-2 text-xs font-normal text-gray-400">{questions.length}</span>
-                </h3>
+            {/* Divider */}
+            <div className="shrink-0 border-t border-gray-100 my-2" />
 
-                {/* Add Question button with type picker */}
-                <div className="relative" ref={typePickerRef}>
+            {/* Questions Section */}
+            <div className="flex flex-col min-h-0 flex-1">
+
+                {/* Questions Header */}
+                <div className="flex items-center gap-3 mb-3 shrink-0">
                     <button
-                        className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
-                        onClick={() => setShowTypePicker(v => !v)}
+                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        onClick={() => setQuestionsCollapsed(c => !c)}
                     >
-                        + Question
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points={questionsCollapsed ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
+                        </svg>
                     </button>
-                    {showTypePicker && (
-                        <div className="absolute right-0 top-9 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-[180px]">
-                            {QUESTION_TYPES.map(({ value, label, icon }) => (
-                                <button
-                                    key={value}
-                                    className="cursor-pointer flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                    onClick={() => {
-                                        handleCreateQuestion(value);
-                                        setShowTypePicker(false);
-                                    }}
-                                >
-                                    <span className="w-5 text-center text-base font-mono opacity-70">{icon}</span>
-                                    {label}
-                                </button>
-                            ))}
+                    <h3 className="text-base font-semibold text-gray-900 flex-1">
+                        Questions
+                        <span className="ml-2 text-xs font-normal text-gray-400">{questions.length}</span>
+                    </h3>
+                    {!questionsCollapsed && (
+                        <div className="relative" ref={typePickerRef}>
+                            <button
+                                className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                                onClick={() => setShowTypePicker(v => !v)}
+                            >
+                                + Question
+                            </button>
+                            {showTypePicker && (
+                                <div className="absolute right-0 top-9 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-45">
+                                    {QUESTION_TYPES.map(({ value, label, icon }) => (
+                                        <button
+                                            key={value}
+                                            className="cursor-pointer flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                            onClick={() => {
+                                                handleCreateQuestion(value);
+                                                setShowTypePicker(false);
+                                            }}
+                                        >
+                                            <span className="w-5 text-center text-base font-mono opacity-70">{icon}</span>
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
-            </div>
 
-            {/* Questions list */}
-            <div className="flex-1 overflow-y-auto min-h-0">
-                {questions.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
-                        <svg className="w-8 h-8 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                        </svg>
-                        <p className="text-xs text-gray-400">No questions yet — add one above</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-1">
-                        {previewQuestions.map((q, i) => {
-                            const originalIndex = questions.findIndex(orig => orig.id === q.id);
-                            const isDragging = dragIndex !== null && questions[dragIndex]?.id === q.id;
-                            const isSelected = selectedQuestion?.id === q.id;
-                            const typeMeta = QUESTION_TYPES.find(t => t.value === q.type);
-                            return (
-                                <div
-                                    key={q.id}
-                                    draggable
-                                    onDragStart={() => setDragIndex(originalIndex)}
-                                    onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
-                                    onDrop={() => { handleReorderQuestions(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
-                                    onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                    onClick={() => setSelectedQuestion(q)}
-                                    className={`group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all select-none ${
-                                        isDragging ? "opacity-30 scale-95" : ""
-                                    } ${
-                                        isSelected
-                                            ? "bg-blue-50 border border-blue-200"
-                                            : "border border-transparent hover:bg-gray-50 hover:border-gray-100"
-                                    }`}
-                                >
-                                    {/* Drag handle */}
-                                    <span className={`shrink-0 transition-opacity ${isSelected ? "opacity-40" : "opacity-20 group-hover:opacity-50"}`}>
-                                        <GripIcon />
-                                    </span>
+                {!questionsCollapsed && (
+                    <div className="flex-1 overflow-y-auto min-h-0 p-1">
+                        {questions.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
+                                <svg className="w-8 h-8 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                                </svg>
+                                <p className="text-sm font-medium text-gray-500">No questions yet</p>
+                                <p className="text-xs text-gray-400">Add a question using the button above</p>
+                            </div>
+                        ) : (
+                            <div>
+                                {previewQuestions.map((q, i) => {
+                                    const originalIndex = questions.findIndex(orig => orig.id === q.id);
+                                    const isDragging = dragIndex !== null && questions[dragIndex]?.id === q.id;
+                                    const isSelected = selectedQuestion?.id === q.id;
+                                    const typeMeta = QUESTION_TYPES.find(t => t.value === q.type);
+                                    return (
+                                        <div
+                                            key={q.id}
+                                            draggable
+                                            onDragStart={() => setDragIndex(originalIndex)}
+                                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
+                                            onDrop={() => { handleReorderQuestions(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
+                                            onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
+                                            onClick={() => setSelectedQuestion(q)}
+                                            className={`group flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all duration-150 mb-1.5 select-none ${
+                                                isDragging ? "opacity-30 scale-95" : ""
+                                            } ${
+                                                isSelected
+                                                    ? "bg-blue-50 border-blue-200 shadow-sm"
+                                                    : "bg-white border-gray-200 hover:bg-gray-50 hover:border-blue-300 hover:shadow-sm"
+                                            }`}
+                                        >
+                                            {/* Drag grip */}
+                                            <span className="text-gray-300 hover:text-gray-500 cursor-grab shrink-0 select-none">
+                                                <GripIcon />
+                                            </span>
 
-                                    {/* Question number */}
-                                    <span className="text-xs text-gray-400 w-5 text-right shrink-0">{i + 1}.</span>
+                                            {/* Question number */}
+                                            <span className="text-xs text-gray-400 shrink-0">{i + 1}.</span>
 
-                                    {/* Label */}
-                                    <span className={`flex-1 text-sm font-medium truncate ${isSelected ? "text-blue-700" : "text-gray-800"}`}>
-                                        {q.label}
-                                    </span>
+                                            {/* Label */}
+                                            <span className={`flex-1 text-sm font-medium truncate ${isSelected ? "text-blue-700" : "text-gray-800"}`}>
+                                                {q.label}
+                                            </span>
 
-                                    {/* Type badge */}
-                                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium ${
-                                        isSelected
-                                            ? "bg-blue-100 text-blue-600 border-blue-200"
-                                            : "bg-gray-100 text-gray-500 border-gray-200"
-                                    }`}>
-                                        {typeMeta?.icon} {typeMeta?.label}
-                                    </span>
+                                            {/* Type badge */}
+                                            <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium ${
+                                                isSelected
+                                                    ? "bg-blue-100 text-blue-600 border-blue-200"
+                                                    : "bg-gray-100 text-gray-500 border-gray-200"
+                                            }`}>
+                                                {typeMeta?.icon}
+                                            </span>
 
-                                    {/* Required dot */}
-                                    {q.required && (
-                                        <span title="Required" className="shrink-0 w-1.5 h-1.5 rounded-full bg-red-400" />
-                                    )}
+                                            {/* Required dot */}
+                                            {q.required && (
+                                                <span title="Required" className="shrink-0 w-1.5 h-1.5 rounded-full bg-red-400" />
+                                            )}
 
-                                    {/* Delete */}
-                                    <button
-                                        title="Delete question"
-                                        className="cursor-pointer shrink-0 p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id); }}
-                                    >
-                                        <TrashIcon />
-                                    </button>
-                                </div>
-                            );
-                        })}
+                                            {/* Delete */}
+                                            <button
+                                                title="Delete question"
+                                                className="cursor-pointer shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id); }}
+                                            >
+                                                <TrashIcon />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -228,8 +242,17 @@ export default function QuestionsPanel({
     );
 }
 
-function FormTitleInput({ form, onUpdate }) {
+function FormTitleInput({ form, onUpdate, pendingFocusFormId, setPendingFocusFormId }) {
     const ref = useRef(null);
+
+    useEffect(() => {
+        if (pendingFocusFormId && form.id === pendingFocusFormId) {
+            ref.current?.focus();
+            ref.current?.select();
+            setPendingFocusFormId(null);
+        }
+    }, [pendingFocusFormId, form.id, setPendingFocusFormId]);
+
     return (
         <input
             ref={ref}

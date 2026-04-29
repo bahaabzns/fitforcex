@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/lib/axios";
 import CycleCalculator from "./CycleCalculator";
 
 function formatRelativeTime(dateStr) {
@@ -50,9 +51,23 @@ export default function LeftPanel({
     selectedCycleIndex,
     handleUpdateCycleGoals,
     handleActivatePlan,
+    clientId,
 }) {
     const [plansCollapsed, setPlansCollapsed] = useState(false);
-    const [calcCollapsed, setCalcCollapsed] = useState(false);
+    const [calcCollapsed, setCalcCollapsed]   = useState(false);
+    const [formsCollapsed, setFormsCollapsed] = useState(false);
+
+    const [formRequests, setFormRequests]     = useState([]);
+    const [formsLoading, setFormsLoading]     = useState(true);
+    const [expandedReq, setExpandedReq]       = useState(null);
+
+    useEffect(() => {
+        if (!clientId) return;
+        api.get(`/api/forms/requests/client/${clientId}`)
+            .then(res => setFormRequests(res.data ?? []))
+            .catch(() => {})
+            .finally(() => setFormsLoading(false));
+    }, [clientId]);
 
     const currentCycle = selectedPlan?.cycles?.[selectedCycleIndex] ?? null;
 
@@ -230,6 +245,91 @@ export default function LeftPanel({
                             <p className="text-xs text-gray-400 text-center py-6">
                                 Select a plan and cycle to use the calculator
                             </p>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Divider */}
+            <div className="shrink-0 border-t border-gray-100 my-4" />
+
+            {/* ── Form Submissions Section ── */}
+            <div className="flex flex-col min-h-0" style={{ flex: formsCollapsed ? "0 0 auto" : "1 1 0" }}>
+                <div className="flex items-center gap-3 mb-4 shrink-0">
+                    <button
+                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        onClick={() => setFormsCollapsed(f => !f)}
+                    >
+                        <ChevronIcon up={!formsCollapsed} />
+                    </button>
+                    <h2 className="text-base font-semibold text-gray-900 flex-1">
+                        Form Submissions
+                        {formRequests.filter(r => r.status === 'submitted').length > 0 && (
+                            <span className="ml-2 text-xs font-normal text-gray-400">
+                                {formRequests.filter(r => r.status === 'submitted').length}
+                            </span>
+                        )}
+                    </h2>
+                </div>
+
+                {!formsCollapsed && (
+                    <div className="flex-1 overflow-y-auto min-h-0">
+                        {formsLoading ? (
+                            <div className="flex flex-col gap-2">
+                                {[1,2].map(i => (
+                                    <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />
+                                ))}
+                            </div>
+                        ) : formRequests.filter(r => r.status === 'submitted').length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                                <svg className="w-8 h-8 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <p className="text-xs font-medium text-gray-400">No submitted forms yet</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-1.5">
+                                {formRequests.filter(r => r.status === 'submitted').map(req => {
+                                    const isOpen = expandedReq === req.id;
+                                    return (
+                                        <div key={req.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                                            {/* Header row */}
+                                            <button
+                                                onClick={() => setExpandedReq(isOpen ? null : req.id)}
+                                                className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                                            >
+                                                <span className="flex-1 text-sm font-medium text-gray-800 truncate">{req.form_title}</span>
+                                                <span className="text-[10px] text-gray-400 shrink-0">
+                                                    {req.submitted_at ? new Date(req.submitted_at).toLocaleDateString() : ''}
+                                                </span>
+                                                <span className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                                                    <ChevronIcon up={false} />
+                                                </span>
+                                            </button>
+
+                                            {/* Answers */}
+                                            {isOpen && (
+                                                <div className="px-3 pb-3 flex flex-col gap-2 border-t border-gray-100">
+                                                    {req.responses?.length === 0 ? (
+                                                        <p className="text-xs text-gray-400 pt-2">No responses recorded.</p>
+                                                    ) : (
+                                                        req.responses?.map((r, i) => (
+                                                            <div key={i} className="pt-2">
+                                                                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                                                                    {r.label}
+                                                                </p>
+                                                                <p className="text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-wrap">
+                                                                    {r.answer || <span className="italic text-gray-300">—</span>}
+                                                                </p>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         )}
                     </div>
                 )}

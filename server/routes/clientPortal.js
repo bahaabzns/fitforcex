@@ -149,4 +149,96 @@ router.get('/active-plan', clientAuthMiddleware, async (req, res) => {
     }
 });
 
+// ── Form Requests (client side) ───────────────────────────────────────────────
+
+// GET /api/client-portal/form-requests — list all form requests for this client
+router.get('/form-requests', clientAuthMiddleware, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at,
+                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+             FROM form_requests fr
+             JOIN forms f ON f.id = fr.form_id
+             WHERE fr.client_id = $1
+             ORDER BY fr.requested_at DESC`,
+            [req.client.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/client-portal/form-requests/:request_id — get form + questions for a specific request
+router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res) => {
+    try {
+        const reqResult = await pool.query(
+            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at,
+                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+             FROM form_requests fr
+             JOIN forms f ON f.id = fr.form_id
+             WHERE fr.id = $1 AND fr.client_id = $2`,
+            [req.params.request_id, req.client.id]
+        );
+        if (reqResult.rows.length === 0) return res.status(404).json({ error: 'Request not found' });
+
+        const request = reqResult.rows[0];
+
+        const questions = await pool.query(
+            'SELECT * FROM form_questions WHERE form_id = $1 ORDER BY order_index ASC, id ASC',
+            [request.form_id]
+        );
+
+        let responses = [];
+        if (request.status === 'submitted') {
+            const respResult = await pool.query(
+                'SELECT question_id, answer FROM form_responses WHERE request_id = $1',
+                [request.id]
+            );
+            responses = respResult.rows;
+        }
+
+        res.json({ ...request, questions: questions.rows, responses });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/client-portal/form-requests/:request_id/submit — submit answers
+router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (req, res) => {
+    const { answers } = req.body; // [{ question_id, answer }]
+    if (!answers || !Array.isArray(answers)) {
+        return res.status(400).json({ error: 'answers array is required' });
+    }
+    try {
+        const reqResult = await pool.query(
+            `SELECT fr.id, fr.form_id FROM form_requests fr
+             WHERE fr.id = $1 AND fr.client_id = $2 AND fr.status = 'pending'`,
+            [req.params.request_id, req.client.id]
+        );
+        if (reqResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Request not found or already submitted' });
+        }
+
+        for (const { question_id, answer } of answers) {
+            await pool.query(
+                'INSERT INTO form_responses (request_id, question_id, answer) VALUES ($1, $2, $3)',
+                [req.params.request_id, question_id, answer ?? '']
+            );
+        }
+
+        await pool.query(
+            `UPDATE form_requests SET status = 'submitted', submitted_at = NOW() WHERE id = $1`,
+            [req.params.request_id]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;

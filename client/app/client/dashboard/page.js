@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { calcMeal, calcCycle } from "@/lib/nutritionCalc";
+import { calcMeal } from "@/lib/nutritionCalc";
 
 export default function ClientDashboardPage() {
     const [client, setClient] = useState(null);
@@ -38,14 +38,9 @@ export default function ClientDashboardPage() {
         load();
     }, [router]);
 
-    async function handleLogout() {
-        await api.post("/api/client-portal/logout").catch(() => {});
-        router.push("/client/login");
-    }
-
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-blue-50">
+            <div className="p-8 flex items-center justify-center">
                 <p className="text-gray-500">Loading…</p>
             </div>
         );
@@ -54,28 +49,20 @@ export default function ClientDashboardPage() {
     const cycle = plan?.cycles?.[activeCycleIndex] ?? null;
 
     return (
-        <div className="h-screen overflow-y-auto bg-blue-50">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <div>
-                    <h1 className="text-xl font-bold text-gray-900">
-                        Welcome, {client?.fname}!
-                    </h1>
-                    <p className="text-sm text-gray-500">Client #{client?.client_code}</p>
-                </div>
-                <button onClick={handleLogout} className="btn-danger px-4 text-sm">
-                    Logout
-                </button>
-            </header>
+        <div className="max-w-4xl mx-auto p-6 flex flex-col gap-6">
+            {/* Page heading */}
+            <div>
+                <h1 className="text-2xl font-bold text-gray-900">Nutrition Plan</h1>
+                {client && <p className="text-sm text-gray-500 mt-0.5">Welcome back, {client.fname}!</p>}
+            </div>
 
-            <main className="max-w-4xl mx-auto p-6 flex flex-col gap-6">
-                {noplan || !plan ? (
+            {noplan || !plan ? (
                     <div className="card flex flex-col items-center justify-center py-16 gap-3 text-center">
                         <svg className="w-12 h-12 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <p className="text-base font-medium text-gray-600">No active plan yet</p>
-                        <p className="text-sm text-gray-400">Your coach hasn't activated a nutrition plan for you yet.</p>
+                        <p className="text-sm text-gray-400">Your coach hasn&apos;t activated a nutrition plan for you yet.</p>
                     </div>
                 ) : (
                     <>
@@ -195,7 +182,6 @@ export default function ClientDashboardPage() {
                         )}
                     </>
                 )}
-            </main>
         </div>
     );
 }
