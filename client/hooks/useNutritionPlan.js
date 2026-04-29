@@ -15,6 +15,31 @@ function withListOrders(items, orderKey) {
     return items.map((item, index) => ({ ...item, [orderKey]: index + 1 }));
 }
 
+function normalizeServerDate(dateValue) {
+    if (dateValue instanceof Date) {
+        return Number.isNaN(dateValue.getTime()) ? null : dateValue.toISOString();
+    }
+
+    if (!dateValue) return dateValue;
+    const raw = String(dateValue).trim();
+    if (!raw) return raw;
+
+    let normalizedInput = raw.replace(" ", "T");
+
+    // Convert offsets like +03 or +0300 into +03:00.
+    normalizedInput = normalizedInput
+        .replace(/([+-]\d{2})$/, "$1:00")
+        .replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+
+    const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(normalizedInput);
+    if (!hasTimezone) {
+        normalizedInput = `${normalizedInput}Z`;
+    }
+
+    const parsed = new Date(normalizedInput);
+    return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
+}
+
 function hydratePlan(plan) {
     const cycles = (plan.cycles ?? []).map((cycle, cycleIndex) => {
         const meals = (cycle.meals ?? []).map((meal, mealIndex) => {
@@ -41,6 +66,8 @@ function hydratePlan(plan) {
 
     return {
         ...plan,
+        created_at: normalizeServerDate(plan.created_at),
+        updated_at: normalizeServerDate(plan.updated_at),
         cycles,
         cycle_count: cycles.length,
     };
@@ -114,10 +141,12 @@ export function useNutritionPlan(clientId) {
     const [loading, setLoading] = useState(true);
     const [sortOrder, setSortOrder] = useState("created_desc");
     const [alternativeModalOpenForItemId, setAlternativeModalOpenForItemId] = useState(null);
-    const [isDirty, setIsDirty] = useState(false);
+    const [dirtyPlanIds, setDirtyPlanIds] = useState(() => new Set());
+    const [hasDeletedPlans, setHasDeletedPlans] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState("idle");
     const saveStatusTimeoutRef = useRef(null);
+    const isDirty = dirtyPlanIds.size > 0 || hasDeletedPlans;
 
 
     // Helpers ------------------------------------------------------------------
@@ -143,11 +172,26 @@ export function useNutritionPlan(clientId) {
         }
     }, [selectedMeal]);
 
-    const markDirty = useCallback(() => {
-        setIsDirty(true);
+    const markPlanDirty = useCallback((planId) => {
+        if (!planId) return;
+        setDirtyPlanIds((prev) => {
+            const next = new Set(prev);
+            next.add(String(planId));
+            return next;
+        });
+        setSaveStatus("idle");
     }, []);
 
-    const fetchClientPlans = useCallback(async () => {
+    const clearPlanDirty = useCallback((planId) => {
+        if (!planId) return;
+        setDirtyPlanIds((prev) => {
+            const next = new Set(prev);
+            next.delete(String(planId));
+            return next;
+        });
+    }, []);
+
+    const fetchClientPlans = useCallback(async (preserveContext = null) => {
         if (!clientId) {
             setPlans([]);
             setSelectedPlan(null);
@@ -169,16 +213,41 @@ export function useNutritionPlan(clientId) {
             );
 
             setPlans(detailedPlans);
+
             setSelectedPlan((prev) => {
-                if (!prev) return null;
-                return detailedPlans.find((p) => p.id === prev.id) ?? null;
+                const preferredPlanId = preserveContext?.planId ?? prev?.id;
+                const preferredPlanName = preserveContext?.planName ?? prev?.name;
+                if (!preferredPlanId && !preferredPlanName) return null;
+
+                const byId = detailedPlans.find((p) => String(p.id) === String(preferredPlanId));
+                if (byId) return byId;
+
+                return detailedPlans.find((p) => p.name === preferredPlanName) ?? null;
             });
+
+            setSelectedCycleIndex((prevCycleIndex) => {
+                const preferredIndex = preserveContext?.selectedCycleIndex;
+                return Number.isInteger(preferredIndex) ? Math.max(0, preferredIndex) : prevCycleIndex;
+            });
+
             setSelectedMeal((prevMeal) => {
-                if (!prevMeal) return null;
+                const preferredMealId = preserveContext?.mealId ?? prevMeal?.id;
+                const preferredMealName = preserveContext?.mealName ?? prevMeal?.name;
                 const flatMeals = detailedPlans.flatMap((p) => p.cycles.flatMap((c) => c.meals));
-                return flatMeals.find((m) => m.id === prevMeal.id) ?? null;
+
+                if (preferredMealId) {
+                    const byId = flatMeals.find((m) => String(m.id) === String(preferredMealId));
+                    if (byId) return byId;
+                }
+
+                if (preferredMealName) {
+                    return flatMeals.find((m) => m.name === preferredMealName) ?? null;
+                }
+
+                return null;
             });
-            setIsDirty(false);
+            setDirtyPlanIds(new Set());
+            setHasDeletedPlans(false);
         } catch (error) {
             console.error("Error fetching nutrition plans:", error);
         } finally {
@@ -246,7 +315,7 @@ export function useNutritionPlan(clientId) {
         setSelectedCycleIndex(0);
         setSelectedMeal(null);
         setPendingFocusPlanId(newPlan.id);
-        markDirty();
+        markPlanDirty(newPlan.id);
     };
 
     const handleCreateCycle = () => {
@@ -271,7 +340,7 @@ export function useNutritionPlan(clientId) {
         setSelectedCycleIndex(updatedPlan.cycles.length - 1);
         setSelectedMeal(null);
         setPendingFocusCycleId(newCycle.id);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleDeleteMeal = (mealId) => {
@@ -282,7 +351,7 @@ export function useNutritionPlan(clientId) {
         }));
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
         if (selectedMeal && selectedMeal.id === mealId) setSelectedMeal(null);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleDuplicateMeal = (mealId) => {
@@ -300,7 +369,7 @@ export function useNutritionPlan(clientId) {
         });
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleDuplicateCycle = (cycleId) => {
@@ -311,7 +380,7 @@ export function useNutritionPlan(clientId) {
         const duplicated = cloneWithNewIdsForCycle(original);
         const nextCycles = withListOrders([...(selectedPlan.cycles ?? []), duplicated], "cycle_order");
         applyPlanUpdate({ ...selectedPlan, cycles: nextCycles });
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleDeleteCycle = (cycleIndex) => {
@@ -327,7 +396,7 @@ export function useNutritionPlan(clientId) {
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
         setSelectedCycleIndex(Math.max(0, cycleIndex - 1));
         setSelectedMeal(null);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleCreateMeal = () => {
@@ -349,7 +418,7 @@ export function useNutritionPlan(clientId) {
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, newMeal.id);
         setPendingFocusMealId(newMeal.id);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleFoodSearch = async (query) => {
@@ -394,7 +463,7 @@ export function useNutritionPlan(clientId) {
         setFoodItemModalOpen(false);
         setAlternativeModalOpenForItemId(null);
         setFoodSearchQuery("");
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleAddMultipleFoodItems = (mealId, items) => {
@@ -428,7 +497,7 @@ export function useNutritionPlan(clientId) {
         setFoodItemModalOpen(false);
         setAlternativeModalOpenForItemId(null);
         setFoodSearchQuery("");
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleDeleteMealItem = (itemId) => {
@@ -447,7 +516,7 @@ export function useNutritionPlan(clientId) {
         }));
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal.id);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleAmountChange = (itemId, newAmount) => {
@@ -484,7 +553,7 @@ export function useNutritionPlan(clientId) {
         }));
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal.id);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleDeletePlan = (planId) => {
@@ -497,7 +566,13 @@ export function useNutritionPlan(clientId) {
             setSelectedCycleIndex(0);
         }
 
-        markDirty();
+        setDirtyPlanIds((prev) => {
+            const next = new Set(prev);
+            next.delete(String(planId));
+            return next;
+        });
+        setHasDeletedPlans(true);
+        setSaveStatus("idle");
     };
 
     const handleDuplicatePlan = (planId) => {
@@ -519,7 +594,7 @@ export function useNutritionPlan(clientId) {
         });
 
         setPlans((prev) => [duplicatedPlan, ...prev]);
-        markDirty();
+        markPlanDirty(duplicatedPlan.id);
     };
 
     const sortedPlans = [...plans].sort((a, b) => {
@@ -537,7 +612,7 @@ export function useNutritionPlan(clientId) {
         );
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleUpdateCycleGoals = (cycleId, goals) => {
@@ -556,7 +631,7 @@ export function useNutritionPlan(clientId) {
         );
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleRenamePlan = (planId, newName) => {
@@ -564,7 +639,7 @@ export function useNutritionPlan(clientId) {
 
         const updated = { ...selectedPlan, name: newName };
         applyPlanUpdate(updated);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleRenameMeal = (mealId, newName) => {
@@ -578,7 +653,7 @@ export function useNutritionPlan(clientId) {
         }));
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, mealId);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleReorderMeals = (fromIndex, toIndex) => {
@@ -595,7 +670,7 @@ export function useNutritionPlan(clientId) {
         );
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal?.id ?? null);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleReorderCycles = (fromIndex, toIndex) => {
@@ -608,7 +683,7 @@ export function useNutritionPlan(clientId) {
         const updatedCycles = withListOrders(cycles, "cycle_order");
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal?.id ?? null);
         setSelectedCycleIndex(toIndex);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleReorderFoodItems = (fromIndex, toIndex) => {
@@ -627,7 +702,7 @@ export function useNutritionPlan(clientId) {
         }));
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal.id);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     // ── Alternatives ────────────────────────────────────────────────────────────
@@ -677,12 +752,12 @@ export function useNutritionPlan(clientId) {
         updateItemAlts(mealItemId, (alts) => [...alts, ...added]);
         setAlternativeModalOpenForItemId(null);
         setFoodSearchQuery("");
-        markDirty();
+        markPlanDirty(selectedPlan?.id);
     };
 
     const handleDeleteAlternative = (mealItemId, altId) => {
         updateItemAlts(mealItemId, (alts) => alts.filter((a) => a.id !== altId));
-        markDirty();
+        markPlanDirty(selectedPlan?.id);
     };
 
     const handleAlternativeAmountChange = (mealItemId, altId, newAmount) => {
@@ -692,7 +767,7 @@ export function useNutritionPlan(clientId) {
         updateItemAlts(mealItemId, (alts) =>
             alts.map((a) => (a.id === altId ? { ...a, amount: parsed } : a))
         );
-        markDirty();
+        markPlanDirty(selectedPlan?.id);
     };
 
     const handleUpdateCycleNote = (cycleId, note) => {
@@ -703,7 +778,7 @@ export function useNutritionPlan(clientId) {
         );
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
     const handleUpdateMealNote = (mealId, note) => {
@@ -717,19 +792,140 @@ export function useNutritionPlan(clientId) {
         }));
 
         applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, mealId);
-        markDirty();
+        markPlanDirty(selectedPlan.id);
     };
 
-    const handleActivatePlan = (planId) => {
-        setPlans((prev) => prev.map((p) => ({ ...p, status: p.id === planId ? "active" : "inactive" })));
+    const handleActivatePlan = async (planId) => {
+        if (!planId || isSaving) return;
+
+        let resolvedPlanId = planId;
+        const needsSaveBeforeActivate = dirtyPlanIds.has(String(planId)) || String(planId).startsWith("tmp-");
+
+        if (needsSaveBeforeActivate) {
+            const saveResult = await handleSaveSelectedPlan(planId);
+            if (!saveResult?.success) return;
+            resolvedPlanId = saveResult.newPlanId ?? planId;
+        }
+
+        const previousStatuses = plans.map((p) => ({ id: p.id, status: p.status }));
+
+        // Optimistic UI update for immediate feedback.
+        setPlans((prev) => prev.map((p) => ({ ...p, status: p.id === resolvedPlanId ? "active" : "inactive" })));
         setSelectedPlan((prev) => {
             if (!prev) return prev;
-            return { ...prev, status: prev.id === planId ? "active" : "inactive" };
+            return { ...prev, status: prev.id === resolvedPlanId ? "active" : "inactive" };
         });
-        markDirty();
+
+        try {
+            setIsSaving(true);
+            await api.post(`/api/nutrition/plans/${resolvedPlanId}/activate`);
+        } catch (error) {
+            console.error("Error activating plan:", error);
+
+            // Revert optimistic update on failure.
+            setPlans((prev) => prev.map((p) => {
+                const original = previousStatuses.find((s) => String(s.id) === String(p.id));
+                return original ? { ...p, status: original.status } : p;
+            }));
+            setSelectedPlan((prev) => {
+                if (!prev) return prev;
+                const original = previousStatuses.find((s) => String(s.id) === String(prev.id));
+                return original ? { ...prev, status: original.status } : prev;
+            });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleSaveDraft = async () => {
+    const handleSaveSelectedPlan = async (planId = selectedPlan?.id) => {
+        if (!clientId || isSaving || !planId) return { success: false };
+
+        const target = plans.find((p) => String(p.id) === String(planId));
+        if (!target) return { success: false };
+
+        if (!dirtyPlanIds.has(String(planId))) return { success: true, newPlanId: planId, unchanged: true };
+
+        try {
+            setIsSaving(true);
+            setSaveStatus("saving");
+            const activePlan = plans.find((p) => p.status === "active");
+
+            const response = await api.post("/api/nutrition/plans/save-plan-draft", {
+                clientId,
+                activePlanId: activePlan?.id ?? null,
+                plan: target,
+            });
+
+            const oldPlanId = response.data?.oldPlanId ?? planId;
+            const newPlanId = response.data?.newPlanId ?? planId;
+            const savedPlan = response.data?.savedPlan ?? {};
+            const nowIso = new Date().toISOString();
+            const normalizedSavedUpdatedAt = nowIso;
+            const normalizedSavedCreatedAt = normalizeServerDate(savedPlan.created_at);
+
+            setPlans((prev) => prev.map((plan) => {
+                if (String(plan.id) === String(oldPlanId)) {
+                    return {
+                        ...plan,
+                        id: newPlanId,
+                        status: savedPlan.status ?? plan.status,
+                        created_at: normalizedSavedCreatedAt ?? plan.created_at,
+                        updated_at: normalizedSavedUpdatedAt,
+                        cycle_count: savedPlan.cycle_count ?? plan.cycles?.length ?? plan.cycle_count,
+                    };
+                }
+
+                if ((savedPlan.status ?? target.status) === "active") {
+                    return {
+                        ...plan,
+                        status: String(plan.id) === String(newPlanId) ? "active" : "inactive",
+                    };
+                }
+
+                return plan;
+            }));
+
+            setSelectedPlan((prev) => {
+                if (!prev) return prev;
+                if (String(prev.id) !== String(oldPlanId)) {
+                    if ((savedPlan.status ?? target.status) === "active") {
+                        return { ...prev, status: "inactive" };
+                    }
+                    return prev;
+                }
+
+                return {
+                    ...prev,
+                    id: newPlanId,
+                    status: savedPlan.status ?? prev.status,
+                    created_at: normalizedSavedCreatedAt ?? prev.created_at,
+                    updated_at: normalizedSavedUpdatedAt,
+                    cycle_count: savedPlan.cycle_count ?? prev.cycles?.length ?? prev.cycle_count,
+                };
+            });
+
+            clearPlanDirty(oldPlanId);
+            clearPlanDirty(newPlanId);
+            setSaveStatus("saved");
+            if (saveStatusTimeoutRef.current) {
+                clearTimeout(saveStatusTimeoutRef.current);
+            }
+            saveStatusTimeoutRef.current = setTimeout(() => {
+                setSaveStatus("idle");
+                saveStatusTimeoutRef.current = null;
+            }, 2200);
+
+            return { success: true, oldPlanId, newPlanId };
+        } catch (error) {
+            console.error("Error saving nutrition draft:", error);
+            setSaveStatus("idle");
+            return { success: false };
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSaveAllDrafts = async () => {
         if (!clientId || isSaving || !isDirty) return;
 
         try {
@@ -743,7 +939,14 @@ export function useNutritionPlan(clientId) {
                 plans,
             });
 
-            setIsDirty(false);
+            await fetchClientPlans({
+                planId: selectedPlan?.id,
+                planName: selectedPlan?.name,
+                selectedCycleIndex,
+                mealId: selectedMeal?.id,
+                mealName: selectedMeal?.name,
+            });
+
             setSaveStatus("saved");
             if (saveStatusTimeoutRef.current) {
                 clearTimeout(saveStatusTimeoutRef.current);
@@ -753,12 +956,14 @@ export function useNutritionPlan(clientId) {
                 saveStatusTimeoutRef.current = null;
             }, 2200);
         } catch (error) {
-            console.error("Error saving nutrition draft:", error);
+            console.error("Error saving all nutrition drafts:", error);
             setSaveStatus("idle");
         } finally {
             setIsSaving(false);
         }
     };
+
+    const handleSaveDraft = handleSaveSelectedPlan;
 
 
 
@@ -808,9 +1013,13 @@ export function useNutritionPlan(clientId) {
         handleDeleteAlternative,
         handleAlternativeAmountChange,
         handleActivatePlan,
+        handleSaveSelectedPlan,
+        handleSaveAllDrafts,
         handleSaveDraft,
         isDirty,
         isSaving,
         saveStatus,
+        dirtyPlanIds: Array.from(dirtyPlanIds),
+        hasDeletedPlans,
     };
 }

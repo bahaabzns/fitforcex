@@ -51,6 +51,12 @@ export default function LeftPanel({
     selectedCycleIndex,
     handleUpdateCycleGoals,
     handleActivatePlan,
+    handleSaveAllDrafts,
+    dirtyPlanIds,
+    hasDeletedPlans,
+    isDirty,
+    isSaving,
+    saveStatus,
     clientId,
 }) {
     const [plansCollapsed, setPlansCollapsed] = useState(false);
@@ -70,6 +76,8 @@ export default function LeftPanel({
     }, [clientId]);
 
     const currentCycle = selectedPlan?.cycles?.[selectedCycleIndex] ?? null;
+    const dirtyPlanCount = dirtyPlanIds?.length ?? 0;
+    const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
 
     return (
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
@@ -90,12 +98,27 @@ export default function LeftPanel({
                         <span className="ml-2 text-xs font-normal text-gray-400">{plans.length}</span>
                     </h2>
                     {!plansCollapsed && (
-                        <button
-                            className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
-                            onClick={handleCreatePlan}
-                        >
-                            + Create Plan
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {showSaveAll && (
+                                <button
+                                    className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors ${
+                                        !isDirty || isSaving
+                                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                    }`}
+                                    onClick={handleSaveAllDrafts}
+                                    disabled={!isDirty || isSaving}
+                                >
+                                    {isSaving || saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save All"}
+                                </button>
+                            )}
+                            <button
+                                className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                                onClick={handleCreatePlan}
+                            >
+                                + Create Plan
+                            </button>
+                        </div>
                     )}
                 </div>
 
@@ -144,6 +167,7 @@ export default function LeftPanel({
                                 <div className="divide-y divide-gray-100">
                                     {plans.map((plan) => {
                                         const isActive = selectedPlan?.id === plan.id;
+                                        const isPlanDirty = dirtyPlanIds?.includes(String(plan.id));
                                         return (
                                             <div
                                                 key={plan.id}
@@ -166,6 +190,11 @@ export default function LeftPanel({
                                                         {plan.status === 'active' && (
                                                             <span className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 text-xs font-semibold">
                                                                 <CheckIcon /> Active
+                                                            </span>
+                                                        )}
+                                                        {isPlanDirty && (
+                                                            <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-semibold border border-amber-200/70">
+                                                                Unsaved
                                                             </span>
                                                         )}
                                                     </div>

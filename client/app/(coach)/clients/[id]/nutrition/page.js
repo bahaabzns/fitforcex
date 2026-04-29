@@ -83,10 +83,13 @@ export default function NutritionPage() {
         handleDeleteAlternative,
         handleAlternativeAmountChange,
         handleActivatePlan,
-        handleSaveDraft,
+        handleSaveSelectedPlan,
+        handleSaveAllDrafts,
         isDirty,
         isSaving,
         saveStatus,
+        dirtyPlanIds,
+        hasDeletedPlans,
     } = useNutritionPlan(id);
 
     useEffect(() => {
@@ -126,6 +129,12 @@ return (
                 selectedCycleIndex={selectedCycleIndex}
                 handleUpdateCycleGoals={handleUpdateCycleGoals}
                 handleActivatePlan={handleActivatePlan}
+                handleSaveAllDrafts={handleSaveAllDrafts}
+                dirtyPlanIds={dirtyPlanIds}
+                hasDeletedPlans={hasDeletedPlans}
+                isDirty={isDirty}
+                isSaving={isSaving}
+                saveStatus={saveStatus}
                 clientId={id}
             />
         </div>
@@ -161,10 +170,12 @@ return (
                     handleReorderMeals={handleReorderMeals}
                     handleReorderCycles={handleReorderCycles}
                     handleUpdateCycleNote={handleUpdateCycleNote}
-                    handleSaveDraft={handleSaveDraft}
+                    handleActivatePlan={handleActivatePlan}
+                    handleSaveSelectedPlan={handleSaveSelectedPlan}
                     isDirty={isDirty}
                     isSaving={isSaving}
                     saveStatus={saveStatus}
+                    dirtyPlanIds={dirtyPlanIds}
                     pendingFocusPlanId={pendingFocusPlanId}
                     setPendingFocusPlanId={setPendingFocusPlanId}
                     pendingFocusCycleId={pendingFocusCycleId}

@@ -503,6 +503,203 @@ router.post('/plans/save-draft', async (req, res) => {
     }
 });
 
+router.post('/plans/save-plan-draft', async (req, res) => {
+    const { clientId, plan, activePlanId = null } = req.body;
+    if (!plan || typeof plan !== 'object') {
+        return res.status(400).json({ error: 'plan object is required' });
+    }
+
+    const dbClient = await pool.connect();
+    const oldPlanId = plan.id;
+
+    try {
+        await dbClient.query('BEGIN');
+
+        const rawPlanId = String(plan.id ?? '');
+        const parsedPlanId = Number(rawPlanId);
+        const hasPersistentPlanId = !rawPlanId.startsWith('tmp-') && Number.isInteger(parsedPlanId);
+
+        let existingCreatedAt = null;
+        if (hasPersistentPlanId) {
+            const existing = await dbClient.query(
+                `SELECT id, created_at
+                 FROM nutrition_plans
+                 WHERE id = $1 AND coach_id = $2 AND client_id = $3`,
+                [parsedPlanId, req.user.id, clientId]
+            );
+
+            if (existing.rows.length === 0) {
+                await dbClient.query('ROLLBACK');
+                return res.status(404).json({ error: 'Plan not found for this client' });
+            }
+
+            existingCreatedAt = existing.rows[0].created_at;
+
+            await dbClient.query(
+                `DELETE FROM nutrition_meal_item_alternatives nmia
+                 USING nutrition_meal_items nmi, nutrition_meals nm, nutrition_cycles nc
+                 WHERE nmia.meal_item_id = nmi.id
+                   AND nmi.meal_id = nm.id
+                   AND nm.cycle_id = nc.id
+                   AND nc.plan_id = $1`,
+                [parsedPlanId]
+            );
+
+            await dbClient.query(
+                `DELETE FROM nutrition_meal_items nmi
+                 USING nutrition_meals nm, nutrition_cycles nc
+                 WHERE nmi.meal_id = nm.id
+                   AND nm.cycle_id = nc.id
+                   AND nc.plan_id = $1`,
+                [parsedPlanId]
+            );
+
+            await dbClient.query(
+                `DELETE FROM nutrition_meals nm
+                 USING nutrition_cycles nc
+                 WHERE nm.cycle_id = nc.id
+                   AND nc.plan_id = $1`,
+                [parsedPlanId]
+            );
+
+            await dbClient.query('DELETE FROM nutrition_cycles WHERE plan_id = $1', [parsedPlanId]);
+            await dbClient.query('DELETE FROM nutrition_plans WHERE id = $1', [parsedPlanId]);
+        }
+
+        const createdAt = toIsoDateOrNull(plan.created_at) || toIsoDateOrNull(existingCreatedAt) || new Date().toISOString();
+        const updatedAt = new Date().toISOString();
+
+        const insertedPlan = await dbClient.query(
+            `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING *`,
+            [
+                plan.name || 'Untitled Plan',
+                clientId,
+                req.user.id,
+                plan.status === 'active' ? 'active' : 'inactive',
+                createdAt,
+                updatedAt,
+            ]
+        );
+
+        const newPlan = insertedPlan.rows[0];
+        const cycles = Array.isArray(plan.cycles) ? plan.cycles : [];
+
+        for (let cIndex = 0; cIndex < cycles.length; cIndex += 1) {
+            const cycle = cycles[cIndex];
+            const insertedCycle = await dbClient.query(
+                `INSERT INTO nutrition_cycles (
+                    plan_id,
+                    name,
+                    cycle_order,
+                    note,
+                    goal_calories,
+                    goal_protein,
+                    goal_carbs,
+                    goal_fats
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING *`,
+                [
+                    newPlan.id,
+                    cycle.name || `Cycle ${cIndex + 1}`,
+                    cIndex + 1,
+                    cycle.note ?? null,
+                    cycle.goal_calories ?? null,
+                    cycle.goal_protein ?? null,
+                    cycle.goal_carbs ?? null,
+                    cycle.goal_fats ?? null,
+                ]
+            );
+
+            const dbCycle = insertedCycle.rows[0];
+            const meals = Array.isArray(cycle.meals) ? cycle.meals : [];
+
+            for (let mIndex = 0; mIndex < meals.length; mIndex += 1) {
+                const meal = meals[mIndex];
+                const insertedMeal = await dbClient.query(
+                    `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note)
+                     VALUES ($1, $2, $3, $4)
+                     RETURNING *`,
+                    [
+                        dbCycle.id,
+                        meal.name || `Meal ${mIndex + 1}`,
+                        mIndex + 1,
+                        meal.note ?? null,
+                    ]
+                );
+
+                const dbMeal = insertedMeal.rows[0];
+                const items = Array.isArray(meal.items) ? meal.items : [];
+
+                for (let iIndex = 0; iIndex < items.length; iIndex += 1) {
+                    const item = items[iIndex];
+                    const insertedItem = await dbClient.query(
+                        `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order)
+                         VALUES ($1, $2, $3, $4)
+                         RETURNING *`,
+                        [
+                            dbMeal.id,
+                            item.food_item_id,
+                            toNumberOrNull(item.amount) ?? 0,
+                            iIndex + 1,
+                        ]
+                    );
+
+                    const dbItem = insertedItem.rows[0];
+                    const alternatives = Array.isArray(item.alternatives) ? item.alternatives : [];
+                    for (let aIndex = 0; aIndex < alternatives.length; aIndex += 1) {
+                        const alt = alternatives[aIndex];
+                        await dbClient.query(
+                            `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order)
+                             VALUES ($1, $2, $3, $4)`,
+                            [
+                                dbItem.id,
+                                alt.food_item_id,
+                                toNumberOrNull(alt.amount) ?? 0,
+                                aIndex + 1,
+                            ]
+                        );
+                    }
+                }
+            }
+        }
+
+        const shouldActivate = plan.status === 'active' || String(activePlanId ?? '') === String(oldPlanId ?? '');
+        if (shouldActivate) {
+            await dbClient.query(
+                `UPDATE nutrition_plans
+                 SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
+                 WHERE coach_id = $2
+                   AND client_id = $3`,
+                [newPlan.id, req.user.id, clientId]
+            );
+        }
+
+        await dbClient.query('COMMIT');
+
+        const savedPlanResult = await pool.query(
+            `SELECT np.*,
+                    (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
+             FROM nutrition_plans np
+             WHERE np.id = $1 AND np.coach_id = $2`,
+            [newPlan.id, req.user.id]
+        );
+
+        res.json({
+            oldPlanId,
+            newPlanId: newPlan.id,
+            savedPlan: savedPlanResult.rows[0],
+        });
+    } catch (err) {
+        await dbClient.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        dbClient.release();
+    }
+});
+
 router.put('/plans/:id', async (req, res) => {
     const { name, status } = req.body;
     try {
@@ -1168,14 +1365,14 @@ router.post('/plans/:id/activate', async (req, res) => {
 
         // Deactivate all other plans for the same client
         await pool.query(
-            `UPDATE nutrition_plans SET status = 'inactive', updated_at = NOW()
+            `UPDATE nutrition_plans SET status = 'inactive'
              WHERE client_id = $1 AND coach_id = $2 AND id != $3`,
             [plan.client_id, req.user.id, plan.id]
         );
 
         // Activate the target plan
         const updated = await pool.query(
-            `UPDATE nutrition_plans SET status = 'active', updated_at = NOW()
+            `UPDATE nutrition_plans SET status = 'active'
              WHERE id = $1 RETURNING *`,
             [plan.id]
         );

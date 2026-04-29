@@ -183,7 +183,7 @@ export default function CycleCalculator({ cycle, onApply }) {
             {/* ── Formula ── */}
             <div>
                 <SectionLabel>BMR Formula</SectionLabel>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-row gap-1.5">
                     {[
                         { value: "mifflin", label: "Mifflin-St Jeor",       sub: "Most accurate general formula" },
                         { value: "harris",  label: "Harris-Benedict (rev.)", sub: "Classic revised formula"       },
