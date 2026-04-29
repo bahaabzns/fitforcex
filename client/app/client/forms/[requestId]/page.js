@@ -69,7 +69,7 @@ export default function ClientFillFormPage() {
 
     if (!data) return null;
 
-    const isSubmitted = data.status === 'submitted';
+    const isSubmitted = data.status !== 'pending';
 
     return (
         <div className="max-w-2xl mx-auto p-6">

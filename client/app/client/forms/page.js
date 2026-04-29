@@ -17,7 +17,12 @@ export default function ClientFormsListPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    const filtered = requests.filter(r => filter === "all" || r.status === filter);
+    const filtered = requests.filter((r) => {
+        if (filter === "all") return true;
+        if (filter === "pending") return r.status === "pending";
+        if (filter === "submitted") return r.status !== "pending";
+        return true;
+    });
     const pendingCount = requests.filter(r => r.status === "pending").length;
 
     if (loading) {

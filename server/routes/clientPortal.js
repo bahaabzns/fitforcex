@@ -191,7 +191,7 @@ router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res) 
         );
 
         let responses = [];
-        if (request.status === 'submitted') {
+        if (request.status !== 'pending') {
             const respResult = await pool.query(
                 'SELECT question_id, answer FROM form_responses WHERE request_id = $1',
                 [request.id]

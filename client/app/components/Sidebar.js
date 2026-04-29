@@ -159,6 +159,17 @@ export default function Sidebar() {
 
                     <li>
                         <Link
+                            href="/plans-queue"
+                            title={collapsed ? 'Plans Queue' : undefined}
+                            className={`${pathname.startsWith('/plans-queue') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                        >
+                            <ClipboardList size={17} className="shrink-0" />
+                            {!collapsed && 'Plans Queue'}
+                        </Link>
+                    </li>
+
+                    <li>
+                        <Link
                             href="/settings"
                             title={collapsed ? 'Settings' : undefined}
                             className={`${pathname.startsWith('/settings') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
