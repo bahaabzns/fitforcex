@@ -24,6 +24,7 @@ const nutritionRouter = require('./routes/nutrition');
 server.use('/api/nutrition', nutritionRouter);
 
 server.use('/api/client-portal', require('./routes/clientPortal'));
+server.use('/api/forms', require('./routes/forms'));
 
 server.get('/api/health', (req, res) => {
     res.status(200).json({message: 'All is good!'})

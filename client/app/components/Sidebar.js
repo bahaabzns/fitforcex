@@ -11,6 +11,7 @@ import {
     Database,
     Salad,
     Dumbbell,
+    ClipboardList,
     Settings,
     LogOut,
     ChevronDown,
@@ -143,6 +144,17 @@ export default function Sidebar() {
                                 </ul>
                             </div>
                         )}
+                    </li>
+
+                    <li>
+                        <Link
+                            href="/forms"
+                            title={collapsed ? 'Forms' : undefined}
+                            className={`${pathname.startsWith('/forms') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                        >
+                            <ClipboardList size={17} className="shrink-0" />
+                            {!collapsed && 'Forms'}
+                        </Link>
                     </li>
 
                     <li>
