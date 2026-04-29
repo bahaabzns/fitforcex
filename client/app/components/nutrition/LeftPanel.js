@@ -35,6 +35,12 @@ const ChevronIcon = ({ up }) => (
     </svg>
 );
 
+const CheckIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+    </svg>
+);
+
 export default function LeftPanel({
     plans,
     selectedPlan,
@@ -43,6 +49,7 @@ export default function LeftPanel({
     sortOrder, setSortOrder,
     selectedCycleIndex,
     handleUpdateCycleGoals,
+    handleActivatePlan,
 }) {
     const [plansCollapsed, setPlansCollapsed] = useState(false);
     const [calcCollapsed, setCalcCollapsed] = useState(false);
@@ -137,9 +144,16 @@ export default function LeftPanel({
 
                                                 {/* Name + meta */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-sm font-medium truncate ${isActive ? "text-blue-700" : "text-gray-800"}`}>
-                                                        {plan.name}
-                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className={`text-sm font-medium truncate ${isActive ? "text-blue-700" : "text-gray-800"}`}>
+                                                            {plan.name}
+                                                        </p>
+                                                        {plan.status === 'active' && (
+                                                            <span className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 text-xs font-semibold">
+                                                                <CheckIcon /> Active
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-gray-400 mt-0.5">
                                                         {plan.cycle_count} {plan.cycle_count === 1 ? "cycle" : "cycles"}
                                                         {" · "}
@@ -149,6 +163,22 @@ export default function LeftPanel({
 
                                                 {/* Actions — appear on hover */}
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                    {plan.status === 'active' ? (
+                                                        <span
+                                                            title="Active plan"
+                                                            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-600 text-xs font-semibold"
+                                                        >
+                                                            <CheckIcon /> Active
+                                                        </span>
+                                                    ) : (
+                                                        <button
+                                                            title="Activate plan for client"
+                                                            className="cursor-pointer px-2 py-0.5 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-600 hover:bg-green-50 text-xs font-medium transition-colors"
+                                                            onClick={(e) => { e.stopPropagation(); handleActivatePlan(plan.id); }}
+                                                        >
+                                                            Activate
+                                                        </button>
+                                                    )}
                                                     <button
                                                         title="Duplicate plan"
                                                         className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"

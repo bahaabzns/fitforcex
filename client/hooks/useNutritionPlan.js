@@ -481,6 +481,26 @@ export function useNutritionPlan(clientId) {
         setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
     };
 
+    const handleActivatePlan = async (planId) => {
+        try {
+            const response = await api.post(`/api/nutrition/plans/${planId}/activate`);
+            // Update status in plans list: activate target, deactivate others
+            setPlans(prev => prev.map(p => ({
+                ...p,
+                status: p.id === planId ? 'active' : 'inactive',
+            })));
+            // Update selectedPlan if it's the one being activated or deactivated
+            if (selectedPlan) {
+                setSelectedPlan(prev => ({
+                    ...prev,
+                    status: prev.id === planId ? 'active' : 'inactive',
+                }));
+            }
+        } catch (error) {
+            console.error('Error activating plan:', error);
+        }
+    };
+
 
 
 
@@ -528,5 +548,6 @@ export function useNutritionPlan(clientId) {
         handleAddAlternatives,
         handleDeleteAlternative,
         handleAlternativeAmountChange,
+        handleActivatePlan,
     }
 }

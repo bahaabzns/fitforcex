@@ -2,6 +2,7 @@ const express = require('express');
 
 const router = express.Router();
 const pool = require('../db');
+const bcrypt = require('bcrypt');
 const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware);
@@ -19,14 +20,16 @@ router.get('/', async (req, res) => {
 
 
 router.post('/', async (req, res) => {
-    const { fname, lname, email, phone } = req.body;
+    const { fname, lname, email, phone, password } = req.body;
     try {
         const codeResult = await pool.query('SELECT COALESCE(MAX(client_code), 0) + 1 AS next_code FROM clients WHERE coach_id = $1', [req.user.id]);
         const nextCode = codeResult.rows[0].next_code;
 
+        const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+
         const result = await pool.query(
-            'INSERT INTO clients (client_code, fname, lname, email, phone, coach_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [nextCode, fname, lname, email, phone, req.user.id]
+            'INSERT INTO clients (client_code, fname, lname, email, phone, coach_id, password, plain_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [nextCode, fname, lname, email, phone, req.user.id, hashedPassword, password || null]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -81,6 +84,28 @@ router.delete('/:id', async (req, res) => {
         }
 
         return res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Coach sets / resets a client's portal password
+router.post('/:id/set-password', async (req, res) => {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    try {
+        const hashed = await bcrypt.hash(password, 10);
+        const result = await pool.query(
+            'UPDATE clients SET password = $1, plain_password = $2 WHERE id = $3 AND coach_id = $4 RETURNING id',
+            [hashed, password, req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+        res.json({ message: 'Password set successfully' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

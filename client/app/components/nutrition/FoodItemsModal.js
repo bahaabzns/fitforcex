@@ -1,7 +1,8 @@
 
 import { useState } from 'react';
+import Modal from "@/app/components/Modal";
 
-export default function FoodItemsModal({ foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
+export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [categoryFilter, setCategoryFilter] = useState(lockedCategory || '');
 
@@ -44,25 +45,8 @@ export default function FoodItemsModal({ foodItems, foodSearchQuery, onSearchCha
     };
 
     return (
-        <div
-            className="fixed inset-0 flex items-center justify-center bg-black/30 z-50"
-            onClick={onClose}
-        >
-            <div
-                className="card px-6 py-4 w-4/5 max-w-5xl max-h-[80vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* #8 — header with close button */}
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">Search Food Items</h2>
-                    <button
-                        title="Close"
-                        className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                        onClick={onClose}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
+        <Modal open={open} onClose={onClose} title="Search Food Items" wide>
+            <div className="flex flex-col" style={{ maxHeight: '70vh' }}>
 
                 {/* Search + results count */}
                 <div className="flex gap-3 mb-3 items-center">
@@ -211,6 +195,6 @@ export default function FoodItemsModal({ foodItems, foodSearchQuery, onSearchCha
                     </div>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 }

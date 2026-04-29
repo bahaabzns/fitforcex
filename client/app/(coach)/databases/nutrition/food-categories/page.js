@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
+import DataTable from "@/app/components/DataTable";
+import Modal from "@/app/components/Modal";
 
 export default function FoodCategoriesPage() {
     const [categories, setCategories] = useState([]);
@@ -60,6 +62,17 @@ export default function FoodCategoriesPage() {
         return <div className="p-8">Loading...</div>;
     }
 
+    const categoryColumns = [
+        { key: "name", label: "Name", filterType: "text", sortable: true },
+        { key: "food_item_count", label: "Food Items", sortable: true },
+        { key: "actions", label: "Actions", cardPriority: "hidden", render: (row) => (
+            <div className="flex gap-2">
+                <button onClick={() => setEditingItem(row)} className="btn-secondary px-3 py-1 text-sm">Edit</button>
+                <button onClick={() => handleDelete(row.id)} className="btn-danger px-3 py-1 text-sm">Delete</button>
+            </div>
+        )},
+    ];
+
     return (
         <div className="p-8">
             <div className="flex items-center mb-6 gap-4">
@@ -69,10 +82,7 @@ export default function FoodCategoriesPage() {
                 </button>
             </div>
 
-            {showForm && (
-                <div onClick={() => setShowForm(false)} className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
-                    <div onClick={(e) => e.stopPropagation()} className="card p-6 w-80">
-                        <h2 className="text-lg font-semibold mb-4">New Category</h2>
+            <Modal open={showForm} onClose={() => setShowForm(false)} title="New Category">
                         <form onSubmit={handleAdd} className="flex flex-col gap-4">
                             <input
                                 type="text"
@@ -84,18 +94,13 @@ export default function FoodCategoriesPage() {
                             />
                             <button type="submit" className="btn-primary px-4">Add Category</button>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
-            {editingItem && (
-                <div onClick={() => setEditingItem(null)} className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
-                    <div onClick={(e) => e.stopPropagation()} className="card p-6 w-80">
-                        <h2 className="text-lg font-semibold mb-4">Edit Category</h2>
+            <Modal open={!!editingItem} onClose={() => setEditingItem(null)} title="Edit Category">
                         <form onSubmit={handleUpdate} className="flex flex-col gap-4">
                             <input
                                 type="text"
-                                value={editingItem.name}
+                                value={editingItem?.name || ''}
                                 onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
                                 placeholder="Category name"
                                 className="input-field"
@@ -103,39 +108,9 @@ export default function FoodCategoriesPage() {
                             />
                             <button type="submit" className="btn-primary px-4">Save Changes</button>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
-            <div className="card">
-                <table className="w-full">
-                    <thead>
-                        <tr>
-                            <th className="text-left py-3 px-4">Name</th>
-                            <th className="text-left py-3 px-4">Food Items</th>
-                            <th className="text-right py-3 px-4">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {categories.length === 0 ? (
-                            <tr>
-                                <td colSpan={3} className="text-center py-8 text-gray-400">No categories yet.</td>
-                            </tr>
-                        ) : (
-                            categories.map(category => (
-                                <tr key={category.id} className="border-t border-gray-100">
-                                    <td className="py-3 px-4">{category.name}</td>
-                                    <td className="py-3 px-4">{category.food_item_count}</td>
-                                    <td className="py-3 px-4 text-right flex justify-end gap-2">
-                                        <button onClick={() => setEditingItem(category)} className="btn-secondary px-3 py-1 text-sm">Edit</button>
-                                        <button onClick={() => handleDelete(category.id)} className="btn-danger px-3 py-1 text-sm">Delete</button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            <DataTable columns={categoryColumns} data={categories} rowKey="id" />
         </div>
     );
 }

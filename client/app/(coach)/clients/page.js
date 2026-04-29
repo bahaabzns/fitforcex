@@ -3,102 +3,253 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import Link from "next/link";
+import { Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
+import DataTable from "@/app/components/DataTable";
+import Modal from "@/app/components/Modal";
+
+function generatePassword(length = 10) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+const EMPTY_FORM = { fname: '', lname: '', email: '', phone: '', password: '' };
+
+function validate(data) {
+    const errors = {};
+    if (!data.fname.trim()) errors.fname = 'First name is required';
+    if (!data.lname.trim()) errors.lname = 'Last name is required';
+    if (!data.email.trim()) {
+        errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+        errors.email = 'Enter a valid email address';
+    }
+    if (data.phone && !/^\+?[\d\s\-().]{7,20}$/.test(data.phone)) {
+        errors.phone = 'Enter a valid phone number';
+    }
+    if (!data.password) {
+        errors.password = 'Password is required';
+    } else if (data.password.length < 6) {
+        errors.password = 'Password must be at least 6 characters';
+    }
+    return errors;
+}
 
 export default function ClientsPage() {
     const [clients, setClients] = useState([]);
-    const [showForm, setShowForm] = useState(false); // toggle form visibility
-    const [formData, setFormData] = useState({
-        fname: '', lname: '', email: '', phone: ''
-    }); // form data state
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState({ ...EMPTY_FORM, password: generatePassword() });
+    const [errors, setErrors] = useState({});
+    const [showPassword, setShowPassword] = useState(false);
+    const [submitError, setSubmitError] = useState('');
+    const [copiedId, setCopiedId] = useState(null);
+
+    const copyCredentials = (client) => {
+        if (!client.plain_password) return;
+        const text = `Email: ${client.email}\nPassword: ${client.plain_password}`;
+        navigator.clipboard.writeText(text).then(() => {
+            setCopiedId(client.id);
+            setTimeout(() => setCopiedId(null), 2000);
+        });
+    };
 
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-    }
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
+    };
 
     const handleSubmit = async (e) => {
-        // prevent default form submission behavior
         e.preventDefault();
+        setSubmitError('');
+        const errs = validate(formData);
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            return;
+        }
 
         try {
-            // send POST request to create new client
             await api.post('/api/clients', formData);
-
-            // fetch updated client list
             await fetchClients();
-
-            // reset form and hide it
-            setFormData({ fname: '', lname: '', email: '', phone: '' });
+            setFormData({ ...EMPTY_FORM, password: generatePassword() });
+            setErrors({});
             setShowForm(false);
+        } catch (err) {
+            setSubmitError(err.response?.data?.error || 'Failed to create client');
+        }
+    };
+
+    const handleOpen = () => {
+        setFormData({ ...EMPTY_FORM, password: generatePassword() });
+        setErrors({});
+        setSubmitError('');
+        setShowPassword(false);
+        setShowForm(true);
+    };
+
+    const handleClose = () => {
+        setShowForm(false);
+        setErrors({});
+        setSubmitError('');
+    };
+
+    const fetchClients = async () => {
+        try {
+            const result = await api.get('/api/clients');
+            setClients(result.data);
         } catch (err) {
             console.log(err);
         }
-        
-
-    }
-
-    const fetchClients = async () => {
-            try {
-                const result = await api.get('/api/clients');
-                setClients(result.data);
-            } catch (err) {
-                console.log(err);
-            }
-        }
-
+    };
 
     useEffect(() => {
         fetchClients();
     }, []);
-    
+
+    const clientsData = clients.map(c => ({ ...c, full_name: `${c.fname} ${c.lname}` }));
+    const clientColumns = [
+        { key: "client_code", label: "Code", filterType: "text", sortable: true },
+        { key: "full_name", label: "Name", filterType: "text", sortable: true, render: (row) => (
+            <Link href={`/clients/${row.id}`} className="text-[#007AFF] hover:underline">
+                {row.fname} {row.lname}
+            </Link>
+        )},
+        { key: "email", label: "Email", filterType: "text", sortable: true },
+        { key: "phone", label: "Phone", filterType: "text" },
+        { key: "actions", label: "Actions", cardPriority: "hidden", render: (row) => (
+            row.plain_password ? (
+                <button
+                    onClick={() => copyCredentials(row)}
+                    title="Copy credentials"
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-blue-500 hover:border-blue-300 transition-colors cursor-pointer"
+                >
+                    {copiedId === row.id ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                    {copiedId === row.id ? 'Copied!' : 'Copy Credentials'}
+                </button>
+            ) : (
+                <span className="text-xs text-gray-400">—</span>
+            )
+        )},
+    ];
+
     return (
         <div className="p-8">
-
             <div className="flex items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold flex-1">Clients</h1>
-                <button onClick={() => setShowForm(!showForm)} className="btn-primary px-4 shrink-0">
+                <button onClick={handleOpen} className="btn-primary px-4 shrink-0">
                     + Add Client
                 </button>
-                {showForm && (
-                    <div onClick={() => setShowForm(false)} className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
-                        <div onClick={(e) => e.stopPropagation()} className="card p-6 w-80">
-                            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                                <input type="text" name="fname" value={formData.fname} placeholder="First Name" onChange={handleChange} className="input-field"></input>
-                                <input type="text" name="lname" value={formData.lname} placeholder="Last Name" onChange={handleChange} className="input-field"></input>
-                                <input type="text" name="email" value={formData.email} placeholder="Email" onChange={handleChange} className="input-field"></input>
-                                <input type="text" name="phone" value={formData.phone} placeholder="Phone" onChange={handleChange} className="input-field"></input>
-                                <button type="submit" className="btn-primary px-4">Create</button>
-                            </form>
-                        </div>
-                        
-                    </div>
-                )}
             </div>
 
-            <div className="card">
-                <table className="w-full">
-                    <thead>
-                        <tr>
-                            <th className="text-left py-3 px-4">Code</th>
-                            <th className="text-left py-3 px-4">Name</th>
-                            <th className="text-left py-3 px-4">Email</th>
-                            <th className="text-left py-3 px-4">Phone</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {clients.map((client) => (
-                            <tr key={client.id}>
-                                <td className="py-3 px-4">{client.client_code}</td>
-                                <td className="py-3 px-4"><Link href={`/clients/${client.id}`}>{client.fname} {client.lname}</Link></td>
-                                <td className="py-3 px-4">{client.email}</td>
-                                <td className="py-3 px-4">{client.phone}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            {/* Create Client Modal */}
+            <Modal open={showForm} onClose={handleClose} title="Add New Client">
+                        <form onSubmit={handleSubmit} className="flex flex-col gap-3" noValidate>
+
+                            {/* First Name */}
+                            <div className="flex flex-col gap-1">
+                                <input
+                                    type="text"
+                                    name="fname"
+                                    value={formData.fname}
+                                    placeholder="First Name *"
+                                    onChange={handleChange}
+                                    className={`input-field ${errors.fname ? 'border-red-400' : ''}`}
+                                />
+                                {errors.fname && <p className="text-xs text-red-500">{errors.fname}</p>}
+                            </div>
+
+                            {/* Last Name */}
+                            <div className="flex flex-col gap-1">
+                                <input
+                                    type="text"
+                                    name="lname"
+                                    value={formData.lname}
+                                    placeholder="Last Name *"
+                                    onChange={handleChange}
+                                    className={`input-field ${errors.lname ? 'border-red-400' : ''}`}
+                                />
+                                {errors.lname && <p className="text-xs text-red-500">{errors.lname}</p>}
+                            </div>
+
+                            {/* Email */}
+                            <div className="flex flex-col gap-1">
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    placeholder="Email *"
+                                    onChange={handleChange}
+                                    className={`input-field ${errors.email ? 'border-red-400' : ''}`}
+                                />
+                                {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
+                            </div>
+
+                            {/* Phone */}
+                            <div className="flex flex-col gap-1">
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    value={formData.phone}
+                                    placeholder="Phone"
+                                    onChange={handleChange}
+                                    className={`input-field ${errors.phone ? 'border-red-400' : ''}`}
+                                />
+                                {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
+                            </div>
+
+                            {/* Portal Password */}
+                            <div className="flex flex-col gap-1">
+                                <label className="text-xs font-medium text-gray-500">Portal Password *</label>
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            name="password"
+                                            value={formData.password}
+                                            placeholder="Portal password"
+                                            onChange={handleChange}
+                                            className={`input-field w-full pr-10 ${errors.password ? 'border-red-400' : ''}`}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(v => !v)}
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                                            tabIndex={-1}
+                                        >
+                                            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                                        </button>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        title="Generate new password"
+                                        onClick={() => {
+                                            const p = generatePassword();
+                                            setFormData(prev => ({ ...prev, password: p }));
+                                            setShowPassword(true);
+                                            if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
+                                        }}
+                                        className="cursor-pointer p-2 rounded-lg border border-gray-200 text-gray-400 hover:text-blue-500 hover:border-blue-300 transition-colors shrink-0"
+                                    >
+                                        <RefreshCw size={15} />
+                                    </button>
+                                </div>
+                                {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+                                <p className="text-xs text-gray-400">The client will use this password to log in to their portal.</p>
+                            </div>
+
+                            {submitError && (
+                                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                    {submitError}
+                                </p>
+                            )}
+
+                            <div className="flex gap-2 mt-1">
+                                <button type="submit" className="btn-primary flex-1">Create</button>
+                                <button type="button" onClick={handleClose} className="btn-danger flex-1">Cancel</button>
+                            </div>
+                        </form>
+            </Modal>
+
+            <DataTable columns={clientColumns} data={clientsData} rowKey="id" />
         </div>
     );
 }

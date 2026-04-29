@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
+import DataTable from "@/app/components/DataTable";
+import Modal from "@/app/components/Modal";
 
 export default function FoodItemsPage() {
     const [foodItems, setFoodItems] = useState([]);
@@ -94,6 +96,24 @@ export default function FoodItemsPage() {
         return <div className="p-8">Loading...</div>;
     }
 
+    const categoryOptions = categories.map(c => c.name);
+    const foodItemColumns = [
+        { key: "name", label: "Name", filterType: "text", sortable: true },
+        { key: "food_category", label: "Category", filterType: "multi", options: categoryOptions, sortable: true },
+        { key: "serving_size", label: "Serving Size", sortable: true },
+        { key: "serving_unit", label: "Unit" },
+        { key: "calories_per_serving", label: "Calories", sortable: true },
+        { key: "carbs_per_serving", label: "Carbs", sortable: true },
+        { key: "protein_per_serving", label: "Protein", sortable: true },
+        { key: "fats_per_serving", label: "Fat", sortable: true },
+        { key: "actions", label: "Actions", cardPriority: "hidden", render: (row) => (
+            <div className="flex gap-2">
+                <button onClick={() => setEditingItem(row)} className="btn-primary px-3 py-1 text-sm">Edit</button>
+                <button onClick={() => handleDelete(row.id)} className="btn-danger px-3 py-1 text-sm">Delete</button>
+            </div>
+        )},
+    ];
+
     return (
         <div className="p-8">
             <div className="flex items-center mb-6 gap-4">
@@ -103,9 +123,7 @@ export default function FoodItemsPage() {
                 </button>
             </div>
 
-            {showForm && (
-                <div onClick={() => setShowForm(false)} className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
-                    <div onClick={(e) => e.stopPropagation()} className="card p-6 w-96">
+            <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Food Item">
                         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                             <input type="text" name="name" value={formData.name} placeholder="Name" onChange={handleChange} className="input-field" />
                             <select name="food_category" value={formData.food_category} onChange={handleChange} className="input-field">
@@ -122,80 +140,28 @@ export default function FoodItemsPage() {
                             <input type="number" step="any" name="fats_per_serving" value={formData.fats_per_serving} placeholder="Fats per Serving" onChange={handleChange} className="input-field" />
                             <button type="submit" className="btn-primary px-4">Add Food Item</button>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
-            {editingItem && (
-                <div onClick={() => setEditingItem(null)} className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
-                    <div onClick={(e) => e.stopPropagation()} className="card p-6 w-96">
-                        <h2 className="text-lg font-semibold mb-4">Edit Food Item</h2>
+            <Modal open={!!editingItem} onClose={() => setEditingItem(null)} title="Edit Food Item">
                         <form onSubmit={handleUpdate} className="flex flex-col gap-4">
-                            <input type="text" name="name" value={editingItem.name} placeholder="Name" onChange={handleEditChange} className="input-field" />
-                            <select name="food_category" value={editingItem.food_category} onChange={handleEditChange} className="input-field">
+                            <input type="text" name="name" value={editingItem?.name || ''} placeholder="Name" onChange={handleEditChange} className="input-field" />
+                            <select name="food_category" value={editingItem?.food_category || ''} onChange={handleEditChange} className="input-field">
                                 <option value="">Select Category</option>
                                 {categories.map(cat => (
                                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                                 ))}
                             </select>
-                            <input type="number" step="any" name="serving_size" value={editingItem.serving_size} placeholder="Serving Size" onChange={handleEditChange} className="input-field" />
-                            <input type="text" name="serving_unit" value={editingItem.serving_unit} placeholder="Serving Unit" onChange={handleEditChange} className="input-field" />
-                            <input type="number" step="any" name="calories_per_serving" value={editingItem.calories_per_serving} placeholder="Calories per Serving" onChange={handleEditChange} className="input-field" />
-                            <input type="number" step="any" name="carbs_per_serving" value={editingItem.carbs_per_serving} placeholder="Carbs per Serving" onChange={handleEditChange} className="input-field" />
-                            <input type="number" step="any" name="protein_per_serving" value={editingItem.protein_per_serving} placeholder="Protein per Serving" onChange={handleEditChange} className="input-field" />
-                            <input type="number" step="any" name="fats_per_serving" value={editingItem.fats_per_serving} placeholder="Fats per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="serving_size" value={editingItem?.serving_size || ''} placeholder="Serving Size" onChange={handleEditChange} className="input-field" />
+                            <input type="text" name="serving_unit" value={editingItem?.serving_unit || ''} placeholder="Serving Unit" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="calories_per_serving" value={editingItem?.calories_per_serving || ''} placeholder="Calories per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="carbs_per_serving" value={editingItem?.carbs_per_serving || ''} placeholder="Carbs per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="protein_per_serving" value={editingItem?.protein_per_serving || ''} placeholder="Protein per Serving" onChange={handleEditChange} className="input-field" />
+                            <input type="number" step="any" name="fats_per_serving" value={editingItem?.fats_per_serving || ''} placeholder="Fats per Serving" onChange={handleEditChange} className="input-field" />
                             <button type="submit" className="btn-primary px-4">Save Changes</button>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
-            <div className="card">
-                <table className="w-full">
-                    <thead>
-                        <tr>
-                            <th className="text-left py-3 px-4">Name</th>
-                            <th className="text-left py-3 px-4">Food Category</th>
-                            <th className="text-left py-3 px-4">Serving Size</th>
-                            <th className="text-left py-3 px-4">Serving Unit</th>
-                            <th className="text-left py-3 px-4">Calories</th>
-
-                            <th className="text-left py-3 px-4">Carbs</th>
-                            <th className="text-left py-3 px-4">Protein</th>
-                            <th className="text-left py-3 px-4">Fat</th>
-                            <th className="text-left py-3 px-4">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {foodItems.map(item => (
-                            <tr key={item.id}>
-                                <td className="py-3 px-4">{item.name}</td>
-                                <td className="py-3 px-4">{item.food_category}</td>
-                                <td className="py-3 px-4">{item.serving_size}</td>
-                                <td className="py-3 px-4">{item.serving_unit}</td>
-                                <td className="py-3 px-4">{item.calories_per_serving}</td>
-                                <td className="py-3 px-4">{item.carbs_per_serving}</td>
-                                <td className="py-3 px-4">{item.protein_per_serving}</td>
-                                <td className="py-3 px-4">{item.fats_per_serving}</td>
-                                <td className="py-3 px-4 flex gap-2">
-                                <button
-                                    onClick={() => handleDelete(item.id)}
-                                    className="btn-danger px-3 py-1 text-sm"
-                                >
-                                    Delete
-                                </button>
-                                <button
-                                    onClick={() => setEditingItem(item)}
-                                    className="btn-primary px-3 py-1 text-sm"
-                                >
-                                    Update
-                                </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <DataTable columns={foodItemColumns} data={foodItems} rowKey="id" scrollable />
         </div>
     );
 }

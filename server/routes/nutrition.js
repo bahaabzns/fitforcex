@@ -444,8 +444,8 @@ router.post('/cycles/:id/duplicate', async (req, res) => {
             [cycle.plan_id]
         );
         const newCycle = await client.query(
-            'INSERT INTO nutrition_cycles (plan_id, name, cycle_order) VALUES ($1, $2, $3) RETURNING *',
-            [cycle.plan_id, `Copy of ${cycle.name}`, nextOrderResult.rows[0].next_order]
+            'INSERT INTO nutrition_cycles (plan_id, name, cycle_order, note, goal_calories, goal_protein, goal_carbs, goal_fats) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [cycle.plan_id, `Copy of ${cycle.name}`, nextOrderResult.rows[0].next_order, cycle.note, cycle.goal_calories, cycle.goal_protein, cycle.goal_carbs, cycle.goal_fats]
         );
         const newCycleId = newCycle.rows[0].id;
 
@@ -455,18 +455,32 @@ router.post('/cycles/:id/duplicate', async (req, res) => {
         );
         for (const meal of meals.rows) {
             const newMeal = await client.query(
-                'INSERT INTO nutrition_meals (cycle_id, name, meal_order) VALUES ($1, $2, $3) RETURNING *',
-                [newCycleId, meal.name, meal.meal_order]
+                'INSERT INTO nutrition_meals (cycle_id, name, meal_order, note) VALUES ($1, $2, $3, $4) RETURNING *',
+                [newCycleId, meal.name, meal.meal_order, meal.note]
             );
+            const newMealId = newMeal.rows[0].id;
+
             const items = await client.query(
                 'SELECT * FROM nutrition_meal_items WHERE meal_id = $1 ORDER BY meal_item_order ASC',
                 [meal.id]
             );
             for (const item of items.rows) {
-                await client.query(
-                    'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4)',
-                    [newMeal.rows[0].id, item.food_item_id, item.amount, item.meal_item_order]
+                const newItem = await client.query(
+                    'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4) RETURNING *',
+                    [newMealId, item.food_item_id, item.amount, item.meal_item_order]
                 );
+                const newItemId = newItem.rows[0].id;
+
+                const alts = await client.query(
+                    'SELECT * FROM nutrition_meal_item_alternatives WHERE meal_item_id = $1 ORDER BY alt_order ASC',
+                    [item.id]
+                );
+                for (const alt of alts.rows) {
+                    await client.query(
+                        'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order) VALUES ($1, $2, $3, $4)',
+                        [newItemId, alt.food_item_id, alt.amount, alt.alt_order]
+                    );
+                }
             }
         }
 
@@ -482,10 +496,28 @@ router.post('/cycles/:id/duplicate', async (req, res) => {
         );
         const mealsWithItems = await Promise.all(fullMeals.rows.map(async (m) => {
             const itemsRes = await pool.query(
-                'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
+                `SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order,
+                        fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving,
+                        fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
+                 FROM nutrition_meal_items nmi
+                 JOIN food_items fi ON fi.id = nmi.food_item_id
+                 WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC`,
                 [m.id]
             );
-            return { ...m, items: itemsRes.rows };
+            const itemsWithAlts = await Promise.all(itemsRes.rows.map(async (item) => {
+                const altsRes = await pool.query(
+                    `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
+                            fi.name, fi.serving_unit, fi.calories_per_serving,
+                            fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving,
+                            fi.serving_size, fi.food_category
+                     FROM nutrition_meal_item_alternatives nmia
+                     JOIN food_items fi ON fi.id = nmia.food_item_id
+                     WHERE nmia.meal_item_id = $1 ORDER BY nmia.alt_order ASC`,
+                    [item.id]
+                );
+                return { ...item, alternatives: altsRes.rows };
+            }));
+            return { ...m, items: itemsWithAlts };
         }));
         res.status(201).json({ ...newCycle.rows[0], meals: mealsWithItems });
     } catch (err) {
@@ -910,6 +942,39 @@ router.delete('/meal-item-alternatives/:id', async (req, res) => {
             return res.status(404).json({ error: 'Alternative not found' });
         }
         res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Activate a nutrition plan for a client (deactivates all others for the same client)
+router.post('/plans/:id/activate', async (req, res) => {
+    try {
+        const planResult = await pool.query(
+            'SELECT * FROM nutrition_plans WHERE id = $1 AND coach_id = $2',
+            [req.params.id, req.user.id]
+        );
+        if (planResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Plan not found' });
+        }
+        const plan = planResult.rows[0];
+
+        // Deactivate all other plans for the same client
+        await pool.query(
+            `UPDATE nutrition_plans SET status = 'inactive', updated_at = NOW()
+             WHERE client_id = $1 AND coach_id = $2 AND id != $3`,
+            [plan.client_id, req.user.id, plan.id]
+        );
+
+        // Activate the target plan
+        const updated = await pool.query(
+            `UPDATE nutrition_plans SET status = 'active', updated_at = NOW()
+             WHERE id = $1 RETURNING *`,
+            [plan.id]
+        );
+
+        res.json(updated.rows[0]);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

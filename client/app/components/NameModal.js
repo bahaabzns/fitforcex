@@ -1,14 +1,9 @@
-export default function NameModal({ title, value, placeholder, submitText, onChange, onSubmit, onClose }) {
+import Modal from "@/app/components/Modal";
+
+export default function NameModal({ open, title, value, placeholder, submitText, onChange, onSubmit, onClose }) {
     return (
-        <div
-            className="fixed inset-0 flex items-center justify-center bg-black/30 z-50"
-            onClick={onClose}
-        >
-            <form
-            className="card p-6 w-96 flex flex-col gap-4"
-            onClick={(e) => e.stopPropagation()}
-            >
-                <h2 className="text-xl font-bold">{title}</h2>
+        <Modal open={open} onClose={onClose} title={title}>
+            <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
                 <input
                     type="text"
                     className="input-field"
@@ -17,13 +12,10 @@ export default function NameModal({ title, value, placeholder, submitText, onCha
                     onChange={(e) => onChange(e.target.value)}
                     autoFocus
                 />
-                <button
-                    className="btn-primary px-4 w-full mb-4"
-                    onClick={onSubmit}
-                >
+                <button className="btn-primary px-4 w-full" type="submit">
                     {submitText}
                 </button>
             </form>
-        </div>
+        </Modal>
     );
 }

@@ -82,6 +82,7 @@ export default function NutritionPage() {
         handleAddAlternatives,
         handleDeleteAlternative,
         handleAlternativeAmountChange,
+        handleActivatePlan,
     } = useNutritionPlan(id);
 
 if (loading) {
@@ -104,6 +105,7 @@ return (
                 setSortOrder={setSortOrder}
                 selectedCycleIndex={selectedCycleIndex}
                 handleUpdateCycleGoals={handleUpdateCycleGoals}
+                handleActivatePlan={handleActivatePlan}
             />
         </div>
 
@@ -192,19 +194,18 @@ return (
         </div>
 
         {/* Food Search Modal */}
-        {foodItemModalOpen && (
-            <FoodItemsModal
+        <FoodItemsModal
+                open={foodItemModalOpen}
                 foodItems={foodItems}
                 foodSearchQuery={foodSearchQuery}
                 onSearchChange={setFoodSearchQuery}
                 onClose={() => setFoodItemModalOpen(false)}
                 onAddItems={(items) => handleAddMultipleFoodItems(selectedMeal.id, items)}
-            />
-        )}
+        />
 
         {/* Alternatives Modal */}
-        {alternativeModalOpenForItemId && (
-            <FoodItemsModal
+        <FoodItemsModal
+                open={!!alternativeModalOpenForItemId}
                 foodItems={foodItems}
                 foodSearchQuery={foodSearchQuery}
                 onSearchChange={setFoodSearchQuery}
@@ -218,8 +219,7 @@ return (
                     if (mainItem.food_item_id) ids.add(mainItem.food_item_id);
                     return ids;
                 })()}
-            />
-        )}
+        />
     </div>
 );
 }
