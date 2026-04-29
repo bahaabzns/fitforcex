@@ -125,19 +125,57 @@ export default function FoodItemsPage() {
 
             <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Food Item">
                         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                            <input type="text" name="name" value={formData.name} placeholder="Name" onChange={handleChange} className="input-field" />
-                            <select name="food_category" value={formData.food_category} onChange={handleChange} className="input-field">
+                            <div>
+                                <label className="block text-sm text-zinc-400 mb-1">Name</label>
+                                <input type="text" name="name" value={formData.name} placeholder="eg. Apple" onChange={handleChange} className="input-field" />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm text-zinc-400 mb-1">Food Category</label>
+                                <select name="food_category" value={formData.food_category} onChange={handleChange} className="input-field">
                                 <option value="">Select Category</option>
                                 {categories.map(cat => (
                                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                                 ))}
                             </select>
-                            <input type="number" step="any" name="serving_size" value={formData.serving_size} placeholder="Serving Size" onChange={handleChange} className="input-field" />
-                            <input type="text" name="serving_unit" value={formData.serving_unit} placeholder="Serving Unit" onChange={handleChange} className="input-field" />
-                            <input type="number" step="any" name="calories_per_serving" value={formData.calories_per_serving} placeholder="Calories per Serving" onChange={handleChange} className="input-field" />
-                            <input type="number" step="any" name="carbs_per_serving" value={formData.carbs_per_serving} placeholder="Carbs per Serving" onChange={handleChange} className="input-field" />
-                            <input type="number" step="any" name="protein_per_serving" value={formData.protein_per_serving} placeholder="Protein per Serving" onChange={handleChange} className="input-field" />
-                            <input type="number" step="any" name="fats_per_serving" value={formData.fats_per_serving} placeholder="Fats per Serving" onChange={handleChange} className="input-field" />
+                            </div>
+                            
+                            
+                            <div className="flex gap-4">
+                                <div>
+                                    <label className="block text-sm text-zinc-400 mb-1">Serving Size</label>
+                                    <input type="number" step="any" name="serving_size" value={formData.serving_size} placeholder="100" onChange={handleChange} className="input-field" />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm text-zinc-400 mb-1">Serving Unit</label>
+                                    <input type="text" name="serving_unit" value={formData.serving_unit} placeholder="g" onChange={handleChange} className="input-field" />
+                                </div>
+                                
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-zinc-400 mb-1">Nutrition facts per serving</label>
+                                <div className="grid grid-cols-4 gap-3">
+                                    <div>
+                                        <span className="text-xs text-zinc-500">Calories</span>
+                                        <input type="number" step="any" name="calories_per_serving" value={formData.calories_per_serving} placeholder="kcal" onChange={handleChange} className="input-field" />
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-zinc-500">Carbs</span>
+                                        <input type="number" step="any" name="carbs_per_serving" value={formData.carbs_per_serving} placeholder="g" onChange={handleChange} className="input-field" />
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-zinc-500">Protein</span>
+                                        <input type="number" step="any" name="protein_per_serving" value={formData.protein_per_serving} placeholder="g" onChange={handleChange} className="input-field" />
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-zinc-500">Fats</span>
+                                        <input type="number" step="any" name="fats_per_serving" value={formData.fats_per_serving} placeholder="g" onChange={handleChange} className="input-field" />
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <button type="submit" className="btn-primary px-4">Add Food Item</button>
                         </form>
             </Modal>
