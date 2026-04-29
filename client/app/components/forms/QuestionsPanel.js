@@ -112,6 +112,32 @@ export default function QuestionsPanel({
                 className="w-full mb-3 px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none resize-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors shrink-0"
             />
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 shrink-0">
+                <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">After Submission Action</label>
+                    <select
+                        value={selectedForm.post_action || selectedForm.postAction || 'nothing'}
+                        onChange={(e) => handleUpdateForm(selectedForm.id, { postAction: e.target.value })}
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                    >
+                        <option value="nothing">Nothing - Mark as reviewed</option>
+                        <option value="nutrition-plan">Make Nutrition Plan</option>
+                        <option value="workout-plan">Make Training Plan</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Form Type</label>
+                    <select
+                        value={selectedForm.form_type || selectedForm.formType || 'check-in'}
+                        onChange={(e) => handleUpdateForm(selectedForm.id, { formType: e.target.value })}
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                    >
+                        <option value="check-in">Check-in</option>
+                        <option value="assessment">Assessment</option>
+                    </select>
+                </div>
+            </div>
+
             {/* Divider */}
             <div className="shrink-0 border-t border-gray-100 my-2" />
 

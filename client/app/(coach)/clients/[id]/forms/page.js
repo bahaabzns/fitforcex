@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/axios";
-import { Trash2, Clock, CheckCircle, ClipboardList } from "lucide-react";
+import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock } from "lucide-react";
 
 export default function ClientFormsPage() {
     const { id } = useParams();
@@ -83,9 +83,9 @@ export default function ClientFormsPage() {
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4 shrink-0">
                         <h2 className="text-base font-semibold text-gray-900">Form Requests</h2>
-                        {requests.filter(r => r.status === 'pending').length > 0 && (
+                        {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length > 0 && (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
-                                {requests.filter(r => r.status === 'pending').length} pending
+                                {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length} open
                             </span>
                         )}
                     </div>
@@ -114,6 +114,10 @@ export default function ClientFormsPage() {
                                             <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium shrink-0">
                                                 <Clock size={10} /> Pending
                                             </span>
+                                        ) : req.status === 'scheduled' ? (
+                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium shrink-0">
+                                                <CalendarClock size={10} /> Scheduled
+                                            </span>
                                         ) : (
                                             <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium shrink-0">
                                                 <CheckCircle size={10} /> Submitted
@@ -124,7 +128,9 @@ export default function ClientFormsPage() {
                                         <p className="text-xs text-gray-400 truncate mt-0.5">{req.form_description}</p>
                                     )}
                                     <p className="text-xs text-gray-400 mt-1">
-                                        {new Date(req.requested_at).toLocaleDateString()}
+                                        {req.status === 'scheduled' && req.scheduled_at
+                                            ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
+                                            : new Date(req.requested_at).toLocaleDateString()}
                                         {req.submitted_at && ` · submitted ${new Date(req.submitted_at).toLocaleDateString()}`}
                                     </p>
                                 </button>
@@ -171,11 +177,17 @@ export default function ClientFormsPage() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
-                                    {selected.status === 'pending' ? (
+                                    {selected.status === 'pending' || selected.status === 'scheduled' ? (
                                         <>
-                                            <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium">
-                                                <Clock size={11} /> Pending
-                                            </span>
+                                            {selected.status === 'scheduled' ? (
+                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                                                    <CalendarClock size={11} /> Scheduled
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium">
+                                                    <Clock size={11} /> Pending
+                                                </span>
+                                            )}
                                             <button
                                                 onClick={() => handleCancel(selected.id)}
                                                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-300 transition-colors cursor-pointer"
@@ -193,11 +205,21 @@ export default function ClientFormsPage() {
 
                             {/* Responses body */}
                             <div className="flex-1 overflow-y-auto">
-                                {selected.status === 'pending' ? (
+                                {selected.status === 'pending' || selected.status === 'scheduled' ? (
                                     <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
-                                        <Clock size={36} className="text-yellow-300" />
-                                        <p className="text-sm font-medium text-gray-600">Waiting for client to respond</p>
-                                        <p className="text-xs text-gray-400">The client will see this form when they log in.</p>
+                                        {selected.status === 'scheduled' ? (
+                                            <>
+                                                <CalendarClock size={36} className="text-blue-300" />
+                                                <p className="text-sm font-medium text-gray-600">Form is scheduled</p>
+                                                <p className="text-xs text-gray-400">Client will receive it at {selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : 'the selected time'}.</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Clock size={36} className="text-yellow-300" />
+                                                <p className="text-sm font-medium text-gray-600">Waiting for client to respond</p>
+                                                <p className="text-xs text-gray-400">The client will see this form when they log in.</p>
+                                            </>
+                                        )}
                                     </div>
                                 ) : selected.responses?.length === 0 ? (
                                     <p className="text-sm text-gray-400 text-center py-8">No responses recorded.</p>

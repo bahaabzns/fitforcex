@@ -1,5 +1,101 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import api from "@/lib/axios";
+
+function makeTempId(prefix) {
+    return `tmp-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function toNumberOrNull(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
+function withListOrders(items, orderKey) {
+    return items.map((item, index) => ({ ...item, [orderKey]: index + 1 }));
+}
+
+function hydratePlan(plan) {
+    const cycles = (plan.cycles ?? []).map((cycle, cycleIndex) => {
+        const meals = (cycle.meals ?? []).map((meal, mealIndex) => {
+            const mealItems = (meal.items ?? []).map((item, itemIndex) => {
+                const alternatives = withListOrders(item.alternatives ?? [], "alt_order");
+                return {
+                    ...item,
+                    meal_item_order: itemIndex + 1,
+                    alternatives,
+                };
+            });
+            return {
+                ...meal,
+                meal_order: mealIndex + 1,
+                items: mealItems,
+            };
+        });
+        return {
+            ...cycle,
+            cycle_order: cycleIndex + 1,
+            meals,
+        };
+    });
+
+    return {
+        ...plan,
+        cycles,
+        cycle_count: cycles.length,
+    };
+}
+
+function cloneWithNewIdsForCycle(cycle) {
+    return {
+        ...cycle,
+        id: makeTempId("cycle"),
+        name: `Copy of ${cycle.name}`,
+        meals: withListOrders(
+            (cycle.meals ?? []).map((meal) => ({
+                ...meal,
+                id: makeTempId("meal"),
+                items: withListOrders(
+                    (meal.items ?? []).map((item) => ({
+                        ...item,
+                        id: makeTempId("item"),
+                        alternatives: withListOrders(
+                            (item.alternatives ?? []).map((alt) => ({
+                                ...alt,
+                                id: makeTempId("alt"),
+                            })),
+                            "alt_order"
+                        ),
+                    })),
+                    "meal_item_order"
+                ),
+            })),
+            "meal_order"
+        ),
+    };
+}
+
+function cloneWithNewIdsForMeal(meal) {
+    return {
+        ...meal,
+        id: makeTempId("meal"),
+        name: `Copy of ${meal.name}`,
+        items: withListOrders(
+            (meal.items ?? []).map((item) => ({
+                ...item,
+                id: makeTempId("item"),
+                alternatives: withListOrders(
+                    (item.alternatives ?? []).map((alt) => ({
+                        ...alt,
+                        id: makeTempId("alt"),
+                    })),
+                    "alt_order"
+                ),
+            })),
+            "meal_item_order"
+        ),
+    };
+}
 
 export function useNutritionPlan(clientId) {
 
@@ -18,486 +114,649 @@ export function useNutritionPlan(clientId) {
     const [loading, setLoading] = useState(true);
     const [sortOrder, setSortOrder] = useState("created_desc");
     const [alternativeModalOpenForItemId, setAlternativeModalOpenForItemId] = useState(null);
+    const [isDirty, setIsDirty] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState("idle");
+    const saveStatusTimeoutRef = useRef(null);
+
+
+    // Helpers ------------------------------------------------------------------
+
+    const applyPlanUpdate = useCallback((nextPlan, nextMealId = null) => {
+        const hydrated = hydratePlan({
+            ...nextPlan,
+            updated_at: new Date().toISOString(),
+        });
+
+        setSelectedPlan(hydrated);
+        setPlans((prev) => prev.map((p) => (p.id === hydrated.id ? hydrated : p)));
+
+        if (nextMealId) {
+            const foundMeal = hydrated.cycles.flatMap((c) => c.meals).find((m) => m.id === nextMealId) ?? null;
+            setSelectedMeal(foundMeal);
+            return;
+        }
+
+        if (selectedMeal) {
+            const sameMeal = hydrated.cycles.flatMap((c) => c.meals).find((m) => m.id === selectedMeal.id) ?? null;
+            setSelectedMeal(sameMeal);
+        }
+    }, [selectedMeal]);
+
+    const markDirty = useCallback(() => {
+        setIsDirty(true);
+    }, []);
+
+    const fetchClientPlans = useCallback(async () => {
+        if (!clientId) {
+            setPlans([]);
+            setSelectedPlan(null);
+            setSelectedMeal(null);
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const summaryResponse = await api.get(`/api/nutrition/plans?clientId=${clientId}`);
+            const summaries = summaryResponse.data ?? [];
+
+            const detailedPlans = await Promise.all(
+                summaries.map(async (plan) => {
+                    const detail = await api.get(`/api/nutrition/plans/${plan.id}`);
+                    return hydratePlan({ ...detail.data, cycle_count: detail.data?.cycles?.length ?? 0 });
+                })
+            );
+
+            setPlans(detailedPlans);
+            setSelectedPlan((prev) => {
+                if (!prev) return null;
+                return detailedPlans.find((p) => p.id === prev.id) ?? null;
+            });
+            setSelectedMeal((prevMeal) => {
+                if (!prevMeal) return null;
+                const flatMeals = detailedPlans.flatMap((p) => p.cycles.flatMap((c) => c.meals));
+                return flatMeals.find((m) => m.id === prevMeal.id) ?? null;
+            });
+            setIsDirty(false);
+        } catch (error) {
+            console.error("Error fetching nutrition plans:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [clientId]);
 
 
     // Effects ------------------------------------------------------------------
 
     useEffect(() => {
-            const fetchClientPlans = async () => {
-            try {
-                const response = await api.get(`/api/nutrition/plans?clientId=${clientId}`); // ✅ الصح
-                setPlans(response.data);
-                setLoading(false);
-            } catch (error) {
-                console.error("Error fetching nutrition plans:", error);
-                setLoading(false);
-            }
-            };
-
-            fetchClientPlans();
-    }, [clientId]);
+        fetchClientPlans();
+    }, [fetchClientPlans]);
 
     useEffect(() => {
         if (!foodItemModalOpen && !alternativeModalOpenForItemId) return;
         api.get("/api/nutrition/food-items").then((res) => setFoodItems(res.data));
     }, [foodItemModalOpen, alternativeModalOpenForItemId]);
 
+    useEffect(() => {
+        return () => {
+            if (saveStatusTimeoutRef.current) {
+                clearTimeout(saveStatusTimeoutRef.current);
+            }
+        };
+    }, []);
+
 
 
     // Handlers ------------------------------------------------------------------
 
-    const handleSelectedPlan = async (plan) => {
-        try {
-        const response = await api.get(`/api/nutrition/plans/${plan.id}`);
-        setSelectedPlan(response.data);
+    const handleSelectedPlan = (plan) => {
+        const found = plans.find((p) => p.id === plan.id);
+        if (!found) return;
+        setSelectedPlan(found);
         setSelectedCycleIndex(0);
         setSelectedMeal(null);
-        } catch (error) {
-        console.error("Error fetching plan details:", error);
-        }
     };
 
-    const handleCreatePlan = async () => {
-        try {
-            const response = await api.post("/api/nutrition/plans", { name: "New Plan", client_id: clientId });
-            setPlans(prev => [...prev, response.data]);
-            await handleSelectedPlan(response.data);
-            setPendingFocusPlanId(response.data.id);
-        } catch (error) {
-            console.error("Error creating new plan:", error);
-        }
-    };
-
-    const handleCreateCycle = async () => {
-        try {
-            const response = await api.post("/api/nutrition/cycles", { name: "New Cycle", planId: selectedPlan.id });
-            const updatedPlan = {
-                ...selectedPlan,
-                cycles: [...selectedPlan.cycles, { ...response.data, meals: [] }],
-            };
-            setSelectedPlan(updatedPlan);
-            setSelectedCycleIndex(updatedPlan.cycles.length - 1);
-            setSelectedMeal(null);
-            setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedPlan.cycles.length, updated_at: new Date().toISOString() } : p));
-            setPendingFocusCycleId(response.data.id);
-        } catch (error) {
-            console.error("Error adding new cycle:", error);
-        }
-    };
-
-    const handleDeleteMeal = async (mealId) => {
-        try {
-            await api.delete(`/api/nutrition/meals/${mealId}`);
-            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
-                ...cycle,
-                meals: cycle.meals.filter((meal) => meal.id !== mealId),
-            }));
-            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-            if (selectedMeal && selectedMeal.id === mealId) setSelectedMeal(null);
-            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-        } catch (error) {
-            console.error("Error deleting meal:", error);
-        }
-    };
-
-    const handleDuplicateMeal = async (mealId) => {
-        try {
-            const response = await api.post(`/api/nutrition/meals/${mealId}/duplicate`);
-            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
-                ...cycle,
-                meals: cycle.meals.some((m) => m.id === mealId)
-                    ? [...cycle.meals, response.data]
-                    : cycle.meals,
-            }));
-            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-        } catch (error) {
-            console.error("Error duplicating meal:", error);
-        }
-    };
-
-    const handleDuplicateCycle = async (cycleId) => {
-        try {
-            const response = await api.post(`/api/nutrition/cycles/${cycleId}/duplicate`);
-            setSelectedPlan({
-                ...selectedPlan,
-                cycles: [...selectedPlan.cycles, response.data],
-            });
-            setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: selectedPlan.cycles.length + 1, updated_at: new Date().toISOString() } : p));
-        } catch (error) {
-            console.error("Error duplicating cycle:", error);
-        }
-    };
-
-    const handleDeleteCycle = async (cycleIndex) => {
-        const cycleToDelete = selectedPlan.cycles[cycleIndex];
-        try {
-        await api.delete(`/api/nutrition/cycles/${cycleToDelete.id}`);
-        const updatedCycles = selectedPlan.cycles.filter(
-            (_, index) => index !== cycleIndex,
-        );
-        setSelectedPlan({
-            ...selectedPlan,
-            cycles: updatedCycles,
+    const handleCreatePlan = () => {
+        const now = new Date().toISOString();
+        const newCycle = {
+            id: makeTempId("cycle"),
+            name: "Cycle 1",
+            cycle_order: 1,
+            note: "",
+            goal_calories: null,
+            goal_protein: null,
+            goal_carbs: null,
+            goal_fats: null,
+            meals: [],
+        };
+        const newPlan = hydratePlan({
+            id: makeTempId("plan"),
+            name: "New Plan",
+            client_id: clientId,
+            status: "inactive",
+            created_at: now,
+            updated_at: now,
+            cycles: [newCycle],
         });
-        setPlans(prev => prev.map((p) => p.id === selectedPlan.id ? { ...p, cycle_count: updatedCycles.length, updated_at: new Date().toISOString() } : p));
+
+        setPlans((prev) => [newPlan, ...prev]);
+        setSelectedPlan(newPlan);
+        setSelectedCycleIndex(0);
+        setSelectedMeal(null);
+        setPendingFocusPlanId(newPlan.id);
+        markDirty();
+    };
+
+    const handleCreateCycle = () => {
+        if (!selectedPlan) return;
+        const newCycle = {
+            id: makeTempId("cycle"),
+            name: "New Cycle",
+            cycle_order: (selectedPlan.cycles?.length ?? 0) + 1,
+            note: "",
+            goal_calories: null,
+            goal_protein: null,
+            goal_carbs: null,
+            goal_fats: null,
+            meals: [],
+        };
+
+        const updatedPlan = {
+            ...selectedPlan,
+            cycles: withListOrders([...(selectedPlan.cycles ?? []), newCycle], "cycle_order"),
+        };
+        applyPlanUpdate(updatedPlan);
+        setSelectedCycleIndex(updatedPlan.cycles.length - 1);
+        setSelectedMeal(null);
+        setPendingFocusCycleId(newCycle.id);
+        markDirty();
+    };
+
+    const handleDeleteMeal = (mealId) => {
+        if (!selectedPlan) return;
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: withListOrders(cycle.meals.filter((meal) => meal.id !== mealId), "meal_order"),
+        }));
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
+        if (selectedMeal && selectedMeal.id === mealId) setSelectedMeal(null);
+        markDirty();
+    };
+
+    const handleDuplicateMeal = (mealId) => {
+        if (!selectedPlan) return;
+        const updatedCycles = selectedPlan.cycles.map((cycle) => {
+            const mealIndex = cycle.meals.findIndex((m) => m.id === mealId);
+            if (mealIndex === -1) return cycle;
+
+            const duplicated = cloneWithNewIdsForMeal(cycle.meals[mealIndex]);
+            const nextMeals = [...cycle.meals, duplicated];
+            return {
+                ...cycle,
+                meals: withListOrders(nextMeals, "meal_order"),
+            };
+        });
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
+        markDirty();
+    };
+
+    const handleDuplicateCycle = (cycleId) => {
+        if (!selectedPlan) return;
+        const original = selectedPlan.cycles.find((c) => c.id === cycleId);
+        if (!original) return;
+
+        const duplicated = cloneWithNewIdsForCycle(original);
+        const nextCycles = withListOrders([...(selectedPlan.cycles ?? []), duplicated], "cycle_order");
+        applyPlanUpdate({ ...selectedPlan, cycles: nextCycles });
+        markDirty();
+    };
+
+    const handleDeleteCycle = (cycleIndex) => {
+        if (!selectedPlan) return;
+        const cycleToDelete = selectedPlan.cycles[cycleIndex];
+        if (!cycleToDelete) return;
+
+        const updatedCycles = withListOrders(
+            selectedPlan.cycles.filter((_, index) => index !== cycleIndex),
+            "cycle_order"
+        );
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
         setSelectedCycleIndex(Math.max(0, cycleIndex - 1));
         setSelectedMeal(null);
-        } catch (error) {
-        console.error("Error deleting cycle:", error);
-        }
+        markDirty();
     };
 
-    const handleCreateMeal = async () => {
-        try {
-            const newMeal = { ...( await api.post("/api/nutrition/meals", {
-                cycleId: selectedPlan.cycles[selectedCycleIndex].id,
-                name: "New Meal",
-            }) ).data, items: [] };
-            const updatedCycles = selectedPlan.cycles.map((cycle, index) =>
-                index === selectedCycleIndex
-                    ? { ...cycle, meals: [...cycle.meals, newMeal] }
-                    : cycle
-            );
-            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-            setSelectedMeal(newMeal);
-            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-            setPendingFocusMealId(newMeal.id);
-        } catch (error) {
-            console.error("Error creating meal:", error);
-        }
+    const handleCreateMeal = () => {
+        if (!selectedPlan || !selectedPlan.cycles[selectedCycleIndex]) return;
+
+        const newMeal = {
+            id: makeTempId("meal"),
+            name: "New Meal",
+            meal_order: (selectedPlan.cycles[selectedCycleIndex].meals?.length ?? 0) + 1,
+            note: "",
+            items: [],
+        };
+
+        const updatedCycles = selectedPlan.cycles.map((cycle, index) =>
+            index === selectedCycleIndex
+                ? { ...cycle, meals: withListOrders([...(cycle.meals ?? []), newMeal], "meal_order") }
+                : cycle
+        );
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, newMeal.id);
+        setPendingFocusMealId(newMeal.id);
+        markDirty();
     };
 
     const handleFoodSearch = async (query) => {
         setFoodSearchQuery(query);
         try {
-        const response = await api.get(`/api/nutrition/food-items?search=${query}`);
-        setFoodItems(response.data);
+            const response = await api.get(`/api/nutrition/food-items?search=${query}`);
+            setFoodItems(response.data);
         } catch (error) {
-        console.error("Error searching food items:", error);
+            console.error("Error searching food items:", error);
         }
     };
 
-    const handleAddFoodItem = async (mealId, foodItem) => {
-        try {
-        const response = await api.post("/api/nutrition/meal-items", {
-            mealId,
-            foodItemId: foodItem.id,
+    const handleAddFoodItem = (mealId, foodItem) => {
+        if (!selectedPlan || !selectedMeal) return;
+
+        const newItem = {
+            id: makeTempId("item"),
+            food_item_id: foodItem.id,
             amount: foodItem.serving_size,
-            unit: foodItem.serving_unit,
-        });
-        const updatedCycles = selectedPlan.cycles.map((cycle) => {
-            return {
+            meal_item_order: (selectedMeal.items?.length ?? 0) + 1,
+            serving_unit: foodItem.serving_unit,
+            name: foodItem.name,
+            calories_per_serving: foodItem.calories_per_serving,
+            protein_per_serving: foodItem.protein_per_serving,
+            carbs_per_serving: foodItem.carbs_per_serving,
+            fats_per_serving: foodItem.fats_per_serving,
+            serving_size: foodItem.serving_size,
+            food_category: foodItem.food_category,
+            alternatives: [],
+        };
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
             ...cycle,
-            meals: cycle.meals.map((meal) => {
-                if (meal.id === mealId) {
-                return { ...meal, items: [...meal.items, response.data] };
-                }
-                return meal;
-            }),
-            };
-        });
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+            meals: cycle.meals.map((meal) =>
+                meal.id === mealId
+                    ? { ...meal, items: withListOrders([...(meal.items ?? []), newItem], "meal_item_order") }
+                    : meal
+            ),
+        }));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, mealId);
         setFoodItemModalOpen(false);
         setAlternativeModalOpenForItemId(null);
         setFoodSearchQuery("");
-        setSelectedMeal((prev) => ({
-            ...prev,
-            items: [...prev.items, { ...response.data, alternatives: [] }],
+        markDirty();
+    };
+
+    const handleAddMultipleFoodItems = (mealId, items) => {
+        if (!selectedPlan || !selectedMeal) return;
+
+        const toAdd = items.map((foodItem) => ({
+            id: makeTempId("item"),
+            food_item_id: foodItem.id,
+            amount: foodItem.serving_size,
+            serving_unit: foodItem.serving_unit,
+            name: foodItem.name,
+            calories_per_serving: foodItem.calories_per_serving,
+            protein_per_serving: foodItem.protein_per_serving,
+            carbs_per_serving: foodItem.carbs_per_serving,
+            fats_per_serving: foodItem.fats_per_serving,
+            serving_size: foodItem.serving_size,
+            food_category: foodItem.food_category,
+            alternatives: [],
         }));
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-        } catch (error) {
-        console.error("Error adding food item:", error);
-        }
-    };
 
-    const handleAddMultipleFoodItems = async (mealId, items) => {
-        try {
-            const addedItems = await Promise.all(
-                items.map(foodItem =>
-                    api.post("/api/nutrition/meal-items", {
-                        mealId,
-                        foodItemId: foodItem.id,
-                        amount: foodItem.serving_size,
-                        unit: foodItem.serving_unit,
-                    }).then(res => res.data)
-                )
-            );
-            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
-                ...cycle,
-                meals: cycle.meals.map((meal) =>
-                    meal.id === mealId
-                        ? { ...meal, items: [...meal.items, ...addedItems] }
-                        : meal
-                ),
-            }));
-            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-            setFoodItemModalOpen(false);
-            setAlternativeModalOpenForItemId(null);
-            setFoodSearchQuery("");
-            setSelectedMeal((prev) => ({ ...prev, items: [...prev.items, ...addedItems.map(i => ({ ...i, alternatives: [] }))] }));
-            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-        } catch (error) {
-            console.error("Error adding food items:", error);
-        }
-    };
-
-    const handleDeleteMealItem = async (itemId) => {
-        try {
-            await api.delete(`/api/nutrition/meal-items/${itemId}`);
-            const updatedItems = selectedMeal.items.filter((i) => i.id !== itemId);
-            setSelectedMeal({ ...selectedMeal, items: updatedItems });
-            const updatedCycles = selectedPlan.cycles.map((cycle) => ({
-                ...cycle,
-                meals: cycle.meals.map((meal) =>
-                    meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal
-                ),
-            }));
-            setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-            setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-        } catch (error) {
-            console.error("Error deleting meal item:", error);
-        }
-    };
-
-    const handleAmountChange = async (itemId, newAmount) => {
-        const response = await api.put(`/api/nutrition/meal-items/${itemId}`, {
-            amount: newAmount,
-            unit: selectedMeal.items.find((i) => i.id === itemId).serving_unit,
-        });
-        const mainItemAlts = selectedMeal.items.find(i => i.id === itemId)?.alternatives ?? [];
-        const targetCalories = (response.data.amount / response.data.serving_size) * response.data.calories_per_serving;
-        let finalAlts = mainItemAlts;
-        if (mainItemAlts.length > 0) {
-            const updatedAlts = await Promise.all(
-                mainItemAlts.map(alt => {
-                    const newAltAmount = Math.round((targetCalories / alt.calories_per_serving) * alt.serving_size * 10) / 10;
-                    return api.put(`/api/nutrition/meal-item-alternatives/${alt.id}`, { amount: newAltAmount })
-                        .then(res => res.data)
-                        .catch(() => alt);
-                })
-            );
-            finalAlts = updatedAlts;
-        }
-        // عدّل selectedMeal.items
-        const updatedItems = selectedMeal.items.map((i) =>
-        i.id === itemId ? { ...response.data, alternatives: finalAlts } : i,
-        );
-        setSelectedMeal({ ...selectedMeal, items: updatedItems });
-        // عدّل selectedPlan برضو
-        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
-        ...cycle,
-        meals: cycle.meals.map((meal) =>
-            meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal,
-        ),
-        }));
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-    };
-
-    const handleDeletePlan = async (planId) => {
-        try {
-            await api.delete(`/api/nutrition/plans/${planId}`);
-            setPlans(plans.filter((p) => p.id !== planId));
-            if (selectedPlan && selectedPlan.id === planId) {
-                setSelectedPlan(null);
-                setSelectedMeal(null);
-                setSelectedCycleIndex(0);
-            }
-        } catch (error) {
-            console.error("Error deleting plan:", error);
-        }
-    };
-
-    const handleDuplicatePlan = async (planId) => {
-        try {
-            const response = await api.post(`/api/nutrition/plans/${planId}/duplicate`);
-            setPlans([response.data, ...plans]);
-        } catch (error) {
-            console.error("Error duplicating plan:", error);
-        }
-    };
-
-    const sortedPlans = [...plans].sort((a, b) => {
-        if (sortOrder === "created_desc") return new Date(b.created_at) - new Date(a.created_at);
-        if (sortOrder === "created_asc")  return new Date(a.created_at) - new Date(b.created_at);
-        if (sortOrder === "updated_desc") return new Date(b.updated_at) - new Date(a.updated_at);
-        return 0;
-    });
-
-    const handleRenameCycle = async (cycleId, newName) => {
-        const response = await api.put(`/api/nutrition/cycles/${cycleId}`, { name: newName });
-        const updatedCycles = selectedPlan.cycles.map((cycle) =>
-            cycle.id === cycleId ? { ...cycle, name: response.data.name } : cycle
-        );
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-    };
-
-    const handleUpdateCycleGoals = async (cycleId, goals) => {
-        const cycle = selectedPlan.cycles.find(c => c.id === cycleId);
-        if (!cycle) return;
-        const response = await api.put(`/api/nutrition/cycles/${cycleId}`, {
-            name: cycle.name,
-            ...goals,
-        });
-        const updatedCycles = selectedPlan.cycles.map((c) =>
-            c.id === cycleId ? { ...c, ...response.data } : c
-        );
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
-    };
-
-    const handleRenamePlan = async (planId, newName) => {
-        const response = await api.put(`/api/nutrition/plans/${planId}`, { name: newName, status: selectedPlan.status });
-        setSelectedPlan({ ...selectedPlan, name: response.data.name });
-        setPlans(plans.map((p) => p.id === planId ? { ...p, name: response.data.name, updated_at: response.data.updated_at } : p));
-    };
-
-    const handleRenameMeal = async (mealId, newName) => {
-        const response = await api.put(`/api/nutrition/meals/${mealId}`, { name: newName });
-        setSelectedMeal({ ...selectedMeal, name: response.data.name });
         const updatedCycles = selectedPlan.cycles.map((cycle) => ({
             ...cycle,
             meals: cycle.meals.map((meal) =>
-                meal.id === mealId ? { ...meal, name: response.data.name } : meal,
+                meal.id === mealId
+                    ? { ...meal, items: withListOrders([...(meal.items ?? []), ...toAdd], "meal_item_order") }
+                    : meal
             ),
         }));
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, mealId);
+        setFoodItemModalOpen(false);
+        setAlternativeModalOpenForItemId(null);
+        setFoodSearchQuery("");
+        markDirty();
     };
 
-    const handleReorderMeals = (fromIndex, toIndex) => {
-        if (fromIndex === toIndex) return;
-        const cycle = selectedPlan.cycles[selectedCycleIndex];
-        const meals = [...cycle.meals];
-        const [moved] = meals.splice(fromIndex, 1);
-        meals.splice(toIndex, 0, moved);
-        const updatedCycles = selectedPlan.cycles.map((c, i) =>
-            i === selectedCycleIndex ? { ...c, meals } : c
+    const handleDeleteMealItem = (itemId) => {
+        if (!selectedPlan || !selectedMeal) return;
+
+        const updatedItems = withListOrders(
+            selectedMeal.items.filter((i) => i.id !== itemId),
+            "meal_item_order"
         );
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-    };
 
-    const handleReorderCycles = (fromIndex, toIndex) => {
-        if (fromIndex === toIndex) return;
-        const cycles = [...selectedPlan.cycles];
-        const [moved] = cycles.splice(fromIndex, 1);
-        cycles.splice(toIndex, 0, moved);
-        setSelectedPlan({ ...selectedPlan, cycles });
-        setSelectedCycleIndex(toIndex);
-    };
-
-    const handleReorderFoodItems = (fromIndex, toIndex) => {
-        if (fromIndex === toIndex) return;
-        const items = [...selectedMeal.items];
-        const [moved] = items.splice(fromIndex, 1);
-        items.splice(toIndex, 0, moved);
-        setSelectedMeal({ ...selectedMeal, items });
-        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
-            ...cycle,
-            meals: cycle.meals.map((meal) =>
-                meal.id === selectedMeal.id ? { ...meal, items } : meal
-            ),
-        }));
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-    };
-
-    // ── Alternatives ────────────────────────────────────────────────────────────
-
-    const updateItemAlts = (mealItemId, updater) => {
-        const updatedItems = selectedMeal.items.map((i) =>
-            i.id === mealItemId ? { ...i, alternatives: updater(i.alternatives ?? []) } : i
-        );
-        setSelectedMeal({ ...selectedMeal, items: updatedItems });
         const updatedCycles = selectedPlan.cycles.map((cycle) => ({
             ...cycle,
             meals: cycle.meals.map((meal) =>
                 meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal
             ),
         }));
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal.id);
+        markDirty();
     };
 
-    const handleAddAlternatives = async (mealItemId, foodItems) => {
-        try {
-            const mainItem = selectedMeal.items.find(i => i.id === mealItemId);
-            const targetCalories = (mainItem.amount / mainItem.serving_size) * mainItem.calories_per_serving;
-            const added = await Promise.all(
-                foodItems.map((foodItem) =>
-                    api.post(`/api/nutrition/meal-items/${mealItemId}/alternatives`, {
-                        foodItemId: foodItem.id,
-                        amount: Math.round((targetCalories / foodItem.calories_per_serving) * foodItem.serving_size * 10) / 10,
-                    }).then((res) => res.data)
-                )
-            );
-            updateItemAlts(mealItemId, (alts) => [...alts, ...added]);
-            setAlternativeModalOpenForItemId(null);
-            setFoodSearchQuery("");
-        } catch (error) {
-            console.error("Error adding alternatives:", error);
+    const handleAmountChange = (itemId, newAmount) => {
+        if (!selectedPlan || !selectedMeal) return;
+
+        const parsedAmount = Number(newAmount);
+        if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+
+        const mainItem = selectedMeal.items.find((i) => i.id === itemId);
+        if (!mainItem) return;
+
+        const targetCalories = (parsedAmount / mainItem.serving_size) * mainItem.calories_per_serving;
+
+        const updatedItems = selectedMeal.items.map((i) => {
+            if (i.id !== itemId) return i;
+
+            const updatedAlts = (i.alternatives ?? []).map((alt) => ({
+                ...alt,
+                amount: Math.round((targetCalories / alt.calories_per_serving) * alt.serving_size * 10) / 10,
+            }));
+
+            return {
+                ...i,
+                amount: parsedAmount,
+                alternatives: updatedAlts,
+            };
+        });
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal
+            ),
+        }));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal.id);
+        markDirty();
+    };
+
+    const handleDeletePlan = (planId) => {
+        const remaining = plans.filter((p) => p.id !== planId);
+        setPlans(remaining);
+
+        if (selectedPlan && selectedPlan.id === planId) {
+            setSelectedPlan(null);
+            setSelectedMeal(null);
+            setSelectedCycleIndex(0);
         }
+
+        markDirty();
     };
 
-    const handleDeleteAlternative = async (mealItemId, altId) => {
-        try {
-            await api.delete(`/api/nutrition/meal-item-alternatives/${altId}`);
-            updateItemAlts(mealItemId, (alts) => alts.filter((a) => a.id !== altId));
-        } catch (error) {
-            console.error("Error deleting alternative:", error);
-        }
+    const handleDuplicatePlan = (planId) => {
+        const original = plans.find((p) => p.id === planId);
+        if (!original) return;
+
+        const now = new Date().toISOString();
+        const duplicatedPlan = hydratePlan({
+            ...original,
+            id: makeTempId("plan"),
+            name: `Copy of ${original.name}`,
+            status: "inactive",
+            created_at: now,
+            updated_at: now,
+            cycles: withListOrders(
+                (original.cycles ?? []).map((cycle) => cloneWithNewIdsForCycle(cycle)),
+                "cycle_order"
+            ),
+        });
+
+        setPlans((prev) => [duplicatedPlan, ...prev]);
+        markDirty();
     };
 
-    const handleAlternativeAmountChange = async (mealItemId, altId, newAmount) => {
-        try {
-            const response = await api.put(`/api/nutrition/meal-item-alternatives/${altId}`, { amount: newAmount });
-            updateItemAlts(mealItemId, (alts) => alts.map((a) => (a.id === altId ? response.data : a)));
-        } catch (error) {
-            console.error("Error updating alternative amount:", error);
-        }
-    };
+    const sortedPlans = [...plans].sort((a, b) => {
+        if (sortOrder === "created_desc") return new Date(b.created_at) - new Date(a.created_at);
+        if (sortOrder === "created_asc") return new Date(a.created_at) - new Date(b.created_at);
+        if (sortOrder === "updated_desc") return new Date(b.updated_at) - new Date(a.updated_at);
+        return 0;
+    });
 
-    const handleUpdateCycleNote = async (cycleId, note) => {
-        const cycle = selectedPlan.cycles.find(c => c.id === cycleId);
-        if (!cycle) return;
-        await api.put(`/api/nutrition/cycles/${cycleId}`, { name: cycle.name, note });
-        const updatedCycles = selectedPlan.cycles.map((c) =>
-            c.id === cycleId ? { ...c, note } : c
+    const handleRenameCycle = (cycleId, newName) => {
+        if (!selectedPlan) return;
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) =>
+            cycle.id === cycleId ? { ...cycle, name: newName } : cycle
         );
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
+        markDirty();
     };
 
-    const handleUpdateMealNote = async (mealId, note) => {
-        await api.put(`/api/nutrition/meals/${mealId}`, { name: selectedMeal.name, note });
-        setSelectedMeal({ ...selectedMeal, note });
+    const handleUpdateCycleGoals = (cycleId, goals) => {
+        if (!selectedPlan) return;
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) =>
+            cycle.id === cycleId
+                ? {
+                    ...cycle,
+                    goal_calories: toNumberOrNull(goals.goal_calories),
+                    goal_protein: toNumberOrNull(goals.goal_protein),
+                    goal_carbs: toNumberOrNull(goals.goal_carbs),
+                    goal_fats: toNumberOrNull(goals.goal_fats),
+                }
+                : cycle
+        );
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
+        markDirty();
+    };
+
+    const handleRenamePlan = (planId, newName) => {
+        if (!selectedPlan || selectedPlan.id !== planId) return;
+
+        const updated = { ...selectedPlan, name: newName };
+        applyPlanUpdate(updated);
+        markDirty();
+    };
+
+    const handleRenameMeal = (mealId, newName) => {
+        if (!selectedPlan || !selectedMeal) return;
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === mealId ? { ...meal, name: newName } : meal
+            ),
+        }));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, mealId);
+        markDirty();
+    };
+
+    const handleReorderMeals = (fromIndex, toIndex) => {
+        if (!selectedPlan || fromIndex === toIndex) return;
+        const cycle = selectedPlan.cycles[selectedCycleIndex];
+        if (!cycle) return;
+
+        const meals = [...cycle.meals];
+        const [moved] = meals.splice(fromIndex, 1);
+        meals.splice(toIndex, 0, moved);
+
+        const updatedCycles = selectedPlan.cycles.map((c, i) =>
+            i === selectedCycleIndex ? { ...c, meals: withListOrders(meals, "meal_order") } : c
+        );
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal?.id ?? null);
+        markDirty();
+    };
+
+    const handleReorderCycles = (fromIndex, toIndex) => {
+        if (!selectedPlan || fromIndex === toIndex) return;
+
+        const cycles = [...selectedPlan.cycles];
+        const [moved] = cycles.splice(fromIndex, 1);
+        cycles.splice(toIndex, 0, moved);
+
+        const updatedCycles = withListOrders(cycles, "cycle_order");
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal?.id ?? null);
+        setSelectedCycleIndex(toIndex);
+        markDirty();
+    };
+
+    const handleReorderFoodItems = (fromIndex, toIndex) => {
+        if (!selectedPlan || !selectedMeal || fromIndex === toIndex) return;
+
+        const items = [...selectedMeal.items];
+        const [moved] = items.splice(fromIndex, 1);
+        items.splice(toIndex, 0, moved);
+        const orderedItems = withListOrders(items, "meal_item_order");
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === selectedMeal.id ? { ...meal, items: orderedItems } : meal
+            ),
+        }));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal.id);
+        markDirty();
+    };
+
+    // ── Alternatives ────────────────────────────────────────────────────────────
+
+    const updateItemAlts = (mealItemId, updater) => {
+        if (!selectedMeal || !selectedPlan) return;
+
+        const updatedItems = selectedMeal.items.map((i) =>
+            i.id === mealItemId
+                ? { ...i, alternatives: withListOrders(updater(i.alternatives ?? []), "alt_order") }
+                : i
+        );
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) => ({
+            ...cycle,
+            meals: cycle.meals.map((meal) =>
+                meal.id === selectedMeal.id ? { ...meal, items: updatedItems } : meal
+            ),
+        }));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, selectedMeal.id);
+    };
+
+    const handleAddAlternatives = (mealItemId, foodItemsToAdd) => {
+        if (!selectedMeal) return;
+
+        const mainItem = selectedMeal.items.find((i) => i.id === mealItemId);
+        if (!mainItem) return;
+
+        const targetCalories = (mainItem.amount / mainItem.serving_size) * mainItem.calories_per_serving;
+
+        const added = foodItemsToAdd.map((foodItem) => ({
+            id: makeTempId("alt"),
+            meal_item_id: mealItemId,
+            food_item_id: foodItem.id,
+            amount: Math.round((targetCalories / foodItem.calories_per_serving) * foodItem.serving_size * 10) / 10,
+            name: foodItem.name,
+            serving_unit: foodItem.serving_unit,
+            calories_per_serving: foodItem.calories_per_serving,
+            protein_per_serving: foodItem.protein_per_serving,
+            carbs_per_serving: foodItem.carbs_per_serving,
+            fats_per_serving: foodItem.fats_per_serving,
+            serving_size: foodItem.serving_size,
+            food_category: foodItem.food_category,
+        }));
+
+        updateItemAlts(mealItemId, (alts) => [...alts, ...added]);
+        setAlternativeModalOpenForItemId(null);
+        setFoodSearchQuery("");
+        markDirty();
+    };
+
+    const handleDeleteAlternative = (mealItemId, altId) => {
+        updateItemAlts(mealItemId, (alts) => alts.filter((a) => a.id !== altId));
+        markDirty();
+    };
+
+    const handleAlternativeAmountChange = (mealItemId, altId, newAmount) => {
+        const parsed = Number(newAmount);
+        if (!Number.isFinite(parsed) || parsed <= 0) return;
+
+        updateItemAlts(mealItemId, (alts) =>
+            alts.map((a) => (a.id === altId ? { ...a, amount: parsed } : a))
+        );
+        markDirty();
+    };
+
+    const handleUpdateCycleNote = (cycleId, note) => {
+        if (!selectedPlan) return;
+
+        const updatedCycles = selectedPlan.cycles.map((cycle) =>
+            cycle.id === cycleId ? { ...cycle, note } : cycle
+        );
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles });
+        markDirty();
+    };
+
+    const handleUpdateMealNote = (mealId, note) => {
+        if (!selectedPlan) return;
+
         const updatedCycles = selectedPlan.cycles.map((cycle) => ({
             ...cycle,
             meals: cycle.meals.map((meal) =>
                 meal.id === mealId ? { ...meal, note } : meal
             ),
         }));
-        setSelectedPlan({ ...selectedPlan, cycles: updatedCycles });
-        setPlans(plans.map((p) => p.id === selectedPlan.id ? { ...p, updated_at: new Date().toISOString() } : p));
+
+        applyPlanUpdate({ ...selectedPlan, cycles: updatedCycles }, mealId);
+        markDirty();
     };
 
-    const handleActivatePlan = async (planId) => {
+    const handleActivatePlan = (planId) => {
+        setPlans((prev) => prev.map((p) => ({ ...p, status: p.id === planId ? "active" : "inactive" })));
+        setSelectedPlan((prev) => {
+            if (!prev) return prev;
+            return { ...prev, status: prev.id === planId ? "active" : "inactive" };
+        });
+        markDirty();
+    };
+
+    const handleSaveDraft = async () => {
+        if (!clientId || isSaving || !isDirty) return;
+
         try {
-            const response = await api.post(`/api/nutrition/plans/${planId}/activate`);
-            // Update status in plans list: activate target, deactivate others
-            setPlans(prev => prev.map(p => ({
-                ...p,
-                status: p.id === planId ? 'active' : 'inactive',
-            })));
-            // Update selectedPlan if it's the one being activated or deactivated
-            if (selectedPlan) {
-                setSelectedPlan(prev => ({
-                    ...prev,
-                    status: prev.id === planId ? 'active' : 'inactive',
-                }));
+            setIsSaving(true);
+            setSaveStatus("saving");
+            const activePlan = plans.find((p) => p.status === "active");
+
+            await api.post("/api/nutrition/plans/save-draft", {
+                clientId,
+                activePlanId: activePlan?.id ?? null,
+                plans,
+            });
+
+            setIsDirty(false);
+            setSaveStatus("saved");
+            if (saveStatusTimeoutRef.current) {
+                clearTimeout(saveStatusTimeoutRef.current);
             }
+            saveStatusTimeoutRef.current = setTimeout(() => {
+                setSaveStatus("idle");
+                saveStatusTimeoutRef.current = null;
+            }, 2200);
         } catch (error) {
-            console.error('Error activating plan:', error);
+            console.error("Error saving nutrition draft:", error);
+            setSaveStatus("idle");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -549,5 +808,9 @@ export function useNutritionPlan(clientId) {
         handleDeleteAlternative,
         handleAlternativeAmountChange,
         handleActivatePlan,
-    }
+        handleSaveDraft,
+        isDirty,
+        isSaving,
+        saveStatus,
+    };
 }

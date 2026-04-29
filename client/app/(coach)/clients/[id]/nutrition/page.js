@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useNutritionPlan } from "@/hooks/useNutritionPlan";
 import { calcMeal, calcCycle, calcItem } from "@/lib/nutritionCalc";
@@ -83,14 +83,34 @@ export default function NutritionPage() {
         handleDeleteAlternative,
         handleAlternativeAmountChange,
         handleActivatePlan,
+        handleSaveDraft,
+        isDirty,
+        isSaving,
+        saveStatus,
     } = useNutritionPlan(id);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (!isDirty) return;
+            event.preventDefault();
+            event.returnValue = "";
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
+    }, [isDirty]);
 
 if (loading) {
     return <div>Loading...</div>;
 }
 
 return (
-    <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-full">
+    <div className="flex-1 h-full min-h-full flex flex-col overflow-hidden">
+        
+
+    <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-0">
 
         {/* Panel 1: Plans List */}
         <div style={{ width: `${widths[0]}%` }} className="flex flex-col min-h-full overflow-hidden">
@@ -141,6 +161,10 @@ return (
                     handleReorderMeals={handleReorderMeals}
                     handleReorderCycles={handleReorderCycles}
                     handleUpdateCycleNote={handleUpdateCycleNote}
+                    handleSaveDraft={handleSaveDraft}
+                    isDirty={isDirty}
+                    isSaving={isSaving}
+                    saveStatus={saveStatus}
                     pendingFocusPlanId={pendingFocusPlanId}
                     setPendingFocusPlanId={setPendingFocusPlanId}
                     pendingFocusCycleId={pendingFocusCycleId}
@@ -225,6 +249,7 @@ return (
                     return ids;
                 })()}
         />
+    </div>
     </div>
 );
 }

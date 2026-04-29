@@ -100,6 +100,8 @@ export function useFormBuilder() {
             const newFormRes = await api.post('/api/forms', {
                 title: `${source.title} (copy)`,
                 description: source.description,
+                postAction: source.post_action || source.postAction || 'nothing',
+                formType: source.form_type || source.formType || 'check-in',
             });
             const newForm = newFormRes.data;
 

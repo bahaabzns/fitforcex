@@ -5,6 +5,43 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const clientAuthMiddleware = require('../middleware/clientAuth');
 
+let clientPortalSchemaReadyPromise;
+
+async function ensureClientPortalSchema() {
+    if (!clientPortalSchemaReadyPromise) {
+        clientPortalSchemaReadyPromise = (async () => {
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`);
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS post_action TEXT NOT NULL DEFAULT 'nothing'`);
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS action_taken_at TIMESTAMPTZ`);
+        })();
+    }
+
+    await clientPortalSchemaReadyPromise;
+}
+
+async function activateDueClientScheduledRequests(clientId) {
+    await pool.query(
+        `UPDATE form_requests
+         SET status = 'pending',
+             requested_at = COALESCE(requested_at, NOW())
+         WHERE client_id = $1
+           AND status = 'scheduled'
+           AND scheduled_at IS NOT NULL
+           AND scheduled_at <= NOW()`,
+        [clientId]
+    );
+}
+
+router.use(async (req, res, next) => {
+    try {
+        await ensureClientPortalSchema();
+        next();
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to initialize client portal schema' });
+    }
+});
+
 // POST /api/client-portal/login
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
@@ -154,13 +191,15 @@ router.get('/active-plan', clientAuthMiddleware, async (req, res) => {
 // GET /api/client-portal/form-requests — list all form requests for this client
 router.get('/form-requests', clientAuthMiddleware, async (req, res) => {
     try {
+        await activateDueClientScheduledRequests(req.client.id);
+
         const result = await pool.query(
-            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at,
+            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
                     f.id AS form_id, f.title AS form_title, f.description AS form_description
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
              WHERE fr.client_id = $1
-             ORDER BY fr.requested_at DESC`,
+             ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC`,
             [req.client.id]
         );
         res.json(result.rows);
@@ -173,8 +212,10 @@ router.get('/form-requests', clientAuthMiddleware, async (req, res) => {
 // GET /api/client-portal/form-requests/:request_id — get form + questions for a specific request
 router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res) => {
     try {
+        await activateDueClientScheduledRequests(req.client.id);
+
         const reqResult = await pool.query(
-            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at,
+            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
                     f.id AS form_id, f.title AS form_title, f.description AS form_description
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
@@ -185,13 +226,17 @@ router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res) 
 
         const request = reqResult.rows[0];
 
+
+        if (request.status === 'scheduled' && request.scheduled_at && new Date(request.scheduled_at).getTime() > Date.now()) {
+            return res.status(403).json({ error: 'This form is not available yet' });
+        }
         const questions = await pool.query(
             'SELECT * FROM form_questions WHERE form_id = $1 ORDER BY order_index ASC, id ASC',
             [request.form_id]
         );
 
         let responses = [];
-        if (request.status !== 'pending') {
+        if (request.status !== 'pending' && request.status !== 'scheduled') {
             const respResult = await pool.query(
                 'SELECT question_id, answer FROM form_responses WHERE request_id = $1',
                 [request.id]

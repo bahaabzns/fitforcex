@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
-import { Clock, CheckCircle, ClipboardList } from "lucide-react";
+import { Clock, CheckCircle, ClipboardList, CalendarClock } from "lucide-react";
 
 export default function ClientFormsListPage() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("all"); // "all" | "pending" | "submitted"
+    const [filter, setFilter] = useState("all"); // "all" | "pending" | "scheduled" | "submitted"
 
     useEffect(() => {
         api.get("/api/client-portal/form-requests")
@@ -20,7 +20,8 @@ export default function ClientFormsListPage() {
     const filtered = requests.filter((r) => {
         if (filter === "all") return true;
         if (filter === "pending") return r.status === "pending";
-        if (filter === "submitted") return r.status !== "pending";
+        if (filter === "scheduled") return r.status === "scheduled";
+        if (filter === "submitted") return r.status === "submitted" || r.status === "reviewed";
         return true;
     });
     const pendingCount = requests.filter(r => r.status === "pending").length;
@@ -50,6 +51,7 @@ export default function ClientFormsListPage() {
                 {[
                     { key: "all", label: "All" },
                     { key: "pending", label: "Pending" },
+                    { key: "scheduled", label: "Scheduled" },
                     { key: "submitted", label: "Submitted" },
                 ].map(tab => (
                     <button
@@ -70,7 +72,13 @@ export default function ClientFormsListPage() {
                 <div className="card flex flex-col items-center justify-center py-16 gap-3 text-center">
                     <ClipboardList size={40} className="text-gray-200" />
                     <p className="text-base font-medium text-gray-600">
-                        {filter === "pending" ? "No pending forms" : filter === "submitted" ? "No submitted forms yet" : "No forms yet"}
+                        {filter === "pending"
+                            ? "No pending forms"
+                            : filter === "scheduled"
+                            ? "No scheduled forms"
+                            : filter === "submitted"
+                            ? "No submitted forms yet"
+                            : "No forms yet"}
                     </p>
                     <p className="text-sm text-gray-400">Your coach will send forms for you to fill out.</p>
                 </div>
@@ -84,7 +92,9 @@ export default function ClientFormsListPage() {
                                     <p className="text-sm text-gray-400 mt-0.5">{req.form_description}</p>
                                 )}
                                 <p className="text-xs text-gray-400 mt-1">
-                                    Requested {new Date(req.requested_at).toLocaleDateString()}
+                                    {req.status === "scheduled" && req.scheduled_at
+                                        ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
+                                        : `Requested ${new Date(req.requested_at).toLocaleDateString()}`}
                                     {req.submitted_at && ` · Submitted ${new Date(req.submitted_at).toLocaleDateString()}`}
                                 </p>
                             </div>
@@ -102,6 +112,15 @@ export default function ClientFormsListPage() {
                                             Fill Form
                                         </Link>
                                     </>
+                                ) : req.status === "scheduled" ? (
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                                            <CalendarClock size={11} /> Scheduled
+                                        </span>
+                                        <span className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400">
+                                            Not Open Yet
+                                        </span>
+                                    </div>
                                 ) : (
                                     <div className="flex items-center gap-2">
                                         <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-medium">

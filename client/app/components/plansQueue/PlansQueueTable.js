@@ -45,15 +45,19 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
 
     const allItems = [...mergedAwaiting, ...mergedSubmissions];
 
-    async function markReviewed(ids) {
+    async function markReviewed(ids, action = "review") {
         setMarking(true);
         try {
-            const res = await api.patch("/api/forms/queue/review", { ids });
+            const res = await api.patch("/api/forms/queue/review", { ids, action });
             const updatedIds = res.data?.updatedIds || ids;
             setSubmissions((prev) =>
                 prev.map((s) =>
                     updatedIds.includes(s.id) || updatedIds.includes(String(s.id))
-                        ? { ...s, status: "action-done", actionTakenAt: new Date().toISOString() }
+                        ? {
+                            ...s,
+                            status: action === "undo" ? "need-action" : "action-done",
+                            actionTakenAt: action === "undo" ? null : new Date().toISOString(),
+                        }
                         : s
                 )
             );
@@ -175,12 +179,21 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "requestedAt",
-            label: "Requested",
+            label: "Requested / Scheduled",
             sortable: true,
             filterType: "dateRange",
             width: "150px",
             cardPriority: "secondary",
-            render: (row) => shortDate(row.requestedAt),
+            render: (row) => {
+                if (row.scheduledAt && row.status === "scheduled") {
+                    return (
+                        <span className="text-blue-500 text-xs whitespace-nowrap">
+                            Scheduled {shortDate(row.scheduledAt)}
+                        </span>
+                    );
+                }
+                return shortDate(row.requestedAt);
+            },
         },
         {
             key: "submittedAt",
@@ -255,7 +268,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        markReviewed([row.id]);
+                                        markReviewed([row.id], "review");
                                         router.push(`/clients/${row.clientId}/nutrition?submissionId=${row.id}`);
                                     }}
                                     disabled={marking}
@@ -267,7 +280,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        markReviewed([row.id]);
+                                        markReviewed([row.id], "review");
                                         router.push(`/clients/${row.clientId}/training?submissionId=${row.id}`);
                                     }}
                                     disabled={marking}
@@ -277,13 +290,22 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                 </button>
                             ) : (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); markReviewed([row.id]); }}
+                                    onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "review"); }}
                                     disabled={marking}
                                     className="text-emerald-600 hover:text-emerald-700 text-[11px] px-2 py-1 rounded hover:bg-emerald-100 transition-colors disabled:opacity-50 whitespace-nowrap"
                                 >
                                     Mark Reviewed
                                 </button>
                             )
+                        )}
+                        {row.status === "action-done" && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "undo"); }}
+                                disabled={marking}
+                                className="text-zinc-600 hover:text-zinc-800 text-[11px] px-2 py-1 rounded hover:bg-zinc-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                            >
+                                Undo
+                            </button>
                         )}
                     </div>
                 );

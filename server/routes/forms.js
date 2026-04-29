@@ -5,6 +5,56 @@ const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware);
 
+let schemaReadyPromise;
+
+function normalizePostAction(value) {
+    const allowed = ['nothing', 'nutrition-plan', 'workout-plan'];
+    return allowed.includes(value) ? value : 'nothing';
+}
+
+function normalizeFormType(value) {
+    const allowed = ['assessment', 'check-in'];
+    return allowed.includes(value) ? value : 'check-in';
+}
+
+async function ensureFormsQueueSchema() {
+    if (!schemaReadyPromise) {
+        schemaReadyPromise = (async () => {
+            await pool.query(`ALTER TABLE forms ADD COLUMN IF NOT EXISTS post_action TEXT NOT NULL DEFAULT 'nothing'`);
+            await pool.query(`ALTER TABLE forms ADD COLUMN IF NOT EXISTS form_type TEXT NOT NULL DEFAULT 'check-in'`);
+
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS post_action TEXT NOT NULL DEFAULT 'nothing'`);
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`);
+            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS action_taken_at TIMESTAMPTZ`);
+        })();
+    }
+
+    await schemaReadyPromise;
+}
+
+async function activateDueScheduledRequests(workspaceId) {
+    await pool.query(
+        `UPDATE form_requests
+         SET status = 'pending',
+             requested_at = COALESCE(requested_at, NOW())
+         WHERE workspace_id = $1
+           AND status = 'scheduled'
+           AND scheduled_at IS NOT NULL
+           AND scheduled_at <= NOW()`,
+        [workspaceId]
+    );
+}
+
+router.use(async (req, res, next) => {
+    try {
+        await ensureFormsQueueSchema();
+        next();
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to initialize forms schema' });
+    }
+});
+
 // ── Forms ──────────────────────────────────────────────────────────────────────
 
 router.get('/', async (req, res) => {
@@ -26,13 +76,15 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-    const { title, description } = req.body;
+    const { title, description, postAction, formType } = req.body;
+    const safePostAction = normalizePostAction(postAction);
+    const safeFormType = normalizeFormType(formType);
     try {
         const result = await pool.query(
-            `INSERT INTO forms (workspace_id, title, description)
-             VALUES ($1, $2, $3)
+            `INSERT INTO forms (workspace_id, title, description, post_action, form_type)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING *, 0 AS question_count`,
-            [req.user.id, title || 'Untitled Form', description || null]
+            [req.user.id, title || 'Untitled Form', description || null, safePostAction, safeFormType]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -42,17 +94,21 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-    const { title, description, status } = req.body;
+    const { title, description, status, postAction, formType } = req.body;
+    const safePostAction = postAction !== undefined ? normalizePostAction(postAction) : undefined;
+    const safeFormType = formType !== undefined ? normalizeFormType(formType) : undefined;
     try {
         const result = await pool.query(
             `UPDATE forms
              SET title = COALESCE($1, title),
                  description = COALESCE($2, description),
                  status = COALESCE($3, status),
+                 post_action = COALESCE($4, post_action),
+                 form_type = COALESCE($5, form_type),
                  updated_at = NOW()
-             WHERE id = $4 AND workspace_id = $5
+             WHERE id = $6 AND workspace_id = $7
              RETURNING *`,
-            [title, description, status, req.params.id, req.user.id]
+            [title, description, status, safePostAction, safeFormType, req.params.id, req.user.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
         res.json(result.rows[0]);
@@ -203,11 +259,22 @@ router.put('/:id/questions/reorder', async (req, res) => {
 
 // POST /api/forms/requests — coach requests one or more forms from a client
 router.post('/requests', async (req, res) => {
-    const { form_ids, client_id } = req.body;
+    const { form_ids, client_id, mode, scheduled_at } = req.body;
+    const requestMode = mode === 'schedule' ? 'schedule' : 'now';
+
     if (!form_ids || !Array.isArray(form_ids) || form_ids.length === 0) {
         return res.status(400).json({ error: 'form_ids array is required' });
     }
     if (!client_id) return res.status(400).json({ error: 'client_id is required' });
+
+    let scheduledAt = null;
+    if (requestMode === 'schedule') {
+        if (!scheduled_at) return res.status(400).json({ error: 'scheduled_at is required when mode is schedule' });
+        scheduledAt = new Date(scheduled_at);
+        if (Number.isNaN(scheduledAt.getTime())) return res.status(400).json({ error: 'scheduled_at is invalid' });
+        if (scheduledAt.getTime() <= Date.now()) return res.status(400).json({ error: 'scheduled_at must be in the future' });
+    }
+
     try {
         // Verify client belongs to this workspace
         const clientCheck = await pool.query(
@@ -220,15 +287,18 @@ router.post('/requests', async (req, res) => {
         for (const form_id of form_ids) {
             // Verify form belongs to this workspace
             const formCheck = await pool.query(
-                'SELECT id FROM forms WHERE id = $1 AND workspace_id = $2',
+                'SELECT id, post_action FROM forms WHERE id = $1 AND workspace_id = $2',
                 [form_id, req.user.id]
             );
             if (formCheck.rows.length === 0) continue;
 
+            const formPostAction = normalizePostAction(formCheck.rows[0].post_action);
+            const initialStatus = requestMode === 'schedule' ? 'scheduled' : 'pending';
+
             const result = await pool.query(
-                `INSERT INTO form_requests (form_id, client_id, workspace_id)
-                 VALUES ($1, $2, $3) RETURNING *`,
-                [form_id, client_id, req.user.id]
+                `INSERT INTO form_requests (form_id, client_id, workspace_id, status, scheduled_at, post_action)
+                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+                [form_id, client_id, req.user.id, initialStatus, scheduledAt, formPostAction]
             );
             inserted.push(result.rows[0]);
         }
@@ -242,6 +312,8 @@ router.post('/requests', async (req, res) => {
 // GET /api/forms/requests/client/:client_id — get all form requests for a client
 router.get('/requests/client/:client_id', async (req, res) => {
     try {
+        await activateDueScheduledRequests(req.user.id);
+
         const clientCheck = await pool.query(
             'SELECT id FROM clients WHERE id = $1 AND coach_id = $2',
             [req.params.client_id, req.user.id]
@@ -249,18 +321,25 @@ router.get('/requests/client/:client_id', async (req, res) => {
         if (clientCheck.rows.length === 0) return res.status(403).json({ error: 'Client not found' });
 
         const result = await pool.query(
-            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at,
-                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
+                    f.id AS form_id, f.title AS form_title, f.description AS form_description,
+                    f.post_action AS form_post_action, f.form_type
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
              WHERE fr.client_id = $1 AND fr.workspace_id = $2
-             ORDER BY fr.requested_at DESC`,
+             ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC`,
             [req.params.client_id, req.user.id]
         );
 
         // For submitted ones, also attach responses with question labels
         const requests = await Promise.all(result.rows.map(async (req_row) => {
-            if (req_row.status === 'pending') return { ...req_row, responses: [] };
+            if (req_row.status === 'pending' || req_row.status === 'scheduled') {
+                return {
+                    ...req_row,
+                    post_action: req_row.post_action || req_row.form_post_action || 'nothing',
+                    responses: [],
+                };
+            }
             const responses = await pool.query(
                 `SELECT fr.answer, fq.label, fq.type, fq.order_index
                  FROM form_responses fr
@@ -269,7 +348,11 @@ router.get('/requests/client/:client_id', async (req, res) => {
                  ORDER BY fq.order_index ASC, fq.id ASC`,
                 [req_row.id]
             );
-            return { ...req_row, responses: responses.rows };
+            return {
+                ...req_row,
+                post_action: req_row.post_action || req_row.form_post_action || 'nothing',
+                responses: responses.rows,
+            };
         }));
 
         res.json(requests);
@@ -282,9 +365,12 @@ router.get('/requests/client/:client_id', async (req, res) => {
 // GET /api/forms/queue — coach queue across all clients
 router.get('/queue', async (req, res) => {
     try {
+        await activateDueScheduledRequests(req.user.id);
+
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
-                    f.title AS form_title,
+                    fr.scheduled_at, fr.post_action, fr.action_taken_at,
+                    f.title AS form_title, f.form_type, f.post_action AS form_post_action,
                     c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
                     NULL::text AS client_package,
                     NULL::text AS subscription_status
@@ -297,7 +383,7 @@ router.get('/queue', async (req, res) => {
         );
 
         const queueItems = await Promise.all(result.rows.map(async (row) => {
-            if (row.status === 'pending') {
+            if (row.status === 'pending' || row.status === 'scheduled') {
                 return {
                     id: row.id,
                     clientId: row.client_id,
@@ -308,10 +394,13 @@ router.get('/queue', async (req, res) => {
                     subscriptionStatus: row.subscription_status,
                     formId: row.form_id,
                     formTitle: row.form_title,
+                    formType: row.form_type || 'check-in',
+                    postAction: normalizePostAction(row.post_action || row.form_post_action),
                     requestedAt: row.requested_at,
+                    scheduledAt: row.scheduled_at,
                     submittedAt: null,
                     actionTakenAt: null,
-                    status: 'awaiting',
+                    status: row.status === 'scheduled' ? 'scheduled' : 'awaiting',
                     answers: {},
                     responses: [],
                 };
@@ -341,9 +430,12 @@ router.get('/queue', async (req, res) => {
                 subscriptionStatus: row.subscription_status,
                 formId: row.form_id,
                 formTitle: row.form_title,
+                formType: row.form_type || 'check-in',
+                postAction: normalizePostAction(row.post_action || row.form_post_action),
                 requestedAt: row.requested_at,
+                scheduledAt: row.scheduled_at,
                 submittedAt: row.submitted_at,
-                actionTakenAt: row.status === 'reviewed' ? row.submitted_at : null,
+                actionTakenAt: row.action_taken_at,
                 status: row.status === 'reviewed' ? 'action-done' : 'need-action',
                 answers,
                 responses: responsesResult.rows,
@@ -359,21 +451,38 @@ router.get('/queue', async (req, res) => {
 
 // PATCH /api/forms/queue/review — mark queue items as reviewed
 router.patch('/queue/review', async (req, res) => {
-    const { ids } = req.body;
+    const { ids, action } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ error: 'ids array is required' });
     }
 
+    const actionType = action === 'undo' ? 'undo' : 'review';
+
     try {
-        const result = await pool.query(
-            `UPDATE form_requests
-             SET status = 'reviewed'
-             WHERE workspace_id = $1
-               AND id::text = ANY($2::text[])
-               AND status <> 'pending'
-             RETURNING id`,
-            [req.user.id, ids.map(String)]
-        );
+        let result;
+        if (actionType === 'undo') {
+            result = await pool.query(
+                `UPDATE form_requests
+                 SET status = 'submitted',
+                     action_taken_at = NULL
+                 WHERE workspace_id = $1
+                   AND id::text = ANY($2::text[])
+                   AND status = 'reviewed'
+                 RETURNING id`,
+                [req.user.id, ids.map(String)]
+            );
+        } else {
+            result = await pool.query(
+                `UPDATE form_requests
+                 SET status = 'reviewed',
+                     action_taken_at = NOW()
+                 WHERE workspace_id = $1
+                   AND id::text = ANY($2::text[])
+                   AND status = 'submitted'
+                 RETURNING id`,
+                [req.user.id, ids.map(String)]
+            );
+        }
 
         res.json({ updatedIds: result.rows.map(r => r.id) });
     } catch (err) {
@@ -387,11 +496,11 @@ router.delete('/requests/:request_id', async (req, res) => {
     try {
         const result = await pool.query(
             `DELETE FROM form_requests
-             WHERE id = $1 AND workspace_id = $2 AND status = 'pending'
+             WHERE id = $1 AND workspace_id = $2 AND status IN ('pending', 'scheduled')
              RETURNING *`,
             [req.params.request_id, req.user.id]
         );
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found or already submitted' });
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found or already submitted/reviewed' });
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);

@@ -21,6 +21,10 @@ export default function MiddlePanel({
     handleReorderMeals,
     handleReorderCycles,
     handleUpdateCycleNote,
+    handleSaveDraft,
+    isDirty,
+    isSaving,
+    saveStatus,
     pendingFocusPlanId, setPendingFocusPlanId,
     pendingFocusCycleId, setPendingFocusCycleId,
 }) {
@@ -93,6 +97,28 @@ export default function MiddlePanel({
                     }}
                     className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 truncate text-gray-900"
                 />
+                <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={!isDirty || isSaving}
+                    className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
+                        !isDirty || isSaving
+                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                            : "bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+                    }`}
+                >
+                    {isSaving || saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save"}
+                </button>
+                {isDirty && (
+                    <span className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/70 shrink-0">
+                        Unsaved
+                    </span>
+                )}
+                {!isDirty && saveStatus === "saved" && (
+                    <span className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0">
+                        Saved
+                    </span>
+                )}
                 <button
                     title="Close plan"
                     className="cursor-pointer p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"

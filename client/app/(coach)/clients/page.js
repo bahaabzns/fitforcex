@@ -50,6 +50,8 @@ export default function ClientsPage() {
     const [selectedFormIds, setSelectedFormIds] = useState([]);
     const [requestSending, setRequestSending] = useState(false);
     const [requestError, setRequestError] = useState('');
+    const [requestMode, setRequestMode] = useState('now');
+    const [scheduledAt, setScheduledAt] = useState('');
 
     const copyCredentials = (client) => {
         if (!client.plain_password) return;
@@ -104,6 +106,8 @@ export default function ClientsPage() {
         setRequestClientId(clientId);
         setSelectedFormIds([]);
         setRequestError('');
+        setRequestMode('now');
+        setScheduledAt('');
         try {
             const res = await api.get('/api/forms');
             setActiveForms(res.data.filter(f => f.status === 'active'));
@@ -115,10 +119,28 @@ export default function ClientsPage() {
 
     const handleSendRequests = async () => {
         if (selectedFormIds.length === 0) { setRequestError('Select at least one form'); return; }
+        if (requestMode === 'schedule' && !scheduledAt) {
+            setRequestError('Choose schedule date and time');
+            return;
+        }
+
+        if (requestMode === 'schedule') {
+            const selectedTime = new Date(scheduledAt);
+            if (Number.isNaN(selectedTime.getTime()) || selectedTime.getTime() <= Date.now()) {
+                setRequestError('Schedule time must be in the future');
+                return;
+            }
+        }
+
         setRequestSending(true);
         setRequestError('');
         try {
-            await api.post('/api/forms/requests', { form_ids: selectedFormIds, client_id: requestClientId });
+            await api.post('/api/forms/requests', {
+                form_ids: selectedFormIds,
+                client_id: requestClientId,
+                mode: requestMode,
+                scheduled_at: requestMode === 'schedule' ? new Date(scheduledAt).toISOString() : null,
+            });
             setRequestModal(false);
         } catch (e) {
             setRequestError(e.response?.data?.error || 'Failed to send requests');
@@ -303,6 +325,41 @@ export default function ClientsPage() {
             {/* Request Form Modal */}
             <Modal open={requestModal} onClose={() => setRequestModal(false)} title="Request Form from Client">
                 <div className="flex flex-col gap-3">
+                    <div className="rounded-lg border border-gray-200 p-3">
+                        <p className="text-xs font-semibold text-gray-500 mb-2">Request Timing</p>
+                        <div className="flex gap-2 mb-2">
+                            <button
+                                onClick={() => setRequestMode('now')}
+                                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                    requestMode === 'now'
+                                        ? 'bg-blue-500 border-blue-500 text-white'
+                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                Request Now
+                            </button>
+                            <button
+                                onClick={() => setRequestMode('schedule')}
+                                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                    requestMode === 'schedule'
+                                        ? 'bg-blue-500 border-blue-500 text-white'
+                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                Schedule
+                            </button>
+                        </div>
+                        {requestMode === 'schedule' && (
+                            <input
+                                type="datetime-local"
+                                value={scheduledAt}
+                                onChange={(e) => setScheduledAt(e.target.value)}
+                                min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
+                                className="input-field"
+                            />
+                        )}
+                    </div>
+
                     {activeForms.length === 0 ? (
                         <p className="text-sm text-gray-500 py-4 text-center">No active forms available. Activate a form first.</p>
                     ) : (
