@@ -1,21 +1,121 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
 import Modal from "@/app/components/Modal";
+
+const inputCls = "w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors";
 
 function generatePassword(length = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
+const COUNTRY_CODES = [
+    { code: "+93", name: "Afghanistan" }, { code: "+355", name: "Albania" }, { code: "+213", name: "Algeria" },
+    { code: "+376", name: "Andorra" }, { code: "+244", name: "Angola" }, { code: "+54", name: "Argentina" },
+    { code: "+374", name: "Armenia" }, { code: "+61", name: "Australia" }, { code: "+43", name: "Austria" },
+    { code: "+994", name: "Azerbaijan" }, { code: "+973", name: "Bahrain" }, { code: "+880", name: "Bangladesh" },
+    { code: "+375", name: "Belarus" }, { code: "+32", name: "Belgium" }, { code: "+55", name: "Brazil" },
+    { code: "+1", name: "Canada / USA" }, { code: "+86", name: "China" }, { code: "+57", name: "Colombia" },
+    { code: "+385", name: "Croatia" }, { code: "+357", name: "Cyprus" }, { code: "+420", name: "Czech Republic" },
+    { code: "+45", name: "Denmark" }, { code: "+20", name: "Egypt" }, { code: "+358", name: "Finland" },
+    { code: "+33", name: "France" }, { code: "+995", name: "Georgia" }, { code: "+49", name: "Germany" },
+    { code: "+233", name: "Ghana" }, { code: "+30", name: "Greece" }, { code: "+36", name: "Hungary" },
+    { code: "+354", name: "Iceland" }, { code: "+91", name: "India" }, { code: "+62", name: "Indonesia" },
+    { code: "+98", name: "Iran" }, { code: "+964", name: "Iraq" }, { code: "+353", name: "Ireland" },
+    { code: "+972", name: "Israel" }, { code: "+39", name: "Italy" }, { code: "+81", name: "Japan" },
+    { code: "+962", name: "Jordan" }, { code: "+7", name: "Kazakhstan / Russia" }, { code: "+254", name: "Kenya" },
+    { code: "+965", name: "Kuwait" }, { code: "+961", name: "Lebanon" }, { code: "+218", name: "Libya" },
+    { code: "+60", name: "Malaysia" }, { code: "+960", name: "Maldives" }, { code: "+52", name: "Mexico" },
+    { code: "+212", name: "Morocco" }, { code: "+31", name: "Netherlands" }, { code: "+64", name: "New Zealand" },
+    { code: "+234", name: "Nigeria" }, { code: "+47", name: "Norway" }, { code: "+968", name: "Oman" },
+    { code: "+92", name: "Pakistan" }, { code: "+970", name: "Palestine" }, { code: "+507", name: "Panama" },
+    { code: "+63", name: "Philippines" }, { code: "+48", name: "Poland" }, { code: "+351", name: "Portugal" },
+    { code: "+974", name: "Qatar" }, { code: "+40", name: "Romania" }, { code: "+250", name: "Rwanda" },
+    { code: "+966", name: "Saudi Arabia" }, { code: "+221", name: "Senegal" }, { code: "+381", name: "Serbia" },
+    { code: "+65", name: "Singapore" }, { code: "+27", name: "South Africa" }, { code: "+82", name: "South Korea" },
+    { code: "+34", name: "Spain" }, { code: "+94", name: "Sri Lanka" }, { code: "+249", name: "Sudan" },
+    { code: "+46", name: "Sweden" }, { code: "+41", name: "Switzerland" }, { code: "+963", name: "Syria" },
+    { code: "+886", name: "Taiwan" }, { code: "+255", name: "Tanzania" }, { code: "+66", name: "Thailand" },
+    { code: "+216", name: "Tunisia" }, { code: "+90", name: "Turkey" }, { code: "+256", name: "Uganda" },
+    { code: "+380", name: "Ukraine" }, { code: "+971", name: "United Arab Emirates" }, { code: "+44", name: "United Kingdom" },
+    { code: "+1", name: "United States" }, { code: "+998", name: "Uzbekistan" }, { code: "+58", name: "Venezuela" },
+    { code: "+84", name: "Vietnam" }, { code: "+967", name: "Yemen" }, { code: "+260", name: "Zambia" },
+    { code: "+263", name: "Zimbabwe" },
+];
+
+function CountryCodeSelect({ value, onChange }) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const ref = useRef(null);
+
+    useEffect(() => {
+        function handler(e) {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        }
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const filtered = COUNTRY_CODES.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) || c.code.includes(search)
+    );
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                className="w-24 px-3 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] text-sm text-left focus:outline-none focus:border-[#007AFF] truncate transition-colors"
+            >
+                {value || "+?"}
+            </button>
+            {open && (
+                <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-white border border-[#D2D2D7] rounded-xl shadow-lg overflow-hidden">
+                    <input
+                        type="text"
+                        placeholder="Search country or code..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#F5F5F7] border-b border-[#D2D2D7] text-[#1D1D1F] text-xs placeholder-[#86868B] focus:outline-none"
+                        autoFocus
+                    />
+                    <div className="max-h-48 overflow-y-auto">
+                        {filtered.map((c, i) => (
+                            <button
+                                key={`${c.code}-${i}`}
+                                type="button"
+                                onClick={() => { onChange(c.code); setOpen(false); setSearch(""); }}
+                                className={`w-full px-3 py-1.5 text-left text-xs transition-colors flex justify-between ${
+                                    value === c.code ? "bg-[#007AFF]/10 text-[#007AFF]" : "text-[#1D1D1F] hover:bg-[#F0F0F5]"
+                                }`}
+                            >
+                                <span>{c.name}</span>
+                                <span className="text-[#86868B]">{c.code}</span>
+                            </button>
+                        ))}
+                        {filtered.length === 0 && <p className="px-3 py-2 text-[#86868B] text-xs">No results</p>}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+const BLANK_PHONE = { countryCode: "+20", number: "" };
+
 export default function ClientOverviewPage() {
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showEditForm, setShowEditForm] = useState(false);
-  const [formData, setFormData] = useState({ fname: "", lname: "", email: "", phone: "" });
+
+  // Edit form state
+  const [formData, setFormData] = useState({ fname: "", lname: "", email: "" });
+  const [editPhones, setEditPhones] = useState([{ ...BLANK_PHONE }, { ...BLANK_PHONE }, { ...BLANK_PHONE }]);
+  const [editPhoneCount, setEditPhoneCount] = useState(1);
 
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -34,6 +134,32 @@ export default function ClientOverviewPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  function updateEditPhone(index, field, value) {
+    setEditPhones(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function openEdit() {
+    const phones = (client.phones && client.phones.length > 0)
+      ? client.phones
+      : (client.phone ? [{ countryCode: "", number: client.phone }] : []);
+
+    setFormData({ fname: client.fname, lname: client.lname, email: client.email });
+    setEditPhones([
+      phones[0] || { ...BLANK_PHONE },
+      phones[1] || { ...BLANK_PHONE },
+      phones[2] || { ...BLANK_PHONE },
+    ]);
+    setEditPhoneCount(Math.max(1, phones.length));
+    setNewPassword("");
+    setPasswordError("");
+    setShowNewPassword(false);
+    setShowEditForm(true);
+  }
+
   async function handleUpdate(e) {
     e.preventDefault();
     setPasswordError("");
@@ -41,8 +167,12 @@ export default function ClientOverviewPage() {
       setPasswordError("Password must be at least 6 characters");
       return;
     }
+    const phonesToSend = editPhones.slice(0, editPhoneCount).filter(p => p.number.trim());
     try {
-      const updated = await api.put(`/api/clients/${id}`, formData);
+      const updated = await api.put(`/api/clients/${id}`, {
+        ...formData,
+        phones: phonesToSend,
+      });
       let updatedClient = { ...client, ...updated.data };
       if (newPassword) {
         await api.post(`/api/clients/${id}/set-password`, { password: newPassword });
@@ -92,13 +222,7 @@ export default function ClientOverviewPage() {
               #{client.code ?? client.client_code} — {client.fname} {client.lname}
             </h1>
             <button
-              onClick={() => {
-                setShowEditForm(true);
-                setFormData({ fname: client.fname, lname: client.lname, email: client.email, phone: client.phone || "" });
-                setNewPassword("");
-                setPasswordError("");
-                setShowNewPassword(false);
-              }}
+              onClick={openEdit}
               className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm"
             >
               Edit
@@ -120,7 +244,16 @@ export default function ClientOverviewPage() {
               </div>
               <div className="flex gap-2">
                 <span className="text-sm text-[#86868B] font-medium w-32 shrink-0">Phone</span>
-                <span className="text-sm text-[#1D1D1F]">{client.phone || "—"}</span>
+                <div className="flex flex-col gap-0.5">
+                  {(client.phones && client.phones.length > 0)
+                    ? client.phones.map((p, i) => (
+                        <span key={i} className={`text-sm ${i === 0 ? "text-[#1D1D1F]" : "text-[#86868B]"}`}>
+                          {p.countryCode} {p.number}
+                        </span>
+                      ))
+                    : <span className="text-sm text-[#1D1D1F]">{client.phone || "—"}</span>
+                  }
+                </div>
               </div>
               <div className="flex gap-2">
                 <span className="text-sm text-[#86868B] font-medium w-32 shrink-0">Client Code</span>
@@ -165,39 +298,61 @@ export default function ClientOverviewPage() {
           {/* Edit Modal */}
           <Modal open={showEditForm} onClose={() => setShowEditForm(false)} title="Edit Client">
             <form onSubmit={handleUpdate} className="flex flex-col gap-3">
-              <input
-                type="text"
-                name="fname"
-                placeholder="First Name"
-                value={formData.fname}
-                onChange={e => setFormData({ ...formData, fname: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
-              />
-              <input
-                type="text"
-                name="lname"
-                placeholder="Last Name"
-                value={formData.lname}
-                onChange={e => setFormData({ ...formData, lname: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
-              />
+              {/* First + Last name */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="First Name *"
+                  value={formData.fname}
+                  onChange={e => setFormData({ ...formData, fname: e.target.value })}
+                  className={`${inputCls} flex-1`}
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  placeholder="Last Name"
+                  value={formData.lname}
+                  onChange={e => setFormData({ ...formData, lname: e.target.value })}
+                  className={`${inputCls} flex-1`}
+                />
+              </div>
+
+              {/* Email */}
               <input
                 type="email"
-                name="email"
-                placeholder="Email"
+                placeholder="Email *"
                 value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
-              />
-              <input
-                type="tel"
-                name="phone"
-                placeholder="Phone"
-                value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
+                className={inputCls}
               />
 
+              {/* Phone numbers */}
+              <label className="text-[#86868B] text-xs font-medium">Phone Numbers</label>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2 items-center">
+                  <CountryCodeSelect value={editPhones[0].countryCode} onChange={code => updateEditPhone(0, "countryCode", code)} />
+                  <input type="text" placeholder="Primary phone" value={editPhones[0].number} onChange={e => updateEditPhone(0, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                </div>
+                {editPhoneCount >= 2 && (
+                  <div className="flex gap-2 items-center">
+                    <CountryCodeSelect value={editPhones[1].countryCode} onChange={code => updateEditPhone(1, "countryCode", code)} />
+                    <input type="text" placeholder="Phone 2 (optional)" value={editPhones[1].number} onChange={e => updateEditPhone(1, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                  </div>
+                )}
+                {editPhoneCount >= 3 && (
+                  <div className="flex gap-2 items-center">
+                    <CountryCodeSelect value={editPhones[2].countryCode} onChange={code => updateEditPhone(2, "countryCode", code)} />
+                    <input type="text" placeholder="Phone 3 (optional)" value={editPhones[2].number} onChange={e => updateEditPhone(2, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                  </div>
+                )}
+                {editPhoneCount < 3 && (
+                  <button type="button" onClick={() => setEditPhoneCount(c => c + 1)} className="text-xs text-[#007AFF] hover:text-[#0056CC] self-start transition-colors cursor-pointer">
+                    + Add another phone
+                  </button>
+                )}
+              </div>
+
+              {/* Password */}
               <div className="border-t border-[#D2D2D7] pt-3 mt-1 flex flex-col gap-1">
                 <label className="text-xs font-medium text-[#86868B]">
                   New Password <span className="font-normal">(leave blank to keep current)</span>
@@ -209,7 +364,7 @@ export default function ClientOverviewPage() {
                       value={newPassword}
                       onChange={e => { setNewPassword(e.target.value); setPasswordError(""); }}
                       placeholder="New portal password"
-                      className={`w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:bg-white transition-colors pr-10 ${passwordError ? "border-[#FF3B30]" : "border-[#D2D2D7] focus:border-[#007AFF]"}`}
+                      className={`${inputCls} pr-10 ${passwordError ? "border-[#FF3B30]" : ""}`}
                     />
                     <button
                       type="button"

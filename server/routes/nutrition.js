@@ -20,6 +20,14 @@ function toNumberOrNull(value) {
     return Number.isFinite(n) ? n : null;
 }
 
+;(async () => {
+    try {
+        await pool.query(`ALTER TABLE nutrition_plans ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ`);
+    } catch (err) {
+        console.error('nutrition bootstrap error:', err.message);
+    }
+})();
+
 router.use(authMiddleware);
 
 router.get('/food-items', async (req, res) => {

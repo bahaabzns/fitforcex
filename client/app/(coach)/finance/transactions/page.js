@@ -1,20 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
 
 // --- HELPERS ---
-const EXCHANGE_RATES = {
-    EGP: 1,
-    USD: 50.5,
-    SAR: 13.47,
-    EUR: 55.2,
-    GBP: 64.1,
-};
+const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 const DISPLAY_CURRENCIES = Object.keys(EXCHANGE_RATES);
-const TRANSACTION_TYPES = ["subscription", "session", "one-time", "other"];
+
+const inputCls = "w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors";
 
 function statusColor(status) {
     switch (status) {
@@ -26,25 +21,94 @@ function statusColor(status) {
 
 function convert(amount, fromCurrency, toCurrency) {
     if (fromCurrency === toCurrency) return amount;
-    const fromRate = EXCHANGE_RATES[fromCurrency] || 1;
-    const toRate   = EXCHANGE_RATES[toCurrency]   || 1;
-    return (amount * fromRate) / toRate;
+    return (amount * (EXCHANGE_RATES[fromCurrency] || 1)) / (EXCHANGE_RATES[toCurrency] || 1);
 }
 
-function parseTransactionDate(dateStr) {
-    return new Date(dateStr);
+function parseTransactionDate(dateStr) { return new Date(dateStr); }
+function todayStr() { return new Date().toISOString().split("T")[0]; }
+
+function fmtDate(d) {
+    return d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
 }
 
-function todayStr() {
-    return new Date().toISOString().split("T")[0];
+// --- SEARCHABLE CLIENT SELECT ---
+function SearchableClientSelect({ clients, selected, onSelect }) {
+    const [query, setQuery] = useState("");
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const filtered = !selected && query.trim()
+        ? clients.filter(c => {
+            const q = query.toLowerCase();
+            if (c.name.toLowerCase().includes(q)) return true;
+            if (String(c.code).includes(q)) return true;
+            if ((c.phones || []).some(p => p.number.replace(/\s/g, "").includes(q.replace(/\s/g, "")))) return true;
+            return false;
+        }).slice(0, 8)
+        : [];
+
+    return (
+        <div ref={ref} className="relative">
+            <input
+                value={selected ? selected.name : query}
+                onChange={e => {
+                    if (selected) onSelect(null);
+                    setQuery(e.target.value);
+                    setOpen(true);
+                }}
+                onFocus={() => { if (!selected) setOpen(true); }}
+                onClick={() => {
+                    if (selected) { onSelect(null); setQuery(""); setOpen(true); }
+                }}
+                placeholder="Search by name, phone, or code..."
+                className={inputCls}
+                autoComplete="off"
+            />
+            {selected && (
+                <button
+                    type="button"
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { onSelect(null); setQuery(""); setOpen(true); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-[#1D1D1F] transition-colors text-lg leading-none cursor-pointer"
+                >
+                    ×
+                </button>
+            )}
+            {open && filtered.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-[#D2D2D7] rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {filtered.map(c => (
+                        <button
+                            key={c.id}
+                            type="button"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { onSelect(c); setQuery(""); setOpen(false); }}
+                            className="w-full px-3 py-2.5 text-left hover:bg-[#F0F0F5] flex items-center gap-2 transition-colors"
+                        >
+                            <span className="text-[#1D1D1F] text-sm font-medium flex-1">{c.name}</span>
+                            <span className="text-[#86868B] text-xs">#{c.code}</span>
+                            {c.phones?.[0] && (
+                                <span className="text-[#86868B] text-xs">
+                                    {c.phones[0].countryCode} {c.phones[0].number}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 }
 
-function emptyForm() {
-    return { clientName: "", packageVariation: "", paymentMethod: "", amount: "", currency: "EGP", type: "subscription", status: "completed", date: todayStr(), notes: "" };
-}
-
-// --- INNER TABLE COMPONENT (mirrors provided code) ---
-function TransactionsTable({ transactions, allClientNames, allPackageVariations, allPaymentMethods, onStatusChange, onDelete }) {
+// --- TRANSACTIONS TABLE ---
+function TransactionsTable({ transactions, allClientNames, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit }) {
     const [filteredRows, setFilteredRows] = useState(transactions);
     const [displayCurrency, setDisplayCurrency] = useState("EGP");
 
@@ -88,18 +152,15 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             sortable: true,
             render: (row) => <span className="font-medium text-[#1D1D1F]">{row.amount.toLocaleString()} {row.currency}</span>,
         },
-        { key: "paymentMethod", label: "Payment Method", filterType: "multi", options: paymentMethods, sortable: true },
         {
-            key: "type",
-            label: "Type",
-            filterType: "multi",
-            options: TRANSACTION_TYPES,
-            render: (row) => (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
-                    {row.type}
-                </span>
-            ),
+            key: "duration",
+            label: "Duration",
+            sortable: true,
+            render: (row) => row.duration
+                ? <span className="text-[#86868B]">{row.duration} days</span>
+                : <span className="text-[#86868B]">—</span>,
         },
+        { key: "paymentMethod", label: "Method", filterType: "multi", options: paymentMethods, sortable: true },
         {
             key: "status",
             label: "Status",
@@ -114,29 +175,48 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         },
         {
             key: "date",
-            label: "Date",
+            label: "Transaction Date",
             filterType: "dateRange",
             sortable: true,
-            render: (row) => new Date(row.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
+            render: (row) => fmtDate(row.date),
+        },
+        {
+            key: "createdAt",
+            label: "Created",
+            sortable: true,
+            render: (row) => fmtDate(row.createdAt),
+        },
+        {
+            key: "_proof",
+            label: "Proof",
+            render: (row) => row.proofImage ? (
+                <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL}${row.proofImage}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-[#007AFF] hover:underline"
+                >
+                    View
+                </a>
+            ) : <span className="text-[#86868B] text-xs">—</span>,
         },
         {
             key: "_actions",
             label: "",
             render: (row) => (
-                <div className="flex gap-2 justify-end">
+                <div className="flex gap-2 justify-end whitespace-nowrap">
+                    {onEdit && (
+                        <button onClick={() => onEdit(row)} className="text-xs text-[#007AFF] hover:text-[#0056CC] cursor-pointer transition-colors">
+                            Edit
+                        </button>
+                    )}
                     {row.status === "completed" && onStatusChange && (
-                        <button
-                            onClick={() => onStatusChange(row.id, "refunded")}
-                            className="text-xs text-orange-500 hover:text-orange-600 cursor-pointer"
-                        >
+                        <button onClick={() => onStatusChange(row.id, "refunded")} className="text-xs text-orange-500 hover:text-orange-600 cursor-pointer transition-colors">
                             Refund
                         </button>
                     )}
                     {onDelete && (
-                        <button
-                            onClick={() => onDelete(row.id)}
-                            className="text-xs text-[#FF3B30] hover:text-red-700 cursor-pointer"
-                        >
+                        <button onClick={() => onDelete(row.id)} className="text-xs text-[#FF3B30] hover:text-red-700 cursor-pointer transition-colors">
                             Delete
                         </button>
                     )}
@@ -157,9 +237,6 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 >
                     {DISPLAY_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <span className="text-[#86868B] text-xs ml-1">
-                    (1 {displayCurrency} ≈ {(EXCHANGE_RATES[displayCurrency] || 1).toFixed(2)} EGP)
-                </span>
             </div>
 
             {/* Summary cards */}
@@ -180,7 +257,6 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 {Object.keys(byPaymentMethod).length > 0 && (
                     <div className="w-px bg-[#D2D2D7] mx-1 self-stretch" />
                 )}
-
                 {Object.entries(byPaymentMethod).map(([method, total]) => (
                     <div key={method} className="card px-4 py-3">
                         <p className="text-[#86868B] text-xs font-medium uppercase">{method}</p>
@@ -193,7 +269,6 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 {Object.keys(byCurrency).length > 0 && (
                     <div className="w-px bg-[#D2D2D7] mx-1 self-stretch" />
                 )}
-
                 {Object.entries(byCurrency).map(([currency, total]) => (
                     <div key={currency} className="card px-4 py-3">
                         <p className="text-[#86868B] text-xs font-medium uppercase">{currency}</p>
@@ -221,8 +296,20 @@ export default function TransactionsPage() {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [loading, setLoading]               = useState(true);
     const [showForm, setShowForm]             = useState(false);
-    const [form, setForm]                     = useState(emptyForm());
-    const [error, setError]                   = useState("");
+    const [formError, setFormError]           = useState("");
+    const [submitting, setSubmitting]         = useState(false);
+
+    // Shared form state (create + edit)
+    const [editingTx, setEditingTx]                     = useState(null);
+    const [selectedClient, setSelectedClient]           = useState(null);
+    const [selectedPkgKey, setSelectedPkgKey]           = useState("");
+    const [selectedPkg, setSelectedPkg]                 = useState(null);
+    const [formPaymentMethod, setFormPaymentMethod]     = useState("");
+    const [formDate, setFormDate]                       = useState(todayStr());
+    const [formSubStartDate, setFormSubStartDate]       = useState("");
+    const [formNotes, setFormNotes]                     = useState("");
+    const [proofFile, setProofFile]                     = useState(null);
+    const [proofUrl, setProofUrl]                       = useState(null);
 
     useEffect(() => {
         Promise.all([
@@ -238,39 +325,101 @@ export default function TransactionsPage() {
         }).catch(console.error).finally(() => setLoading(false));
     }, []);
 
-    const allClientNames       = clients.map(c => `${c.fname} ${c.lname}`);
-    const allPackageVariations = packages.flatMap(p => p.variations.map(v => `${p.name} — ${v.name}`));
+    const packageVariationOptions = packages.flatMap(p =>
+        p.variations.map(v => ({
+            key: `${p.name} — ${v.name}`,
+            label: `${p.name} — ${v.name}`,
+            duration: v.duration,
+            price: Number(v.price),
+            currency: v.currency,
+        }))
+    );
+
+    const allClientNames        = clients.map(c => c.name || `${c.fname} ${c.lname}`);
+    const allPackageVariations  = packageVariationOptions.map(p => p.key);
     const allPaymentMethodNames = paymentMethods.map(m => m.name);
 
-    function setField(field, value) {
-        setForm(prev => ({ ...prev, [field]: value }));
+    function closeForm() {
+        setShowForm(false);
+        setEditingTx(null);
+        setSelectedClient(null);
+        setSelectedPkgKey("");
+        setSelectedPkg(null);
+        setFormPaymentMethod("");
+        setFormDate(todayStr());
+        setFormSubStartDate("");
+        setFormNotes("");
+        setProofFile(null);
+        setProofUrl(null);
+        setFormError("");
+    }
+
+    function openCreate() {
+        closeForm();
+        setShowForm(true);
+    }
+
+    function openEdit(tx) {
+        const pkg = packageVariationOptions.find(p => p.key === tx.packageVariation);
+        setEditingTx(tx);
+        setSelectedClient(tx.clientId ? { id: tx.clientId, name: tx.clientName } : null);
+        setSelectedPkgKey(tx.packageVariation || "");
+        setSelectedPkg(pkg || null);
+        setFormPaymentMethod(tx.paymentMethod || "");
+        setFormDate(tx.date ? tx.date.split("T")[0] : todayStr());
+        setFormSubStartDate(tx.subscriptionStartDate ? tx.subscriptionStartDate.split("T")[0] : "");
+        setFormNotes(tx.notes || "");
+        setProofFile(null);
+        setProofUrl(tx.proofImage || null);
+        setFormError("");
+        setShowForm(true);
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
-        setError("");
-        if (!form.clientName.trim()) { setError("Client name is required."); return; }
-        if (!form.paymentMethod)     { setError("Payment method is required."); return; }
-        const amt = Number(form.amount);
-        if (!Number.isFinite(amt) || amt <= 0) { setError("Amount must be a positive number."); return; }
+        setFormError("");
+        if (!selectedClient) { setFormError("Client is required."); return; }
+        if (!selectedPkgKey) { setFormError("Package is required."); return; }
+        if (!formPaymentMethod) { setFormError("Payment method is required."); return; }
 
+        setSubmitting(true);
         try {
-            const res = await api.post("/api/transactions", {
-                clientName:       form.clientName.trim(),
-                packageVariation: form.packageVariation || null,
-                paymentMethod:    form.paymentMethod,
-                amount:           amt,
-                currency:         form.currency,
-                type:             form.type,
-                status:           form.status,
-                notes:            form.notes || null,
-                date:             form.date,
-            });
-            setTransactions(prev => [res.data, ...prev]);
-            setShowForm(false);
-            setForm(emptyForm());
+            let finalProofUrl = proofUrl;
+            if (proofFile) {
+                const fd = new FormData();
+                fd.append("proof", proofFile);
+                const up = await api.post("/api/transactions/upload-proof", fd);
+                finalProofUrl = up.data.path;
+            }
+
+            const payload = {
+                clientId: selectedClient.id,
+                clientName: selectedClient.name,
+                packageVariation: selectedPkgKey,
+                paymentMethod: formPaymentMethod,
+                amount: selectedPkg?.price ?? editingTx?.amount,
+                currency: selectedPkg?.currency ?? editingTx?.currency,
+                duration: selectedPkg?.duration ?? editingTx?.duration,
+                type: "subscription",
+                status: "completed",
+                date: formDate,
+                subscriptionStartDate: formSubStartDate || null,
+                notes: formNotes || null,
+                proofImage: finalProofUrl,
+            };
+
+            if (editingTx) {
+                const res = await api.put("/api/transactions", { id: editingTx.id, ...payload });
+                setTransactions(prev => prev.map(t => t.id === editingTx.id ? res.data : t));
+            } else {
+                const res = await api.post("/api/transactions", payload);
+                setTransactions(prev => [res.data, ...prev]);
+            }
+            closeForm();
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to create transaction.");
+            setFormError(err.response?.data?.error || "Failed to save transaction.");
+        } finally {
+            setSubmitting(false);
         }
     }
 
@@ -284,6 +433,7 @@ export default function TransactionsPage() {
     }
 
     async function handleDelete(id) {
+        if (!confirm("Delete this transaction? This cannot be undone.")) return;
         try {
             await api.delete(`/api/transactions?id=${id}`);
             setTransactions(prev => prev.filter(t => t.id !== id));
@@ -309,138 +459,101 @@ export default function TransactionsPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-[#1D1D1F]">Transactions</h1>
                 <button
-                    onClick={() => { setShowForm(true); setError(""); setForm(emptyForm()); }}
+                    onClick={openCreate}
                     className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
                 >
                     + New Transaction
                 </button>
             </div>
 
-            {/* Creation Modal */}
-            <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title="New Transaction" wide>
+            {/* Create / Edit Modal */}
+            <Modal open={showForm} onClose={closeForm} title={editingTx ? "Edit Transaction" : "New Transaction"} wide>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    {/* Client name */}
+
+                    {/* Client */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Client</label>
-                        <input
-                            type="text"
-                            list="client-names-list"
-                            placeholder="Select or type client name..."
-                            value={form.clientName}
-                            onChange={(e) => setField("clientName", e.target.value)}
-                            className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
-                            autoFocus
+                        <label className="block text-sm text-[#86868B] mb-1">Client *</label>
+                        <SearchableClientSelect
+                            clients={clients}
+                            selected={selectedClient}
+                            onSelect={setSelectedClient}
                         />
-                        <datalist id="client-names-list">
-                            {allClientNames.map(n => <option key={n} value={n} />)}
-                        </datalist>
+                        {selectedClient && (
+                            <p className="text-xs text-[#86868B] mt-1">
+                                #{selectedClient.code ?? ""} · {selectedClient.email ?? ""}
+                            </p>
+                        )}
                     </div>
 
-                    {/* Package variation */}
+                    {/* Package */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Package <span className="text-[#86868B]/60">(optional)</span></label>
+                        <label className="block text-sm text-[#86868B] mb-1">Package *</label>
                         <select
-                            value={form.packageVariation}
-                            onChange={(e) => setField("packageVariation", e.target.value)}
-                            className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
+                            value={selectedPkgKey}
+                            onChange={e => {
+                                const key = e.target.value;
+                                setSelectedPkgKey(key);
+                                setSelectedPkg(packageVariationOptions.find(p => p.key === key) || null);
+                            }}
+                            className={`${inputCls} ${!selectedPkgKey ? "text-[#86868B]" : ""}`}
                         >
-                            <option value="">— None —</option>
-                            {allPackageVariations.map(v => <option key={v} value={v}>{v}</option>)}
+                            <option value="">— Select a package —</option>
+                            {packageVariationOptions.map(p => (
+                                <option key={p.key} value={p.key}>{p.label}</option>
+                            ))}
                         </select>
+                        {selectedPkg && (
+                            <div className="flex gap-4 mt-2 px-1 text-xs text-[#86868B]">
+                                <span>Duration: <span className="text-[#1D1D1F] font-semibold">{selectedPkg.duration} days</span></span>
+                                <span>Price: <span className="text-[#1D1D1F] font-semibold">{selectedPkg.price.toLocaleString()} {selectedPkg.currency}</span></span>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Amount + Currency */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-sm text-[#86868B] mb-1">Amount</label>
-                            <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                placeholder="0"
-                                value={form.amount}
-                                onChange={(e) => setField("amount", e.target.value)}
-                                className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-[#86868B] mb-1">Currency</label>
-                            <select
-                                value={form.currency}
-                                onChange={(e) => setField("currency", e.target.value)}
-                                className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
-                            >
-                                {DISPLAY_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Payment method */}
+                    {/* Payment Method */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Payment Method</label>
+                        <label className="block text-sm text-[#86868B] mb-1">Payment Method *</label>
                         <select
-                            value={form.paymentMethod}
-                            onChange={(e) => setField("paymentMethod", e.target.value)}
-                            className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
+                            value={formPaymentMethod}
+                            onChange={e => setFormPaymentMethod(e.target.value)}
+                            className={`${inputCls} ${!formPaymentMethod ? "text-[#86868B]" : ""}`}
                         >
                             <option value="">— Select method —</option>
                             {allPaymentMethodNames.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
 
-                    {/* Type */}
+                    {/* Transaction Date */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Type</label>
-                        <div className="flex gap-2 flex-wrap">
-                            {TRANSACTION_TYPES.map(t => (
-                                <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => setField("type", t)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
-                                        form.type === t
-                                            ? "border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]"
-                                            : "border-[#D2D2D7] bg-[#F5F5F7] text-[#86868B] hover:border-[#007AFF] hover:text-[#007AFF]"
-                                    }`}
-                                >
-                                    {t}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Status */}
-                    <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Status</label>
-                        <div className="flex gap-2">
-                            {["completed", "refunded"].map(s => (
-                                <button
-                                    key={s}
-                                    type="button"
-                                    onClick={() => setField("status", s)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors cursor-pointer border ${
-                                        form.status === s
-                                            ? s === "completed"
-                                                ? "border-[#34C759] bg-[#34C759]/10 text-[#34C759]"
-                                                : "border-[#FF3B30] bg-[#FF3B30]/10 text-[#FF3B30]"
-                                            : "border-[#D2D2D7] bg-[#F5F5F7] text-[#86868B] hover:border-[#007AFF] hover:text-[#007AFF]"
-                                    }`}
-                                >
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Date */}
-                    <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Date</label>
+                        <label className="block text-sm text-[#86868B] mb-1">Transaction Date</label>
                         <input
                             type="date"
-                            value={form.date}
-                            onChange={(e) => setField("date", e.target.value)}
-                            className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
+                            value={formDate}
+                            onChange={e => setFormDate(e.target.value)}
+                            className={inputCls}
                         />
+                    </div>
+
+                    {/* Subscription Start Date */}
+                    <div>
+                        <label className="block text-sm text-[#86868B] mb-1">
+                            Subscription Start Date <span className="text-[#86868B]/60">(optional — leave empty to queue after current subscription)</span>
+                        </label>
+                        <input
+                            type="date"
+                            value={formSubStartDate}
+                            onChange={e => setFormSubStartDate(e.target.value)}
+                            className={inputCls}
+                        />
+                        {formSubStartDate && (
+                            <button
+                                type="button"
+                                onClick={() => setFormSubStartDate("")}
+                                className="text-xs text-[#86868B] hover:text-[#FF3B30] mt-1 transition-colors cursor-pointer"
+                            >
+                                Clear (use queue)
+                            </button>
+                        )}
                     </div>
 
                     {/* Notes */}
@@ -449,16 +562,53 @@ export default function TransactionsPage() {
                         <textarea
                             rows={2}
                             placeholder="Any additional notes..."
-                            value={form.notes}
-                            onChange={(e) => setField("notes", e.target.value)}
-                            className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors resize-none"
+                            value={formNotes}
+                            onChange={e => setFormNotes(e.target.value)}
+                            className={`${inputCls} resize-none`}
                         />
                     </div>
 
-                    {error && <p className="text-[#FF3B30] text-sm">{error}</p>}
+                    {/* Proof of transaction */}
+                    <div>
+                        <label className="block text-sm text-[#86868B] mb-1">Proof of Transaction <span className="text-[#86868B]/60">(optional)</span></label>
+                        {proofUrl && !proofFile && (
+                            <div className="flex items-center gap-2 mb-2">
+                                <a
+                                    href={`${process.env.NEXT_PUBLIC_API_URL}${proofUrl}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs text-[#007AFF] hover:underline"
+                                >
+                                    View current proof
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => setProofUrl(null)}
+                                    className="text-xs text-[#FF3B30] hover:underline cursor-pointer"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        )}
+                        <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={e => setProofFile(e.target.files[0] || null)}
+                            className="w-full text-sm text-[#86868B] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#F0F0F5] file:text-[#1D1D1F] hover:file:bg-[#D2D2D7] cursor-pointer"
+                        />
+                        {proofFile && <p className="text-xs text-[#86868B] mt-1">{proofFile.name}</p>}
+                    </div>
 
-                    <button type="submit" className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer">
-                        Record Transaction
+                    {formError && <p className="text-[#FF3B30] text-sm">{formError}</p>}
+
+                    <button
+                        type="submit"
+                        disabled={submitting}
+                        className="bg-[#007AFF] hover:bg-[#0056CC] disabled:opacity-50 text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                    >
+                        {submitting
+                            ? (editingTx ? "Saving…" : "Recording…")
+                            : (editingTx ? "Save Changes" : "Record Transaction")}
                     </button>
                 </form>
             </Modal>
@@ -471,6 +621,7 @@ export default function TransactionsPage() {
                 allPaymentMethods={allPaymentMethodNames}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
+                onEdit={openEdit}
             />
         </div>
     );

@@ -174,6 +174,7 @@ async function ensureTrainingSchema() {
             await pool.query(`ALTER TABLE training_exercises ADD COLUMN IF NOT EXISTS notes TEXT`);
             await pool.query(`ALTER TABLE training_days ADD COLUMN IF NOT EXISTS notes TEXT`);
             await pool.query(`ALTER TABLE training_plans ADD COLUMN IF NOT EXISTS notes TEXT`);
+            await pool.query(`ALTER TABLE training_plans ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ`);
         })();
     }
 

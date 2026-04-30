@@ -34,7 +34,7 @@ import React, { useState, useEffect, useRef } from "react";
 // If filterType is null/undefined, no filter appears for that column.
 // If sortable is true, clicking the header sorts by that column.
 
-export default function DataTable({ columns, data, rowKey, dateParser, onFilteredDataChange, selectable, selectedKeys, onSelectionChange, renderExpandedRow, renderMobileExpanded, scrollable }) {
+export default function DataTable({ columns, data, rowKey, dateParser, onFilteredDataChange, selectable, selectedKeys, onSelectionChange, renderExpandedRow, renderMobileExpanded, scrollable, defaultSort, defaultSortDirection }) {
 
     // --- FILTER STATE ---
     // Build initial filters dynamically from columns config
@@ -58,8 +58,8 @@ export default function DataTable({ columns, data, rowKey, dateParser, onFiltere
     // --- SORT STATE ---
     // sortKey: which column key we're sorting by (null = no sort)
     // sortDirection: "asc" or "desc"
-    const [sortKey, setSortKey] = useState(null);
-    const [sortDirection, setSortDirection] = useState("asc");
+    const [sortKey, setSortKey] = useState(defaultSort ?? null);
+    const [sortDirection, setSortDirection] = useState(defaultSortDirection ?? "asc");
 
     // --- CLICK OUTSIDE TO CLOSE DROPDOWN ---
     useEffect(() => {

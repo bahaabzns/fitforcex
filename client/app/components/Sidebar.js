@@ -20,6 +20,7 @@ import {
     ChevronRight,
     Wallet,
     Package,
+    Receipt,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -169,6 +170,15 @@ export default function Sidebar() {
                                 <ul className="flex flex-col gap-1 mt-1">
                                     <li>
                                         <Link
+                                            href="/finance/transactions"
+                                            className={pathname.startsWith('/finance/transactions') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                        >
+                                            <Receipt size={15} />
+                                            Transactions
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
                                             href="/finance/packages"
                                             className={pathname.startsWith('/finance/packages') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
                                         >
@@ -183,15 +193,6 @@ export default function Sidebar() {
                                         >
                                             <Wallet size={15} />
                                             Payment Methods
-                                        </Link>
-                                    </li>
-                                    <li>
-                                        <Link
-                                            href="/finance/transactions"
-                                            className={pathname.startsWith('/finance/transactions') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
-                                        >
-                                            <ClipboardList size={15} />
-                                            Transactions
                                         </Link>
                                     </li>
                                 </ul>

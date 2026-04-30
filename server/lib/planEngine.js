@@ -96,7 +96,8 @@ async function activateSinglePlan({
 
     const updated = await pool.query(
         `UPDATE ${tableName}
-         SET status = 'active', updated_at = NOW()
+         SET status = 'active', updated_at = NOW(),
+             activated_at = COALESCE(activated_at, NOW())
          WHERE id = $1
          RETURNING *`,
         [plan.id]

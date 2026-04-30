@@ -10,13 +10,14 @@ import api from "@/lib/axios";
 // --- HELPERS ---
 function statusColor(status) {
     switch (status) {
-        case "Active":    return "bg-[#34C759]/10 text-[#34C759]";
-        case "Expired":   return "bg-red-50 text-[#FF3B30]";
-        case "Frozen":    return "bg-blue-50 text-blue-600";
-        case "Pre-start": return "bg-yellow-50 text-yellow-600";
-        case "Cancelled": return "bg-[#F0F0F5] text-[#86868B]";
-        case "Refunded":  return "bg-purple-50 text-purple-600";
-        default:          return "bg-[#F0F0F5] text-[#86868B]";
+        case "Active":           return "bg-[#34C759]/10 text-[#34C759]";
+        case "Expired":          return "bg-red-50 text-[#FF3B30]";
+        case "Frozen":           return "bg-blue-50 text-blue-600";
+        case "Pre-start":        return "bg-yellow-50 text-yellow-600";
+        case "No Subscriptions": return "bg-[#F0F0F5] text-[#86868B]";
+        case "Cancelled":        return "bg-[#F0F0F5] text-[#86868B]";
+        case "Refunded":         return "bg-purple-50 text-purple-600";
+        default:                 return "bg-[#F0F0F5] text-[#86868B]";
     }
 }
 
@@ -31,6 +32,8 @@ function generatePassword() {
     for (let i = 0; i < 10; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
     return result;
 }
+
+function todayStr() { return new Date().toISOString().split("T")[0]; }
 
 // --- COUNTRY CODES ---
 const COUNTRY_CODES = [
@@ -232,21 +235,35 @@ export default function ClientsPage() {
     const [copiedId, setCopiedId]         = useState(null);
 
     // Add-client modal
-    const [showForm, setShowForm]         = useState(false);
-    const [newName, setNewName]           = useState("");
-    const [newEmail, setNewEmail]         = useState("");
-    const [newPassword, setNewPassword]   = useState(generatePassword());
-    const [showPassword, setShowPassword] = useState(false);
-    const [phoneCount, setPhoneCount]     = useState(1);
-    const [newPhones, setNewPhones]       = useState([
+    const [showForm, setShowForm]             = useState(false);
+    const [newFirstName, setNewFirstName]     = useState("");
+    const [newLastName, setNewLastName]       = useState("");
+    const [newEmail, setNewEmail]             = useState("");
+    const [newPassword, setNewPassword]       = useState(generatePassword());
+    const [showPassword, setShowPassword]     = useState(false);
+    const [phoneCount, setPhoneCount]         = useState(1);
+    const [newPhones, setNewPhones]           = useState([
         { countryCode: "+20", number: "" },
         { countryCode: "+20", number: "" },
         { countryCode: "+20", number: "" },
     ]);
-    const [newPackage, setNewPackage]         = useState("");
+    const [newPackage, setNewPackage]             = useState("");
     const [newPaymentMethod, setNewPaymentMethod] = useState("");
-    const [selectedForms, setSelectedForms]   = useState([]);
-    const [formErrors, setFormErrors]         = useState([]);
+    const [selectedForms, setSelectedForms]       = useState([]);
+    const [subDurationMode, setSubDurationMode]   = useState("on_first_plan");
+    const [subscriptionStartDate, setSubscriptionStartDate] = useState("");
+    const [txTransactionDate, setTxTransactionDate] = useState(todayStr());
+    const [txProofFile, setTxProofFile]           = useState(null);
+    const [formErrors, setFormErrors]             = useState([]);
+
+    // Freeze modal
+    const [showFreezeModal, setShowFreezeModal]   = useState(false);
+    const [freezingClient, setFreezingClient]     = useState(null);
+    const [freezeStartDate, setFreezeStartDate]   = useState("");
+    const [freezeDays, setFreezeDays]             = useState("");
+    const [freezeNotes, setFreezeNotes]           = useState("");
+    const [freezeError, setFreezeError]           = useState("");
+    const [freezeSaving, setFreezeSaving]         = useState(false);
 
     // Bulk form assignment
     const [selectedIds, setSelectedIds]         = useState(new Set());
@@ -292,15 +309,18 @@ export default function ClientsPage() {
     }
 
     function resetForm() {
-        setNewName(""); setNewEmail(""); setNewPassword(generatePassword());
+        setNewFirstName(""); setNewLastName(""); setNewEmail(""); setNewPassword(generatePassword());
         setShowPassword(false); setPhoneCount(1);
         setNewPhones([{ countryCode: "+20", number: "" }, { countryCode: "+20", number: "" }, { countryCode: "+20", number: "" }]);
-        setNewPackage(""); setNewPaymentMethod(""); setSelectedForms([]); setFormErrors([]);
+        setNewPackage(""); setNewPaymentMethod(""); setSelectedForms([]);
+        setSubDurationMode("on_first_plan"); setSubscriptionStartDate("");
+        setTxTransactionDate(todayStr()); setTxProofFile(null);
+        setFormErrors([]);
     }
 
     function validateForm() {
         const errors = [];
-        if (!newName.trim()) errors.push("Name is required");
+        if (!newFirstName.trim()) errors.push("First name is required");
         if (!newEmail.trim() || !EMAIL_REGEX.test(newEmail)) errors.push("Valid email is required");
         if (!newPhones[0].number.trim() || !PHONE_REGEX.test(newPhones[0].number)) errors.push("Primary phone must be 7–15 digits");
         for (let i = 1; i < phoneCount; i++) {
@@ -309,6 +329,7 @@ export default function ClientsPage() {
         }
         if (!newPackage) errors.push("Package variation is required");
         if (!newPaymentMethod) errors.push("Payment method is required");
+        if (subDurationMode === "custom" && !subscriptionStartDate) errors.push("Subscription start date is required");
         return errors;
     }
 
@@ -319,10 +340,12 @@ export default function ClientsPage() {
         setFormErrors([]);
 
         const phonesToSend = newPhones.slice(0, phoneCount);
+        const fullName = `${newFirstName.trim()} ${newLastName.trim()}`.trim();
 
         try {
             const res = await api.post("/api/clients", {
-                name: newName,
+                fname: newFirstName.trim(),
+                lname: newLastName.trim(),
                 email: newEmail,
                 phones: phonesToSend,
                 currentPackage: newPackage,
@@ -330,20 +353,37 @@ export default function ClientsPage() {
                 password: newPassword,
             });
             const created = res.data;
-            setClients(prev => [...prev, created]);
+            setClients(prev => [created, ...prev]);
+
+            // Upload proof if selected
+            let proofImagePath = null;
+            if (txProofFile) {
+                try {
+                    const fd = new FormData();
+                    fd.append("proof", txProofFile);
+                    const up = await api.post("/api/transactions/upload-proof", fd);
+                    proofImagePath = up.data.path;
+                } catch (err) {
+                    console.error("Failed to upload proof:", err);
+                }
+            }
 
             // Auto-create transaction
             const selectedPkg = packageOptions.find(pv => pv.value === newPackage);
             if (selectedPkg) {
                 api.post("/api/transactions", {
                     clientId: created.id,
-                    clientName: created.name,
+                    clientName: created.name || fullName,
                     packageVariation: newPackage,
                     amount: selectedPkg.price,
                     currency: selectedPkg.currency,
+                    duration: selectedPkg.duration,
                     paymentMethod: newPaymentMethod,
                     type: "subscription",
                     status: "completed",
+                    date: txTransactionDate,
+                    ...(subDurationMode === "custom" && subscriptionStartDate ? { subscriptionStartDate } : {}),
+                    ...(proofImagePath ? { proofImage: proofImagePath } : {}),
                 }).catch(console.error);
             }
 
@@ -361,6 +401,39 @@ export default function ClientsPage() {
             setShowForm(false);
         } catch (err) {
             setFormErrors([err.response?.data?.error || "Failed to create client"]);
+        }
+    }
+
+    function openFreeze(client) {
+        setFreezingClient(client);
+        setFreezeStartDate(todayStr());
+        setFreezeDays("");
+        setFreezeNotes("");
+        setFreezeError("");
+        setShowFreezeModal(true);
+    }
+
+    async function handleFreeze(e) {
+        e.preventDefault();
+        if (!freezeStartDate || !freezeDays || Number(freezeDays) <= 0) {
+            setFreezeError("Start date and duration (days) are required.");
+            return;
+        }
+        setFreezeSaving(true);
+        try {
+            await api.post(`/api/clients/${freezingClient.id}/freezes`, {
+                freezeStartDate,
+                freezeDurationDays: Number(freezeDays),
+                notes: freezeNotes || null,
+            });
+            // Re-fetch to update computed statuses
+            const updated = await api.get("/api/clients");
+            setClients(updated.data ?? []);
+            setShowFreezeModal(false);
+        } catch (err) {
+            setFreezeError(err.response?.data?.error || "Failed to add freeze.");
+        } finally {
+            setFreezeSaving(false);
         }
     }
 
@@ -481,16 +554,27 @@ export default function ClientsPage() {
             key: "_actions",
             label: "",
             cardPriority: "hidden",
-            render: (row) => row.plain_password ? (
-                <button
-                    onClick={() => copyCredentials(row)}
-                    title="Copy credentials"
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-[#007AFF] hover:border-[#007AFF] transition-colors cursor-pointer"
-                >
-                    {copiedId === row.id ? <Check size={13} className="text-[#34C759]" /> : <Copy size={13} />}
-                    {copiedId === row.id ? "Copied!" : "Copy Creds"}
-                </button>
-            ) : null,
+            render: (row) => (
+                <div className="flex items-center gap-2 justify-end">
+                    {row.plain_password && (
+                        <button
+                            onClick={() => copyCredentials(row)}
+                            title="Copy credentials"
+                            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-[#007AFF] hover:border-[#007AFF] transition-colors cursor-pointer"
+                        >
+                            {copiedId === row.id ? <Check size={13} className="text-[#34C759]" /> : <Copy size={13} />}
+                            {copiedId === row.id ? "Copied!" : "Copy Creds"}
+                        </button>
+                    )}
+                    <button
+                        onClick={() => openFreeze(row)}
+                        title="Freeze subscription"
+                        className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-blue-600 hover:border-blue-300 transition-colors cursor-pointer"
+                    >
+                        Freeze
+                    </button>
+                </div>
+            ),
         },
     ];
 
@@ -528,15 +612,24 @@ export default function ClientsPage() {
                         </div>
                     )}
 
-                    {/* Name */}
-                    <input
-                        type="text"
-                        placeholder="Full name *"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        className={inputCls}
-                        autoFocus
-                    />
+                    {/* First name + Last name */}
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="First name *"
+                            value={newFirstName}
+                            onChange={(e) => setNewFirstName(e.target.value)}
+                            className={`${inputCls} flex-1`}
+                            autoFocus
+                        />
+                        <input
+                            type="text"
+                            placeholder="Last name"
+                            value={newLastName}
+                            onChange={(e) => setNewLastName(e.target.value)}
+                            className={`${inputCls} flex-1`}
+                        />
+                    </div>
 
                     {/* Email */}
                     <input
@@ -627,6 +720,60 @@ export default function ClientsPage() {
                         {paymentMethodOptions.map(pm => <option key={pm.value} value={pm.value}>{pm.label}</option>)}
                     </select>
 
+                    {/* Transaction Date */}
+                    <label className="text-[#86868B] text-xs font-medium">Transaction Date</label>
+                    <input
+                        type="date"
+                        value={txTransactionDate}
+                        onChange={e => setTxTransactionDate(e.target.value)}
+                        className={inputCls}
+                    />
+
+                    {/* Proof of Payment */}
+                    <label className="text-[#86868B] text-xs font-medium">Proof of Payment <span className="font-normal opacity-60">(optional)</span></label>
+                    <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={e => setTxProofFile(e.target.files[0] || null)}
+                        className="w-full text-sm text-[#86868B] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#F0F0F5] file:text-[#1D1D1F] hover:file:bg-[#D2D2D7] cursor-pointer"
+                    />
+                    {txProofFile && <p className="text-xs text-[#86868B] -mt-1">{txProofFile.name}</p>}
+
+                    {/* Subscription Start */}
+                    <label className="text-[#86868B] text-xs font-medium">Subscription Starts</label>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setSubDurationMode("on_first_plan")}
+                            className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                                subDurationMode === "on_first_plan"
+                                    ? "border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]"
+                                    : "border-[#D2D2D7] bg-[#F5F5F7] text-[#86868B] hover:border-[#007AFF] hover:text-[#007AFF]"
+                            }`}
+                        >
+                            On First Plan
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSubDurationMode("custom")}
+                            className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                                subDurationMode === "custom"
+                                    ? "border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]"
+                                    : "border-[#D2D2D7] bg-[#F5F5F7] text-[#86868B] hover:border-[#007AFF] hover:text-[#007AFF]"
+                            }`}
+                        >
+                            Custom Date
+                        </button>
+                    </div>
+                    {subDurationMode === "custom" && (
+                        <input
+                            type="date"
+                            value={subscriptionStartDate}
+                            onChange={(e) => setSubscriptionStartDate(e.target.value)}
+                            className={inputCls}
+                        />
+                    )}
+
                     {/* Assign Forms */}
                     <label className="text-[#86868B] text-xs font-medium">Assign Forms (optional)</label>
                     <MultiSelectDropdown options={formOptions} selected={selectedForms} onChange={setSelectedForms} placeholder="Select forms..." />
@@ -646,6 +793,8 @@ export default function ClientsPage() {
                 selectable
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}
+                defaultSort="dateCreated"
+                defaultSortDirection="desc"
             />
 
             {/* Floating bulk action bar */}
@@ -673,6 +822,58 @@ export default function ClientsPage() {
                     </button>
                 </div>
             )}
+
+            {/* Freeze Modal */}
+            <Modal
+                open={showFreezeModal}
+                onClose={() => setShowFreezeModal(false)}
+                title={`Freeze Subscription — ${freezingClient?.name ?? ""}`}
+            >
+                <form onSubmit={handleFreeze} className="flex flex-col gap-3">
+                    {freezeError && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                            <p className="text-[#FF3B30] text-xs">{freezeError}</p>
+                        </div>
+                    )}
+                    <div>
+                        <label className="text-[#86868B] text-xs font-medium">Freeze Start Date *</label>
+                        <input
+                            type="date"
+                            value={freezeStartDate}
+                            onChange={e => setFreezeStartDate(e.target.value)}
+                            className={`${inputCls} mt-1`}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[#86868B] text-xs font-medium">Freeze Duration (days) *</label>
+                        <input
+                            type="number"
+                            min="1"
+                            placeholder="e.g. 14"
+                            value={freezeDays}
+                            onChange={e => setFreezeDays(e.target.value)}
+                            className={`${inputCls} mt-1`}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[#86868B] text-xs font-medium">Notes <span className="font-normal opacity-60">(optional)</span></label>
+                        <textarea
+                            rows={2}
+                            value={freezeNotes}
+                            onChange={e => setFreezeNotes(e.target.value)}
+                            placeholder="Reason for freeze..."
+                            className={`${inputCls} resize-none mt-1`}
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={freezeSaving}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                    >
+                        {freezeSaving ? "Saving…" : "Add Freeze"}
+                    </button>
+                </form>
+            </Modal>
 
             {/* Bulk form picker modal */}
             {showFormPicker && (
