@@ -19,6 +19,16 @@ const {
 
 let trainingSchemaReadyPromise;
 
+function deleteUploadedFile(relativePath) {
+    if (!relativePath) return;
+    try {
+        const abs = path.join(__dirname, '..', relativePath);
+        if (fs.existsSync(abs)) fs.unlinkSync(abs);
+    } catch (e) {
+        console.error('Failed to delete upload:', relativePath, e.message);
+    }
+}
+
 const uploadRoot = path.join(__dirname, '..', 'uploads', 'exercise-library');
 const videoDir = path.join(uploadRoot, 'videos');
 const thumbDir = path.join(uploadRoot, 'thumbnails');
@@ -157,6 +167,13 @@ async function ensureTrainingSchema() {
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_library_coach ON exercise_library (coach_id)`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_muscle_groups_coach ON exercise_muscle_groups (coach_id)`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_equipments_coach ON exercise_equipments (coach_id)`);
+
+            // Migrations: add columns that may be missing from tables created before schema updates
+            await pool.query(`ALTER TABLE training_exercises ADD COLUMN IF NOT EXISTS exercise_library_id INTEGER REFERENCES exercise_library(id) ON DELETE SET NULL`);
+            await pool.query(`ALTER TABLE training_exercises ADD COLUMN IF NOT EXISTS equipment TEXT`);
+            await pool.query(`ALTER TABLE training_exercises ADD COLUMN IF NOT EXISTS notes TEXT`);
+            await pool.query(`ALTER TABLE training_days ADD COLUMN IF NOT EXISTS notes TEXT`);
+            await pool.query(`ALTER TABLE training_plans ADD COLUMN IF NOT EXISTS notes TEXT`);
         })();
     }
 
@@ -330,6 +347,10 @@ router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, 
             instructions,
         } = req.body;
 
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: 'Exercise name is required' });
+        }
+
         const videoPath = req.files?.video?.[0] ? `/uploads/exercise-library/videos/${path.basename(req.files.video[0].path)}` : null;
         const thumbnailPath = req.files?.thumbnail?.[0] ? `/uploads/exercise-library/thumbnails/${path.basename(req.files.thumbnail[0].path)}` : null;
 
@@ -337,7 +358,7 @@ router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, 
             `INSERT INTO exercise_library (coach_id, name, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
              RETURNING *`,
-            [req.user.id, name, muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions || null]
+            [req.user.id, name.trim(), muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions || null]
         );
 
         res.status(201).json(result.rows[0]);
@@ -353,8 +374,14 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
         if (existing.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
         const current = existing.rows[0];
 
-        const videoPath = req.files?.video?.[0] ? `/uploads/exercise-library/videos/${path.basename(req.files.video[0].path)}` : current.video_path;
-        const thumbnailPath = req.files?.thumbnail?.[0] ? `/uploads/exercise-library/thumbnails/${path.basename(req.files.thumbnail[0].path)}` : current.thumbnail_path;
+        if (!req.body.name || !req.body.name.trim()) {
+            return res.status(400).json({ error: 'Exercise name is required' });
+        }
+
+        const newVideoFile = req.files?.video?.[0];
+        const newThumbFile = req.files?.thumbnail?.[0];
+        const videoPath = newVideoFile ? `/uploads/exercise-library/videos/${path.basename(newVideoFile.path)}` : current.video_path;
+        const thumbnailPath = newThumbFile ? `/uploads/exercise-library/thumbnails/${path.basename(newThumbFile.path)}` : current.thumbnail_path;
 
         const result = await pool.query(
             `UPDATE exercise_library
@@ -369,7 +396,7 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
              WHERE id = $8 AND coach_id = $9
              RETURNING *`,
             [
-                req.body.name,
+                req.body.name.trim(),
                 req.body.muscle_group || null,
                 req.body.equipment || null,
                 req.body.youtube_url || null,
@@ -380,6 +407,11 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
                 req.user.id,
             ]
         );
+
+        // Delete replaced files
+        if (newVideoFile && current.video_path) deleteUploadedFile(current.video_path);
+        if (newThumbFile && current.thumbnail_path) deleteUploadedFile(current.thumbnail_path);
+
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
@@ -391,7 +423,10 @@ router.delete('/exercise-library/:id', async (req, res) => {
     try {
         const result = await pool.query('DELETE FROM exercise_library WHERE id = $1 AND coach_id = $2 RETURNING *', [req.params.id, req.user.id]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
-        res.json(result.rows[0]);
+        const deleted = result.rows[0];
+        deleteUploadedFile(deleted.video_path);
+        deleteUploadedFile(deleted.thumbnail_path);
+        res.json(deleted);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

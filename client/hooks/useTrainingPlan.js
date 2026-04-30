@@ -33,6 +33,8 @@ export function useTrainingPlan(clientId) {
     const [hasDeletedPlans, setHasDeletedPlans] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState("idle");
+    const [focusPlanNameSignal, setFocusPlanNameSignal] = useState(0);
+    const [newlyCreatedDayId, setNewlyCreatedDayId] = useState(null);
     const saveStatusTimeoutRef = useRef(null);
 
     const isDirty = dirtyPlanIds.size > 0 || hasDeletedPlans;
@@ -131,6 +133,50 @@ export function useTrainingPlan(clientId) {
         setSelectedDayId(dayId);
     }, []);
 
+    const handleDeletePlan = useCallback((planId) => {
+        setPlans((prev) => prev.filter((p) => String(p.id) !== String(planId)));
+        setSelectedPlan((prev) => {
+            if (!prev || String(prev.id) !== String(planId)) return prev;
+            const remaining = plans.filter((p) => String(p.id) !== String(planId));
+            return remaining[0] ?? null;
+        });
+        setDirtyPlanIds((prev) => {
+            const next = new Set(prev);
+            next.delete(String(planId));
+            return next;
+        });
+        setHasDeletedPlans(true);
+        markPlanDirty("__deleted__");
+    }, [plans, markPlanDirty]);
+
+    const handleDuplicatePlan = useCallback((planId) => {
+        const source = plans.find((p) => String(p.id) === String(planId));
+        if (!source) return;
+        const now = new Date().toISOString();
+        const newPlan = normalizePlan({
+            ...source,
+            id: makeTempId("plan"),
+            name: `${source.name} (Copy)`,
+            status: "inactive",
+            created_at: now,
+            updated_at: now,
+            days: (source.days ?? []).map((d) => ({
+                ...d,
+                id: makeTempId("day"),
+                exercises: (d.exercises ?? []).map((e) => ({
+                    ...e,
+                    id: makeTempId("exercise"),
+                    sets: (e.sets ?? []).map((s) => ({ ...s, id: makeTempId("set") })),
+                })),
+            })),
+        });
+        setPlans((prev) => [newPlan, ...prev]);
+        setSelectedPlan(newPlan);
+        setSelectedDayId(newPlan.days[0]?.id ?? null);
+        markPlanDirty(newPlan.id);
+        setFocusPlanNameSignal((s) => s + 1);
+    }, [plans, markPlanDirty]);
+
     const handleCreatePlan = useCallback(() => {
         const now = new Date().toISOString();
         const newPlan = normalizePlan({
@@ -155,6 +201,7 @@ export function useTrainingPlan(clientId) {
         setSelectedPlan(newPlan);
         setSelectedDayId(newPlan.days[0]?.id ?? null);
         markPlanDirty(newPlan.id);
+        setFocusPlanNameSignal((s) => s + 1);
     }, [clientId, markPlanDirty]);
 
     const handleRenamePlan = useCallback((planId, name) => {
@@ -182,6 +229,7 @@ export function useTrainingPlan(clientId) {
         const nextPlan = { ...selectedPlan, days: [...(selectedPlan.days ?? []), day] };
         applyPlanUpdate(nextPlan);
         setSelectedDayId(day.id);
+        setNewlyCreatedDayId(day.id);
         markPlanDirty(selectedPlan.id);
     }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
 
@@ -200,6 +248,87 @@ export function useTrainingPlan(clientId) {
         const nextPlan = {
             ...selectedPlan,
             days: (selectedPlan.days ?? []).map((d) => (String(d.id) === String(dayId) ? { ...d, notes } : d)),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleDeleteDay = useCallback((dayId) => {
+        if (!selectedPlan) return;
+        const nextDays = (selectedPlan.days ?? []).filter((d) => String(d.id) !== String(dayId));
+        const nextPlan = { ...selectedPlan, days: nextDays };
+        applyPlanUpdate(nextPlan);
+        setSelectedDayId((prev) => {
+            if (String(prev) !== String(dayId)) return prev;
+            return nextDays[0]?.id ?? null;
+        });
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleDuplicateDay = useCallback((dayId) => {
+        if (!selectedPlan) return;
+        const source = (selectedPlan.days ?? []).find((d) => String(d.id) === String(dayId));
+        if (!source) return;
+        const newDay = {
+            ...source,
+            id: makeTempId("day"),
+            name: `${source.name} (Copy)`,
+            exercises: (source.exercises ?? []).map((e) => ({
+                ...e,
+                id: makeTempId("exercise"),
+                sets: (e.sets ?? []).map((s) => ({ ...s, id: makeTempId("set") })),
+            })),
+        };
+        const idx = (selectedPlan.days ?? []).findIndex((d) => String(d.id) === String(dayId));
+        const nextDays = [...(selectedPlan.days ?? [])];
+        nextDays.splice(idx + 1, 0, newDay);
+        applyPlanUpdate({ ...selectedPlan, days: nextDays });
+        setSelectedDayId(newDay.id);
+        setNewlyCreatedDayId(newDay.id);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleClosePlan = useCallback(() => {
+        setSelectedPlan(null);
+        setSelectedDayId(null);
+    }, []);
+
+    const handleCloseDay = useCallback(() => {
+        setSelectedDayId(null);
+    }, []);
+
+    const handleDeleteSet = useCallback((dayId, exerciseId, setId) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) => {
+                        if (String(e.id) !== String(exerciseId)) return e;
+                        return { ...e, sets: (e.sets ?? []).filter((s) => String(s.id) !== String(setId)) };
+                    }),
+                };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleUpdateExerciseNotes = useCallback((dayId, exerciseId, notes) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) =>
+                        String(e.id) === String(exerciseId) ? { ...e, notes } : e
+                    ),
+                };
+            }),
         };
         applyPlanUpdate(nextPlan);
         markPlanDirty(selectedPlan.id);
@@ -444,15 +573,25 @@ export function useTrainingPlan(clientId) {
         handleRenamePlan,
         handleUpdatePlanNotes,
         handleCreateDay,
+        handleDeleteDay,
+        handleDuplicateDay,
         handleRenameDay,
         handleUpdateDayNotes,
         handleAddExercise,
         handleDeleteExercise,
         handleRenameExercise,
+        handleUpdateExerciseNotes,
         handleAddSet,
+        handleDeleteSet,
         handleUpdateSetField,
         handleSaveSelectedPlan,
         handleSaveAllDrafts,
         handleActivatePlan,
+        handleDeletePlan,
+        handleDuplicatePlan,
+        handleClosePlan,
+        handleCloseDay,
+        focusPlanNameSignal,
+        newlyCreatedDayId,
     };
 }

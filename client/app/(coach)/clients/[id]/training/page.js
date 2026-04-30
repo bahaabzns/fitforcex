@@ -56,19 +56,29 @@ export default function TrainingPage() {
         handleSelectedPlan,
         handleSelectDay,
         handleCreatePlan,
+        handleDeletePlan,
+        handleDuplicatePlan,
         handleRenamePlan,
         handleUpdatePlanNotes,
         handleCreateDay,
+        handleDeleteDay,
+        handleDuplicateDay,
         handleRenameDay,
         handleUpdateDayNotes,
         handleAddExercise,
         handleDeleteExercise,
         handleRenameExercise,
+        handleUpdateExerciseNotes,
         handleAddSet,
+        handleDeleteSet,
         handleUpdateSetField,
         handleSaveSelectedPlan,
         handleSaveAllDrafts,
         handleActivatePlan,
+        handleClosePlan,
+        handleCloseDay,
+        focusPlanNameSignal,
+        newlyCreatedDayId,
     } = useTrainingPlan(id);
 
     useEffect(() => {
@@ -103,6 +113,7 @@ export default function TrainingPage() {
                         isDirty={isDirty}
                         isSaving={isSaving}
                         saveStatus={saveStatus}
+                        clientId={id}
                     />
                 </div>
 
@@ -117,16 +128,22 @@ export default function TrainingPage() {
                             selectedDayId={selectedDayId}
                             handleSelectDay={handleSelectDay}
                             handleCreateDay={handleCreateDay}
+                            handleDeleteDay={handleDeleteDay}
+                            handleDuplicateDay={handleDuplicateDay}
                             handleRenamePlan={handleRenamePlan}
                             handleRenameDay={handleRenameDay}
                             handleUpdatePlanNotes={handleUpdatePlanNotes}
-                            handleUpdateDayNotes={handleUpdateDayNotes}
                             handleActivatePlan={handleActivatePlan}
                             handleSaveSelectedPlan={handleSaveSelectedPlan}
+                            handleDeletePlan={handleDeletePlan}
+                            handleDuplicatePlan={handleDuplicatePlan}
                             isSaving={isSaving}
                             saveStatus={saveStatus}
                             dirtyPlanIds={dirtyPlanIds}
                             submissionId={submissionId}
+                            focusPlanNameSignal={focusPlanNameSignal}
+                            newlyCreatedDayId={newlyCreatedDayId}
+                            onClose={handleClosePlan}
                         />
                     ) : (
                         <div className="card w-full flex flex-col overflow-hidden min-h-full">
@@ -145,8 +162,12 @@ export default function TrainingPage() {
                         handleAddExercise={handleAddExercise}
                         handleDeleteExercise={handleDeleteExercise}
                         handleRenameExercise={handleRenameExercise}
+                        handleUpdateExerciseNotes={handleUpdateExerciseNotes}
                         handleAddSet={handleAddSet}
+                        handleDeleteSet={handleDeleteSet}
                         handleUpdateSetField={handleUpdateSetField}
+                        handleUpdateDayNotes={handleUpdateDayNotes}
+                        onClose={handleCloseDay}
                     />
                 </div>
             </div>
