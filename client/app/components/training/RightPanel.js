@@ -2,6 +2,13 @@ import React, { useState } from "react";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 
 const INPUT_CLASS = "h-8 w-full rounded-md border border-gray-300 px-2 text-xs focus:outline-none focus:border-blue-300";
+const SERVER = "http://localhost:4000";
+
+function getYoutubeEmbedUrl(url) {
+    if (!url) return null;
+    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?]+)/);
+    return m?.[1] ? `https://www.youtube.com/embed/${m[1]}` : null;
+}
 
 const TrashIcon = ({ size = 14 }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -37,6 +44,7 @@ export default function RightPanel({
     const [exercisesCollapsed, setExercisesCollapsed] = useState(false);
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
+    const [videoOpenId, setVideoOpenId] = useState(null);
 
     if (!selectedDay) {
         return (
@@ -130,32 +138,80 @@ export default function RightPanel({
                         className={`group rounded-xl border border-gray-200 p-3 select-none transition-all ${isDragging ? "opacity-30 scale-95" : ""}`}
                     >
                         {/* Exercise header */}
-                        <div className="flex items-center gap-2 mb-2">
-                            {/* Drag grip */}
-                            <span className="text-gray-300 hover:text-gray-500 cursor-grab shrink-0">
-                                <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
-                                    <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
-                                    <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
-                                    <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
-                                </svg>
-                            </span>
-                            <span className="text-xs font-semibold text-blue-600 shrink-0">#{index + 1}</span>
-                            <input
-                                value={exercise.name}
-                                onChange={(e) => handleRenameExercise(selectedDay.id, exercise.id, e.target.value)}
-                                className="flex-1 bg-transparent text-sm font-semibold text-gray-800 focus:outline-none min-w-0"
-                            />
-                            {exercise.exercise_library_id && (
-                                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-semibold shrink-0">lib</span>
+                        <div className="flex items-start gap-2 mb-2">
+                            {/* Thumbnail */}
+                            {exercise.thumbnail_path ? (
+                                <img
+                                    src={`${SERVER}${exercise.thumbnail_path}`}
+                                    alt={exercise.name}
+                                    className="w-10 h-10 rounded-lg object-cover shrink-0"
+                                />
+                            ) : (
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-300">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+                                    </svg>
+                                </div>
                             )}
-                            <button
-                                onClick={() => handleDeleteExercise(selectedDay.id, exercise.id)}
-                                className="shrink-0 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
-                                title="Delete exercise"
-                            >
-                                <TrashIcon />
-                            </button>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    {/* Drag grip */}
+                                    <span className="text-gray-300 hover:text-gray-500 cursor-grab shrink-0">
+                                        <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
+                                            <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+                                            <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
+                                            <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
+                                        </svg>
+                                    </span>
+                                    <span className="text-xs font-semibold text-blue-600 shrink-0">#{index + 1}</span>
+                                    <input
+                                        value={exercise.name}
+                                        onChange={(e) => handleRenameExercise(selectedDay.id, exercise.id, e.target.value)}
+                                        className="flex-1 bg-transparent text-sm font-semibold text-gray-800 focus:outline-none min-w-0"
+                                    />
+                                    {exercise.exercise_library_id && (
+                                        <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-semibold shrink-0">lib</span>
+                                    )}
+                                    {(exercise.youtube_url || exercise.video_path) && (
+                                        <button
+                                            onClick={() => setVideoOpenId(videoOpenId === exercise.id ? null : exercise.id)}
+                                            className={`shrink-0 p-1 rounded transition-colors cursor-pointer ${videoOpenId === exercise.id ? "text-blue-500 bg-blue-50" : "text-gray-400 hover:text-blue-500 hover:bg-blue-50"}`}
+                                            title={videoOpenId === exercise.id ? "Hide video" : "Watch video"}
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+                                            </svg>
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => handleDeleteExercise(selectedDay.id, exercise.id)}
+                                        className="shrink-0 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                                        title="Delete exercise"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
+                                {exercise.muscle_group && (
+                                    <span className="text-[10px] text-gray-400 ml-1">{exercise.muscle_group}</span>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Inline video */}
+                        {videoOpenId === exercise.id && (exercise.youtube_url || exercise.video_path) && (
+                            <div className="mb-2 rounded-lg overflow-hidden bg-black aspect-video">
+                                {getYoutubeEmbedUrl(exercise.youtube_url) ? (
+                                    <iframe
+                                        src={getYoutubeEmbedUrl(exercise.youtube_url)}
+                                        className="w-full h-full"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    />
+                                ) : (
+                                    <video src={`${SERVER}${exercise.video_path}`} controls className="w-full h-full" />
+                                )}
+                            </div>
+                        )}
 
                         {/* Exercise notes */}
                         <input
@@ -179,10 +235,10 @@ export default function RightPanel({
                             {(exercise.sets ?? []).map((set, sIdx) => (
                                 <div key={set.id} className="group/set grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 items-center">
                                     <span className="text-xs text-gray-400">{sIdx + 1}</span>
-                                    <input value={set.reps ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", e.target.value)} className={INPUT_CLASS} />
-                                    <input value={set.rest_seconds ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", e.target.value)} className={INPUT_CLASS} />
-                                    <input value={set.tempo ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", e.target.value)} className={INPUT_CLASS} />
-                                    <input value={set.rir ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", e.target.value)} className={INPUT_CLASS} />
+                                    <input value={set.reps ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
+                                    <input value={set.rest_seconds ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
+                                    <input value={set.tempo ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
+                                    <input value={set.rir ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
                                     <button
                                         onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
                                         className="p-0.5 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"

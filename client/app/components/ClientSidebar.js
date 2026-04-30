@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
-import { Salad, ClipboardList, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Salad, Dumbbell, ClipboardList, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function ClientSidebar() {
     const pathname = usePathname();
@@ -30,6 +30,7 @@ export default function ClientSidebar() {
 
     const navItems = [
         { href: "/client/dashboard", label: "Nutrition Plan", icon: Salad },
+        { href: "/client/training", label: "Training Plan", icon: Dumbbell },
         { href: "/client/forms", label: "Forms", icon: ClipboardList },
     ];
 

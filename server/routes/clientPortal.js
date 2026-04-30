@@ -209,7 +209,11 @@ router.get('/active-training-plan', clientAuthMiddleware, async (req, res) => {
 
         const days = await Promise.all(daysResult.rows.map(async (day) => {
             const exercisesResult = await pool.query(
-                'SELECT * FROM training_exercises WHERE day_id = $1 ORDER BY exercise_order ASC',
+                `SELECT te.*,
+                        el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group, el.instructions
+                 FROM training_exercises te
+                 LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
+                 WHERE te.day_id = $1 ORDER BY te.exercise_order ASC`,
                 [day.id]
             );
 
@@ -220,7 +224,7 @@ router.get('/active-training-plan', clientAuthMiddleware, async (req, res) => {
                 );
                 const alternativesResult = await pool.query(
                     `SELECT tea.id, tea.exercise_library_id, tea.alt_order,
-                            el.name, el.muscle_group, el.equipment, el.thumbnail_path
+                            el.name, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
                      FROM training_exercise_alternatives tea
                      JOIN exercise_library el ON el.id = tea.exercise_library_id
                      WHERE tea.exercise_id = $1

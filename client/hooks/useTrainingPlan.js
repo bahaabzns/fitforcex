@@ -350,6 +350,10 @@ export function useTrainingPlan(clientId) {
                             equipment: libraryItem?.equipment ?? "",
                             notes: "",
                             exercise_library_id: libraryItem?.id ?? null,
+                            thumbnail_path: libraryItem?.thumbnail_path ?? null,
+                            video_path: libraryItem?.video_path ?? null,
+                            youtube_url: libraryItem?.youtube_url ?? null,
+                            muscle_group: libraryItem?.muscle_group ?? null,
                             sets: [
                                 { id: makeTempId("set"), reps: "8-12", rest_seconds: 90, tempo: "-", rir: 2 },
                             ],
@@ -375,6 +379,10 @@ export function useTrainingPlan(clientId) {
                     equipment: item.equipment ?? "",
                     notes: "",
                     exercise_library_id: item.id ?? null,
+                    thumbnail_path: item.thumbnail_path ?? null,
+                    video_path: item.video_path ?? null,
+                    youtube_url: item.youtube_url ?? null,
+                    muscle_group: item.muscle_group ?? null,
                     sets: [
                         { id: makeTempId("set"), reps: "8-12", rest_seconds: 90, tempo: "-", rir: 2 },
                     ],
