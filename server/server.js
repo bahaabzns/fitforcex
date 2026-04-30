@@ -22,6 +22,8 @@ server.use('/api/clients', require('./routes/clients'));
 
 const nutritionRouter = require('./routes/nutrition');
 server.use('/api/nutrition', nutritionRouter);
+const trainingRouter = require('./routes/training');
+server.use('/api/training', trainingRouter);
 
 server.use('/api/client-portal', require('./routes/clientPortal'));
 server.use('/api/forms', require('./routes/forms'));

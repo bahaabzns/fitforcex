@@ -3,25 +3,21 @@ const router = express.Router();
 
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
+const {
+    toIsoDateOrNull,
+    serializePlanRow,
+    serializePlanRows,
+    normalizeOrderedList,
+    insertOrderedChildren,
+    replaceClientPlansTransactional,
+    activateSinglePlan,
+    saveSinglePlanDraft,
+} = require('../lib/planEngine');
 
 function toNumberOrNull(value) {
     if (value === null || value === undefined || value === '') return null;
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
-}
-
-function toIsoDateOrNull(value) {
-    if (!value) return null;
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-// Always serialise timestamps as UTC ISO-8601 before sending to the client.
-// Postgres may return Date objects or naive strings; this makes the contract explicit.
-function toClientIso(value) {
-    if (!value) return null;
-    const d = value instanceof Date ? value : new Date(value);
-    return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 router.use(authMiddleware);
@@ -204,11 +200,7 @@ router.get('/plans', async (req, res) => {
             [req.user.id, req.query.clientId]
         );
 
-        res.json(result.rows.map(row => ({
-            ...row,
-            created_at: toClientIso(row.created_at),
-            updated_at: toClientIso(row.updated_at),
-        })));
+        res.json(serializePlanRows(result.rows));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -231,14 +223,12 @@ router.get('/plans/:id', async (req, res) => {
             [req.params.id]
         );
 
-        
         const mealsResult = await Promise.all(cyclesResult.rows.map(cycle =>
             pool.query(
                 'SELECT * FROM nutrition_meals WHERE cycle_id = $1 ORDER BY meal_order ASC',
                 [cycle.id]
             )
         ));
-
 
         const cycles = await Promise.all(
             cyclesResult.rows.map(async (cycle, cycleIndex) => {
@@ -277,19 +267,17 @@ router.get('/plans/:id', async (req, res) => {
             })
         );
 
+        const serializedPlan = serializePlanRow(planResult.rows[0]);
+
         res.json({
             id: planResult.rows[0].id,
             name: planResult.rows[0].name,
             client_id: planResult.rows[0].client_id,
             status: planResult.rows[0].status,
-            created_at: toClientIso(planResult.rows[0].created_at),
-            updated_at: toClientIso(planResult.rows[0].updated_at),
+            created_at: serializedPlan.created_at,
+            updated_at: serializedPlan.updated_at,
             cycles: cycles
         });
-
-
-
-        
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -308,13 +296,12 @@ router.post('/plans', async (req, res) => {
             [name, client_id, req.user.id]
         );
 
-        const defaultCycleResult = await pool.query(
+        await pool.query(
             'INSERT INTO nutrition_cycles (plan_id, name) VALUES ($1, $2) RETURNING *',
             [planResult.rows[0].id, 'Cycle 1']
         );
 
-        res.status(201).json( planResult.rows[0] );
-
+        res.status(201).json(planResult.rows[0]);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -323,177 +310,171 @@ router.post('/plans', async (req, res) => {
 
 router.post('/plans/save-draft', async (req, res) => {
     const { clientId, plans = [], activePlanId = null } = req.body;
-    const dbClient = await pool.connect();
 
     try {
-        await dbClient.query('BEGIN');
-
-        // Replace all client plans in one transaction to persist the in-memory draft snapshot.
-        await dbClient.query(
-            `DELETE FROM nutrition_meal_item_alternatives nmia
-             USING nutrition_meal_items nmi, nutrition_meals nm, nutrition_cycles nc, nutrition_plans np
-             WHERE nmia.meal_item_id = nmi.id
-               AND nmi.meal_id = nm.id
-               AND nm.cycle_id = nc.id
-               AND nc.plan_id = np.id
-               AND np.coach_id = $1
-               AND np.client_id = $2`,
-            [req.user.id, clientId]
-        );
-
-        await dbClient.query(
-            `DELETE FROM nutrition_meal_items nmi
-             USING nutrition_meals nm, nutrition_cycles nc, nutrition_plans np
-             WHERE nmi.meal_id = nm.id
-               AND nm.cycle_id = nc.id
-               AND nc.plan_id = np.id
-               AND np.coach_id = $1
-               AND np.client_id = $2`,
-            [req.user.id, clientId]
-        );
-
-        await dbClient.query(
-            `DELETE FROM nutrition_meals nm
-             USING nutrition_cycles nc, nutrition_plans np
-             WHERE nm.cycle_id = nc.id
-               AND nc.plan_id = np.id
-               AND np.coach_id = $1
-               AND np.client_id = $2`,
-            [req.user.id, clientId]
-        );
-
-        await dbClient.query(
-            `DELETE FROM nutrition_cycles nc
-             USING nutrition_plans np
-             WHERE nc.plan_id = np.id
-               AND np.coach_id = $1
-               AND np.client_id = $2`,
-            [req.user.id, clientId]
-        );
-
-        await dbClient.query(
-            'DELETE FROM nutrition_plans WHERE coach_id = $1 AND client_id = $2',
-            [req.user.id, clientId]
-        );
-
-        const planIdMap = new Map();
-
-        for (let pIndex = 0; pIndex < plans.length; pIndex += 1) {
-            const plan = plans[pIndex];
-            const createdAt = toIsoDateOrNull(plan.created_at) || new Date().toISOString();
-            const updatedAt = new Date().toISOString();
-            const insertedPlan = await dbClient.query(
-                `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6)
-                 RETURNING *`,
-                [
-                    plan.name || `Plan ${pIndex + 1}`,
-                    clientId,
-                    req.user.id,
-                    plan.status === 'active' ? 'active' : 'inactive',
-                    createdAt,
-                    updatedAt,
-                ]
-            );
-
-            const dbPlan = insertedPlan.rows[0];
-            planIdMap.set(plan.id, dbPlan.id);
-
-            const cycles = Array.isArray(plan.cycles) ? plan.cycles : [];
-            for (let cIndex = 0; cIndex < cycles.length; cIndex += 1) {
-                const cycle = cycles[cIndex];
-                const insertedCycle = await dbClient.query(
-                    `INSERT INTO nutrition_cycles (
-                        plan_id,
-                        name,
-                        cycle_order,
-                        note,
-                        goal_calories,
-                        goal_protein,
-                        goal_carbs,
-                        goal_fats
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    RETURNING *`,
-                    [
-                        dbPlan.id,
-                        cycle.name || `Cycle ${cIndex + 1}`,
-                        cIndex + 1,
-                        cycle.note ?? null,
-                        cycle.goal_calories ?? null,
-                        cycle.goal_protein ?? null,
-                        cycle.goal_carbs ?? null,
-                        cycle.goal_fats ?? null,
-                    ]
+        await replaceClientPlansTransactional({
+            pool,
+            work: async (dbClient) => {
+                await dbClient.query(
+                    `DELETE FROM nutrition_meal_item_alternatives nmia
+                     USING nutrition_meal_items nmi, nutrition_meals nm, nutrition_cycles nc, nutrition_plans np
+                     WHERE nmia.meal_item_id = nmi.id
+                       AND nmi.meal_id = nm.id
+                       AND nm.cycle_id = nc.id
+                       AND nc.plan_id = np.id
+                       AND np.coach_id = $1
+                       AND np.client_id = $2`,
+                    [req.user.id, clientId]
                 );
 
-                const dbCycle = insertedCycle.rows[0];
-                const meals = Array.isArray(cycle.meals) ? cycle.meals : [];
+                await dbClient.query(
+                    `DELETE FROM nutrition_meal_items nmi
+                     USING nutrition_meals nm, nutrition_cycles nc, nutrition_plans np
+                     WHERE nmi.meal_id = nm.id
+                       AND nm.cycle_id = nc.id
+                       AND nc.plan_id = np.id
+                       AND np.coach_id = $1
+                       AND np.client_id = $2`,
+                    [req.user.id, clientId]
+                );
 
-                for (let mIndex = 0; mIndex < meals.length; mIndex += 1) {
-                    const meal = meals[mIndex];
-                    const insertedMeal = await dbClient.query(
-                        `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note)
-                         VALUES ($1, $2, $3, $4)
+                await dbClient.query(
+                    `DELETE FROM nutrition_meals nm
+                     USING nutrition_cycles nc, nutrition_plans np
+                     WHERE nm.cycle_id = nc.id
+                       AND nc.plan_id = np.id
+                       AND np.coach_id = $1
+                       AND np.client_id = $2`,
+                    [req.user.id, clientId]
+                );
+
+                await dbClient.query(
+                    `DELETE FROM nutrition_cycles nc
+                     USING nutrition_plans np
+                     WHERE nc.plan_id = np.id
+                       AND np.coach_id = $1
+                       AND np.client_id = $2`,
+                    [req.user.id, clientId]
+                );
+
+                await dbClient.query(
+                    'DELETE FROM nutrition_plans WHERE coach_id = $1 AND client_id = $2',
+                    [req.user.id, clientId]
+                );
+
+                const planIdMap = new Map();
+
+                for (let pIndex = 0; pIndex < plans.length; pIndex += 1) {
+                    const plan = plans[pIndex];
+                    const createdAt = toIsoDateOrNull(plan.created_at) || new Date().toISOString();
+                    const updatedAt = new Date().toISOString();
+                    const insertedPlan = await dbClient.query(
+                        `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
+                         VALUES ($1, $2, $3, $4, $5, $6)
                          RETURNING *`,
                         [
-                            dbCycle.id,
-                            meal.name || `Meal ${mIndex + 1}`,
-                            mIndex + 1,
-                            meal.note ?? null,
+                            plan.name || `Plan ${pIndex + 1}`,
+                            clientId,
+                            req.user.id,
+                            plan.status === 'active' ? 'active' : 'inactive',
+                            createdAt,
+                            updatedAt,
                         ]
                     );
 
-                    const dbMeal = insertedMeal.rows[0];
-                    const items = Array.isArray(meal.items) ? meal.items : [];
+                    const dbPlan = insertedPlan.rows[0];
+                    planIdMap.set(plan.id, dbPlan.id);
 
-                    for (let iIndex = 0; iIndex < items.length; iIndex += 1) {
-                        const item = items[iIndex];
-                        const insertedItem = await dbClient.query(
-                            `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order)
-                             VALUES ($1, $2, $3, $4)
-                             RETURNING *`,
+                    const cycles = normalizeOrderedList(plan.cycles, 'cycle_order');
+                    for (const cycle of cycles) {
+                        const insertedCycle = await dbClient.query(
+                            `INSERT INTO nutrition_cycles (
+                                plan_id,
+                                name,
+                                cycle_order,
+                                note,
+                                goal_calories,
+                                goal_protein,
+                                goal_carbs,
+                                goal_fats
+                            )
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                            RETURNING *`,
                             [
-                                dbMeal.id,
-                                item.food_item_id,
-                                toNumberOrNull(item.amount) ?? 0,
-                                iIndex + 1,
+                                dbPlan.id,
+                                cycle.name || `Cycle ${cycle.cycle_order}`,
+                                cycle.cycle_order,
+                                cycle.note ?? null,
+                                cycle.goal_calories ?? null,
+                                cycle.goal_protein ?? null,
+                                cycle.goal_carbs ?? null,
+                                cycle.goal_fats ?? null,
                             ]
                         );
 
-                        const dbItem = insertedItem.rows[0];
-                        const alternatives = Array.isArray(item.alternatives) ? item.alternatives : [];
+                        const dbCycle = insertedCycle.rows[0];
+                        const meals = normalizeOrderedList(cycle.meals, 'meal_order');
 
-                        for (let aIndex = 0; aIndex < alternatives.length; aIndex += 1) {
-                            const alt = alternatives[aIndex];
-                            await dbClient.query(
-                                `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order)
-                                 VALUES ($1, $2, $3, $4)`,
+                        for (const meal of meals) {
+                            const insertedMeal = await dbClient.query(
+                                `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note)
+                                 VALUES ($1, $2, $3, $4)
+                                 RETURNING *`,
                                 [
-                                    dbItem.id,
-                                    alt.food_item_id,
-                                    toNumberOrNull(alt.amount) ?? 0,
-                                    aIndex + 1,
+                                    dbCycle.id,
+                                    meal.name || `Meal ${meal.meal_order}`,
+                                    meal.meal_order,
+                                    meal.note ?? null,
                                 ]
                             );
+
+                            const dbMeal = insertedMeal.rows[0];
+                            const items = normalizeOrderedList(meal.items, 'meal_item_order');
+
+                            for (const item of items) {
+                                const insertedItem = await dbClient.query(
+                                    `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order)
+                                     VALUES ($1, $2, $3, $4)
+                                     RETURNING *`,
+                                    [
+                                        dbMeal.id,
+                                        item.food_item_id,
+                                        toNumberOrNull(item.amount) ?? 0,
+                                        item.meal_item_order,
+                                    ]
+                                );
+
+                                const alternatives = normalizeOrderedList(item.alternatives, 'alt_order');
+
+                                for (const alt of alternatives) {
+                                    await dbClient.query(
+                                        `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order)
+                                         VALUES ($1, $2, $3, $4)`,
+                                        [
+                                            insertedItem.rows[0].id,
+                                            alt.food_item_id,
+                                            toNumberOrNull(alt.amount) ?? 0,
+                                            alt.alt_order,
+                                        ]
+                                    );
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        const resolvedActivePlanId = planIdMap.get(activePlanId) || null;
-        if (resolvedActivePlanId) {
-            await dbClient.query(
-                `UPDATE nutrition_plans
-                 SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
-                 WHERE coach_id = $2
-                   AND client_id = $3`,
-                [resolvedActivePlanId, req.user.id, clientId]
-            );
-        }
-
-        await dbClient.query('COMMIT');
+                const resolvedActivePlanId = planIdMap.get(activePlanId) || null;
+                if (resolvedActivePlanId) {
+                    await dbClient.query(
+                        `UPDATE nutrition_plans
+                         SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
+                         WHERE coach_id = $2
+                           AND client_id = $3`,
+                        [resolvedActivePlanId, req.user.id, clientId]
+                    );
+                }
+            },
+        });
 
         const summary = await pool.query(
             `SELECT np.*,
@@ -505,215 +486,201 @@ router.post('/plans/save-draft', async (req, res) => {
             [req.user.id, clientId]
         );
 
-        res.json({ plans: summary.rows });
+        res.json({ plans: serializePlanRows(summary.rows) });
     } catch (err) {
-        await dbClient.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
-    } finally {
-        dbClient.release();
     }
 });
 
 router.post('/plans/save-plan-draft', async (req, res) => {
     const { clientId, plan, activePlanId = null } = req.body;
-    if (!plan || typeof plan !== 'object') {
-        return res.status(400).json({ error: 'plan object is required' });
-    }
-
-    const dbClient = await pool.connect();
-    const oldPlanId = plan.id;
 
     try {
-        await dbClient.query('BEGIN');
+        const result = await saveSinglePlanDraft({
+            pool,
+            plan,
+            clientId,
+            coachId: req.user.id,
+            activePlanId,
+            loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }) => {
+                const existing = await dbClient.query(
+                    `SELECT id, created_at
+                     FROM nutrition_plans
+                     WHERE id = $1 AND coach_id = $2 AND client_id = $3`,
+                    [planId, coachId, cId]
+                );
+                return existing.rows[0] ?? null;
+            },
+            deleteExistingPlanTree: async ({ dbClient, planId }) => {
+                await dbClient.query(
+                    `DELETE FROM nutrition_meal_item_alternatives nmia
+                     USING nutrition_meal_items nmi, nutrition_meals nm, nutrition_cycles nc
+                     WHERE nmia.meal_item_id = nmi.id
+                       AND nmi.meal_id = nm.id
+                       AND nm.cycle_id = nc.id
+                       AND nc.plan_id = $1`,
+                    [planId]
+                );
 
-        const rawPlanId = String(plan.id ?? '');
-        const parsedPlanId = Number(rawPlanId);
-        const hasPersistentPlanId = !rawPlanId.startsWith('tmp-') && Number.isInteger(parsedPlanId);
+                await dbClient.query(
+                    `DELETE FROM nutrition_meal_items nmi
+                     USING nutrition_meals nm, nutrition_cycles nc
+                     WHERE nmi.meal_id = nm.id
+                       AND nm.cycle_id = nc.id
+                       AND nc.plan_id = $1`,
+                    [planId]
+                );
 
-        let existingCreatedAt = null;
-        if (hasPersistentPlanId) {
-            const existing = await dbClient.query(
-                `SELECT id, created_at
-                 FROM nutrition_plans
-                 WHERE id = $1 AND coach_id = $2 AND client_id = $3`,
-                [parsedPlanId, req.user.id, clientId]
-            );
+                await dbClient.query(
+                    `DELETE FROM nutrition_meals nm
+                     USING nutrition_cycles nc
+                     WHERE nm.cycle_id = nc.id
+                       AND nc.plan_id = $1`,
+                    [planId]
+                );
 
-            if (existing.rows.length === 0) {
-                await dbClient.query('ROLLBACK');
-                return res.status(404).json({ error: 'Plan not found for this client' });
-            }
-
-            existingCreatedAt = existing.rows[0].created_at;
-
-            await dbClient.query(
-                `DELETE FROM nutrition_meal_item_alternatives nmia
-                 USING nutrition_meal_items nmi, nutrition_meals nm, nutrition_cycles nc
-                 WHERE nmia.meal_item_id = nmi.id
-                   AND nmi.meal_id = nm.id
-                   AND nm.cycle_id = nc.id
-                   AND nc.plan_id = $1`,
-                [parsedPlanId]
-            );
-
-            await dbClient.query(
-                `DELETE FROM nutrition_meal_items nmi
-                 USING nutrition_meals nm, nutrition_cycles nc
-                 WHERE nmi.meal_id = nm.id
-                   AND nm.cycle_id = nc.id
-                   AND nc.plan_id = $1`,
-                [parsedPlanId]
-            );
-
-            await dbClient.query(
-                `DELETE FROM nutrition_meals nm
-                 USING nutrition_cycles nc
-                 WHERE nm.cycle_id = nc.id
-                   AND nc.plan_id = $1`,
-                [parsedPlanId]
-            );
-
-            await dbClient.query('DELETE FROM nutrition_cycles WHERE plan_id = $1', [parsedPlanId]);
-            await dbClient.query('DELETE FROM nutrition_plans WHERE id = $1', [parsedPlanId]);
-        }
-
-        const createdAt = toIsoDateOrNull(plan.created_at) || toIsoDateOrNull(existingCreatedAt) || new Date().toISOString();
-        const updatedAt = new Date().toISOString();
-
-        const insertedPlan = await dbClient.query(
-            `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             RETURNING *`,
-            [
-                plan.name || 'Untitled Plan',
-                clientId,
-                req.user.id,
-                plan.status === 'active' ? 'active' : 'inactive',
-                createdAt,
-                updatedAt,
-            ]
-        );
-
-        const newPlan = insertedPlan.rows[0];
-        const cycles = Array.isArray(plan.cycles) ? plan.cycles : [];
-
-        for (let cIndex = 0; cIndex < cycles.length; cIndex += 1) {
-            const cycle = cycles[cIndex];
-            const insertedCycle = await dbClient.query(
-                `INSERT INTO nutrition_cycles (
-                    plan_id,
-                    name,
-                    cycle_order,
-                    note,
-                    goal_calories,
-                    goal_protein,
-                    goal_carbs,
-                    goal_fats
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                RETURNING *`,
-                [
-                    newPlan.id,
-                    cycle.name || `Cycle ${cIndex + 1}`,
-                    cIndex + 1,
-                    cycle.note ?? null,
-                    cycle.goal_calories ?? null,
-                    cycle.goal_protein ?? null,
-                    cycle.goal_carbs ?? null,
-                    cycle.goal_fats ?? null,
-                ]
-            );
-
-            const dbCycle = insertedCycle.rows[0];
-            const meals = Array.isArray(cycle.meals) ? cycle.meals : [];
-
-            for (let mIndex = 0; mIndex < meals.length; mIndex += 1) {
-                const meal = meals[mIndex];
-                const insertedMeal = await dbClient.query(
-                    `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note)
-                     VALUES ($1, $2, $3, $4)
+                await dbClient.query('DELETE FROM nutrition_cycles WHERE plan_id = $1', [planId]);
+                await dbClient.query('DELETE FROM nutrition_plans WHERE id = $1', [planId]);
+            },
+            insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }) => {
+                const insertedPlan = await dbClient.query(
+                    `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6)
                      RETURNING *`,
                     [
-                        dbCycle.id,
-                        meal.name || `Meal ${mIndex + 1}`,
-                        mIndex + 1,
-                        meal.note ?? null,
+                        incomingPlan.name || 'Untitled Plan',
+                        cId,
+                        coachId,
+                        incomingPlan.status === 'active' ? 'active' : 'inactive',
+                        createdAt,
+                        updatedAt,
                     ]
                 );
 
-                const dbMeal = insertedMeal.rows[0];
-                const items = Array.isArray(meal.items) ? meal.items : [];
+                const newPlan = insertedPlan.rows[0];
 
-                for (let iIndex = 0; iIndex < items.length; iIndex += 1) {
-                    const item = items[iIndex];
-                    const insertedItem = await dbClient.query(
-                        `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order)
-                         VALUES ($1, $2, $3, $4)
-                         RETURNING *`,
-                        [
-                            dbMeal.id,
-                            item.food_item_id,
-                            toNumberOrNull(item.amount) ?? 0,
-                            iIndex + 1,
-                        ]
-                    );
-
-                    const dbItem = insertedItem.rows[0];
-                    const alternatives = Array.isArray(item.alternatives) ? item.alternatives : [];
-                    for (let aIndex = 0; aIndex < alternatives.length; aIndex += 1) {
-                        const alt = alternatives[aIndex];
-                        await dbClient.query(
-                            `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order)
-                             VALUES ($1, $2, $3, $4)`,
+                await insertOrderedChildren({
+                    items: incomingPlan.cycles,
+                    orderKey: 'cycle_order',
+                    insert: async (cycle) => {
+                        const insertedCycle = await dbClient.query(
+                            `INSERT INTO nutrition_cycles (
+                                plan_id,
+                                name,
+                                cycle_order,
+                                note,
+                                goal_calories,
+                                goal_protein,
+                                goal_carbs,
+                                goal_fats
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                            RETURNING *`,
                             [
-                                dbItem.id,
-                                alt.food_item_id,
-                                toNumberOrNull(alt.amount) ?? 0,
-                                aIndex + 1,
+                                newPlan.id,
+                                cycle.name || `Cycle ${cycle.cycle_order}`,
+                                cycle.cycle_order,
+                                cycle.note ?? null,
+                                cycle.goal_calories ?? null,
+                                cycle.goal_protein ?? null,
+                                cycle.goal_carbs ?? null,
+                                cycle.goal_fats ?? null,
                             ]
                         );
-                    }
-                }
-            }
-        }
 
-        const shouldActivate = plan.status === 'active' || String(activePlanId ?? '') === String(oldPlanId ?? '');
-        if (shouldActivate) {
-            await dbClient.query(
-                `UPDATE nutrition_plans
-                 SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
-                 WHERE coach_id = $2
-                   AND client_id = $3`,
-                [newPlan.id, req.user.id, clientId]
-            );
-        }
+                        const dbCycle = insertedCycle.rows[0];
 
-        await dbClient.query('COMMIT');
+                        await insertOrderedChildren({
+                            items: cycle.meals,
+                            orderKey: 'meal_order',
+                            insert: async (meal) => {
+                                const insertedMeal = await dbClient.query(
+                                    `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note)
+                                     VALUES ($1, $2, $3, $4)
+                                     RETURNING *`,
+                                    [
+                                        dbCycle.id,
+                                        meal.name || `Meal ${meal.meal_order}`,
+                                        meal.meal_order,
+                                        meal.note ?? null,
+                                    ]
+                                );
 
-        const savedPlanResult = await pool.query(
-            `SELECT np.*,
-                    (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
-             FROM nutrition_plans np
-             WHERE np.id = $1 AND np.coach_id = $2`,
-            [newPlan.id, req.user.id]
-        );
+                                const dbMeal = insertedMeal.rows[0];
 
-        const savedRow = savedPlanResult.rows[0];
-        res.json({
-            oldPlanId,
-            newPlanId: newPlan.id,
-            savedPlan: {
-                ...savedRow,
-                created_at: toClientIso(savedRow.created_at),
-                updated_at: toClientIso(savedRow.updated_at),
+                                await insertOrderedChildren({
+                                    items: meal.items,
+                                    orderKey: 'meal_item_order',
+                                    insert: async (item) => {
+                                        const insertedItem = await dbClient.query(
+                                            `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order)
+                                             VALUES ($1, $2, $3, $4)
+                                             RETURNING *`,
+                                            [
+                                                dbMeal.id,
+                                                item.food_item_id,
+                                                toNumberOrNull(item.amount) ?? 0,
+                                                item.meal_item_order,
+                                            ]
+                                        );
+
+                                        await insertOrderedChildren({
+                                            items: item.alternatives,
+                                            orderKey: 'alt_order',
+                                            insert: async (alt) => {
+                                                await dbClient.query(
+                                                    `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order)
+                                                     VALUES ($1, $2, $3, $4)`,
+                                                    [
+                                                        insertedItem.rows[0].id,
+                                                        alt.food_item_id,
+                                                        toNumberOrNull(alt.amount) ?? 0,
+                                                        alt.alt_order,
+                                                    ]
+                                                );
+                                                return alt;
+                                            },
+                                        });
+
+                                        return insertedItem.rows[0];
+                                    },
+                                });
+
+                                return dbMeal;
+                            },
+                        });
+
+                        return dbCycle;
+                    },
+                });
+
+                return newPlan;
+            },
+            activatePlanInTransaction: async ({ dbClient, planId, clientId: cId, coachId }) => {
+                await dbClient.query(
+                    `UPDATE nutrition_plans
+                     SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
+                     WHERE coach_id = $2
+                       AND client_id = $3`,
+                    [planId, coachId, cId]
+                );
+            },
+            fetchSavedPlan: async ({ planId, coachId }) => {
+                const savedPlanResult = await pool.query(
+                    `SELECT np.*,
+                            (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
+                     FROM nutrition_plans np
+                     WHERE np.id = $1 AND np.coach_id = $2`,
+                    [planId, coachId]
+                );
+                return savedPlanResult.rows[0] ?? null;
             },
         });
+
+        res.json(result);
     } catch (err) {
-        await dbClient.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
-    } finally {
-        dbClient.release();
+        res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
     }
 });
 
@@ -1371,30 +1338,19 @@ router.delete('/meal-item-alternatives/:id', async (req, res) => {
 // Activate a nutrition plan for a client (deactivates all others for the same client)
 router.post('/plans/:id/activate', async (req, res) => {
     try {
-        const planResult = await pool.query(
-            'SELECT * FROM nutrition_plans WHERE id = $1 AND coach_id = $2',
-            [req.params.id, req.user.id]
-        );
-        if (planResult.rows.length === 0) {
+        const updatedPlan = await activateSinglePlan({
+            pool,
+            tableName: 'nutrition_plans',
+            planId: req.params.id,
+            coachId: req.user.id,
+            clientIdColumn: 'client_id',
+        });
+
+        if (!updatedPlan) {
             return res.status(404).json({ error: 'Plan not found' });
         }
-        const plan = planResult.rows[0];
 
-        // Deactivate all other plans for the same client
-        await pool.query(
-            `UPDATE nutrition_plans SET status = 'inactive'
-             WHERE client_id = $1 AND coach_id = $2 AND id != $3`,
-            [plan.client_id, req.user.id, plan.id]
-        );
-
-        // Activate the target plan
-        const updated = await pool.query(
-            `UPDATE nutrition_plans SET status = 'active'
-             WHERE id = $1 RETURNING *`,
-            [plan.id]
-        );
-
-        res.json(updated.rows[0]);
+        res.json(updatedPlan);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

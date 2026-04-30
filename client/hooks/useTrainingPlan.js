@@ -1,0 +1,457 @@
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import api from "@/lib/axios";
+
+function makeTempId(prefix) {
+    return `tmp-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizePlan(plan) {
+    const days = (plan.days ?? []).map((day, dayIdx) => ({
+        ...day,
+        day_order: dayIdx + 1,
+        exercises: (day.exercises ?? []).map((exercise, exIdx) => ({
+            ...exercise,
+            exercise_order: exIdx + 1,
+            sets: (exercise.sets ?? []).map((set, setIdx) => ({ ...set, set_order: setIdx + 1 })),
+        })),
+    }));
+
+    return {
+        ...plan,
+        days,
+        day_count: days.length,
+    };
+}
+
+export function useTrainingPlan(clientId) {
+    const [plans, setPlans] = useState([]);
+    const [selectedPlan, setSelectedPlan] = useState(null);
+    const [selectedDayId, setSelectedDayId] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [sortOrder, setSortOrder] = useState("created_desc");
+    const [dirtyPlanIds, setDirtyPlanIds] = useState(() => new Set());
+    const [hasDeletedPlans, setHasDeletedPlans] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState("idle");
+    const saveStatusTimeoutRef = useRef(null);
+
+    const isDirty = dirtyPlanIds.size > 0 || hasDeletedPlans;
+
+    const markPlanDirty = useCallback((planId) => {
+        if (!planId) return;
+        setDirtyPlanIds((prev) => {
+            const next = new Set(prev);
+            next.add(String(planId));
+            return next;
+        });
+        setSaveStatus("idle");
+    }, []);
+
+    const clearPlanDirty = useCallback((planId) => {
+        if (!planId) return;
+        setDirtyPlanIds((prev) => {
+            const next = new Set(prev);
+            next.delete(String(planId));
+            return next;
+        });
+    }, []);
+
+    const fetchClientPlans = useCallback(async (preserve = null, { silent = false } = {}) => {
+        if (!clientId) {
+            setPlans([]);
+            setSelectedPlan(null);
+            setSelectedDayId(null);
+            setLoading(false);
+            return;
+        }
+
+        try {
+            if (!silent) setLoading(true);
+            const summaryRes = await api.get(`/api/training/plans?clientId=${clientId}`);
+            const summaries = summaryRes.data ?? [];
+
+            const detailed = await Promise.all(
+                summaries.map(async (plan) => {
+                    const detail = await api.get(`/api/training/plans/${plan.id}`);
+                    return normalizePlan(detail.data);
+                })
+            );
+
+            setPlans(detailed);
+
+            setSelectedPlan((prev) => {
+                const preferredId = preserve?.planId ?? prev?.id;
+                const preferredName = preserve?.planName ?? prev?.name;
+                if (!preferredId && !preferredName) return detailed[0] ?? null;
+                const byId = detailed.find((p) => String(p.id) === String(preferredId));
+                if (byId) return byId;
+                return detailed.find((p) => p.name === preferredName) ?? detailed[0] ?? null;
+            });
+
+            setSelectedDayId((prevDayId) => {
+                const preferredDayId = preserve?.dayId ?? prevDayId;
+                if (!preferredDayId) return null;
+                const allDays = detailed.flatMap((p) => p.days ?? []);
+                return allDays.some((d) => String(d.id) === String(preferredDayId)) ? preferredDayId : null;
+            });
+
+            setDirtyPlanIds(new Set());
+            setHasDeletedPlans(false);
+        } catch (error) {
+            console.error("Error fetching training plans:", error);
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    }, [clientId]);
+
+    useEffect(() => {
+        fetchClientPlans();
+    }, [fetchClientPlans]);
+
+    useEffect(() => {
+        return () => {
+            if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+        };
+    }, []);
+
+    const applyPlanUpdate = useCallback((nextPlan) => {
+        const normalized = normalizePlan({ ...nextPlan, updated_at: new Date().toISOString() });
+        setPlans((prev) => prev.map((p) => (String(p.id) === String(normalized.id) ? normalized : p)));
+        setSelectedPlan(normalized);
+    }, []);
+
+    const handleSelectedPlan = useCallback((plan) => {
+        const found = plans.find((p) => String(p.id) === String(plan.id));
+        if (!found) return;
+        setSelectedPlan(found);
+        setSelectedDayId(found.days?.[0]?.id ?? null);
+    }, [plans]);
+
+    const handleSelectDay = useCallback((dayId) => {
+        setSelectedDayId(dayId);
+    }, []);
+
+    const handleCreatePlan = useCallback(() => {
+        const now = new Date().toISOString();
+        const newPlan = normalizePlan({
+            id: makeTempId("plan"),
+            name: "New Training Plan",
+            client_id: clientId,
+            status: "inactive",
+            notes: "",
+            created_at: now,
+            updated_at: now,
+            days: [
+                {
+                    id: makeTempId("day"),
+                    name: "Day 1",
+                    notes: "",
+                    exercises: [],
+                },
+            ],
+        });
+
+        setPlans((prev) => [newPlan, ...prev]);
+        setSelectedPlan(newPlan);
+        setSelectedDayId(newPlan.days[0]?.id ?? null);
+        markPlanDirty(newPlan.id);
+    }, [clientId, markPlanDirty]);
+
+    const handleRenamePlan = useCallback((planId, name) => {
+        const target = plans.find((p) => String(p.id) === String(planId));
+        if (!target) return;
+        applyPlanUpdate({ ...target, name });
+        markPlanDirty(planId);
+    }, [plans, applyPlanUpdate, markPlanDirty]);
+
+    const handleUpdatePlanNotes = useCallback((planId, notes) => {
+        const target = plans.find((p) => String(p.id) === String(planId));
+        if (!target) return;
+        applyPlanUpdate({ ...target, notes });
+        markPlanDirty(planId);
+    }, [plans, applyPlanUpdate, markPlanDirty]);
+
+    const handleCreateDay = useCallback(() => {
+        if (!selectedPlan) return;
+        const day = {
+            id: makeTempId("day"),
+            name: `Day ${(selectedPlan.days?.length ?? 0) + 1}`,
+            notes: "",
+            exercises: [],
+        };
+        const nextPlan = { ...selectedPlan, days: [...(selectedPlan.days ?? []), day] };
+        applyPlanUpdate(nextPlan);
+        setSelectedDayId(day.id);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleRenameDay = useCallback((dayId, name) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => (String(d.id) === String(dayId) ? { ...d, name } : d)),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleUpdateDayNotes = useCallback((dayId, notes) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => (String(d.id) === String(dayId) ? { ...d, notes } : d)),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleAddExercise = useCallback((dayId) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: [
+                        ...(d.exercises ?? []),
+                        {
+                            id: makeTempId("exercise"),
+                            name: `Exercise ${(d.exercises?.length ?? 0) + 1}`,
+                            equipment: "",
+                            notes: "",
+                            sets: [
+                                { id: makeTempId("set"), reps: "8-12", rest_seconds: 90, tempo: "-", rir: 2 },
+                            ],
+                        },
+                    ],
+                };
+            }),
+        };
+
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleDeleteExercise = useCallback((dayId, exerciseId) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return { ...d, exercises: (d.exercises ?? []).filter((e) => String(e.id) !== String(exerciseId)) };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleRenameExercise = useCallback((dayId, exerciseId, name) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) => (String(e.id) === String(exerciseId) ? { ...e, name } : e)),
+                };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleAddSet = useCallback((dayId, exerciseId) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) => {
+                        if (String(e.id) !== String(exerciseId)) return e;
+                        return {
+                            ...e,
+                            sets: [
+                                ...(e.sets ?? []),
+                                { id: makeTempId("set"), reps: "", rest_seconds: null, tempo: "", rir: null },
+                            ],
+                        };
+                    }),
+                };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleUpdateSetField = useCallback((dayId, exerciseId, setId, field, value) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) => {
+                        if (String(e.id) !== String(exerciseId)) return e;
+                        return {
+                            ...e,
+                            sets: (e.sets ?? []).map((s) => (String(s.id) === String(setId) ? { ...s, [field]: value } : s)),
+                        };
+                    }),
+                };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleSaveSelectedPlan = useCallback(async (planId = selectedPlan?.id) => {
+        if (!clientId || !planId || isSaving) return { success: false };
+
+        const target = plans.find((p) => String(p.id) === String(planId));
+        if (!target) return { success: false };
+        if (!dirtyPlanIds.has(String(planId))) return { success: true, newPlanId: planId, unchanged: true };
+
+        try {
+            setIsSaving(true);
+            setSaveStatus("saving");
+            const activePlan = plans.find((p) => p.status === "active");
+
+            const response = await api.post("/api/training/plans/save-plan-draft", {
+                clientId,
+                activePlanId: activePlan?.id ?? null,
+                plan: target,
+            });
+
+            const oldPlanId = response.data?.oldPlanId ?? planId;
+            const newPlanId = response.data?.newPlanId ?? planId;
+
+            await fetchClientPlans({
+                planId: newPlanId,
+                planName: target.name,
+                dayId: selectedDayId,
+            }, { silent: true });
+
+            clearPlanDirty(oldPlanId);
+            clearPlanDirty(newPlanId);
+            setSaveStatus("saved");
+            if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+            saveStatusTimeoutRef.current = setTimeout(() => {
+                setSaveStatus("idle");
+                saveStatusTimeoutRef.current = null;
+            }, 1800);
+
+            return { success: true, oldPlanId, newPlanId };
+        } catch (error) {
+            console.error("Error saving training plan draft:", error);
+            setSaveStatus("idle");
+            return { success: false };
+        } finally {
+            setIsSaving(false);
+        }
+    }, [clientId, selectedPlan, selectedDayId, isSaving, plans, dirtyPlanIds, fetchClientPlans, clearPlanDirty]);
+
+    const handleSaveAllDrafts = useCallback(async () => {
+        if (!clientId || isSaving || !isDirty) return;
+        try {
+            setIsSaving(true);
+            setSaveStatus("saving");
+            const activePlan = plans.find((p) => p.status === "active");
+            await api.post("/api/training/plans/save-draft", {
+                clientId,
+                activePlanId: activePlan?.id ?? null,
+                plans,
+            });
+
+            await fetchClientPlans({
+                planId: selectedPlan?.id,
+                planName: selectedPlan?.name,
+                dayId: selectedDayId,
+            }, { silent: true });
+
+            setSaveStatus("saved");
+            if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+            saveStatusTimeoutRef.current = setTimeout(() => {
+                setSaveStatus("idle");
+                saveStatusTimeoutRef.current = null;
+            }, 1800);
+        } catch (error) {
+            console.error("Error saving all training drafts:", error);
+            setSaveStatus("idle");
+        } finally {
+            setIsSaving(false);
+        }
+    }, [clientId, isSaving, isDirty, plans, fetchClientPlans, selectedPlan, selectedDayId]);
+
+    const handleActivatePlan = useCallback(async (planId) => {
+        if (!planId || isSaving) return;
+
+        let resolvedPlanId = planId;
+        const needsSave = dirtyPlanIds.has(String(planId)) || String(planId).startsWith("tmp-");
+        if (needsSave) {
+            const saveResult = await handleSaveSelectedPlan(planId);
+            if (!saveResult?.success) return;
+            resolvedPlanId = saveResult.newPlanId ?? planId;
+        }
+
+        try {
+            setIsSaving(true);
+            await api.post(`/api/training/plans/${resolvedPlanId}/activate`);
+            setPlans((prev) => prev.map((p) => ({ ...p, status: String(p.id) === String(resolvedPlanId) ? "active" : "inactive" })));
+            setSelectedPlan((prev) => (prev ? { ...prev, status: String(prev.id) === String(resolvedPlanId) ? "active" : "inactive" } : prev));
+        } catch (error) {
+            console.error("Error activating training plan:", error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, [isSaving, dirtyPlanIds, handleSaveSelectedPlan]);
+
+    const sortedPlans = useMemo(() => {
+        const cloned = [...plans];
+        return cloned.sort((a, b) => {
+            if (sortOrder === "created_desc") return new Date(b.created_at) - new Date(a.created_at);
+            if (sortOrder === "created_asc") return new Date(a.created_at) - new Date(b.created_at);
+            if (sortOrder === "updated_desc") return new Date(b.updated_at) - new Date(a.updated_at);
+            return 0;
+        });
+    }, [plans, sortOrder]);
+
+    const selectedDay = selectedPlan?.days?.find((d) => String(d.id) === String(selectedDayId)) ?? selectedPlan?.days?.[0] ?? null;
+
+    return {
+        plans,
+        selectedPlan,
+        selectedDay,
+        selectedDayId,
+        loading,
+        sortOrder,
+        sortedPlans,
+        dirtyPlanIds: Array.from(dirtyPlanIds),
+        hasDeletedPlans,
+        isDirty,
+        isSaving,
+        saveStatus,
+        setSortOrder,
+        setSelectedPlan,
+        handleSelectedPlan,
+        handleSelectDay,
+        handleCreatePlan,
+        handleRenamePlan,
+        handleUpdatePlanNotes,
+        handleCreateDay,
+        handleRenameDay,
+        handleUpdateDayNotes,
+        handleAddExercise,
+        handleDeleteExercise,
+        handleRenameExercise,
+        handleAddSet,
+        handleUpdateSetField,
+        handleSaveSelectedPlan,
+        handleSaveAllDrafts,
+        handleActivatePlan,
+    };
+}

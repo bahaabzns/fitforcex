@@ -186,6 +186,60 @@ router.get('/active-plan', clientAuthMiddleware, async (req, res) => {
     }
 });
 
+// GET /api/client-portal/active-training-plan  — protected
+router.get('/active-training-plan', clientAuthMiddleware, async (req, res) => {
+    try {
+        const planResult = await pool.query(
+            `SELECT * FROM training_plans
+             WHERE client_id = $1 AND status = 'active'
+             ORDER BY updated_at DESC
+             LIMIT 1`,
+            [req.client.id]
+        );
+
+        if (planResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No active training plan found' });
+        }
+
+        const plan = planResult.rows[0];
+        const daysResult = await pool.query(
+            'SELECT * FROM training_days WHERE plan_id = $1 ORDER BY day_order ASC',
+            [plan.id]
+        );
+
+        const days = await Promise.all(daysResult.rows.map(async (day) => {
+            const exercisesResult = await pool.query(
+                'SELECT * FROM training_exercises WHERE day_id = $1 ORDER BY exercise_order ASC',
+                [day.id]
+            );
+
+            const exercises = await Promise.all(exercisesResult.rows.map(async (exercise) => {
+                const setsResult = await pool.query(
+                    'SELECT * FROM training_sets WHERE exercise_id = $1 ORDER BY set_order ASC',
+                    [exercise.id]
+                );
+                const alternativesResult = await pool.query(
+                    `SELECT tea.id, tea.exercise_library_id, tea.alt_order,
+                            el.name, el.muscle_group, el.equipment, el.thumbnail_path
+                     FROM training_exercise_alternatives tea
+                     JOIN exercise_library el ON el.id = tea.exercise_library_id
+                     WHERE tea.exercise_id = $1
+                     ORDER BY tea.alt_order ASC`,
+                    [exercise.id]
+                );
+                return { ...exercise, sets: setsResult.rows, alternatives: alternativesResult.rows };
+            }));
+
+            return { ...day, exercises };
+        }));
+
+        res.json({ ...plan, days });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // ── Form Requests (client side) ───────────────────────────────────────────────
 
 // GET /api/client-portal/form-requests — list all form requests for this client

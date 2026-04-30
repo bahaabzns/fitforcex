@@ -8,17 +8,23 @@ import { calcMeal } from "@/lib/nutritionCalc";
 export default function ClientDashboardPage() {
     const [client, setClient] = useState(null);
     const [plan, setPlan] = useState(null);
+    const [trainingPlan, setTrainingPlan] = useState(null);
     const [activeCycleIndex, setActiveCycleIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [noplan, setNoPlan] = useState(false);
+    const [noTrainingPlan, setNoTrainingPlan] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
         async function load() {
             try {
-                const [meRes, planRes] = await Promise.all([
+                const [meRes, planRes, trainingRes] = await Promise.all([
                     api.get("/api/client-portal/me"),
                     api.get("/api/client-portal/active-plan").catch((e) => {
+                        if (e.response?.status === 404) return null;
+                        throw e;
+                    }),
+                    api.get("/api/client-portal/active-training-plan").catch((e) => {
                         if (e.response?.status === 404) return null;
                         throw e;
                     }),
@@ -28,6 +34,11 @@ export default function ClientDashboardPage() {
                     setNoPlan(true);
                 } else {
                     setPlan(planRes.data);
+                }
+                if (!trainingRes) {
+                    setNoTrainingPlan(true);
+                } else {
+                    setTrainingPlan(trainingRes.data);
                 }
             } catch (err) {
                 router.push("/client/login");
@@ -54,6 +65,29 @@ export default function ClientDashboardPage() {
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Nutrition Plan</h1>
                 {client && <p className="text-sm text-gray-500 mt-0.5">Welcome back, {client.fname}!</p>}
+            </div>
+
+            <div className="card">
+                <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-lg font-semibold text-gray-900">Active Training Plan</h2>
+                    {trainingPlan && <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-semibold">Active</span>}
+                </div>
+                {!trainingPlan || noTrainingPlan ? (
+                    <p className="text-sm text-gray-500">No active training plan yet.</p>
+                ) : (
+                    <>
+                        <p className="text-base font-semibold text-gray-800">{trainingPlan.name}</p>
+                        <p className="text-sm text-gray-500 mt-1">{trainingPlan.days?.length ?? 0} days assigned</p>
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {(trainingPlan.days ?? []).slice(0, 4).map((day) => (
+                                <div key={day.id} className="rounded-lg border border-gray-200 px-3 py-2">
+                                    <p className="text-sm font-semibold text-gray-800">{day.name}</p>
+                                    <p className="text-xs text-gray-500">{day.exercises?.length ?? 0} exercises</p>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
 
             {noplan || !plan ? (
