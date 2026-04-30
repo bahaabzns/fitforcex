@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useNutritionPlan } from "@/hooks/useNutritionPlan";
 import { calcMeal, calcCycle, calcItem } from "@/lib/nutritionCalc";
 import NameModal from "@/app/components/NameModal";
@@ -12,6 +12,8 @@ import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
 export default function NutritionPage() {
 
     const { id } = useParams();
+    const searchParams = useSearchParams();
+    const submissionId = searchParams.get("submissionId") || null;
 
     const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
@@ -136,6 +138,7 @@ return (
                 isSaving={isSaving}
                 saveStatus={saveStatus}
                 clientId={id}
+                submissionId={submissionId}
             />
         </div>
 
@@ -180,6 +183,7 @@ return (
                     setPendingFocusPlanId={setPendingFocusPlanId}
                     pendingFocusCycleId={pendingFocusCycleId}
                     setPendingFocusCycleId={setPendingFocusCycleId}
+                    submissionId={submissionId}
                 />
             ) : (
                 <div className="card w-full flex flex-col overflow-hidden min-h-full">

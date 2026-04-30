@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import CycleCalculator from "./CycleCalculator";
 
@@ -58,7 +59,9 @@ export default function LeftPanel({
     isSaving,
     saveStatus,
     clientId,
+    submissionId,
 }) {
+    const router = useRouter();
     const [plansCollapsed, setPlansCollapsed] = useState(false);
     const [calcCollapsed, setCalcCollapsed]   = useState(false);
     const [formsCollapsed, setFormsCollapsed] = useState(false);
@@ -66,6 +69,25 @@ export default function LeftPanel({
     const [formRequests, setFormRequests]     = useState([]);
     const [formsLoading, setFormsLoading]     = useState(true);
     const [expandedReq, setExpandedReq]       = useState(null);
+
+    const [activateModal, setActivateModal]   = useState(null); // { planId }
+    const [activating, setActivating]         = useState(false);
+
+    async function handleActivateAndMark(planId, navigateToQueue) {
+        setActivating(true);
+        try {
+            await handleActivatePlan(planId);
+            await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
+            if (navigateToQueue) {
+                router.push("/plans-queue");
+            }
+        } catch {
+            // silent — individual operations already handle errors
+        } finally {
+            setActivating(false);
+            setActivateModal(null);
+        }
+    }
 
     useEffect(() => {
         if (!clientId) return;
@@ -80,6 +102,7 @@ export default function LeftPanel({
     const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
 
     return (
+        <>
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
 
             {/* ── Plans Section ── */}
@@ -207,22 +230,7 @@ export default function LeftPanel({
 
                                                 {/* Actions — appear on hover */}
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                                    {plan.status === 'active' ? (
-                                                        <span
-                                                            title="Active plan"
-                                                            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-600 text-xs font-semibold"
-                                                        >
-                                                            <CheckIcon /> Active
-                                                        </span>
-                                                    ) : (
-                                                        <button
-                                                            title="Activate plan for client"
-                                                            className="cursor-pointer px-2 py-0.5 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-600 hover:bg-green-50 text-xs font-medium transition-colors"
-                                                            onClick={(e) => { e.stopPropagation(); handleActivatePlan(plan.id); }}
-                                                        >
-                                                            Activate
-                                                        </button>
-                                                    )}
+                                                    
                                                     <button
                                                         title="Duplicate plan"
                                                         className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -364,5 +372,8 @@ export default function LeftPanel({
                 )}
             </div>
         </div>
+
+        
+        </>
     );
 }

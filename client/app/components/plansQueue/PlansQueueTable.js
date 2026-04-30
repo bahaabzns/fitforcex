@@ -268,11 +268,9 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        markReviewed([row.id], "review");
                                         router.push(`/clients/${row.clientId}/nutrition?submissionId=${row.id}`);
                                     }}
-                                    disabled={marking}
-                                    className="text-amber-600 hover:text-amber-700 text-[11px] px-2 py-1 rounded hover:bg-amber-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    className="text-amber-600 hover:text-amber-700 text-[11px] px-2 py-1 rounded hover:bg-amber-100 transition-colors whitespace-nowrap"
                                 >
                                     Open Nutrition
                                 </button>
@@ -280,11 +278,9 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        markReviewed([row.id], "review");
                                         router.push(`/clients/${row.clientId}/training?submissionId=${row.id}`);
                                     }}
-                                    disabled={marking}
-                                    className="text-blue-600 hover:text-blue-700 text-[11px] px-2 py-1 rounded hover:bg-blue-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    className="text-blue-600 hover:text-blue-700 text-[11px] px-2 py-1 rounded hover:bg-blue-100 transition-colors whitespace-nowrap"
                                 >
                                     Open Workout
                                 </button>

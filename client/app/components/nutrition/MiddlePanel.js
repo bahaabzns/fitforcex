@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import api from "@/lib/axios";
 import MacrosBadges from "../MacrosBadges";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
 
@@ -29,7 +31,9 @@ export default function MiddlePanel({
     dirtyPlanIds,
     pendingFocusPlanId, setPendingFocusPlanId,
     pendingFocusCycleId, setPendingFocusCycleId,
+    submissionId,
 }) {
+    const router = useRouter();
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [cycleDragIndex, setCycleDragIndex] = useState(null);
@@ -37,6 +41,8 @@ export default function MiddlePanel({
     const [cyclesCollapsed, setCyclesCollapsed] = useState(false);
     const [notesCollapsed, setNotesCollapsed] = useState(false);
     const [mealsCollapsed, setMealsCollapsed] = useState(false);
+    const [activateModal, setActivateModal] = useState(false);
+    const [activating, setActivating] = useState(false);
 
     const planTitleRef = useRef(null);
     const cycleTitleRef = useRef(null);
@@ -75,7 +81,26 @@ export default function MiddlePanel({
     })();
     const isSelectedPlanDirty = dirtyPlanIds?.includes(String(selectedPlan.id));
 
+    async function handleActivateAndMark(navigateToQueue) {
+        if (!selectedPlan?.id || !submissionId) return;
+
+        setActivating(true);
+        try {
+            await handleActivatePlan(selectedPlan.id);
+            await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
+            if (navigateToQueue) {
+                router.push("/plans-queue");
+            }
+        } catch {
+            // silent - upstream handlers already manage errors
+        } finally {
+            setActivating(false);
+            setActivateModal(false);
+        }
+    }
+
     return (
+        <>
         <div className="card w-full flex flex-col overflow-hidden min-h-full">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4">
@@ -117,15 +142,21 @@ export default function MiddlePanel({
                 {selectedPlan?.status !== "active" && (
                     <button
                         type="button"
-                        onClick={() => handleActivatePlan(selectedPlan.id)}
-                        disabled={isSaving}
+                        onClick={() => {
+                            if (submissionId) {
+                                setActivateModal(true);
+                                return;
+                            }
+                            handleActivatePlan(selectedPlan.id);
+                        }}
+                        disabled={isSaving || activating}
                         className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
-                            isSaving
+                            isSaving || activating
                                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                                 : "bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer"
                         }`}
                     >
-                        Activate
+                        {activating ? "Activating..." : "Activate"}
                     </button>
                 )}
                 {isSelectedPlanDirty && (
@@ -464,5 +495,39 @@ export default function MiddlePanel({
                 </div>
             </div>
         </div>
-    )
+        {activateModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4">
+                    <h3 className="text-base font-semibold text-gray-900 mb-2">Activate & Mark as Done</h3>
+                    <p className="text-sm text-gray-600 mb-6">
+                        You will activate this nutrition plan for this client and mark the submission as <span className="font-medium text-emerald-600">Action Done</span>. Continue?
+                    </p>
+                    <div className="flex gap-3 justify-end">
+                        <button
+                            onClick={() => setActivateModal(false)}
+                            disabled={activating}
+                            className="cursor-pointer px-4 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => handleActivateAndMark(false)}
+                            disabled={activating}
+                            className="cursor-pointer px-4 py-2 rounded-lg border border-green-300 text-green-700 text-sm font-medium hover:bg-green-50 transition-colors disabled:opacity-50"
+                        >
+                            {activating ? "Activating..." : "Activate & Stay Here"}
+                        </button>
+                        <button
+                            onClick={() => handleActivateAndMark(true)}
+                            disabled={activating}
+                            className="cursor-pointer px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                        >
+                            {activating ? "Activating..." : "Activate & Go to Queue"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
+    );
 }
