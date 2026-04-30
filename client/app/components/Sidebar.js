@@ -18,12 +18,15 @@ import {
     ChevronUp,
     ChevronLeft,
     ChevronRight,
+    Wallet,
+    Package,
 } from "lucide-react";
 
 export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const [dbOpen, setDbOpen] = useState(pathname.startsWith('/databases'));
+    const [financeOpen, setFinanceOpen] = useState(pathname.startsWith('/finance'));
     const [user, setUser] = useState(null);
     const [collapsed, setCollapsed] = useState(false);
 
@@ -139,6 +142,56 @@ export default function Sidebar() {
                                         >
                                             <Dumbbell size={15} />
                                             Training
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </div>
+                        )}
+                    </li>
+
+                    <li>
+                        <button
+                            onClick={() => !collapsed && setFinanceOpen(!financeOpen)}
+                            title={collapsed ? 'Finance' : undefined}
+                            className={`${pathname.startsWith('/finance') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0 w-full' : ''}`}
+                        >
+                            <Wallet size={17} className="shrink-0" />
+                            {!collapsed && (
+                                <>
+                                    <span className="flex-1 text-left">Finance</span>
+                                    {financeOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </>
+                            )}
+                        </button>
+
+                        {!collapsed && (
+                            <div className={`sidebar-submenu ${financeOpen ? 'open' : ''}`}>
+                                <ul className="flex flex-col gap-1 mt-1">
+                                    <li>
+                                        <Link
+                                            href="/finance/packages"
+                                            className={pathname.startsWith('/finance/packages') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                        >
+                                            <Package size={15} />
+                                            Packages
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            href="/finance/payment-methods"
+                                            className={pathname.startsWith('/finance/payment-methods') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                        >
+                                            <Wallet size={15} />
+                                            Payment Methods
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            href="/finance/transactions"
+                                            className={pathname.startsWith('/finance/transactions') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                        >
+                                            <ClipboardList size={15} />
+                                            Transactions
                                         </Link>
                                     </li>
                                 </ul>

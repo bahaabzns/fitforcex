@@ -44,10 +44,11 @@ export default function ClientLayout({ children }) {
     }, [isDirty, id]);
 
     const tabs = [
-        { name: "Overview",  href: `/clients/${id}` },
-        { name: "Nutrition", href: `/clients/${id}/nutrition` },
-        { name: "Training",  href: `/clients/${id}/training` },
-        { name: "Forms",     href: `/clients/${id}/forms` },
+        { name: "Overview",      href: `/clients/${id}` },
+        { name: "Nutrition",     href: `/clients/${id}/nutrition` },
+        { name: "Training",      href: `/clients/${id}/training` },
+        { name: "Forms",         href: `/clients/${id}/forms` },
+        { name: "Transactions",  href: `/clients/${id}/transactions` },
     ];
 
     return (

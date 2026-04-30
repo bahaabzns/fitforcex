@@ -29,6 +29,9 @@ server.use('/api/training', trainingRouter);
 
 server.use('/api/client-portal', require('./routes/clientPortal'));
 server.use('/api/forms', require('./routes/forms'));
+server.use('/api/packages', require('./routes/packages'));
+server.use('/api/payment-methods', require('./routes/payment-methods'));
+server.use('/api/transactions', require('./routes/transactions'));
 
 server.get('/api/health', (req, res) => {
     res.status(200).json({message: 'All is good!'})
