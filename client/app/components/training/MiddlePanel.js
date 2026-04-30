@@ -26,6 +26,7 @@ export default function MiddlePanel({
     handleCreateDay,
     handleDeleteDay,
     handleDuplicateDay,
+    handleReorderDays,
     handleRenamePlan,
     handleRenameDay,
     handleUpdatePlanNotes,
@@ -45,6 +46,9 @@ export default function MiddlePanel({
     const [activateModal, setActivateModal] = useState(false);
     const [activating, setActivating] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
+    const [daysCollapsed, setDaysCollapsed] = useState(false);
+    const [dragIndex, setDragIndex] = useState(null);
+    const [hoverIndex, setHoverIndex] = useState(null);
     const planNameRef = useRef(null);
     const dayInputRefs = useRef({});
 
@@ -58,6 +62,15 @@ export default function MiddlePanel({
 
     const isSelectedPlanDirty = dirtyPlanIds?.includes(String(selectedPlan.id));
     const selectedDay = selectedPlan.days?.find((d) => String(d.id) === String(selectedDayId)) ?? selectedPlan.days?.[0] ?? null;
+
+    const currentDays = selectedPlan.days ?? [];
+    const previewDays = (() => {
+        if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return currentDays;
+        const arr = [...currentDays];
+        const [moved] = arr.splice(dragIndex, 1);
+        arr.splice(hoverIndex, 0, moved);
+        return arr;
+    })();
 
     async function handleActivateAndMark(navigateToQueue) {
         if (!selectedPlan?.id || !submissionId) return;
@@ -78,105 +91,131 @@ export default function MiddlePanel({
         <>
             <div className="card w-full flex flex-col overflow-hidden min-h-full">
                 {/* Plan name + actions */}
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex justify-between items-center mb-3 gap-4">
                     <input
                         ref={planNameRef}
-                        value={selectedPlan.name}
-                        onChange={(e) => handleRenamePlan(selectedPlan.id, e.target.value)}
-                        className="text-xl font-bold text-gray-900 bg-transparent focus:outline-none border-b border-transparent focus:border-blue-300 min-w-0 flex-1"
+                        key={selectedPlan.id}
+                        type="text"
+                        defaultValue={selectedPlan.name}
+                        onBlur={(e) => {
+                            const trimmed = e.target.value.trim() || "Untitled Plan";
+                            e.target.value = trimmed;
+                            if (trimmed !== selectedPlan.name) handleRenamePlan(selectedPlan.id, trimmed);
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") e.target.blur();
+                            if (e.key === "Escape") { e.target.value = selectedPlan.name; e.target.blur(); }
+                        }}
+                        className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 truncate text-gray-900"
                     />
-                    <button
-                        title="Duplicate plan"
-                        onClick={() => handleDuplicatePlan(selectedPlan.id)}
-                        className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
-                    >
-                        <DuplicateIcon />
-                    </button>
-                    <button
-                        title="Delete plan"
-                        onClick={() => handleDeletePlan(selectedPlan.id)}
-                        className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                    >
-                        <TrashIcon />
-                    </button>
-                    {onClose && (
+                    {isSelectedPlanDirty && (
                         <button
-                            title="Close panel"
-                            onClick={onClose}
-                            className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 ml-auto"
+                            type="button"
+                            onClick={() => handleSaveSelectedPlan(selectedPlan.id)}
+                            disabled={isSaving}
+                            className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
+                                isSaving ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+                            }`}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            {isSaving || saveStatus === "saving" ? "Saving..." : "Save Plan"}
                         </button>
                     )}
-                </div>
-
-                {/* Save + Activate */}
-                <div className="flex items-center gap-2 mb-4">
-                    <button
-                        onClick={() => handleSaveSelectedPlan(selectedPlan.id)}
-                        disabled={isSaving || !isSelectedPlanDirty}
-                        className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors ${
-                            isSaving || !isSelectedPlanDirty
-                                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer"
-                        }`}
-                    >
-                        {isSaving || saveStatus === "saving" ? "Saving..." : "Save"}
-                    </button>
                     {selectedPlan.status !== "active" && (
                         <button
-                            onClick={() => {
-                                if (submissionId) { setActivateModal(true); return; }
-                                handleActivatePlan(selectedPlan.id);
-                            }}
+                            type="button"
+                            onClick={() => { if (submissionId) { setActivateModal(true); return; } handleActivatePlan(selectedPlan.id); }}
                             disabled={isSaving || activating}
-                            className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors ${
-                                isSaving || activating
-                                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                    : "bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer"
+                            className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
+                                isSaving || activating ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer"
                             }`}
                         >
                             {activating ? "Activating..." : "Activate"}
                         </button>
                     )}
+                    {isSelectedPlanDirty && (
+                        <span className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/70 shrink-0">
+                            Unsaved
+                        </span>
+                    )}
+                    {!isSelectedPlanDirty && saveStatus === "saved" && (
+                        <span className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0">
+                            Saved
+                        </span>
+                    )}
+                    
+                    {onClose && (
+                        <button
+                            title="Close panel"
+                            onClick={onClose}
+                            className="cursor-pointer p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    )}
                 </div>
 
                 {/* Days header */}
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-gray-800">
-                        Days <span className="text-gray-400 font-normal">({selectedPlan.days?.length ?? 0})</span>
-                    </h3>
+                <div className="flex items-center gap-3 mb-3 shrink-0">
                     <button
-                        onClick={handleCreateDay}
-                        className="h-7 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors cursor-pointer"
+                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        onClick={() => setDaysCollapsed(v => !v)}
                     >
-                        + Add Day
+                        <ChevronIcon up={!daysCollapsed} />
                     </button>
+                    <h3 className="text-base font-semibold text-gray-900 flex-1">
+                        Days
+                        <span className="ml-2 text-xs font-normal text-gray-400">{selectedPlan.days?.length ?? 0}</span>
+                    </h3>
+                    {!daysCollapsed && (
+                        <button
+                            onClick={handleCreateDay}
+                            className="h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                            + Add Day
+                        </button>
+                    )}
                 </div>
 
                 {/* Days list */}
-                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
-                    {(selectedPlan.days ?? []).map((day) => {
+                {daysCollapsed ? null : <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
+                    {previewDays.map((day) => {
+                        const originalIndex = currentDays.findIndex((d) => d.id === day.id);
+                        const isDragging = dragIndex !== null && currentDays[dragIndex]?.id === day.id;
                         const isActive = String(day.id) === String(selectedDay?.id);
                         const setCount = (day.exercises ?? []).reduce((sum, ex) => sum + (ex.sets?.length ?? 0), 0);
                         return (
                             <div
                                 key={day.id}
+                                draggable
+                                onDragStart={() => setDragIndex(originalIndex)}
+                                onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
+                                onDrop={() => { handleReorderDays(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
+                                onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
                                 onClick={() => handleSelectDay(day.id)}
-                                className={`group relative w-full text-left rounded-xl border px-3 py-3 transition-colors cursor-pointer ${
+                                className={`group relative w-full text-left rounded-xl border px-3 py-3 transition-all cursor-pointer select-none ${
+                                    isDragging ? "opacity-30 scale-95" : ""
+                                } ${
                                     isActive ? "bg-blue-50 border-blue-200" : "border-gray-200 hover:bg-gray-50"
                                 }`}
                             >
-                                <input
-                                    ref={(el) => { dayInputRefs.current[day.id] = el; }}
-                                    value={day.name}
-                                    onChange={(e) => handleRenameDay(day.id, e.target.value)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="w-full bg-transparent text-sm font-semibold text-gray-800 focus:outline-none pr-16"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    {day.exercises?.length ?? 0} exercises · {setCount} sets
-                                </p>
+                                <div className="flex items-center gap-2">
+                                    {/* Drag grip */}
+                                    <span className="text-gray-300 hover:text-gray-500 cursor-grab shrink-0" onClick={(e) => e.stopPropagation()}>
+                                        <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
+                                            <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+                                            <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
+                                            <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
+                                        </svg>
+                                    </span>
+                                    <div className="flex-1 min-w-0 pr-14">
+                                        <p className={`text-sm font-medium truncate ${isActive ? "text-blue-700" : "text-gray-800"}`}>
+                                            {day.name}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {day.exercises?.length ?? 0} exercises · {setCount} sets
+                                        </p>
+                                    </div>
+                                </div>
                                 {/* Hover actions */}
                                 <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
@@ -197,29 +236,40 @@ export default function MiddlePanel({
                             </div>
                         );
                     })}
-                    {(selectedPlan.days ?? []).length === 0 && (
+                    {currentDays.length === 0 && (
                         <div className="text-center py-10 text-sm text-gray-400">No days yet</div>
                     )}
-                </div>
+                </div>}
 
-                {/* Plan Notes — collapsible at bottom */}
-                <div className="shrink-0 border-t border-gray-100 mt-4 pt-3">
-                    <button
-                        onClick={() => setNotesOpen(o => !o)}
-                        className="cursor-pointer flex items-center gap-2 w-full text-left"
-                    >
-                        <span className="text-xs font-semibold text-gray-500 flex-1">Plan Notes</span>
-                        <ChevronIcon up={notesOpen} />
-                    </button>
-                    {notesOpen && (
+                {/* Divider between Meals and Notes */}
+                <div className="shrink-0 border-t border-gray-100 my-2" />
+
+                {/* Notes Section */}
+                <div className="flex flex-col shrink-0">
+                    <div className="flex items-center gap-3 mb-3">
+                        <button
+                            className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                            onClick={() => setNotesOpen(n => !n)}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points={notesOpen ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
+                            </svg>
+                        </button>
+                        <h3 className="text-base font-semibold text-gray-900">Notes</h3>
+                    </div>
+                    {!notesOpen && (
                         <textarea
-                            value={selectedPlan.notes ?? ""}
-                            onChange={(e) => handleUpdatePlanNotes(selectedPlan.id, e.target.value)}
+                            key={selectedPlan.id + "-note"}
+                            defaultValue={selectedPlan.notes ?? ""}
+                            placeholder="Add a cycle note..."
                             rows={3}
-                            className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-300"
-                            placeholder="Add notes about this training plan..."
-                        />
-                    )}
+                                onBlur={(e) => {
+                                    const val = e.target.value;
+                                if (val !== (selectedPlan.notes ?? "")) handleUpdatePlanNotes(selectedPlan.id, val);
+                                }}
+                                className="w-full mb-2 px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none resize-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                            />
+                        )}
                 </div>
             </div>
 

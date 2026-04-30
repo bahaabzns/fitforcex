@@ -8,12 +8,12 @@ import LeftPanel from "@/app/components/training/LeftPanel";
 import MiddlePanel from "@/app/components/training/MiddlePanel";
 import RightPanel from "@/app/components/training/RightPanel";
 
-export default function TrainingPage() {
+export default function TrainingPage({ onDirtyChange }) {
     const { id } = useParams();
     const searchParams = useSearchParams();
     const submissionId = searchParams.get("submissionId") || null;
 
-    const [widths, setWidths] = useState([30, 35, 35]);
+    const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
 
     function handleDividerMouseDown(index, e) {
@@ -65,11 +65,16 @@ export default function TrainingPage() {
         handleDuplicateDay,
         handleRenameDay,
         handleUpdateDayNotes,
+        handleReorderDays,
         handleAddExercise,
+        handleAddMultipleExercises,
         handleDeleteExercise,
         handleRenameExercise,
         handleUpdateExerciseNotes,
+        handleReorderExercises,
         handleAddSet,
+        handleDuplicateSet,
+        handleApplySetsToAll,
         handleDeleteSet,
         handleUpdateSetField,
         handleSaveSelectedPlan,
@@ -80,6 +85,10 @@ export default function TrainingPage() {
         focusPlanNameSignal,
         newlyCreatedDayId,
     } = useTrainingPlan(id);
+
+    useEffect(() => {
+        onDirtyChange?.(isDirty);
+    }, [isDirty, onDirtyChange]);
 
     useEffect(() => {
         const handleBeforeUnload = (event) => {
@@ -105,6 +114,8 @@ export default function TrainingPage() {
                         selectedPlan={selectedPlan}
                         handleSelectedPlan={handleSelectedPlan}
                         handleCreatePlan={handleCreatePlan}
+                        handleDeletePlan={handleDeletePlan}
+                        handleDuplicatePlan={handleDuplicatePlan}
                         sortOrder={sortOrder}
                         setSortOrder={setSortOrder}
                         handleSaveAllDrafts={handleSaveAllDrafts}
@@ -130,6 +141,7 @@ export default function TrainingPage() {
                             handleCreateDay={handleCreateDay}
                             handleDeleteDay={handleDeleteDay}
                             handleDuplicateDay={handleDuplicateDay}
+                            handleReorderDays={handleReorderDays}
                             handleRenamePlan={handleRenamePlan}
                             handleRenameDay={handleRenameDay}
                             handleUpdatePlanNotes={handleUpdatePlanNotes}
@@ -160,10 +172,15 @@ export default function TrainingPage() {
                     <RightPanel
                         selectedDay={selectedDay}
                         handleAddExercise={handleAddExercise}
+                        handleAddMultipleExercises={handleAddMultipleExercises}
                         handleDeleteExercise={handleDeleteExercise}
                         handleRenameExercise={handleRenameExercise}
                         handleUpdateExerciseNotes={handleUpdateExerciseNotes}
+                        handleReorderExercises={handleReorderExercises}
+                        handleRenameDay={handleRenameDay}
                         handleAddSet={handleAddSet}
+                        handleDuplicateSet={handleDuplicateSet}
+                        handleApplySetsToAll={handleApplySetsToAll}
                         handleDeleteSet={handleDeleteSet}
                         handleUpdateSetField={handleUpdateSetField}
                         handleUpdateDayNotes={handleUpdateDayNotes}

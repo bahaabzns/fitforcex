@@ -156,7 +156,7 @@ export function useTrainingPlan(clientId) {
         const newPlan = normalizePlan({
             ...source,
             id: makeTempId("plan"),
-            name: `${source.name} (Copy)`,
+            name: `Copy of ${source.name}`,
             status: "inactive",
             created_at: now,
             updated_at: now,
@@ -272,7 +272,7 @@ export function useTrainingPlan(clientId) {
         const newDay = {
             ...source,
             id: makeTempId("day"),
-            name: `${source.name} (Copy)`,
+            name: `Copy of ${source.name}`,
             exercises: (source.exercises ?? []).map((e) => ({
                 ...e,
                 id: makeTempId("exercise"),
@@ -363,6 +363,29 @@ export function useTrainingPlan(clientId) {
         markPlanDirty(selectedPlan.id);
     }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
 
+    const handleAddMultipleExercises = useCallback((dayId, libraryItems) => {
+        if (!selectedPlan || !libraryItems?.length) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                const newExercises = libraryItems.map((item) => ({
+                    id: makeTempId("exercise"),
+                    name: item.name,
+                    equipment: item.equipment ?? "",
+                    notes: "",
+                    exercise_library_id: item.id ?? null,
+                    sets: [
+                        { id: makeTempId("set"), reps: "8-12", rest_seconds: 90, tempo: "-", rir: 2 },
+                    ],
+                }));
+                return { ...d, exercises: [...(d.exercises ?? []), ...newExercises] };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
     const handleDeleteExercise = useCallback((dayId, exerciseId) => {
         if (!selectedPlan) return;
         const nextPlan = {
@@ -408,6 +431,59 @@ export function useTrainingPlan(clientId) {
                                 ...(e.sets ?? []),
                                 { id: makeTempId("set"), reps: "", rest_seconds: null, tempo: "", rir: null },
                             ],
+                        };
+                    }),
+                };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleDuplicateSet = useCallback((dayId, exerciseId, setId) => {
+        if (!selectedPlan) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) => {
+                        if (String(e.id) !== String(exerciseId)) return e;
+                        const sets = e.sets ?? [];
+                        const idx = sets.findIndex((s) => String(s.id) === String(setId));
+                        if (idx === -1) return e;
+                        const copy = { ...sets[idx], id: makeTempId("set") };
+                        const next = [...sets];
+                        next.splice(idx + 1, 0, copy);
+                        return { ...e, sets: next };
+                    }),
+                };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleApplySetsToAll = useCallback((dayId, exerciseId) => {
+        if (!selectedPlan) return;
+        const day = (selectedPlan.days ?? []).find((d) => String(d.id) === String(dayId));
+        const source = (day?.exercises ?? []).find((e) => String(e.id) === String(exerciseId));
+        if (!source?.sets?.length) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                return {
+                    ...d,
+                    exercises: (d.exercises ?? []).map((e) => {
+                        if (String(e.id) === String(exerciseId)) return e;
+                        return {
+                            ...e,
+                            sets: source.sets.map((s) => ({
+                                ...s,
+                                id: makeTempId("set"),
+                            })),
                         };
                     }),
                 };
@@ -528,17 +604,54 @@ export function useTrainingPlan(clientId) {
             resolvedPlanId = saveResult.newPlanId ?? planId;
         }
 
+        const previousStatuses = plans.map((p) => ({ id: p.id, status: p.status }));
+
+        setPlans((prev) => prev.map((p) => ({ ...p, status: String(p.id) === String(resolvedPlanId) ? "active" : "inactive" })));
+        setSelectedPlan((prev) => (prev ? { ...prev, status: String(prev.id) === String(resolvedPlanId) ? "active" : "inactive" } : prev));
+
         try {
             setIsSaving(true);
             await api.post(`/api/training/plans/${resolvedPlanId}/activate`);
-            setPlans((prev) => prev.map((p) => ({ ...p, status: String(p.id) === String(resolvedPlanId) ? "active" : "inactive" })));
-            setSelectedPlan((prev) => (prev ? { ...prev, status: String(prev.id) === String(resolvedPlanId) ? "active" : "inactive" } : prev));
         } catch (error) {
             console.error("Error activating training plan:", error);
+            setPlans((prev) => prev.map((p) => {
+                const original = previousStatuses.find((s) => String(s.id) === String(p.id));
+                return original ? { ...p, status: original.status } : p;
+            }));
+            setSelectedPlan((prev) => {
+                if (!prev) return prev;
+                const original = previousStatuses.find((s) => String(s.id) === String(prev.id));
+                return original ? { ...prev, status: original.status } : prev;
+            });
         } finally {
             setIsSaving(false);
         }
-    }, [isSaving, dirtyPlanIds, handleSaveSelectedPlan]);
+    }, [isSaving, dirtyPlanIds, handleSaveSelectedPlan, plans]);
+
+    const handleReorderDays = useCallback((fromIndex, toIndex) => {
+        if (!selectedPlan || fromIndex === toIndex) return;
+        const days = [...(selectedPlan.days ?? [])];
+        const [moved] = days.splice(fromIndex, 1);
+        days.splice(toIndex, 0, moved);
+        applyPlanUpdate({ ...selectedPlan, days });
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
+
+    const handleReorderExercises = useCallback((dayId, fromIndex, toIndex) => {
+        if (!selectedPlan || fromIndex === toIndex) return;
+        const nextPlan = {
+            ...selectedPlan,
+            days: (selectedPlan.days ?? []).map((d) => {
+                if (String(d.id) !== String(dayId)) return d;
+                const exercises = [...(d.exercises ?? [])];
+                const [moved] = exercises.splice(fromIndex, 1);
+                exercises.splice(toIndex, 0, moved);
+                return { ...d, exercises };
+            }),
+        };
+        applyPlanUpdate(nextPlan);
+        markPlanDirty(selectedPlan.id);
+    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
 
     const sortedPlans = useMemo(() => {
         const cloned = [...plans];
@@ -578,10 +691,13 @@ export function useTrainingPlan(clientId) {
         handleRenameDay,
         handleUpdateDayNotes,
         handleAddExercise,
+        handleAddMultipleExercises,
         handleDeleteExercise,
         handleRenameExercise,
         handleUpdateExerciseNotes,
         handleAddSet,
+        handleDuplicateSet,
+        handleApplySetsToAll,
         handleDeleteSet,
         handleUpdateSetField,
         handleSaveSelectedPlan,
@@ -589,6 +705,8 @@ export function useTrainingPlan(clientId) {
         handleActivatePlan,
         handleDeletePlan,
         handleDuplicatePlan,
+        handleReorderDays,
+        handleReorderExercises,
         handleClosePlan,
         handleCloseDay,
         focusPlanNameSignal,

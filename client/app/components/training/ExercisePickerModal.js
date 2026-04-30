@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
+import Modal from "@/app/components/Modal";
 
-export default function ExercisePickerModal({ open, onClose, onSelect }) {
+export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const [items, setItems] = useState([]);
     const [muscleGroups, setMuscleGroups] = useState([]);
     const [equipments, setEquipments] = useState([]);
@@ -10,6 +11,7 @@ export default function ExercisePickerModal({ open, onClose, onSelect }) {
     const [search, setSearch] = useState("");
     const [filterGroup, setFilterGroup] = useState("");
     const [filterEquipment, setFilterEquipment] = useState("");
+    const [selectedIds, setSelectedIds] = useState(new Set());
 
     useEffect(() => {
         if (!open) return;
@@ -28,16 +30,14 @@ export default function ExercisePickerModal({ open, onClose, onSelect }) {
             .finally(() => setLoading(false));
     }, [open]);
 
-    // Reset filters when closed
     useEffect(() => {
         if (!open) {
             setSearch("");
             setFilterGroup("");
             setFilterEquipment("");
+            setSelectedIds(new Set());
         }
     }, [open]);
-
-    if (!open) return null;
 
     const filtered = items.filter((item) => {
         const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
@@ -46,97 +46,203 @@ export default function ExercisePickerModal({ open, onClose, onSelect }) {
         return matchSearch && matchGroup && matchEquipment;
     });
 
-    return (
-        <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm overflow-y-auto py-8 px-4"
-            onClick={onClose}
-        >
-            <div
-                className="bg-white border border-[#D2D2D7] rounded-2xl w-full max-w-2xl shadow-xl my-auto"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900">Add Exercise</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+    const toggleItem = (id) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
 
-                {/* Filters */}
-                <div className="px-6 py-3 border-b border-gray-100 flex flex-wrap gap-2">
+    const allFilteredSelected = filtered.length > 0 && filtered.every((item) => selectedIds.has(item.id));
+    const toggleSelectAll = () => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (allFilteredSelected) {
+                filtered.forEach((item) => next.delete(item.id));
+            } else {
+                filtered.forEach((item) => next.add(item.id));
+            }
+            return next;
+        });
+    };
+
+    const handleConfirm = () => {
+        const selectedItems = items.filter((item) => selectedIds.has(item.id));
+        onAddExercises(selectedItems);
+    };
+
+    return (
+        <Modal open={open} onClose={onClose} title="Add Exercises" wide>
+            <div className="flex flex-col" style={{ maxHeight: "70vh" }}>
+
+                {/* Search + results count */}
+                <div className="flex gap-3 mb-3 items-center">
                     <input
-                        className="input-field flex-1 min-w-35"
+                        type="text"
+                        className="input-field flex-1"
                         placeholder="Search exercises..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         autoFocus
                     />
-                    <select
-                        className="input-field w-40"
-                        value={filterGroup}
-                        onChange={(e) => setFilterGroup(e.target.value)}
-                    >
-                        <option value="">All muscle groups</option>
-                        {muscleGroups.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
-                    </select>
-                    <select
-                        className="input-field w-40"
-                        value={filterEquipment}
-                        onChange={(e) => setFilterEquipment(e.target.value)}
-                    >
-                        <option value="">All equipment</option>
-                        {equipments.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
-                    </select>
+                    <span className="text-sm text-gray-400 shrink-0">
+                        {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+                    </span>
                 </div>
 
-                {/* Results */}
-                <div className="px-6 py-4 max-h-120 overflow-y-auto">
-                    {loading && (
+                {/* Muscle group pills */}
+                <div className="flex gap-2 flex-wrap mb-2">
+                    {["", ...muscleGroups.map((g) => g.name)].map((group) => (
+                        <button
+                            key={group}
+                            onClick={() => setFilterGroup(group)}
+                            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                                filterGroup === group
+                                    ? "bg-blue-500 border-blue-500 text-white"
+                                    : "border-gray-300 text-gray-500 hover:border-gray-400"
+                            }`}
+                        >
+                            {group || "All muscles"}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Equipment pills */}
+                <div className="flex gap-2 flex-wrap mb-4">
+                    {["", ...equipments.map((e) => e.name)].map((equip) => (
+                        <button
+                            key={equip}
+                            onClick={() => setFilterEquipment(equip)}
+                            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                                filterEquipment === equip
+                                    ? "bg-violet-500 border-violet-500 text-white"
+                                    : "border-gray-300 text-gray-500 hover:border-gray-400"
+                            }`}
+                        >
+                            {equip || "All equipment"}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Table */}
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    {loading ? (
                         <div className="text-center py-10 text-sm text-gray-400">Loading exercises...</div>
-                    )}
-                    {!loading && filtered.length === 0 && (
-                        <div className="text-center py-10 text-sm text-gray-400">
-                            {items.length === 0
-                                ? "No exercises in your library yet. Add exercises in Databases → Exercise Library."
-                                : "No exercises match your search."}
-                        </div>
-                    )}
-                    {!loading && (
-                        <div className="flex flex-col gap-2">
-                            {filtered.map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => { onSelect(item); onClose(); }}
-                                    className="flex items-center gap-3 w-full text-left rounded-xl border border-gray-200 p-3 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
-                                >
-                                    {item.thumbnail_path ? (
-                                        <img
-                                            src={`http://localhost:4000${item.thumbnail_path}`}
-                                            alt={item.name}
-                                            className="w-12 h-12 object-cover rounded-lg shrink-0"
-                                        />
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-400">
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                                            </svg>
+                    ) : (
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-white shadow-sm">
+                                <tr className="border-b-2 border-gray-200 text-left text-gray-600">
+                                    <th className="p-2 w-8">
+                                        <div
+                                            className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
+                                                allFilteredSelected
+                                                    ? "bg-blue-500 border-blue-500"
+                                                    : "border-gray-300 bg-white hover:border-blue-300"
+                                            }`}
+                                            onClick={toggleSelectAll}
+                                        >
+                                            {allFilteredSelected && (
+                                                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                                                    <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            )}
                                         </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm text-gray-900 truncate">{item.name}</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">
-                                            {[item.muscle_group, item.equipment].filter(Boolean).join(" · ") || "No category"}
-                                        </p>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
+                                    </th>
+                                    <th className="p-2">Exercise</th>
+                                    <th className="p-2">Muscle Group</th>
+                                    <th className="p-2">Equipment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="text-center py-12 text-gray-400">
+                                            {items.length === 0
+                                                ? "No exercises in your library yet. Add exercises in Databases → Exercise Library."
+                                                : "No exercises match your search."}
+                                        </td>
+                                    </tr>
+                                )}
+                                {filtered.map((item) => (
+                                    <tr
+                                        key={item.id}
+                                        className={`border-b cursor-pointer transition-colors hover:bg-gray-50 ${selectedIds.has(item.id) ? "bg-blue-50" : ""}`}
+                                        onClick={() => toggleItem(item.id)}
+                                    >
+                                        <td className="p-2">
+                                            <div
+                                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                                    selectedIds.has(item.id)
+                                                        ? "bg-blue-500 border-blue-500"
+                                                        : "border-gray-300 bg-white"
+                                                }`}
+                                            >
+                                                {selectedIds.has(item.id) && (
+                                                    <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                                                        <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-2">
+                                            <div className="flex items-center gap-2">
+                                                {item.thumbnail_path ? (
+                                                    <img
+                                                        src={`http://localhost:4000${item.thumbnail_path}`}
+                                                        alt={item.name}
+                                                        className="w-8 h-8 object-cover rounded-md shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center shrink-0 text-gray-400">
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                                <span className="font-medium text-gray-900">{item.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-2">
+                                            {item.muscle_group
+                                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{item.muscle_group}</span>
+                                                : <span className="text-gray-300">—</span>
+                                            }
+                                        </td>
+                                        <td className="p-2">
+                                            {item.equipment
+                                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-600">{item.equipment}</span>
+                                                : <span className="text-gray-300">—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     )}
                 </div>
+
+                {/* Footer */}
+                <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                    <span className="text-sm text-gray-600">{selectedIds.size} exercise{selectedIds.size !== 1 ? "s" : ""} selected</span>
+                    <div className="flex gap-3">
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => setSelectedIds(new Set())}
+                            disabled={selectedIds.size === 0}
+                        >
+                            Reset Selection
+                        </button>
+                        <button
+                            className="btn btn-primary px-4"
+                            onClick={handleConfirm}
+                            disabled={selectedIds.size === 0}
+                        >
+                            Add Selected
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </Modal>
     );
 }

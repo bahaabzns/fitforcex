@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
+import DataTable from "@/app/components/DataTable";
 
 export default function EquipmentPage() {
     const [equipments, setEquipments] = useState([]);
@@ -57,36 +58,33 @@ export default function EquipmentPage() {
         }
     }
 
-    if (loading) return <div className="p-4 text-sm text-gray-500">Loading...</div>;
+    if (loading) return <div className="p-8">Loading...</div>;
+
+    const columns = [
+        { key: "name", label: "Name", filterType: "text", sortable: true },
+        { key: "exercise_count", label: "Exercises", sortable: true },
+        {
+            key: "actions",
+            label: "Actions",
+            cardPriority: "hidden",
+            render: (row) => (
+                <div className="flex gap-2">
+                    <button onClick={() => setEditing(row)} className="btn-secondary px-3 py-1 text-sm">Edit</button>
+                    <button onClick={() => handleDelete(row.id)} className="btn-danger px-3 py-1 text-sm">Delete</button>
+                </div>
+            ),
+        },
+    ];
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-5">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Equipment</h1>
+        <div className="p-8">
+            <div className="flex items-center mb-6 gap-4">
+                <div className="flex-1">
+                    <h1 className="text-3xl font-bold">Equipment</h1>
                     <p className="text-sm text-gray-500 mt-1">Manage equipment categories for your exercise library.</p>
                 </div>
-                <button onClick={() => setShowForm(true)} className="btn btn-primary">+ Add Equipment</button>
+                <button onClick={() => setShowForm(true)} className="btn-primary px-4 shrink-0">+ Add Equipment</button>
             </div>
-
-            {equipments.length === 0 ? (
-                <div className="text-center py-16 text-gray-400 text-sm">No equipment yet. Add one to get started.</div>
-            ) : (
-                <div className="flex flex-col gap-2">
-                    {equipments.map((eq) => (
-                        <div key={eq.id} className="card flex items-center justify-between gap-3">
-                            <div>
-                                <p className="font-semibold text-gray-900 text-sm">{eq.name}</p>
-                                <p className="text-xs text-gray-400">{eq.exercise_count ?? 0} exercise{eq.exercise_count !== 1 ? "s" : ""}</p>
-                            </div>
-                            <div className="flex gap-2 shrink-0">
-                                <button onClick={() => setEditing(eq)} className="btn btn-secondary text-xs px-3 py-1">Edit</button>
-                                <button onClick={() => handleDelete(eq.id)} className="btn btn-danger text-xs px-3 py-1">Delete</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setNewName(""); }} title="Add Equipment">
                 <form onSubmit={handleAdd} className="flex flex-col gap-4">
@@ -98,7 +96,7 @@ export default function EquipmentPage() {
                         required
                         autoFocus
                     />
-                    <button type="submit" className="btn btn-primary">Add Equipment</button>
+                    <button type="submit" className="btn-primary px-4">Add Equipment</button>
                 </form>
             </Modal>
 
@@ -111,9 +109,11 @@ export default function EquipmentPage() {
                         required
                         autoFocus
                     />
-                    <button type="submit" className="btn btn-primary">Save Changes</button>
+                    <button type="submit" className="btn-primary px-4">Save Changes</button>
                 </form>
             </Modal>
+
+            <DataTable columns={columns} data={equipments} rowKey="id" />
         </div>
     );
 }

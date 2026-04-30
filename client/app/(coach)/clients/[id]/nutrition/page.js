@@ -9,7 +9,7 @@ import MiddlePanel from "@/app/components/nutrition/MiddlePanel";
 import RightPanel from "@/app/components/nutrition/RightPanel";
 import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
 
-export default function NutritionPage() {
+export default function NutritionPage({ onDirtyChange }) {
 
     const { id } = useParams();
     const searchParams = useSearchParams();
@@ -93,6 +93,10 @@ export default function NutritionPage() {
         dirtyPlanIds,
         hasDeletedPlans,
     } = useNutritionPlan(id);
+
+    useEffect(() => {
+        onDirtyChange?.(isDirty);
+    }, [isDirty, onDirtyChange]);
 
     useEffect(() => {
         const handleBeforeUnload = (event) => {
