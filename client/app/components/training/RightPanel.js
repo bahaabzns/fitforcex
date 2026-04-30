@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 
 const INPUT_CLASS = "h-8 w-full rounded-md border border-gray-300 px-2 text-xs focus:outline-none focus:border-blue-300";
 
@@ -10,6 +11,8 @@ export default function RightPanel({
     handleAddSet,
     handleUpdateSetField,
 }) {
+    const [showPicker, setShowPicker] = useState(false);
+
     if (!selectedDay) {
         return (
             <div className="card w-full flex flex-col overflow-hidden min-h-full">
@@ -23,12 +26,18 @@ export default function RightPanel({
             <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-gray-900">{selectedDay.name}</h3>
                 <button
-                    onClick={() => handleAddExercise(selectedDay.id)}
+                    onClick={() => setShowPicker(true)}
                     className="h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors cursor-pointer"
                 >
                     + Add Exercise
                 </button>
             </div>
+
+            <ExercisePickerModal
+                open={showPicker}
+                onClose={() => setShowPicker(false)}
+                onSelect={(item) => handleAddExercise(selectedDay.id, item)}
+            />
 
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3">
                 {(selectedDay.exercises ?? []).map((exercise, index) => (
@@ -40,6 +49,9 @@ export default function RightPanel({
                                 onChange={(e) => handleRenameExercise(selectedDay.id, exercise.id, e.target.value)}
                                 className="flex-1 bg-transparent text-sm font-semibold text-gray-800 focus:outline-none"
                             />
+                            {exercise.exercise_library_id && (
+                                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-semibold shrink-0">lib</span>
+                            )}
                             <button
                                 onClick={() => handleDeleteExercise(selectedDay.id, exercise.id)}
                                 className="text-xs text-red-500 hover:text-red-600 cursor-pointer"

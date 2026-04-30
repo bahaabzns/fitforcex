@@ -146,6 +146,17 @@ async function ensureTrainingSchema() {
                     alt_order INTEGER NOT NULL
                 )
             `);
+
+            // Indexes for common lookups
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_plans_coach_client ON training_plans (coach_id, client_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_plans_client ON training_plans (client_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_days_plan ON training_days (plan_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_exercises_day ON training_exercises (day_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_sets_exercise ON training_sets (exercise_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_alternatives_exercise ON training_exercise_alternatives (exercise_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_library_coach ON exercise_library (coach_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_muscle_groups_coach ON exercise_muscle_groups (coach_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_equipments_coach ON exercise_equipments (coach_id)`);
         })();
     }
 

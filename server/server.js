@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const server = express();
 
@@ -16,6 +17,7 @@ const cookieParser = require('cookie-parser');
 server.use(cors({origin: 'http://localhost:3000', credentials: true}));
 server.use(express.json());
 server.use(cookieParser());
+server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 server.use('/api/auth', authRouter);
 server.use('/api/dashboard', dashboardRouter);
 server.use('/api/clients', require('./routes/clients'));

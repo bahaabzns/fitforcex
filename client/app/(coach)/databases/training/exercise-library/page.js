@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
@@ -23,6 +22,9 @@ export default function ExerciseLibraryPage() {
     const [videoFile, setVideoFile] = useState(null);
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState("");
+    const [filterGroup, setFilterGroup] = useState("");
+    const [filterEquipment, setFilterEquipment] = useState("");
 
     useEffect(() => {
         async function load() {
@@ -101,24 +103,58 @@ export default function ExerciseLibraryPage() {
         }
     }
 
-    if (loading) return <div className="p-8">Loading...</div>;
+    if (loading) return <div className="p-4 text-sm text-gray-500">Loading...</div>;
+
+    const filtered = items.filter((item) => {
+        const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
+        const matchGroup = !filterGroup || item.muscle_group === filterGroup;
+        const matchEquipment = !filterEquipment || item.equipment === filterEquipment;
+        return matchSearch && matchGroup && matchEquipment;
+    });
 
     return (
-        <div className="p-8">
+        <div>
             <div className="flex items-center justify-between gap-3 mb-5">
                 <div>
-                    <h1 className="text-3xl font-bold">Exercise Library</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Exercise Library</h1>
                     <p className="text-sm text-gray-500 mt-1">Create exercises with media, instructions, and categories.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Link href="/databases/training/exercise-library/muscle-groups" className="btn btn-secondary">Muscle Groups</Link>
-                    <Link href="/databases/training/exercise-library/equipment" className="btn btn-secondary">Equipment</Link>
-                    <button onClick={() => setShowForm(true)} className="btn btn-primary">+ Add Exercise</button>
-                </div>
+                <button onClick={() => setShowForm(true)} className="btn btn-primary">+ Add Exercise</button>
             </div>
 
+            <div className="flex flex-wrap gap-2 mb-4">
+                <input
+                    className="input-field max-w-xs"
+                    placeholder="Search exercises..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                />
+                <select
+                    className="input-field max-w-45"
+                    value={filterGroup}
+                    onChange={(e) => setFilterGroup(e.target.value)}
+                >
+                    <option value="">All muscle groups</option>
+                    {muscleGroups.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
+                </select>
+                <select
+                    className="input-field max-w-45"
+                    value={filterEquipment}
+                    onChange={(e) => setFilterEquipment(e.target.value)}
+                >
+                    <option value="">All equipment</option>
+                    {equipments.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
+                </select>
+            </div>
+
+            {filtered.length === 0 && (
+                <div className="text-center py-16 text-gray-400 text-sm">
+                    {items.length === 0 ? "No exercises yet. Add one to get started." : "No exercises match your filters."}
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {items.map((item) => (
+                {filtered.map((item) => (
                     <div key={item.id} className="card">
                         {item.thumbnail_path && (
                             <img src={`http://localhost:4000${item.thumbnail_path}`} alt={item.name} className="w-full h-36 object-cover rounded-lg mb-3" />

@@ -205,7 +205,7 @@ export function useTrainingPlan(clientId) {
         markPlanDirty(selectedPlan.id);
     }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
 
-    const handleAddExercise = useCallback((dayId) => {
+    const handleAddExercise = useCallback((dayId, libraryItem = null) => {
         if (!selectedPlan) return;
         const nextPlan = {
             ...selectedPlan,
@@ -217,9 +217,10 @@ export function useTrainingPlan(clientId) {
                         ...(d.exercises ?? []),
                         {
                             id: makeTempId("exercise"),
-                            name: `Exercise ${(d.exercises?.length ?? 0) + 1}`,
-                            equipment: "",
+                            name: libraryItem?.name ?? `Exercise ${(d.exercises?.length ?? 0) + 1}`,
+                            equipment: libraryItem?.equipment ?? "",
                             notes: "",
+                            exercise_library_id: libraryItem?.id ?? null,
                             sets: [
                                 { id: makeTempId("set"), reps: "8-12", rest_seconds: 90, tempo: "-", rir: 2 },
                             ],
