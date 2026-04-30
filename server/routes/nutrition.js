@@ -16,6 +16,14 @@ function toIsoDateOrNull(value) {
     return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+// Always serialise timestamps as UTC ISO-8601 before sending to the client.
+// Postgres may return Date objects or naive strings; this makes the contract explicit.
+function toClientIso(value) {
+    if (!value) return null;
+    const d = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 router.use(authMiddleware);
 
 router.get('/food-items', async (req, res) => {
@@ -196,7 +204,11 @@ router.get('/plans', async (req, res) => {
             [req.user.id, req.query.clientId]
         );
 
-        res.json(result.rows);
+        res.json(result.rows.map(row => ({
+            ...row,
+            created_at: toClientIso(row.created_at),
+            updated_at: toClientIso(row.updated_at),
+        })));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -270,8 +282,8 @@ router.get('/plans/:id', async (req, res) => {
             name: planResult.rows[0].name,
             client_id: planResult.rows[0].client_id,
             status: planResult.rows[0].status,
-            created_at: planResult.rows[0].created_at,
-            updated_at: planResult.rows[0].updated_at,
+            created_at: toClientIso(planResult.rows[0].created_at),
+            updated_at: toClientIso(planResult.rows[0].updated_at),
             cycles: cycles
         });
 
@@ -369,7 +381,7 @@ router.post('/plans/save-draft', async (req, res) => {
         for (let pIndex = 0; pIndex < plans.length; pIndex += 1) {
             const plan = plans[pIndex];
             const createdAt = toIsoDateOrNull(plan.created_at) || new Date().toISOString();
-            const updatedAt = toIsoDateOrNull(plan.updated_at) || new Date().toISOString();
+            const updatedAt = new Date().toISOString();
             const insertedPlan = await dbClient.query(
                 `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6)
@@ -686,10 +698,15 @@ router.post('/plans/save-plan-draft', async (req, res) => {
             [newPlan.id, req.user.id]
         );
 
+        const savedRow = savedPlanResult.rows[0];
         res.json({
             oldPlanId,
             newPlanId: newPlan.id,
-            savedPlan: savedPlanResult.rows[0],
+            savedPlan: {
+                ...savedRow,
+                created_at: toClientIso(savedRow.created_at),
+                updated_at: toClientIso(savedRow.updated_at),
+            },
         });
     } catch (err) {
         await dbClient.query('ROLLBACK');

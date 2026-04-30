@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import CycleCalculator from "./CycleCalculator";
 
@@ -51,7 +50,6 @@ export default function LeftPanel({
     sortOrder, setSortOrder,
     selectedCycleIndex,
     handleUpdateCycleGoals,
-    handleActivatePlan,
     handleSaveAllDrafts,
     dirtyPlanIds,
     hasDeletedPlans,
@@ -59,35 +57,14 @@ export default function LeftPanel({
     isSaving,
     saveStatus,
     clientId,
-    submissionId,
 }) {
-    const router = useRouter();
     const [plansCollapsed, setPlansCollapsed] = useState(false);
-    const [calcCollapsed, setCalcCollapsed]   = useState(false);
-    const [formsCollapsed, setFormsCollapsed] = useState(false);
+    const [calcCollapsed, setCalcCollapsed]   = useState(true);
+    const [formsCollapsed, setFormsCollapsed] = useState(true);
 
     const [formRequests, setFormRequests]     = useState([]);
     const [formsLoading, setFormsLoading]     = useState(true);
     const [expandedReq, setExpandedReq]       = useState(null);
-
-    const [activateModal, setActivateModal]   = useState(null); // { planId }
-    const [activating, setActivating]         = useState(false);
-
-    async function handleActivateAndMark(planId, navigateToQueue) {
-        setActivating(true);
-        try {
-            await handleActivatePlan(planId);
-            await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
-            if (navigateToQueue) {
-                router.push("/plans-queue");
-            }
-        } catch {
-            // silent — individual operations already handle errors
-        } finally {
-            setActivating(false);
-            setActivateModal(null);
-        }
-    }
 
     useEffect(() => {
         if (!clientId) return;
@@ -259,37 +236,6 @@ export default function LeftPanel({
             {/* Divider */}
             <div className="shrink-0 border-t border-gray-100 my-4" />
 
-            {/* ── Calorie Calculator Section ── */}
-            <div className="flex flex-col min-h-0" style={{ flex: calcCollapsed ? "0 0 auto" : "1 1 0" }}>
-                <div className="flex items-center gap-3 mb-4 shrink-0">
-                    <button
-                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
-                        onClick={() => setCalcCollapsed(c => !c)}
-                    >
-                        <ChevronIcon up={!calcCollapsed} />
-                    </button>
-                    <h2 className="text-base font-semibold text-gray-900 flex-1">Calorie Calculator</h2>
-                </div>
-
-                {!calcCollapsed && (
-                    <div className="overflow-y-auto flex-1 min-h-0">
-                        {currentCycle ? (
-                            <CycleCalculator
-                                cycle={currentCycle}
-                                onApply={(goals) => handleUpdateCycleGoals(currentCycle.id, goals)}
-                            />
-                        ) : (
-                            <p className="text-xs text-gray-400 text-center py-6">
-                                Select a plan and cycle to use the calculator
-                            </p>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Divider */}
-            <div className="shrink-0 border-t border-gray-100 my-4" />
-
             {/* ── Form Submissions Section ── */}
             <div className="flex flex-col min-h-0" style={{ flex: formsCollapsed ? "0 0 auto" : "1 1 0" }}>
                 <div className="flex items-center gap-3 mb-4 shrink-0">
@@ -301,9 +247,9 @@ export default function LeftPanel({
                     </button>
                     <h2 className="text-base font-semibold text-gray-900 flex-1">
                         Form Submissions
-                        {formRequests.filter(r => r.status === 'submitted').length > 0 && (
+                        {formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled').length > 0 && (
                             <span className="ml-2 text-xs font-normal text-gray-400">
-                                {formRequests.filter(r => r.status === 'submitted').length}
+                                {formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled').length}
                             </span>
                         )}
                     </h2>
@@ -317,7 +263,7 @@ export default function LeftPanel({
                                     <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />
                                 ))}
                             </div>
-                        ) : formRequests.filter(r => r.status === 'submitted').length === 0 ? (
+                        ) : formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled').length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
                                 <svg className="w-8 h-8 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -326,7 +272,7 @@ export default function LeftPanel({
                             </div>
                         ) : (
                             <div className="flex flex-col gap-1.5">
-                                {formRequests.filter(r => r.status === 'submitted').map(req => {
+                                {formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled').map(req => {
                                     const isOpen = expandedReq === req.id;
                                     return (
                                         <div key={req.id} className="rounded-xl border border-gray-100 overflow-hidden">
@@ -371,6 +317,38 @@ export default function LeftPanel({
                     </div>
                 )}
             </div>
+
+            {/* Divider */}
+            <div className="shrink-0 border-t border-gray-100 my-4" />
+
+            {/* ── Calorie Calculator Section ── */}
+            <div className="flex flex-col min-h-0" style={{ flex: calcCollapsed ? "0 0 auto" : "1 1 0" }}>
+                <div className="flex items-center gap-3 mb-4 shrink-0">
+                    <button
+                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        onClick={() => setCalcCollapsed(c => !c)}
+                    >
+                        <ChevronIcon up={!calcCollapsed} />
+                    </button>
+                    <h2 className="text-base font-semibold text-gray-900 flex-1">Calorie Calculator</h2>
+                </div>
+
+                {!calcCollapsed && (
+                    <div className="overflow-y-auto flex-1 min-h-0">
+                        {currentCycle ? (
+                            <CycleCalculator
+                                cycle={currentCycle}
+                                onApply={(goals) => handleUpdateCycleGoals(currentCycle.id, goals)}
+                            />
+                        ) : (
+                            <p className="text-xs text-gray-400 text-center py-6">
+                                Select a plan and cycle to use the calculator
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+
         </div>
 
         

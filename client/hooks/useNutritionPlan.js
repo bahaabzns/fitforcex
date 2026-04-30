@@ -16,28 +16,13 @@ function withListOrders(items, orderKey) {
 }
 
 function normalizeServerDate(dateValue) {
+    // The API now always returns UTC ISO-8601 strings (enforced by toClientIso on the server).
+    // We just pass through whatever the server sends; no timezone guessing needed.
     if (dateValue instanceof Date) {
         return Number.isNaN(dateValue.getTime()) ? null : dateValue.toISOString();
     }
-
-    if (!dateValue) return dateValue;
-    const raw = String(dateValue).trim();
-    if (!raw) return raw;
-
-    let normalizedInput = raw.replace(" ", "T");
-
-    // Convert offsets like +03 or +0300 into +03:00.
-    normalizedInput = normalizedInput
-        .replace(/([+-]\d{2})$/, "$1:00")
-        .replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
-
-    const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(normalizedInput);
-    if (!hasTimezone) {
-        normalizedInput = `${normalizedInput}Z`;
-    }
-
-    const parsed = new Date(normalizedInput);
-    return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
+    if (!dateValue) return null;
+    return String(dateValue);
 }
 
 function hydratePlan(plan) {
@@ -191,7 +176,7 @@ export function useNutritionPlan(clientId) {
         });
     }, []);
 
-    const fetchClientPlans = useCallback(async (preserveContext = null) => {
+    const fetchClientPlans = useCallback(async (preserveContext = null, { silent = false } = {}) => {
         if (!clientId) {
             setPlans([]);
             setSelectedPlan(null);
@@ -201,7 +186,7 @@ export function useNutritionPlan(clientId) {
         }
 
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const summaryResponse = await api.get(`/api/nutrition/plans?clientId=${clientId}`);
             const summaries = summaryResponse.data ?? [];
 
@@ -933,10 +918,14 @@ export function useNutritionPlan(clientId) {
             setSaveStatus("saving");
             const activePlan = plans.find((p) => p.status === "active");
 
+            const nowIso = new Date().toISOString();
+            const stampedPlans = plans.map((p) =>
+                dirtyPlanIds.has(String(p.id)) ? { ...p, updated_at: nowIso } : p
+            );
             await api.post("/api/nutrition/plans/save-draft", {
                 clientId,
                 activePlanId: activePlan?.id ?? null,
-                plans,
+                plans: stampedPlans,
             });
 
             await fetchClientPlans({
@@ -945,7 +934,7 @@ export function useNutritionPlan(clientId) {
                 selectedCycleIndex,
                 mealId: selectedMeal?.id,
                 mealName: selectedMeal?.name,
-            });
+            }, { silent: true });
 
             setSaveStatus("saved");
             if (saveStatusTimeoutRef.current) {
@@ -964,8 +953,6 @@ export function useNutritionPlan(clientId) {
     };
 
     const handleSaveDraft = handleSaveSelectedPlan;
-
-
 
 
     // Return all state and handlers ------------------------------------------------------------------

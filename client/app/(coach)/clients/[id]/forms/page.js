@@ -3,13 +3,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/axios";
-import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock } from "lucide-react";
+import Modal from "@/app/components/Modal";
+import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send } from "lucide-react";
 
 export default function ClientFormsPage() {
     const { id } = useParams();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
+
+    // Request Form modal state
+    const [requestModal, setRequestModal] = useState(false);
+    const [activeForms, setActiveForms] = useState([]);
+    const [selectedFormIds, setSelectedFormIds] = useState([]);
+    const [requestSending, setRequestSending] = useState(false);
+    const [requestError, setRequestError] = useState('');
+    const [requestMode, setRequestMode] = useState('now');
+    const [scheduledAt, setScheduledAt] = useState('');
 
     // Draggable divider
     const [widths, setWidths] = useState([38, 62]);
@@ -36,6 +46,52 @@ export default function ClientFormsPage() {
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup", onUp);
     }
+
+    const openRequestModal = async () => {
+        setSelectedFormIds([]);
+        setRequestError('');
+        setRequestMode('now');
+        setScheduledAt('');
+        try {
+            const res = await api.get('/api/forms');
+            setActiveForms(res.data.filter(f => f.status === 'active'));
+        } catch {
+            setActiveForms([]);
+        }
+        setRequestModal(true);
+    };
+
+    const toggleFormSelection = (formId) => {
+        setSelectedFormIds(prev => prev.includes(formId) ? prev.filter(x => x !== formId) : [...prev, formId]);
+    };
+
+    const handleSendRequests = async () => {
+        if (selectedFormIds.length === 0) { setRequestError('Select at least one form'); return; }
+        if (requestMode === 'schedule' && !scheduledAt) { setRequestError('Choose a schedule date and time'); return; }
+        if (requestMode === 'schedule') {
+            const t = new Date(scheduledAt);
+            if (Number.isNaN(t.getTime()) || t.getTime() <= Date.now()) {
+                setRequestError('Schedule time must be in the future');
+                return;
+            }
+        }
+        setRequestSending(true);
+        setRequestError('');
+        try {
+            await api.post('/api/forms/requests', {
+                form_ids: selectedFormIds,
+                client_id: id,
+                mode: requestMode,
+                scheduled_at: requestMode === 'schedule' ? new Date(scheduledAt).toISOString() : null,
+            });
+            setRequestModal(false);
+            await fetchRequests();
+        } catch (e) {
+            setRequestError(e.response?.data?.error || 'Failed to send requests');
+        } finally {
+            setRequestSending(false);
+        }
+    };
 
     const fetchRequests = useCallback(async () => {
         try {
@@ -70,6 +126,7 @@ export default function ClientFormsPage() {
     }
 
     return (
+        <>
         <div
             ref={containerRef}
             className="flex h-full overflow-hidden gap-0"
@@ -83,11 +140,20 @@ export default function ClientFormsPage() {
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4 shrink-0">
                         <h2 className="text-base font-semibold text-gray-900">Form Requests</h2>
-                        {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length > 0 && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
-                                {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length} open
-                            </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length > 0 && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
+                                    {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length} open
+                                </span>
+                            )}
+                            <button
+                                onClick={openRequestModal}
+                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-purple-500 hover:border-purple-300 transition-colors cursor-pointer"
+                            >
+                                <Send size={12} />
+                                Request Form
+                            </button>
+                        </div>
                     </div>
 
                     {requests.length === 0 ? (
@@ -245,5 +311,82 @@ export default function ClientFormsPage() {
                 </div>
             </div>
         </div>
+
+        {/* Request Form Modal */}
+        <Modal open={requestModal} onClose={() => setRequestModal(false)} title="Request Form from Client">
+            <div className="flex flex-col gap-3">
+                <div className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Request Timing</p>
+                    <div className="flex gap-2 mb-2">
+                        <button
+                            onClick={() => setRequestMode('now')}
+                            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                requestMode === 'now'
+                                    ? 'bg-blue-500 border-blue-500 text-white'
+                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                            Request Now
+                        </button>
+                        <button
+                            onClick={() => setRequestMode('schedule')}
+                            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                requestMode === 'schedule'
+                                    ? 'bg-blue-500 border-blue-500 text-white'
+                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                            Schedule
+                        </button>
+                    </div>
+                    {requestMode === 'schedule' && (
+                        <input
+                            type="datetime-local"
+                            value={scheduledAt}
+                            onChange={(e) => setScheduledAt(e.target.value)}
+                            min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
+                            className="input-field"
+                        />
+                    )}
+                </div>
+
+                {activeForms.length === 0 ? (
+                    <p className="text-sm text-gray-500 py-4 text-center">No active forms available. Activate a form first.</p>
+                ) : (
+                    <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+                        {activeForms.map(form => (
+                            <label key={form.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 cursor-pointer transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedFormIds.includes(form.id)}
+                                    onChange={() => toggleFormSelection(form.id)}
+                                    className="mt-0.5 cursor-pointer"
+                                />
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800">{form.title}</p>
+                                    {form.description && <p className="text-xs text-gray-400 mt-0.5">{form.description}</p>}
+                                    <p className="text-xs text-gray-400">{form.question_count} question{form.question_count !== 1 ? 's' : ''}</p>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                )}
+
+                {requestError && (
+                    <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{requestError}</p>
+                )}
+                <div className="flex gap-2 mt-1">
+                    <button
+                        onClick={handleSendRequests}
+                        disabled={requestSending || activeForms.length === 0}
+                        className="btn-primary flex-1 disabled:opacity-50"
+                    >
+                        {requestSending ? 'Sending...' : 'Send Request'}
+                    </button>
+                    <button onClick={() => setRequestModal(false)} className="btn-danger flex-1">Cancel</button>
+                </div>
+            </div>
+        </Modal>
+        </>
     );
 }

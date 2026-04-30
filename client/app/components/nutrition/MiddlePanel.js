@@ -496,8 +496,8 @@ export default function MiddlePanel({
             </div>
         </div>
         {activateModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40" onClick={() => setActivateModal(false)}>
+                <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4" onClick={(e) => e.stopPropagation()}>
                     <h3 className="text-base font-semibold text-gray-900 mb-2">Activate & Mark as Done</h3>
                     <p className="text-sm text-gray-600 mb-6">
                         You will activate this nutrition plan for this client and mark the submission as <span className="font-medium text-emerald-600">Action Done</span>. Continue?
