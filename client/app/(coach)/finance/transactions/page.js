@@ -19,6 +19,18 @@ function statusColor(status) {
     }
 }
 
+function subStatusColor(s) {
+    switch (s) {
+        case "Active":    return "bg-[#34C759]/10 text-[#34C759]";
+        case "Expired":   return "bg-red-50 text-[#FF3B30]";
+        case "Frozen":    return "bg-blue-50 text-blue-600";
+        case "Pre-start": return "bg-yellow-50 text-yellow-600";
+        case "Refunded":  return "bg-purple-50 text-purple-600";
+        default:          return "bg-[#F0F0F5] text-[#86868B]";
+    }
+}
+
+
 function convert(amount, fromCurrency, toCurrency) {
     if (fromCurrency === toCurrency) return amount;
     return (amount * (EXCHANGE_RATES[fromCurrency] || 1)) / (EXCHANGE_RATES[toCurrency] || 1);
@@ -163,7 +175,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         { key: "paymentMethod", label: "Method", filterType: "multi", options: paymentMethods, sortable: true },
         {
             key: "status",
-            label: "Status",
+            label: "Pay Status",
             filterType: "multi",
             options: ["completed", "refunded"],
             sortable: true,
@@ -172,6 +184,18 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                     {row.status}
                 </span>
             ),
+        },
+        {
+            key: "_subStatus",
+            label: "Sub Status",
+            filterType: "multi",
+            options: ["Active", "Pre-start", "Expired", "Refunded"],
+            render: (row) => {
+                const s = row.subscriptionStatus;
+                return s
+                    ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${subStatusColor(s)}`}>{s}</span>
+                    : <span className="text-[#86868B] text-xs">—</span>;
+            },
         },
         {
             key: "date",

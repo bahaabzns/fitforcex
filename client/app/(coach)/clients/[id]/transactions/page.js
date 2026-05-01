@@ -28,6 +28,33 @@ function StatusBadge({ status }) {
     );
 }
 
+function subStatusColor(s) {
+    switch (s) {
+        case "Active":    return "bg-[#34C759]/10 text-[#34C759]";
+        case "Expired":   return "bg-red-50 text-[#FF3B30]";
+        case "Frozen":    return "bg-blue-50 text-blue-600";
+        case "Pre-start": return "bg-yellow-50 text-yellow-600";
+        case "Refunded":  return "bg-purple-50 text-purple-600";
+        default:          return "bg-[#F0F0F5] text-[#86868B]";
+    }
+}
+
+function getPerTxStatus(tx, timeline, freezes, today) {
+    if (tx.status === "refunded") return "Refunded";
+    if (!tx.duration || tx.duration <= 0) return null;
+    const period = timeline.find(p => p.tx.id === tx.id);
+    if (!period) return "Pre-start";
+    const { start, end } = period;
+    if (today < start) return "Pre-start";
+    if (today >= end) return "Expired";
+    for (const f of freezes) {
+        const fs = new Date(f.freezeStartDate); fs.setHours(0, 0, 0, 0);
+        const fe = new Date(fs.getTime() + f.freezeDurationDays * 86400000);
+        if (today >= fs && today < fe) return "Frozen";
+    }
+    return "Active";
+}
+
 // Build subscription timeline from transactions + freezes (camelCase fields from API)
 function computeTimeline(transactions, freezes, firstPlanActivatedAt) {
     const completed = [...transactions]
@@ -488,7 +515,7 @@ export default function ClientTransactionsPage() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="bg-[#F5F5F7] border-b border-[#D2D2D7]">
-                                {["Tx Date", "Sub Start", "Package", "Amount", "Duration", "Method", "Type", "Status", "Proof", ""].map(h => (
+                                {["Tx Date", "Sub Start", "Sub Status", "Package", "Amount", "Duration", "Method", "Type", "Pay Status", "Proof", ""].map(h => (
                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-[#86868B] whitespace-nowrap">{h}</th>
                                 ))}
                             </tr>
@@ -506,6 +533,14 @@ export default function ClientTransactionsPage() {
                                                 ? <span className="text-[#86868B] italic text-xs">Queued</span>
                                                 : <span className="text-[#86868B] italic text-xs">On First Plan</span>
                                         }
+                                    </td>
+                                    <td className="px-4 py-2.5 whitespace-nowrap">
+                                        {(() => {
+                                            const s = getPerTxStatus(tx, timeline, freezes, today);
+                                            return s
+                                                ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${subStatusColor(s)}`}>{s}</span>
+                                                : <span className="text-[#86868B] text-xs">—</span>;
+                                        })()}
                                     </td>
                                     <td className="px-4 py-2.5 text-[#1D1D1F] max-w-[160px] truncate">
                                         {tx.packageVariation || "—"}

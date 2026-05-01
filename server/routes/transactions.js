@@ -83,6 +83,72 @@ function mapRow(row) {
     };
 }
 
+// Compute per-transaction subscription status for all transactions grouped by client.
+// Returns { [txId]: 'Active'|'Pre-start'|'Expired'|'Frozen'|'Refunded' }
+function computePerTxStatuses(txByClient, freezesByClient, planActivationByClient) {
+    const result = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const [clientId, allTxs] of Object.entries(txByClient)) {
+        const freezes = freezesByClient[clientId] || [];
+        const firstActivation = planActivationByClient[clientId] ?? null;
+
+        for (const tx of allTxs) {
+            if (tx.status === 'refunded') { result[tx.id] = 'Refunded'; }
+        }
+
+        const completed = allTxs
+            .filter(tx => tx.status === 'completed' && tx.duration && Number(tx.duration) > 0)
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        let prevEnd = null;
+        for (const tx of completed) {
+            let start;
+            const mode = tx.start_mode || 'on_first_plan';
+
+            if (mode === 'custom' && tx.subscription_start_date) {
+                start = new Date(tx.subscription_start_date);
+            } else if (prevEnd !== null) {
+                start = new Date(prevEnd);
+            } else if (firstActivation) {
+                start = new Date(firstActivation);
+            } else {
+                result[tx.id] = 'Pre-start';
+                continue;
+            }
+            start.setHours(0, 0, 0, 0);
+
+            let endMs = start.getTime() + Number(tx.duration) * 86400000;
+            for (const freeze of freezes) {
+                const fs = new Date(freeze.freeze_start_date);
+                fs.setHours(0, 0, 0, 0);
+                if (fs >= start && fs.getTime() < endMs) {
+                    endMs += Number(freeze.freeze_duration_days) * 86400000;
+                }
+            }
+
+            prevEnd = new Date(endMs);
+
+            if (today < start) {
+                result[tx.id] = 'Pre-start';
+            } else if (today >= prevEnd) {
+                result[tx.id] = 'Expired';
+            } else {
+                let frozen = false;
+                for (const freeze of freezes) {
+                    const fs = new Date(freeze.freeze_start_date);
+                    fs.setHours(0, 0, 0, 0);
+                    const fe = new Date(fs.getTime() + Number(freeze.freeze_duration_days) * 86400000);
+                    if (today >= fs && today < fe) { frozen = true; break; }
+                }
+                result[tx.id] = frozen ? 'Frozen' : 'Active';
+            }
+        }
+    }
+    return result;
+}
+
 // Fetch first plan activation date for a client
 async function getFirstPlanActivation(clientId) {
     const result = await pool.query(
@@ -123,11 +189,55 @@ router.get('/by-client/:clientId', async (req, res) => {
 // GET /api/transactions
 router.get('/', async (req, res) => {
     try {
-        const result = await pool.query(
-            'SELECT * FROM transactions WHERE coach_id = $1 ORDER BY created_at DESC',
-            [req.user.id]
-        );
-        res.json(result.rows.map(mapRow));
+        const [txResult, freezeResult, planActivationResult] = await Promise.all([
+            pool.query(
+                'SELECT * FROM transactions WHERE coach_id = $1 ORDER BY created_at DESC',
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT sf.* FROM subscription_freezes sf
+                 INNER JOIN clients c ON c.id = sf.client_id
+                 WHERE c.coach_id = $1`,
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT client_id, MIN(activated_at) AS first_activation
+                 FROM (
+                     SELECT client_id, activated_at FROM training_plans
+                     WHERE coach_id = $1 AND activated_at IS NOT NULL
+                     UNION ALL
+                     SELECT client_id, activated_at FROM nutrition_plans
+                     WHERE coach_id = $1 AND activated_at IS NOT NULL
+                 ) combined
+                 GROUP BY client_id`,
+                [req.user.id]
+            ),
+        ]);
+
+        const freezesByClient = {};
+        for (const f of freezeResult.rows) {
+            if (!freezesByClient[f.client_id]) freezesByClient[f.client_id] = [];
+            freezesByClient[f.client_id].push(f);
+        }
+
+        const planActivationByClient = {};
+        for (const row of planActivationResult.rows) {
+            planActivationByClient[row.client_id] = row.first_activation;
+        }
+
+        const txByClient = {};
+        for (const tx of txResult.rows) {
+            if (tx.client_id == null) continue;
+            if (!txByClient[tx.client_id]) txByClient[tx.client_id] = [];
+            txByClient[tx.client_id].push(tx);
+        }
+
+        const txStatuses = computePerTxStatuses(txByClient, freezesByClient, planActivationByClient);
+
+        res.json(txResult.rows.map(row => ({
+            ...mapRow(row),
+            subscriptionStatus: txStatuses[row.id] ?? null,
+        })));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

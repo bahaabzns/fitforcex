@@ -8,7 +8,7 @@
  */
 function computeSubscriptionStatus(allTransactions, freezes, firstPlanActivationDate) {
     if (allTransactions.length === 0) return 'No Subscriptions';
-    if (allTransactions.some(t => t.status === 'refunded')) return 'Refunded';
+    // Refunded transactions are excluded from period calculation — kept for history only.
 
     const completed = allTransactions
         .filter(t => t.status === 'completed' && t.duration && Number(t.duration) > 0)

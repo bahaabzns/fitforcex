@@ -14,7 +14,11 @@ Nothing is persisted to a `subscription_status` column — it is always derived.
 
 ---
 
-## Status Values
+## Two levels of status
+
+### Client-level status (shown on the clients list)
+
+Represents the overall state of the client's subscription right now.
 
 | Status | Meaning |
 |--------|---------|
@@ -23,11 +27,24 @@ Nothing is persisted to a `subscription_status` column — it is always derived.
 | **Active** | Today falls inside a subscription period |
 | **Frozen** | Today falls inside a freeze window that overlaps the active period |
 | **Expired** | All subscription periods have ended |
-| **Refunded** | At least one transaction is marked `refunded` |
+
+### Per-transaction status (shown in each transaction row)
+
+Represents the subscription period contributed by *that specific transaction*.
+
+| Status | Meaning |
+|--------|---------|
+| **Active** | This transaction's period contains today |
+| **Pre-start** | This transaction's period hasn't started yet |
+| **Expired** | This transaction's period is in the past |
+| **Frozen** | Today falls inside a freeze that overlaps this transaction's period |
+| **Refunded** | This transaction was refunded — it is excluded from all period calculations but kept as history |
+
+> **Key rule:** A refunded transaction is **never** used to compute a subscription period. It is kept in the database purely as a payment history record. Refunding a transaction does not affect the client's overall subscription status — only the remaining active/completed transactions matter.
 
 ---
 
-## Step-by-Step Computation
+## Step-by-Step Computation (client-level)
 
 ### 1 — No Subscriptions (immediate exit)
 
@@ -35,31 +52,21 @@ Nothing is persisted to a `subscription_status` column — it is always derived.
 if allTransactions.length === 0  →  "No Subscriptions"
 ```
 
-The client has never had any transaction recorded — not even a refund.
+The client has never had any transaction recorded.
 
 ---
 
-### 2 — Refunded (immediate exit)
+### 2 — Build the timeline
 
-```
-if any transaction.status === 'refunded'  →  "Refunded"
-```
+Only **completed** transactions with a **positive duration** participate in the timeline. Refunded transactions are excluded. The remaining transactions are sorted by `created_at` ascending (oldest first).
 
-Checked before anything else. A single refunded transaction makes the whole client "Refunded" regardless of other transactions.
-
----
-
-### 3 — Build the timeline
-
-Only **completed** transactions with a **positive duration** participate in the timeline. They are sorted by `created_at` ascending (oldest first).
-
-Each transaction produces one **period** (a start date → end date span). The start date depends on the transaction's `start_mode`:
+Each transaction produces one **period** (start date → end date). The start date depends on the transaction's `start_mode`:
 
 #### `start_mode` values
 
 | Mode | Set by | Start date rule |
 |------|--------|-----------------|
-| `on_first_plan` | Default — no custom date provided when creating | Use the date of the client's first plan activation (`MIN(activated_at)` across training + nutrition plans). If no plan has been activated yet → **Pre-start** |
+| `on_first_plan` | Default — no custom date provided | Use `MIN(activated_at)` across training + nutrition plans. If no plan activated yet → **Pre-start** |
 | `custom` | Coach explicitly set a subscription start date | Use `subscription_start_date` from the transaction |
 | `queued` | Auto-set by the backend when an Active subscription already exists at insert time | Use the end date of the previous period |
 
@@ -79,21 +86,19 @@ for each freeze:
         period_end += freeze_duration_days
 ```
 
-Freezes are applied to the period they *start inside*. A freeze cannot start after a period has already ended.
+#### Subsequent transactions
 
-#### Subsequent transactions (queued or on_first_plan #2+)
-
-Once a first period exists, every subsequent completed transaction — regardless of its `start_mode` — starts immediately after the previous period ends (`prevEnd`). This is how queuing chains work: each period picks up exactly where the last one left off.
+Once a first period exists, every subsequent completed transaction — regardless of its `start_mode` — starts immediately after the previous period ends (`prevEnd`). This is how queuing chains work.
 
 ---
 
-### 4 — Evaluate today against the timeline
+### 3 — Evaluate today against the timeline
 
 After building all periods, the algorithm walks through them in order (oldest first):
 
 ```
 for each period (start → end):
-    if today < start   →  "Pre-start"   (subscription hasn't started)
+    if today < start   →  "Pre-start"
     if today in [start, end):
         if today falls inside any freeze window  →  "Frozen"
         else                                     →  "Active"
@@ -109,31 +114,31 @@ if no period matched  →  "Expired"
 
 ```
 Transactions : []
-Status       : No Subscriptions
+Client status: No Subscriptions
 ```
 
 ---
 
-### Scenario 2 — Transaction added, mode = on_first_plan, no plan activated yet
+### Scenario 2 — Transaction exists but no plan activated yet (on_first_plan)
 
 ```
 Transactions : [{ duration: 30, start_mode: 'on_first_plan', status: 'completed' }]
 Plan activations: none
-Status       : Pre-start
+Client status: Pre-start
+Per-tx status: Pre-start
 ```
-
-The subscription exists but there is no plan activation date to anchor it to. The clock hasn't started.
 
 ---
 
-### Scenario 3 — Transaction added, mode = on_first_plan, plan activated today (2025-06-01)
+### Scenario 3 — Transaction exists, plan activated (2025-06-01), today is day 14
 
 ```
 Transactions      : [{ duration: 30, start_mode: 'on_first_plan' }]
-First plan activated: 2025-06-01
-Today             : 2025-06-15   (day 14 of 30)
+First activation  : 2025-06-01
+Today             : 2025-06-15
 Period            : 2025-06-01 → 2025-07-01
-Status            : Active
+Client status     : Active
+Per-tx status     : Active
 ```
 
 ---
@@ -144,20 +149,20 @@ Status            : Active
 Transactions : [{ duration: 30, start_mode: 'custom', subscription_start_date: '2025-08-01' }]
 Today        : 2025-07-20
 Period       : 2025-08-01 → 2025-08-31
-Status       : Pre-start
+Client status: Pre-start
+Per-tx status: Pre-start
 ```
-
-The coach set an explicit start date that hasn't arrived yet.
 
 ---
 
-### Scenario 5 — Custom start date in the past, still active
+### Scenario 5 — Custom start date, currently active
 
 ```
 Transactions : [{ duration: 30, start_mode: 'custom', subscription_start_date: '2025-06-01' }]
 Today        : 2025-06-15
 Period       : 2025-06-01 → 2025-07-01
-Status       : Active
+Client status: Active
+Per-tx status: Active
 ```
 
 ---
@@ -168,14 +173,44 @@ Status       : Active
 Transactions : [{ duration: 30, start_mode: 'custom', subscription_start_date: '2025-04-01' }]
 Today        : 2025-06-15
 Period       : 2025-04-01 → 2025-05-01
-Status       : Expired
+Client status: Expired
+Per-tx status: Expired
 ```
-
-Today is past the end of the only period.
 
 ---
 
-### Scenario 7 — Subscription with a freeze (active, not currently frozen)
+### Scenario 7 — Transaction refunded
+
+```
+Transactions : [{ duration: 30, status: 'refunded', ... }]
+Timeline     : (empty — refunded transactions are excluded)
+Client status: Pre-start  (no completed transactions with duration)
+Per-tx status: Refunded   (shown only on the transaction row itself)
+```
+
+The refunded transaction stays visible in the table for history. It does not affect the client's subscription period.
+
+---
+
+### Scenario 8 — Mix of completed and refunded transactions
+
+```
+Transactions :
+  tx1: { duration: 30, status: 'completed', start_mode: 'custom', subscription_start_date: '2025-06-01' }
+  tx2: { duration: 30, status: 'refunded' }
+Today        : 2025-06-15
+
+Timeline built from tx1 only (tx2 excluded):
+  Period 1 : 2025-06-01 → 2025-07-01
+
+Client status : Active       (based on tx1's period)
+tx1 per-tx status : Active
+tx2 per-tx status : Refunded
+```
+
+---
+
+### Scenario 9 — Subscription with a freeze (active, not currently frozen)
 
 ```
 Transactions : [{ duration: 30, start_mode: 'custom', subscription_start_date: '2025-06-01' }]
@@ -185,73 +220,60 @@ Today        : 2025-07-05
 Period without freeze : 2025-06-01 → 2025-07-01
 Freeze falls within period → extend end by 7 days
 Period with freeze    : 2025-06-01 → 2025-07-08
-Status       : Active  (today 2025-07-05 < 2025-07-08, and today is not inside the freeze window)
+Today (Jul 05) is inside the period but outside the freeze window (Jun 10–17).
+Client status: Active
+Per-tx status: Active
 ```
-
-The freeze already ended (June 10–17), but it extended the expiry by 7 days. The client is still active.
 
 ---
 
-### Scenario 8 — Subscription currently frozen
+### Scenario 10 — Subscription currently frozen
 
 ```
 Transactions : [{ duration: 30, start_mode: 'custom', subscription_start_date: '2025-06-01' }]
 Freezes      : [{ freeze_start_date: '2025-06-20', freeze_duration_days: 14 }]
 Today        : 2025-06-22
 
-Period with freeze : 2025-06-01 → 2025-07-15  (2025-07-01 + 14 days)
-Today is inside period AND inside freeze window [2025-06-20, 2025-07-04)
-Status       : Frozen
+Period with freeze : 2025-06-01 → 2025-07-15  (Jul 01 + 14 days)
+Today is inside period AND inside freeze window [Jun 20, Jul 04).
+Client status: Frozen
+Per-tx status: Frozen
 ```
 
 ---
 
-### Scenario 9 — Queued subscription (second subscription while first is active)
+### Scenario 11 — Queued subscription (second subscription while first is active)
 
 ```
-Transactions (created_at order):
-  tx1: { duration: 30, start_mode: 'custom', subscription_start_date: '2025-06-01' }
-  tx2: { duration: 30, start_mode: 'queued' }  ← auto-set at insert time
+tx1: custom, start 2025-06-01, duration 30
+tx2: queued, duration 30  ← auto-set when tx2 was created while tx1 was Active
 
 Today : 2025-06-15
+Period 1 : 2025-06-01 → 2025-07-01  (tx1)
+Period 2 : 2025-07-01 → 2025-07-31  (tx2, queued after period 1)
 
-Period 1 : 2025-06-01 → 2025-07-01  (tx1, custom)
-Period 2 : 2025-07-01 → 2025-07-31  (tx2, starts where tx1 ends)
-Status   : Active (today is inside period 1)
-```
-
-When the coach adds tx2 while tx1 is active, the backend detects `Active` status and marks tx2 as `queued`. It doesn't start immediately — it starts the day period 1 ends.
-
----
-
-### Scenario 10 — Queued subscription becomes active
-
-Same as Scenario 9, but:
-
-```
-Today : 2025-07-10
-Period 1 : 2025-06-01 → 2025-07-01  (expired)
-Period 2 : 2025-07-01 → 2025-07-31  (active)
-Status   : Active
-```
-
-The algorithm walks periods in order. Period 1 is fully in the past, so it falls through. Period 2 contains today → Active.
-
----
-
-### Scenario 11 — Both subscriptions expired
-
-```
-Today : 2025-08-15
-Period 1 : 2025-06-01 → 2025-07-01
-Period 2 : 2025-07-01 → 2025-07-31
-No period contains today, all are in the past.
-Status   : Expired
+Client status      : Active    (today inside period 1)
+tx1 per-tx status  : Active
+tx2 per-tx status  : Pre-start (period 2 hasn't started)
 ```
 
 ---
 
-### Scenario 12 — Three subscriptions (1 expired, 1 active, 1 queued)
+### Scenario 12 — Queued subscription becomes active
+
+```
+Today        : 2025-07-10
+Period 1     : 2025-06-01 → 2025-07-01  (expired)
+Period 2     : 2025-07-01 → 2025-07-31  (active)
+
+Client status      : Active    (inside period 2)
+tx1 per-tx status  : Expired
+tx2 per-tx status  : Active
+```
+
+---
+
+### Scenario 13 — Three subscriptions (1 expired, 1 active, 1 queued)
 
 ```
 tx1: custom, start 2025-04-01, duration 30  → period: Apr 01 – May 01
@@ -259,41 +281,30 @@ tx2: queued, duration 30                    → period: May 01 – May 31
 tx3: queued, duration 30                    → period: May 31 – Jun 30
 
 Today : 2025-05-15
-Status : Active  (inside period 2)
+Client status      : Active
+tx1 per-tx status  : Expired
+tx2 per-tx status  : Active
+tx3 per-tx status  : Pre-start
 ```
 
 ---
 
-### Scenario 13 — Refunded transaction overrides everything
-
-```
-Transactions :
-  [{ status: 'completed', duration: 30, ... },
-   { status: 'refunded' }]
-Status       : Refunded
-```
-
-Even if one completed transaction would result in Active, the presence of any refunded transaction short-circuits the whole computation.
-
----
-
-### Scenario 14 — Freeze extends into a queued period
-
-Freezes are applied **per period** — only if the freeze start date falls within that period's current window. A freeze that starts in period 1 extends period 1's end, which also pushes period 2's start forward (since period 2 starts where period 1 ends).
+### Scenario 14 — Freeze shifts a queued period
 
 ```
 tx1: custom, start 2025-06-01, duration 30 → raw end: 2025-07-01
-freeze: start 2025-06-25, duration 10
+freeze: start 2025-06-25, duration 10 days
 
-Freeze starts within period 1 (Jun 25 < Jul 01) → extend period 1 end by 10 days
-Period 1: 2025-06-01 → 2025-07-11
+Freeze starts within period 1 → extend period 1 end by 10 days
+Period 1 : 2025-06-01 → 2025-07-11
 
 tx2: queued, duration 30 → starts at prevEnd = 2025-07-11
-Period 2: 2025-07-11 → 2025-08-10
+Period 2 : 2025-07-11 → 2025-08-10
 
 Today : 2025-07-05
-Status : Active (inside period 1, and today is inside freeze window Jun 25 – Jul 05)
-→ Actually: Frozen
+Client status      : Frozen    (inside period 1, inside freeze window Jun 25 – Jul 05)
+tx1 per-tx status  : Frozen
+tx2 per-tx status  : Pre-start
 ```
 
 ---
@@ -302,22 +313,26 @@ Status : Active (inside period 1, and today is inside freeze window Jun 25 – J
 
 ```
 Coach adds client
-    └── No transactions yet → "No Subscriptions"
+    └── No transactions → "No Subscriptions"
 
 Coach records a payment (POST /api/transactions)
-    ├── Backend checks current status of existing transactions
-    │   └── If Active → start_mode = 'queued'
+    ├── Backend checks current status for this client
+    │   └── Active → start_mode = 'queued'
     │   └── Otherwise → start_mode = 'on_first_plan' (or 'custom' if date provided)
-    └── Transaction saved
+    └── Transaction saved; refunded transactions are excluded from all period logic
+
+Coach refunds a transaction (PUT /api/transactions status='refunded')
+    └── Transaction kept for history
+    └── Excluded from timeline — other transactions compute status as if it never existed
 
 Coach activates a training or nutrition plan
-    └── activated_at recorded once (COALESCE so it never overwrites)
+    └── activated_at recorded once (COALESCE — never overwritten)
     └── on_first_plan subscriptions now have an anchor date
 
 GET /api/clients or GET /api/clients/:id
     └── Fetches transactions + freezes + first plan activation per client
-    └── Runs computeSubscriptionStatus()
-    └── Returns computed status — nothing is stored
+    └── Runs computeSubscriptionStatus() → client-level status
+    └── Per-transaction status is computed on the frontend from the same timeline
 ```
 
 ---
@@ -326,10 +341,11 @@ GET /api/clients or GET /api/clients/:id
 
 | Situation | Result |
 |-----------|--------|
-| Transaction with `duration = 0` or `duration = null` | Excluded from timeline (treated as non-subscription payment) |
-| Freeze start date after period end | Freeze is ignored for that period (no effect) |
+| Transaction with `duration = 0` or `duration = null` | Excluded from timeline |
+| All transactions are refunded | `completed.length === 0` → client status "Pre-start"; each tx shows "Refunded" |
+| Freeze start date after period end | Freeze is ignored for that period |
 | Freeze start date before period start | Freeze is ignored (only counted if it starts *within* the period) |
-| Multiple freezes | Each is applied independently to whichever period it falls within |
-| `on_first_plan` second transaction (after a queued one expires) | Picks up from `prevEnd`, so `firstPlanActivationDate` is not used for subsequent transactions |
-| Client has only refunded transactions | Returns "Refunded" before timeline is evaluated |
-| Custom date in the past + plan not activated | Timeline builds normally from the custom date; plan activation is irrelevant for `custom` mode |
+| Multiple freezes | Each applied independently to whichever period it falls within |
+| `on_first_plan` second transaction (after queued one) | Picks up from `prevEnd`; `firstPlanActivationDate` is not used |
+| Custom date in the past, no plan activated | Timeline builds from the custom date; plan activation irrelevant for `custom` mode |
+| Finance page per-tx status (queued/on_first_plan) | Shown as "Pre-start" — full chain context not available without client-scoped fetch |
