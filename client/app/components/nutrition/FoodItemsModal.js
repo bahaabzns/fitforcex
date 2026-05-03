@@ -59,7 +59,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                         autoFocus
                     />
                     {/* #1 — results count */}
-                    <span className="text-sm text-gray-400 shrink-0">
+                    <span className="text-sm text-muted-foreground shrink-0">
                         {filtered.length} result{filtered.length !== 1 ? 's' : ''}
                     </span>
                 </div>
@@ -73,8 +73,8 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                 onClick={() => setCategoryFilter(cat)}
                                 className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                                     categoryFilter === cat
-                                        ? 'bg-blue-500 border-blue-500 text-white'
-                                        : 'border-gray-300 text-gray-500 hover:border-gray-400'
+                                        ? 'bg-primary border-primary text-white'
+                                        : 'border-border text-muted-foreground hover:border-border'
                                 }`}
                             >
                                 {cat || 'All'}
@@ -83,8 +83,8 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                     </div>
                 ) : (
                     <div className="flex gap-2 flex-wrap mb-4 items-center">
-                        <span className="text-xs px-3 py-1 rounded-full bg-blue-500 border-blue-500 text-white">{lockedCategory}</span>
-                        <span className="text-xs text-gray-400">Alternatives are filtered to this category</span>
+                        <span className="text-xs px-3 py-1 rounded-full bg-primary border-primary text-white">{lockedCategory}</span>
+                        <span className="text-xs text-muted-foreground">Alternatives are filtered to this category</span>
                     </div>
                 )}
 
@@ -92,15 +92,15 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                 <div className="flex-1 overflow-y-auto min-h-0">
                     <table className="w-full text-sm">
                         {/* #3 — stronger header separation */}
-                        <thead className="sticky top-0 bg-white shadow-sm">
-                            <tr className="border-b-2 border-gray-200 text-left text-gray-600">
+                        <thead className="sticky top-0 bg-card shadow-sm">
+                            <tr className="border-b-2 border-border text-left text-muted-foreground">
                                 {/* #7 — select-all checkbox */}
                                 <th className="p-2 w-8">
                                     <div
                                         className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
                                             allFilteredSelected
-                                                ? 'bg-blue-500 border-blue-500'
-                                                : 'border-gray-300 bg-white hover:border-blue-300'
+                                                ? 'bg-primary border-primary'
+                                                : 'border-border bg-card hover:border-primary/40'
                                         }`}
                                         onClick={toggleSelectAll}
                                     >
@@ -122,7 +122,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                             {/* #2 — empty state */}
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="text-center py-12 text-gray-400">
+                                    <td colSpan={5} className="text-center py-12 text-muted-foreground">
                                         {foodSearchQuery
                                             ? `No food items match "${foodSearchQuery}"`
                                             : 'No food items in this category'}
@@ -132,7 +132,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                             {filtered.map(fi => (
                                 <tr
                                     key={fi.id}
-                                    className={`border-b cursor-pointer transition-colors hover:bg-gray-50 ${selectedIds.has(fi.id) ? 'bg-blue-50' : ''}`}
+                                    className={`border-b cursor-pointer transition-colors hover:bg-accent ${selectedIds.has(fi.id) ? 'bg-primary/10' : ''}`}
                                     onClick={() => toggleItem(fi.id)}
                                 >
                                     {/* #6 — custom styled checkbox */}
@@ -140,8 +140,8 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                         <div
                                             className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                                                 selectedIds.has(fi.id)
-                                                    ? 'bg-blue-500 border-blue-500'
-                                                    : 'border-gray-300 bg-white'
+                                                    ? 'bg-primary border-primary'
+                                                    : 'border-border bg-card'
                                             }`}
                                         >
                                             {selectedIds.has(fi.id) && (
@@ -154,11 +154,11 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                     <td className="p-2 font-medium">{fi.name}</td>
                                     <td className="p-2">
                                         {fi.food_category
-                                            ? <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{fi.food_category}</span>
-                                            : <span className="text-gray-300">—</span>
+                                            ? <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{fi.food_category}</span>
+                                            : <span className="text-muted-foreground/40">—</span>
                                         }
                                     </td>
-                                    <td className="p-2 text-gray-500">{fi.serving_size} {fi.serving_unit}</td>
+                                    <td className="p-2 text-muted-foreground">{fi.serving_size} {fi.serving_unit}</td>
                                     {/* #5 — color-coded macro badges in a single cell */}
                                     <td className="p-2">
                                         <div className="flex gap-1 flex-wrap">
@@ -176,7 +176,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
 
                 {/* Footer */}
                 <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                    <span className="text-sm text-gray-600">{selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selected</span>
+                    <span className="text-sm text-muted-foreground">{selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selected</span>
                     <div className="flex gap-3">
                         <button
                             className="btn btn-secondary"

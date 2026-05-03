@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 
-const INPUT_CLASS = "h-8 w-full rounded-md border border-gray-300 px-2 text-xs focus:outline-none focus:border-blue-300";
+const INPUT_CLASS = "h-8 w-full rounded-md border border-border px-2 text-xs focus:outline-none focus:border-primary/40";
 const SERVER = "http://localhost:4000";
 
 function getYoutubeEmbedUrl(url) {
@@ -49,7 +49,7 @@ export default function RightPanel({
     if (!selectedDay) {
         return (
             <div className="card w-full flex flex-col overflow-hidden min-h-full">
-                <p className="text-gray-500 text-sm text-center flex items-center justify-center h-full">Select a day to edit exercises</p>
+                <p className="text-muted-foreground text-sm text-center flex items-center justify-center h-full">Select a day to edit exercises</p>
             </div>
         );
     }
@@ -71,13 +71,13 @@ export default function RightPanel({
                         if (e.key === "Enter") e.target.blur();
                         if (e.key === "Escape") { e.target.value = selectedDay.name; e.target.blur(); }
                     }}
-                    className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 truncate text-gray-900"
+                    className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
                 />
                 {onClose && (
                     <button
                         title="Close panel"
                         onClick={onClose}
-                        className="cursor-pointer p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                        className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
@@ -93,19 +93,19 @@ export default function RightPanel({
             {/* Exercises section header */}
             <div className="flex items-center gap-3 my-3 shrink-0">
                 <button
-                    className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                    className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                     onClick={() => setExercisesCollapsed(v => !v)}
                 >
                     <ChevronIcon up={!exercisesCollapsed} />
                 </button>
-                <h3 className="text-base font-semibold text-gray-900 flex-1">
+                <h3 className="text-base font-semibold text-foreground flex-1">
                     Exercises
-                    <span className="ml-2 text-xs font-normal text-gray-400">{selectedDay.exercises?.length ?? 0}</span>
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedDay.exercises?.length ?? 0}</span>
                 </h3>
                 {!exercisesCollapsed && (
                     <button
                         onClick={() => setShowPicker(true)}
-                        className="h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                        className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors cursor-pointer shrink-0"
                     >
                         + Add Exercise
                     </button>
@@ -135,7 +135,7 @@ export default function RightPanel({
                         onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                         onDrop={() => { handleReorderExercises(selectedDay.id, dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                         onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                        className={`group rounded-xl border border-gray-200 p-3 select-none transition-all ${isDragging ? "opacity-30 scale-95" : ""}`}
+                        className={`group rounded-lg border border-border p-3 select-none transition-all ${isDragging ? "opacity-30 scale-95" : ""}`}
                     >
                         {/* Exercise header */}
                         <div className="flex items-start gap-2 mb-2">
@@ -147,7 +147,7 @@ export default function RightPanel({
                                     className="w-10 h-10 rounded-lg object-cover shrink-0"
                                 />
                             ) : (
-                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-gray-300">
+                                <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 text-muted-foreground">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
                                     </svg>
@@ -156,26 +156,26 @@ export default function RightPanel({
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                     {/* Drag grip */}
-                                    <span className="text-gray-300 hover:text-gray-500 cursor-grab shrink-0">
+                                    <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0">
                                         <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
                                             <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
                                             <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
                                             <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
                                         </svg>
                                     </span>
-                                    <span className="text-xs font-semibold text-blue-600 shrink-0">#{index + 1}</span>
+                                    <span className="text-xs font-semibold text-primary shrink-0">#{index + 1}</span>
                                     <input
                                         value={exercise.name}
                                         onChange={(e) => handleRenameExercise(selectedDay.id, exercise.id, e.target.value)}
-                                        className="flex-1 bg-transparent text-sm font-semibold text-gray-800 focus:outline-none min-w-0"
+                                        className="flex-1 bg-transparent text-sm font-semibold text-foreground focus:outline-none min-w-0"
                                     />
                                     {exercise.exercise_library_id && (
-                                        <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-semibold shrink-0">lib</span>
+                                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold shrink-0">lib</span>
                                     )}
                                     {(exercise.youtube_url || exercise.video_path) && (
                                         <button
                                             onClick={() => setVideoOpenId(videoOpenId === exercise.id ? null : exercise.id)}
-                                            className={`shrink-0 p-1 rounded transition-colors cursor-pointer ${videoOpenId === exercise.id ? "text-blue-500 bg-blue-50" : "text-gray-400 hover:text-blue-500 hover:bg-blue-50"}`}
+                                            className={`shrink-0 p-1 rounded transition-colors cursor-pointer ${videoOpenId === exercise.id ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
                                             title={videoOpenId === exercise.id ? "Hide video" : "Watch video"}
                                         >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -185,14 +185,14 @@ export default function RightPanel({
                                     )}
                                     <button
                                         onClick={() => handleDeleteExercise(selectedDay.id, exercise.id)}
-                                        className="shrink-0 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                                        className="shrink-0 p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
                                         title="Delete exercise"
                                     >
                                         <TrashIcon />
                                     </button>
                                 </div>
                                 {exercise.muscle_group && (
-                                    <span className="text-[10px] text-gray-400 ml-1">{exercise.muscle_group}</span>
+                                    <span className="text-[10px] text-muted-foreground ml-1">{exercise.muscle_group}</span>
                                 )}
                             </div>
                         </div>
@@ -218,11 +218,11 @@ export default function RightPanel({
                             value={exercise.notes ?? ""}
                             onChange={(e) => handleUpdateExerciseNotes(selectedDay.id, exercise.id, e.target.value)}
                             placeholder="Exercise notes (optional)..."
-                            className="w-full mb-2 bg-transparent text-xs text-gray-500 focus:outline-none placeholder:text-gray-300 border-b border-transparent focus:border-gray-200"
+                            className="w-full mb-2 bg-transparent text-xs text-muted-foreground focus:outline-none placeholder:text-muted-foreground/40 border-b border-transparent focus:border-border"
                         />
 
                         {/* Sets header */}
-                        <div className="grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                        <div className="grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
                             <span>#</span>
                             <span>Reps</span>
                             <span>Rest</span>
@@ -234,14 +234,14 @@ export default function RightPanel({
                         <div className="flex flex-col gap-1.5">
                             {(exercise.sets ?? []).map((set, sIdx) => (
                                 <div key={set.id} className="group/set grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 items-center">
-                                    <span className="text-xs text-gray-400">{sIdx + 1}</span>
+                                    <span className="text-xs text-muted-foreground">{sIdx + 1}</span>
                                     <input value={set.reps ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
                                     <input value={set.rest_seconds ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
                                     <input value={set.tempo ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
                                     <input value={set.rir ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
                                     <button
                                         onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
-                                        className="p-0.5 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
+                                        className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
                                         title="Duplicate set"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -250,7 +250,7 @@ export default function RightPanel({
                                     </button>
                                     <button
                                         onClick={() => handleDeleteSet(selectedDay.id, exercise.id, set.id)}
-                                        className="p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
+                                        className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
                                         title="Delete set"
                                     >
                                         <TrashIcon size={12} />
@@ -262,14 +262,14 @@ export default function RightPanel({
                         <div className="mt-2 flex items-center gap-2">
                             <button
                                 onClick={() => handleAddSet(selectedDay.id, exercise.id)}
-                                className="h-7 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors cursor-pointer"
+                                className="h-7 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors cursor-pointer"
                             >
                                 + Add Set
                             </button>
                             {(exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 && (
                                 <button
                                     onClick={() => handleApplySetsToAll(selectedDay.id, exercise.id)}
-                                    className="h-7 px-3 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 text-xs font-semibold transition-colors cursor-pointer"
+                                    className="h-7 px-3 rounded-lg border border-border text-foreground hover:bg-accent hover:border-border text-xs font-semibold transition-colors cursor-pointer"
                                     title="Copy this exercise's sets to all other exercises in the day"
                                 >
                                     Apply to all
@@ -282,23 +282,23 @@ export default function RightPanel({
                 })()}
 
                 {(selectedDay.exercises ?? []).length === 0 && (
-                    <div className="text-center text-sm text-gray-400 py-10">No exercises in this day yet</div>
+                    <div className="text-center text-sm text-muted-foreground py-10">No exercises in this day yet</div>
                 )}
             </div>}
 
             {/* Divider */}
-            <div className="shrink-0 border-t border-gray-100 my-3" />
+            <div className="shrink-0 border-t border-border my-3" />
 
             {/* Day Notes — collapsible */}
             <div className="flex flex-col shrink-0">
                 <div className="flex items-center gap-3 mb-3">
                     <button
-                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                         onClick={() => setNotesOpen(v => !v)}
                     >
                         <ChevronIcon up={!notesOpen} />
                     </button>
-                    <h3 className="text-base font-semibold text-gray-900">Notes</h3>
+                    <h3 className="text-base font-semibold text-foreground">Notes</h3>
                 </div>
                 {notesOpen && (
                     <textarea
@@ -310,7 +310,7 @@ export default function RightPanel({
                             const val = e.target.value;
                             if (val !== (selectedDay.notes ?? "")) handleUpdateDayNotes(selectedDay.id, val);
                         }}
-                        className="w-full mb-2 px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none resize-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                        className="w-full mb-2 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                     />
                 )}
             </div>

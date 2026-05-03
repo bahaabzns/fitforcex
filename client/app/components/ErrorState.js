@@ -1,24 +1,12 @@
 "use client";
 
-// Reusable error state — imported by every error.js boundary in the app
 export default function ErrorState({ error, reset }) {
     return (
         <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
-            <div
-                className="border rounded-2xl p-8 max-w-md w-full text-center"
-                style={{
-                    background: "rgba(255,59,48,0.06)",
-                    borderColor: "rgba(255,59,48,0.25)",
-                }}
-            >
-                {/* Warning icon */}
-                <div
-                    className="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center"
-                    style={{ background: "rgba(255,59,48,0.12)" }}
-                >
+            <div className="border border-destructive/25 rounded-lg p-8 max-w-md w-full text-center bg-destructive/5">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center bg-destructive/10">
                     <svg
-                        className="w-6 h-6"
-                        style={{ color: "#FF3B30" }}
+                        className="w-6 h-6 text-destructive"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -31,23 +19,13 @@ export default function ErrorState({ error, reset }) {
                         />
                     </svg>
                 </div>
-
-                <h2
-                    className="text-xl font-bold mb-2"
-                    style={{ color: "#1D1D1F" }}
-                >
-                    Something went wrong
-                </h2>
-                <p
-                    className="text-sm mb-6"
-                    style={{ color: "#86868B" }}
-                >
+                <h2 className="text-xl font-bold mb-2 text-foreground">Something went wrong</h2>
+                <p className="text-sm mb-6 text-muted-foreground">
                     {error?.message || "An unexpected error occurred while loading this page."}
                 </p>
-
                 <button
                     onClick={() => reset()}
-                    className="btn-primary px-5 py-2.5 text-sm"
+                    className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                     Try Again
                 </button>

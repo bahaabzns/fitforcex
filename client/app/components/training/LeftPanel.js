@@ -86,14 +86,14 @@ export default function LeftPanel({
                 {/* Plans Header */}
                 <div className="flex items-center gap-3 mb-4 shrink-0">
                     <button
-                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                         onClick={() => setPlansCollapsed(p => !p)}
                     >
                         <ChevronIcon up={!plansCollapsed} />
                     </button>
-                    <h2 className="text-base font-semibold text-gray-900 flex-1">
+                    <h2 className="text-base font-semibold text-foreground flex-1">
                         Plans
-                        <span className="ml-2 text-xs font-normal text-gray-400">{plans.length}</span>
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">{plans.length}</span>
                     </h2>
                     {!plansCollapsed && (
                         <div className="flex items-center gap-2">
@@ -101,8 +101,8 @@ export default function LeftPanel({
                                 <button
                                     className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors ${
                                         !isDirty || isSaving
-                                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                            ? "bg-secondary text-muted-foreground cursor-not-allowed"
+                                            : "bg-card border border-border text-foreground hover:bg-accent cursor-pointer"
                                     }`}
                                     onClick={handleSaveAllDrafts}
                                     disabled={!isDirty || isSaving}
@@ -111,7 +111,7 @@ export default function LeftPanel({
                                 </button>
                             )}
                             <button
-                                className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                                className="cursor-pointer h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors"
                                 onClick={handleCreatePlan}
                             >
                                 + Create Plan
@@ -134,8 +134,8 @@ export default function LeftPanel({
                                     onClick={() => setSortOrder(value)}
                                     className={`cursor-pointer text-xs px-3 py-1 rounded-full border transition-colors ${
                                         sortOrder === value
-                                            ? "bg-blue-500 border-blue-500 text-white"
-                                            : "border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                                            ? "bg-primary border-primary text-white"
+                                            : "border-border text-muted-foreground hover:border-border hover:bg-accent"
                                     }`}
                                 >
                                     {label}
@@ -147,22 +147,22 @@ export default function LeftPanel({
                         <div className="flex-1 overflow-y-auto min-h-0">
                             {plans.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
-                                    <svg className="w-10 h-10 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                                     </svg>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-500">No plans yet</p>
-                                        <p className="text-xs text-gray-400 mt-1">Create your first training plan</p>
+                                        <p className="text-sm font-medium text-muted-foreground">No plans yet</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Create your first training plan</p>
                                     </div>
                                     <button
-                                        className="cursor-pointer h-8 px-4 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                                        className="cursor-pointer h-8 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors"
                                         onClick={handleCreatePlan}
                                     >
                                         + Create Plan
                                     </button>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-gray-100">
+                                <div className="divide-y divide-border">
                                     {plans.map((plan) => {
                                         const isActive = String(selectedPlan?.id) === String(plan.id);
                                         const isPlanDirty = dirtyPlanIds?.includes(String(plan.id));
@@ -170,16 +170,16 @@ export default function LeftPanel({
                                             <div
                                                 key={plan.id}
                                                 onClick={() => handleSelectedPlan(plan)}
-                                                className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-xl transition-all duration-150 ${
+                                                className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-lg transition-all duration-150 ${
                                                     isActive
-                                                        ? "bg-blue-50 border border-blue-200"
-                                                        : "hover:bg-gray-50 border border-transparent"
+                                                        ? "bg-primary/10 border border-primary/30"
+                                                        : "hover:bg-accent border border-transparent"
                                                 }`}
                                             >
-                                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-blue-500" : "bg-gray-200 group-hover:bg-gray-300"}`} />
+                                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-primary" : "bg-border group-hover:bg-muted-foreground"}`} />
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
-                                                        <p className={`text-sm font-medium truncate ${isActive ? "text-blue-700" : "text-gray-800"}`}>
+                                                        <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
                                                             {plan.name}
                                                         </p>
                                                         {plan.status === "active" && (
@@ -193,7 +193,7 @@ export default function LeftPanel({
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
                                                         {plan.day_count ?? plan.days?.length ?? 0}{" "}
                                                         {(plan.day_count ?? plan.days?.length ?? 0) === 1 ? "day" : "days"}
                                                         {" · "}edited {formatRelativeTime(plan.updated_at)}
@@ -202,14 +202,14 @@ export default function LeftPanel({
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                     <button
                                                         title="Duplicate plan"
-                                                        className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                                        className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                                                         onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
                                                     >
                                                         <DuplicateIcon />
                                                     </button>
                                                     <button
                                                         title="Delete plan"
-                                                        className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                        className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                                         onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
                                                     >
                                                         <TrashIcon />
@@ -226,21 +226,21 @@ export default function LeftPanel({
             </div>
 
             {/* Divider */}
-            <div className="shrink-0 border-t border-gray-100 my-4" />
+            <div className="shrink-0 border-t border-border my-4" />
 
             {/* ── Form Submissions Section ── */}
             <div className="flex flex-col min-h-0" style={{ flex: formsCollapsed ? "0 0 auto" : "1 1 0" }}>
                 <div className="flex items-center gap-3 mb-4 shrink-0">
                     <button
-                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                         onClick={() => setFormsCollapsed(f => !f)}
                     >
                         <ChevronIcon up={!formsCollapsed} />
                     </button>
-                    <h2 className="text-base font-semibold text-gray-900 flex-1">
+                    <h2 className="text-base font-semibold text-foreground flex-1">
                         Form Submissions
                         {submittedForms.length > 0 && (
-                            <span className="ml-2 text-xs font-normal text-gray-400">{submittedForms.length}</span>
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">{submittedForms.length}</span>
                         )}
                     </h2>
                 </div>
@@ -250,28 +250,28 @@ export default function LeftPanel({
                         {formsLoading ? (
                             <div className="flex flex-col gap-2">
                                 {[1, 2].map(i => (
-                                    <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />
+                                    <div key={i} className="h-14 rounded-lg bg-secondary animate-pulse" />
                                 ))}
                             </div>
                         ) : submittedForms.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-                                <svg className="w-8 h-8 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <p className="text-xs font-medium text-gray-400">No submitted forms yet</p>
+                                <p className="text-xs font-medium text-muted-foreground">No submitted forms yet</p>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-1.5">
                                 {submittedForms.map(req => {
                                     const isOpen = expandedReq === req.id;
                                     return (
-                                        <div key={req.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                                        <div key={req.id} className="rounded-lg border border-border overflow-hidden">
                                             <button
                                                 onClick={() => setExpandedReq(isOpen ? null : req.id)}
-                                                className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors cursor-pointer"
+                                                className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-accent transition-colors cursor-pointer"
                                             >
-                                                <span className="flex-1 text-sm font-medium text-gray-800 truncate">{req.form_title}</span>
-                                                <span className="text-[10px] text-gray-400 shrink-0">
+                                                <span className="flex-1 text-sm font-medium text-foreground truncate">{req.form_title}</span>
+                                                <span className="text-[10px] text-muted-foreground shrink-0">
                                                     {req.submitted_at ? new Date(req.submitted_at).toLocaleDateString() : ''}
                                                 </span>
                                                 <span className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
@@ -279,14 +279,14 @@ export default function LeftPanel({
                                                 </span>
                                             </button>
                                             {isOpen && (
-                                                <div className="px-3 pb-3 flex flex-col gap-2 border-t border-gray-100">
+                                                <div className="px-3 pb-3 flex flex-col gap-2 border-t border-border">
                                                     {!req.responses?.length ? (
-                                                        <p className="text-xs text-gray-400 pt-2">No responses recorded.</p>
+                                                        <p className="text-xs text-muted-foreground pt-2">No responses recorded.</p>
                                                     ) : (
                                                         req.responses.map((r, i) => (
                                                             <div key={i} className="pt-2">
-                                                                <p className="text-[11px] font-semibold text-gray-500 mb-0.5">{r.question_text}</p>
-                                                                <p className="text-xs text-gray-700 whitespace-pre-wrap">{r.answer_text || <span className="italic text-gray-400">No answer</span>}</p>
+                                                                <p className="text-[11px] font-semibold text-muted-foreground mb-0.5">{r.question_text}</p>
+                                                                <p className="text-xs text-foreground whitespace-pre-wrap">{r.answer_text || <span className="italic text-muted-foreground">No answer</span>}</p>
                                                             </div>
                                                         ))
                                                     )}

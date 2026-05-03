@@ -10,21 +10,21 @@ import api from "@/lib/axios";
 // --- HELPERS ---
 function statusColor(status) {
     switch (status) {
-        case "Active":           return "bg-[#34C759]/10 text-[#34C759]";
-        case "Expired":          return "bg-red-50 text-[#FF3B30]";
+        case "Active":           return "bg-green-100 text-green-600";
+        case "Expired":          return "bg-red-50 text-destructive";
         case "Frozen":           return "bg-blue-50 text-blue-600";
         case "Pre-start":        return "bg-yellow-50 text-yellow-600";
-        case "No Subscriptions": return "bg-[#F0F0F5] text-[#86868B]";
-        case "Cancelled":        return "bg-[#F0F0F5] text-[#86868B]";
+        case "No Subscriptions": return "bg-secondary text-muted-foreground";
+        case "Cancelled":        return "bg-secondary text-muted-foreground";
         case "Refunded":         return "bg-purple-50 text-purple-600";
-        default:                 return "bg-[#F0F0F5] text-[#86868B]";
+        default:                 return "bg-secondary text-muted-foreground";
     }
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\d{7,15}$/;
 
-const inputCls = "w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors";
+const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
 function generatePassword() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -93,18 +93,18 @@ function CountryCodeSelect({ value, onChange }) {
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="w-24 px-3 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] text-sm text-left focus:outline-none focus:border-[#007AFF] truncate transition-colors"
+                className="w-24 px-3 py-2 rounded-lg bg-background border border-input text-foreground text-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring truncate transition-colors"
             >
                 {value || "+?"}
             </button>
             {open && (
-                <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-white border border-[#D2D2D7] rounded-xl shadow-lg overflow-hidden animate-[fadeIn_150ms_ease-out]">
+                <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-card border border-border rounded-lg shadow-lg overflow-hidden animate-[fadeIn_150ms_ease-out]">
                     <input
                         type="text"
                         placeholder="Search country or code..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#F5F5F7] border-b border-[#D2D2D7] text-[#1D1D1F] text-xs placeholder-[#86868B] focus:outline-none"
+                        className="w-full px-3 py-2 bg-background border-b border-border text-foreground text-xs placeholder:text-muted-foreground focus-visible:outline-none"
                         autoFocus
                     />
                     <div className="max-h-48 overflow-y-auto">
@@ -115,15 +115,15 @@ function CountryCodeSelect({ value, onChange }) {
                                 onClick={() => { onChange(c.code); setOpen(false); setSearch(""); }}
                                 className={`w-full px-3 py-1.5 text-left text-xs transition-colors flex justify-between ${
                                     value === c.code
-                                        ? "bg-[#007AFF]/10 text-[#007AFF]"
-                                        : "text-[#1D1D1F] hover:bg-[#F0F0F5]"
+                                        ? "bg-primary/10 text-primary"
+                                        : "text-foreground hover:bg-accent"
                                 }`}
                             >
                                 <span>{c.name}</span>
-                                <span className="text-[#86868B]">{c.code}</span>
+                                <span className="text-muted-foreground">{c.code}</span>
                             </button>
                         ))}
-                        {filtered.length === 0 && <p className="px-3 py-2 text-[#86868B] text-xs">No results</p>}
+                        {filtered.length === 0 && <p className="px-3 py-2 text-muted-foreground text-xs">No results</p>}
                     </div>
                 </div>
             )}
@@ -153,14 +153,14 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className={`w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-sm text-left focus:outline-none focus:border-[#007AFF] flex items-center justify-between transition-colors ${
-                    selected.length === 0 ? "text-[#86868B]" : "text-[#1D1D1F]"
+                className={`w-full px-4 py-2 rounded-lg bg-background border border-input text-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex items-center justify-between transition-colors ${
+                    selected.length === 0 ? "text-muted-foreground" : "text-foreground"
                 }`}
             >
                 <span className="truncate">
                     {selected.length === 0 ? placeholder : `${selected.length} form${selected.length > 1 ? "s" : ""} selected`}
                 </span>
-                <svg className={`w-4 h-4 shrink-0 text-[#86868B] transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
@@ -170,9 +170,9 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                     {selected.map(val => {
                         const opt = options.find(o => o.value === val);
                         return (
-                            <span key={val} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] text-xs">
+                            <span key={val} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">
                                 {opt?.label || val}
-                                <button type="button" onClick={() => toggle(val)} className="hover:text-[#0056CC] transition-colors">×</button>
+                                <button type="button" onClick={() => toggle(val)} className="hover:text-primary/80 transition-colors">×</button>
                             </span>
                         );
                     })}
@@ -180,10 +180,10 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
             )}
 
             {open && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-[#D2D2D7] rounded-xl shadow-lg overflow-hidden animate-[fadeIn_150ms_ease-out]">
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg overflow-hidden animate-[fadeIn_150ms_ease-out]">
                     <div className="max-h-48 overflow-y-auto">
                         {options.length === 0 ? (
-                            <p className="px-3 py-2 text-[#86868B] text-xs">No options available</p>
+                            <p className="px-3 py-2 text-muted-foreground text-xs">No options available</p>
                         ) : (
                             options.map(opt => (
                                 <button
@@ -192,14 +192,14 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                                     onClick={() => toggle(opt.value)}
                                     className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${
                                         selected.includes(opt.value)
-                                            ? "bg-[#007AFF]/10 text-[#007AFF]"
-                                            : "text-[#1D1D1F] hover:bg-[#F0F0F5]"
+                                            ? "bg-primary/10 text-primary"
+                                            : "text-foreground hover:bg-accent"
                                     }`}
                                 >
                                     <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
                                         selected.includes(opt.value)
-                                            ? "bg-[#007AFF] border-[#007AFF]"
-                                            : "border-[#D2D2D7]"
+                                            ? "bg-primary border-primary"
+                                            : "border-border"
                                     }`}>
                                         {selected.includes(opt.value) && (
                                             <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -496,7 +496,7 @@ export default function ClientsPage() {
             filterType: "text",
             sortable: true,
             render: (row) => (
-                <Link href={`/clients/${row.id}`} className="text-[#007AFF] hover:underline font-medium">
+                <Link href={`/clients/${row.id}`} className="text-primary hover:underline font-medium">
                     {row.name}
                 </Link>
             ),
@@ -506,7 +506,7 @@ export default function ClientsPage() {
             label: "Email",
             filterType: "text",
             sortable: true,
-            render: (row) => <span className="text-[#86868B]">{row.email}</span>,
+            render: (row) => <span className="text-muted-foreground">{row.email}</span>,
         },
         {
             key: "phoneSearch",
@@ -515,7 +515,7 @@ export default function ClientsPage() {
             render: (row) => (
                 <div className="flex flex-col gap-0.5">
                     {row.phone.map((p, i) => (
-                        <span key={i} className={i === 0 ? "text-[#1D1D1F]" : "text-[#86868B] text-xs"}>
+                        <span key={i} className={i === 0 ? "text-foreground" : "text-muted-foreground text-xs"}>
                             {p.countryCode} {p.number}
                         </span>
                     ))}
@@ -560,16 +560,16 @@ export default function ClientsPage() {
                         <button
                             onClick={() => copyCredentials(row)}
                             title="Copy credentials"
-                            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-[#007AFF] hover:border-[#007AFF] transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer"
                         >
-                            {copiedId === row.id ? <Check size={13} className="text-[#34C759]" /> : <Copy size={13} />}
+                            {copiedId === row.id ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
                             {copiedId === row.id ? "Copied!" : "Copy Creds"}
                         </button>
                     )}
                     <button
                         onClick={() => openFreeze(row)}
                         title="Freeze subscription"
-                        className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-blue-600 hover:border-blue-300 transition-colors cursor-pointer"
+                        className="text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-blue-600 hover:border-blue-300 transition-colors cursor-pointer"
                     >
                         Freeze
                     </button>
@@ -581,9 +581,9 @@ export default function ClientsPage() {
     if (loading) {
         return (
             <div className="p-8">
-                <h1 className="text-3xl font-bold text-[#1D1D1F] mb-6">Clients</h1>
+                <h1 className="text-3xl font-bold text-foreground mb-6">Clients</h1>
                 <div className="flex flex-col gap-2">
-                    {[1, 2, 3, 4].map(i => <div key={i} className="h-10 rounded-xl bg-[#F0F0F5] animate-pulse" />)}
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
                 </div>
             </div>
         );
@@ -593,10 +593,10 @@ export default function ClientsPage() {
         <div className="p-8 flex flex-col gap-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-[#1D1D1F]">Clients</h1>
+                <h1 className="text-3xl font-bold text-foreground">Clients</h1>
                 <button
                     onClick={() => { resetForm(); setShowForm(true); }}
-                    className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                    className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                     + Add Client
                 </button>
@@ -607,8 +607,8 @@ export default function ClientsPage() {
                 <form onSubmit={handleAddClient} className="flex flex-col gap-3">
                     {/* Validation errors */}
                     {formErrors.length > 0 && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                            {formErrors.map((err, i) => <p key={i} className="text-[#FF3B30] text-xs">{err}</p>)}
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            {formErrors.map((err, i) => <p key={i} className="text-destructive text-xs">{err}</p>)}
                         </div>
                     )}
 
@@ -641,7 +641,7 @@ export default function ClientsPage() {
                     />
 
                     {/* Password */}
-                    <label className="text-[#86868B] text-xs font-medium">Portal Password *</label>
+                    <label className="text-muted-foreground text-xs font-medium">Portal Password *</label>
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <input
@@ -653,7 +653,7 @@ export default function ClientsPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-[#1D1D1F] transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 {showPassword ? (
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -670,14 +670,14 @@ export default function ClientsPage() {
                         <button
                             type="button"
                             onClick={() => { setNewPassword(generatePassword()); setShowPassword(true); }}
-                            className="px-3 py-2 rounded-xl bg-[#F0F0F5] hover:bg-[#D2D2D7] text-[#86868B] text-xs font-medium transition-colors whitespace-nowrap cursor-pointer"
+                            className="px-3 py-2 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground text-xs font-medium transition-colors whitespace-nowrap cursor-pointer"
                         >
                             Generate
                         </button>
                     </div>
 
                     {/* Phone numbers */}
-                    <label className="text-[#86868B] text-xs font-medium">Phone Numbers</label>
+                    <label className="text-muted-foreground text-xs font-medium">Phone Numbers</label>
                     <div className="flex flex-col gap-2">
                         <div className="flex gap-2 items-center">
                             <CountryCodeSelect value={newPhones[0].countryCode} onChange={(code) => updatePhone(0, "countryCode", code)} />
@@ -696,15 +696,15 @@ export default function ClientsPage() {
                             </div>
                         )}
                         {phoneCount < 3 && (
-                            <button type="button" onClick={() => setPhoneCount(prev => prev + 1)} className="text-xs text-[#007AFF] hover:text-[#0056CC] self-start transition-colors cursor-pointer">
+                            <button type="button" onClick={() => setPhoneCount(prev => prev + 1)} className="text-xs text-primary hover:text-primary/80 self-start transition-colors cursor-pointer">
                                 + Add another phone
                             </button>
                         )}
                     </div>
 
                     {/* Package Variation */}
-                    <label className="text-[#86868B] text-xs font-medium">Package Variation *</label>
-                    <select value={newPackage} onChange={(e) => setNewPackage(e.target.value)} className={`${inputCls} ${!newPackage ? "text-[#86868B]" : ""}`}>
+                    <label className="text-muted-foreground text-xs font-medium">Package Variation *</label>
+                    <select value={newPackage} onChange={(e) => setNewPackage(e.target.value)} className={`${inputCls} ${!newPackage ? "text-muted-foreground" : ""}`}>
                         <option value="">Select a package variation...</option>
                         {packageOptions.map(pv => (
                             <option key={pv.value} value={pv.value}>
@@ -714,14 +714,14 @@ export default function ClientsPage() {
                     </select>
 
                     {/* Payment Method */}
-                    <label className="text-[#86868B] text-xs font-medium">Payment Method *</label>
-                    <select value={newPaymentMethod} onChange={(e) => setNewPaymentMethod(e.target.value)} className={`${inputCls} ${!newPaymentMethod ? "text-[#86868B]" : ""}`}>
+                    <label className="text-muted-foreground text-xs font-medium">Payment Method *</label>
+                    <select value={newPaymentMethod} onChange={(e) => setNewPaymentMethod(e.target.value)} className={`${inputCls} ${!newPaymentMethod ? "text-muted-foreground" : ""}`}>
                         <option value="">Select a payment method...</option>
                         {paymentMethodOptions.map(pm => <option key={pm.value} value={pm.value}>{pm.label}</option>)}
                     </select>
 
                     {/* Transaction Date */}
-                    <label className="text-[#86868B] text-xs font-medium">Transaction Date</label>
+                    <label className="text-muted-foreground text-xs font-medium">Transaction Date</label>
                     <input
                         type="date"
                         value={txTransactionDate}
@@ -730,25 +730,25 @@ export default function ClientsPage() {
                     />
 
                     {/* Proof of Payment */}
-                    <label className="text-[#86868B] text-xs font-medium">Proof of Payment <span className="font-normal opacity-60">(optional)</span></label>
+                    <label className="text-muted-foreground text-xs font-medium">Proof of Payment <span className="font-normal opacity-60">(optional)</span></label>
                     <input
                         type="file"
                         accept="image/*,.pdf"
                         onChange={e => setTxProofFile(e.target.files[0] || null)}
-                        className="w-full text-sm text-[#86868B] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#F0F0F5] file:text-[#1D1D1F] hover:file:bg-[#D2D2D7] cursor-pointer"
+                        className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
                     />
-                    {txProofFile && <p className="text-xs text-[#86868B] -mt-1">{txProofFile.name}</p>}
+                    {txProofFile && <p className="text-xs text-muted-foreground -mt-1">{txProofFile.name}</p>}
 
                     {/* Subscription Start */}
-                    <label className="text-[#86868B] text-xs font-medium">Subscription Starts</label>
+                    <label className="text-muted-foreground text-xs font-medium">Subscription Starts</label>
                     <div className="flex gap-2">
                         <button
                             type="button"
                             onClick={() => setSubDurationMode("on_first_plan")}
-                            className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
                                 subDurationMode === "on_first_plan"
-                                    ? "border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]"
-                                    : "border-[#D2D2D7] bg-[#F5F5F7] text-[#86868B] hover:border-[#007AFF] hover:text-[#007AFF]"
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
                             }`}
                         >
                             On First Plan
@@ -756,10 +756,10 @@ export default function ClientsPage() {
                         <button
                             type="button"
                             onClick={() => setSubDurationMode("custom")}
-                            className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
                                 subDurationMode === "custom"
-                                    ? "border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]"
-                                    : "border-[#D2D2D7] bg-[#F5F5F7] text-[#86868B] hover:border-[#007AFF] hover:text-[#007AFF]"
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
                             }`}
                         >
                             Custom Date
@@ -775,10 +775,10 @@ export default function ClientsPage() {
                     )}
 
                     {/* Assign Forms */}
-                    <label className="text-[#86868B] text-xs font-medium">Assign Forms (optional)</label>
+                    <label className="text-muted-foreground text-xs font-medium">Assign Forms (optional)</label>
                     <MultiSelectDropdown options={formOptions} selected={selectedForms} onChange={setSelectedForms} placeholder="Select forms..." />
 
-                    <button type="submit" className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer mt-1">
+                    <button type="submit" className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer mt-1">
                         Add Client
                     </button>
                 </form>
@@ -799,8 +799,8 @@ export default function ClientsPage() {
 
             {/* Floating bulk action bar */}
             {selectedIds.size > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white border border-[#D2D2D7] rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 z-50 animate-[fadeIn_150ms_ease-out]">
-                    <span className="text-sm text-[#1D1D1F] font-medium">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-2xl px-5 py-3 flex items-center gap-4 z-50 animate-[fadeIn_150ms_ease-out]">
+                    <span className="text-sm text-foreground font-medium">
                         {selectedIds.size} client{selectedIds.size > 1 ? "s" : ""} selected
                     </span>
                     <button
@@ -810,14 +810,14 @@ export default function ClientsPage() {
                             setSendMode("now");
                             setScheduledDate("");
                         }}
-                        className="bg-[#007AFF] hover:bg-[#0056CC] text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="bg-primary hover:bg-primary/90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         Request Form
                     </button>
-                    <button onClick={() => setSelectedIds(new Set())} className="text-[#86868B] hover:text-[#1D1D1F] text-sm transition-colors cursor-pointer">
+                    <button onClick={() => setSelectedIds(new Set())} className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer">
                         Cancel
                     </button>
                 </div>
@@ -831,12 +831,12 @@ export default function ClientsPage() {
             >
                 <form onSubmit={handleFreeze} className="flex flex-col gap-3">
                     {freezeError && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                            <p className="text-[#FF3B30] text-xs">{freezeError}</p>
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <p className="text-destructive text-xs">{freezeError}</p>
                         </div>
                     )}
                     <div>
-                        <label className="text-[#86868B] text-xs font-medium">Freeze Start Date *</label>
+                        <label className="text-muted-foreground text-xs font-medium">Freeze Start Date *</label>
                         <input
                             type="date"
                             value={freezeStartDate}
@@ -845,7 +845,7 @@ export default function ClientsPage() {
                         />
                     </div>
                     <div>
-                        <label className="text-[#86868B] text-xs font-medium">Freeze Duration (days) *</label>
+                        <label className="text-muted-foreground text-xs font-medium">Freeze Duration (days) *</label>
                         <input
                             type="number"
                             min="1"
@@ -856,7 +856,7 @@ export default function ClientsPage() {
                         />
                     </div>
                     <div>
-                        <label className="text-[#86868B] text-xs font-medium">Notes <span className="font-normal opacity-60">(optional)</span></label>
+                        <label className="text-muted-foreground text-xs font-medium">Notes <span className="font-normal opacity-60">(optional)</span></label>
                         <textarea
                             rows={2}
                             value={freezeNotes}
@@ -868,7 +868,7 @@ export default function ClientsPage() {
                     <button
                         type="submit"
                         disabled={freezeSaving}
-                        className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                        className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
                     >
                         {freezeSaving ? "Saving…" : "Add Freeze"}
                     </button>
@@ -878,15 +878,15 @@ export default function ClientsPage() {
             {/* Bulk form picker modal */}
             {showFormPicker && (
                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => setShowFormPicker(false)}>
-                    <div className="bg-white border border-[#D2D2D7] rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-4 animate-[fadeIn_150ms_ease-out]" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-semibold text-[#1D1D1F]">Request Forms</h3>
-                        <p className="text-[#86868B] text-sm">
+                    <div className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-md p-6 flex flex-col gap-4 animate-[fadeIn_150ms_ease-out]" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-foreground">Request Forms</h3>
+                        <p className="text-muted-foreground text-sm">
                             Choose forms to assign to {selectedIds.size} selected client{selectedIds.size > 1 ? "s" : ""}.
                         </p>
 
                         <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
                             {availableForms.length === 0 ? (
-                                <p className="text-[#86868B] text-sm">No active forms available.</p>
+                                <p className="text-muted-foreground text-sm">No active forms available.</p>
                             ) : (
                                 availableForms.map(form => {
                                     const isChecked = pickerForms.includes(form.id);
@@ -895,14 +895,14 @@ export default function ClientsPage() {
                                             key={form.id}
                                             type="button"
                                             onClick={() => setPickerForms(prev => isChecked ? prev.filter(f => f !== form.id) : [...prev, form.id])}
-                                            className={`w-full px-3 py-2.5 rounded-xl text-left text-sm flex items-center gap-2 transition-colors ${
+                                            className={`w-full px-3 py-2.5 rounded-lg text-left text-sm flex items-center gap-2 transition-colors ${
                                                 isChecked
-                                                    ? "bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/30"
-                                                    : "bg-[#F5F5F7] text-[#1D1D1F] hover:bg-[#F0F0F5] border border-transparent"
+                                                    ? "bg-primary/10 text-primary border border-primary/30"
+                                                    : "bg-background text-foreground hover:bg-accent border border-transparent"
                                             }`}
                                         >
                                             <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                                                isChecked ? "bg-[#007AFF] border-[#007AFF]" : "border-[#D2D2D7]"
+                                                isChecked ? "bg-primary border-primary" : "border-border"
                                             }`}>
                                                 {isChecked && (
                                                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -925,16 +925,16 @@ export default function ClientsPage() {
                         </div>
 
                         {/* Send mode */}
-                        <div className="flex flex-col gap-3 border-t border-[#D2D2D7] pt-4">
-                            <span className="text-[#86868B] text-xs font-medium">When to send</span>
+                        <div className="flex flex-col gap-3 border-t border-border pt-4">
+                            <span className="text-muted-foreground text-xs font-medium">When to send</span>
                             <div className="flex gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setSendMode("now")}
-                                    className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                                         sendMode === "now"
-                                            ? "bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/30"
-                                            : "bg-[#F5F5F7] text-[#86868B] hover:text-[#1D1D1F] border border-transparent"
+                                            ? "bg-primary/10 text-primary border border-primary/30"
+                                            : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
                                     }`}
                                 >
                                     Send Now
@@ -942,10 +942,10 @@ export default function ClientsPage() {
                                 <button
                                     type="button"
                                     onClick={() => setSendMode("scheduled")}
-                                    className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                                         sendMode === "scheduled"
                                             ? "bg-blue-50 text-blue-600 border border-blue-200"
-                                            : "bg-[#F5F5F7] text-[#86868B] hover:text-[#1D1D1F] border border-transparent"
+                                            : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
                                     }`}
                                 >
                                     Schedule
@@ -957,19 +957,19 @@ export default function ClientsPage() {
                                     value={scheduledDate}
                                     onChange={(e) => setScheduledDate(e.target.value)}
                                     min={new Date().toISOString().slice(0, 16)}
-                                    className="w-full px-3 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] text-sm focus:outline-none focus:border-[#007AFF] transition-colors"
+                                    className="w-full px-3 py-2 rounded-lg bg-background border border-input text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                                 />
                             )}
                         </div>
 
                         <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => setShowFormPicker(false)} className="px-4 py-2 rounded-xl text-sm text-[#86868B] hover:text-[#1D1D1F] transition-colors cursor-pointer">
+                            <button onClick={() => setShowFormPicker(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
                                 Cancel
                             </button>
                             <button
                                 onClick={handleBulkAssign}
                                 disabled={pickerForms.length === 0 || assigning || (sendMode === "scheduled" && !scheduledDate)}
-                                className="bg-[#007AFF] hover:bg-[#0056CC] disabled:opacity-40 text-white font-medium px-4 py-2 rounded-xl transition-colors text-sm cursor-pointer"
+                                className="bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm cursor-pointer"
                             >
                                 {assigning ? "Assigning..." : sendMode === "scheduled"
                                     ? `Schedule${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`

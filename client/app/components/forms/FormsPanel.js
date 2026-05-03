@@ -63,18 +63,18 @@ export default function FormsPanel({
                 {/* Header */}
                 <div className="flex items-center gap-3 mb-4 shrink-0">
                     <button
-                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                         onClick={() => setFormsCollapsed(c => !c)}
                     >
                         <ChevronIcon up={!formsCollapsed} />
                     </button>
-                    <h2 className="text-base font-semibold text-gray-900 flex-1">
+                    <h2 className="text-base font-semibold text-foreground flex-1">
                         Forms
-                        <span className="ml-2 text-xs font-normal text-gray-400">{forms.length}</span>
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">{forms.length}</span>
                     </h2>
                     {!formsCollapsed && (
                         <button
-                            className="cursor-pointer h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                            className="cursor-pointer h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors"
                             onClick={handleCreateForm}
                         >
                             + New Form
@@ -96,8 +96,8 @@ export default function FormsPanel({
                                 onClick={() => setSortOrder(value)}
                                 className={`cursor-pointer text-xs px-3 py-1 rounded-full border transition-colors ${
                                     sortOrder === value
-                                        ? "bg-blue-500 border-blue-500 text-white"
-                                        : "border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                                        ? "bg-primary border-primary text-white"
+                                        : "border-border text-muted-foreground hover:border-border hover:bg-accent"
                                 }`}
                             >
                                 {label}
@@ -109,22 +109,22 @@ export default function FormsPanel({
                     <div className="flex-1 overflow-y-auto min-h-0">
                         {sortedForms.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
-                                <svg className="w-10 h-10 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                 </svg>
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">No forms yet</p>
-                                    <p className="text-xs text-gray-400 mt-1">Create your first form</p>
+                                    <p className="text-sm font-medium text-muted-foreground">No forms yet</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Create your first form</p>
                                 </div>
                                 <button
-                                    className="cursor-pointer h-8 px-4 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+                                    className="cursor-pointer h-8 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors"
                                     onClick={handleCreateForm}
                                 >
                                     + New Form
                                 </button>
                             </div>
                         ) : (
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-border">
                                 {sortedForms.map((form) => {
                                     const isActive = selectedForm?.id === form.id;
                                     return (
@@ -157,28 +157,26 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
     return (
         <div
             onClick={onSelect}
-            className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-xl transition-all duration-150 ${
+            className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-lg transition-all duration-150 ${
                 isActive
-                    ? "bg-blue-50 border border-blue-200"
-                    : "hover:bg-gray-50 border border-transparent"
+                    ? "bg-primary/10 border border-primary/30"
+                    : "hover:bg-accent border border-transparent"
             }`}
         >
             {/* Active dot */}
-            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-blue-500" : "bg-gray-200 group-hover:bg-gray-300"}`} />
+            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-primary" : "bg-border group-hover:bg-muted-foreground"}`} />
 
             {/* Name + meta */}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    
-                    <p className="text-sm font-medium truncate text-gray-800 flex-1">{form.title}</p>
-                    
+                    <p className="text-sm font-medium truncate text-foreground flex-1">{form.title}</p>
                     {form.status === 'active' && (
                         <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 text-xs font-semibold">
                             <CheckIcon /> Active
                         </span>
                     )}
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                     {form.question_count} {form.question_count === 1 ? "question" : "questions"}
                     {" · "}
                     edited {formatRelativeTime(form.updated_at)}
@@ -190,7 +188,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                 {form.status !== 'active' && (
                     <button
                         title="Set to Active"
-                        className="cursor-pointer px-2 py-0.5 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-600 hover:bg-green-50 text-xs font-medium transition-colors"
+                        className="cursor-pointer px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:border-green-500 hover:text-green-600 hover:bg-green-50 text-xs font-medium transition-colors"
                         onClick={(e) => { e.stopPropagation(); onUpdate({ status: 'active' }); }}
                     >
                         Activate
@@ -198,14 +196,14 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                 )}
                 <button
                     title="Duplicate form"
-                    className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                     onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
                 >
                     <DuplicateIcon />
                 </button>
                 <button
                     title="Delete form"
-                    className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 >
                     <TrashIcon />

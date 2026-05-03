@@ -187,7 +187,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             render: (row) => {
                 if (row.scheduledAt && row.status === "scheduled") {
                     return (
-                        <span className="text-blue-500 text-xs whitespace-nowrap">
+                        <span className="text-primary text-xs whitespace-nowrap">
                             Scheduled {shortDate(row.scheduledAt)}
                         </span>
                     );
@@ -250,7 +250,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     return (
                         <div className="flex items-center gap-2">
                             {typeBadge}
-                            <span className="text-blue-500 text-xs italic">Scheduled</span>
+                            <span className="text-primary text-xs italic">Scheduled</span>
                         </div>
                     );
                 }
@@ -280,7 +280,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                         e.stopPropagation();
                                         router.push(`/clients/${row.clientId}/training?submissionId=${row.id}`);
                                     }}
-                                    className="text-blue-600 hover:text-blue-700 text-[11px] px-2 py-1 rounded hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                    className="text-primary hover:text-primary/80 text-[11px] px-2 py-1 rounded hover:bg-primary/10 transition-colors whitespace-nowrap"
                                 >
                                     Open Workout
                                 </button>
@@ -366,9 +366,9 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     <p className="text-zinc-500 text-sm mt-1">Review submitted forms and trigger client plan work.</p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-lg">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-blue-400" />
-                        <span className="text-blue-500 text-sm font-medium">{scheduledCount} Scheduled</span>
+                        <span className="text-primary text-sm font-medium">{scheduledCount} Scheduled</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-500/10 rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-zinc-500" />
@@ -388,8 +388,8 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-lg">
                         <span className="text-amber-500 text-sm font-medium">{nutritionPlanCount} Nutrition</span>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-lg">
-                        <span className="text-blue-500 text-sm font-medium">{workoutPlanCount} Workout</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
+                        <span className="text-primary text-sm font-medium">{workoutPlanCount} Workout</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-500/10 rounded-lg">
                         <span className="text-zinc-500 text-sm font-medium">{noActionCount} No Action</span>

@@ -9,24 +9,24 @@ import api from "@/lib/axios";
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 const DISPLAY_CURRENCIES = Object.keys(EXCHANGE_RATES);
 
-const inputCls = "w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors";
+const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
 function statusColor(status) {
     switch (status) {
-        case "completed": return "bg-[#34C759]/10 text-[#34C759]";
-        case "refunded":  return "bg-red-50 text-[#FF3B30]";
-        default:          return "bg-[#F0F0F5] text-[#86868B]";
+        case "completed": return "bg-green-100 text-green-600";
+        case "refunded":  return "bg-red-50 text-destructive";
+        default:          return "bg-secondary text-muted-foreground";
     }
 }
 
 function subStatusColor(s) {
     switch (s) {
-        case "Active":    return "bg-[#34C759]/10 text-[#34C759]";
-        case "Expired":   return "bg-red-50 text-[#FF3B30]";
+        case "Active":    return "bg-green-100 text-green-600";
+        case "Expired":   return "bg-red-50 text-destructive";
         case "Frozen":    return "bg-blue-50 text-blue-600";
         case "Pre-start": return "bg-yellow-50 text-yellow-600";
         case "Refunded":  return "bg-purple-50 text-purple-600";
-        default:          return "bg-[#F0F0F5] text-[#86868B]";
+        default:          return "bg-secondary text-muted-foreground";
     }
 }
 
@@ -89,25 +89,25 @@ function SearchableClientSelect({ clients, selected, onSelect }) {
                     type="button"
                     onMouseDown={e => e.preventDefault()}
                     onClick={() => { onSelect(null); setQuery(""); setOpen(true); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-[#1D1D1F] transition-colors text-lg leading-none cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors text-lg leading-none cursor-pointer"
                 >
                     ×
                 </button>
             )}
             {open && filtered.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-[#D2D2D7] rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {filtered.map(c => (
                         <button
                             key={c.id}
                             type="button"
                             onMouseDown={e => e.preventDefault()}
                             onClick={() => { onSelect(c); setQuery(""); setOpen(false); }}
-                            className="w-full px-3 py-2.5 text-left hover:bg-[#F0F0F5] flex items-center gap-2 transition-colors"
+                            className="w-full px-3 py-2.5 text-left hover:bg-accent flex items-center gap-2 transition-colors"
                         >
-                            <span className="text-[#1D1D1F] text-sm font-medium flex-1">{c.name}</span>
-                            <span className="text-[#86868B] text-xs">#{c.code}</span>
+                            <span className="text-foreground text-sm font-medium flex-1">{c.name}</span>
+                            <span className="text-muted-foreground text-xs">#{c.code}</span>
                             {c.phones?.[0] && (
-                                <span className="text-[#86868B] text-xs">
+                                <span className="text-muted-foreground text-xs">
                                     {c.phones[0].countryCode} {c.phones[0].number}
                                 </span>
                             )}
@@ -156,21 +156,21 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             filterType: "multi",
             options: packageVariations,
             sortable: true,
-            render: (row) => row.packageVariation || <span className="text-[#86868B]">—</span>,
+            render: (row) => row.packageVariation || <span className="text-muted-foreground">—</span>,
         },
         {
             key: "amount",
             label: "Amount",
             sortable: true,
-            render: (row) => <span className="font-medium text-[#1D1D1F]">{row.amount.toLocaleString()} {row.currency}</span>,
+            render: (row) => <span className="font-medium text-foreground">{row.amount.toLocaleString()} {row.currency}</span>,
         },
         {
             key: "duration",
             label: "Duration",
             sortable: true,
             render: (row) => row.duration
-                ? <span className="text-[#86868B]">{row.duration} days</span>
-                : <span className="text-[#86868B]">—</span>,
+                ? <span className="text-muted-foreground">{row.duration} days</span>
+                : <span className="text-muted-foreground">—</span>,
         },
         { key: "paymentMethod", label: "Method", filterType: "multi", options: paymentMethods, sortable: true },
         {
@@ -194,7 +194,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 const s = row.subscriptionStatus;
                 return s
                     ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${subStatusColor(s)}`}>{s}</span>
-                    : <span className="text-[#86868B] text-xs">—</span>;
+                    : <span className="text-muted-foreground text-xs">—</span>;
             },
         },
         {
@@ -218,11 +218,11 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                     href={`${process.env.NEXT_PUBLIC_API_URL}${row.proofImage}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs text-[#007AFF] hover:underline"
+                    className="text-xs text-primary hover:underline"
                 >
                     View
                 </a>
-            ) : <span className="text-[#86868B] text-xs">—</span>,
+            ) : <span className="text-muted-foreground text-xs">—</span>,
         },
         {
             key: "_actions",
@@ -230,7 +230,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             render: (row) => (
                 <div className="flex gap-2 justify-end whitespace-nowrap">
                     {onEdit && (
-                        <button onClick={() => onEdit(row)} className="text-xs text-[#007AFF] hover:text-[#0056CC] cursor-pointer transition-colors">
+                        <button onClick={() => onEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer transition-colors">
                             Edit
                         </button>
                     )}
@@ -240,7 +240,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                         </button>
                     )}
                     {onDelete && (
-                        <button onClick={() => onDelete(row.id)} className="text-xs text-[#FF3B30] hover:text-red-700 cursor-pointer transition-colors">
+                        <button onClick={() => onDelete(row.id)} className="text-xs text-destructive hover:text-red-700 cursor-pointer transition-colors">
                             Delete
                         </button>
                     )}
@@ -253,11 +253,11 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         <>
             {/* Currency selector */}
             <div className="flex items-center gap-2">
-                <span className="text-[#86868B] text-xs font-medium uppercase">Display currency</span>
+                <span className="text-muted-foreground text-xs font-medium uppercase">Display currency</span>
                 <select
                     value={displayCurrency}
                     onChange={(e) => setDisplayCurrency(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] text-sm focus:outline-none focus:border-[#007AFF] transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 >
                     {DISPLAY_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -265,38 +265,38 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
 
             {/* Summary cards */}
             <div className="flex flex-wrap gap-3">
-                <div className="card px-4 py-3">
-                    <p className="text-[#86868B] text-xs font-medium uppercase">Completed</p>
-                    <p className="text-[#34C759] text-lg font-bold mt-0.5">
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
+                    <p className="text-muted-foreground text-xs font-medium uppercase">Completed</p>
+                    <p className="text-green-600 text-lg font-bold mt-0.5">
                         {Math.round(totalCompleted).toLocaleString()} {displayCurrency}
                     </p>
                 </div>
-                <div className="card px-4 py-3">
-                    <p className="text-[#86868B] text-xs font-medium uppercase">Refunded</p>
-                    <p className="text-[#FF3B30] text-lg font-bold mt-0.5">
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
+                    <p className="text-muted-foreground text-xs font-medium uppercase">Refunded</p>
+                    <p className="text-destructive text-lg font-bold mt-0.5">
                         {Math.round(totalRefunded).toLocaleString()} {displayCurrency}
                     </p>
                 </div>
 
                 {Object.keys(byPaymentMethod).length > 0 && (
-                    <div className="w-px bg-[#D2D2D7] mx-1 self-stretch" />
+                    <div className="w-px bg-border mx-1 self-stretch" />
                 )}
                 {Object.entries(byPaymentMethod).map(([method, total]) => (
-                    <div key={method} className="card px-4 py-3">
-                        <p className="text-[#86868B] text-xs font-medium uppercase">{method}</p>
-                        <p className="text-[#1D1D1F] text-lg font-bold mt-0.5">
+                    <div key={method} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
+                        <p className="text-muted-foreground text-xs font-medium uppercase">{method}</p>
+                        <p className="text-foreground text-lg font-bold mt-0.5">
                             {Math.round(total).toLocaleString()} {displayCurrency}
                         </p>
                     </div>
                 ))}
 
                 {Object.keys(byCurrency).length > 0 && (
-                    <div className="w-px bg-[#D2D2D7] mx-1 self-stretch" />
+                    <div className="w-px bg-border mx-1 self-stretch" />
                 )}
                 {Object.entries(byCurrency).map(([currency, total]) => (
-                    <div key={currency} className="card px-4 py-3">
-                        <p className="text-[#86868B] text-xs font-medium uppercase">{currency}</p>
-                        <p className="text-[#007AFF] text-lg font-bold mt-0.5">{total.toLocaleString()} {currency}</p>
+                    <div key={currency} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
+                        <p className="text-muted-foreground text-xs font-medium uppercase">{currency}</p>
+                        <p className="text-primary text-lg font-bold mt-0.5">{total.toLocaleString()} {currency}</p>
                     </div>
                 ))}
             </div>
@@ -469,9 +469,9 @@ export default function TransactionsPage() {
     if (loading) {
         return (
             <div className="p-6 flex flex-col gap-6">
-                <h1 className="text-3xl font-bold text-[#1D1D1F]">Transactions</h1>
+                <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
                 <div className="flex flex-col gap-2">
-                    {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-xl bg-[#F0F0F5] animate-pulse" />)}
+                    {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
                 </div>
             </div>
         );
@@ -481,10 +481,10 @@ export default function TransactionsPage() {
         <div className="p-6 flex flex-col gap-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-[#1D1D1F]">Transactions</h1>
+                <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
                 <button
                     onClick={openCreate}
-                    className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer"
                 >
                     + New Transaction
                 </button>
@@ -496,14 +496,14 @@ export default function TransactionsPage() {
 
                     {/* Client */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Client *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">Client *</label>
                         <SearchableClientSelect
                             clients={clients}
                             selected={selectedClient}
                             onSelect={setSelectedClient}
                         />
                         {selectedClient && (
-                            <p className="text-xs text-[#86868B] mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                                 #{selectedClient.code ?? ""} · {selectedClient.email ?? ""}
                             </p>
                         )}
@@ -511,7 +511,7 @@ export default function TransactionsPage() {
 
                     {/* Package */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Package *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">Package *</label>
                         <select
                             value={selectedPkgKey}
                             onChange={e => {
@@ -519,7 +519,7 @@ export default function TransactionsPage() {
                                 setSelectedPkgKey(key);
                                 setSelectedPkg(packageVariationOptions.find(p => p.key === key) || null);
                             }}
-                            className={`${inputCls} ${!selectedPkgKey ? "text-[#86868B]" : ""}`}
+                            className={`${inputCls} ${!selectedPkgKey ? "text-muted-foreground" : ""}`}
                         >
                             <option value="">— Select a package —</option>
                             {packageVariationOptions.map(p => (
@@ -527,20 +527,20 @@ export default function TransactionsPage() {
                             ))}
                         </select>
                         {selectedPkg && (
-                            <div className="flex gap-4 mt-2 px-1 text-xs text-[#86868B]">
-                                <span>Duration: <span className="text-[#1D1D1F] font-semibold">{selectedPkg.duration} days</span></span>
-                                <span>Price: <span className="text-[#1D1D1F] font-semibold">{selectedPkg.price.toLocaleString()} {selectedPkg.currency}</span></span>
+                            <div className="flex gap-4 mt-2 px-1 text-xs text-muted-foreground">
+                                <span>Duration: <span className="text-foreground font-semibold">{selectedPkg.duration} days</span></span>
+                                <span>Price: <span className="text-foreground font-semibold">{selectedPkg.price.toLocaleString()} {selectedPkg.currency}</span></span>
                             </div>
                         )}
                     </div>
 
                     {/* Payment Method */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Payment Method *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">Payment Method *</label>
                         <select
                             value={formPaymentMethod}
                             onChange={e => setFormPaymentMethod(e.target.value)}
-                            className={`${inputCls} ${!formPaymentMethod ? "text-[#86868B]" : ""}`}
+                            className={`${inputCls} ${!formPaymentMethod ? "text-muted-foreground" : ""}`}
                         >
                             <option value="">— Select method —</option>
                             {allPaymentMethodNames.map(m => <option key={m} value={m}>{m}</option>)}
@@ -549,7 +549,7 @@ export default function TransactionsPage() {
 
                     {/* Transaction Date */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Transaction Date</label>
+                        <label className="block text-sm text-muted-foreground mb-1">Transaction Date</label>
                         <input
                             type="date"
                             value={formDate}
@@ -560,8 +560,8 @@ export default function TransactionsPage() {
 
                     {/* Subscription Start Date */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">
-                            Subscription Start Date <span className="text-[#86868B]/60">(optional — leave empty to queue after current subscription)</span>
+                        <label className="block text-sm text-muted-foreground mb-1">
+                            Subscription Start Date <span className="text-muted-foreground/60">(optional — leave empty to queue after current subscription)</span>
                         </label>
                         <input
                             type="date"
@@ -573,7 +573,7 @@ export default function TransactionsPage() {
                             <button
                                 type="button"
                                 onClick={() => setFormSubStartDate("")}
-                                className="text-xs text-[#86868B] hover:text-[#FF3B30] mt-1 transition-colors cursor-pointer"
+                                className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
                             >
                                 Clear (use queue)
                             </button>
@@ -582,7 +582,7 @@ export default function TransactionsPage() {
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Notes <span className="text-[#86868B]/60">(optional)</span></label>
+                        <label className="block text-sm text-muted-foreground mb-1">Notes <span className="text-muted-foreground/60">(optional)</span></label>
                         <textarea
                             rows={2}
                             placeholder="Any additional notes..."
@@ -594,21 +594,21 @@ export default function TransactionsPage() {
 
                     {/* Proof of transaction */}
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Proof of Transaction <span className="text-[#86868B]/60">(optional)</span></label>
+                        <label className="block text-sm text-muted-foreground mb-1">Proof of Transaction <span className="text-muted-foreground/60">(optional)</span></label>
                         {proofUrl && !proofFile && (
                             <div className="flex items-center gap-2 mb-2">
                                 <a
                                     href={`${process.env.NEXT_PUBLIC_API_URL}${proofUrl}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-xs text-[#007AFF] hover:underline"
+                                    className="text-xs text-primary hover:underline"
                                 >
                                     View current proof
                                 </a>
                                 <button
                                     type="button"
                                     onClick={() => setProofUrl(null)}
-                                    className="text-xs text-[#FF3B30] hover:underline cursor-pointer"
+                                    className="text-xs text-destructive hover:underline cursor-pointer"
                                 >
                                     Remove
                                 </button>
@@ -618,17 +618,17 @@ export default function TransactionsPage() {
                             type="file"
                             accept="image/*,.pdf"
                             onChange={e => setProofFile(e.target.files[0] || null)}
-                            className="w-full text-sm text-[#86868B] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#F0F0F5] file:text-[#1D1D1F] hover:file:bg-[#D2D2D7] cursor-pointer"
+                            className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
                         />
-                        {proofFile && <p className="text-xs text-[#86868B] mt-1">{proofFile.name}</p>}
+                        {proofFile && <p className="text-xs text-muted-foreground mt-1">{proofFile.name}</p>}
                     </div>
 
-                    {formError && <p className="text-[#FF3B30] text-sm">{formError}</p>}
+                    {formError && <p className="text-destructive text-sm">{formError}</p>}
 
                     <button
                         type="submit"
                         disabled={submitting}
-                        className="bg-[#007AFF] hover:bg-[#0056CC] disabled:opacity-50 text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                        className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer"
                     >
                         {submitting
                             ? (editingTx ? "Saving…" : "Recording…")

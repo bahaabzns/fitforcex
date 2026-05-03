@@ -1,20 +1,21 @@
 import Modal from "@/app/components/Modal";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function NameModal({ open, title, value, placeholder, submitText, onChange, onSubmit, onClose }) {
     return (
         <Modal open={open} onClose={onClose} title={title}>
             <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
-                <input
+                <Input
                     type="text"
-                    className="input-field"
                     placeholder={placeholder}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     autoFocus
                 />
-                <button className="btn-primary px-4 w-full" type="submit">
+                <Button type="submit" className="w-full">
                     {submitText}
-                </button>
+                </Button>
             </form>
         </Modal>
     );

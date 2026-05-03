@@ -62,7 +62,7 @@ export default function ClientFillFormPage() {
     if (loading) {
         return (
             <div className="p-8 flex items-center justify-center">
-                <p className="text-gray-500">Loading form…</p>
+                <p className="text-muted-foreground">Loading form…</p>
             </div>
         );
     }
@@ -71,19 +71,21 @@ export default function ClientFillFormPage() {
 
     const isSubmitted = data.status !== 'pending';
 
+    const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+
     return (
         <div className="max-w-2xl mx-auto p-6">
             {/* Page header */}
             <div className="flex items-start gap-4 mb-6">
                 <button
                     onClick={() => router.push("/client/forms")}
-                    className="text-gray-400 hover:text-gray-600 text-sm transition-colors cursor-pointer mt-1"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer mt-1"
                 >
                     ← Back
                 </button>
                 <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-gray-900">{data.form_title}</h1>
-                    {data.form_description && <p className="text-sm text-gray-500 mt-0.5">{data.form_description}</p>}
+                    <h1 className="text-2xl font-bold text-foreground">{data.form_title}</h1>
+                    {data.form_description && <p className="text-sm text-muted-foreground mt-0.5">{data.form_description}</p>}
                 </div>
                 {isSubmitted && (
                     <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-medium mt-1">
@@ -93,17 +95,17 @@ export default function ClientFillFormPage() {
             </div>
 
             {isSubmitted && (
-                <div className="mb-2 px-4 py-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-700 font-medium flex items-center gap-2">
+                <div className="mb-2 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700 font-medium flex items-center gap-2">
                     <CheckCircle size={15} /> You have already submitted this form. Your answers are shown below.
                 </div>
             )}
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                     {data.questions.map((q, index) => (
-                        <div key={q.id} className="card flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-gray-800">
+                        <div key={q.id} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col gap-2">
+                            <label className="text-sm font-semibold text-foreground">
                                 {index + 1}. {q.label}
-                                {q.required && <span className="text-red-500 ml-1">*</span>}
+                                {q.required && <span className="text-destructive ml-1">*</span>}
                             </label>
 
                             {q.type === 'text' && (
@@ -113,7 +115,7 @@ export default function ClientFillFormPage() {
                                     onChange={e => setAnswer(q.id, e.target.value)}
                                     placeholder={q.placeholder || ''}
                                     disabled={isSubmitted}
-                                    className="input-field disabled:bg-gray-50 disabled:text-gray-500"
+                                    className={`${inputCls} disabled:bg-secondary disabled:text-muted-foreground`}
                                 />
                             )}
 
@@ -124,7 +126,7 @@ export default function ClientFillFormPage() {
                                     placeholder={q.placeholder || ''}
                                     disabled={isSubmitted}
                                     rows={4}
-                                    className="input-field resize-none disabled:bg-gray-50 disabled:text-gray-500"
+                                    className={`${inputCls} resize-none disabled:bg-secondary disabled:text-muted-foreground`}
                                 />
                             )}
 
@@ -135,14 +137,14 @@ export default function ClientFillFormPage() {
                                     onChange={e => setAnswer(q.id, e.target.value)}
                                     placeholder={q.placeholder || ''}
                                     disabled={isSubmitted}
-                                    className="input-field disabled:bg-gray-50 disabled:text-gray-500"
+                                    className={`${inputCls} disabled:bg-secondary disabled:text-muted-foreground`}
                                 />
                             )}
 
                             {q.type === 'scale' && (
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-xs text-gray-400 w-4 text-right">{q.min_value ?? 1}</span>
+                                        <span className="text-xs text-muted-foreground w-4 text-right">{q.min_value ?? 1}</span>
                                         <input
                                             type="range"
                                             min={q.min_value ?? 1}
@@ -152,9 +154,9 @@ export default function ClientFillFormPage() {
                                             disabled={isSubmitted}
                                             className="flex-1 cursor-pointer"
                                         />
-                                        <span className="text-xs text-gray-400 w-4">{q.max_value ?? 10}</span>
+                                        <span className="text-xs text-muted-foreground w-4">{q.max_value ?? 10}</span>
                                     </div>
-                                    <p className="text-center text-sm font-semibold text-blue-600">
+                                    <p className="text-center text-sm font-semibold text-primary">
                                         {answers[q.id] ?? q.min_value ?? 1}
                                     </p>
                                 </div>
@@ -165,7 +167,7 @@ export default function ClientFillFormPage() {
                                     value={answers[q.id] ?? ''}
                                     onChange={e => setAnswer(q.id, e.target.value)}
                                     disabled={isSubmitted}
-                                    className="input-field disabled:bg-gray-50 disabled:text-gray-500"
+                                    className={`${inputCls} disabled:bg-secondary disabled:text-muted-foreground`}
                                 >
                                     <option value="">Select an option…</option>
                                     {(q.options ?? []).map(opt => (
@@ -193,7 +195,7 @@ export default function ClientFillFormPage() {
                                                     }}
                                                     className="cursor-pointer"
                                                 />
-                                                <span className="text-sm text-gray-700">{opt}</span>
+                                                <span className="text-sm text-foreground">{opt}</span>
                                             </label>
                                         );
                                     })}
@@ -203,7 +205,7 @@ export default function ClientFillFormPage() {
                     ))}
 
                     {error && (
-                        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-3">
                             {error}
                         </p>
                     )}

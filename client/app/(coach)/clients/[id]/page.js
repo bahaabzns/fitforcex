@@ -6,7 +6,7 @@ import api from "@/lib/axios";
 import { Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
 import Modal from "@/app/components/Modal";
 
-const inputCls = "w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] text-sm focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors";
+const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
 function generatePassword(length = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
@@ -69,18 +69,18 @@ function CountryCodeSelect({ value, onChange }) {
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="w-24 px-3 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] text-sm text-left focus:outline-none focus:border-[#007AFF] truncate transition-colors"
+                className="w-24 px-3 py-2 rounded-lg bg-background border border-input text-foreground text-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring truncate transition-colors"
             >
                 {value || "+?"}
             </button>
             {open && (
-                <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-white border border-[#D2D2D7] rounded-xl shadow-lg overflow-hidden">
+                <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
                     <input
                         type="text"
                         placeholder="Search country or code..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#F5F5F7] border-b border-[#D2D2D7] text-[#1D1D1F] text-xs placeholder-[#86868B] focus:outline-none"
+                        className="w-full px-3 py-2 bg-background border-b border-border text-foreground text-xs placeholder:text-muted-foreground focus-visible:outline-none"
                         autoFocus
                     />
                     <div className="max-h-48 overflow-y-auto">
@@ -90,14 +90,14 @@ function CountryCodeSelect({ value, onChange }) {
                                 type="button"
                                 onClick={() => { onChange(c.code); setOpen(false); setSearch(""); }}
                                 className={`w-full px-3 py-1.5 text-left text-xs transition-colors flex justify-between ${
-                                    value === c.code ? "bg-[#007AFF]/10 text-[#007AFF]" : "text-[#1D1D1F] hover:bg-[#F0F0F5]"
+                                    value === c.code ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"
                                 }`}
                             >
                                 <span>{c.name}</span>
-                                <span className="text-[#86868B]">{c.code}</span>
+                                <span className="text-muted-foreground">{c.code}</span>
                             </button>
                         ))}
-                        {filtered.length === 0 && <p className="px-3 py-2 text-[#86868B] text-xs">No results</p>}
+                        {filtered.length === 0 && <p className="px-3 py-2 text-muted-foreground text-xs">No results</p>}
                     </div>
                 </div>
             )}
@@ -210,84 +210,84 @@ export default function ClientOverviewPage() {
     <>
       {loading ? (
         <div className="p-8 flex flex-col gap-4">
-          {[1,2,3].map(i => <div key={i} className="h-12 rounded-xl bg-[#F0F0F5] animate-pulse" />)}
+          {[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-secondary animate-pulse" />)}
         </div>
       ) : !client ? (
-        <div className="p-8 text-[#86868B]">Client not found.</div>
+        <div className="p-8 text-muted-foreground">Client not found.</div>
       ) : (
         <div className="p-8 flex flex-col gap-6">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-[#1D1D1F] flex-1">
+            <h1 className="text-3xl font-bold text-foreground flex-1">
               #{client.code ?? client.client_code} — {client.fname} {client.lname}
             </h1>
             <button
               onClick={openEdit}
-              className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm"
+              className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
             >
               Edit
             </button>
             <button
               onClick={handleDelete}
-              className="bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 text-[#FF3B30] font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm"
+              className="bg-destructive/10 hover:bg-destructive/20 text-destructive font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
             >
               Delete
             </button>
           </div>
 
           {/* Info Card */}
-          <div className="card">
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
             <div className="flex flex-col gap-3">
               <div className="flex gap-2">
-                <span className="text-sm text-[#86868B] font-medium w-32 shrink-0">Email</span>
-                <span className="text-sm text-[#1D1D1F]">{client.email || "—"}</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Email</span>
+                <span className="text-sm text-foreground">{client.email || "—"}</span>
               </div>
               <div className="flex gap-2">
-                <span className="text-sm text-[#86868B] font-medium w-32 shrink-0">Phone</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Phone</span>
                 <div className="flex flex-col gap-0.5">
                   {(client.phones && client.phones.length > 0)
                     ? client.phones.map((p, i) => (
-                        <span key={i} className={`text-sm ${i === 0 ? "text-[#1D1D1F]" : "text-[#86868B]"}`}>
+                        <span key={i} className={`text-sm ${i === 0 ? "text-foreground" : "text-muted-foreground"}`}>
                           {p.countryCode} {p.number}
                         </span>
                       ))
-                    : <span className="text-sm text-[#1D1D1F]">{client.phone || "—"}</span>
+                    : <span className="text-sm text-foreground">{client.phone || "—"}</span>
                   }
                 </div>
               </div>
               <div className="flex gap-2">
-                <span className="text-sm text-[#86868B] font-medium w-32 shrink-0">Client Code</span>
-                <span className="text-sm font-semibold text-[#007AFF]">#{client.code ?? client.client_code}</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Client Code</span>
+                <span className="text-sm font-semibold text-primary">#{client.code ?? client.client_code}</span>
               </div>
               <div className="flex gap-2">
-                <span className="text-sm text-[#86868B] font-medium w-32 shrink-0">Package</span>
-                <span className="text-sm text-[#1D1D1F]">{client.current_package || "—"}</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Package</span>
+                <span className="text-sm text-foreground">{client.current_package || "—"}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-[#86868B] font-medium w-32 shrink-0">Portal Password</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Portal Password</span>
                 {client.plain_password ? (
                   <>
-                    <span className="font-mono text-sm text-[#1D1D1F]">
+                    <span className="font-mono text-sm text-foreground">
                       {showStoredPassword ? client.plain_password : "•".repeat(client.plain_password.length)}
                     </span>
                     <button
                       onClick={() => setShowStoredPassword(v => !v)}
-                      className="text-[#86868B] hover:text-[#1D1D1F] cursor-pointer transition-colors"
+                      className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                     >
                       {showStoredPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </>
                 ) : (
-                  <span className="text-sm text-[#86868B]">Not set</span>
+                  <span className="text-sm text-muted-foreground">Not set</span>
                 )}
               </div>
               {client.plain_password && (
                 <div>
                   <button
                     onClick={copyCredentials}
-                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-[#D2D2D7] text-[#86868B] hover:text-[#007AFF] hover:border-[#007AFF] transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer"
                   >
-                    {copied ? <Check size={14} className="text-[#34C759]" /> : <Copy size={14} />}
+                    {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                     {copied ? "Copied!" : "Copy Credentials"}
                   </button>
                 </div>
@@ -327,7 +327,7 @@ export default function ClientOverviewPage() {
               />
 
               {/* Phone numbers */}
-              <label className="text-[#86868B] text-xs font-medium">Phone Numbers</label>
+              <label className="text-muted-foreground text-xs font-medium">Phone Numbers</label>
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2 items-center">
                   <CountryCodeSelect value={editPhones[0].countryCode} onChange={code => updateEditPhone(0, "countryCode", code)} />
@@ -346,15 +346,15 @@ export default function ClientOverviewPage() {
                   </div>
                 )}
                 {editPhoneCount < 3 && (
-                  <button type="button" onClick={() => setEditPhoneCount(c => c + 1)} className="text-xs text-[#007AFF] hover:text-[#0056CC] self-start transition-colors cursor-pointer">
+                  <button type="button" onClick={() => setEditPhoneCount(c => c + 1)} className="text-xs text-primary hover:text-primary/80 self-start transition-colors cursor-pointer">
                     + Add another phone
                   </button>
                 )}
               </div>
 
               {/* Password */}
-              <div className="border-t border-[#D2D2D7] pt-3 mt-1 flex flex-col gap-1">
-                <label className="text-xs font-medium text-[#86868B]">
+              <div className="border-t border-border pt-3 mt-1 flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">
                   New Password <span className="font-normal">(leave blank to keep current)</span>
                 </label>
                 <div className="flex gap-2">
@@ -364,12 +364,12 @@ export default function ClientOverviewPage() {
                       value={newPassword}
                       onChange={e => { setNewPassword(e.target.value); setPasswordError(""); }}
                       placeholder="New portal password"
-                      className={`${inputCls} pr-10 ${passwordError ? "border-[#FF3B30]" : ""}`}
+                      className={`${inputCls} pr-10 ${passwordError ? "border-destructive" : ""}`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(v => !v)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-[#1D1D1F] cursor-pointer"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       tabIndex={-1}
                     >
                       {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -378,22 +378,22 @@ export default function ClientOverviewPage() {
                   <button
                     type="button"
                     onClick={() => { setNewPassword(generatePassword()); setShowNewPassword(true); setPasswordError(""); }}
-                    className="cursor-pointer p-2 rounded-xl border border-[#D2D2D7] text-[#86868B] hover:text-[#007AFF] hover:border-[#007AFF] transition-colors shrink-0"
+                    className="cursor-pointer p-2 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors shrink-0"
                   >
                     <RefreshCw size={15} />
                   </button>
                 </div>
-                {passwordError && <p className="text-xs text-[#FF3B30]">{passwordError}</p>}
+                {passwordError && <p className="text-xs text-destructive">{passwordError}</p>}
               </div>
 
               <div className="flex gap-2 mt-1">
-                <button type="submit" className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer flex-1 text-sm">
+                <button type="submit" className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer flex-1 text-sm">
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowEditForm(false)}
-                  className="bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 text-[#FF3B30] font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer flex-1 text-sm"
+                  className="bg-destructive/10 hover:bg-destructive/20 text-destructive font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer flex-1 text-sm"
                 >
                   Cancel
                 </button>

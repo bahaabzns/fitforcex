@@ -27,16 +27,16 @@ export default function ClientLoginPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-blue-50">
-            <div className="card w-full max-w-sm p-8">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Client Portal</h1>
-                <p className="text-sm text-gray-500 mb-6">Sign in with the credentials provided by your coach.</p>
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm p-8">
+                <h1 className="text-2xl font-bold text-foreground mb-2">Client Portal</h1>
+                <p className="text-sm text-muted-foreground mb-6">Sign in with the credentials provided by your coach.</p>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1">
-                        <label className="text-sm font-medium text-gray-700">Email</label>
+                        <label className="text-sm font-medium text-foreground">Email</label>
                         <input
                             type="email"
-                            className="input-field"
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
                             placeholder="you@example.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -46,10 +46,10 @@ export default function ClientLoginPage() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                        <label className="text-sm font-medium text-gray-700">Password</label>
+                        <label className="text-sm font-medium text-foreground">Password</label>
                         <input
                             type="password"
-                            className="input-field"
+                            className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
                             placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -59,7 +59,7 @@ export default function ClientLoginPage() {
                     </div>
 
                     {error && (
-                        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
                             {error}
                         </p>
                     )}

@@ -29,7 +29,7 @@ export default function ClientFormsListPage() {
     if (loading) {
         return (
             <div className="p-8 flex items-center justify-center">
-                <p className="text-sm text-gray-400">Loading…</p>
+                <p className="text-sm text-muted-foreground">Loading…</p>
             </div>
         );
     }
@@ -38,7 +38,7 @@ export default function ClientFormsListPage() {
         <div className="p-8 max-w-3xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 flex-1">Forms</h1>
+                <h1 className="text-2xl font-bold text-foreground flex-1">Forms</h1>
                 {pendingCount > 0 && (
                     <span className="text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
                         {pendingCount} pending
@@ -47,7 +47,7 @@ export default function ClientFormsListPage() {
             </div>
 
             {/* Filter tabs */}
-            <div className="flex gap-1 mb-5 border-b border-gray-200 -mt-2">
+            <div className="flex gap-1 mb-5 border-b border-border -mt-2">
                 {[
                     { key: "all", label: "All" },
                     { key: "pending", label: "Pending" },
@@ -59,8 +59,8 @@ export default function ClientFormsListPage() {
                         onClick={() => setFilter(tab.key)}
                         className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer -mb-px border-b-2 ${
                             filter === tab.key
-                                ? "text-blue-600 border-blue-500"
-                                : "text-gray-500 border-transparent hover:text-gray-700"
+                                ? "text-primary border-primary"
+                                : "text-muted-foreground border-transparent hover:text-foreground"
                         }`}
                     >
                         {tab.label}
@@ -69,9 +69,9 @@ export default function ClientFormsListPage() {
             </div>
 
             {filtered.length === 0 ? (
-                <div className="card flex flex-col items-center justify-center py-16 gap-3 text-center">
-                    <ClipboardList size={40} className="text-gray-200" />
-                    <p className="text-base font-medium text-gray-600">
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col items-center justify-center py-16 gap-3 text-center">
+                    <ClipboardList size={40} className="text-muted-foreground/30" />
+                    <p className="text-base font-medium text-muted-foreground">
                         {filter === "pending"
                             ? "No pending forms"
                             : filter === "scheduled"
@@ -80,18 +80,18 @@ export default function ClientFormsListPage() {
                             ? "No submitted forms yet"
                             : "No forms yet"}
                     </p>
-                    <p className="text-sm text-gray-400">Your coach will send forms for you to fill out.</p>
+                    <p className="text-sm text-muted-foreground/70">Your coach will send forms for you to fill out.</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">
                     {filtered.map(req => (
-                        <div key={req.id} className="card flex items-center gap-4">
+                        <div key={req.id} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex items-center gap-4">
                             <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-gray-900">{req.form_title}</p>
+                                <p className="font-semibold text-foreground">{req.form_title}</p>
                                 {req.form_description && (
-                                    <p className="text-sm text-gray-400 mt-0.5">{req.form_description}</p>
+                                    <p className="text-sm text-muted-foreground mt-0.5">{req.form_description}</p>
                                 )}
-                                <p className="text-xs text-gray-400 mt-1">
+                                <p className="text-xs text-muted-foreground mt-1">
                                     {req.status === "scheduled" && req.scheduled_at
                                         ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
                                         : `Requested ${new Date(req.requested_at).toLocaleDateString()}`}
@@ -117,7 +117,7 @@ export default function ClientFormsListPage() {
                                         <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
                                             <CalendarClock size={11} /> Scheduled
                                         </span>
-                                        <span className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400">
+                                        <span className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
                                             Not Open Yet
                                         </span>
                                     </div>
@@ -128,7 +128,7 @@ export default function ClientFormsListPage() {
                                         </span>
                                         <Link
                                             href={`/client/forms/${req.id}`}
-                                            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-blue-500 hover:border-blue-300 transition-colors"
+                                            className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
                                         >
                                             View Answers
                                         </Link>

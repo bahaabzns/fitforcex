@@ -106,7 +106,7 @@ export default function MiddlePanel({
                             if (e.key === "Enter") e.target.blur();
                             if (e.key === "Escape") { e.target.value = selectedPlan.name; e.target.blur(); }
                         }}
-                        className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-blue-200 focus:border-blue-500 focus:bg-blue-50 truncate text-gray-900"
+                        className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
                     />
                     {isSelectedPlanDirty && (
                         <button
@@ -114,7 +114,7 @@ export default function MiddlePanel({
                             onClick={() => handleSaveSelectedPlan(selectedPlan.id)}
                             disabled={isSaving}
                             className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
-                                isSaving ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+                                isSaving ? "bg-secondary text-muted-foreground cursor-not-allowed" : "bg-primary hover:bg-primary/90 text-white cursor-pointer"
                             }`}
                         >
                             {isSaving || saveStatus === "saving" ? "Saving..." : "Save Plan"}
@@ -126,7 +126,7 @@ export default function MiddlePanel({
                             onClick={() => { if (submissionId) { setActivateModal(true); return; } handleActivatePlan(selectedPlan.id); }}
                             disabled={isSaving || activating}
                             className={`h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
-                                isSaving || activating ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer"
+                                isSaving || activating ? "bg-secondary text-muted-foreground cursor-not-allowed" : "bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer"
                             }`}
                         >
                             {activating ? "Activating..." : "Activate"}
@@ -142,12 +142,12 @@ export default function MiddlePanel({
                             Saved
                         </span>
                     )}
-                    
+
                     {onClose && (
                         <button
                             title="Close panel"
                             onClick={onClose}
-                            className="cursor-pointer p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                            className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
@@ -157,19 +157,19 @@ export default function MiddlePanel({
                 {/* Days header */}
                 <div className="flex items-center gap-3 mb-3 shrink-0">
                     <button
-                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                        className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                         onClick={() => setDaysCollapsed(v => !v)}
                     >
                         <ChevronIcon up={!daysCollapsed} />
                     </button>
-                    <h3 className="text-base font-semibold text-gray-900 flex-1">
+                    <h3 className="text-base font-semibold text-foreground flex-1">
                         Days
-                        <span className="ml-2 text-xs font-normal text-gray-400">{selectedPlan.days?.length ?? 0}</span>
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedPlan.days?.length ?? 0}</span>
                     </h3>
                     {!daysCollapsed && (
                         <button
                             onClick={handleCreateDay}
-                            className="h-8 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors cursor-pointer"
+                            className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors cursor-pointer"
                         >
                             + Add Day
                         </button>
@@ -192,15 +192,15 @@ export default function MiddlePanel({
                                 onDrop={() => { handleReorderDays(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                 onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
                                 onClick={() => handleSelectDay(day.id)}
-                                className={`group relative w-full text-left rounded-xl border px-3 py-3 transition-all cursor-pointer select-none ${
+                                className={`group relative w-full text-left rounded-lg border px-3 py-3 transition-all cursor-pointer select-none ${
                                     isDragging ? "opacity-30 scale-95" : ""
                                 } ${
-                                    isActive ? "bg-blue-50 border-blue-200" : "border-gray-200 hover:bg-gray-50"
+                                    isActive ? "bg-primary/10 border-primary/30" : "border-border hover:bg-accent"
                                 }`}
                             >
                                 <div className="flex items-center gap-2">
                                     {/* Drag grip */}
-                                    <span className="text-gray-300 hover:text-gray-500 cursor-grab shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    <span className="text-muted-foreground/50 hover:text-muted-foreground cursor-grab shrink-0" onClick={(e) => e.stopPropagation()}>
                                         <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
                                             <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
                                             <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
@@ -208,10 +208,10 @@ export default function MiddlePanel({
                                         </svg>
                                     </span>
                                     <div className="flex-1 min-w-0 pr-14">
-                                        <p className={`text-sm font-medium truncate ${isActive ? "text-blue-700" : "text-gray-800"}`}>
+                                        <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
                                             {day.name}
                                         </p>
-                                        <p className="text-xs text-gray-500 mt-1">
+                                        <p className="text-xs text-muted-foreground mt-1">
                                             {day.exercises?.length ?? 0} exercises · {setCount} sets
                                         </p>
                                     </div>
@@ -221,14 +221,14 @@ export default function MiddlePanel({
                                     <button
                                         title="Duplicate day"
                                         onClick={(e) => { e.stopPropagation(); handleDuplicateDay(day.id); }}
-                                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-white/80 transition-colors"
+                                        className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground hover:bg-card/80 transition-colors"
                                     >
                                         <DuplicateIcon />
                                     </button>
                                     <button
                                         title="Delete day"
                                         onClick={(e) => { e.stopPropagation(); handleDeleteDay(day.id); }}
-                                        className="cursor-pointer p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                        className="cursor-pointer p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                     >
                                         <TrashIcon />
                                     </button>
@@ -237,25 +237,25 @@ export default function MiddlePanel({
                         );
                     })}
                     {currentDays.length === 0 && (
-                        <div className="text-center py-10 text-sm text-gray-400">No days yet</div>
+                        <div className="text-center py-10 text-sm text-muted-foreground">No days yet</div>
                     )}
                 </div>}
 
                 {/* Divider between Meals and Notes */}
-                <div className="shrink-0 border-t border-gray-100 my-2" />
+                <div className="shrink-0 border-t border-border my-2" />
 
                 {/* Notes Section */}
                 <div className="flex flex-col shrink-0">
                     <div className="flex items-center gap-3 mb-3">
                         <button
-                            className="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                            className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
                             onClick={() => setNotesOpen(n => !n)}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points={notesOpen ? "6 9 12 15 18 9" : "18 15 12 9 6 15"}/>
                             </svg>
                         </button>
-                        <h3 className="text-base font-semibold text-gray-900">Notes</h3>
+                        <h3 className="text-base font-semibold text-foreground">Notes</h3>
                     </div>
                     {!notesOpen && (
                         <textarea
@@ -267,7 +267,7 @@ export default function MiddlePanel({
                                     const val = e.target.value;
                                 if (val !== (selectedPlan.notes ?? "")) handleUpdatePlanNotes(selectedPlan.id, val);
                                 }}
-                                className="w-full mb-2 px-3 py-2.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl outline-none resize-none placeholder-gray-400 hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50 transition-colors"
+                                className="w-full mb-2 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                             />
                         )}
                 </div>
@@ -275,9 +275,9 @@ export default function MiddlePanel({
 
             {activateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40" onClick={() => setActivateModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="text-base font-semibold text-gray-900 mb-2">Activate & Mark as Done</h3>
-                        <p className="text-sm text-gray-600 mb-6">
+                    <div className="bg-card rounded-lg shadow-xl p-6 max-w-lg w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-base font-semibold text-foreground mb-2">Activate & Mark as Done</h3>
+                        <p className="text-sm text-muted-foreground mb-6">
                             You will activate this training plan and mark the submission as <span className="font-medium text-emerald-600">Action Done</span>.
                         </p>
                         <div className="flex gap-2">
@@ -286,11 +286,11 @@ export default function MiddlePanel({
                                 {activating ? "Working..." : "Activate & Stay Here"}
                             </button>
                             <button type="button" onClick={() => handleActivateAndMark(true)} disabled={activating}
-                                className="h-9 px-3 rounded-lg text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white cursor-pointer disabled:opacity-50">
+                                className="h-9 px-3 rounded-lg text-xs font-semibold bg-primary hover:bg-primary/90 text-white cursor-pointer disabled:opacity-50">
                                 Activate & Go to Queue
                             </button>
                             <button type="button" onClick={() => setActivateModal(false)}
-                                className="h-9 px-3 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                className="h-9 px-3 rounded-lg text-xs font-semibold border border-border text-foreground hover:bg-accent cursor-pointer">
                                 Cancel
                             </button>
                         </div>

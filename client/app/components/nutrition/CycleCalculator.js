@@ -57,7 +57,7 @@ function calcBMR(formula, gender, { age, weight, height, neck, waist, hip }) {
 
 function SectionLabel({ children }) {
     return (
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
             {children}
         </p>
     );
@@ -67,11 +67,11 @@ function InputWithUnit({ label, unit, value, onChange, placeholder, step, min, m
     return (
         <div className="flex flex-col gap-1">
             {label && (
-                <label className="text-xs font-medium text-gray-500">
-                    {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+                <label className="text-xs font-medium text-muted-foreground">
+                    {label}{required && <span className="text-destructive ml-0.5">*</span>}
                 </label>
             )}
-            <div className="flex items-center rounded-xl border border-[var(--border-color)] bg-[#FAFAFA] overflow-hidden focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] transition">
+            <div className="flex items-center rounded-lg border border-border bg-secondary overflow-hidden focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition">
                 <input
                     type="number"
                     value={value}
@@ -80,10 +80,10 @@ function InputWithUnit({ label, unit, value, onChange, placeholder, step, min, m
                     step={step}
                     min={min}
                     max={max}
-                    className="flex-1 px-3 py-2.5 bg-transparent outline-none text-sm text-gray-900 min-w-0"
+                    className="flex-1 px-3 py-2.5 bg-transparent outline-none text-sm text-foreground min-w-0"
                 />
                 {unit && (
-                    <span className="px-3 text-xs font-medium text-gray-400 border-l border-[var(--border-color)] shrink-0">
+                    <span className="px-3 text-xs font-medium text-muted-foreground border-l border-border shrink-0">
                         {unit}
                     </span>
                 )}
@@ -172,7 +172,7 @@ export default function CycleCalculator({ cycle, onApply }) {
     const bfCategories = gender === "male" ? BF_CATEGORIES_MALE : BF_CATEGORIES_FEMALE;
 
     const macroConfig = [
-        { key: "protein", label: "Protein", bar: "bg-blue-400",  text: "text-blue-500",  g: proteinG },
+        { key: "protein", label: "Protein", bar: "bg-blue-400",  text: "text-primary",  g: proteinG },
         { key: "carbs",   label: "Carbs",   bar: "bg-amber-400", text: "text-amber-500", g: carbsG   },
         { key: "fats",    label: "Fats",    bar: "bg-pink-400",  text: "text-pink-500",  g: fatsG    },
     ];
@@ -192,16 +192,16 @@ export default function CycleCalculator({ cycle, onApply }) {
                         <button
                             key={opt.value}
                             onClick={() => setFormula(opt.value)}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                            className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
                                 formula === opt.value
-                                    ? "border-[var(--accent)] bg-blue-50"
-                                    : "border-[var(--border-color)] hover:border-gray-300 bg-[#FAFAFA]"
+                                    ? "border-primary bg-primary/10"
+                                    : "border-border hover:border-border bg-secondary"
                             }`}
                         >
-                            <p className={`text-sm font-medium ${formula === opt.value ? "text-[var(--accent)]" : "text-gray-700"}`}>
+                            <p className={`text-sm font-medium ${formula === opt.value ? "text-primary" : "text-foreground"}`}>
                                 {opt.label}
                             </p>
-                            <p className="text-xs text-gray-400 mt-0.5">{opt.sub}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{opt.sub}</p>
                         </button>
                     ))}
                 </div>
@@ -210,15 +210,15 @@ export default function CycleCalculator({ cycle, onApply }) {
             {/* ── Gender ── */}
             <div>
                 <SectionLabel>Gender</SectionLabel>
-                <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+                <div className="flex gap-1 p-1 bg-secondary rounded-lg">
                     {["male", "female"].map(g => (
                         <button
                             key={g}
                             onClick={() => setGender(g)}
                             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
                                 gender === g
-                                    ? "bg-white text-gray-900 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
+                                    ? "bg-card text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
                             }`}
                         >
                             {g === "male" ? "Male" : "Female"}
@@ -235,16 +235,16 @@ export default function CycleCalculator({ cycle, onApply }) {
                         <button
                             key={l.value}
                             onClick={() => setActivity(l.value)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border transition-all cursor-pointer ${
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all cursor-pointer ${
                                 activity === l.value
-                                    ? "border-[var(--accent)] bg-blue-50"
-                                    : "border-transparent hover:border-gray-200 hover:bg-gray-50"
+                                    ? "border-primary bg-primary/10"
+                                    : "border-transparent hover:border-border hover:bg-accent"
                             }`}
                         >
-                            <span className={`text-sm font-medium ${activity === l.value ? "text-[var(--accent)]" : "text-gray-700"}`}>
+                            <span className={`text-sm font-medium ${activity === l.value ? "text-primary" : "text-foreground"}`}>
                                 {l.label}
                             </span>
-                            <span className="text-xs text-gray-400">{l.sub}</span>
+                            <span className="text-xs text-muted-foreground">{l.sub}</span>
                         </button>
                     ))}
                 </div>
@@ -264,17 +264,17 @@ export default function CycleCalculator({ cycle, onApply }) {
             <div>
                 <div className="flex items-center justify-between mb-2">
                     <SectionLabel>
-                        Body Fat{formula === "katch" && <span className="text-red-400 ml-1">*</span>}
+                        Body Fat{formula === "katch" && <span className="text-destructive ml-1">*</span>}
                     </SectionLabel>
-                    <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg mb-2">
+                    <div className="flex gap-1 p-0.5 bg-secondary rounded-lg mb-2">
                         {[{ key: "navy", label: "Measure" }, { key: "direct", label: "Direct %" }].map(m => (
                             <button
                                 key={m.key}
                                 onClick={() => setBfMode(m.key)}
                                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
                                     bfMode === m.key
-                                        ? "bg-white text-gray-800 shadow-sm"
-                                        : "text-gray-400 hover:text-gray-600"
+                                        ? "bg-card text-foreground shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
                                 }`}
                             >
                                 {m.label}
@@ -316,25 +316,25 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* ── Results ── */}
             {result && (
-                <div ref={resultsRef} className="flex flex-col gap-4 pt-4 border-t border-gray-100">
+                <div ref={resultsRef} className="flex flex-col gap-4 pt-4 border-t border-border">
 
                     {/* BMR */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-[var(--border-color)]">
-                        <span className="text-xs font-semibold text-gray-500">Basal Metabolic Rate (BMR)</span>
-                        <span className="text-sm font-bold text-gray-800">{result.bmr.toLocaleString()} kcal</span>
+                    <div className="flex items-center justify-between px-4 py-3 bg-secondary rounded-lg border border-border">
+                        <span className="text-xs font-semibold text-muted-foreground">Basal Metabolic Rate (BMR)</span>
+                        <span className="text-sm font-bold text-foreground">{result.bmr.toLocaleString()} kcal</span>
                     </div>
 
                     {/* TDEE */}
-                    <div className="flex flex-col items-center gap-1 py-4 bg-blue-50 rounded-2xl border border-blue-100">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-400">Daily Calorie Target</span>
+                    <div className="flex flex-col items-center gap-1 py-4 bg-primary/10 rounded-lg border border-primary/20">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70">Daily Calorie Target</span>
                         <input
                             type="number"
                             value={tdee}
                             onChange={e => setTdee(e.target.value)}
-                            className="text-4xl font-bold text-blue-600 bg-transparent text-center outline-none w-36"
+                            className="text-4xl font-bold text-primary bg-transparent text-center outline-none w-36"
                             min={0}
                         />
-                        <span className="text-xs text-blue-400">kcal / day · tap to adjust</span>
+                        <span className="text-xs text-primary/70">kcal / day · tap to adjust</span>
                     </div>
 
                     {/* Macros */}
@@ -342,7 +342,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                         <div className="flex items-center justify-between mb-3">
                             <SectionLabel>Macro Split</SectionLabel>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                totalPct === 100 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
+                                totalPct === 100 ? "bg-green-100 text-green-700" : "bg-destructive/10 text-destructive"
                             }`}>
                                 {totalPct}%
                             </span>
@@ -351,34 +351,34 @@ export default function CycleCalculator({ cycle, onApply }) {
                             {macroConfig.map(({ key, label, bar, text, g }) => (
                                 <div key={key} className="flex items-center gap-3">
                                     <span className={`text-xs font-semibold w-12 shrink-0 ${text}`}>{label}</span>
-                                    <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[#FAFAFA] overflow-hidden focus-within:border-[var(--accent)] transition shrink-0">
+                                    <div className="flex items-center rounded-lg border border-border bg-secondary overflow-hidden focus-within:border-primary/40 transition shrink-0">
                                         <input
                                             type="number"
-                                            className="w-12 px-2 py-1.5 bg-transparent outline-none text-sm text-center text-gray-800"
+                                            className="w-12 px-2 py-1.5 bg-transparent outline-none text-sm text-center text-foreground"
                                             value={macros[key]}
                                             onChange={e => handleMacroPct(key, e.target.value)}
                                             min={0} max={100}
                                         />
-                                        <span className="pr-2 text-xs text-gray-400">%</span>
+                                        <span className="pr-2 text-xs text-muted-foreground">%</span>
                                     </div>
-                                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                    <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
                                         <div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${macros[key]}%` }} />
                                     </div>
-                                    <span className="text-xs font-semibold text-gray-700 w-10 text-right shrink-0">{g}g</span>
+                                    <span className="text-xs font-semibold text-foreground w-10 text-right shrink-0">{g}g</span>
                                 </div>
                             ))}
                         </div>
                         {totalPct !== 100 && (
-                            <p className="text-xs text-red-500 mt-2">Macros must add up to 100%</p>
+                            <p className="text-xs text-destructive mt-2">Macros must add up to 100%</p>
                         )}
                     </div>
 
                     {/* Body Fat Result */}
                     {result.bodyFat !== null && (
                         <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-[var(--border-color)]">
-                                <span className="text-xs font-semibold text-gray-500">Estimated Body Fat</span>
-                                <span className="text-sm font-bold text-gray-800">{result.bodyFat}%</span>
+                            <div className="flex items-center justify-between px-4 py-3 bg-secondary rounded-lg border border-border">
+                                <span className="text-xs font-semibold text-muted-foreground">Estimated Body Fat</span>
+                                <span className="text-sm font-bold text-foreground">{result.bodyFat}%</span>
                             </div>
                             <div className="flex flex-col gap-0.5">
                                 {bfCategories.map(({ label, range }) => {
@@ -393,10 +393,10 @@ export default function CycleCalculator({ cycle, onApply }) {
                                     })();
                                     return (
                                         <div key={label} className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${isHighlighted ? "bg-amber-50 border border-amber-200" : ""}`}>
-                                            <span className={`text-xs font-medium ${isHighlighted ? "text-amber-600" : "text-gray-400"}`}>
+                                            <span className={`text-xs font-medium ${isHighlighted ? "text-amber-600" : "text-muted-foreground"}`}>
                                                 {isHighlighted && "▶ "}{label}
                                             </span>
-                                            <span className={`text-xs font-semibold ${isHighlighted ? "text-amber-600" : "text-gray-400"}`}>
+                                            <span className={`text-xs font-semibold ${isHighlighted ? "text-amber-600" : "text-muted-foreground"}`}>
                                                 {range}
                                             </span>
                                         </div>

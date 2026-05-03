@@ -46,7 +46,7 @@ export default function ClientSidebar() {
                 <button
                     onClick={() => setCollapsed(c => !c)}
                     title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    className={`p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-black/5 transition-colors cursor-pointer shrink-0 ${collapsed ? "mx-auto" : "ml-auto"}`}
+                    className={`p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0 ${collapsed ? "mx-auto" : "ml-auto"}`}
                 >
                     {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                 </button>

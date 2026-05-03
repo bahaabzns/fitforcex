@@ -21,9 +21,9 @@ const TYPE_COLORS = {
     bank_transfer: "bg-orange-50 text-orange-600",
 };
 
-const editInputCls = "w-full px-2 py-1 rounded-lg border border-[#D2D2D7] text-[#1D1D1F] text-sm focus:outline-none focus:border-[#007AFF]";
-const activeBadge   = "bg-[#34C759]/10 text-[#34C759] hover:bg-[#34C759]/20";
-const inactiveBadge = "bg-[#F0F0F5] text-[#86868B] hover:bg-[#D2D2D7]";
+const editInputCls = "w-full px-2 py-1 rounded-lg border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+const activeBadge   = "bg-green-100 text-green-600 hover:bg-green-100/80";
+const inactiveBadge = "bg-secondary text-muted-foreground hover:bg-secondary/80";
 
 export default function PaymentMethodsPage() {
     const [methods, setMethods] = useState([]);
@@ -59,7 +59,7 @@ export default function PaymentMethodsPage() {
                         />
                     );
                 }
-                return <span className="font-medium text-[#1D1D1F]">{row.name}</span>;
+                return <span className="font-medium text-foreground">{row.name}</span>;
             },
         },
         {
@@ -74,7 +74,7 @@ export default function PaymentMethodsPage() {
                         <select
                             value={editData.type}
                             onChange={(e) => setEditData({ ...editData, type: e.target.value })}
-                            className="px-2 py-1 rounded-lg border border-[#D2D2D7] text-[#1D1D1F] text-sm focus:outline-none focus:border-[#007AFF]"
+                            className="px-2 py-1 rounded-lg border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                             {TYPES.map(t => (
                                 <option key={t} value={t}>{TYPE_LABELS[t]}</option>
@@ -83,7 +83,7 @@ export default function PaymentMethodsPage() {
                     );
                 }
                 return (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[row._typeRaw] ?? "bg-[#F0F0F5] text-[#86868B]"}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[row._typeRaw] ?? "bg-secondary text-muted-foreground"}`}>
                         {row.type}
                     </span>
                 );
@@ -134,15 +134,15 @@ export default function PaymentMethodsPage() {
                 if (editingId === row.id) {
                     return (
                         <div className="flex gap-2 justify-end">
-                            <button onClick={() => handleSaveEdit(row)} className="text-xs text-[#007AFF] hover:text-[#0056CC] cursor-pointer">Save</button>
-                            <button onClick={() => { setEditingId(null); setError(""); }} className="text-xs text-[#86868B] hover:text-[#1D1D1F] cursor-pointer">Cancel</button>
+                            <button onClick={() => handleSaveEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">Save</button>
+                            <button onClick={() => { setEditingId(null); setError(""); }} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">Cancel</button>
                         </div>
                     );
                 }
                 return (
                     <div className="flex gap-2 justify-end">
-                        <button onClick={() => startEdit(row)} className="text-xs text-[#007AFF] hover:text-[#0056CC] cursor-pointer">Edit</button>
-                        <button onClick={() => handleDelete(row.id)} className="text-xs text-[#FF3B30] hover:text-red-700 cursor-pointer">Delete</button>
+                        <button onClick={() => startEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">Edit</button>
+                        <button onClick={() => handleDelete(row.id)} className="text-xs text-destructive hover:text-red-700 cursor-pointer">Delete</button>
                     </div>
                 );
             },
@@ -222,9 +222,9 @@ export default function PaymentMethodsPage() {
     if (loading) {
         return (
             <div className="p-6 flex flex-col gap-6">
-                <h1 className="text-3xl font-bold text-[#1D1D1F]">Payment Methods</h1>
+                <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
                 <div className="flex flex-col gap-2">
-                    {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-xl bg-[#F0F0F5] animate-pulse" />)}
+                    {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
                 </div>
             </div>
         );
@@ -234,10 +234,10 @@ export default function PaymentMethodsPage() {
         <div className="p-6 flex flex-col gap-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-[#1D1D1F]">Payment Methods</h1>
+                <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
                 <button
                     onClick={() => { setShowForm(true); setError(""); setFormName(""); setFormType("cash"); }}
-                    className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer"
                 >
                     + New Method
                 </button>
@@ -245,14 +245,14 @@ export default function PaymentMethodsPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="card">
-                    <p className="text-sm text-[#86868B] font-medium">Total</p>
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+                    <p className="text-sm text-muted-foreground font-medium">Total</p>
                     <p className="card-number">{methods.length}</p>
-                    <p className="text-xs text-[#86868B] mt-1">{activeCount} active</p>
+                    <p className="text-xs text-muted-foreground mt-1">{activeCount} active</p>
                 </div>
                 {TYPES.map(t => (
-                    <div key={t} className="card">
-                        <p className="text-sm text-[#86868B] font-medium">{TYPE_LABELS[t]}</p>
+                    <div key={t} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+                        <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS[t]}</p>
                         <p className="card-number">{typeCounts[t]}</p>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full w-fit mt-1 inline-block ${TYPE_COLORS[t]}`}>{t}</span>
                     </div>
@@ -260,24 +260,24 @@ export default function PaymentMethodsPage() {
             </div>
 
             {/* Error from edit/delete */}
-            {!showForm && error && <p className="text-[#FF3B30] text-sm">{error}</p>}
+            {!showForm && error && <p className="text-destructive text-sm">{error}</p>}
 
             {/* Creation Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title="New Payment Method">
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Name</label>
+                        <label className="block text-sm text-muted-foreground mb-1">Name</label>
                         <input
                             type="text"
                             placeholder="e.g. Vodafone Cash, Visa Card..."
                             value={formName}
                             onChange={(e) => setFormName(e.target.value)}
-                            className="w-full px-4 py-2 rounded-xl bg-[#F5F5F7] border border-[#D2D2D7] text-[#1D1D1F] placeholder-[#86868B] focus:outline-none focus:border-[#007AFF] focus:bg-white transition-colors"
+                            className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                             autoFocus
                         />
                     </div>
                     <div>
-                        <label className="block text-sm text-[#86868B] mb-1">Type</label>
+                        <label className="block text-sm text-muted-foreground mb-1">Type</label>
                         <div className="flex gap-2 flex-wrap">
                             {TYPES.map(t => (
                                 <button
@@ -286,8 +286,8 @@ export default function PaymentMethodsPage() {
                                     onClick={() => setFormType(t)}
                                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
                                         formType === t
-                                            ? "border-[#007AFF] bg-[#007AFF]/10 text-[#007AFF]"
-                                            : "border-[#D2D2D7] bg-[#F5F5F7] text-[#86868B] hover:border-[#007AFF] hover:text-[#007AFF]"
+                                            ? "border-primary bg-primary/10 text-primary"
+                                            : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
                                     }`}
                                 >
                                     {TYPE_LABELS[t]}
@@ -295,8 +295,8 @@ export default function PaymentMethodsPage() {
                             ))}
                         </div>
                     </div>
-                    {error && <p className="text-[#FF3B30] text-sm">{error}</p>}
-                    <button type="submit" className="bg-[#007AFF] hover:bg-[#0056CC] text-white font-medium px-4 py-2 rounded-xl transition-colors cursor-pointer">
+                    {error && <p className="text-destructive text-sm">{error}</p>}
+                    <button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer">
                         Create Method
                     </button>
                 </form>

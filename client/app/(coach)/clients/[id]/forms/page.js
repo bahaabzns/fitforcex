@@ -6,6 +6,8 @@ import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send } from "lucide-react";
 
+const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+
 export default function ClientFormsPage() {
     const { id } = useParams();
     const [requests, setRequests] = useState([]);
@@ -120,7 +122,7 @@ export default function ClientFormsPage() {
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-gray-400">Loading…</p>
+                <p className="text-sm text-muted-foreground">Loading…</p>
             </div>
         );
     }
@@ -136,10 +138,10 @@ export default function ClientFormsPage() {
                 className="flex flex-col overflow-hidden"
                 style={{ width: `${widths[0]}%` }}
             >
-                <div className="card flex flex-col overflow-hidden h-full">
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col overflow-hidden h-full">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4 shrink-0">
-                        <h2 className="text-base font-semibold text-gray-900">Form Requests</h2>
+                        <h2 className="text-base font-semibold text-foreground">Form Requests</h2>
                         <div className="flex items-center gap-2">
                             {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length > 0 && (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
@@ -148,7 +150,7 @@ export default function ClientFormsPage() {
                             )}
                             <button
                                 onClick={openRequestModal}
-                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-purple-500 hover:border-purple-300 transition-colors cursor-pointer"
+                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-purple-500 hover:border-purple-300 transition-colors cursor-pointer"
                             >
                                 <Send size={12} />
                                 Request Form
@@ -158,9 +160,9 @@ export default function ClientFormsPage() {
 
                     {requests.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-8">
-                            <ClipboardList size={36} className="text-gray-200" />
-                            <p className="text-sm font-medium text-gray-500">No form requests yet</p>
-                            <p className="text-xs text-gray-400">Use the &quot;Request Form&quot; button on the Clients page.</p>
+                            <ClipboardList size={36} className="text-muted-foreground/30" />
+                            <p className="text-sm font-medium text-muted-foreground">No form requests yet</p>
+                            <p className="text-xs text-muted-foreground/70">Use the &quot;Request Form&quot; button on the Clients page.</p>
                         </div>
                     ) : (
                         <div className="flex-1 overflow-y-auto flex flex-col gap-1.5">
@@ -168,14 +170,14 @@ export default function ClientFormsPage() {
                                 <button
                                     key={req.id}
                                     onClick={() => setSelected(req)}
-                                    className={`w-full text-left px-3 py-3 rounded-xl border transition-all cursor-pointer ${
+                                    className={`w-full text-left px-3 py-3 rounded-lg border transition-all cursor-pointer ${
                                         selected?.id === req.id
-                                            ? 'border-blue-400 bg-blue-50'
-                                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                                            ? 'border-primary/40 bg-primary/5'
+                                            : 'border-border hover:border-border/80 hover:bg-accent'
                                     }`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
-                                        <p className="text-sm font-medium text-gray-900 truncate flex-1">{req.form_title}</p>
+                                        <p className="text-sm font-medium text-foreground truncate flex-1">{req.form_title}</p>
                                         {req.status === 'pending' ? (
                                             <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium shrink-0">
                                                 <Clock size={10} /> Pending
@@ -191,9 +193,9 @@ export default function ClientFormsPage() {
                                         )}
                                     </div>
                                     {req.form_description && (
-                                        <p className="text-xs text-gray-400 truncate mt-0.5">{req.form_description}</p>
+                                        <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{req.form_description}</p>
                                     )}
-                                    <p className="text-xs text-gray-400 mt-1">
+                                    <p className="text-xs text-muted-foreground/70 mt-1">
                                         {req.status === 'scheduled' && req.scheduled_at
                                             ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
                                             : new Date(req.requested_at).toLocaleDateString()}
@@ -219,23 +221,23 @@ export default function ClientFormsPage() {
                 className="flex flex-col overflow-hidden"
                 style={{ width: `${widths[1]}%` }}
             >
-                <div className="card flex flex-col h-full overflow-hidden">
+                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col h-full overflow-hidden">
                     {!selected ? (
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-                            <ClipboardList size={40} className="text-gray-200" />
-                            <p className="text-sm font-medium text-gray-500">Select a form request</p>
-                            <p className="text-xs text-gray-400">Click on a request from the left to view details.</p>
+                            <ClipboardList size={40} className="text-muted-foreground/30" />
+                            <p className="text-sm font-medium text-muted-foreground">Select a form request</p>
+                            <p className="text-xs text-muted-foreground/70">Click on a request from the left to view details.</p>
                         </div>
                     ) : (
                         <>
                             {/* Detail Header */}
                             <div className="flex items-start justify-between gap-4 mb-5 shrink-0">
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg font-bold text-gray-900">{selected.form_title}</h3>
+                                    <h3 className="text-lg font-bold text-foreground">{selected.form_title}</h3>
                                     {selected.form_description && (
-                                        <p className="text-sm text-gray-400 mt-0.5">{selected.form_description}</p>
+                                        <p className="text-sm text-muted-foreground mt-0.5">{selected.form_description}</p>
                                     )}
-                                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                                         <span>Requested {new Date(selected.requested_at).toLocaleDateString()}</span>
                                         {selected.submitted_at && (
                                             <span>· Submitted {new Date(selected.submitted_at).toLocaleDateString()}</span>
@@ -256,7 +258,7 @@ export default function ClientFormsPage() {
                                             )}
                                             <button
                                                 onClick={() => handleCancel(selected.id)}
-                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-300 transition-colors cursor-pointer"
+                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors cursor-pointer"
                                             >
                                                 <Trash2 size={12} /> Cancel Request
                                             </button>
@@ -276,29 +278,29 @@ export default function ClientFormsPage() {
                                         {selected.status === 'scheduled' ? (
                                             <>
                                                 <CalendarClock size={36} className="text-blue-300" />
-                                                <p className="text-sm font-medium text-gray-600">Form is scheduled</p>
-                                                <p className="text-xs text-gray-400">Client will receive it at {selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : 'the selected time'}.</p>
+                                                <p className="text-sm font-medium text-muted-foreground">Form is scheduled</p>
+                                                <p className="text-xs text-muted-foreground/70">Client will receive it at {selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : 'the selected time'}.</p>
                                             </>
                                         ) : (
                                             <>
                                                 <Clock size={36} className="text-yellow-300" />
-                                                <p className="text-sm font-medium text-gray-600">Waiting for client to respond</p>
-                                                <p className="text-xs text-gray-400">The client will see this form when they log in.</p>
+                                                <p className="text-sm font-medium text-muted-foreground">Waiting for client to respond</p>
+                                                <p className="text-xs text-muted-foreground/70">The client will see this form when they log in.</p>
                                             </>
                                         )}
                                     </div>
                                 ) : selected.responses?.length === 0 ? (
-                                    <p className="text-sm text-gray-400 text-center py-8">No responses recorded.</p>
+                                    <p className="text-sm text-muted-foreground text-center py-8">No responses recorded.</p>
                                 ) : (
                                     <div className="flex flex-col gap-4">
                                         {selected.responses.map((r, i) => (
                                             <div key={i} className="flex flex-col gap-1.5">
-                                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                                                     {i + 1}. {r.label}
                                                 </p>
-                                                <div className="bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
-                                                    <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                                                        {r.answer || <span className="text-gray-400 italic">No answer</span>}
+                                                <div className="bg-secondary rounded-lg px-4 py-3 border border-border">
+                                                    <p className="text-sm text-foreground whitespace-pre-wrap">
+                                                        {r.answer || <span className="text-muted-foreground italic">No answer</span>}
                                                     </p>
                                                 </div>
                                             </div>
@@ -315,15 +317,15 @@ export default function ClientFormsPage() {
         {/* Request Form Modal */}
         <Modal open={requestModal} onClose={() => setRequestModal(false)} title="Request Form from Client">
             <div className="flex flex-col gap-3">
-                <div className="rounded-lg border border-gray-200 p-3">
-                    <p className="text-xs font-semibold text-gray-500 mb-2">Request Timing</p>
+                <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Request Timing</p>
                     <div className="flex gap-2 mb-2">
                         <button
                             onClick={() => setRequestMode('now')}
                             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
                                 requestMode === 'now'
-                                    ? 'bg-blue-500 border-blue-500 text-white'
-                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    ? 'bg-primary border-primary text-white'
+                                    : 'border-border text-muted-foreground hover:bg-accent'
                             }`}
                         >
                             Request Now
@@ -332,8 +334,8 @@ export default function ClientFormsPage() {
                             onClick={() => setRequestMode('schedule')}
                             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
                                 requestMode === 'schedule'
-                                    ? 'bg-blue-500 border-blue-500 text-white'
-                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    ? 'bg-primary border-primary text-white'
+                                    : 'border-border text-muted-foreground hover:bg-accent'
                             }`}
                         >
                             Schedule
@@ -345,27 +347,27 @@ export default function ClientFormsPage() {
                             value={scheduledAt}
                             onChange={(e) => setScheduledAt(e.target.value)}
                             min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
-                            className="input-field"
+                            className={inputCls}
                         />
                     )}
                 </div>
 
                 {activeForms.length === 0 ? (
-                    <p className="text-sm text-gray-500 py-4 text-center">No active forms available. Activate a form first.</p>
+                    <p className="text-sm text-muted-foreground py-4 text-center">No active forms available. Activate a form first.</p>
                 ) : (
                     <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
                         {activeForms.map(form => (
-                            <label key={form.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 cursor-pointer transition-colors">
+                            <label key={form.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-primary/50 cursor-pointer transition-colors">
                                 <input
                                     type="checkbox"
                                     checked={selectedFormIds.includes(form.id)}
                                     onChange={() => toggleFormSelection(form.id)}
-                                    className="mt-0.5 cursor-pointer"
+                                    className="mt-0.5 cursor-pointer accent-primary"
                                 />
                                 <div>
-                                    <p className="text-sm font-medium text-gray-800">{form.title}</p>
-                                    {form.description && <p className="text-xs text-gray-400 mt-0.5">{form.description}</p>}
-                                    <p className="text-xs text-gray-400">{form.question_count} question{form.question_count !== 1 ? 's' : ''}</p>
+                                    <p className="text-sm font-medium text-foreground">{form.title}</p>
+                                    {form.description && <p className="text-xs text-muted-foreground mt-0.5">{form.description}</p>}
+                                    <p className="text-xs text-muted-foreground">{form.question_count} question{form.question_count !== 1 ? 's' : ''}</p>
                                 </div>
                             </label>
                         ))}
@@ -373,17 +375,22 @@ export default function ClientFormsPage() {
                 )}
 
                 {requestError && (
-                    <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{requestError}</p>
+                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">{requestError}</p>
                 )}
                 <div className="flex gap-2 mt-1">
                     <button
                         onClick={handleSendRequests}
                         disabled={requestSending || activeForms.length === 0}
-                        className="btn-primary flex-1 disabled:opacity-50"
+                        className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
                     >
                         {requestSending ? 'Sending...' : 'Send Request'}
                     </button>
-                    <button onClick={() => setRequestModal(false)} className="btn-danger flex-1">Cancel</button>
+                    <button
+                        onClick={() => setRequestModal(false)}
+                        className="flex-1 bg-destructive/10 hover:bg-destructive/20 text-destructive font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
+                    >
+                        Cancel
+                    </button>
                 </div>
             </div>
         </Modal>

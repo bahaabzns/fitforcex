@@ -4,20 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import api from "@/lib/axios";
 import ClientSidebar from "@/app/components/ClientSidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ClientLayout({ children }) {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const pathname = usePathname();
-
     const isLoginPage = pathname === "/client/login";
 
     useEffect(() => {
-        if (isLoginPage) {
-            setLoading(false);
-            return;
-        }
-
+        if (isLoginPage) { setLoading(false); return; }
         api.get("/api/client-portal/me")
             .then(() => setLoading(false))
             .catch(() => router.push("/client/login"));
@@ -25,8 +21,8 @@ export default function ClientLayout({ children }) {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-blue-50">
-                <p className="text-gray-500">Loading…</p>
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <Skeleton className="h-8 w-32" />
             </div>
         );
     }
@@ -36,7 +32,7 @@ export default function ClientLayout({ children }) {
     return (
         <div className="flex h-screen overflow-hidden">
             <ClientSidebar />
-            <main className="flex-1 overflow-y-auto bg-blue-50">
+            <main className="flex-1 overflow-y-auto bg-background text-foreground">
                 {children}
             </main>
         </div>

@@ -58,7 +58,7 @@ export default function FormsPage() {
     if (loading) {
         return (
             <div className="flex h-[calc(100vh-60px)] items-center justify-center">
-                <p className="text-sm text-gray-400">Loading forms…</p>
+                <p className="text-sm text-muted-foreground">Loading forms…</p>
             </div>
         );
     }
@@ -95,9 +95,9 @@ export default function FormsPage() {
                 className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
                 onMouseDown={(e) => handleDividerMouseDown(0, e)}
             >
-                <div className="w-1.5 h-12 bg-blue-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+                <div className="w-1.5 h-12 bg-primary/20 rounded-full group-hover:bg-primary/60 group-active:bg-primary transition-colors" />
             </div>
-            
+
 
             {/* ── Panel 2: Questions List ──────────────────────────── */}
             <div
@@ -127,7 +127,7 @@ export default function FormsPage() {
                 className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
                 onMouseDown={(e) => handleDividerMouseDown(1, e)}
             >
-                <div className="w-1.5 h-12 bg-blue-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+                <div className="w-1.5 h-12 bg-primary/20 rounded-full group-hover:bg-primary/60 group-active:bg-primary transition-colors" />
             </div>
 
             {/* ── Panel 3: Question Editor ─────────────────────────── */}

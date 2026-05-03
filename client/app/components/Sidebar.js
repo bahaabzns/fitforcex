@@ -54,16 +54,16 @@ export default function Sidebar() {
     return (
         <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
             {/* Brand + collapse toggle */}
-            <div className="flex items-center justify-between px-4 py-5 border-b border-(--border-color) shrink-0">
+            <div className="flex items-center justify-between px-4 py-5 border-b border-border shrink-0">
                 {!collapsed && (
-                    <span className="text-xl font-bold truncate" style={{ color: 'var(--accent)', letterSpacing: '-0.3px' }}>
+                    <span className="text-xl font-bold truncate text-primary" style={{ letterSpacing: '-0.3px' }}>
                         FitForce X
                     </span>
                 )}
                 <button
                     onClick={() => setCollapsed(c => !c)}
                     title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    className={`p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-black/5 transition-colors cursor-pointer shrink-0 ${collapsed ? 'mx-auto' : 'ml-auto'}`}
+                    className={`p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer shrink-0 ${collapsed ? 'mx-auto' : 'ml-auto'}`}
                 >
                     {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                 </button>

@@ -76,7 +76,7 @@ export default function PlansQueuePage() {
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-gray-400">Loading plans queue...</p>
+                <p className="text-sm text-muted-foreground">Loading plans queue...</p>
             </div>
         );
     }
@@ -84,7 +84,7 @@ export default function PlansQueuePage() {
     if (error) {
         return (
             <div className="p-8">
-                <div className="card border border-red-200 bg-red-50 text-red-700">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 text-destructive shadow-sm p-6">
                     {error}
                 </div>
             </div>
