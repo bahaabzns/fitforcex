@@ -22,6 +22,7 @@
 
 # fix issues inside the forms module
 
+# shared food items and exercises databases
 
 
 ### Week 1 — Stop the bleeding

@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const clientAuthMiddleware = require('../middleware/clientAuth');
+const { loginLimiter } = require('../middleware/rateLimit');
 
 let clientPortalSchemaReadyPromise;
 
@@ -43,7 +44,7 @@ router.use(async (req, res, next) => {
 });
 
 // POST /api/client-portal/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     const { email, password, coach_slug } = req.body;
 
     if (!email || !password) {

@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const pool = require('../db');
 const jwt = require('jsonwebtoken');
+const { loginLimiter } = require('../middleware/rateLimit');
 
 ;(async () => {
     try {
@@ -66,7 +67,7 @@ router.post('/register', async (req, res) => {
 
 
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
 
     try {

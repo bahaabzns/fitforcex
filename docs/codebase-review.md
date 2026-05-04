@@ -511,7 +511,7 @@ Add `vitest` or `jest`, start here, then cover the auth routes with supertest in
 |---|-------|----------|--------|--------|
 | ✅ | **[SEC-1]** Drop `plain_password` — currently leaking raw passwords in every clients API response | 🔴 CRITICAL | 30 min | Stops active data exposure |
 | ✅ | **[SEC-2]** Gate `/uploads` behind auth — transaction proof images are world-readable | 🔴 CRITICAL | 2 hrs | Stops active data exposure |
-| 3 | **[SEC-3]** Fix client portal login `WHERE email = $1` — scope to coach + add email uniqueness constraint | 🔴 CRITICAL | 1 hr | Fixes cross-tenant IDOR |
+| ✅ | **[SEC-3]** Fix client portal login `WHERE email = $1` — scope to coach + add email uniqueness constraint | 🔴 CRITICAL | 1 hr | Fixes cross-tenant IDOR |
 | 4 | **[SEC-4]** Add `express-rate-limit` to both login endpoints | 🔴 HIGH | 30 min | Stops brute-force attacks |
 | 5 | **[SEC-5/6]** Fix cookie flags (`sameSite: 'strict'`, `secure`) + JWT/cookie expiry alignment | 🔴 HIGH | 1 hr | CSRF protection + correct session behavior |
 | 6 | **[SEC-9]** Add input validation to `/api/auth/register` | 🟠 HIGH | 1 hr | Prevents 500s and bad data |
