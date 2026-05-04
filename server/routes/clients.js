@@ -17,6 +17,17 @@ router.use(authMiddleware);
                 ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 DROP COLUMN IF EXISTS plain_password
         `);
+        
+        // Fix email constraint: change from global UNIQUE(email) to coach-scoped UNIQUE(coach_id, email)
+        await pool.query(`
+            ALTER TABLE clients
+            DROP CONSTRAINT IF EXISTS clients_email_key
+        `);
+        await pool.query(`
+            ALTER TABLE clients
+            ADD CONSTRAINT clients_coach_id_email_key UNIQUE (coach_id, email)
+        `);
+        
         await pool.query(`
             CREATE TABLE IF NOT EXISTS subscription_freezes (
                 id                   SERIAL PRIMARY KEY,
@@ -167,7 +178,7 @@ router.post('/', async (req, res) => {
             `INSERT INTO clients
                 (client_code, fname, lname, email, phone, phones, current_package,
                  subscription_status, coach_id, password)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
             [
                 nextCode, firstName, lastName, email,
                 phoneText, JSON.stringify(phonesArray),
