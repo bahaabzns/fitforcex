@@ -14,6 +14,15 @@
 # add subtitle in all pages to explain what is this page for
 # add arabic language feature
 
+# add team feature
+
+# enhance the new coach experience (landing page, onboarding, payment and renewals)
+
+# add payment history for the coach
+
+# fix issues inside the forms module
+
+
 
 ### Week 1 — Stop the bleeding
 1. **PR #1:** Drop `plain_password` column. Remove from `mapClient()`. Write a migration.

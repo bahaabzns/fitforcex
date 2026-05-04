@@ -57,6 +57,12 @@ const upload = multer({
         await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS proof_image TEXT`);
         await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS subscription_start_date DATE`);
         await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS start_mode TEXT NOT NULL DEFAULT 'on_first_plan'`);
+        // Rewrite legacy static paths to the authenticated route path
+        await pool.query(`
+            UPDATE transactions
+            SET proof_image = REPLACE(proof_image, '/uploads/transactions/', '/api/transactions/proof/')
+            WHERE proof_image LIKE '/uploads/transactions/%'
+        `);
     } catch (err) {
         console.error('transactions bootstrap error:', err.message);
     }
@@ -162,10 +168,26 @@ async function getFirstPlanActivation(clientId) {
     return result.rows[0]?.first_activation ?? null;
 }
 
+// GET /api/transactions/proof/:filename — authenticated, ownership-checked
+router.get('/proof/:filename', async (req, res) => {
+    const filename = path.basename(req.params.filename);
+    try {
+        const result = await pool.query(
+            'SELECT id FROM transactions WHERE proof_image LIKE $1 AND coach_id = $2',
+            [`%${filename}`, req.user.id]
+        );
+        if (!result.rows.length) return res.status(403).json({ error: 'Forbidden' });
+        res.sendFile(path.join(__dirname, '../uploads/transactions', filename));
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // POST /api/transactions/upload-proof
 router.post('/upload-proof', upload.single('proof'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    res.json({ path: `/uploads/transactions/${req.file.filename}` });
+    res.json({ path: `/api/transactions/proof/${req.file.filename}` });
 });
 
 // GET /api/transactions/by-client/:clientId

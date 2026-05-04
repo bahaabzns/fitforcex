@@ -121,6 +121,7 @@ export default function ClientOverviewPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
+  const [tempPassword, setTempPassword] = useState(null);
   const [showStoredPassword, setShowStoredPassword] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -175,8 +176,9 @@ export default function ClientOverviewPage() {
       });
       let updatedClient = { ...client, ...updated.data };
       if (newPassword) {
-        await api.post(`/api/clients/${id}/set-password`, { password: newPassword });
-        updatedClient = { ...updatedClient, plain_password: newPassword };
+        const pwRes = await api.post(`/api/clients/${id}/set-password`, { password: newPassword });
+        setTempPassword(pwRes.data.tempPassword);
+        updatedClient = { ...updatedClient, has_password: true };
       }
       setClient(updatedClient);
       setShowEditForm(false);
@@ -198,8 +200,8 @@ export default function ClientOverviewPage() {
   }
 
   const copyCredentials = () => {
-    if (!client?.plain_password) return;
-    const text = `Email: ${client.email}\nPassword: ${client.plain_password}`;
+    if (!tempPassword) return;
+    const text = `Email: ${client.email}\nPassword: ${tempPassword}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -265,10 +267,10 @@ export default function ClientOverviewPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Portal Password</span>
-                {client.plain_password ? (
+                {tempPassword ? (
                   <>
                     <span className="font-mono text-sm text-foreground">
-                      {showStoredPassword ? client.plain_password : "•".repeat(client.plain_password.length)}
+                      {showStoredPassword ? tempPassword : "•".repeat(tempPassword.length)}
                     </span>
                     <button
                       onClick={() => setShowStoredPassword(v => !v)}
@@ -277,15 +279,20 @@ export default function ClientOverviewPage() {
                       {showStoredPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </>
+                ) : client.has_password ? (
+                  <span className="text-sm text-muted-foreground italic">Password set — use Edit to reset &amp; reveal</span>
                 ) : (
                   <span className="text-sm text-muted-foreground">Not set</span>
                 )}
               </div>
-              {client.plain_password && (
-                <div>
+              {tempPassword && (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                    Save this password — it won&apos;t be shown again after you leave the page.
+                  </p>
                   <button
                     onClick={copyCredentials}
-                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer self-start"
                   >
                     {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                     {copied ? "Copied!" : "Copy Credentials"}

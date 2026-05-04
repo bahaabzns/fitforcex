@@ -233,7 +233,8 @@ export default function ClientsPage() {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [availableForms, setAvailableForms] = useState([]);
     const [loading, setLoading]           = useState(true);
-    const [copiedId, setCopiedId]         = useState(null);
+    const [credsModal, setCredsModal]     = useState(null); // { email, password } | null
+    const [credsCopied, setCredsCopied]   = useState(false);
 
     // Add-client modal
     const [showForm, setShowForm]             = useState(false);
@@ -355,6 +356,10 @@ export default function ClientsPage() {
             });
             const created = res.data;
             setClients(prev => [created, ...prev]);
+            if (created.tempPassword) {
+                setCredsModal({ email: newEmail, password: created.tempPassword });
+                setCredsCopied(false);
+            }
 
             // Upload proof if selected
             let proofImagePath = null;
@@ -464,12 +469,12 @@ export default function ClientsPage() {
         }
     }
 
-    function copyCredentials(client) {
-        if (!client.plain_password) return;
-        const text = `Email: ${client.email}\nPassword: ${client.plain_password}`;
+    function copyCredsModalCredentials() {
+        if (!credsModal) return;
+        const text = `Email: ${credsModal.email}\nPassword: ${credsModal.password}`;
         navigator.clipboard.writeText(text).then(() => {
-            setCopiedId(client.id);
-            setTimeout(() => setCopiedId(null), 2000);
+            setCredsCopied(true);
+            setTimeout(() => setCredsCopied(false), 2000);
         });
     }
 
@@ -484,7 +489,6 @@ export default function ClientsPage() {
         currentPackage: c.current_package || "—",
         currentSubscriptionStatus: c.subscription_status || "Active",
         dateCreated: c.created_at,
-        plain_password: c.plain_password,
     }));
 
     const uniquePackages = [...new Set(clients.map(c => c.current_package).filter(Boolean))];
@@ -557,16 +561,6 @@ export default function ClientsPage() {
             cardPriority: "hidden",
             render: (row) => (
                 <div className="flex items-center gap-2 justify-end">
-                    {row.plain_password && (
-                        <button
-                            onClick={() => copyCredentials(row)}
-                            title="Copy credentials"
-                            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer"
-                        >
-                            {copiedId === row.id ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
-                            {copiedId === row.id ? "Copied!" : "Copy Creds"}
-                        </button>
-                    )}
                     <button
                         onClick={() => openFreeze(row)}
                         title="Freeze subscription"
@@ -783,6 +777,30 @@ export default function ClientsPage() {
                         Add Client
                     </button>
                 </form>
+            </Modal>
+
+            {/* One-time credentials reveal modal */}
+            <Modal open={!!credsModal} onClose={() => setCredsModal(null)} title="Client Created">
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        Save this password — it won&apos;t be shown again after you close this window.
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                        <span className="text-xs text-muted-foreground font-medium">Email</span>
+                        <span className="text-sm font-mono text-foreground">{credsModal?.email}</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <span className="text-xs text-muted-foreground font-medium">Password</span>
+                        <span className="text-sm font-mono text-foreground">{credsModal?.password}</span>
+                    </div>
+                    <button
+                        onClick={copyCredsModalCredentials}
+                        className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer self-start"
+                    >
+                        {credsCopied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                        {credsCopied ? "Copied!" : "Copy Credentials"}
+                    </button>
+                </div>
             </Modal>
 
             {/* Table */}

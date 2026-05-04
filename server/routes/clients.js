@@ -14,7 +14,8 @@ router.use(authMiddleware);
                 ADD COLUMN IF NOT EXISTS phones JSONB DEFAULT '[]',
                 ADD COLUMN IF NOT EXISTS current_package TEXT,
                 ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'Active',
-                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                DROP COLUMN IF EXISTS plain_password
         `);
         await pool.query(`
             CREATE TABLE IF NOT EXISTS subscription_freezes (
@@ -55,7 +56,7 @@ function mapClient(row) {
             : (row.phone ? [{ countryCode: '', number: row.phone }] : []),
         current_package: row.current_package,
         subscription_status: row.subscription_status || 'Pre-start',
-        plain_password: row.plain_password,
+        has_password: !!row.password,
         created_at: row.created_at,
     };
 }
@@ -165,16 +166,16 @@ router.post('/', async (req, res) => {
         const result = await pool.query(
             `INSERT INTO clients
                 (client_code, fname, lname, email, phone, phones, current_package,
-                 subscription_status, coach_id, password, plain_password)
+                 subscription_status, coach_id, password)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
             [
                 nextCode, firstName, lastName, email,
                 phoneText, JSON.stringify(phonesArray),
                 currentPackage || null, 'Pre-start',
-                req.user.id, hashedPassword, password || null,
+                req.user.id, hashedPassword,
             ]
         );
-        res.status(201).json(mapClient(result.rows[0]));
+        res.status(201).json({ ...mapClient(result.rows[0]), tempPassword: password || null });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -328,11 +329,11 @@ router.post('/:id/set-password', async (req, res) => {
     try {
         const hashed = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            'UPDATE clients SET password = $1, plain_password = $2 WHERE id = $3 AND coach_id = $4 RETURNING id',
-            [hashed, password, req.params.id, req.user.id]
+            'UPDATE clients SET password = $1 WHERE id = $2 AND coach_id = $3 RETURNING id',
+            [hashed, req.params.id, req.user.id]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
-        res.json({ message: 'Password set successfully' });
+        res.json({ message: 'Password set successfully', tempPassword: password });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

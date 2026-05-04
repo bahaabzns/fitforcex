@@ -44,16 +44,16 @@ router.use(async (req, res, next) => {
 
 // POST /api/client-portal/login
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, coach_id } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required' });
+    if (!email || !password || !coach_id) {
+        return res.status(400).json({ message: 'Email, password and coach ID are required' });
     }
 
     try {
         const result = await pool.query(
-            'SELECT * FROM clients WHERE email = $1',
-            [email]
+            'SELECT * FROM clients WHERE email = $1 AND coach_id = $2',
+            [email, coach_id]
         );
 
         if (result.rows.length === 0) {
