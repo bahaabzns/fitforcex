@@ -18,37 +18,98 @@ function normalizeSlug(raw) {
         .replace(/(^-|-$)/g, '');
 }
 
-async function buildToken(userId) {
-    // Fetch the user's default workspace + role
+// Fetch JWT payload fields for a specific workspace.
+// Throws { status, message } if the user doesn't have access.
+async function buildTokenForWorkspace(userId, workspaceId) {
     const { rows } = await pool.query(
-        `SELECT w.id AS workspace_id, w.owner_id,
-                wm.role, wm.permissions
-         FROM users u
-         JOIN workspaces w ON w.id = u.default_workspace_id
+        `SELECT w.id AS workspace_id, w.slug, w.name, w.owner_id,
+                wm.role, wm.permissions, wm.is_active
+         FROM workspaces w
          LEFT JOIN workspace_members wm
-               ON wm.workspace_id = w.id AND wm.user_id = u.id
-         WHERE u.id = $1 AND w.archived_at IS NULL`,
-        [userId]
+               ON wm.workspace_id = w.id AND wm.user_id = $1
+         WHERE w.id = $2 AND w.archived_at IS NULL`,
+        [userId, workspaceId]
     );
 
-    if (!rows.length) {
-        // Fallback: user's own workspace (id = userId) from migration
-        const fallback = await pool.query(
-            `SELECT id AS workspace_id, owner_id FROM workspaces WHERE owner_id = $1 AND archived_at IS NULL LIMIT 1`,
-            [userId]
-        );
-        if (!fallback.rows.length) throw new Error('No accessible workspace found');
-        const ws = fallback.rows[0];
-        return { workspaceId: ws.workspace_id, role: 'owner', permissions: null };
-    }
-
+    if (!rows.length) throw { status: 403, message: 'Workspace not found or archived' };
     const ws = rows[0];
     const isOwner = ws.owner_id === userId;
+
+    if (!isOwner && !ws.role) throw { status: 403, message: 'You do not have access to this workspace' };
+    if (!isOwner && !ws.is_active) throw { status: 403, message: 'Your membership in this workspace is inactive' };
+
     return {
         workspaceId: ws.workspace_id,
+        slug: ws.slug,
+        name: ws.name,
         role: isOwner ? 'owner' : ws.role,
         permissions: isOwner ? null : ws.permissions,
     };
+}
+
+// Build token context for a user's default (or fallback) workspace.
+async function buildToken(userId) {
+    const { rows: userRows } = await pool.query(
+        'SELECT default_workspace_id FROM users WHERE id = $1',
+        [userId]
+    );
+    const defaultWorkspaceId = userRows[0]?.default_workspace_id;
+
+    if (defaultWorkspaceId) {
+        try {
+            return await buildTokenForWorkspace(userId, defaultWorkspaceId);
+        } catch {
+            // default workspace may have been archived — fall through to any owned workspace
+        }
+    }
+
+    const { rows: fallback } = await pool.query(
+        'SELECT id FROM workspaces WHERE owner_id = $1 AND archived_at IS NULL ORDER BY created_at LIMIT 1',
+        [userId]
+    );
+    if (!fallback.rows?.length && !fallback.length) {
+        const anyWorkspace = fallback.rows ?? fallback;
+        if (!anyWorkspace.length) throw new Error('No accessible workspace found');
+    }
+
+    const wsId = (fallback.rows ?? fallback)[0]?.id;
+    if (!wsId) throw new Error('No accessible workspace found');
+    return await buildTokenForWorkspace(userId, wsId);
+}
+
+// All workspaces the user can access (owned + active memberships).
+async function fetchUserWorkspaces(userId) {
+    const { rows: owned } = await pool.query(
+        `SELECT w.id, w.slug, w.name, 'owner' AS role, NULL::jsonb AS permissions
+         FROM workspaces w
+         WHERE w.owner_id = $1 AND w.archived_at IS NULL
+         ORDER BY w.created_at`,
+        [userId]
+    );
+
+    const { rows: member } = await pool.query(
+        `SELECT w.id, w.slug, w.name, wm.role, wm.permissions
+         FROM workspace_members wm
+         JOIN workspaces w ON w.id = wm.workspace_id
+         WHERE wm.user_id = $1 AND wm.is_active = TRUE AND w.archived_at IS NULL
+         ORDER BY wm.joined_at`,
+        [userId]
+    );
+
+    return [...owned, ...member];
+}
+
+async function fetchPendingInvitationsCount(userId) {
+    const { rows } = await pool.query(
+        `SELECT COUNT(*) AS count FROM workspace_invitations
+         WHERE invited_user_id = $1 AND status = 'pending'`,
+        [userId]
+    );
+    return parseInt(rows[0].count);
+}
+
+function issueToken(payload) {
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
 // ── routes ────────────────────────────────────────────────────────────────────
@@ -71,14 +132,12 @@ router.post('/register', async (req, res) => {
         );
         const slug = slugRows.length > 0 ? `${normalizedSlug}-${Date.now()}` : normalizedSlug;
 
-        // Insert user
         const userResult = await pool.query(
             'INSERT INTO users (fname, lname, email, password) VALUES ($1, $2, $3, $4) RETURNING id, fname, lname, email',
             [fname, lname, email, hashed]
         );
         const user = userResult.rows[0];
 
-        // Create workspace for the new user
         const wsResult = await pool.query(
             `INSERT INTO workspaces (slug, name, owner_id, slug_customized, created_at)
              VALUES ($1, $2, $3, FALSE, NOW()) RETURNING id`,
@@ -86,20 +145,17 @@ router.post('/register', async (req, res) => {
         );
         const workspaceId = wsResult.rows[0].id;
 
-        // Set default workspace
         await pool.query(
             'UPDATE users SET default_workspace_id = $1 WHERE id = $2',
             [workspaceId, user.id]
         );
 
-        // Seed free plan subscription
         await pool.query(
             `INSERT INTO workspace_subscriptions (workspace_id, plan_id)
              VALUES ($1, (SELECT id FROM plans WHERE name = 'free'))`,
             [workspaceId]
         );
 
-        console.log('Registration successful:', user);
         res.status(201).json({
             id: user.id,
             fname: user.fname,
@@ -119,7 +175,6 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-
         if (result.rows.length === 0) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
@@ -130,17 +185,33 @@ router.post('/login', loginLimiter, async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
-        const { workspaceId, role, permissions } = await buildToken(user.id);
+        const wsContext = await buildToken(user.id);
+        const [workspaces, pendingInvitationsCount] = await Promise.all([
+            fetchUserWorkspaces(user.id),
+            fetchPendingInvitationsCount(user.id),
+        ]);
 
-        const token = jwt.sign(
-            { userId: user.id, workspaceId, role, permissions },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = issueToken({
+            userId: user.id,
+            workspaceId: wsContext.workspaceId,
+            role: wsContext.role,
+            permissions: wsContext.permissions,
+        });
 
         res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
             .status(200)
-            .json({ message: 'Login successful', token });
+            .json({
+                message: 'Login successful',
+                token,
+                selectedWorkspace: {
+                    id: wsContext.workspaceId,
+                    slug: wsContext.slug,
+                    name: wsContext.name,
+                    role: wsContext.role,
+                },
+                workspaces,
+                pendingInvitationsCount,
+            });
 
     } catch (err) {
         console.error(err);
@@ -160,16 +231,28 @@ router.get('/me', async (req, res) => {
             [decoded.userId]
         );
         if (!rows.length) return res.status(404).json({ message: 'User not found' });
-
         const user = rows[0];
-        const { workspaceId, role, permissions } = await buildToken(user.id);
+
+        const [wsContext, workspaces, pendingInvitationsCount] = await Promise.all([
+            buildTokenForWorkspace(user.id, decoded.workspaceId),
+            fetchUserWorkspaces(user.id),
+            fetchPendingInvitationsCount(user.id),
+        ]);
 
         res.status(200).json({
             userId: user.id,
             fname: user.fname,
             lname: user.lname,
             email: user.email,
-            currentWorkspace: { id: workspaceId, role, permissions },
+            currentWorkspace: {
+                id: wsContext.workspaceId,
+                slug: wsContext.slug,
+                name: wsContext.name,
+                role: wsContext.role,
+                permissions: wsContext.permissions,
+            },
+            workspaces,
+            pendingInvitationsCount,
             defaultWorkspaceId: user.default_workspace_id,
         });
 
@@ -178,7 +261,62 @@ router.get('/me', async (req, res) => {
     }
 });
 
-// Workspace slug customization (owner-only; slug now lives on workspaces table)
+// Issue a new JWT scoped to a different workspace the user has access to.
+router.post('/switch-workspace', authMiddleware, async (req, res) => {
+    const { workspaceId } = req.body;
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    try {
+        const wsContext = await buildTokenForWorkspace(req.user.userId, parseInt(workspaceId));
+
+        const token = issueToken({
+            userId: req.user.userId,
+            workspaceId: wsContext.workspaceId,
+            role: wsContext.role,
+            permissions: wsContext.permissions,
+        });
+
+        res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
+            .status(200)
+            .json({
+                token,
+                workspace: {
+                    id: wsContext.workspaceId,
+                    slug: wsContext.slug,
+                    name: wsContext.name,
+                    role: wsContext.role,
+                },
+            });
+    } catch (err) {
+        if (err.status) return res.status(err.status).json({ message: err.message });
+        console.error(err);
+        res.status(500).json({ message: 'Failed to switch workspace' });
+    }
+});
+
+// Set the user's default workspace (used on login).
+router.put('/default-workspace', authMiddleware, async (req, res) => {
+    const { workspaceId } = req.body;
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    try {
+        // Verify user has access to this workspace
+        await buildTokenForWorkspace(req.user.userId, parseInt(workspaceId));
+
+        await pool.query(
+            'UPDATE users SET default_workspace_id = $1 WHERE id = $2',
+            [workspaceId, req.user.userId]
+        );
+
+        res.json({ message: 'Default workspace updated' });
+    } catch (err) {
+        if (err.status) return res.status(err.status).json({ message: err.message });
+        console.error(err);
+        res.status(500).json({ message: 'Failed to update default workspace' });
+    }
+});
+
+// Workspace slug customization (kept for backwards compatibility; also available at PUT /api/workspaces/:id/slug)
 router.put('/workspace-slug', authMiddleware, requireOwner, async (req, res) => {
     const { new_slug } = req.body;
     if (!new_slug?.trim()) return res.status(400).json({ message: 'Slug is required' });

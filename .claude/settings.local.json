@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\fitforce-x\\\\server\" -Recurse -Depth 2)",
+      "Bash(Select-Object FullName, PSIsContainer)"
     ]
   }
 }
