@@ -2,12 +2,17 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
+const requirePermission = require('../middleware/requirePermission');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { computeSubscriptionStatus } = require('../utils/subscriptionStatus');
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    requirePermission('finance', action)(req, res, next);
+});
 
 const VALID_STATUSES = ['completed', 'refunded'];
 const VALID_TYPES = ['subscription', 'session', 'one-time', 'other'];
@@ -39,7 +44,7 @@ const upload = multer({
         await pool.query(`
             CREATE TABLE IF NOT EXISTS transactions (
                 id                SERIAL PRIMARY KEY,
-                coach_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                workspace_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 client_name       TEXT NOT NULL,
                 package_variation TEXT,
                 payment_method    TEXT NOT NULL,
@@ -173,8 +178,8 @@ router.get('/proof/:filename', async (req, res) => {
     const filename = path.basename(req.params.filename);
     try {
         const result = await pool.query(
-            'SELECT id FROM transactions WHERE proof_image LIKE $1 AND coach_id = $2',
-            [`%${filename}`, req.user.id]
+            'SELECT id FROM transactions WHERE proof_image LIKE $1 AND workspace_id = $2',
+            [`%${filename}`, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(403).json({ error: 'Forbidden' });
         res.sendFile(path.join(__dirname, '../uploads/transactions', filename));
@@ -195,11 +200,11 @@ router.get('/by-client/:clientId', async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT * FROM transactions
-             WHERE coach_id = $1 AND (client_id = $2 OR (client_id IS NULL AND client_name ILIKE (
-                 SELECT CONCAT(fname, ' ', lname) FROM clients WHERE id = $2 AND coach_id = $1 LIMIT 1
+             WHERE workspace_id = $1 AND (client_id = $2 OR (client_id IS NULL AND client_name ILIKE (
+                 SELECT CONCAT(fname, ' ', lname) FROM clients WHERE id = $2 AND workspace_id = $1 LIMIT 1
              )))
              ORDER BY transaction_date DESC`,
-            [req.user.id, req.params.clientId]
+            [req.user.workspaceId, req.params.clientId]
         );
         res.json(result.rows.map(mapRow));
     } catch (err) {
@@ -213,26 +218,26 @@ router.get('/', async (req, res) => {
     try {
         const [txResult, freezeResult, planActivationResult] = await Promise.all([
             pool.query(
-                'SELECT * FROM transactions WHERE coach_id = $1 ORDER BY created_at DESC',
-                [req.user.id]
+                'SELECT * FROM transactions WHERE workspace_id = $1 ORDER BY created_at DESC',
+                [req.user.workspaceId]
             ),
             pool.query(
                 `SELECT sf.* FROM subscription_freezes sf
                  INNER JOIN clients c ON c.id = sf.client_id
-                 WHERE c.coach_id = $1`,
-                [req.user.id]
+                 WHERE c.workspace_id = $1`,
+                [req.user.workspaceId]
             ),
             pool.query(
                 `SELECT client_id, MIN(activated_at) AS first_activation
                  FROM (
                      SELECT client_id, activated_at FROM training_plans
-                     WHERE coach_id = $1 AND activated_at IS NOT NULL
+                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
                      UNION ALL
                      SELECT client_id, activated_at FROM nutrition_plans
-                     WHERE coach_id = $1 AND activated_at IS NOT NULL
+                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
                  ) combined
                  GROUP BY client_id`,
-                [req.user.id]
+                [req.user.workspaceId]
             ),
         ]);
 
@@ -296,8 +301,8 @@ router.post('/', async (req, res) => {
             const [existingTxResult, existingFreezesResult, planActivation] = await Promise.all([
                 pool.query(
                     `SELECT client_id, status, duration, subscription_start_date, start_mode, created_at
-                     FROM transactions WHERE client_id = $1 AND coach_id = $2`,
-                    [clientId, req.user.id]
+                     FROM transactions WHERE client_id = $1 AND workspace_id = $2`,
+                    [clientId, req.user.workspaceId]
                 ),
                 pool.query('SELECT * FROM subscription_freezes WHERE client_id = $1', [clientId]),
                 getFirstPlanActivation(clientId),
@@ -313,11 +318,11 @@ router.post('/', async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO transactions
-                (coach_id, client_id, client_name, package_variation, payment_method, amount, currency,
+                (workspace_id, client_id, client_name, package_variation, payment_method, amount, currency,
                  duration, type, status, notes, proof_image, transaction_date, subscription_start_date, start_mode)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
             [
-                req.user.id,
+                req.user.workspaceId,
                 clientId || null,
                 clientName.trim(),
                 packageVariation?.trim() || null,
@@ -354,8 +359,8 @@ router.put('/', async (req, res) => {
 
     try {
         const existing = await pool.query(
-            'SELECT * FROM transactions WHERE id = $1 AND coach_id = $2',
-            [id, req.user.id]
+            'SELECT * FROM transactions WHERE id = $1 AND workspace_id = $2',
+            [id, req.user.workspaceId]
         );
         if (!existing.rows.length) return res.status(404).json({ error: 'Transaction not found' });
 
@@ -379,7 +384,7 @@ router.put('/', async (req, res) => {
                  amount = $5, currency = $6, duration = $7, type = $8, status = $9,
                  notes = $10, proof_image = $11, transaction_date = $12,
                  subscription_start_date = $13, start_mode = $14
-             WHERE id = $15 AND coach_id = $16
+             WHERE id = $15 AND workspace_id = $16
              RETURNING *`,
             [
                 clientId   !== undefined ? (clientId || null)                       : cur.client_id,
@@ -397,7 +402,7 @@ router.put('/', async (req, res) => {
                 newSubStartDate,
                 newStartMode,
                 id,
-                req.user.id,
+                req.user.workspaceId,
             ]
         );
         res.json(mapRow(result.rows[0]));
@@ -414,8 +419,8 @@ router.delete('/', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'DELETE FROM transactions WHERE id = $1 AND coach_id = $2 RETURNING id',
-            [id, req.user.id]
+            'DELETE FROM transactions WHERE id = $1 AND workspace_id = $2 RETURNING id',
+            [id, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Transaction not found' });
         res.json({ deleted: result.rows[0].id });

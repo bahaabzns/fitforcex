@@ -3,9 +3,14 @@ const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const authMiddleware = require('../middleware/auth');
+const requirePermission = require('../middleware/requirePermission');
 const { computeSubscriptionStatus } = require('../utils/subscriptionStatus');
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    requirePermission('clients', action)(req, res, next);
+});
 
 ;(async () => {
     try {
@@ -18,14 +23,16 @@ router.use(authMiddleware);
                 DROP COLUMN IF EXISTS plain_password
         `);
         
-        // Fix email constraint: change from global UNIQUE(email) to coach-scoped UNIQUE(coach_id, email)
+        // Ensure workspace-scoped email uniqueness constraint exists
+        await pool.query(`ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_email_key`);
         await pool.query(`
-            ALTER TABLE clients
-            DROP CONSTRAINT IF EXISTS clients_email_key
-        `);
-        await pool.query(`
-            ALTER TABLE clients
-            ADD CONSTRAINT clients_coach_id_email_key UNIQUE (coach_id, email)
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'clients_workspace_id_email_key'
+                ) THEN
+                    ALTER TABLE clients ADD CONSTRAINT clients_workspace_id_email_key UNIQUE (workspace_id, email);
+                END IF;
+            END $$
         `);
         
         await pool.query(`
@@ -88,31 +95,31 @@ router.get('/', async (req, res) => {
     try {
         const [clientsResult, txResult, freezeResult, planActivationResult] = await Promise.all([
             pool.query(
-                'SELECT * FROM clients WHERE coach_id = $1 ORDER BY created_at DESC',
-                [req.user.id]
+                'SELECT * FROM clients WHERE workspace_id = $1 ORDER BY created_at DESC',
+                [req.user.workspaceId]
             ),
             pool.query(
                 `SELECT client_id, status, duration, subscription_start_date, start_mode, created_at
-                 FROM transactions WHERE coach_id = $1 AND client_id IS NOT NULL`,
-                [req.user.id]
+                 FROM transactions WHERE workspace_id = $1 AND client_id IS NOT NULL`,
+                [req.user.workspaceId]
             ),
             pool.query(
                 `SELECT sf.* FROM subscription_freezes sf
                  INNER JOIN clients c ON c.id = sf.client_id
-                 WHERE c.coach_id = $1`,
-                [req.user.id]
+                 WHERE c.workspace_id = $1`,
+                [req.user.workspaceId]
             ),
             pool.query(
                 `SELECT client_id, MIN(activated_at) AS first_activation
                  FROM (
                      SELECT client_id, activated_at FROM training_plans
-                     WHERE coach_id = $1 AND activated_at IS NOT NULL
+                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
                      UNION ALL
                      SELECT client_id, activated_at FROM nutrition_plans
-                     WHERE coach_id = $1 AND activated_at IS NOT NULL
+                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
                  ) combined
                  GROUP BY client_id`,
-                [req.user.id]
+                [req.user.workspaceId]
             ),
         ]);
 
@@ -161,8 +168,8 @@ router.post('/', async (req, res) => {
 
     try {
         const codeResult = await pool.query(
-            'SELECT COALESCE(MAX(client_code), 0) + 1 AS next_code FROM clients WHERE coach_id = $1',
-            [req.user.id]
+            'SELECT COALESCE(MAX(client_code), 0) + 1 AS next_code FROM clients WHERE workspace_id = $1',
+            [req.user.workspaceId]
         );
         const nextCode = codeResult.rows[0].next_code;
         const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
@@ -177,13 +184,13 @@ router.post('/', async (req, res) => {
         const result = await pool.query(
             `INSERT INTO clients
                 (client_code, fname, lname, email, phone, phones, current_package,
-                 subscription_status, coach_id, password)
+                 subscription_status, workspace_id, password)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
             [
                 nextCode, firstName, lastName, email,
                 phoneText, JSON.stringify(phonesArray),
                 currentPackage || null, 'Pre-start',
-                req.user.id, hashedPassword,
+                req.user.workspaceId, hashedPassword,
             ]
         );
         res.status(201).json({ ...mapClient(result.rows[0]), tempPassword: password || null });
@@ -198,8 +205,8 @@ router.get('/:id', async (req, res) => {
     try {
         const [clientResult, planActivationResult] = await Promise.all([
             pool.query(
-                'SELECT * FROM clients WHERE id = $1 AND coach_id = $2',
-                [req.params.id, req.user.id]
+                'SELECT * FROM clients WHERE id = $1 AND workspace_id = $2',
+                [req.params.id, req.user.workspaceId]
             ),
             pool.query(
                 `SELECT MIN(activated_at) AS first_activation FROM (
@@ -239,12 +246,12 @@ router.put('/:id', async (req, res) => {
              SET fname = $1, lname = $2, email = $3, phone = $4,
                  phones = COALESCE($5, phones),
                  current_package = COALESCE($6, current_package)
-             WHERE id = $7 AND coach_id = $8 RETURNING *`,
+             WHERE id = $7 AND workspace_id = $8 RETURNING *`,
             [
                 fname, lname, email, phoneText,
                 phonesArray ? JSON.stringify(phonesArray) : null,
                 currentPackage || null,
-                req.params.id, req.user.id,
+                req.params.id, req.user.workspaceId,
             ]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
@@ -259,8 +266,8 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const result = await pool.query(
-            'DELETE FROM clients WHERE id = $1 AND coach_id = $2 RETURNING *',
-            [req.params.id, req.user.id]
+            'DELETE FROM clients WHERE id = $1 AND workspace_id = $2 RETURNING *',
+            [req.params.id, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
         res.json(result.rows[0]);
@@ -277,9 +284,9 @@ router.get('/:id/freezes', async (req, res) => {
         const result = await pool.query(
             `SELECT sf.* FROM subscription_freezes sf
              JOIN clients c ON c.id = sf.client_id
-             WHERE sf.client_id = $1 AND c.coach_id = $2
+             WHERE sf.client_id = $1 AND c.workspace_id = $2
              ORDER BY sf.freeze_start_date ASC`,
-            [req.params.id, req.user.id]
+            [req.params.id, req.user.workspaceId]
         );
         res.json(result.rows.map(mapFreeze));
     } catch (err) {
@@ -296,8 +303,8 @@ router.post('/:id/freezes', async (req, res) => {
 
     try {
         const client = await pool.query(
-            'SELECT id FROM clients WHERE id = $1 AND coach_id = $2',
-            [req.params.id, req.user.id]
+            'SELECT id FROM clients WHERE id = $1 AND workspace_id = $2',
+            [req.params.id, req.user.workspaceId]
         );
         if (!client.rows.length) return res.status(404).json({ error: 'Client not found' });
 
@@ -318,9 +325,9 @@ router.delete('/:id/freezes/:freezeId', async (req, res) => {
         const result = await pool.query(
             `DELETE FROM subscription_freezes
              WHERE id = $1 AND client_id = $2
-               AND (SELECT coach_id FROM clients WHERE id = $2) = $3
+               AND (SELECT workspace_id FROM clients WHERE id = $2) = $3
              RETURNING id`,
-            [req.params.freezeId, req.params.id, req.user.id]
+            [req.params.freezeId, req.params.id, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Freeze not found' });
         res.json({ deleted: result.rows[0].id });
@@ -340,8 +347,8 @@ router.post('/:id/set-password', async (req, res) => {
     try {
         const hashed = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            'UPDATE clients SET password = $1 WHERE id = $2 AND coach_id = $3 RETURNING id',
-            [hashed, req.params.id, req.user.id]
+            'UPDATE clients SET password = $1 WHERE id = $2 AND workspace_id = $3 RETURNING id',
+            [hashed, req.params.id, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
         res.json({ message: 'Password set successfully', tempPassword: password });

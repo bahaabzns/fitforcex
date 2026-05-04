@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
+const requirePermission = require('../middleware/requirePermission');
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    requirePermission('finance', action)(req, res, next);
+});
 
 const VALID_TYPES = ['cash', 'card', 'wallet', 'bank_transfer'];
 
@@ -12,7 +17,7 @@ const VALID_TYPES = ['cash', 'card', 'wallet', 'bank_transfer'];
         await pool.query(`
             CREATE TABLE IF NOT EXISTS payment_methods (
                 id         SERIAL PRIMARY KEY,
-                coach_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                workspace_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 name       TEXT NOT NULL,
                 type       TEXT NOT NULL,
                 active     BOOLEAN NOT NULL DEFAULT true,
@@ -28,8 +33,8 @@ const VALID_TYPES = ['cash', 'card', 'wallet', 'bank_transfer'];
 router.get('/', async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT * FROM payment_methods WHERE coach_id = $1 ORDER BY created_at ASC',
-            [req.user.id]
+            'SELECT * FROM payment_methods WHERE workspace_id = $1 ORDER BY created_at ASC',
+            [req.user.workspaceId]
         );
         res.json(result.rows);
     } catch (err) {
@@ -46,8 +51,8 @@ router.post('/', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'INSERT INTO payment_methods (coach_id, name, type) VALUES ($1, $2, $3) RETURNING *',
-            [req.user.id, name.trim(), type]
+            'INSERT INTO payment_methods (workspace_id, name, type) VALUES ($1, $2, $3) RETURNING *',
+            [req.user.workspaceId, name.trim(), type]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -65,8 +70,8 @@ router.put('/', async (req, res) => {
 
     try {
         const existing = await pool.query(
-            'SELECT * FROM payment_methods WHERE id = $1 AND coach_id = $2',
-            [id, req.user.id]
+            'SELECT * FROM payment_methods WHERE id = $1 AND workspace_id = $2',
+            [id, req.user.workspaceId]
         );
         if (!existing.rows.length) return res.status(404).json({ error: 'Payment method not found' });
 
@@ -74,14 +79,14 @@ router.put('/', async (req, res) => {
         const result = await pool.query(
             `UPDATE payment_methods
              SET name = $1, type = $2, active = $3
-             WHERE id = $4 AND coach_id = $5
+             WHERE id = $4 AND workspace_id = $5
              RETURNING *`,
             [
                 name   !== undefined ? name.trim()  : cur.name,
                 type   !== undefined ? type          : cur.type,
                 active !== undefined ? active        : cur.active,
                 id,
-                req.user.id,
+                req.user.workspaceId,
             ]
         );
         res.json(result.rows[0]);
@@ -98,8 +103,8 @@ router.delete('/', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'DELETE FROM payment_methods WHERE id = $1 AND coach_id = $2 RETURNING id',
-            [id, req.user.id]
+            'DELETE FROM payment_methods WHERE id = $1 AND workspace_id = $2 RETURNING id',
+            [id, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Payment method not found' });
         res.json({ deleted: result.rows[0].id });

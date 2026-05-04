@@ -6,6 +6,7 @@ const router = express.Router();
 
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
+const requirePermission = require('../middleware/requirePermission');
 const {
     toIsoDateOrNull,
     serializePlanRow,
@@ -71,7 +72,7 @@ async function ensureTrainingSchema() {
                     id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL,
                     client_id INTEGER NOT NULL,
-                    coach_id INTEGER NOT NULL,
+                    workspace_id INTEGER NOT NULL,
                     status TEXT NOT NULL DEFAULT 'inactive',
                     notes TEXT,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -93,25 +94,25 @@ async function ensureTrainingSchema() {
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS exercise_muscle_groups (
                     id SERIAL PRIMARY KEY,
-                    coach_id INTEGER NOT NULL,
+                    workspace_id INTEGER NOT NULL,
                     name TEXT NOT NULL,
-                    UNIQUE (coach_id, name)
+                    UNIQUE (workspace_id, name)
                 )
             `);
 
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS exercise_equipments (
                     id SERIAL PRIMARY KEY,
-                    coach_id INTEGER NOT NULL,
+                    workspace_id INTEGER NOT NULL,
                     name TEXT NOT NULL,
-                    UNIQUE (coach_id, name)
+                    UNIQUE (workspace_id, name)
                 )
             `);
 
             await pool.query(`
                 CREATE TABLE IF NOT EXISTS exercise_library (
                     id SERIAL PRIMARY KEY,
-                    coach_id INTEGER NOT NULL,
+                    workspace_id INTEGER NOT NULL,
                     name TEXT NOT NULL,
                     muscle_group TEXT,
                     equipment TEXT,
@@ -158,15 +159,15 @@ async function ensureTrainingSchema() {
             `);
 
             // Indexes for common lookups
-            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_plans_coach_client ON training_plans (coach_id, client_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_plans_coach_client ON training_plans (workspace_id, client_id)`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_plans_client ON training_plans (client_id)`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_days_plan ON training_days (plan_id)`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_exercises_day ON training_exercises (day_id)`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_sets_exercise ON training_sets (exercise_id)`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_training_alternatives_exercise ON training_exercise_alternatives (exercise_id)`);
-            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_library_coach ON exercise_library (coach_id)`);
-            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_muscle_groups_coach ON exercise_muscle_groups (coach_id)`);
-            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_equipments_coach ON exercise_equipments (coach_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_library_coach ON exercise_library (workspace_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_muscle_groups_coach ON exercise_muscle_groups (workspace_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_exercise_equipments_coach ON exercise_equipments (workspace_id)`);
 
             // Migrations: add columns that may be missing from tables created before schema updates
             await pool.query(`ALTER TABLE training_exercises ADD COLUMN IF NOT EXISTS exercise_library_id INTEGER REFERENCES exercise_library(id) ON DELETE SET NULL`);
@@ -182,6 +183,10 @@ async function ensureTrainingSchema() {
 }
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    requirePermission('training', action)(req, res, next);
+});
 router.use(async (req, res, next) => {
     try {
         await ensureTrainingSchema();
@@ -196,11 +201,11 @@ router.use(async (req, res, next) => {
 router.get('/muscle-groups', async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT emg.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.coach_id = emg.coach_id AND el.muscle_group = emg.name) AS exercise_count
+            `SELECT emg.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = emg.workspace_id AND el.muscle_group = emg.name) AS exercise_count
              FROM exercise_muscle_groups emg
-             WHERE emg.coach_id = $1
+             WHERE emg.workspace_id = $1
              ORDER BY emg.name ASC`,
-            [req.user.id]
+            [req.user.workspaceId]
         );
         res.json(result.rows);
     } catch (err) {
@@ -213,8 +218,8 @@ router.post('/muscle-groups', async (req, res) => {
     try {
         const { name } = req.body;
         const result = await pool.query(
-            'INSERT INTO exercise_muscle_groups (coach_id, name) VALUES ($1, $2) RETURNING *',
-            [req.user.id, name]
+            'INSERT INTO exercise_muscle_groups (workspace_id, name) VALUES ($1, $2) RETURNING *',
+            [req.user.workspaceId, name]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -225,18 +230,18 @@ router.post('/muscle-groups', async (req, res) => {
 
 router.put('/muscle-groups/:id', async (req, res) => {
     try {
-        const oldRow = await pool.query('SELECT * FROM exercise_muscle_groups WHERE id = $1 AND coach_id = $2', [req.params.id, req.user.id]);
+        const oldRow = await pool.query('SELECT * FROM exercise_muscle_groups WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (oldRow.rows.length === 0) return res.status(404).json({ error: 'Muscle group not found' });
         const oldName = oldRow.rows[0].name;
 
         const result = await pool.query(
-            'UPDATE exercise_muscle_groups SET name = $1 WHERE id = $2 AND coach_id = $3 RETURNING *',
-            [req.body.name, req.params.id, req.user.id]
+            'UPDATE exercise_muscle_groups SET name = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *',
+            [req.body.name, req.params.id, req.user.workspaceId]
         );
 
         await pool.query(
-            'UPDATE exercise_library SET muscle_group = $1 WHERE coach_id = $2 AND muscle_group = $3',
-            [req.body.name, req.user.id, oldName]
+            'UPDATE exercise_library SET muscle_group = $1 WHERE workspace_id = $2 AND muscle_group = $3',
+            [req.body.name, req.user.workspaceId, oldName]
         );
 
         res.json(result.rows[0]);
@@ -248,7 +253,7 @@ router.put('/muscle-groups/:id', async (req, res) => {
 
 router.delete('/muscle-groups/:id', async (req, res) => {
     try {
-        const result = await pool.query('DELETE FROM exercise_muscle_groups WHERE id = $1 AND coach_id = $2 RETURNING *', [req.params.id, req.user.id]);
+        const result = await pool.query('DELETE FROM exercise_muscle_groups WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user.workspaceId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Muscle group not found' });
         res.json(result.rows[0]);
     } catch (err) {
@@ -260,11 +265,11 @@ router.delete('/muscle-groups/:id', async (req, res) => {
 router.get('/equipments', async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT ee.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.coach_id = ee.coach_id AND el.equipment = ee.name) AS exercise_count
+            `SELECT ee.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = ee.workspace_id AND el.equipment = ee.name) AS exercise_count
              FROM exercise_equipments ee
-             WHERE ee.coach_id = $1
+             WHERE ee.workspace_id = $1
              ORDER BY ee.name ASC`,
-            [req.user.id]
+            [req.user.workspaceId]
         );
         res.json(result.rows);
     } catch (err) {
@@ -277,8 +282,8 @@ router.post('/equipments', async (req, res) => {
     try {
         const { name } = req.body;
         const result = await pool.query(
-            'INSERT INTO exercise_equipments (coach_id, name) VALUES ($1, $2) RETURNING *',
-            [req.user.id, name]
+            'INSERT INTO exercise_equipments (workspace_id, name) VALUES ($1, $2) RETURNING *',
+            [req.user.workspaceId, name]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -289,18 +294,18 @@ router.post('/equipments', async (req, res) => {
 
 router.put('/equipments/:id', async (req, res) => {
     try {
-        const oldRow = await pool.query('SELECT * FROM exercise_equipments WHERE id = $1 AND coach_id = $2', [req.params.id, req.user.id]);
+        const oldRow = await pool.query('SELECT * FROM exercise_equipments WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (oldRow.rows.length === 0) return res.status(404).json({ error: 'Equipment not found' });
         const oldName = oldRow.rows[0].name;
 
         const result = await pool.query(
-            'UPDATE exercise_equipments SET name = $1 WHERE id = $2 AND coach_id = $3 RETURNING *',
-            [req.body.name, req.params.id, req.user.id]
+            'UPDATE exercise_equipments SET name = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *',
+            [req.body.name, req.params.id, req.user.workspaceId]
         );
 
         await pool.query(
-            'UPDATE exercise_library SET equipment = $1 WHERE coach_id = $2 AND equipment = $3',
-            [req.body.name, req.user.id, oldName]
+            'UPDATE exercise_library SET equipment = $1 WHERE workspace_id = $2 AND equipment = $3',
+            [req.body.name, req.user.workspaceId, oldName]
         );
 
         res.json(result.rows[0]);
@@ -312,7 +317,7 @@ router.put('/equipments/:id', async (req, res) => {
 
 router.delete('/equipments/:id', async (req, res) => {
     try {
-        const result = await pool.query('DELETE FROM exercise_equipments WHERE id = $1 AND coach_id = $2 RETURNING *', [req.params.id, req.user.id]);
+        const result = await pool.query('DELETE FROM exercise_equipments WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user.workspaceId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Equipment not found' });
         res.json(result.rows[0]);
     } catch (err) {
@@ -327,9 +332,9 @@ router.get('/exercise-library', async (req, res) => {
         const result = await pool.query(
             `SELECT *
              FROM exercise_library
-             WHERE coach_id = $1
+             WHERE workspace_id = $1
              ORDER BY created_at DESC`,
-            [req.user.id]
+            [req.user.workspaceId]
         );
         res.json(result.rows.map((r) => ({ ...r, created_at: toIsoDateOrNull(r.created_at), updated_at: toIsoDateOrNull(r.updated_at) })));
     } catch (err) {
@@ -356,10 +361,10 @@ router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, 
         const thumbnailPath = req.files?.thumbnail?.[0] ? `/uploads/exercise-library/thumbnails/${path.basename(req.files.thumbnail[0].path)}` : null;
 
         const result = await pool.query(
-            `INSERT INTO exercise_library (coach_id, name, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions, created_at, updated_at)
+            `INSERT INTO exercise_library (workspace_id, name, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
              RETURNING *`,
-            [req.user.id, name.trim(), muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions || null]
+            [req.user.workspaceId, name.trim(), muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions || null]
         );
 
         res.status(201).json(result.rows[0]);
@@ -371,7 +376,7 @@ router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, 
 
 router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res) => {
     try {
-        const existing = await pool.query('SELECT * FROM exercise_library WHERE id = $1 AND coach_id = $2', [req.params.id, req.user.id]);
+        const existing = await pool.query('SELECT * FROM exercise_library WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (existing.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
         const current = existing.rows[0];
 
@@ -394,7 +399,7 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
                  thumbnail_path = $6,
                  instructions = $7,
                  updated_at = NOW()
-             WHERE id = $8 AND coach_id = $9
+             WHERE id = $8 AND workspace_id = $9
              RETURNING *`,
             [
                 req.body.name.trim(),
@@ -405,7 +410,7 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
                 thumbnailPath,
                 req.body.instructions || null,
                 req.params.id,
-                req.user.id,
+                req.user.workspaceId,
             ]
         );
 
@@ -422,7 +427,7 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
 
 router.delete('/exercise-library/:id', async (req, res) => {
     try {
-        const result = await pool.query('DELETE FROM exercise_library WHERE id = $1 AND coach_id = $2 RETURNING *', [req.params.id, req.user.id]);
+        const result = await pool.query('DELETE FROM exercise_library WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user.workspaceId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
         const deleted = result.rows[0];
         deleteUploadedFile(deleted.video_path);
@@ -440,9 +445,9 @@ router.get('/plans', async (req, res) => {
             `SELECT tp.*,
                 (SELECT COUNT(*) FROM training_days WHERE plan_id = tp.id)::int AS day_count
              FROM training_plans tp
-             WHERE tp.coach_id = $1 AND tp.client_id = $2
+             WHERE tp.workspace_id = $1 AND tp.client_id = $2
              ORDER BY tp.created_at DESC`,
-            [req.user.id, req.query.clientId]
+            [req.user.workspaceId, req.query.clientId]
         );
 
         res.json(serializePlanRows(result.rows));
@@ -455,8 +460,8 @@ router.get('/plans', async (req, res) => {
 router.get('/plans/:id', async (req, res) => {
     try {
         const planResult = await pool.query(
-            'SELECT * FROM training_plans WHERE id = $1 AND coach_id = $2',
-            [req.params.id, req.user.id]
+            'SELECT * FROM training_plans WHERE id = $1 AND workspace_id = $2',
+            [req.params.id, req.user.workspaceId]
         );
 
         if (planResult.rows.length === 0) {
@@ -525,7 +530,7 @@ router.post('/plans/save-draft', async (req, res) => {
         await replaceClientPlansTransactional({
             pool,
             work: async (dbClient) => {
-                await dbClient.query('DELETE FROM training_plans WHERE coach_id = $1 AND client_id = $2', [req.user.id, clientId]);
+                await dbClient.query('DELETE FROM training_plans WHERE workspace_id = $1 AND client_id = $2', [req.user.workspaceId, clientId]);
 
                 const planIdMap = new Map();
 
@@ -534,13 +539,13 @@ router.post('/plans/save-draft', async (req, res) => {
                     const updatedAt = new Date().toISOString();
 
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO training_plans (name, client_id, coach_id, status, notes, created_at, updated_at)
+                        `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, $5, $6, $7)
                          RETURNING *`,
                         [
                             plan.name || `Training Plan ${planIndex + 1}`,
                             clientId,
-                            req.user.id,
+                            req.user.workspaceId,
                             plan.status === 'active' ? 'active' : 'inactive',
                             plan.notes ?? null,
                             createdAt,
@@ -607,9 +612,9 @@ router.post('/plans/save-draft', async (req, res) => {
                         `UPDATE training_plans
                          SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END,
                              updated_at = NOW()
-                         WHERE coach_id = $2
+                         WHERE workspace_id = $2
                            AND client_id = $3`,
-                        [resolvedActivePlanId, req.user.id, clientId]
+                        [resolvedActivePlanId, req.user.workspaceId, clientId]
                     );
                 }
             },
@@ -619,10 +624,10 @@ router.post('/plans/save-draft', async (req, res) => {
             `SELECT tp.*,
                 (SELECT COUNT(*) FROM training_days WHERE plan_id = tp.id)::int AS day_count
              FROM training_plans tp
-             WHERE tp.coach_id = $1
+             WHERE tp.workspace_id = $1
                AND tp.client_id = $2
              ORDER BY tp.created_at DESC`,
-            [req.user.id, clientId]
+            [req.user.workspaceId, clientId]
         );
 
         res.json({ plans: serializePlanRows(summary.rows) });
@@ -640,13 +645,13 @@ router.post('/plans/save-plan-draft', async (req, res) => {
             pool,
             plan,
             clientId,
-            coachId: req.user.id,
+            coachId: req.user.workspaceId,
             activePlanId,
             loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }) => {
                 const existing = await dbClient.query(
                     `SELECT id, created_at
                      FROM training_plans
-                     WHERE id = $1 AND coach_id = $2 AND client_id = $3`,
+                     WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
                 );
                 return existing.rows[0] ?? null;
@@ -656,7 +661,7 @@ router.post('/plans/save-plan-draft', async (req, res) => {
             },
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }) => {
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO training_plans (name, client_id, coach_id, status, notes, created_at, updated_at)
+                    `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at)
                      VALUES ($1, $2, $3, $4, $5, $6, $7)
                      RETURNING *`,
                     [
@@ -750,7 +755,7 @@ router.post('/plans/save-plan-draft', async (req, res) => {
                     `UPDATE training_plans
                      SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END,
                          updated_at = NOW()
-                     WHERE coach_id = $2
+                     WHERE workspace_id = $2
                        AND client_id = $3`,
                     [planId, coachId, cId]
                 );
@@ -760,7 +765,7 @@ router.post('/plans/save-plan-draft', async (req, res) => {
                     `SELECT tp.*,
                             (SELECT COUNT(*) FROM training_days WHERE plan_id = tp.id)::int AS day_count
                      FROM training_plans tp
-                     WHERE tp.id = $1 AND tp.coach_id = $2`,
+                     WHERE tp.id = $1 AND tp.workspace_id = $2`,
                     [planId, coachId]
                 );
                 return savedPlanResult.rows[0] ?? null;
@@ -780,7 +785,7 @@ router.post('/plans/:id/activate', async (req, res) => {
             pool,
             tableName: 'training_plans',
             planId: req.params.id,
-            coachId: req.user.id,
+            coachId: req.user.workspaceId,
             clientIdColumn: 'client_id',
         });
 

@@ -45,20 +45,22 @@ router.use(async (req, res, next) => {
 
 // POST /api/client-portal/login
 router.post('/login', loginLimiter, async (req, res) => {
-    const { email, password, coach_slug } = req.body;
+    // Accept both field names during transition; Phase 5 frontend will standardise on workspace_slug
+    const { email, password, workspace_slug, coach_slug } = req.body;
+    const slug = workspace_slug || coach_slug;
 
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
     try {
-        const query = coach_slug
+        const query = slug
             ? `SELECT c.* FROM clients c
-               JOIN users u ON u.id = c.coach_id
-               WHERE c.email = $1 AND u.coach_slug = $2`
+               JOIN workspaces w ON w.id = c.workspace_id
+               WHERE c.email = $1 AND w.slug = $2 AND w.archived_at IS NULL`
             : 'SELECT * FROM clients WHERE email = $1';
 
-        const queryParams = coach_slug ? [email, coach_slug] : [email];
+        const queryParams = slug ? [email, slug] : [email];
 
         const result = await pool.query(query, queryParams);
 
@@ -78,7 +80,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: client.id, coach_id: client.coach_id },
+            { id: client.id, workspaceId: client.workspace_id },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -103,7 +105,7 @@ router.post('/logout', (req, res) => {
 router.get('/me', clientAuthMiddleware, async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, fname, lname, email, phone, client_code, coach_id FROM clients WHERE id = $1',
+            'SELECT id, fname, lname, email, phone, client_code, workspace_id FROM clients WHERE id = $1',
             [req.client.id]
         );
         if (result.rows.length === 0) {

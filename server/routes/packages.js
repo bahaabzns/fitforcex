@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
+const requirePermission = require('../middleware/requirePermission');
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    requirePermission('finance', action)(req, res, next);
+});
 
 // Bootstrap tables on first load
 ;(async () => {
@@ -11,7 +16,7 @@ router.use(authMiddleware);
         await pool.query(`
             CREATE TABLE IF NOT EXISTS packages (
                 id          SERIAL PRIMARY KEY,
-                coach_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                workspace_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 name        TEXT NOT NULL,
                 active      BOOLEAN NOT NULL DEFAULT true,
                 created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -39,7 +44,7 @@ router.use(authMiddleware);
 // --- helpers ---
 async function getPackageWithVariations(id, coachId) {
     const pkg = await pool.query(
-        'SELECT * FROM packages WHERE id = $1 AND coach_id = $2',
+        'SELECT * FROM packages WHERE id = $1 AND workspace_id = $2',
         [id, coachId]
     );
     if (!pkg.rows.length) return null;
@@ -54,8 +59,8 @@ async function getPackageWithVariations(id, coachId) {
 router.get('/', async (req, res) => {
     try {
         const pkgs = await pool.query(
-            'SELECT * FROM packages WHERE coach_id = $1 ORDER BY name ASC',
-            [req.user.id]
+            'SELECT * FROM packages WHERE workspace_id = $1 ORDER BY name ASC',
+            [req.user.workspaceId]
         );
         const result = await Promise.all(pkgs.rows.map(async (pkg) => {
             const vars = await pool.query(
@@ -83,8 +88,8 @@ router.post('/', async (req, res) => {
         await client.query('BEGIN');
 
         const pkgRes = await client.query(
-            'INSERT INTO packages (coach_id, name) VALUES ($1, $2) RETURNING *',
-            [req.user.id, name.trim()]
+            'INSERT INTO packages (workspace_id, name) VALUES ($1, $2) RETURNING *',
+            [req.user.workspaceId, name.trim()]
         );
         const pkg = pkgRes.rows[0];
 
@@ -122,8 +127,8 @@ router.put('/', async (req, res) => {
     if (!id) return res.status(400).json({ error: 'Package id is required' });
 
     const existing = await pool.query(
-        'SELECT * FROM packages WHERE id = $1 AND coach_id = $2',
-        [id, req.user.id]
+        'SELECT * FROM packages WHERE id = $1 AND workspace_id = $2',
+        [id, req.user.workspaceId]
     );
     if (!existing.rows.length) return res.status(404).json({ error: 'Package not found' });
 
@@ -163,7 +168,7 @@ router.put('/', async (req, res) => {
         }
 
         await client.query('COMMIT');
-        res.json(await getPackageWithVariations(id, req.user.id));
+        res.json(await getPackageWithVariations(id, req.user.workspaceId));
     } catch (err) {
         await client.query('ROLLBACK');
         console.error(err);
@@ -180,8 +185,8 @@ router.delete('/', async (req, res) => {
         return res.status(400).json({ error: 'packageId and variationId are required' });
 
     const pkg = await pool.query(
-        'SELECT * FROM packages WHERE id = $1 AND coach_id = $2',
-        [packageId, req.user.id]
+        'SELECT * FROM packages WHERE id = $1 AND workspace_id = $2',
+        [packageId, req.user.workspaceId]
     );
     if (!pkg.rows.length) return res.status(404).json({ error: 'Package not found' });
 
@@ -197,7 +202,7 @@ router.delete('/', async (req, res) => {
         return res.json({ deleted: 'package', id: packageId });
     }
 
-    res.json(await getPackageWithVariations(packageId, req.user.id));
+    res.json(await getPackageWithVariations(packageId, req.user.workspaceId));
 });
 
 module.exports = router;

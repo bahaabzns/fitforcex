@@ -3,6 +3,7 @@ const router = express.Router();
 
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
+const requirePermission = require('../middleware/requirePermission');
 const {
     toIsoDateOrNull,
     serializePlanRow,
@@ -29,12 +30,16 @@ function toNumberOrNull(value) {
 })();
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    requirePermission('nutrition', action)(req, res, next);
+});
 
 router.get('/food-items', async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT * FROM food_items WHERE coach_id = $1 ORDER BY name ASC',
-            [req.user.id]
+            'SELECT * FROM food_items WHERE workspace_id = $1 ORDER BY name ASC',
+            [req.user.workspaceId]
         );
         res.json(result.rows);
     } catch (err) {
@@ -57,8 +62,8 @@ router.post('/food-items', async (req, res) => {
     } = req.body;
     try {
         const result = await pool.query(
-            'INSERT INTO food_items (name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, coach_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.user.id]
+            'INSERT INTO food_items (name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, workspace_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.user.workspaceId]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -79,8 +84,8 @@ router.put('/food-items/:id', async (req, res) => {
         fats_per_serving  } = req.body;
     try {
         const result = await pool.query(
-            'UPDATE food_items SET name = $1, food_category = $2, serving_size = $3, serving_unit = $4, calories_per_serving = $5, carbs_per_serving = $6, protein_per_serving = $7, fats_per_serving = $8 WHERE id = $9 AND coach_id = $10 RETURNING *',
-            [name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.params.id, req.user.id]
+            'UPDATE food_items SET name = $1, food_category = $2, serving_size = $3, serving_unit = $4, calories_per_serving = $5, carbs_per_serving = $6, protein_per_serving = $7, fats_per_serving = $8 WHERE id = $9 AND workspace_id = $10 RETURNING *',
+            [name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Food item not found' });
@@ -95,8 +100,8 @@ router.put('/food-items/:id', async (req, res) => {
 router.delete('/food-items/:id', async (req, res) => {
     try {
         const result = await pool.query(
-            'DELETE FROM food_items WHERE id = $1 AND coach_id = $2 RETURNING *',
-            [req.params.id, req.user.id]
+            'DELETE FROM food_items WHERE id = $1 AND workspace_id = $2 RETURNING *',
+            [req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Food item not found' });
@@ -115,11 +120,11 @@ router.get('/food-categories', async (req, res) => {
         const result = await pool.query(
             `SELECT fc.*, COUNT(fi.id)::int AS food_item_count
              FROM food_categories fc
-             LEFT JOIN food_items fi ON fi.food_category = fc.name AND fi.coach_id = fc.coach_id
-             WHERE fc.coach_id = $1
+             LEFT JOIN food_items fi ON fi.food_category = fc.name AND fi.workspace_id = fc.workspace_id
+             WHERE fc.workspace_id = $1
              GROUP BY fc.id
              ORDER BY fc.name ASC`,
-            [req.user.id]
+            [req.user.workspaceId]
         );
         res.json(result.rows);
     } catch (err) {
@@ -132,8 +137,8 @@ router.post('/food-categories', async (req, res) => {
     const { name } = req.body;
     try {
         const result = await pool.query(
-            'INSERT INTO food_categories (name, coach_id) VALUES ($1, $2) RETURNING *',
-            [name, req.user.id]
+            'INSERT INTO food_categories (name, workspace_id) VALUES ($1, $2) RETURNING *',
+            [name, req.user.workspaceId]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -146,8 +151,8 @@ router.put('/food-categories/:id', async (req, res) => {
     const { name } = req.body;
     try {
         const oldResult = await pool.query(
-            'SELECT name FROM food_categories WHERE id = $1 AND coach_id = $2',
-            [req.params.id, req.user.id]
+            'SELECT name FROM food_categories WHERE id = $1 AND workspace_id = $2',
+            [req.params.id, req.user.workspaceId]
         );
         if (oldResult.rows.length === 0) {
             return res.status(404).json({ error: 'Food category not found' });
@@ -155,13 +160,13 @@ router.put('/food-categories/:id', async (req, res) => {
         const oldName = oldResult.rows[0].name;
 
         const result = await pool.query(
-            'UPDATE food_categories SET name = $1 WHERE id = $2 AND coach_id = $3 RETURNING *',
-            [name, req.params.id, req.user.id]
+            'UPDATE food_categories SET name = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *',
+            [name, req.params.id, req.user.workspaceId]
         );
 
         await pool.query(
-            'UPDATE food_items SET food_category = $1 WHERE food_category = $2 AND coach_id = $3',
-            [name, oldName, req.user.id]
+            'UPDATE food_items SET food_category = $1 WHERE food_category = $2 AND workspace_id = $3',
+            [name, oldName, req.user.workspaceId]
         );
 
         res.json(result.rows[0]);
@@ -174,8 +179,8 @@ router.put('/food-categories/:id', async (req, res) => {
 router.delete('/food-categories/:id', async (req, res) => {
     try {
         const result = await pool.query(
-            'DELETE FROM food_categories WHERE id = $1 AND coach_id = $2 RETURNING *',
-            [req.params.id, req.user.id]
+            'DELETE FROM food_categories WHERE id = $1 AND workspace_id = $2 RETURNING *',
+            [req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Food category not found' });
@@ -203,9 +208,9 @@ router.get('/plans', async (req, res) => {
             `SELECT np.*,
                 (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
              FROM nutrition_plans np
-             WHERE np.coach_id = $1 AND np.client_id = $2
+             WHERE np.workspace_id = $1 AND np.client_id = $2
              ORDER BY np.created_at DESC`,
-            [req.user.id, req.query.clientId]
+            [req.user.workspaceId, req.query.clientId]
         );
 
         res.json(serializePlanRows(result.rows));
@@ -218,8 +223,8 @@ router.get('/plans', async (req, res) => {
 router.get('/plans/:id', async (req, res) => {
     try {
         const planResult = await pool.query(
-            'SELECT * FROM nutrition_plans WHERE id = $1 AND coach_id = $2',
-            [req.params.id, req.user.id]
+            'SELECT * FROM nutrition_plans WHERE id = $1 AND workspace_id = $2',
+            [req.params.id, req.user.workspaceId]
         );
 
         if (planResult.rows.length === 0) {
@@ -300,8 +305,8 @@ router.post('/plans', async (req, res) => {
 
     try {
         const planResult = await pool.query(
-            'INSERT INTO nutrition_plans (name, client_id, coach_id) VALUES ($1, $2, $3) RETURNING *',
-            [name, client_id, req.user.id]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id) VALUES ($1, $2, $3) RETURNING *',
+            [name, client_id, req.user.workspaceId]
         );
 
         await pool.query(
@@ -330,9 +335,9 @@ router.post('/plans/save-draft', async (req, res) => {
                        AND nmi.meal_id = nm.id
                        AND nm.cycle_id = nc.id
                        AND nc.plan_id = np.id
-                       AND np.coach_id = $1
+                       AND np.workspace_id = $1
                        AND np.client_id = $2`,
-                    [req.user.id, clientId]
+                    [req.user.workspaceId, clientId]
                 );
 
                 await dbClient.query(
@@ -341,9 +346,9 @@ router.post('/plans/save-draft', async (req, res) => {
                      WHERE nmi.meal_id = nm.id
                        AND nm.cycle_id = nc.id
                        AND nc.plan_id = np.id
-                       AND np.coach_id = $1
+                       AND np.workspace_id = $1
                        AND np.client_id = $2`,
-                    [req.user.id, clientId]
+                    [req.user.workspaceId, clientId]
                 );
 
                 await dbClient.query(
@@ -351,23 +356,23 @@ router.post('/plans/save-draft', async (req, res) => {
                      USING nutrition_cycles nc, nutrition_plans np
                      WHERE nm.cycle_id = nc.id
                        AND nc.plan_id = np.id
-                       AND np.coach_id = $1
+                       AND np.workspace_id = $1
                        AND np.client_id = $2`,
-                    [req.user.id, clientId]
+                    [req.user.workspaceId, clientId]
                 );
 
                 await dbClient.query(
                     `DELETE FROM nutrition_cycles nc
                      USING nutrition_plans np
                      WHERE nc.plan_id = np.id
-                       AND np.coach_id = $1
+                       AND np.workspace_id = $1
                        AND np.client_id = $2`,
-                    [req.user.id, clientId]
+                    [req.user.workspaceId, clientId]
                 );
 
                 await dbClient.query(
-                    'DELETE FROM nutrition_plans WHERE coach_id = $1 AND client_id = $2',
-                    [req.user.id, clientId]
+                    'DELETE FROM nutrition_plans WHERE workspace_id = $1 AND client_id = $2',
+                    [req.user.workspaceId, clientId]
                 );
 
                 const planIdMap = new Map();
@@ -377,13 +382,13 @@ router.post('/plans/save-draft', async (req, res) => {
                     const createdAt = toIsoDateOrNull(plan.created_at) || new Date().toISOString();
                     const updatedAt = new Date().toISOString();
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
+                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, $5, $6)
                          RETURNING *`,
                         [
                             plan.name || `Plan ${pIndex + 1}`,
                             clientId,
-                            req.user.id,
+                            req.user.workspaceId,
                             plan.status === 'active' ? 'active' : 'inactive',
                             createdAt,
                             updatedAt,
@@ -476,9 +481,9 @@ router.post('/plans/save-draft', async (req, res) => {
                     await dbClient.query(
                         `UPDATE nutrition_plans
                          SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
-                         WHERE coach_id = $2
+                         WHERE workspace_id = $2
                            AND client_id = $3`,
-                        [resolvedActivePlanId, req.user.id, clientId]
+                        [resolvedActivePlanId, req.user.workspaceId, clientId]
                     );
                 }
             },
@@ -488,10 +493,10 @@ router.post('/plans/save-draft', async (req, res) => {
             `SELECT np.*,
                 (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
              FROM nutrition_plans np
-             WHERE np.coach_id = $1
+             WHERE np.workspace_id = $1
                AND np.client_id = $2
              ORDER BY np.created_at DESC`,
-            [req.user.id, clientId]
+            [req.user.workspaceId, clientId]
         );
 
         res.json({ plans: serializePlanRows(summary.rows) });
@@ -509,13 +514,13 @@ router.post('/plans/save-plan-draft', async (req, res) => {
             pool,
             plan,
             clientId,
-            coachId: req.user.id,
+            coachId: req.user.workspaceId,
             activePlanId,
             loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }) => {
                 const existing = await dbClient.query(
                     `SELECT id, created_at
                      FROM nutrition_plans
-                     WHERE id = $1 AND coach_id = $2 AND client_id = $3`,
+                     WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
                 );
                 return existing.rows[0] ?? null;
@@ -553,7 +558,7 @@ router.post('/plans/save-plan-draft', async (req, res) => {
             },
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }) => {
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO nutrition_plans (name, client_id, coach_id, status, created_at, updated_at)
+                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at)
                      VALUES ($1, $2, $3, $4, $5, $6)
                      RETURNING *`,
                     [
@@ -668,7 +673,7 @@ router.post('/plans/save-plan-draft', async (req, res) => {
                 await dbClient.query(
                     `UPDATE nutrition_plans
                      SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
-                     WHERE coach_id = $2
+                     WHERE workspace_id = $2
                        AND client_id = $3`,
                     [planId, coachId, cId]
                 );
@@ -678,7 +683,7 @@ router.post('/plans/save-plan-draft', async (req, res) => {
                     `SELECT np.*,
                             (SELECT COUNT(*) FROM nutrition_cycles WHERE plan_id = np.id)::int AS cycle_count
                      FROM nutrition_plans np
-                     WHERE np.id = $1 AND np.coach_id = $2`,
+                     WHERE np.id = $1 AND np.workspace_id = $2`,
                     [planId, coachId]
                 );
                 return savedPlanResult.rows[0] ?? null;
@@ -696,8 +701,8 @@ router.put('/plans/:id', async (req, res) => {
     const { name, status } = req.body;
     try {
         const result = await pool.query(
-            'UPDATE nutrition_plans SET name = $1, status = $2, updated_at = NOW() WHERE id = $3 AND coach_id = $4 RETURNING *',
-            [name, status, req.params.id, req.user.id]
+            'UPDATE nutrition_plans SET name = $1, status = $2, updated_at = NOW() WHERE id = $3 AND workspace_id = $4 RETURNING *',
+            [name, status, req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Plan not found or you do not have permission to update it' });
@@ -712,8 +717,8 @@ router.put('/plans/:id', async (req, res) => {
 router.delete('/plans/:id', async (req, res) => {
     try {
         const result = await pool.query(
-            'DELETE FROM nutrition_plans WHERE id = $1 AND coach_id = $2 RETURNING *',
-            [req.params.id, req.user.id]
+            'DELETE FROM nutrition_plans WHERE id = $1 AND workspace_id = $2 RETURNING *',
+            [req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Plan not found or you do not have permission to delete it' });
@@ -732,8 +737,8 @@ router.post('/plans/:id/duplicate', async (req, res) => {
 
         // 1. Fetch original plan
         const originalPlan = await client.query(
-            'SELECT * FROM nutrition_plans WHERE id = $1 AND coach_id = $2',
-            [req.params.id, req.user.id]
+            'SELECT * FROM nutrition_plans WHERE id = $1 AND workspace_id = $2',
+            [req.params.id, req.user.workspaceId]
         );
         if (originalPlan.rows.length === 0) {
             await client.query('ROLLBACK');
@@ -743,8 +748,8 @@ router.post('/plans/:id/duplicate', async (req, res) => {
 
         // 2. Insert new plan
         const newPlan = await client.query(
-            'INSERT INTO nutrition_plans (name, client_id, coach_id, status) VALUES ($1, $2, $3, $4) RETURNING *',
-            [`Copy of ${plan.name}`, plan.client_id, req.user.id, plan.status]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id, status) VALUES ($1, $2, $3, $4) RETURNING *',
+            [`Copy of ${plan.name}`, plan.client_id, req.user.workspaceId, plan.status]
         );
         const newPlanId = newPlan.rows[0].id;
 
@@ -1350,7 +1355,7 @@ router.post('/plans/:id/activate', async (req, res) => {
             pool,
             tableName: 'nutrition_plans',
             planId: req.params.id,
-            coachId: req.user.id,
+            coachId: req.user.workspaceId,
             clientIdColumn: 'client_id',
         });
 

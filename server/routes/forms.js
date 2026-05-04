@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
+const requirePermission = require('../middleware/requirePermission');
 
 router.use(authMiddleware);
+router.use((req, res, next) => {
+    const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
+    requirePermission('forms', action)(req, res, next);
+});
 
 let schemaReadyPromise;
 
@@ -66,7 +71,7 @@ router.get('/', async (req, res) => {
              WHERE f.workspace_id = $1
              GROUP BY f.id
              ORDER BY f.created_at DESC`,
-            [req.user.id]
+            [req.user.workspaceId]
         );
         res.json(result.rows);
     } catch (err) {
@@ -84,7 +89,7 @@ router.post('/', async (req, res) => {
             `INSERT INTO forms (workspace_id, title, description, post_action, form_type)
              VALUES ($1, $2, $3, $4, $5)
              RETURNING *, 0 AS question_count`,
-            [req.user.id, title || 'Untitled Form', description || null, safePostAction, safeFormType]
+            [req.user.workspaceId, title || 'Untitled Form', description || null, safePostAction, safeFormType]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -108,7 +113,7 @@ router.put('/:id', async (req, res) => {
                  updated_at = NOW()
              WHERE id = $6 AND workspace_id = $7
              RETURNING *`,
-            [title, description, status, safePostAction, safeFormType, req.params.id, req.user.id]
+            [title, description, status, safePostAction, safeFormType, req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
         res.json(result.rows[0]);
@@ -122,7 +127,7 @@ router.delete('/:id', async (req, res) => {
     try {
         const result = await pool.query(
             'DELETE FROM forms WHERE id = $1 AND workspace_id = $2 RETURNING *',
-            [req.params.id, req.user.id]
+            [req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
         res.json(result.rows[0]);
@@ -139,7 +144,7 @@ router.get('/:id/questions', async (req, res) => {
         // Verify form belongs to this coach
         const form = await pool.query(
             'SELECT id FROM forms WHERE id = $1 AND workspace_id = $2',
-            [req.params.id, req.user.id]
+            [req.params.id, req.user.workspaceId]
         );
         if (form.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
 
@@ -278,8 +283,8 @@ router.post('/requests', async (req, res) => {
     try {
         // Verify client belongs to this workspace
         const clientCheck = await pool.query(
-            'SELECT id FROM clients WHERE id = $1 AND coach_id = $2',
-            [client_id, req.user.id]
+            'SELECT id FROM clients WHERE id = $1 AND workspace_id = $2',
+            [client_id, req.user.workspaceId]
         );
         if (clientCheck.rows.length === 0) return res.status(403).json({ error: 'Client not found' });
 
@@ -288,7 +293,7 @@ router.post('/requests', async (req, res) => {
             // Verify form belongs to this workspace
             const formCheck = await pool.query(
                 'SELECT id, post_action FROM forms WHERE id = $1 AND workspace_id = $2',
-                [form_id, req.user.id]
+                [form_id, req.user.workspaceId]
             );
             if (formCheck.rows.length === 0) continue;
 
@@ -298,7 +303,7 @@ router.post('/requests', async (req, res) => {
             const result = await pool.query(
                 `INSERT INTO form_requests (form_id, client_id, workspace_id, status, scheduled_at, post_action)
                  VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                [form_id, client_id, req.user.id, initialStatus, scheduledAt, formPostAction]
+                [form_id, client_id, req.user.workspaceId, initialStatus, scheduledAt, formPostAction]
             );
             inserted.push(result.rows[0]);
         }
@@ -312,11 +317,11 @@ router.post('/requests', async (req, res) => {
 // GET /api/forms/requests/client/:client_id — get all form requests for a client
 router.get('/requests/client/:client_id', async (req, res) => {
     try {
-        await activateDueScheduledRequests(req.user.id);
+        await activateDueScheduledRequests(req.user.workspaceId);
 
         const clientCheck = await pool.query(
-            'SELECT id FROM clients WHERE id = $1 AND coach_id = $2',
-            [req.params.client_id, req.user.id]
+            'SELECT id FROM clients WHERE id = $1 AND workspace_id = $2',
+            [req.params.client_id, req.user.workspaceId]
         );
         if (clientCheck.rows.length === 0) return res.status(403).json({ error: 'Client not found' });
 
@@ -328,7 +333,7 @@ router.get('/requests/client/:client_id', async (req, res) => {
              JOIN forms f ON f.id = fr.form_id
              WHERE fr.client_id = $1 AND fr.workspace_id = $2
              ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC`,
-            [req.params.client_id, req.user.id]
+            [req.params.client_id, req.user.workspaceId]
         );
 
         // For submitted ones, also attach responses with question labels
@@ -365,7 +370,7 @@ router.get('/requests/client/:client_id', async (req, res) => {
 // GET /api/forms/queue — coach queue across all clients
 router.get('/queue', async (req, res) => {
     try {
-        await activateDueScheduledRequests(req.user.id);
+        await activateDueScheduledRequests(req.user.workspaceId);
 
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
@@ -379,7 +384,7 @@ router.get('/queue', async (req, res) => {
              JOIN clients c ON c.id = fr.client_id
              WHERE fr.workspace_id = $1
              ORDER BY fr.requested_at DESC`,
-            [req.user.id]
+            [req.user.workspaceId]
         );
 
         const queueItems = await Promise.all(result.rows.map(async (row) => {
@@ -469,7 +474,7 @@ router.patch('/queue/review', async (req, res) => {
                    AND id::text = ANY($2::text[])
                    AND status = 'reviewed'
                  RETURNING id`,
-                [req.user.id, ids.map(String)]
+                [req.user.workspaceId, ids.map(String)]
             );
         } else {
             result = await pool.query(
@@ -480,7 +485,7 @@ router.patch('/queue/review', async (req, res) => {
                    AND id::text = ANY($2::text[])
                    AND status = 'submitted'
                  RETURNING id`,
-                [req.user.id, ids.map(String)]
+                [req.user.workspaceId, ids.map(String)]
             );
         }
 
@@ -498,7 +503,7 @@ router.delete('/requests/:request_id', async (req, res) => {
             `DELETE FROM form_requests
              WHERE id = $1 AND workspace_id = $2 AND status IN ('pending', 'scheduled')
              RETURNING *`,
-            [req.params.request_id, req.user.id]
+            [req.params.request_id, req.user.workspaceId]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found or already submitted/reviewed' });
         res.json(result.rows[0]);
