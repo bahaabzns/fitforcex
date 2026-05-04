@@ -61,8 +61,8 @@ export default function ClientLayout({ children }) {
                                 href={tab.href}
                                 className={
                                     pathname === tab.href
-                                        ? "inline-block px-4 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-500"
-                                        : "inline-block px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300"
+                                        ? "inline-block px-4 py-2 text-sm font-semibold text-primary border-b-2 border-primary"
+                                        : "inline-block px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-b-2 hover:border-border"
                                 }
                             >
                                 {tab.name}

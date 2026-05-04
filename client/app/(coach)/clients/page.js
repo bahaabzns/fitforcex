@@ -869,7 +869,7 @@ export default function ClientsPage() {
                     <button
                         type="submit"
                         disabled={freezeSaving}
-                        className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                        className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
                     >
                         {freezeSaving ? "Saving…" : "Add Freeze"}
                     </button>

@@ -71,8 +71,8 @@ export default function MuscleGroupsPage() {
             cardPriority: "hidden",
             render: (row) => (
                 <div className="flex gap-2">
-                    <button onClick={() => setEditing(row)} className="btn-secondary px-3 py-1 text-sm">Edit</button>
-                    <button onClick={() => handleDelete(row.id)} className="btn-danger px-3 py-1 text-sm">Delete</button>
+                    <button onClick={() => setEditing(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">Edit</button>
+                    <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">Delete</button>
                 </div>
             ),
         },
@@ -85,7 +85,7 @@ export default function MuscleGroupsPage() {
                     <h1 className="text-3xl font-bold">Muscle Groups</h1>
                     <p className="text-sm text-muted-foreground mt-1">Manage muscle group categories for your exercise library.</p>
                 </div>
-                <button onClick={() => setShowForm(true)} className="btn-primary px-4 shrink-0">+ Add Muscle Group</button>
+                <button onClick={() => setShowForm(true)} className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 text-sm font-medium transition-colors cursor-pointer shrink-0">+ Add Muscle Group</button>
             </div>
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setNewName(""); }} title="Add Muscle Group">

@@ -26,7 +26,7 @@ export default function ClientLoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-blue-50">
+        <div className="min-h-screen flex items-center justify-center bg-background">
             <div className="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-sm p-8">
                 <h1 className="text-2xl font-bold text-foreground mb-2">Client Portal</h1>
                 <p className="text-sm text-muted-foreground mb-6">Sign in with the credentials provided by your coach.</p>
@@ -67,7 +67,7 @@ export default function ClientLoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="btn-primary h-10 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="inline-flex items-center justify-center w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-10 text-sm font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:pointer-events-none"
                     >
                         {loading ? "Signing in…" : "Sign in"}
                     </button>

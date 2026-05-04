@@ -102,9 +102,9 @@ export default function ClientTrainingPage() {
                 <div className="flex flex-col gap-4">
                     {/* Day notes */}
                     {activeDay.notes && (
-                        <div className="rounded-lg border border-blue-200 bg-blue-50 text-card-foreground shadow-sm p-6">
-                            <p className="text-xs font-semibold text-blue-700 mb-1">Day Note</p>
-                            <p className="text-sm text-blue-800 whitespace-pre-wrap">{activeDay.notes}</p>
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 text-card-foreground shadow-sm p-6">
+                            <p className="text-xs font-semibold text-primary mb-1">Day Note</p>
+                            <p className="text-sm text-foreground whitespace-pre-wrap">{activeDay.notes}</p>
                         </div>
                     )}
 

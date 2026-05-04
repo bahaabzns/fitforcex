@@ -268,13 +268,13 @@ function QuestionPreview({ question: q }) {
     const ph = q.placeholder || "Your answer…";
     switch (q.type) {
         case 'text':
-            return <input type="text" placeholder={ph} disabled className="input-field text-sm opacity-60 w-full" />;
+            return <input type="text" placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;
         case 'long_text':
-            return <textarea rows={2} placeholder={ph} disabled className="input-field text-sm opacity-60 w-full resize-none" />;
+            return <textarea rows={2} placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60 resize-none" />;
         case 'number':
-            return <input type="number" placeholder={ph} disabled className="input-field text-sm opacity-60 w-full" />;
+            return <input type="number" placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;
         case 'date':
-            return <input type="date" disabled className="input-field text-sm opacity-60 w-full" />;
+            return <input type="date" disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;
         case 'scale': {
             const min = q.min_value ?? 1;
             const max = q.max_value ?? 10;

@@ -247,13 +247,13 @@ export default function PaymentMethodsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
                     <p className="text-sm text-muted-foreground font-medium">Total</p>
-                    <p className="card-number">{methods.length}</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{methods.length}</p>
                     <p className="text-xs text-muted-foreground mt-1">{activeCount} active</p>
                 </div>
                 {TYPES.map(t => (
                     <div key={t} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
                         <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS[t]}</p>
-                        <p className="card-number">{typeCounts[t]}</p>
+                        <p className="text-2xl font-bold text-foreground mt-1">{typeCounts[t]}</p>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full w-fit mt-1 inline-block ${TYPE_COLORS[t]}`}>{t}</span>
                     </div>
                 ))}

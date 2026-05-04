@@ -478,7 +478,7 @@ export default function ClientTransactionsPage() {
                                 setFreezeError("");
                                 setShowFreezeModal(true);
                             }}
-                            className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer whitespace-nowrap"
+                            className="text-xs px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors cursor-pointer whitespace-nowrap"
                         >
                             + Freeze
                         </button>
@@ -486,7 +486,7 @@ export default function ClientTransactionsPage() {
 
                     {/* Active freezes list */}
                     {freezes.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-black/5 flex flex-col gap-1.5">
+                        <div className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
                             <p className="text-xs font-medium text-muted-foreground">Freezes</p>
                             {freezes.map(f => (
                                 <div key={f.id} className="flex items-center gap-2 text-xs text-foreground">
@@ -870,7 +870,7 @@ export default function ClientTransactionsPage() {
                     <button
                         type="submit"
                         disabled={freezeSaving}
-                        className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                        className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
                     >
                         {freezeSaving ? "Saving…" : "Add Freeze"}
                     </button>

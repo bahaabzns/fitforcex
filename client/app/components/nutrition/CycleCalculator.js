@@ -310,7 +310,7 @@ export default function CycleCalculator({ cycle, onApply }) {
             </div>
 
             {/* ── Calculate ── */}
-            <button className="btn-primary w-full text-sm font-semibold py-2.5" onClick={handleCalculate}>
+            <button className="inline-flex items-center justify-center w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold py-2.5 transition-colors cursor-pointer" onClick={handleCalculate}>
                 Calculate
             </button>
 
@@ -408,7 +408,7 @@ export default function CycleCalculator({ cycle, onApply }) {
 
                     {/* Apply */}
                     <button
-                        className="btn-primary w-full text-sm font-semibold py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="inline-flex items-center justify-center w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold py-2.5 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
                         onClick={handleApply}
                         disabled={totalPct !== 100 || !tdee}
                     >

@@ -69,8 +69,8 @@ export default function FoodCategoriesPage() {
         { key: "food_item_count", label: "Food Items", sortable: true },
         { key: "actions", label: "Actions", cardPriority: "hidden", render: (row) => (
             <div className="flex gap-2">
-                <button onClick={() => setEditingItem(row)} className="btn-secondary px-3 py-1 text-sm">Edit</button>
-                <button onClick={() => handleDelete(row.id)} className="btn-danger px-3 py-1 text-sm">Delete</button>
+                <button onClick={() => setEditingItem(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">Edit</button>
+                <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">Delete</button>
             </div>
         )},
     ];
@@ -79,7 +79,7 @@ export default function FoodCategoriesPage() {
         <div className="p-8">
             <div className="flex items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold flex-1">Food Categories</h1>
-                <button onClick={() => setShowForm(!showForm)} className="btn-primary px-4 shrink-0">
+                <button onClick={() => setShowForm(!showForm)} className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 text-sm font-medium transition-colors cursor-pointer shrink-0">
                     + Add Category
                 </button>
             </div>

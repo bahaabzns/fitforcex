@@ -107,7 +107,7 @@ export default function ClientFormsListPage() {
                                         </span>
                                         <Link
                                             href={`/client/forms/${req.id}`}
-                                            className="btn-primary px-3 py-1.5 text-sm"
+                                            className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer"
                                         >
                                             Fill Form
                                         </Link>

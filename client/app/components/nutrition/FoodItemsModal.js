@@ -52,7 +52,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                 <div className="flex gap-3 mb-3 items-center">
                     <input
                         type="text"
-                        className="input-field flex-1"
+                        className="flex-1 px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
                         placeholder="Search for food..."
                         value={foodSearchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
@@ -179,14 +179,14 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                     <span className="text-sm text-muted-foreground">{selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selected</span>
                     <div className="flex gap-3">
                         <button
-                            className="btn btn-secondary"
+                            className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-4 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                             onClick={() => setSelectedIds(new Set())}
                             disabled={selectedIds.size === 0}
                         >
                             Reset Selection
                         </button>
                         <button
-                            className="btn btn-primary px-4"
+                            className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                             onClick={handleConfirm}
                             disabled={selectedIds.size === 0}
                         >

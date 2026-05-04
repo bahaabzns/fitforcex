@@ -111,8 +111,8 @@ export default function FoodItemsPage() {
         { key: "fats_per_serving", label: "Fat", sortable: true },
         { key: "actions", label: "Actions", cardPriority: "hidden", render: (row) => (
             <div className="flex gap-2">
-                <button onClick={() => setEditingItem(row)} className="btn-primary px-3 py-1 text-sm">Edit</button>
-                <button onClick={() => handleDelete(row.id)} className="btn-danger px-3 py-1 text-sm">Delete</button>
+                <button onClick={() => setEditingItem(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">Edit</button>
+                <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">Delete</button>
             </div>
         )},
     ];

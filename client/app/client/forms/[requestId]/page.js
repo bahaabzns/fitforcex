@@ -214,7 +214,7 @@ export default function ClientFillFormPage() {
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="btn-primary py-3 text-base font-semibold disabled:opacity-50"
+                            className="inline-flex items-center justify-center w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90 py-3 text-base font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                         >
                             {submitting ? 'Submitting…' : 'Submit Form'}
                         </button>
