@@ -6,6 +6,7 @@ import { Copy, Check } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
+import { Button } from "@/components/ui/button";
 
 // --- HELPERS ---
 function statusColor(status) {
@@ -594,12 +595,12 @@ export default function ClientsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-foreground">Clients</h1>
-                <button
+                <Button
                     onClick={() => { resetForm(); setShowForm(true); }}
-                    className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                    // className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                     + Add Client
-                </button>
+                </Button>
             </div>
 
             {/* Add Client Modal */}
