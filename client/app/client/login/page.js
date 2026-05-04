@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 
 export default function ClientLoginPage() {
@@ -10,13 +10,15 @@ export default function ClientLoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const coachSlug = searchParams.get("coach_slug");
 
     async function handleSubmit(e) {
         e.preventDefault();
         setError("");
         setLoading(true);
         try {
-            await api.post("/api/client-portal/login", { email, password });
+            await api.post("/api/client-portal/login", { email, password, coach_slug: coachSlug });
             router.push("/client/dashboard");
         } catch (err) {
             setError(err.response?.data?.message || "Login failed");
