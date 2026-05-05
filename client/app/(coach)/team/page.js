@@ -11,6 +11,35 @@ import {
 
 const ROLES = ["manager", "trainer", "assistant"];
 
+// ── Upgrade CTA ───────────────────────────────────────────────────────────────
+
+function UpgradeBanner({ message }) {
+    return (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <span className="text-amber-500 mt-0.5 text-base leading-none">⚠</span>
+            <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-900">{message}</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                    Contact us to upgrade your plan and unlock more capacity.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function SeatUsageBar({ used, max }) {
+    const pct = Math.min(100, Math.round((used / max) * 100));
+    const barColor = pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-400" : "bg-primary";
+    return (
+        <div className="flex items-center gap-3">
+            <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-xs text-muted-foreground shrink-0">{used} / {max}</span>
+        </div>
+    );
+}
+
 const ROLE_META = {
     owner:     { label: "Owner",     cls: "bg-yellow-50 text-yellow-700 border border-yellow-200" },
     manager:   { label: "Manager",   cls: "bg-blue-50 text-blue-700 border border-blue-200" },
@@ -60,10 +89,15 @@ function TabButton({ active, onClick, children, badge }) {
 
 // ── Members Tab ───────────────────────────────────────────────────────────────
 
-function MembersTab({ workspace, members, setMembers, me }) {
+function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
     const isOwner = me?.currentWorkspace?.role === "owner";
     const canManage = isOwner || me?.currentWorkspace?.permissions?.team?.write;
     const canDelete = isOwner || me?.currentWorkspace?.permissions?.team?.delete;
+
+    const maxSeats = workspace?.max_team_seats ?? null;
+    const seatsUsed = parseInt(workspace?.member_count ?? 0) + (pendingCount ?? 0);
+    const noSeats = maxSeats === 0;
+    const atSeatLimit = maxSeats !== null && seatsUsed >= maxSeats;
 
     const [showInviteForm, setShowInviteForm] = useState(false);
     const [inviteEmail, setInviteEmail] = useState("");
@@ -155,16 +189,23 @@ function MembersTab({ workspace, members, setMembers, me }) {
                             <p className="text-sm font-medium text-foreground">{workspace.plan_display_name ?? workspace.plan_name}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border">
-                        <Users2 size={15} className="text-muted-foreground" />
-                        <div>
-                            <p className="text-xs text-muted-foreground">Members</p>
-                            <p className="text-sm font-medium text-foreground">
-                                {workspace.member_count}
-                                {workspace.max_team_seats && (
-                                    <span className="text-muted-foreground font-normal"> / {workspace.max_team_seats} seats</span>
-                                )}
-                            </p>
+                    <div className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${atSeatLimit || noSeats ? "bg-amber-50 border-amber-200" : "bg-secondary/50 border-border"}`}>
+                        <Users2 size={15} className={atSeatLimit || noSeats ? "text-amber-500" : "text-muted-foreground"} />
+                        <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">Team Seats</p>
+                            {maxSeats === null ? (
+                                <p className="text-sm font-medium text-foreground">{workspace.member_count} <span className="text-muted-foreground font-normal">/ unlimited</span></p>
+                            ) : noSeats ? (
+                                <p className="text-sm font-medium text-amber-700">0 seats on Free plan</p>
+                            ) : (
+                                <div className="flex flex-col gap-1 min-w-32">
+                                    <p className="text-sm font-medium text-foreground">
+                                        {seatsUsed} used
+                                        <span className="text-muted-foreground font-normal"> of {maxSeats}</span>
+                                    </p>
+                                    <SeatUsageBar used={seatsUsed} max={maxSeats} />
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border">
@@ -179,74 +220,87 @@ function MembersTab({ workspace, members, setMembers, me }) {
 
             {/* Invite section */}
             {canManage && (
-                <div className="rounded-lg border border-border">
-                    <button
-                        onClick={() => { setShowInviteForm(o => !o); setInviteError(""); setInviteSuccess(""); }}
-                        className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors rounded-lg cursor-pointer"
-                    >
-                        <UserPlus size={15} className="text-muted-foreground" />
-                        <span className="flex-1 text-left">Invite team member</span>
-                        <span className={`text-muted-foreground text-xs transition-transform ${showInviteForm ? 'rotate-180' : ''}`}>▾</span>
-                    </button>
+                (noSeats || atSeatLimit) ? (
+                    <UpgradeBanner
+                        message={noSeats
+                            ? "Your Free plan doesn't include team seats."
+                            : `You've used all ${maxSeats} seat${maxSeats === 1 ? "" : "s"} on your current plan.`
+                        }
+                    />
+                ) : (
+                    <div className="rounded-lg border border-border">
+                        <button
+                            onClick={() => { setShowInviteForm(o => !o); setInviteError(""); setInviteSuccess(""); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors rounded-lg cursor-pointer"
+                        >
+                            <UserPlus size={15} className="text-muted-foreground" />
+                            <span className="flex-1 text-left">Invite team member</span>
+                            <span className={`text-muted-foreground text-xs transition-transform ${showInviteForm ? 'rotate-180' : ''}`}>▾</span>
+                        </button>
 
-                    {showInviteForm && (
-                        <form onSubmit={handleInvite} className="px-4 pb-4 flex flex-col gap-3 border-t border-border pt-4">
-                            {inviteError && (
-                                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                                    {inviteError}
-                                </p>
-                            )}
-                            {inviteSuccess && (
-                                <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center gap-2">
-                                    <CheckCircle2 size={14} /> {inviteSuccess}
-                                </p>
-                            )}
-                            <div className="flex gap-3">
-                                <div className="flex-1">
-                                    <label className="text-xs text-muted-foreground font-medium block mb-1">Email address *</label>
+                        {showInviteForm && (
+                            <form onSubmit={handleInvite} className="px-4 pb-4 flex flex-col gap-3 border-t border-border pt-4">
+                                {inviteError && (
+                                    inviteError.toLowerCase().includes("seat") || inviteError.toLowerCase().includes("plan") ? (
+                                        <UpgradeBanner message={inviteError} />
+                                    ) : (
+                                        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                                            {inviteError}
+                                        </p>
+                                    )
+                                )}
+                                {inviteSuccess && (
+                                    <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                                        <CheckCircle2 size={14} /> {inviteSuccess}
+                                    </p>
+                                )}
+                                <div className="flex gap-3">
+                                    <div className="flex-1">
+                                        <label className="text-xs text-muted-foreground font-medium block mb-1">Email address *</label>
+                                        <input
+                                            type="email"
+                                            placeholder="colleague@example.com"
+                                            value={inviteEmail}
+                                            onChange={e => setInviteEmail(e.target.value)}
+                                            className={inputCls}
+                                            required
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div className="w-36">
+                                        <label className="text-xs text-muted-foreground font-medium block mb-1">Role *</label>
+                                        <select
+                                            value={inviteRole}
+                                            onChange={e => setInviteRole(e.target.value)}
+                                            className={inputCls}
+                                        >
+                                            {(isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"]).map(r => (
+                                                <option key={r} value={r}>{ROLE_META[r]?.label ?? r}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted-foreground font-medium block mb-1">Message (optional)</label>
                                     <input
-                                        type="email"
-                                        placeholder="colleague@example.com"
-                                        value={inviteEmail}
-                                        onChange={e => setInviteEmail(e.target.value)}
+                                        type="text"
+                                        placeholder="Add a personal note..."
+                                        value={inviteMessage}
+                                        onChange={e => setInviteMessage(e.target.value)}
                                         className={inputCls}
-                                        required
-                                        autoFocus
                                     />
                                 </div>
-                                <div className="w-36">
-                                    <label className="text-xs text-muted-foreground font-medium block mb-1">Role *</label>
-                                    <select
-                                        value={inviteRole}
-                                        onChange={e => setInviteRole(e.target.value)}
-                                        className={inputCls}
-                                    >
-                                        {(isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"]).map(r => (
-                                            <option key={r} value={r}>{ROLE_META[r]?.label ?? r}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs text-muted-foreground font-medium block mb-1">Message (optional)</label>
-                                <input
-                                    type="text"
-                                    placeholder="Add a personal note..."
-                                    value={inviteMessage}
-                                    onChange={e => setInviteMessage(e.target.value)}
-                                    className={inputCls}
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={inviting || !inviteEmail.trim()}
-                                className="self-start inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
-                            >
-                                {inviting ? "Sending…" : "Send Invitation"}
-                            </button>
-                        </form>
-                    )}
-                </div>
+                                <button
+                                    type="submit"
+                                    disabled={inviting || !inviteEmail.trim()}
+                                    className="self-start inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                                >
+                                    {inviting ? "Sending…" : "Send Invitation"}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                )
             )}
 
             {/* Members list */}
@@ -498,11 +552,15 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
 
 // ── Create Workspace Modal ────────────────────────────────────────────────────
 
-function CreateWorkspaceModal({ open, onClose, onCreated }) {
+function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState("");
+
+    const ownedCount = me?.workspaces?.filter(w => w.role === "owner").length ?? 0;
+    const maxWorkspaces = workspace?.max_workspaces ?? null;
+    const atWorkspaceLimit = maxWorkspaces !== null && ownedCount >= parseInt(maxWorkspaces);
 
     function reset() { setName(""); setSlug(""); setError(""); }
 
@@ -523,45 +581,67 @@ function CreateWorkspaceModal({ open, onClose, onCreated }) {
 
     return (
         <Modal open={open} onClose={() => { reset(); onClose(); }} title="Create Workspace">
-            <form onSubmit={handleCreate} className="flex flex-col gap-3">
-                {error && (
-                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                        {error}
-                    </p>
+            <div className="flex flex-col gap-3">
+                {atWorkspaceLimit ? (
+                    <>
+                        <UpgradeBanner
+                            message={`Your plan allows ${maxWorkspaces} workspace${maxWorkspaces === 1 ? "" : "s"}. You've reached the limit.`}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            You currently own {ownedCount} workspace{ownedCount === 1 ? "" : "s"}.
+                        </p>
+                    </>
+                ) : (
+                    <form onSubmit={handleCreate} className="flex flex-col gap-3">
+                        {error && (
+                            error.toLowerCase().includes("workspace") && error.toLowerCase().includes("plan") ? (
+                                <UpgradeBanner message={error} />
+                            ) : (
+                                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                                    {error}
+                                </p>
+                            )
+                        )}
+                        <div>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">Workspace name *</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Elite Performance Studio"
+                                value={name}
+                                onChange={e => setName(e.target.value)}
+                                className={inputCls}
+                                required
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">
+                                Slug <span className="font-normal opacity-60">(optional — auto-generated if blank)</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="my-workspace"
+                                value={slug}
+                                onChange={e => setSlug(e.target.value)}
+                                className={inputCls}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">Lowercase letters, numbers, and hyphens only.</p>
+                        </div>
+                        {maxWorkspaces !== null && (
+                            <p className="text-xs text-muted-foreground">
+                                {ownedCount} of {maxWorkspaces} workspace{maxWorkspaces === 1 ? "" : "s"} used on your plan.
+                            </p>
+                        )}
+                        <button
+                            type="submit"
+                            disabled={creating || !name.trim()}
+                            className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                        >
+                            {creating ? "Creating…" : "Create Workspace"}
+                        </button>
+                    </form>
                 )}
-                <div>
-                    <label className="text-xs text-muted-foreground font-medium block mb-1">Workspace name *</label>
-                    <input
-                        type="text"
-                        placeholder="e.g. Elite Performance Studio"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className={inputCls}
-                        required
-                        autoFocus
-                    />
-                </div>
-                <div>
-                    <label className="text-xs text-muted-foreground font-medium block mb-1">
-                        Slug <span className="font-normal opacity-60">(optional — auto-generated if blank)</span>
-                    </label>
-                    <input
-                        type="text"
-                        placeholder="my-workspace"
-                        value={slug}
-                        onChange={e => setSlug(e.target.value)}
-                        className={inputCls}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Lowercase letters, numbers, and hyphens only.</p>
-                </div>
-                <button
-                    type="submit"
-                    disabled={creating || !name.trim()}
-                    className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
-                >
-                    {creating ? "Creating…" : "Create Workspace"}
-                </button>
-            </form>
+            </div>
         </Modal>
     );
 }
@@ -685,6 +765,7 @@ export default function TeamPage() {
                     members={members}
                     setMembers={setMembers}
                     me={me}
+                    pendingCount={invitations.length}
                 />
             )}
             {tab === "invitations" && (
@@ -707,6 +788,8 @@ export default function TeamPage() {
                 open={showNewWs}
                 onClose={() => setShowNewWs(false)}
                 onCreated={handleWorkspaceCreated}
+                me={me}
+                workspace={workspace}
             />
         </div>
     );

@@ -1,172 +1,607 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/axios";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 
-export default function SettingsPage() {
-    const [coach, setCoach] = useState(null);
-    const [newSlug, setNewSlug] = useState("");
-    const [loading, setLoading] = useState(true);
-    const [customizing, setCustomizing] = useState(false);
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
+const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+
+function TabButton({ active, onClick, children }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+        >
+            {children}
+        </button>
+    );
+}
+
+function SuccessMsg({ msg }) {
+    if (!msg) return null;
+    return (
+        <p className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            <CheckCircle2 size={14} className="shrink-0" /> {msg}
+        </p>
+    );
+}
+
+function ErrorMsg({ msg }) {
+    if (!msg) return null;
+    return (
+        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+            {msg}
+        </p>
+    );
+}
+
+// ── Profile Tab ───────────────────────────────────────────────────────────────
+
+function ProfileTab({ me }) {
+    const [fname, setFname] = useState(me?.fname ?? "");
+    const [lname, setLname] = useState(me?.lname ?? "");
+    const [savingName, setSavingName] = useState(false);
+    const [nameError, setNameError] = useState("");
+    const [nameSuccess, setNameSuccess] = useState("");
+
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [savingPw, setSavingPw] = useState(false);
+    const [pwError, setPwError] = useState("");
+    const [pwSuccess, setPwSuccess] = useState("");
 
     useEffect(() => {
-        const fetchCoach = async () => {
-            try {
-                const res = await api.get("/api/auth/me");
-                setCoach(res.data);
-                setNewSlug(res.data.coach_slug || "");
-            } catch (err) {
-                console.error(err);
-                setError("Failed to load coach profile");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchCoach();
+        setFname(me?.fname ?? "");
+        setLname(me?.lname ?? "");
+    }, [me]);
+
+    async function handleSaveName(e) {
+        e.preventDefault();
+        if (!fname.trim()) return;
+        setNameError(""); setNameSuccess("");
+        setSavingName(true);
+        try {
+            await api.patch("/api/auth/profile", { fname: fname.trim(), lname: lname.trim() });
+            setNameSuccess("Name updated successfully.");
+        } catch (err) {
+            setNameError(err.response?.data?.message || "Failed to update name.");
+        } finally {
+            setSavingName(false);
+        }
+    }
+
+    async function handleChangePassword(e) {
+        e.preventDefault();
+        setPwError(""); setPwSuccess("");
+        if (newPassword !== confirmPassword) { setPwError("New passwords do not match."); return; }
+        if (newPassword.length < 8) { setPwError("Password must be at least 8 characters."); return; }
+        setSavingPw(true);
+        try {
+            await api.patch("/api/auth/profile", { currentPassword, newPassword });
+            setPwSuccess("Password changed successfully.");
+            setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+        } catch (err) {
+            setPwError(err.response?.data?.message || "Failed to change password.");
+        } finally {
+            setSavingPw(false);
+        }
+    }
+
+    return (
+        <div className="flex flex-col gap-6">
+            {/* Name */}
+            <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
+                <h3 className="text-sm font-semibold text-foreground">Personal Info</h3>
+                <div className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Email: </span>{me?.email}
+                </div>
+                <form onSubmit={handleSaveName} className="flex flex-col gap-3">
+                    <div className="flex gap-3">
+                        <div className="flex-1">
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">First name</label>
+                            <input
+                                type="text"
+                                value={fname}
+                                onChange={e => setFname(e.target.value)}
+                                className={inputCls}
+                                required
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">Last name</label>
+                            <input
+                                type="text"
+                                value={lname}
+                                onChange={e => setLname(e.target.value)}
+                                className={inputCls}
+                            />
+                        </div>
+                    </div>
+                    <ErrorMsg msg={nameError} />
+                    <SuccessMsg msg={nameSuccess} />
+                    <button
+                        type="submit"
+                        disabled={savingName || !fname.trim()}
+                        className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                    >
+                        {savingName ? "Saving…" : "Save Name"}
+                    </button>
+                </form>
+            </div>
+
+            {/* Password */}
+            <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
+                <h3 className="text-sm font-semibold text-foreground">Change Password</h3>
+                <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium block mb-1">Current password</label>
+                        <input
+                            type="password"
+                            value={currentPassword}
+                            onChange={e => setCurrentPassword(e.target.value)}
+                            className={inputCls}
+                            autoComplete="current-password"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium block mb-1">New password</label>
+                        <input
+                            type="password"
+                            value={newPassword}
+                            onChange={e => setNewPassword(e.target.value)}
+                            className={inputCls}
+                            autoComplete="new-password"
+                            required
+                            minLength={8}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium block mb-1">Confirm new password</label>
+                        <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
+                            className={inputCls}
+                            autoComplete="new-password"
+                            required
+                        />
+                    </div>
+                    <ErrorMsg msg={pwError} />
+                    <SuccessMsg msg={pwSuccess} />
+                    <button
+                        type="submit"
+                        disabled={savingPw || !currentPassword || !newPassword || !confirmPassword}
+                        className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                    >
+                        {savingPw ? "Changing…" : "Change Password"}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Workspace Tab ─────────────────────────────────────────────────────────────
+
+function WorkspaceTab({ me, workspace, setWorkspace }) {
+    const isOwner = me?.currentWorkspace?.role === "owner";
+    const wsId = me?.currentWorkspace?.id;
+
+    // Rename
+    const [wsName, setWsName] = useState(workspace?.name ?? "");
+    const [renameSaving, setRenameSaving] = useState(false);
+    const [renameError, setRenameError] = useState("");
+    const [renameSuccess, setRenameSuccess] = useState("");
+
+    // Slug
+    const [newSlug, setNewSlug] = useState("");
+    const [slugSaving, setSlugSaving] = useState(false);
+    const [slugError, setSlugError] = useState("");
+    const [slugSuccess, setSlugSuccess] = useState("");
+
+    useEffect(() => {
+        setWsName(workspace?.name ?? "");
+    }, [workspace]);
+
+    async function handleRename(e) {
+        e.preventDefault();
+        if (!wsName.trim()) return;
+        setRenameError(""); setRenameSuccess("");
+        setRenameSaving(true);
+        try {
+            const res = await api.patch(`/api/workspaces/${wsId}/name`, { name: wsName.trim() });
+            setWorkspace(prev => ({ ...prev, name: res.data.name }));
+            setRenameSuccess("Workspace renamed successfully.");
+        } catch (err) {
+            setRenameError(err.response?.data?.message || "Failed to rename workspace.");
+        } finally {
+            setRenameSaving(false);
+        }
+    }
+
+    async function handleCustomizeSlug(e) {
+        e.preventDefault();
+        setSlugError(""); setSlugSuccess("");
+        setSlugSaving(true);
+        try {
+            const res = await api.put(`/api/workspaces/${wsId}/slug`, { slug: newSlug.trim() });
+            setWorkspace(prev => ({ ...prev, slug: res.data.slug, slug_customized: true }));
+            setSlugSuccess("Slug updated. Share the new portal URL with your clients.");
+            setNewSlug("");
+        } catch (err) {
+            setSlugError(err.response?.data?.message || "Failed to update slug.");
+        } finally {
+            setSlugSaving(false);
+        }
+    }
+
+    const portalUrl = typeof window !== "undefined"
+        ? `${window.location.origin}/portal/${workspace?.slug}`
+        : `/portal/${workspace?.slug}`;
+
+    return (
+        <div className="flex flex-col gap-6">
+            {/* Rename */}
+            {isOwner && (
+                <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
+                    <h3 className="text-sm font-semibold text-foreground">Workspace Name</h3>
+                    <form onSubmit={handleRename} className="flex flex-col gap-3">
+                        <div>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">Name</label>
+                            <input
+                                type="text"
+                                value={wsName}
+                                onChange={e => setWsName(e.target.value)}
+                                className={inputCls}
+                                required
+                            />
+                        </div>
+                        <ErrorMsg msg={renameError} />
+                        <SuccessMsg msg={renameSuccess} />
+                        <button
+                            type="submit"
+                            disabled={renameSaving || !wsName.trim() || wsName.trim() === workspace?.name}
+                            className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                        >
+                            {renameSaving ? "Saving…" : "Save"}
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {/* Portal URL */}
+            <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
+                <h3 className="text-sm font-semibold text-foreground">Client Portal</h3>
+                <div>
+                    <label className="text-xs text-muted-foreground font-medium block mb-1">Your Portal URL</label>
+                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                        <code className="text-sm text-foreground break-all">{portalUrl}</code>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                        Share this link with your clients so they can access their training and nutrition plans.
+                    </p>
+                </div>
+
+                {/* Slug customization — owner only, once */}
+                {isOwner && !workspace?.slug_customized && (
+                    <form onSubmit={handleCustomizeSlug} className="flex flex-col gap-3 pt-3 border-t border-border">
+                        <p className="text-xs text-muted-foreground">
+                            Customize your portal slug to something memorable. <strong>This can only be done once.</strong>
+                        </p>
+                        <div>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">Custom slug</label>
+                            <div className="flex items-center gap-0">
+                                <span className="px-3 py-2 rounded-l-md border border-r-0 border-input bg-secondary text-muted-foreground text-sm select-none">
+                                    /portal/
+                                </span>
+                                <input
+                                    type="text"
+                                    placeholder="your-slug"
+                                    value={newSlug}
+                                    onChange={e => setNewSlug(e.target.value)}
+                                    className="flex-1 px-3 py-2 rounded-r-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                                    required
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">Lowercase letters, numbers, and hyphens only.</p>
+                        </div>
+                        <ErrorMsg msg={slugError} />
+                        <SuccessMsg msg={slugSuccess} />
+                        <button
+                            type="submit"
+                            disabled={slugSaving || !newSlug.trim()}
+                            className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                        >
+                            {slugSaving ? "Saving…" : "Customize Slug"}
+                        </button>
+                    </form>
+                )}
+
+                {workspace?.slug_customized && (
+                    <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                        ✓ Your portal slug has been customized and cannot be changed again.
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Danger Zone Tab ───────────────────────────────────────────────────────────
+
+function DangerZoneTab({ me, workspace, members }) {
+    const router = useRouter();
+    const isOwner = me?.currentWorkspace?.role === "owner";
+    const wsId = me?.currentWorkspace?.id;
+
+    // Transfer ownership
+    const [showTransfer, setShowTransfer] = useState(false);
+    const [transferMemberId, setTransferMemberId] = useState("");
+    const [transferPassword, setTransferPassword] = useState("");
+    const [transferring, setTransferring] = useState(false);
+    const [transferError, setTransferError] = useState("");
+
+    // Archive
+    const [showArchive, setShowArchive] = useState(false);
+    const [archiveConfirm, setArchiveConfirm] = useState("");
+    const [archiving, setArchiving] = useState(false);
+    const [archiveError, setArchiveError] = useState("");
+
+    async function handleTransfer(e) {
+        e.preventDefault();
+        setTransferError("");
+        setTransferring(true);
+        try {
+            await api.post(`/api/workspaces/${wsId}/transfer-ownership`, {
+                memberId: parseInt(transferMemberId),
+                ownerPassword: transferPassword,
+            });
+            // After transfer, switch workspace context to refresh role
+            router.push("/dashboard");
+            router.refresh();
+        } catch (err) {
+            setTransferError(err.response?.data?.message || "Failed to transfer ownership.");
+        } finally {
+            setTransferring(false);
+        }
+    }
+
+    async function handleArchive(e) {
+        e.preventDefault();
+        if (archiveConfirm !== workspace?.name) return;
+        setArchiveError("");
+        setArchiving(true);
+        try {
+            await api.delete(`/api/workspaces/${wsId}`);
+            router.push("/dashboard");
+            router.refresh();
+        } catch (err) {
+            setArchiveError(err.response?.data?.message || "Failed to archive workspace.");
+        } finally {
+            setArchiving(false);
+        }
+    }
+
+    if (!isOwner) {
+        return (
+            <div className="rounded-lg border border-dashed border-border py-10 text-center">
+                <p className="text-sm text-muted-foreground">Only the workspace owner can access danger zone settings.</p>
+            </div>
+        );
+    }
+
+    const activeMembers = members.filter(m => m.is_active);
+
+    return (
+        <div className="flex flex-col gap-4">
+            {/* Transfer Ownership */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-5 flex flex-col gap-4">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                        <h3 className="text-sm font-semibold text-foreground">Transfer Ownership</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Transfer this workspace to another active member. You will become a Manager.
+                        </p>
+                    </div>
+                </div>
+
+                {!showTransfer ? (
+                    <button
+                        onClick={() => setShowTransfer(true)}
+                        disabled={activeMembers.length === 0}
+                        className="self-start px-4 py-2 rounded-lg border border-amber-300 bg-amber-100 text-amber-800 text-sm font-medium hover:bg-amber-200 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+                    >
+                        Transfer Ownership
+                    </button>
+                ) : (
+                    <form onSubmit={handleTransfer} className="flex flex-col gap-3">
+                        {activeMembers.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No active members to transfer to. Invite a team member first.</p>
+                        ) : (
+                            <>
+                                <div>
+                                    <label className="text-xs text-muted-foreground font-medium block mb-1">Transfer to</label>
+                                    <select
+                                        value={transferMemberId}
+                                        onChange={e => setTransferMemberId(e.target.value)}
+                                        className={inputCls}
+                                        required
+                                    >
+                                        <option value="">Select a member…</option>
+                                        {activeMembers.map(m => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.fname} {m.lname} ({m.email})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted-foreground font-medium block mb-1">Your password to confirm</label>
+                                    <input
+                                        type="password"
+                                        value={transferPassword}
+                                        onChange={e => setTransferPassword(e.target.value)}
+                                        className={inputCls}
+                                        required
+                                        autoComplete="current-password"
+                                    />
+                                </div>
+                                <ErrorMsg msg={transferError} />
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowTransfer(false); setTransferError(""); setTransferPassword(""); setTransferMemberId(""); }}
+                                        className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={transferring || !transferMemberId || !transferPassword}
+                                        className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                                    >
+                                        {transferring ? "Transferring…" : "Confirm Transfer"}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </form>
+                )}
+            </div>
+
+            {/* Archive */}
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-5 flex flex-col gap-4">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle size={16} className="text-destructive mt-0.5 shrink-0" />
+                    <div>
+                        <h3 className="text-sm font-semibold text-foreground">Archive Workspace</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Archiving hides this workspace and removes access for all members. This cannot be undone.
+                        </p>
+                    </div>
+                </div>
+
+                {!showArchive ? (
+                    <button
+                        onClick={() => setShowArchive(true)}
+                        className="self-start px-4 py-2 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors cursor-pointer"
+                    >
+                        Archive Workspace
+                    </button>
+                ) : (
+                    <form onSubmit={handleArchive} className="flex flex-col gap-3">
+                        <div>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">
+                                Type <strong>{workspace?.name}</strong> to confirm
+                            </label>
+                            <input
+                                type="text"
+                                value={archiveConfirm}
+                                onChange={e => setArchiveConfirm(e.target.value)}
+                                className={inputCls}
+                                placeholder={workspace?.name}
+                            />
+                        </div>
+                        <ErrorMsg msg={archiveError} />
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => { setShowArchive(false); setArchiveConfirm(""); setArchiveError(""); }}
+                                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={archiving || archiveConfirm !== workspace?.name}
+                                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                            >
+                                {archiving ? "Archiving…" : "Archive Workspace"}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function SettingsPage() {
+    const [tab, setTab] = useState("profile");
+    const [me, setMe] = useState(null);
+    const [workspace, setWorkspace] = useState(null);
+    const [members, setMembers] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+        try {
+            const meRes = await api.get("/api/auth/me");
+            setMe(meRes.data);
+            const wsId = meRes.data.currentWorkspace?.id;
+            if (!wsId) return;
+            const [wsRes, membersRes] = await Promise.all([
+                api.get(`/api/workspaces/${wsId}`),
+                api.get(`/api/workspaces/${wsId}/members`).catch(() => ({ data: [] })),
+            ]);
+            setWorkspace(wsRes.data);
+            setMembers(membersRes.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    const handleCustomizeSlug = async (e) => {
-        e.preventDefault();
-        setError("");
-        setSuccess("");
-        setCustomizing(true);
-
-        try {
-            const res = await api.put("/api/auth/coach-slug", { new_slug: newSlug });
-            setCoach(res.data);
-            setSuccess("Portal slug updated successfully!");
-        } catch (err) {
-            setError(err.response?.data?.message || "Failed to update slug");
-        } finally {
-            setCustomizing(false);
-        }
-    };
+    useEffect(() => { load(); }, [load]);
 
     if (loading) {
         return (
-            <div className="p-8">
-                <h1 className="text-3xl font-bold text-foreground mb-6">Settings</h1>
-                <div className="space-y-4">
-                    <div className="h-10 rounded-lg bg-secondary animate-pulse" />
-                    <div className="h-10 rounded-lg bg-secondary animate-pulse" />
+            <div className="p-8 max-w-2xl">
+                <div className="h-9 w-28 rounded-lg bg-secondary animate-pulse mb-6" />
+                <div className="flex gap-2 mb-6">
+                    {[1, 2, 3].map(i => <div key={i} className="h-9 w-24 rounded bg-secondary animate-pulse" />)}
+                </div>
+                <div className="flex flex-col gap-3">
+                    {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-lg bg-secondary animate-pulse" />)}
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="p-8 max-w-2xl">
-            <h1 className="text-3xl font-bold text-foreground mb-8">Settings</h1>
+        <div className="p-8 max-w-2xl flex flex-col gap-6">
+            <h1 className="text-3xl font-bold text-foreground">Settings</h1>
 
-            {/* Coach Profile Card */}
-            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 mb-8">
-                <h2 className="text-xl font-bold text-foreground mb-4">Coach Profile</h2>
-                
-                <div className="space-y-4">
-                    <div>
-                        <label className="text-sm font-medium text-muted-foreground">Name</label>
-                        <p className="text-lg text-foreground">
-                            {coach?.fname} {coach?.lname}
-                        </p>
-                    </div>
-                    
-                    <div>
-                        <label className="text-sm font-medium text-muted-foreground">Email</label>
-                        <p className="text-lg text-foreground">{coach?.email}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Portal Slug Card */}
-            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-                <h2 className="text-xl font-bold text-foreground mb-4">Client Portal</h2>
-
-                <div className="space-y-6">
-                    {/* Current Slug Display */}
-                    <div>
-                        <label className="text-sm font-medium text-muted-foreground block mb-2">
-                            Your Portal URL
-                        </label>
-                        <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                            <code className="text-sm text-foreground break-all">
-                                {typeof window !== "undefined"
-                                    ? `${window.location.origin}/portal/${coach?.coach_slug}`
-                                    : `/portal/${coach?.coach_slug}`}
-                            </code>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                            Share this link with your clients to access their training and nutrition plans.
-                        </p>
-                    </div>
-
-                    {/* Customize Slug Form (only if not customized yet) */}
-                    {coach && !coach.slug_customized && (
-                        <div className="pt-4 border-t border-border">
-                            <p className="text-sm text-muted-foreground mb-4">
-                                Customize your portal slug to something more memorable. You can only do this once.
-                            </p>
-
-                            <form onSubmit={handleCustomizeSlug} className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-foreground block mb-2">
-                                        Custom Portal Slug
-                                    </label>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1 relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                                /portal/
-                                            </span>
-                                            <input
-                                                type="text"
-                                                placeholder="your-slug"
-                                                value={newSlug}
-                                                onChange={(e) => setNewSlug(e.target.value)}
-                                                className="w-full px-3 py-2 pl-16 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
-                                                disabled={customizing}
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                        Use lowercase letters, numbers, and hyphens only.
-                                    </p>
-                                </div>
-
-                                {error && (
-                                    <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                                        {error}
-                                    </p>
-                                )}
-
-                                {success && (
-                                    <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                                        {success}
-                                    </p>
-                                )}
-
-                                <button
-                                    type="submit"
-                                    disabled={customizing || !newSlug.trim()}
-                                    className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 text-sm font-medium transition-colors cursor-pointer disabled:opacity-60 disabled:pointer-events-none"
-                                >
-                                    {customizing ? "Updating…" : "Customize Slug"}
-                                </button>
-                            </form>
-                        </div>
-                    )}
-
-                    {/* Slug already customized message */}
-                    {coach?.slug_customized && (
-                        <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                            <p className="text-sm text-blue-900">
-                                ✓ Your portal slug has been customized and cannot be changed.
-                            </p>
-                        </div>
+            {/* Tabs */}
+            <div className="border-b border-border -mb-2">
+                <div className="flex gap-0">
+                    <TabButton active={tab === "profile"} onClick={() => setTab("profile")}>Profile</TabButton>
+                    <TabButton active={tab === "workspace"} onClick={() => setTab("workspace")}>Workspace</TabButton>
+                    {me?.currentWorkspace?.role === "owner" && (
+                        <TabButton active={tab === "danger"} onClick={() => setTab("danger")}>
+                            <span className="text-destructive">Danger Zone</span>
+                        </TabButton>
                     )}
                 </div>
             </div>
+
+            {tab === "profile" && <ProfileTab me={me} />}
+            {tab === "workspace" && (
+                <WorkspaceTab me={me} workspace={workspace} setWorkspace={setWorkspace} />
+            )}
+            {tab === "danger" && (
+                <DangerZoneTab me={me} workspace={workspace} members={members} />
+            )}
         </div>
     );
 }

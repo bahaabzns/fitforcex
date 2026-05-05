@@ -356,4 +356,53 @@ router.post('/logout', (req, res) => {
     res.clearCookie('token').status(200).json({ message: 'Logged out successfully' });
 });
 
+// Update personal profile (name and/or password)
+router.patch('/profile', authMiddleware, async (req, res) => {
+    const { fname, lname, currentPassword, newPassword } = req.body;
+
+    if (!fname?.trim() && !lname?.trim() && !newPassword) {
+        return res.status(400).json({ message: 'Nothing to update' });
+    }
+
+    try {
+        const { rows } = await pool.query(
+            'SELECT id, fname, lname, password FROM users WHERE id = $1',
+            [req.user.userId]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'User not found' });
+        const user = rows[0];
+
+        const updates = {};
+        const params = [];
+
+        if (fname?.trim()) updates.fname = fname.trim();
+        if (lname?.trim() !== undefined) updates.lname = lname.trim();
+
+        if (newPassword) {
+            if (!currentPassword) {
+                return res.status(400).json({ message: 'Current password is required to set a new one' });
+            }
+            const valid = await bcrypt.compare(currentPassword, user.password);
+            if (!valid) return res.status(401).json({ message: 'Current password is incorrect' });
+            updates.password = await bcrypt.hash(newPassword, 10);
+        }
+
+        if (!Object.keys(updates).length) {
+            return res.status(400).json({ message: 'Nothing to update' });
+        }
+
+        const setClauses = Object.keys(updates).map((k, i) => { params.push(updates[k]); return `${k} = $${i + 1}`; });
+        params.push(req.user.userId);
+        const { rows: updated } = await pool.query(
+            `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING id, fname, lname, email`,
+            params
+        );
+
+        res.json(updated[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to update profile' });
+    }
+});
+
 module.exports = router;

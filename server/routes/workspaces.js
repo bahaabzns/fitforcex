@@ -93,6 +93,32 @@ router.get('/:id', sameWorkspace, async (req, res) => {
     }
 });
 
+// ── Rename workspace ──────────────────────────────────────────────────────────
+
+router.patch('/:id/name', sameWorkspace, requireOwner, async (req, res) => {
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
+
+    try {
+        const { rows } = await pool.query(
+            'UPDATE workspaces SET name = $1 WHERE id = $2 RETURNING id, name',
+            [name.trim(), req.user.workspaceId]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'Workspace not found' });
+
+        await pool.query(
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
+             VALUES ($1, $2, 'workspace_renamed', 'workspace', $1)`,
+            [req.user.workspaceId, req.user.userId]
+        );
+
+        res.json(rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to rename workspace' });
+    }
+});
+
 // ── Update slug ───────────────────────────────────────────────────────────────
 
 router.put('/:id/slug', sameWorkspace, requireOwner, async (req, res) => {

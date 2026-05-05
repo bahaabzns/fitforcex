@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx next *)",
       "Bash(Get-ChildItem -Path \"d:\\\\fitforce-x\\\\server\" -Recurse -Depth 2)",
-      "Bash(Select-Object FullName, PSIsContainer)"
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "PowerShell(Get-ChildItem \"d:\\\\fitforce-x\\\\client\\\\app\\\\\\(coach\\)\" -Recurse -Name | Where-Object { $_ -match '\\\\.js$' })"
     ]
   }
 }
