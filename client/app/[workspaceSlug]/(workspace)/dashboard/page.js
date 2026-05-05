@@ -1,0 +1,157 @@
+'use client';
+
+import { useEffect, useState } from "react";
+import api from "@/lib/axios";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import { Users, ClipboardList, TrendingUp, AlertCircle } from "lucide-react";
+
+const STATUS_CLS = {
+    Active:    "bg-green-100 text-green-700",
+    Expired:   "bg-red-50 text-red-600",
+    Frozen:    "bg-blue-50 text-blue-600",
+    "Pre-start": "bg-yellow-50 text-yellow-600",
+    Cancelled: "bg-secondary text-muted-foreground",
+    Refunded:  "bg-purple-50 text-purple-600",
+};
+
+function StatCard({ icon: Icon, label, value, sub, accent }) {
+    return (
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 min-w-40">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${accent ?? "bg-primary/10"}`}>
+                <Icon size={17} className={accent ? "text-white" : "text-primary"} />
+            </div>
+            <div>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
+                <p className="text-sm text-muted-foreground">{label}</p>
+                {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+            </div>
+        </div>
+    );
+}
+
+export default function DashboardPage() {
+    const [data, setData] = useState(null);
+    const router = useRouter();
+    const { workspaceSlug } = useParams();
+
+    useEffect(() => {
+        api.get('/api/dashboard')
+            .then(res => setData(res.data))
+            .catch(() => router.push('/login'));
+    }, [router]);
+
+    if (!data) {
+        return (
+            <div className="p-8">
+                <div className="h-8 w-52 rounded-lg bg-secondary animate-pulse mb-8" />
+                <div className="flex gap-4 flex-wrap mb-8">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="h-28 w-44 rounded-xl bg-secondary animate-pulse" />
+                    ))}
+                </div>
+                <div className="h-5 w-32 rounded bg-secondary animate-pulse mb-3" />
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="h-12 rounded-lg bg-secondary animate-pulse mb-2" />
+                ))}
+            </div>
+        );
+    }
+
+    const { fname, stats, recentClients } = data;
+
+    return (
+        <div className="p-8 flex flex-col gap-8">
+            {/* Greeting */}
+            <div>
+                <h1 className="text-3xl font-bold text-foreground">
+                    Welcome back, {fname}!
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">Here's what's happening in your workspace.</p>
+            </div>
+
+            {/* Stats */}
+            <div className="flex flex-wrap gap-4">
+                <StatCard
+                    icon={Users}
+                    label="Total Clients"
+                    value={stats.totalClients}
+                />
+                <StatCard
+                    icon={TrendingUp}
+                    label="Active Clients"
+                    value={stats.activeClients}
+                    sub={stats.totalClients > 0
+                        ? `${Math.round((stats.activeClients / stats.totalClients) * 100)}% of total`
+                        : undefined}
+                />
+                <StatCard
+                    icon={AlertCircle}
+                    label="Expired"
+                    value={stats.expiredClients}
+                />
+                <StatCard
+                    icon={ClipboardList}
+                    label="Pending Forms"
+                    value={stats.pendingForms}
+                    sub={stats.pendingForms > 0 ? "awaiting response" : "all caught up"}
+                />
+            </div>
+
+            {/* Recent clients */}
+            <div>
+                <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-base font-semibold text-foreground">Recent Clients</h2>
+                    <Link
+                        href={`/${workspaceSlug}/clients`}
+                        className="text-xs text-primary hover:text-primary/80 transition-colors"
+                    >
+                        View all →
+                    </Link>
+                </div>
+
+                {recentClients.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border py-10 text-center">
+                        <p className="text-sm text-muted-foreground">No clients yet.</p>
+                        <Link
+                            href={`/${workspaceSlug}/clients`}
+                            className="mt-2 inline-block text-xs text-primary hover:text-primary/80 transition-colors"
+                        >
+                            Add your first client →
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="rounded-xl border border-border overflow-hidden">
+                        {recentClients.map((client, idx) => (
+                            <Link
+                                key={client.id}
+                                href={`/${workspaceSlug}/clients/${client.id}`}
+                                className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${
+                                    idx < recentClients.length - 1 ? "border-b border-border" : ""
+                                }`}
+                            >
+                                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                                    {`${client.fname?.[0] ?? ""}${client.lname?.[0] ?? ""}`.toUpperCase() || "?"}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">
+                                        {client.fname} {client.lname}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+                                </div>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                                    STATUS_CLS[client.subscription_status] ?? "bg-secondary text-muted-foreground"
+                                }`}>
+                                    {client.subscription_status}
+                                </span>
+                                <span className="text-xs text-muted-foreground shrink-0">
+                                    {new Date(client.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

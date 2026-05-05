@@ -30,8 +30,8 @@ import {
 export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
-    const [dbOpen, setDbOpen] = useState(pathname.startsWith('/databases'));
-    const [financeOpen, setFinanceOpen] = useState(pathname.startsWith('/finance'));
+    const [dbOpen, setDbOpen] = useState(pathname.includes('/databases'));
+    const [financeOpen, setFinanceOpen] = useState(pathname.includes('/finance'));
     const [user, setUser] = useState(null);
     const [collapsed, setCollapsed] = useState(false);
     const [wsOpen, setWsOpen] = useState(false);
@@ -68,7 +68,10 @@ export default function Sidebar() {
         try {
             await api.post('/api/auth/switch-workspace', { workspaceId });
             setWsOpen(false);
-            router.push('/dashboard');
+            // Find the target workspace slug so we can navigate to it
+            const targetWs = (user?.workspaces ?? []).find(w => w.id === workspaceId);
+            const targetSlug = targetWs?.slug ?? '';
+            router.push(`/${targetSlug}/dashboard`);
             router.refresh();
             // Re-fetch user to update currentWorkspace display
             const res = await api.get('/api/auth/me');
@@ -86,6 +89,7 @@ export default function Sidebar() {
     };
 
     const currentWs = user?.currentWorkspace;
+    const slug = user?.currentWorkspace?.slug ?? '';
     const allWorkspaces = user?.workspaces ?? [];
     const pendingCount = user?.pendingInvitationsCount ?? 0;
 
@@ -160,7 +164,7 @@ export default function Sidebar() {
                             </div>
                             <div className="border-t border-border p-1.5">
                                 <Link
-                                    href="/team?action=new-workspace"
+                                    href={`/${slug}/team?action=new-workspace`}
                                     onClick={() => setWsOpen(false)}
                                     className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-muted-foreground hover:text-primary hover:bg-accent transition-colors cursor-pointer"
                                 >
@@ -178,9 +182,9 @@ export default function Sidebar() {
                 <ul className="flex flex-col gap-1">
                     <li>
                         <Link
-                            href="/dashboard"
+                            href={`/${slug}/dashboard`}
                             title={collapsed ? 'Dashboard' : undefined}
-                            className={`${pathname === '/dashboard' ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${pathname.includes('/dashboard') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <LayoutDashboard size={17} className="shrink-0" />
                             {!collapsed && 'Dashboard'}
@@ -189,9 +193,9 @@ export default function Sidebar() {
 
                     <li>
                         <Link
-                            href="/clients"
+                            href={`/${slug}/clients`}
                             title={collapsed ? 'Clients' : undefined}
-                            className={`${pathname.startsWith('/clients') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${pathname.includes('/clients') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <Users size={17} className="shrink-0" />
                             {!collapsed && 'Clients'}
@@ -202,7 +206,7 @@ export default function Sidebar() {
                         <button
                             onClick={() => !collapsed && setDbOpen(!dbOpen)}
                             title={collapsed ? 'Databases' : undefined}
-                            className={`${pathname.startsWith('/databases') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0 w-full' : ''}`}
+                            className={`${pathname.includes('/databases') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0 w-full' : ''}`}
                         >
                             <Database size={17} className="shrink-0" />
                             {!collapsed && (
@@ -218,8 +222,8 @@ export default function Sidebar() {
                                 <ul className="flex flex-col gap-1 mt-1">
                                     <li>
                                         <Link
-                                            href="/databases/nutrition/food-items"
-                                            className={pathname.startsWith('/databases/nutrition') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                            href={`/${slug}/databases/nutrition/food-items`}
+                                            className={pathname.includes('/databases/nutrition') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
                                         >
                                             <Salad size={15} />
                                             Nutrition
@@ -227,8 +231,8 @@ export default function Sidebar() {
                                     </li>
                                     <li>
                                         <Link
-                                            href="/databases/training/exercise-library"
-                                            className={pathname.startsWith('/databases/training') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                            href={`/${slug}/databases/training/exercise-library`}
+                                            className={pathname.includes('/databases/training') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
                                         >
                                             <Dumbbell size={15} />
                                             Training
@@ -243,7 +247,7 @@ export default function Sidebar() {
                         <button
                             onClick={() => !collapsed && setFinanceOpen(!financeOpen)}
                             title={collapsed ? 'Finance' : undefined}
-                            className={`${pathname.startsWith('/finance') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0 w-full' : ''}`}
+                            className={`${pathname.includes('/finance') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0 w-full' : ''}`}
                         >
                             <Wallet size={17} className="shrink-0" />
                             {!collapsed && (
@@ -259,8 +263,8 @@ export default function Sidebar() {
                                 <ul className="flex flex-col gap-1 mt-1">
                                     <li>
                                         <Link
-                                            href="/finance/transactions"
-                                            className={pathname.startsWith('/finance/transactions') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                            href={`/${slug}/finance/transactions`}
+                                            className={pathname.includes('/finance/transactions') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
                                         >
                                             <Receipt size={15} />
                                             Transactions
@@ -268,8 +272,8 @@ export default function Sidebar() {
                                     </li>
                                     <li>
                                         <Link
-                                            href="/finance/packages"
-                                            className={pathname.startsWith('/finance/packages') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                            href={`/${slug}/finance/packages`}
+                                            className={pathname.includes('/finance/packages') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
                                         >
                                             <Package size={15} />
                                             Packages
@@ -277,8 +281,8 @@ export default function Sidebar() {
                                     </li>
                                     <li>
                                         <Link
-                                            href="/finance/payment-methods"
-                                            className={pathname.startsWith('/finance/payment-methods') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
+                                            href={`/${slug}/finance/payment-methods`}
+                                            className={pathname.includes('/finance/payment-methods') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
                                         >
                                             <Wallet size={15} />
                                             Payment Methods
@@ -291,9 +295,9 @@ export default function Sidebar() {
 
                     <li>
                         <Link
-                            href="/forms"
+                            href={`/${slug}/forms`}
                             title={collapsed ? 'Forms' : undefined}
-                            className={`${pathname.startsWith('/forms') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${pathname.includes('/forms') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <ClipboardList size={17} className="shrink-0" />
                             {!collapsed && 'Forms'}
@@ -302,9 +306,9 @@ export default function Sidebar() {
 
                     <li>
                         <Link
-                            href="/plans-queue"
+                            href={`/${slug}/plans-queue`}
                             title={collapsed ? 'Plans Queue' : undefined}
-                            className={`${pathname.startsWith('/plans-queue') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${pathname.includes('/plans-queue') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <ClipboardList size={17} className="shrink-0" />
                             {!collapsed && 'Plans Queue'}
@@ -313,9 +317,9 @@ export default function Sidebar() {
 
                     <li>
                         <Link
-                            href="/team"
+                            href={`/${slug}/team`}
                             title={collapsed ? 'Team' : undefined}
-                            className={`${pathname.startsWith('/team') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${pathname.includes('/team') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <div className="relative shrink-0">
                                 <Users2 size={17} />
@@ -340,9 +344,9 @@ export default function Sidebar() {
 
                     <li>
                         <Link
-                            href="/settings"
+                            href={`/${slug}/settings`}
                             title={collapsed ? 'Settings' : undefined}
-                            className={`${pathname.startsWith('/settings') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${pathname.includes('/settings') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <Settings size={17} className="shrink-0" />
                             {!collapsed && 'Settings'}

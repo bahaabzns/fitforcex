@@ -15,7 +15,9 @@ export default function LoginPage() {
         e.preventDefault();
         try {
             await api.post('/api/auth/login', formData);
-            router.push('/dashboard');
+            const me = await api.get('/api/auth/me');
+            const slug = me.data?.currentWorkspace?.slug;
+            router.push(slug ? `/${slug}/dashboard` : '/login');
         } catch (err) {
             console.log(err);
         }
