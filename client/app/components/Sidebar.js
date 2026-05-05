@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     LayoutDashboard,
     Users,
+    Users2,
     Database,
     Salad,
     Dumbbell,
@@ -21,6 +22,9 @@ import {
     Wallet,
     Package,
     Receipt,
+    Building2,
+    Check,
+    Plus,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -30,11 +34,23 @@ export default function Sidebar() {
     const [financeOpen, setFinanceOpen] = useState(pathname.startsWith('/finance'));
     const [user, setUser] = useState(null);
     const [collapsed, setCollapsed] = useState(false);
+    const [wsOpen, setWsOpen] = useState(false);
+    const [switching, setSwitching] = useState(false);
+    const wsRef = useRef(null);
 
     useEffect(() => {
         api.get('/api/auth/me')
             .then(res => setUser(res.data))
             .catch(() => setUser(null));
+    }, []);
+
+    // Close workspace dropdown on outside click
+    useEffect(() => {
+        function handler(e) {
+            if (wsRef.current && !wsRef.current.contains(e.target)) setWsOpen(false);
+        }
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
     }, []);
 
     const handleLogout = async () => {
@@ -46,10 +62,32 @@ export default function Sidebar() {
         }
     };
 
+    const handleSwitchWorkspace = async (workspaceId) => {
+        if (switching || workspaceId === user?.currentWorkspace?.id) { setWsOpen(false); return; }
+        setSwitching(true);
+        try {
+            await api.post('/api/auth/switch-workspace', { workspaceId });
+            setWsOpen(false);
+            router.push('/dashboard');
+            router.refresh();
+            // Re-fetch user to update currentWorkspace display
+            const res = await api.get('/api/auth/me');
+            setUser(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSwitching(false);
+        }
+    };
+
     const getInitials = (u) => {
         if (!u) return '?';
         return `${u.fname?.[0] ?? ''}${u.lname?.[0] ?? ''}`.toUpperCase();
     };
+
+    const currentWs = user?.currentWorkspace;
+    const allWorkspaces = user?.workspaces ?? [];
+    const pendingCount = user?.pendingInvitationsCount ?? 0;
 
     return (
         <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
@@ -83,6 +121,57 @@ export default function Sidebar() {
                     </div>
                 )}
             </div>
+
+            {/* Workspace Switcher */}
+            {!collapsed && currentWs && (
+                <div className="px-3 pb-2 relative" ref={wsRef}>
+                    <button
+                        onClick={() => setWsOpen(o => !o)}
+                        disabled={switching}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg bg-secondary/60 hover:bg-accent text-left transition-colors group cursor-pointer"
+                    >
+                        <Building2 size={13} className="text-muted-foreground shrink-0" />
+                        <span className="flex-1 min-w-0 text-xs text-foreground font-medium truncate">
+                            {currentWs.name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground capitalize shrink-0">{currentWs.role}</span>
+                        <ChevronDown size={12} className={`text-muted-foreground shrink-0 transition-transform ${wsOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {wsOpen && (
+                        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                            <div className="p-1.5 flex flex-col gap-0.5">
+                                {allWorkspaces.map(ws => (
+                                    <button
+                                        key={ws.id}
+                                        onClick={() => handleSwitchWorkspace(ws.id)}
+                                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left text-xs transition-colors cursor-pointer ${
+                                            ws.id === currentWs.id
+                                                ? 'bg-primary/10 text-primary'
+                                                : 'text-foreground hover:bg-accent'
+                                        }`}
+                                    >
+                                        <Building2 size={12} className="shrink-0" />
+                                        <span className="flex-1 truncate font-medium">{ws.name}</span>
+                                        <span className="text-muted-foreground capitalize shrink-0">{ws.role}</span>
+                                        {ws.id === currentWs.id && <Check size={12} className="text-primary shrink-0" />}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="border-t border-border p-1.5">
+                                <Link
+                                    href="/team?action=new-workspace"
+                                    onClick={() => setWsOpen(false)}
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-muted-foreground hover:text-primary hover:bg-accent transition-colors cursor-pointer"
+                                >
+                                    <Plus size={12} />
+                                    Create workspace
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Navigation */}
             <nav className="sidebar-nav">
@@ -224,6 +313,33 @@ export default function Sidebar() {
 
                     <li>
                         <Link
+                            href="/team"
+                            title={collapsed ? 'Team' : undefined}
+                            className={`${pathname.startsWith('/team') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                        >
+                            <div className="relative shrink-0">
+                                <Users2 size={17} />
+                                {pendingCount > 0 && (
+                                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-primary text-white text-[8px] font-bold flex items-center justify-center leading-none">
+                                        {pendingCount > 9 ? '9+' : pendingCount}
+                                    </span>
+                                )}
+                            </div>
+                            {!collapsed && (
+                                <>
+                                    Team
+                                    {pendingCount > 0 && (
+                                        <span className="ml-auto px-1.5 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold leading-none">
+                                            {pendingCount > 9 ? '9+' : pendingCount}
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                        </Link>
+                    </li>
+
+                    <li>
+                        <Link
                             href="/settings"
                             title={collapsed ? 'Settings' : undefined}
                             className={`${pathname.startsWith('/settings') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
@@ -249,4 +365,3 @@ export default function Sidebar() {
         </aside>
     );
 }
-
