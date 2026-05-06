@@ -16,26 +16,23 @@ async function checkSeatLimit(workspaceId) {
     if (!rows.length) throw { status: 500, message: 'Subscription not found for workspace' };
     const { max_team_seats, active_members, pending_invitations } = rows[0];
     if (max_team_seats === null) return;  // unlimited
-    const used = parseInt(active_members) + parseInt(pending_invitations);
+    // +1 accounts for the workspace owner (not stored in workspace_members)
+    const used = parseInt(active_members) + parseInt(pending_invitations) + 1;
     if (used >= parseInt(max_team_seats)) {
         throw { status: 403, message: `Your plan allows ${max_team_seats} team seat(s). Upgrade to add more.` };
     }
 }
 
-async function checkWorkspaceLimit(userId) {
+async function checkWorkspaceLimit(userId, currentWorkspaceId) {
     const { rows } = await pool.query(`
         SELECT p.max_workspaces,
-               COUNT(w.id) AS owned_count
-        FROM workspaces w
-        JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
+               (SELECT COUNT(*) FROM workspaces WHERE owner_id = $1 AND archived_at IS NULL) AS owned_count
+        FROM workspace_subscriptions ws
         JOIN plans p ON p.id = ws.plan_id
-        WHERE w.owner_id = $1 AND w.archived_at IS NULL
-        GROUP BY p.max_workspaces
-        ORDER BY p.max_workspaces ASC NULLS LAST
-        LIMIT 1
-    `, [userId]);
+        WHERE ws.workspace_id = $2
+    `, [userId, currentWorkspaceId]);
 
-    if (!rows.length) return;  // no workspaces yet — allow
+    if (!rows.length) return;
     const { max_workspaces, owned_count } = rows[0];
     if (max_workspaces === null) return;  // unlimited
     if (parseInt(owned_count) >= parseInt(max_workspaces)) {

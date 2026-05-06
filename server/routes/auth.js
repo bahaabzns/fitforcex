@@ -130,6 +130,21 @@ router.get('/test', (req, res) => {
 router.post('/register', async (req, res) => {
     try {
         const { fname, lname, email, password } = req.body;
+
+        // Input validation
+        if (!email || typeof email !== 'string' || !email.trim()) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+        if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+            return res.status(400).json({ message: 'Invalid email format' });
+        }
+        if (!password || typeof password !== 'string' || !password.trim()) {
+            return res.status(400).json({ message: 'Password is required' });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ message: 'Password must be at least 8 characters' });
+        }
+
         const hashed = await bcrypt.hash(password, 10);
 
         const rawSlug = email?.split('@')?.[0] || `${fname}-${lname}`;

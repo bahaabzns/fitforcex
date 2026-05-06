@@ -34,7 +34,7 @@ router.post('/', async (req, res) => {
     if (!name?.trim()) return res.status(400).json({ message: 'Workspace name is required' });
 
     try {
-        await checkWorkspaceLimit(req.user.userId);
+        await checkWorkspaceLimit(req.user.userId, req.user.workspaceId);
 
         const rawSlug = slug?.trim() || name;
         let normalizedSlug = normalizeSlug(rawSlug) || `workspace-${Date.now()}`;

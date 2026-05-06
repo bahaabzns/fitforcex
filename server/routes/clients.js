@@ -159,11 +159,27 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const codeResult = await pool.query(
-            'SELECT COALESCE(MAX(client_code), 0) + 1 AS next_code FROM clients WHERE workspace_id = $1',
-            [req.user.workspaceId]
-        );
-        const nextCode = codeResult.rows[0].next_code;
+        // Generate random unique client code (1-9999) to avoid race conditions
+        let nextCode = null;
+        let retries = 0;
+        const maxRetries = 10;
+        
+        while (nextCode === null && retries < maxRetries) {
+            const randomCode = Math.floor(Math.random() * 9999) + 1;
+            const checkResult = await pool.query(
+                'SELECT id FROM clients WHERE workspace_id = $1 AND client_code = $2 LIMIT 1',
+                [req.user.workspaceId, randomCode]
+            );
+            if (!checkResult.rows.length) {
+                nextCode = randomCode;
+            }
+            retries++;
+        }
+        
+        if (nextCode === null) {
+            return res.status(500).json({ error: 'Failed to generate unique client code' });
+        }
+        
         const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
         const phonesArray = Array.isArray(phones) && phones.length > 0
@@ -195,6 +211,10 @@ router.post('/', async (req, res) => {
 // GET /api/clients/:id
 router.get('/:id', async (req, res) => {
     try {
+        if (process.env.NODE_ENV === 'test') {
+            const dbg = await pool.query('SELECT id, workspace_id FROM clients WHERE id = $1', [req.params.id]);
+            console.log(`[GET /:id] param=${req.params.id} token_ws=${req.user.workspaceId} client_row=${JSON.stringify(dbg.rows[0])}`);
+        }
         const [clientResult, planActivationResult] = await Promise.all([
             pool.query(
                 'SELECT * FROM clients WHERE id = $1 AND workspace_id = $2',
