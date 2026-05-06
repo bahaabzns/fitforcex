@@ -12,54 +12,6 @@ router.use((req, res, next) => {
     requirePermission('clients', action)(req, res, next);
 });
 
-;(async () => {
-    try {
-        await pool.query(`
-            ALTER TABLE clients
-                ADD COLUMN IF NOT EXISTS phones JSONB DEFAULT '[]',
-                ADD COLUMN IF NOT EXISTS current_package TEXT,
-                ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'Active',
-                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                DROP COLUMN IF EXISTS plain_password
-        `);
-        
-        // Ensure workspace-scoped email uniqueness constraint exists
-        await pool.query(`ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_email_key`);
-        await pool.query(`
-            DO $$ BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint WHERE conname = 'clients_workspace_id_email_key'
-                ) THEN
-                    ALTER TABLE clients ADD CONSTRAINT clients_workspace_id_email_key UNIQUE (workspace_id, email);
-                END IF;
-            END $$
-        `);
-        
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS subscription_freezes (
-                id                   SERIAL PRIMARY KEY,
-                client_id            INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-                freeze_start_date    DATE NOT NULL,
-                freeze_duration_days INTEGER NOT NULL,
-                notes                TEXT,
-                created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        `);
-    } catch (err) {
-        console.error('clients bootstrap error:', err.message);
-    }
-    // Columns needed for subscription status computation — run independently so a missing
-    // table (transactions/training_plans/nutrition_plans) doesn't block the others.
-    for (const sql of [
-        `ALTER TABLE transactions ADD COLUMN IF NOT EXISTS subscription_start_date DATE`,
-        `ALTER TABLE transactions ADD COLUMN IF NOT EXISTS start_mode TEXT NOT NULL DEFAULT 'on_first_plan'`,
-        `ALTER TABLE training_plans ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ`,
-        `ALTER TABLE nutrition_plans ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ`,
-    ]) {
-        try { await pool.query(sql); } catch { /* table may not exist yet — own route will create it */ }
-    }
-})();
-
 function mapClient(row) {
     return {
         id: row.id,
@@ -92,34 +44,66 @@ function mapFreeze(row) {
 
 // GET /api/clients
 router.get('/', async (req, res) => {
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const search = req.query.search?.trim() || '';
+
     try {
-        const [clientsResult, txResult, freezeResult, planActivationResult] = await Promise.all([
+        const searchCondition = search
+            ? `AND (c.fname ILIKE $3 OR c.lname ILIKE $3 OR c.email ILIKE $3)`
+            : '';
+        const searchParam = search ? [`%${search}%`] : [];
+
+        const [clientsResult, countResult] = await Promise.all([
             pool.query(
-                'SELECT * FROM clients WHERE workspace_id = $1 ORDER BY created_at DESC',
-                [req.user.workspaceId]
+                `SELECT * FROM clients c
+                    WHERE workspace_id = $1
+                    ${searchCondition}
+                    ORDER BY created_at DESC
+                    LIMIT $2 OFFSET ${offset}`,
+                [req.user.workspaceId, limit, ...searchParam]
             ),
             pool.query(
+                `SELECT COUNT(*) FROM clients WHERE workspace_id = $1 ${searchCondition}`,
+                [req.user.workspaceId, ...searchParam]
+            ),
+        ]);
+
+        const clientIds = clientsResult.rows.map(r => r.id);
+
+        if (clientIds.length === 0) {
+            return res.json({ data: [], total: 0, page, limit, totalPages: 0 });
+        }
+
+        // $1 = workspaceId, $2..N = clientIds (for queries that need both)
+        const placeholders     = clientIds.map((_, i) => `$${i + 2}`).join(', ');
+        // $1..N = clientIds only (for queries that don't filter by workspace)
+        const freezePlaceholders = clientIds.map((_, i) => `$${i + 1}`).join(', ');
+
+        const [txResult, freezeResult, planActivationResult] = await Promise.all([
+            pool.query(
                 `SELECT client_id, status, duration, subscription_start_date, start_mode, created_at
-                 FROM transactions WHERE workspace_id = $1 AND client_id IS NOT NULL`,
-                [req.user.workspaceId]
+                    FROM transactions
+                    WHERE workspace_id = $1 AND client_id IN (${placeholders})`,
+                [req.user.workspaceId, ...clientIds]
             ),
             pool.query(
                 `SELECT sf.* FROM subscription_freezes sf
-                 INNER JOIN clients c ON c.id = sf.client_id
-                 WHERE c.workspace_id = $1`,
-                [req.user.workspaceId]
+                 WHERE sf.client_id IN (${freezePlaceholders})`,
+                clientIds
             ),
             pool.query(
                 `SELECT client_id, MIN(activated_at) AS first_activation
-                 FROM (
-                     SELECT client_id, activated_at FROM training_plans
-                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
-                     UNION ALL
-                     SELECT client_id, activated_at FROM nutrition_plans
-                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
-                 ) combined
-                 GROUP BY client_id`,
-                [req.user.workspaceId]
+                    FROM (
+                        SELECT client_id, activated_at FROM training_plans
+                        WHERE workspace_id = $1 AND client_id IN (${placeholders}) AND activated_at IS NOT NULL
+                        UNION ALL
+                        SELECT client_id, activated_at FROM nutrition_plans
+                        WHERE workspace_id = $1 AND client_id IN (${placeholders}) AND activated_at IS NOT NULL
+                    ) combined
+                    GROUP BY client_id`,
+                [req.user.workspaceId, ...clientIds]
             ),
         ]);
 
@@ -140,14 +124,22 @@ router.get('/', async (req, res) => {
             planActivationByClient[row.client_id] = row.first_activation;
         }
 
-        res.json(clientsResult.rows.map(row => ({
-            ...mapClient(row),
-            subscription_status: computeSubscriptionStatus(
-                txByClient[row.id] || [],
-                freezesByClient[row.id] || [],
-                planActivationByClient[row.id] ?? null
-            ),
-        })));
+        const total = parseInt(countResult.rows[0].count);
+
+        res.json({
+            data: clientsResult.rows.map(row => ({
+                ...mapClient(row),
+                subscription_status: computeSubscriptionStatus(
+                    txByClient[row.id] || [],
+                    freezesByClient[row.id] || [],
+                    planActivationByClient[row.id] ?? null
+                ),
+            })),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -193,7 +185,7 @@ router.post('/', async (req, res) => {
                 req.user.workspaceId, hashedPassword,
             ]
         );
-        res.status(201).json({ ...mapClient(result.rows[0]), tempPassword: password || null });
+        res.status(201).json({ ...mapClient(result.rows[0]) });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -351,7 +343,7 @@ router.post('/:id/set-password', async (req, res) => {
             [hashed, req.params.id, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
-        res.json({ message: 'Password set successfully', tempPassword: password });
+        res.json({ message: 'Password set successfully' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });

@@ -7,6 +7,15 @@ const { loginLimiter } = require('../middleware/rateLimit');
 const authMiddleware = require('../middleware/auth');
 const requireOwner = require('../middleware/requireOwner');
 
+function cookieOptions() {
+    return {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    }
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function normalizeSlug(raw) {
@@ -198,11 +207,10 @@ router.post('/login', loginLimiter, async (req, res) => {
             permissions: wsContext.permissions,
         });
 
-        res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
+        res.cookie('token', token, cookieOptions())
             .status(200)
             .json({
                 message: 'Login successful',
-                token,
                 selectedWorkspace: {
                     id: wsContext.workspaceId,
                     slug: wsContext.slug,
@@ -276,10 +284,9 @@ router.post('/switch-workspace', authMiddleware, async (req, res) => {
             permissions: wsContext.permissions,
         });
 
-        res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
+        res.cookie('token', token, cookieOptions())
             .status(200)
             .json({
-                token,
                 workspace: {
                     id: wsContext.workspaceId,
                     slug: wsContext.slug,

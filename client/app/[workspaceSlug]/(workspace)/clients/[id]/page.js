@@ -176,8 +176,8 @@ export default function ClientOverviewPage() {
       });
       let updatedClient = { ...client, ...updated.data };
       if (newPassword) {
-        const pwRes = await api.post(`/api/clients/${id}/set-password`, { password: newPassword });
-        setTempPassword(pwRes.data.tempPassword);
+        await api.post(`/api/clients/${id}/set-password`, { password: newPassword });
+        setTempPassword(newPassword);
         updatedClient = { ...updatedClient, has_password: true };
       }
       setClient(updatedClient);

@@ -26,7 +26,12 @@ router.post('/login', loginLimiter, async (req, res) => {
             { expiresIn: '8h' }
         );
 
-        res.cookie('admin_token', token, { httpOnly: true, maxAge: 8 * 60 * 60 * 1000 })
+        res.cookie('admin_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: 8 * 60 * 60 * 1000, // 8 hours
+        })
            .status(200)
            .json({ message: 'Admin login successful', admin: { id: admin.id, email: admin.email, fname: admin.fname, lname: admin.lname } });
     } catch (err) {

@@ -279,12 +279,12 @@ export default function ClientsPage() {
 
     useEffect(() => {
         Promise.all([
-            api.get("/api/clients"),
+            api.get("/api/clients?page=1&limit=20"), // Fetch first page of clients for initial display
             api.get("/api/packages"),
             api.get("/api/payment-methods"),
             api.get("/api/forms"),
         ]).then(([clientRes, pkgRes, pmRes, formsRes]) => {
-            setClients(clientRes.data ?? []);
+            setClients(clientRes.data.data ?? []);
             setPackages(pkgRes.data ?? []);
             setPaymentMethods((pmRes.data ?? []).filter(m => m.active));
             setAvailableForms((formsRes.data ?? []).filter(f => f.status === "active" || f.active));
@@ -358,8 +358,8 @@ export default function ClientsPage() {
             });
             const created = res.data;
             setClients(prev => [created, ...prev]);
-            if (created.tempPassword) {
-                setCredsModal({ email: newEmail, password: created.tempPassword });
+            if (newPassword) {
+                setCredsModal({ email: newEmail, password: newPassword });
                 setCredsCopied(false);
             }
 
@@ -435,8 +435,8 @@ export default function ClientsPage() {
                 notes: freezeNotes || null,
             });
             // Re-fetch to update computed statuses
-            const updated = await api.get("/api/clients");
-            setClients(updated.data ?? []);
+            const updated = await api.get("/api/clients?page=1&limit=20");
+            setClients(updated.data.data ?? []);
             setShowFreezeModal(false);
         } catch (err) {
             setFreezeError(err.response?.data?.error || "Failed to add freeze.");

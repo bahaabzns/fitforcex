@@ -4,7 +4,11 @@
       "Bash(npx next *)",
       "Bash(Get-ChildItem -Path \"d:\\\\fitforce-x\\\\server\" -Recurse -Depth 2)",
       "Bash(Select-Object FullName, PSIsContainer)",
-      "PowerShell(Get-ChildItem \"d:\\\\fitforce-x\\\\client\\\\app\\\\\\(coach\\)\" -Recurse -Name | Where-Object { $_ -match '\\\\.js$' })"
+      "PowerShell(Get-ChildItem \"d:\\\\fitforce-x\\\\client\\\\app\\\\\\(coach\\)\" -Recurse -Name | Where-Object { $_ -match '\\\\.js$' })",
+      "PowerShell($env:PGPASSWORD = \"Canyouseeme@441199\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\pg_dump.exe\" --username=postgres --schema-only --no-owner --no-privileges --dbname=fitforce-x-database -f \"d:\\\\fitforce-x\\\\server\\\\scripts\\\\schema.sql\" 2>&1; Write-Host \"Exit: $LASTEXITCODE\")",
+      "PowerShell($env:PGPASSWORD = \"Canyouseeme@441199\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" --username=postgres --dbname=fitforce-x-test -f \"d:\\\\fitforce-x\\\\server\\\\scripts\\\\schema.sql\" 2>&1 | Select-Object -Last 10; Write-Host \"Exit: $LASTEXITCODE\")",
+      "Bash(npm test *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

@@ -1,555 +1,569 @@
 # FitForce X — Codebase Review
-**Reviewer:** Senior Full-Stack Engineer | **Date:** 2026-04-30  
-**Stack:** Next.js 16 + Express 5 + PostgreSQL (pg driver)
+**Reviewer:** Senior Full-Stack Engineer | **Date:** 2026-05-05  
+**Stack:** Express 5 + PostgreSQL (`pg`) · Next.js 16 (React 19) · Tailwind 4
 
 ---
 
-> **Executive Summary:** Decent bones. The architecture is straightforward, DB queries are parameterized throughout, tenant isolation exists on most routes, and the subscription logic is actually well-thought-out with good inline docs. But there are multiple production-blocking security issues — two of which are *currently leaking sensitive user data* — and the codebase has zero tests and no proper migration system. This is not yet safe to run with real users' financial data.
+> **Executive Summary:** Decent bones. The workspace-scoped multi-tenancy is real, SQL injection is mostly shut down via parameterized queries throughout, and the subscription logic has thoughtful freeze/queue semantics. But there are multiple production-blocking issues — two of which are *actively leaking sensitive data to clients right now* — no migration system, no CI/CD, and effectively zero test coverage. I would not run this with real users' financial data until the critical issues are resolved.
 
 ---
 
 ## 1. Architecture & System Design
 
-**Grade: C+**  
-Monolithic Express with flat route files. Serviceable for a 0→1 but will hit walls at growth.
+**Grade: C+** — Functional monolith, will crack at scale, fixable now.
 
 ### Critical Issues
-- **No migration system.** Schema is bootstrapped via `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ADD COLUMN IF NOT EXISTS` inside route-module IIFEs that run on every server start. This is one bad deploy away from silent data loss or partial migrations that corrupt state.
-  ```js
-  // server/routes/transactions.js — runs on every process start
-  ;(async () => {
-      await pool.query(`CREATE TABLE IF NOT EXISTS transactions (...)`);
-      await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS client_id ...`);
-  })();
-  ```
-  **Fix:** Use a proper migration tool — Flyway, node-pg-migrate, or even plain numbered SQL files run by a `migrate` npm script before server start. Never let application code own schema shape.
+
+**Schema migrations living inside route handlers** — every route file has a top-level IIFE that runs `ALTER TABLE` and `CREATE TABLE` statements on server startup. This is the single most dangerous architectural decision in the codebase.
+
+```js
+// server/routes/clients.js — runs every boot
+;(async () => {
+    try {
+        await pool.query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS phones JSONB DEFAULT '[]'`);
+        await pool.query(`ALTER TABLE clients DROP COLUMN IF EXISTS plain_password`);
+        // ...more DDL...
+    } catch (err) { console.error('clients bootstrap error:', err.message); }
+})();
+```
+
+This means:
+- Schema changes cannot be versioned, reviewed, or rolled back
+- Two servers starting simultaneously can race on DDL
+- Destructive ops (`DROP COLUMN`) can silently succeed with no audit trail
+- You cannot reconstruct the current schema from the codebase alone
+
+**Fix:** Adopt a real migration tool. `node-pg-migrate`, `Flyway`, or even a `migrations/` directory with numbered SQL files run by a dedicated `npm run migrate` script is fine. Kill all the IIFE DDL.
 
 ### Important Improvements
-- **No service layer.** Business logic (subscription computation, client creation, freeze validation) lives directly in route handlers. When you need to send an email on subscription creation or add webhooks, you'll be copy-pasting. Extract a `services/` layer now while the surface is still small.
-- **PORT hardcoded** in `server/server.js` line 7: `const PORT = 4000` — ignores `process.env.PORT`. One line fix.
-- **CORS origin hardcoded** to `'http://localhost:3000'`. This needs to be `process.env.CORS_ORIGIN` before any staging/production deploy.
+
+**No global error handler.** Unhandled promise rejections in route handlers currently return no response and may crash the process. Express 5 propagates async errors automatically, but only if there's a final error handler.
+
+```js
+// server/server.js — missing entirely
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(err.status ?? 500).json({ error: err.message ?? 'Internal server error' });
+});
+```
+
+**Hardcoded port and CORS origin.** `server.js` has `const PORT = 4000` (ignores `process.env.PORT`) and CORS is hardcoded to `http://localhost:3000`. Both are time bombs when you deploy.
+
+```js
+// Current — breaks in any environment
+const PORT = 4000;
+server.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+
+// Fix
+const PORT = process.env.PORT || 4000;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+server.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+```
+
+**No API versioning.** Every breaking change to a route is immediately a production incident. Prefix routes with `/api/v1/` now while it's cheap.
 
 ### Nice to Haves
-- No API versioning (`/v1/`). Fine for now, painful to retrofit later.
-- No TypeScript. The codebase is medium-complexity enough that TS would catch real bugs (wrong field names, missing null checks).
+
+- The `server/` and `client/` split is clean — keep it
+- Consider splitting the 13-route Express app into domain modules (auth, workspace, coaching, billing) as the team grows
+- `server.js` loads routes inconsistently — some via `require` inline, some via named variables; pick one style
 
 ---
 
 ## 2. Security
 
-**Grade: D**  
-Parameterized queries everywhere (good), but multiple active vulnerabilities affecting user data today.
+**Grade: D** — Multiple active data leaks and weak secrets.
 
 ### Critical Issues
 
-**[SEC-1] Plaintext passwords stored AND returned in every client API response.**  
-`plain_password` is inserted into the database (clients.js:174) and then returned verbatim in every `GET /api/clients` and `GET /api/clients/:id` response via `mapClient()`.
+**[ACTIVE LEAK] Plaintext passwords returned in API responses.** Two endpoints return the raw password to the caller:
 
 ```js
-// server/routes/clients.js:58 — inside mapClient(), called on every clients response
-plain_password: row.plain_password,
+// server/routes/clients.js:196 — POST /api/clients
+res.status(201).json({ ...mapClient(result.rows[0]), tempPassword: password || null });
 
-// server/routes/clients.js:174 — INSERT
-[nextCode, firstName, ..., hashedPassword, password || null]
-//                                         ^^^^^^^^^^^^^^ raw plaintext
+// server/routes/clients.js:354 — POST /api/clients/:id/set-password
+res.json({ message: 'Password set successfully', tempPassword: password });
 ```
 
-Every coach's API response currently sends every client's raw password over the wire to the browser. Any XSS, MITM, or log scraping exposes all passwords immediately. This also means you can never tell a client "your password is secure" — it literally isn't.
+Any coach, trainer, or browser extension sitting on the network sees this password in plaintext. Remove `tempPassword` from both responses entirely. If you need to show it once on the UI, generate it client-side before sending and never echo it back.
 
-**Fix:**
-1. Drop the `plain_password` column entirely.
-2. Remove it from `mapClient()`.
-3. If coaches need to reset passwords, generate a temporary token; don't store plaintext.
-```sql
-ALTER TABLE clients DROP COLUMN plain_password;
-```
-
----
-
-**[SEC-2] Transaction proof images are publicly accessible — no authentication on `/uploads`.**  
-`server/server.js:20` serves the entire uploads directory as a static folder with zero access control. These are *financial transaction proof images* (bank transfers, payment receipts).
+**[ACTIVE LEAK] JWT token sent in login response body** in addition to the httpOnly cookie.
 
 ```js
-// server/server.js:20
-server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// server/routes/auth.js:204
+res.cookie('token', token, { httpOnly: true, ... })
+   .status(200)
+   .json({ message: 'Login successful', token, ... }); // ← token exposed in body
 ```
 
-Anyone on the internet who can guess or enumerate a filename (e.g. `proof_1714000000000_abc123.jpg`) can download it. Filenames use `Date.now()` which has ~1000 values/second — not hard to brute-force a time window.
+The whole point of `httpOnly` is that JavaScript can't read the token. Sending it in the body nullifies that. Remove `token` from the JSON response. The cookie is sufficient.
 
-**Fix:** Remove the static serve. Add an authenticated route that checks ownership before streaming:
-```js
-// server/routes/transactions.js
-router.get('/proof/:filename', authMiddleware, async (req, res) => {
-    const { filename } = req.params;
-    const result = await pool.query(
-        'SELECT id FROM transactions WHERE proof_image LIKE $1 AND coach_id = $2',
-        [`%${filename}`, req.user.id]
-    );
-    if (!result.rows.length) return res.status(403).json({ error: 'Forbidden' });
-    res.sendFile(path.join(__dirname, '../uploads/transactions', filename));
-});
+**`ADMIN_JWT_SECRET` is a public demo JWT payload.**
+
+```
+ADMIN_JWT_SECRET=eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyNDI2MjJ9.
 ```
 
----
+This is the middle segment of the demo token from jwt.io — it is publicly known. Anyone can forge admin tokens. Replace immediately with `openssl rand -base64 64`.
 
-**[SEC-3] Client portal login can return the wrong client — potential cross-tenant IDOR.**  
-`clientPortal.js:54` queries `WHERE email = $1` with no `coach_id` filter. The `clients` table has no unique constraint on `email` globally. If Coach A and Coach B each have a client with `alice@example.com`, whichever row the DB returns first wins — Alice could authenticate as the other coach's client record and see their data.
+**Cookies missing `secure` and `sameSite` flags.** Tokens will be sent over plain HTTP and are vulnerable to CSRF.
 
 ```js
-// server/routes/clientPortal.js:54
-const result = await pool.query('SELECT * FROM clients WHERE email = $1', [email]);
-// Returns first matching row across ALL coaches
-```
+// Current
+res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
 
-**Fix:** Require email + client_code (which is unique per coach) for portal login, or add a `UNIQUE(email)` constraint globally. At minimum, document the current behavior explicitly because it's a latent bug waiting for your first duplicate email.
-
----
-
-### Important Improvements
-
-**[SEC-4] No rate limiting anywhere.**  
-Both `/api/auth/login` and `/api/client-portal/login` are wide open to brute force. Add `express-rate-limit`:
-```js
-const rateLimit = require('express-rate-limit');
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
-router.post('/login', loginLimiter, async (req, res) => { ... });
-```
-
-**[SEC-5] JWT/Cookie expiry mismatch.**  
-`auth.js:60`: `jwt.sign({...}, secret, { expiresIn: '1h' })` — JWT is valid 1 hour.  
-`auth.js:62`: `res.cookie('token', token, { maxAge: 7*24*60*60*1000 })` — cookie lives 7 days.
-
-After 1 hour the cookie is still sent but the JWT is expired. The `/api/auth/me` check will fail and redirect to login — a confusing UX cliff. Either make both 7 days, or implement refresh tokens.
-
-**[SEC-6] Cookie security flags missing.**  
-```js
-// auth.js — current
-res.cookie('token', token, { httpOnly: true, maxAge: ... })
-
-// Should be
+// Fix for production
 res.cookie('token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: ...,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
 })
 ```
-Without `sameSite: 'strict'`, CSRF attacks can trigger state-changing requests using the victim's session cookie.
 
-**[SEC-7] Same JWT secret signs both coach and client tokens.**  
-A coach's `token` and a client's `client_token` are both signed with the same `JWT_SECRET`. This is a token confusion risk: in theory, a client token could be presented to a coach-only endpoint if the middleware logic ever changes. Use separate secrets:
-```
-JWT_COACH_SECRET=...
-JWT_CLIENT_SECRET=...
-```
+**Cross-workspace client login.** When no `workspace_slug` is provided, the client portal login queries ALL clients across ALL workspaces by email:
 
-**[SEC-8] `/api/db-test` is a public unauthenticated endpoint.**  
 ```js
-// server/server.js:40
-server.get('/api/db-test', async (req, res) => {
-    await pool.query('SELECT NOW()')
-    res.status(200).json({message: 'Database connection successful'})
-})
+// server/routes/clientPortal.js:58-61
+const query = slug
+    ? `SELECT c.* FROM clients c JOIN workspaces w ... WHERE c.email = $1 AND w.slug = $2`
+    : 'SELECT * FROM clients WHERE email = $1'; // ← any workspace
 ```
-Low risk in isolation but confirms the DB is live to anyone probing. Delete it or gate it behind `authMiddleware`.
 
-**[SEC-9] `/api/auth/register` has zero input validation.**  
+A client with the same email in two workspaces will be authenticated into whichever row comes back first. This is an IDOR. Always require the workspace slug.
+
+**No input validation on registration.** No email format check, no minimum password length, no name length limits. The register route blindly hashes whatever arrives and inserts it.
+
 ```js
+// server/routes/auth.js:121-170
 router.post('/register', async (req, res) => {
     const { fname, lname, email, password } = req.body;
-    const hashed = await bcrypt.hash(password, 10);  // password could be undefined
-    await pool.query('INSERT INTO users (fname, lname, email, password) VALUES ($1,$2,$3,$4)...', [fname, lname, email, hashed])
-```
-`password` can be `undefined`, `bcrypt.hash(undefined, 10)` will throw and return a 500, leaking that registration attempted. No email format check, no minimum password length, `email` goes straight to DB without trim. Add explicit validation before the hash:
-```js
-if (!email?.includes('@')) return res.status(400).json({ message: 'Invalid email' });
-if (!password || password.length < 8) return res.status(400).json({ message: 'Password must be 8+ characters' });
+    const hashed = await bcrypt.hash(password, 10); // password can be ''
+    // No validation before this point
 ```
 
-**[SEC-10] Token returned in login response body AND the HttpOnly cookie.**  
-```js
-// auth.js:65
-res.cookie('token', token, { httpOnly: true, ... })
-  .status(200).json({ message: 'Login successful', token });  // <-- why?
-```
-Sending the JWT in the JSON body defeats the point of HttpOnly — it's now accessible to JS. The cookie is already sent. Remove `token` from the JSON response.
+Add a validation middleware (Zod or `express-validator`) at the route level.
+
+**Stale permission data in JWT.** Permissions are baked into the 7-day JWT at login. If an owner changes a member's permissions, the member's token is still valid for up to 7 days with the old permissions. This is particularly bad for revocations.
+
+Fix: either shorten the token TTL (e.g., 15 min + refresh token), or add a `permissions_version` counter to the DB and verify it on each request in `requirePermission`.
+
+### Important Improvements
+
+- Rate limiting only covers login endpoints — registration, form submission, and file uploads have no protection
+- File upload MIME type check uses `path.extname()` only for images/PDFs but `file.mimetype` for videos — inconsistent and bypassable for images by renaming an executable to `.jpg`
+- The proof-image LIKE query `WHERE proof_image LIKE $1` with `%${filename}` could match unintended rows if filenames share a suffix pattern; use exact match or store just the filename and reconstruct the path server-side
 
 ### Nice to Haves
-- No CSRF tokens (mitigated partially by `sameSite: strict` once added).
-- File upload MIME check is extension-based only — a `.jpg` file that is actually a PHP script would pass. Add magic-byte validation with a library like `file-type`.
-- No password strength enforcement beyond `>= 6 chars` in the client portal (server doesn't enforce even that).
-- GDPR: no data export or deletion endpoints.
+
+- Add security headers (Helmet.js) — `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`
+- Consider short-lived access tokens + refresh tokens to enable instant permission revocation
+- Add audit log entries for failed authentication attempts, not just successful team operations
 
 ---
 
 ## 3. Performance & Scalability
 
-**Grade: C**  
-The `GET /api/clients` route is architecturally sound (4 parallel queries, then in-memory join). Client portal is not.
+**Grade: C** — Works fine at 50 clients, will visibly degrade at 500.
 
 ### Critical Issues
-None that are fires today, but one that becomes one at scale:
+
+**Severe N+1 in client portal active-plan endpoint.** For a plan with C cycles, M meals per cycle, and I items per meal, this executes `1 + C + (C×M) + (C×M×I) + (C×M×I)` queries:
+
+```js
+// server/routes/clientPortal.js:142-195
+const cycles = await Promise.all(
+    cyclesResult.rows.map(async (cycle) => {
+        const mealsResult = await pool.query(...); // N queries
+        const mealsWithItems = await Promise.all(
+            mealsResult.rows.map(async (meal) => {
+                const itemsResult = await pool.query(...); // N×M queries
+                const itemsWithAlts = await Promise.all(
+                    itemsResult.rows.map(async (item) => {
+                        const altsResult = await pool.query(...); // N×M×I queries
+```
+
+A plan with 3 cycles × 7 meals × 8 items = **168+ queries per page load**. Same pattern in `active-training-plan`. Fix with a single JOIN query:
+
+```sql
+SELECT tp.*, td.*, te.*, tset.*
+FROM training_plans tp
+JOIN training_days td ON td.plan_id = tp.id
+JOIN training_exercises te ON te.day_id = td.id
+LEFT JOIN training_sets tset ON tset.exercise_id = te.id
+WHERE tp.client_id = $1 AND tp.status = 'active'
+ORDER BY td.day_order, te.exercise_order, tset.set_order
+```
+
+Then reassemble the hierarchy in JavaScript — one query, same result.
+
+**No pagination on list endpoints.** `GET /api/clients`, `GET /api/transactions`, `GET /api/training` all return unbounded result sets. A workspace with 1,000 clients fetches all 1,000 rows, all their transactions, all freezes, all plan activations, and computes subscription status in JS on every request.
+
+**Subscription status recomputed in memory on every `GET /api/clients` call.** This involves 4 parallel queries and O(clients × transactions) JavaScript processing. At 500 clients with 3 transactions each, this is 1,500 objects processed on every list load.
+
+Fix: persist `subscription_status` as a computed column (updated by a background job or on write), or at minimum add `LIMIT`/`OFFSET` pagination first.
 
 ### Important Improvements
 
-**[PERF-1] N+1 query explosion in client portal training/nutrition plan endpoints.**  
-Looking at the pattern across `clientPortal.js` for training/nutrition — for a plan with 5 days × 5 exercises each, this fires 1 + 5 + 25 + 25 = 56 queries instead of 3-4 with JOINs. At 100 concurrent clients loading their plans, that's 5,600 queries/second against Postgres.
+**Race condition in client code generation:**
 
-**Fix:** Fetch all days + exercises + sets in 3 queries, then assemble in JS:
 ```js
-const [days, exercises, sets] = await Promise.all([
-    pool.query(`SELECT * FROM training_plan_days WHERE plan_id = $1`, [planId]),
-    pool.query(`SELECT e.* FROM plan_exercises e JOIN training_plan_days d ON d.id = e.day_id WHERE d.plan_id = $1`, [planId]),
-    pool.query(`SELECT s.* FROM exercise_sets s JOIN plan_exercises e ON e.id = s.exercise_id JOIN training_plan_days d ON d.id = e.day_id WHERE d.plan_id = $1`, [planId]),
-]);
+// server/routes/clients.js:170-174
+const codeResult = await pool.query(
+    'SELECT COALESCE(MAX(client_code), 0) + 1 AS next_code FROM clients WHERE workspace_id = $1',
+    [req.user.workspaceId]
+);
 ```
 
-**[PERF-2] `computeSubscriptionStatus` called per-client on every `GET /api/clients`.**  
-With 100 clients per coach, `GET /api/clients` calls `computeSubscriptionStatus()` 100 times — each iterating through all transactions and freezes. The queries are already batched in parallel (good), but the computation runs synchronously in JS. At 1000 clients per coach this becomes noticeable. The subscription status is already persisted to the DB column `subscription_status` — use it as a cache and refresh it only when transactions/freezes change.
+Two concurrent `POST /api/clients` calls can read the same MAX and produce duplicate codes. Use a `SERIAL` column or a `SELECT ... FOR UPDATE` approach.
 
-**[PERF-3] `GET /api/transactions` loads ALL transactions for the coach with no pagination.**  
-A coach with 500 clients and 3 transactions each sends 1,500 rows to the browser in one response. Add limit/offset:
-```js
-const { page = 1, limit = 50 } = req.query;
-const offset = (page - 1) * limit;
-// ... WHERE coach_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
-```
-
-**[PERF-4] Missing database indexes.**  
-The bootstrap code creates tables but never creates indexes. Every `WHERE coach_id = $1` is a full table scan on a growing table.
-```sql
-CREATE INDEX IF NOT EXISTS idx_transactions_coach_id      ON transactions(coach_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_client_id     ON transactions(client_id);
-CREATE INDEX IF NOT EXISTS idx_clients_coach_id           ON clients(coach_id);
-CREATE INDEX IF NOT EXISTS idx_clients_email              ON clients(email);
-CREATE INDEX IF NOT EXISTS idx_subscription_freezes_client ON subscription_freezes(client_id);
-CREATE INDEX IF NOT EXISTS idx_training_plans_client_id   ON training_plans(client_id);
-CREATE INDEX IF NOT EXISTS idx_nutrition_plans_client_id  ON nutrition_plans(client_id);
-CREATE INDEX IF NOT EXISTS idx_form_requests_client_status ON form_requests(client_id, status);
-```
+- Missing database indexes: there are no visible `CREATE INDEX` statements for high-frequency lookup columns like `clients.workspace_id`, `transactions.workspace_id`, `transactions.client_id`, `workspace_members.user_id`, or `training_plans.client_id`. Add them.
+- `GET /api/clients` fires 4 parallel queries loading all data workspace-wide, then joins in JavaScript. A single CTE-based query would be more efficient.
 
 ### Nice to Haves
-- No Redis/memory cache for subscription status (not needed yet, but the hook should be there).
-- `Date.now()` in filenames means 1ms collisions possible under load — use `crypto.randomUUID()` instead.
+
+- Add Redis caching for `GET /api/clients` subscription statuses with TTL-based invalidation
+- Consider read replicas for dashboard/stats queries as load grows
 
 ---
 
 ## 4. Code Quality & Maintainability
 
-**Grade: B-**  
-Readable code, consistent patterns, no obvious spaghetti. Main issues are structural.
+**Grade: C+** — Readable but inconsistent; several latent bugs.
+
+### Critical Issues
+
+**Wrong FK reference in transactions table DDL:**
+
+```js
+// server/routes/transactions.js:47
+workspace_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+//                                             ^^^^ should be workspaces(id)
+```
+
+If this table was created from this IIFE, the FK points at `users`, not `workspaces`. Cascade delete fires when a user is deleted, not a workspace. The ON DELETE behaviour is completely wrong. Verify this against your actual DB schema immediately: `\d transactions` in psql.
+
+**`lname.trim() !== undefined` is always `true`** — a string can never be `undefined`, so this condition is vacuous and the update always sets `lname`:
+
+```js
+// server/routes/auth.js:379
+if (lname?.trim() !== undefined) updates.lname = lname.trim();
+// Should be:
+if (lname !== undefined) updates.lname = lname?.trim() ?? '';
+```
+
+**Duplicate subscription status logic.** The full calculation exists in `utils/subscriptionStatus.js` and is duplicated inside `routes/transactions.js` as `computePerTxStatuses`. These will drift.
 
 ### Important Improvements
 
-**[QUAL-1] Schema management belongs outside application code.**  
-As covered in Architecture: `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS` inside route IIFEs is an antipattern. It means you cannot roll back migrations, cannot tell what the DB state was at any given commit, and any error in the bootstrap silently continues (`catch (err) => { console.error(err.message) }`).
+**`buildToken` in auth.js has dead/contradictory code:**
 
-**[QUAL-2] Sequential client codes are business-logic-critical and race-condition-prone.**  
 ```js
-// clients.js:151-152
-const codeResult = await pool.query(
-    'SELECT COALESCE(MAX(client_code), 0) + 1 AS next_code FROM clients WHERE coach_id = $1',
-    [req.user.id]
-);
+// server/routes/auth.js:70-75
+if (!fallback.rows?.length && !fallback.length) {
+    const anyWorkspace = fallback.rows ?? fallback;   // always fallback since rows is undefined
+    if (!anyWorkspace.length) throw new Error('...');
+}
+const wsId = (fallback.rows ?? fallback)[0]?.id;
 ```
-Two concurrent client creations for the same coach will read the same `MAX` and insert duplicate codes. Fix with a `SERIAL` per-coach sequence or wrap in a transaction with a `SELECT ... FOR UPDATE`.
 
-**[QUAL-3] Inconsistent field naming `workspace_id` vs `coach_id`.**  
-The forms route uses `workspace_id` in queries but populates it with `req.user.id` (the coach's ID). This naming suggests a future multi-workspace design that isn't implemented — but in the meantime it confuses anyone reading the code.
+`pool.query()` always returns `{ rows, ... }` — `fallback.rows` is always defined. The `fallback.rows?.length` check will always be falsy when there are no rows. Simplify this.
 
-**[QUAL-4] Magic strings for statuses, types, and modes scattered across files.**  
+**Magic strings everywhere** outside of the one validation array in transactions. Statuses like `'active'`, `'pending'`, `'completed'`, `'owner'`, `'manager'` are scattered across a dozen files. Extract to a shared `constants.js`.
+
+**Inconsistent error response shape.** Some routes return `{ error: '...' }`, others return `{ message: '...' }` for the same HTTP status codes. Pick one and enforce it:
+
 ```js
-// transactions.js
-const VALID_STATUSES = ['completed', 'refunded'];
-const VALID_TYPES = ['subscription', 'session', 'one-time', 'other'];
-```
-These are defined per-file and not shared. When you add a new status you'll forget to update one of them. Centralize in `server/constants.js`.
+// clients.js uses 'error'
+res.status(500).json({ error: 'Internal server error' });
 
-**[QUAL-5] `console.log` / `console.error` everywhere with no structure.**  
-Auth registration logs the registered user object: `console.log('Registration successful:', result.rows[0])` — that's the user's DB row including their email in plain text to stdout. Use a proper logger with log levels and redact sensitive fields.
+// workspaces.js uses 'message'
+res.status(500).json({ message: 'Failed to fetch workspace' });
+
+// auth.js uses 'message'  
+res.status(500).json({ message: 'Registration failed' });
+```
 
 ### Nice to Haves
-- No JSDoc on any of the utility functions.
-- `subscriptionStatus.js` is actually well-commented — that standard should apply everywhere.
+
+- `normalizeSlug` is defined twice (auth.js and workspaces.js) — move to a shared util
+- File upload cleanup on error is implemented in training.js (`deleteUploadedFile`) but not in transactions.js — if the DB insert fails after file upload, the orphaned file stays
+- The `mapRow`/`mapClient` serializer pattern is good; apply it consistently everywhere
 
 ---
 
 ## 5. Multi-Tenancy & SaaS-Specific Concerns
 
-**Grade: B-**  
-Tenant isolation (coach_id checks) is present on most routes. The critical gap is the client portal.
+**Grade: B-** — Tenant isolation exists at the query layer; plan enforcement has gaps.
 
 ### Critical Issues
-- **[SEC-3 repeated]** Client portal login doesn't scope by coach — covered above.
+
+The cross-workspace client login described in Section 2 is a data isolation violation. Fix it.
+
+**`workspace_subscriptions` has no `starts_at`/`expires_at` columns** in the actual migration, but the admin route queries them:
+
+```js
+// server/routes/admin.js:226
+ws.status AS subscription_status, ws.starts_at, ws.expires_at,
+```
+
+These columns return `null` because they don't exist, which means the admin panel is silently showing incomplete subscription data.
 
 ### Important Improvements
 
-**[MT-1] Subscription status persisted to DB but computed fresh on every read.**  
-`subscription_status` exists as a column in `clients` but is always overwritten by the computed value in the GET response. The column is essentially unused as a persistent cache, meaning a future background job can't rely on it to find "all clients whose subscription expired today" without re-running all the computation. Decide: either use it as a persistent field (updated on transaction/freeze write) or remove the column and only ever compute it on read.
+**Plan limit enforcement is checked before insert but not inside a transaction.** Two concurrent requests can both pass `checkSeatLimit`, then both insert, exceeding the limit. Wrap seat-limit check + insert in a single transaction with `SELECT ... FOR UPDATE` or use a DB-level constraint.
 
-**[MT-2] No plan/feature gates enforced server-side.**  
-There's no concept of subscription tiers, client limits, or feature gating in any route. If this is a SaaS with paid plans, a coach on a "5 clients" plan can add 500 clients today without any check. Even if that's not the pricing model now, the hook needs to exist at the service layer, not bolted onto the UI later.
+**No payment gateway integration.** Plans are assigned manually by admins. There's no Stripe (or equivalent), no webhook handling, no automatic plan downgrade when a subscription lapses. This means churn management, dunning, and plan enforcement all depend on manual admin action. This is fine for MVP but will become a support burden fast.
 
-**[MT-3] File uploads not scoped per-coach.**  
-All proof images go to `/uploads/transactions/` with no coach-level directory. There's no way to quickly audit "all files belonging to coach X" or bulk-delete a churned coach's data.
+**Client subscription status is not persisted** — it's computed on-the-fly and never written back to `clients.subscription_status`, which the schema has. The column exists but is never updated from the computation. This means `SELECT subscription_status FROM clients` returns stale data.
 
 ### Nice to Haves
-- No onboarding state tracking (first client created, first plan activated, etc.) — useful for activation funnel analytics.
-- No audit log of plan activations, subscription changes, etc.
+
+- Add a `workspace_audit_log` query endpoint so owners can view their own audit trail, not just admins
+- Consider tenant-scoped feature flags (e.g., "beta_nutrition_v2") for controlled rollouts per workspace
 
 ---
 
 ## 6. API Design
 
-**Grade: C+**
+**Grade: C** — Inconsistent conventions, no versioning, non-RESTful patterns.
+
+### Critical Issues
+
+**`PUT /api/transactions` takes the record ID in the request body, not the URL.**
+
+```js
+// server/routes/transactions.js:350
+router.put('/', async (req, res) => {
+    const { id, clientName, ... } = req.body; // id in body
+```
+
+**`DELETE /api/transactions` takes the ID in query string, not URL.**
+
+```js
+// server/routes/transactions.js:416
+router.delete('/', async (req, res) => {
+    const id = req.query.id; // ?id=X
+```
+
+These violate REST conventions and make these endpoints non-cacheable and awkward to use. They should be `PUT /api/transactions/:id` and `DELETE /api/transactions/:id`.
 
 ### Important Improvements
 
-**[API-1] No versioning.** All routes under `/api/` with no version prefix. The first breaking change forces a flag day.
-
-**[API-2] PUT `/api/transactions` takes `id` in the body, not the URL.**
-```js
-router.put('/', async (req, res) => {
-    const { id, ... } = req.body;
-```
-This isn't REST. The resource identifier belongs in the path: `PUT /api/transactions/:id`. Same issue in similar routes.
-
-**[API-3] DELETE `/api/transactions` uses a query param `?id=X`.**
-```js
-router.delete('/', async (req, res) => {
-    const id = req.query.id;
-```
-Should be `DELETE /api/transactions/:id`. Query params on DELETE are unconventional and some HTTP clients/proxies drop them.
-
-**[API-4] No consistent error envelope.** Some routes return `{ error: '...' }`, others return `{ message: '...' }`. Pick one shape and standardize it across every error response.
-
-**[API-5] No rate limiting, no API documentation (OpenAPI/Swagger).**
+- No API versioning — add `/api/v1/` prefix now
+- Error responses need a consistent schema (see Section 4)
+- No rate limiting on mutation endpoints (only login has it)
+- The `GET /api/auth/test` route is exposed in production — remove it
 
 ### Nice to Haves
-- `GET /api/clients` returns all clients with no filtering or pagination.
+
+- Generate an OpenAPI 3.0 spec — `swagger-jsdoc` or `tsoa` if you ever migrate to TypeScript
+- Add `Content-Type: application/json` validation middleware so malformed bodies return 400 instead of silently processing undefined values
 
 ---
 
 ## 7. Database & Data Layer
 
-**Grade: C**
+**Grade: C** — Parameterized queries are great; everything else needs work.
 
 ### Critical Issues
-- **[DB-1] No formal migration system** — covered in Architecture.
-- **[DB-2] `plain_password` column** — covered in Security.
+
+**The transactions FK bug** (referenced in Section 4): `workspace_id REFERENCES users(id)` must be verified and corrected. This is data integrity risk.
+
+**No migration system** (referenced in Section 1): schema is partially defined in `CREATE TABLE IF NOT EXISTS` blocks inside route IIFEs, partially in `scripts/migrate.js`. There is no single source of truth for the current schema.
 
 ### Important Improvements
 
-**[DB-3] No check constraints on enum-like TEXT columns.**  
-`status`, `type`, `start_mode` are validated in app code but not at the DB level. A direct SQL insert or a bug bypasses the validation silently.
+**Missing indexes on high-cardinality FK columns.** There are no visible index creation statements anywhere. These are the minimum you need:
+
 ```sql
-ALTER TABLE transactions ADD CONSTRAINT chk_tx_status
-    CHECK (status IN ('completed', 'refunded'));
-ALTER TABLE transactions ADD CONSTRAINT chk_tx_type
-    CHECK (type IN ('subscription', 'session', 'one-time', 'other'));
+CREATE INDEX IF NOT EXISTS idx_clients_workspace_id ON clients(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_workspace_id ON transactions(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_client_id ON transactions(client_id);
+CREATE INDEX IF NOT EXISTS idx_training_plans_client_id ON training_plans(client_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_members_user_id ON workspace_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace_id ON workspace_members(workspace_id);
 ```
 
-**[DB-4] No unique constraint on client email within a coach scope.**  
-```sql
-ALTER TABLE clients ADD CONSTRAINT uq_client_email_per_coach UNIQUE (coach_id, email);
+**Soft deletes are inconsistent.** Workspaces use `archived_at` (soft delete). Clients, transactions, members use hard `DELETE`. Decide which tables need soft deletion for audit/billing purposes and apply it consistently.
+
+**`checkWorkspaceLimit` query is logically incorrect.** It groups by `p.max_workspaces` and takes the first result, but a user could own workspaces on different plans if plan changes aren't handled atomically:
+
+```js
+// server/lib/seatLimits.js:27-36
+// This aggregates across all owned workspaces and takes the lowest max_workspaces plan.
+// It does not correctly represent "the user's current entitlement."
 ```
-Currently a coach can create two clients with the same email. The client portal lookup (`WHERE email = $1`) would then behave unpredictably.
 
-**[DB-5] Inconsistent cascade behavior.**  
-`transactions` has `ON DELETE CASCADE` for `coach_id` (deleting a coach wipes all their transactions). `client_id` uses `ON DELETE SET NULL`. This means deleting a client preserves all their transaction history with `client_id = NULL` — probably intentional, but the `by-client` query then has to do a `ILIKE` name match fallback which is fragile and locale-sensitive.
-
-**[DB-6] No `updated_at` on any table.**  
-Impossible to tell when a record last changed. Add it with a trigger or update it in every UPDATE handler.
-
-**[DB-7] Subscription freeze validation gap.**  
-`freezeDurationDays` is validated as a positive integer in the route, but there's no check that `freeze_start_date` falls within an active subscription period. A freeze starting after the subscription ends silently extends nothing but is still stored.
+The intent is to check if the user can create another workspace. The correct check is: look up the plan of the workspace the user is currently acting in, and compare its `max_workspaces` to the number of workspaces the user owns.
 
 ### Nice to Haves
-- `client_code` sequential generation is a race condition (covered in QUAL-2).
-- No soft deletes — deleted clients are gone forever with no recovery path.
+
+- Add `updated_at` columns with triggers to all mutable tables
+- Consider using `TIMESTAMPTZ` consistently (the custom `parseTimestamp` in `db.js` suggests there were timezone issues — store all times as UTC and eliminate the workaround)
+- Add a `CHECK` constraint on `transactions.status` and `transactions.type` at the DB level, not just in application code
 
 ---
 
 ## 8. DevOps, CI/CD & Observability
 
-**Grade: D**
+**Grade: D** — Nothing here. Manual everything.
 
 ### Critical Issues
-- **No CI/CD pipeline.** No `Dockerfile`, no `docker-compose.yml`, no GitHub Actions / CircleCI config. Every deploy is presumably manual.
+
+**No CI/CD pipeline.** `.github/agents/` exists but contains only Claude agent instructions. Zero automated tests run on push. A broken commit goes straight to production.
+
+**No structured logging.** All error reporting is `console.error(err)`. You cannot search, filter, or alert on these logs in production. Add `pino` or `winston`:
+
+```js
+// Instead of:
+console.error(err);
+res.status(500).json({ error: 'Internal server error' });
+
+// Do:
+logger.error({ err, userId: req.user?.userId, path: req.path }, 'Unhandled route error');
+res.status(500).json({ error: 'Internal server error' });
+```
+
+**No error tracking.** There's no Sentry, Datadog, or equivalent. When a production error occurs, you will find out from a user complaint, not an alert.
 
 ### Important Improvements
-- **No structured logging.** Every log is `console.log`/`console.error` printing raw objects. In production these become unqueryable noise. Adopt `pino` or `winston` with JSON output and log levels immediately.
-- **No error tracking.** No Sentry, no Rollbar. You'll find out about production errors when a user complains.
-- **No health check beyond `/api/health`.** The health endpoint doesn't check DB connectivity. Add:
-  ```js
-  server.get('/api/health', async (req, res) => {
-      try {
-          await pool.query('SELECT 1');
-          res.json({ status: 'ok', db: 'ok' });
-      } catch {
-          res.status(503).json({ status: 'error', db: 'unreachable' });
-      }
-  });
-  ```
-- **Environment variable schema not validated at startup.** If `JWT_SECRET` is missing, the server starts and then crashes on first login. Add startup validation:
-  ```js
-  const required = ['JWT_SECRET', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
-  for (const key of required) {
-      if (!process.env[key]) throw new Error(`Missing required env var: ${key}`);
-  }
-  ```
+
+- Add GitHub Actions: lint → test → build on every PR; deploy on merge to `main`
+- Add a health check that actually tests the DB connection, not just `SELECT NOW()` (check a real table exists)
+- Uploaded files are stored on disk local to the server — this breaks immediately with multiple server instances or a container restart. Move to S3 or equivalent object storage
 
 ### Nice to Haves
-- No automated DB backups visible.
-- No rollback strategy documented.
+
+- Add `pino-http` middleware to log every request with method, path, status, and latency
+- Set up database backups (pg_dump on a cron, off-site)
+- Document deployment steps in `DEPLOY.md`
 
 ---
 
 ## 9. Frontend Quality
 
-**Grade: C+**
+**Grade: B-** — Hard to fully assess without running the app, but the patterns visible in the API suggest some issues.
+
+### Critical Issues
+
+The `token` field in the login response body is consumed by the frontend — it should not exist (see Section 2). If the frontend is storing this token in `localStorage` or memory, it bypasses the httpOnly protection entirely.
 
 ### Important Improvements
 
-**[FE-1] Auth layout has a flash of unauthenticated content.**
-```js
-// app/(coach)/layout.js
-useEffect(() => {
-    const checkAuth = async () => {
-        try {
-            await api.get('/api/auth/me');
-            setLoading(false);
-        } catch (err) {
-            router.push('/login');
-        }
-    };
-    checkAuth();
-}, [router]);
-```
-Until the `await` resolves, `loading` is `false` and children render. Reverse the default: start with `loading = true`, set `false` only on successful auth. Also this fires on every navigation — use Next.js middleware (`middleware.ts`) for server-side auth redirect instead.
-
-**[FE-2] Login errors are swallowed silently.**
-```js
-// app/(auth)/login/page.js
-} catch (err) {
-    console.log(err);  // user sees nothing
-}
-```
-The user gets no feedback on wrong credentials. This is both a UX failure and a debugging nightmare.
-
-**[FE-3] No Axios interceptors for global error handling or 401 redirect.**  
-Every component reinvents the error handling wheel. Add a response interceptor in `lib/axios.js`:
-```js
-api.interceptors.response.use(
-    res => res,
-    err => {
-        if (err.response?.status === 401) router.push('/login');
-        return Promise.reject(err);
-    }
-);
-```
-
-**[FE-4] API URL is `NEXT_PUBLIC_` prefixed.**  
-`NEXT_PUBLIC_API_URL` is baked into the client bundle. This is correct for client-side calls but means the URL is visible in the compiled JS — not a security issue for a backend URL, but worth noting.
+- Verify that all API calls handle the loading, error, and empty states — the API returns consistent error structures only some of the time (see Section 4), which makes frontend error handling unreliable
+- The client portal's deep N+1 queries (Section 3) will produce slow page loads — even if you fix the backend, add skeleton loading states for perceived performance
 
 ### Nice to Haves
-- No loading skeletons visible — just blank states.
-- No global error boundary.
-- No accessibility audit (a11y).
+
+- Audit for unnecessary re-renders in list views (clients list re-renders on every status computation)
+- Add basic a11y: ensure form inputs have labels, buttons have accessible names, and focus management works in modals
 
 ---
 
 ## 10. Testing & Reliability
 
-**Grade: F**  
-Zero automated tests. The `test` script in both `package.json` files prints an error message.
+**Grade: F** — Two middleware unit tests. Nothing else.
 
 ### Critical Issues
-- **No tests.** None. Zero coverage on auth, billing, subscription computation, CRUD operations.
+
+There are exactly 2 test files (`requirePermission.test.js`, `requireOwner.test.js`), both testing middleware in isolation. Zero API integration tests exist.
+
+Untested critical paths:
+- User registration and login
+- Workspace creation and isolation
+- Subscription status computation (this is complex business logic)
+- File upload authentication
+- Client portal cross-workspace isolation
+- Plan limit enforcement
+- Ownership transfer transaction
 
 ### Important Improvements
-The one function that most deserves tests is `computeSubscriptionStatus` — it handles all the subscription timeline edge cases and it's pure JS, so it's trivially testable:
+
+Add integration tests for the 5 highest-risk paths first. Use `supertest` + a test PostgreSQL database:
+
 ```js
-// test/subscriptionStatus.test.js
-describe('computeSubscriptionStatus', () => {
-    test('returns Pre-start with no transactions', () => {
-        expect(computeSubscriptionStatus([], [], null)).toBe('No Subscriptions');
-    });
-    test('returns Active for current subscription', () => {
-        const tx = [{
-            status: 'completed', duration: 30,
-            start_mode: 'custom',
-            subscription_start_date: new Date(Date.now() - 5 * 86400000),
-            created_at: new Date(),
-        }];
-        expect(computeSubscriptionStatus(tx, [], null)).toBe('Active');
-    });
-    // ... freeze scenarios, queued chains, refunded transactions
+// Example — test that client A cannot access client B's data
+it('should not return clients from another workspace', async () => {
+    const wsA = await createTestWorkspace();
+    const wsB = await createTestWorkspace();
+    const client = await createClient(wsA.id);
+    
+    const res = await request(app)
+        .get(`/api/clients/${client.id}`)
+        .set('Cookie', `token=${wsB.token}`);
+    
+    expect(res.status).toBe(404); // not 200
 });
 ```
 
-Add `vitest` or `jest`, start here, then cover the auth routes with supertest integration tests.
+### Nice to Haves
+
+- Add the `subscriptionStatus.js` logic to unit tests — it's pure JS with no DB dependency and is the most complex business logic in the codebase
+- Set a coverage threshold of 60% before allowing merges once you have a baseline
 
 ---
 
 ## 11. Documentation & Team Scalability
 
-**Grade: B-**  
-`subscription-logic.md` is genuinely good — detailed, accurate, covers edge cases. That standard needs to apply to the rest of the codebase.
+**Grade: C-** — `.github/agents/` exists for Claude; humans are underserved.
+
+### Critical Issues
+
+No `README.md` at the project root. A new developer cannot figure out how to run the project without asking someone.
+
+No API documentation. The 13 route files with ~60+ endpoints are the only reference.
 
 ### Important Improvements
-- No README at the project root. There's no "how to run this locally" guide.
-- No API documentation. No Swagger, no Postman collection, nothing.
-- No `CONTRIBUTING.md` or `ARCHITECTURE.md`.
-- The forms system (form requests, scheduling, post-actions) has zero documentation despite being non-trivial logic.
+
+- Add a root `README.md` with: prerequisites, `npm install` steps for both `client/` and `server/`, environment variable list, how to run migrations, how to seed admin, how to start dev servers
+- Document the subscription status state machine — the `computeSubscriptionStatus` logic with `on_first_plan`/`queued`/`custom` modes is non-obvious business logic that will confuse every new engineer
+- Add a `.env.example` file with all required keys (no real values)
+
+### Nice to Haves
+
+- Add JSDoc to the public functions in `planEngine.js` and `subscriptionStatus.js`
+- Document the permission matrix in a table in the README (not just in code)
 
 ---
 
 ## Top 10 Priority List
 
-| # | Issue | Severity | Effort | Impact |
-|---|-------|----------|--------|--------|
-| ✅ | **[SEC-1]** Drop `plain_password` — currently leaking raw passwords in every clients API response | 🔴 CRITICAL | 30 min | Stops active data exposure |
-| ✅ | **[SEC-2]** Gate `/uploads` behind auth — transaction proof images are world-readable | 🔴 CRITICAL | 2 hrs | Stops active data exposure |
-| ✅ | **[SEC-3]** Fix client portal login `WHERE email = $1` — scope to coach + add email uniqueness constraint | 🔴 CRITICAL | 1 hr | Fixes cross-tenant IDOR |
-| 4 | **[SEC-4]** Add `express-rate-limit` to both login endpoints | 🔴 HIGH | 30 min | Stops brute-force attacks |
-| 5 | **[SEC-5/6]** Fix cookie flags (`sameSite: 'strict'`, `secure`) + JWT/cookie expiry alignment | 🔴 HIGH | 1 hr | CSRF protection + correct session behavior |
-| 6 | **[SEC-9]** Add input validation to `/api/auth/register` | 🟠 HIGH | 1 hr | Prevents 500s and bad data |
-| 7 | **[DB-1/QUAL-1]** Replace inline schema bootstrap with a proper migration system | 🟠 HIGH | 1 day | Makes deploys safe |
-| 8 | **[PERF-2/4]** Add DB indexes + fix N+1 in client portal plans | 🟠 HIGH | 2 hrs | Prevents performance degradation at scale |
-| 9 | **[API-2/3]** Fix PUT/DELETE to use path params not body/query | 🟡 MEDIUM | 2 hrs | Correctness + forwards-compatibility |
-| 10 | **[TEST]** Add `vitest` and start with `subscriptionStatus` unit tests | 🟡 MEDIUM | 1 day | Foundation for reliability |
+| # | Issue | Impact | Urgency |
+|---|-------|--------|---------|
+| 1 | **Remove plaintext `tempPassword` from API responses** | Data breach | Fix today |
+| 2 | **Remove `token` from login response body** | Security bypass | Fix today |
+| 3 | **Replace `ADMIN_JWT_SECRET` with a real secret** | Full admin takeover | Fix today |
+| 4 | **Add `secure` + `sameSite: 'strict'` to cookies** | Token hijacking | Fix this week |
+| 5 | **Fix cross-workspace client login (require slug always)** | IDOR / data leak | Fix this week |
+| 6 | **Verify and fix FK: `transactions.workspace_id REFERENCES workspaces(id)`** | Data integrity | Fix this week |
+| 7 | **Replace route-IIFE DDL with a real migration system** | Deployment safety | Fix this sprint |
+| 8 | **Add pagination to `/api/clients` and `/api/transactions`** | Performance | Fix this sprint |
+| 9 | **Fix N+1 queries in client portal plan endpoints** | Performance | Fix this sprint |
+| 10 | **Add integration tests for auth, isolation, and subscription logic** | Regression safety | Fix this month |
 
 ---
 
 ## "If I Were Joining This Team Tomorrow"
 
 ### Week 1 — Stop the bleeding
-1. **PR #1:** Drop `plain_password` column. Remove from `mapClient()`. Write a migration.
-2. **PR #2:** Gate `/uploads` with auth middleware. Remove the `express.static` line.
-3. **PR #3:** Fix client portal login query. Add `UNIQUE(coach_id, email)` constraint.
-4. **PR #4:** Add `express-rate-limit` to both login endpoints. Fix cookie flags (`sameSite`, `secure`). Fix JWT/cookie expiry to 7d/7d.
-5. **Rotate** the current JWT secret and DB password — even if `.env` isn't in git, the values are known to anyone who's seen the repo.
+1. Rotate all credentials: DB password, `JWT_SECRET`, `ADMIN_JWT_SECRET`. The current admin secret is a public JWT example. Treat all existing tokens as compromised.
+2. Remove `tempPassword` from both client endpoints and `token` from login response.
+3. Add `secure` + `sameSite: 'strict'` to all `res.cookie()` calls.
+4. Require `workspace_slug` in client portal login — remove the global lookup.
+5. Run `\d transactions` in psql and verify the `workspace_id` FK actually points to `workspaces`.
 
-### Month 1 — Make it safe to ship
-6. Adopt `node-pg-migrate`. Convert all the inline `CREATE TABLE IF NOT EXISTS` blocks into numbered migration files.
-7. Add `pino` for structured logging. Remove all `console.log` that touches user data.
-8. Add `express-validator` or `zod` — at minimum on register, client create, and transaction create.
-9. Write 20 unit tests for `computeSubscriptionStatus` covering all the edge cases in `subscription-logic.md`.
-10. Add startup env-var validation. Add a real health check that pings the DB.
-11. Fix the REST violations in `PUT /api/transactions` and `DELETE /api/transactions`.
-12. Add the 8 missing DB indexes listed in PERF-4.
+### Month 1 — Stabilize the foundation
+6. Install `node-pg-migrate` (or equivalent). Move all `CREATE TABLE`, `ALTER TABLE`, and `CREATE INDEX` statements out of route files and into versioned migration files. Delete every IIFE DDL block.
+7. Add a global error handler to `server.js`.
+8. Add `pino` for structured logging + Sentry for error tracking.
+9. Add `supertest` integration tests covering: auth flow, workspace isolation, subscription status computation, and file upload auth. Aim for coverage of the 5 critical paths.
+10. Add `LIMIT`/`OFFSET` pagination to clients, transactions, and training plan list endpoints.
 
-### Quarter 1 — Make it ready to grow
-13. Extract a `services/` layer: `subscriptionService.js`, `clientService.js`, `transactionService.js`. Move business logic out of route handlers.
-14. Add integration tests for the core flows: auth, client create, transaction create, subscription status computation.
-15. Set up CI (GitHub Actions): lint, test, schema validation on every PR.
-16. Add Sentry (or equivalent) for production error tracking.
-17. Implement API versioning with `/v1/` prefix.
-18. Implement proper feature gates for plan limits (client count cap, etc.) in the service layer — do not leave this as UI-only.
-19. Migrate to TypeScript — start with the server and the domain objects.
-20. Write the README, the API docs (Postman collection is fine), and document the forms system.
-
----
-
-*The bones are fine. The patterns are consistent. The subscription logic is actually thoughtfully designed and documented. But there are active data exposure bugs in production-candidate code that need to be fixed before any real user data touches this system. Fix those five things first, then the rest is velocity.*
+### Quarter 1 — Build for growth
+11. Refactor the client portal plan-loading endpoints to single JOIN queries — eliminate the N+1.
+12. Set up a GitHub Actions pipeline: lint + test on PR, deploy on merge to `main`.
+13. Move file uploads from local disk to S3 (or Cloudflare R2). The current setup breaks with any horizontal scaling.
+14. Integrate a payment gateway (Stripe). Manual plan assignment is not sustainable.
+15. Write the `README.md` and an `.env.example`. Document the subscription state machine. Make it possible for a new engineer to be productive in under a day.

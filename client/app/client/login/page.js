@@ -16,6 +16,10 @@ export default function ClientLoginPage() {
     async function handleSubmit(e) {
         e.preventDefault();
         setError("");
+        if (!coachSlug) {
+            setError("Invalid login link. Please use the link provided by your coach.");
+            return;
+        }
         setLoading(true);
         try {
             await api.post("/api/client-portal/login", { email, password, coach_slug: coachSlug });

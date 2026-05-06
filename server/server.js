@@ -12,7 +12,17 @@ const authRouter = require('./routes/auth');
 const dashboardRouter = require('./routes/dashboard');
 const cookieParser = require('cookie-parser');
 
+const { execSync } = require('child_process');
 
+// Run DB migrations on startup (skip in test environment — schema is managed separately)
+if (process.env.NODE_ENV !== 'test') {
+    try {
+        execSync('npm run migrate', { cwd: __dirname, stdio: 'inherit' });
+    } catch (err) {
+        console.error('Failed to run migrations:', err.message);
+        process.exit(1);
+    }
+}
 
 server.use(cors({origin: 'http://localhost:3000', credentials: true}));
 server.use(express.json());
@@ -54,6 +64,9 @@ server.get('/api/db-test', async (req, res) => {
 
 
 
-server.listen(PORT, () => {
-    console.log('Server running on http://localhost:' + PORT);
-})
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log('Server running on http://localhost:' + PORT);
+    });
+}
+module.exports = server;

@@ -39,40 +39,6 @@ const upload = multer({
     },
 });
 
-;(async () => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS transactions (
-                id                SERIAL PRIMARY KEY,
-                workspace_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                client_name       TEXT NOT NULL,
-                package_variation TEXT,
-                payment_method    TEXT NOT NULL,
-                amount            NUMERIC(12,2) NOT NULL,
-                currency          TEXT NOT NULL DEFAULT 'EGP',
-                type              TEXT NOT NULL DEFAULT 'subscription',
-                status            TEXT NOT NULL DEFAULT 'completed',
-                notes             TEXT,
-                transaction_date  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        `);
-        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL`);
-        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS duration INTEGER`);
-        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS proof_image TEXT`);
-        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS subscription_start_date DATE`);
-        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS start_mode TEXT NOT NULL DEFAULT 'on_first_plan'`);
-        // Rewrite legacy static paths to the authenticated route path
-        await pool.query(`
-            UPDATE transactions
-            SET proof_image = REPLACE(proof_image, '/uploads/transactions/', '/api/transactions/proof/')
-            WHERE proof_image LIKE '/uploads/transactions/%'
-        `);
-    } catch (err) {
-        console.error('transactions bootstrap error:', err.message);
-    }
-})();
-
 function mapRow(row) {
     return {
         id: row.id,
@@ -215,61 +181,93 @@ router.get('/by-client/:clientId', async (req, res) => {
 
 // GET /api/transactions
 router.get('/', async (req, res) => {
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
     try {
-        const [txResult, freezeResult, planActivationResult] = await Promise.all([
+        const [txResult, countResult] = await Promise.all([
             pool.query(
-                'SELECT * FROM transactions WHERE workspace_id = $1 ORDER BY created_at DESC',
-                [req.user.workspaceId]
+                `SELECT * FROM transactions
+                 WHERE workspace_id = $1
+                 ORDER BY created_at DESC
+                 LIMIT $2 OFFSET $3`,
+                [req.user.workspaceId, limit, offset]
             ),
             pool.query(
-                `SELECT sf.* FROM subscription_freezes sf
-                 INNER JOIN clients c ON c.id = sf.client_id
-                 WHERE c.workspace_id = $1`,
-                [req.user.workspaceId]
-            ),
-            pool.query(
-                `SELECT client_id, MIN(activated_at) AS first_activation
-                 FROM (
-                     SELECT client_id, activated_at FROM training_plans
-                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
-                     UNION ALL
-                     SELECT client_id, activated_at FROM nutrition_plans
-                     WHERE workspace_id = $1 AND activated_at IS NOT NULL
-                 ) combined
-                 GROUP BY client_id`,
+                'SELECT COUNT(*) FROM transactions WHERE workspace_id = $1',
                 [req.user.workspaceId]
             ),
         ]);
 
-        const freezesByClient = {};
-        for (const f of freezeResult.rows) {
-            if (!freezesByClient[f.client_id]) freezesByClient[f.client_id] = [];
-            freezesByClient[f.client_id].push(f);
+        const clientIds = [...new Set(txResult.rows.map(r => r.client_id).filter(Boolean))];
+
+        let txStatuses = {};
+        if (clientIds.length > 0) {
+            const placeholders       = clientIds.map((_, i) => `$${i + 2}`).join(', ');
+            const freezePlaceholders = clientIds.map((_, i) => `$${i + 1}`).join(', ');
+
+            const [allClientTxResult, freezeResult, planActivationResult] = await Promise.all([
+                pool.query(
+                    `SELECT client_id, status, duration, subscription_start_date, start_mode, created_at
+                     FROM transactions WHERE workspace_id = $1 AND client_id IN (${placeholders})`,
+                    [req.user.workspaceId, ...clientIds]
+                ),
+                pool.query(
+                    `SELECT sf.* FROM subscription_freezes sf WHERE sf.client_id IN (${freezePlaceholders})`,
+                    clientIds
+                ),
+                pool.query(
+                    `SELECT client_id, MIN(activated_at) AS first_activation
+                     FROM (
+                         SELECT client_id, activated_at FROM training_plans
+                         WHERE workspace_id = $1 AND client_id IN (${placeholders}) AND activated_at IS NOT NULL
+                         UNION ALL
+                         SELECT client_id, activated_at FROM nutrition_plans
+                         WHERE workspace_id = $1 AND client_id IN (${placeholders}) AND activated_at IS NOT NULL
+                     ) combined
+                     GROUP BY client_id`,
+                    [req.user.workspaceId, ...clientIds]
+                ),
+            ]);
+
+            const freezesByClient = {};
+            for (const f of freezeResult.rows) {
+                if (!freezesByClient[f.client_id]) freezesByClient[f.client_id] = [];
+                freezesByClient[f.client_id].push(f);
+            }
+            const planActivationByClient = {};
+            for (const row of planActivationResult.rows) {
+                planActivationByClient[row.client_id] = row.first_activation;
+            }
+            const txByClient = {};
+            for (const tx of allClientTxResult.rows) {
+                if (tx.client_id == null) continue;
+                if (!txByClient[tx.client_id]) txByClient[tx.client_id] = [];
+                txByClient[tx.client_id].push(tx);
+            }
+
+            txStatuses = computePerTxStatuses(txByClient, freezesByClient, planActivationByClient);
         }
 
-        const planActivationByClient = {};
-        for (const row of planActivationResult.rows) {
-            planActivationByClient[row.client_id] = row.first_activation;
-        }
+        const total = parseInt(countResult.rows[0].count);
 
-        const txByClient = {};
-        for (const tx of txResult.rows) {
-            if (tx.client_id == null) continue;
-            if (!txByClient[tx.client_id]) txByClient[tx.client_id] = [];
-            txByClient[tx.client_id].push(tx);
-        }
-
-        const txStatuses = computePerTxStatuses(txByClient, freezesByClient, planActivationByClient);
-
-        res.json(txResult.rows.map(row => ({
-            ...mapRow(row),
-            subscriptionStatus: txStatuses[row.id] ?? null,
-        })));
+        res.json({
+            data: txResult.rows.map(row => ({
+                ...mapRow(row),
+                subscriptionStatus: txStatuses[row.id] ?? null,
+            })),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 
 // POST /api/transactions
 router.post('/', async (req, res) => {

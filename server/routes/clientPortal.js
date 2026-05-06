@@ -6,20 +6,6 @@ const pool = require('../db');
 const clientAuthMiddleware = require('../middleware/clientAuth');
 const { loginLimiter } = require('../middleware/rateLimit');
 
-let clientPortalSchemaReadyPromise;
-
-async function ensureClientPortalSchema() {
-    if (!clientPortalSchemaReadyPromise) {
-        clientPortalSchemaReadyPromise = (async () => {
-            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`);
-            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS post_action TEXT NOT NULL DEFAULT 'nothing'`);
-            await pool.query(`ALTER TABLE form_requests ADD COLUMN IF NOT EXISTS action_taken_at TIMESTAMPTZ`);
-        })();
-    }
-
-    await clientPortalSchemaReadyPromise;
-}
-
 async function activateDueClientScheduledRequests(clientId) {
     await pool.query(
         `UPDATE form_requests
@@ -33,16 +19,6 @@ async function activateDueClientScheduledRequests(clientId) {
     );
 }
 
-router.use(async (req, res, next) => {
-    try {
-        await ensureClientPortalSchema();
-        next();
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to initialize client portal schema' });
-    }
-});
-
 // POST /api/client-portal/login
 router.post('/login', loginLimiter, async (req, res) => {
     // Accept both field names during transition; Phase 5 frontend will standardise on workspace_slug
@@ -53,16 +29,18 @@ router.post('/login', loginLimiter, async (req, res) => {
         return res.status(400).json({ message: 'Email and password are required' });
     }
 
+    if (!slug?.trim()) {
+        return res.status(400).json({ message: 'Workspace is required' });
+    }
+
     try {
-        const query = slug
-            ? `SELECT c.* FROM clients c
-               JOIN workspaces w ON w.id = c.workspace_id
-               WHERE c.email = $1 AND w.slug = $2 AND w.archived_at IS NULL`
-            : 'SELECT * FROM clients WHERE email = $1';
 
-        const queryParams = slug ? [email, slug] : [email];
-
-        const result = await pool.query(query, queryParams);
+        const result = await pool.query(
+            `SELECT c.* FROM clients c
+            JOIN workspaces w ON w.id = c.workspace_id
+            WHERE c.email = $1 AND w.slug = $2 AND w.archived_at IS NULL`,
+            [email, slug.trim()]
+        )
 
         if (result.rows.length === 0) {
             return res.status(401).json({ message: 'Invalid email or password' });
@@ -87,7 +65,9 @@ router.post('/login', loginLimiter, async (req, res) => {
 
         res.cookie('client_token', token, {
             httpOnly: true,
-            maxAge: 7 * 24 * 60 * 60 * 1000,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         }).status(200).json({ message: 'Login successful' });
 
     } catch (err) {
