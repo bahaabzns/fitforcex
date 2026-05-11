@@ -55,14 +55,13 @@ router.use(async (req, res, next) => {
         await ensureFormsQueueSchema();
         next();
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to initialize forms schema' });
+        next(err);
     }
 });
 
 // ── Forms ──────────────────────────────────────────────────────────────────────
 
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT f.*, COUNT(fq.id)::int AS question_count
@@ -75,12 +74,11 @@ router.get('/', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const { title, description, postAction, formType } = req.body;
     const safePostAction = normalizePostAction(postAction);
     const safeFormType = normalizeFormType(formType);
@@ -93,12 +91,11 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res, next) => {
     const { title, description, status, postAction, formType } = req.body;
     const safePostAction = postAction !== undefined ? normalizePostAction(postAction) : undefined;
     const safeFormType = formType !== undefined ? normalizeFormType(formType) : undefined;
@@ -118,12 +115,11 @@ router.put('/:id', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM forms WHERE id = $1 AND workspace_id = $2 RETURNING *',
@@ -132,14 +128,13 @@ router.delete('/:id', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // ── Questions ──────────────────────────────────────────────────────────────────
 
-router.get('/:id/questions', async (req, res) => {
+router.get('/:id/questions', async (req, res, next) => {
     try {
         // Verify form belongs to this coach
         const form = await pool.query(
@@ -154,12 +149,11 @@ router.get('/:id/questions', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/:id/questions', async (req, res) => {
+router.post('/:id/questions', async (req, res, next) => {
     const { label, type } = req.body;
     try {
         // Get next order_index
@@ -190,12 +184,11 @@ router.post('/:id/questions', async (req, res) => {
 
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/:id/questions/:qid', async (req, res) => {
+router.put('/:id/questions/:qid', async (req, res, next) => {
     const { label, type, required, placeholder, options, min_value, max_value } = req.body;
     try {
         const result = await pool.query(
@@ -225,7 +218,7 @@ router.put('/:id/questions/:qid', async (req, res) => {
     }
 });
 
-router.delete('/:id/questions/:qid', async (req, res) => {
+router.delete('/:id/questions/:qid', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM form_questions WHERE id = $1 AND form_id = $2 RETURNING *',
@@ -242,7 +235,7 @@ router.delete('/:id/questions/:qid', async (req, res) => {
     }
 });
 
-router.put('/:id/questions/reorder', async (req, res) => {
+router.put('/:id/questions/reorder', async (req, res, next) => {
     // req.body.order = [{ id, order_index }, ...]
     const { order } = req.body;
     try {
@@ -255,15 +248,14 @@ router.put('/:id/questions/reorder', async (req, res) => {
         await pool.query('UPDATE forms SET updated_at = NOW() WHERE id = $1', [req.params.id]);
         res.json({ success: true });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // ── Form Requests (coach → client) ────────────────────────────────────────────
 
 // POST /api/forms/requests — coach requests one or more forms from a client
-router.post('/requests', async (req, res) => {
+router.post('/requests', async (req, res, next) => {
     const { form_ids, client_id, mode, scheduled_at } = req.body;
     const requestMode = mode === 'schedule' ? 'schedule' : 'now';
 
@@ -309,13 +301,12 @@ router.post('/requests', async (req, res) => {
         }
         res.status(201).json(inserted);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // GET /api/forms/requests/client/:client_id — get all form requests for a client
-router.get('/requests/client/:client_id', async (req, res) => {
+router.get('/requests/client/:client_id', async (req, res, next) => {
     try {
         await activateDueScheduledRequests(req.user.workspaceId);
 
@@ -362,13 +353,12 @@ router.get('/requests/client/:client_id', async (req, res) => {
 
         res.json(requests);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // GET /api/forms/queue — coach queue across all clients
-router.get('/queue', async (req, res) => {
+router.get('/queue', async (req, res, next) => {
     try {
         await activateDueScheduledRequests(req.user.workspaceId);
 
@@ -449,13 +439,12 @@ router.get('/queue', async (req, res) => {
 
         res.json(queueItems);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // PATCH /api/forms/queue/review — mark queue items as reviewed
-router.patch('/queue/review', async (req, res) => {
+router.patch('/queue/review', async (req, res, next) => {
     const { ids, action } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ error: 'ids array is required' });
@@ -497,7 +486,7 @@ router.patch('/queue/review', async (req, res) => {
 });
 
 // DELETE /api/forms/requests/:request_id — cancel a pending request
-router.delete('/requests/:request_id', async (req, res) => {
+router.delete('/requests/:request_id', async (req, res, next) => {
     try {
         const result = await pool.query(
             `DELETE FROM form_requests
@@ -508,8 +497,7 @@ router.delete('/requests/:request_id', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found or already submitted/reviewed' });
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 

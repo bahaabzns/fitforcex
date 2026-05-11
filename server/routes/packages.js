@@ -10,36 +10,6 @@ router.use((req, res, next) => {
     requirePermission('finance', action)(req, res, next);
 });
 
-// Bootstrap tables on first load
-;(async () => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS packages (
-                id          SERIAL PRIMARY KEY,
-                workspace_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                name        TEXT NOT NULL,
-                active      BOOLEAN NOT NULL DEFAULT true,
-                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        `);
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS package_variations (
-                id          SERIAL PRIMARY KEY,
-                package_id  INTEGER NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
-                name        TEXT NOT NULL,
-                description TEXT,
-                duration    INTEGER NOT NULL,
-                price       NUMERIC(12,2) NOT NULL,
-                currency    TEXT NOT NULL DEFAULT 'USD',
-                active      BOOLEAN NOT NULL DEFAULT true,
-                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        `);
-    } catch (err) {
-        console.error('packages bootstrap error:', err.message);
-    }
-})();
 
 // --- helpers ---
 async function getPackageWithVariations(id, coachId) {
@@ -56,7 +26,7 @@ async function getPackageWithVariations(id, coachId) {
 }
 
 // GET /api/packages  — all packages with variations
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
     try {
         const pkgs = await pool.query(
             'SELECT * FROM packages WHERE workspace_id = $1 ORDER BY name ASC',
@@ -71,13 +41,12 @@ router.get('/', async (req, res) => {
         }));
         res.json(result);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // POST /api/packages  — create a new package with at least one variation
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const { name, variations } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Package name is required' });
     if (!Array.isArray(variations) || variations.length === 0)
@@ -114,15 +83,14 @@ router.post('/', async (req, res) => {
         res.status(201).json({ ...pkg, variations: insertedVars });
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(err);
-        res.status(400).json({ error: err.message || 'Failed to create package' });
+        next(err);
     } finally {
         client.release();
     }
 });
 
 // PUT /api/packages  — update package fields and/or replace its variations list
-router.put('/', async (req, res) => {
+router.put('/', async (req, res, next) => {
     const { id, name, active, variations } = req.body;
     if (!id) return res.status(400).json({ error: 'Package id is required' });
 
@@ -171,15 +139,14 @@ router.put('/', async (req, res) => {
         res.json(await getPackageWithVariations(id, req.user.workspaceId));
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(err);
-        res.status(400).json({ error: err.message || 'Failed to update package' });
+        next(err);
     } finally {
         client.release();
     }
 });
 
 // DELETE /api/packages  — delete one variation; deletes the whole package if it was the last one
-router.delete('/', async (req, res) => {
+router.delete('/', async (req, res, next) => {
     const { packageId, variationId } = req.body;
     if (!packageId || !variationId)
         return res.status(400).json({ error: 'packageId and variationId are required' });

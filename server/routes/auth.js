@@ -123,11 +123,7 @@ function issueToken(payload) {
 
 // ── routes ────────────────────────────────────────────────────────────────────
 
-router.get('/test', (req, res) => {
-    res.status(200).json({ message: 'Auth route is working!' });
-});
-
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res, next) => {
     try {
         const { fname, lname, email, password } = req.body;
 
@@ -189,12 +185,11 @@ router.post('/register', async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Registration failed' });
+        next(err);
     }
 });
 
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
     const { email, password } = req.body;
 
     try {
@@ -237,12 +232,11 @@ router.post('/login', loginLimiter, async (req, res) => {
             });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Login failed' });
+        next(err);
     }
 });
 
-router.get('/me', async (req, res) => {
+router.get('/me', async (req, res, next) => {
     const token = req.cookies.token;
     if (!token) return res.status(401).json({ message: 'Not authenticated' });
 
@@ -279,13 +273,13 @@ router.get('/me', async (req, res) => {
             defaultWorkspaceId: user.default_workspace_id,
         });
 
-    } catch {
-        res.status(401).json({ message: 'Expired or invalid token' });
+    } catch (err) {
+        next(err);
     }
 });
 
 // Issue a new JWT scoped to a different workspace the user has access to.
-router.post('/switch-workspace', authMiddleware, async (req, res) => {
+router.post('/switch-workspace', authMiddleware, async (req, res, next) => {
     const { workspaceId } = req.body;
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
@@ -311,13 +305,12 @@ router.post('/switch-workspace', authMiddleware, async (req, res) => {
             });
     } catch (err) {
         if (err.status) return res.status(err.status).json({ message: err.message });
-        console.error(err);
-        res.status(500).json({ message: 'Failed to switch workspace' });
+        next(err);
     }
 });
 
 // Set the user's default workspace (used on login).
-router.put('/default-workspace', authMiddleware, async (req, res) => {
+router.put('/default-workspace', authMiddleware, async (req, res, next) => {
     const { workspaceId } = req.body;
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
@@ -333,13 +326,12 @@ router.put('/default-workspace', authMiddleware, async (req, res) => {
         res.json({ message: 'Default workspace updated' });
     } catch (err) {
         if (err.status) return res.status(err.status).json({ message: err.message });
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update default workspace' });
+        next(err);
     }
 });
 
 // Workspace slug customization (kept for backwards compatibility; also available at PUT /api/workspaces/:id/slug)
-router.put('/workspace-slug', authMiddleware, requireOwner, async (req, res) => {
+router.put('/workspace-slug', authMiddleware, requireOwner, async (req, res, next) => {
     const { new_slug } = req.body;
     if (!new_slug?.trim()) return res.status(400).json({ message: 'Slug is required' });
 
@@ -369,8 +361,7 @@ router.put('/workspace-slug', authMiddleware, requireOwner, async (req, res) => 
         res.status(200).json(result.rows[0]);
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update slug' });
+        next(err);
     }
 });
 
@@ -379,7 +370,7 @@ router.post('/logout', (req, res) => {
 });
 
 // Update personal profile (name and/or password)
-router.patch('/profile', authMiddleware, async (req, res) => {
+router.patch('/profile', authMiddleware, async (req, res, next) => {
     const { fname, lname, currentPassword, newPassword } = req.body;
 
     if (!fname?.trim() && !lname?.trim() && !newPassword) {
@@ -422,8 +413,7 @@ router.patch('/profile', authMiddleware, async (req, res) => {
 
         res.json(updated[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update profile' });
+        next(err);
     }
 });
 

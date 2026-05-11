@@ -251,8 +251,7 @@ export default function ClientTransactionsPage() {
                 proofImage = up.data.path;
             }
 
-            const res = await api.put("/api/transactions", {
-                id: editingTx.id,
+            const res = await api.put(`/api/transactions/${editingTx.id}`, {
                 packageVariation: editPkgKey,
                 paymentMethod: editMethod,
                 amount: editPkg?.price ?? editingTx.amount,
@@ -277,7 +276,7 @@ export default function ClientTransactionsPage() {
     async function handleDelete(tx) {
         if (!confirm("Delete this transaction? This cannot be undone.")) return;
         try {
-            await api.delete(`/api/transactions?id=${tx.id}`);
+            await api.delete(`/api/transactions/${tx.id}`);
             setTransactions(prev => prev.filter(t => t.id !== tx.id));
         } catch (err) {
             console.error(err);
@@ -286,7 +285,7 @@ export default function ClientTransactionsPage() {
 
     async function handleRefund(tx) {
         try {
-            const res = await api.put("/api/transactions", { id: tx.id, status: "refunded" });
+            const res = await api.put(`/api/transactions/${tx.id}`, { status: "refunded" });
             setTransactions(prev => prev.map(t => t.id === tx.id ? res.data : t));
         } catch (err) {
             console.error(err);

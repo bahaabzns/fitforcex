@@ -43,7 +43,7 @@ function mapFreeze(row) {
 }
 
 // GET /api/clients
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
@@ -141,13 +141,12 @@ router.get('/', async (req, res) => {
             totalPages: Math.ceil(total / limit),
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // POST /api/clients
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const { fname, lname, name, email, phone, phones, password, currentPackage } = req.body;
 
     let firstName = fname;
@@ -203,13 +202,12 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json({ ...mapClient(result.rows[0]) });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // GET /api/clients/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
     try {
         if (process.env.NODE_ENV === 'test') {
             const dbg = await pool.query('SELECT id, workspace_id FROM clients WHERE id = $1', [req.params.id]);
@@ -239,13 +237,12 @@ router.get('/:id', async (req, res) => {
             firstPlanActivatedAt: planActivationResult.rows[0]?.first_activation ?? null,
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // PUT /api/clients/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res, next) => {
     const { fname, lname, email, phone, phones, currentPackage } = req.body;
     try {
         const phonesArray = Array.isArray(phones) ? phones : undefined;
@@ -269,13 +266,12 @@ router.put('/:id', async (req, res) => {
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
         res.json(mapClient(result.rows[0]));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // DELETE /api/clients/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM clients WHERE id = $1 AND workspace_id = $2 RETURNING *',
@@ -284,14 +280,13 @@ router.delete('/:id', async (req, res) => {
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // --- Freeze endpoints ---
 
-router.get('/:id/freezes', async (req, res) => {
+router.get('/:id/freezes', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT sf.* FROM subscription_freezes sf
@@ -302,12 +297,11 @@ router.get('/:id/freezes', async (req, res) => {
         );
         res.json(result.rows.map(mapFreeze));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/:id/freezes', async (req, res) => {
+router.post('/:id/freezes', async (req, res, next) => {
     const { freezeStartDate, freezeDurationDays, notes } = req.body;
     if (!freezeStartDate) return res.status(400).json({ error: 'freezeStartDate is required' });
     const days = Number(freezeDurationDays);
@@ -327,12 +321,11 @@ router.post('/:id/freezes', async (req, res) => {
         );
         res.status(201).json(mapFreeze(result.rows[0]));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/:id/freezes/:freezeId', async (req, res) => {
+router.delete('/:id/freezes/:freezeId', async (req, res, next) => {
     try {
         const result = await pool.query(
             `DELETE FROM subscription_freezes
@@ -344,14 +337,13 @@ router.delete('/:id/freezes/:freezeId', async (req, res) => {
         if (!result.rows.length) return res.status(404).json({ error: 'Freeze not found' });
         res.json({ deleted: result.rows[0].id });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // --- Password endpoint ---
 
-router.post('/:id/set-password', async (req, res) => {
+router.post('/:id/set-password', async (req, res, next) => {
     const { password } = req.body;
     if (!password || password.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
@@ -365,8 +357,7 @@ router.post('/:id/set-password', async (req, res) => {
         if (!result.rows.length) return res.status(404).json({ error: 'Client not found' });
         res.json({ message: 'Password set successfully' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 

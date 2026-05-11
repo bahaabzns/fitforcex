@@ -12,25 +12,8 @@ router.use((req, res, next) => {
 
 const VALID_TYPES = ['cash', 'card', 'wallet', 'bank_transfer'];
 
-;(async () => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS payment_methods (
-                id         SERIAL PRIMARY KEY,
-                workspace_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                name       TEXT NOT NULL,
-                type       TEXT NOT NULL,
-                active     BOOLEAN NOT NULL DEFAULT true,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        `);
-    } catch (err) {
-        console.error('payment_methods bootstrap error:', err.message);
-    }
-})();
-
 // GET /api/payment-methods
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
     try {
         const result = await pool.query(
             'SELECT * FROM payment_methods WHERE workspace_id = $1 ORDER BY created_at ASC',
@@ -38,13 +21,12 @@ router.get('/', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // POST /api/payment-methods
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const { name, type } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
     if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid type' });
@@ -56,13 +38,12 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // PUT /api/payment-methods
-router.put('/', async (req, res) => {
+router.put('/', async (req, res, next) => {
     const { id, name, type, active } = req.body;
     if (!id) return res.status(400).json({ error: 'id is required' });
     if (type !== undefined && !VALID_TYPES.includes(type))
@@ -91,13 +72,12 @@ router.put('/', async (req, res) => {
         );
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // DELETE /api/payment-methods?id=X
-router.delete('/', async (req, res) => {
+router.delete('/', async (req, res, next) => {
     const id = req.query.id;
     if (!id) return res.status(400).json({ error: 'id is required' });
 
@@ -109,8 +89,7 @@ router.delete('/', async (req, res) => {
         if (!result.rows.length) return res.status(404).json({ error: 'Payment method not found' });
         res.json({ deleted: result.rows[0].id });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 

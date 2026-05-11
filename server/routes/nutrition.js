@@ -21,21 +21,13 @@ function toNumberOrNull(value) {
     return Number.isFinite(n) ? n : null;
 }
 
-;(async () => {
-    try {
-        await pool.query(`ALTER TABLE nutrition_plans ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ`);
-    } catch (err) {
-        console.error('nutrition bootstrap error:', err.message);
-    }
-})();
-
 router.use(authMiddleware);
 router.use((req, res, next) => {
     const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
     requirePermission('nutrition', action)(req, res, next);
 });
 
-router.get('/food-items', async (req, res) => {
+router.get('/food-items', async (req, res, next) => {
     try {
         const result = await pool.query(
             'SELECT * FROM food_items WHERE workspace_id = $1 ORDER BY name ASC',
@@ -43,12 +35,11 @@ router.get('/food-items', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/food-items', async (req, res) => {
+router.post('/food-items', async (req, res, next) => {
     const { 
         name, 
         food_category, 
@@ -67,12 +58,11 @@ router.post('/food-items', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/food-items/:id', async (req, res) => {
+router.put('/food-items/:id', async (req, res, next) => {
     const { 
         name, 
         food_category, 
@@ -92,12 +82,11 @@ router.put('/food-items/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/food-items/:id', async (req, res) => {
+router.delete('/food-items/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM food_items WHERE id = $1 AND workspace_id = $2 RETURNING *',
@@ -108,14 +97,13 @@ router.delete('/food-items/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // ─── Food Categories ───────────────────────────────────────────────────────────
 
-router.get('/food-categories', async (req, res) => {
+router.get('/food-categories', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT fc.*, COUNT(fi.id)::int AS food_item_count
@@ -128,12 +116,11 @@ router.get('/food-categories', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/food-categories', async (req, res) => {
+router.post('/food-categories', async (req, res, next) => {
     const { name } = req.body;
     try {
         const result = await pool.query(
@@ -142,12 +129,11 @@ router.post('/food-categories', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/food-categories/:id', async (req, res) => {
+router.put('/food-categories/:id', async (req, res, next) => {
     const { name } = req.body;
     try {
         const oldResult = await pool.query(
@@ -171,12 +157,11 @@ router.put('/food-categories/:id', async (req, res) => {
 
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/food-categories/:id', async (req, res) => {
+router.delete('/food-categories/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM food_categories WHERE id = $1 AND workspace_id = $2 RETURNING *',
@@ -187,8 +172,7 @@ router.delete('/food-categories/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
@@ -202,7 +186,7 @@ router.delete('/food-categories/:id', async (req, res) => {
 
 
 
-router.get('/plans', async (req, res) => {
+router.get('/plans', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT np.*,
@@ -215,12 +199,11 @@ router.get('/plans', async (req, res) => {
 
         res.json(serializePlanRows(result.rows));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.get('/plans/:id', async (req, res) => {
+router.get('/plans/:id', async (req, res, next) => {
     try {
         const planResult = await pool.query(
             'SELECT * FROM nutrition_plans WHERE id = $1 AND workspace_id = $2',
@@ -292,12 +275,11 @@ router.get('/plans/:id', async (req, res) => {
             cycles: cycles
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/plans', async (req, res) => {
+router.post('/plans', async (req, res, next) => {
     const {
         name,
         client_id
@@ -316,12 +298,11 @@ router.post('/plans', async (req, res) => {
 
         res.status(201).json(planResult.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/plans/save-draft', async (req, res) => {
+router.post('/plans/save-draft', async (req, res, next) => {
     const { clientId, plans = [], activePlanId = null } = req.body;
 
     try {
@@ -501,12 +482,11 @@ router.post('/plans/save-draft', async (req, res) => {
 
         res.json({ plans: serializePlanRows(summary.rows) });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/plans/save-plan-draft', async (req, res) => {
+router.post('/plans/save-plan-draft', async (req, res, next) => {
     const { clientId, plan, activePlanId = null } = req.body;
 
     try {
@@ -692,12 +672,11 @@ router.post('/plans/save-plan-draft', async (req, res) => {
 
         res.json(result);
     } catch (err) {
-        console.error(err);
-        res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/plans/:id', async (req, res) => {
+router.put('/plans/:id', async (req, res, next) => {
     const { name, status } = req.body;
     try {
         const result = await pool.query(
@@ -709,12 +688,11 @@ router.put('/plans/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/plans/:id', async (req, res) => {
+router.delete('/plans/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM nutrition_plans WHERE id = $1 AND workspace_id = $2 RETURNING *',
@@ -725,12 +703,11 @@ router.delete('/plans/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/plans/:id/duplicate', async (req, res) => {
+router.post('/plans/:id/duplicate', async (req, res, next) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -807,8 +784,7 @@ router.post('/plans/:id/duplicate', async (req, res) => {
         res.status(201).json(result.rows[0]);
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     } finally {
         client.release();
     }
@@ -824,7 +800,7 @@ router.post('/plans/:id/duplicate', async (req, res) => {
 
 
 
-router.post('/cycles/:id/duplicate', async (req, res) => {
+router.post('/cycles/:id/duplicate', async (req, res, next) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -923,13 +899,13 @@ router.post('/cycles/:id/duplicate', async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     } finally {
         client.release();
     }
 });
 
-router.post('/cycles', async (req, res) => {
+router.post('/cycles', async (req, res, next) => {
     const { name, planId } = req.body;
 
     try {
@@ -949,12 +925,11 @@ router.post('/cycles', async (req, res) => {
         );
         res.status(201).json(cycleResult.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/cycles/:id', async (req, res) => {
+router.put('/cycles/:id', async (req, res, next) => {
     const { name, goal_calories, goal_protein, goal_carbs, goal_fats, note } = req.body;
     try {
         const result = await pool.query(
@@ -973,12 +948,11 @@ router.put('/cycles/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/cycles/:id', async (req, res) => {
+router.delete('/cycles/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM nutrition_cycles WHERE id = $1 RETURNING *',
@@ -993,15 +967,14 @@ router.delete('/cycles/:id', async (req, res) => {
         );
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 
 
 
-router.post('/meals/:id/duplicate', async (req, res) => {
+router.post('/meals/:id/duplicate', async (req, res, next) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -1074,14 +1047,13 @@ router.post('/meals/:id/duplicate', async (req, res) => {
         res.status(201).json({ ...newMeal.rows[0], items: itemsWithAlts });
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     } finally {
         client.release();
     }
 });
 
-router.post('/meals', async (req, res) => {
+router.post('/meals', async (req, res, next) => {
     const { name, cycleId } = req.body;
 
     try {
@@ -1101,13 +1073,12 @@ router.post('/meals', async (req, res) => {
         );
         res.status(201).json(mealResult.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 
-router.put('/meals/:id', async (req, res) => {
+router.put('/meals/:id', async (req, res, next) => {
     const { name, note } = req.body;
     try {
         const result = await pool.query(
@@ -1123,12 +1094,11 @@ router.put('/meals/:id', async (req, res) => {
         );
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/meals/:id', async (req, res) => {
+router.delete('/meals/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM nutrition_meals WHERE id = $1 RETURNING *',
@@ -1143,8 +1113,7 @@ router.delete('/meals/:id', async (req, res) => {
         );
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
@@ -1155,7 +1124,7 @@ router.delete('/meals/:id', async (req, res) => {
 
 
 
-router.post('/meal-items', async (req, res) => {
+router.post('/meal-items', async (req, res, next) => {
     const { mealId, foodItemId, amount } = req.body;
 
     try {
@@ -1179,14 +1148,13 @@ router.post('/meal-items', async (req, res) => {
         );
         res.status(201).json(itemDetailsResult.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 
 
-router.put('/meal-items/reorder', async (req, res) => {
+router.put('/meal-items/reorder', async (req, res, next) => {
     const { items } = req.body; // [{ id: 3, order: 1 }, { id: 1, order: 2 }, ...]
     try {
         await Promise.all(
@@ -1199,14 +1167,13 @@ router.put('/meal-items/reorder', async (req, res) => {
         );
         res.json({ success: true });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 
 
-router.put('/meal-items/:id', async (req, res) => {
+router.put('/meal-items/:id', async (req, res, next) => {
     const { amount } = req.body;
     try {
         const result = await pool.query(
@@ -1226,15 +1193,14 @@ router.put('/meal-items/:id', async (req, res) => {
         );
         res.json(itemDetailsResult.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 
 
 
-router.delete('/meal-items/:id', async (req, res) => {
+router.delete('/meal-items/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM nutrition_meal_items WHERE id = $1 RETURNING *',
@@ -1245,8 +1211,7 @@ router.delete('/meal-items/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
@@ -1255,7 +1220,7 @@ router.delete('/meal-items/:id', async (req, res) => {
 
 // ── Meal Item Alternatives ────────────────────────────────────────────────────
 
-router.post('/meal-items/:id/alternatives', async (req, res) => {
+router.post('/meal-items/:id/alternatives', async (req, res, next) => {
     const { foodItemId, amount } = req.body;
     const mealItemId = req.params.id;
     try {
@@ -1301,12 +1266,11 @@ router.post('/meal-items/:id/alternatives', async (req, res) => {
 
         res.status(201).json(details.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/meal-item-alternatives/:id', async (req, res) => {
+router.put('/meal-item-alternatives/:id', async (req, res, next) => {
     const { amount } = req.body;
     try {
         const result = await pool.query(
@@ -1327,12 +1291,11 @@ router.put('/meal-item-alternatives/:id', async (req, res) => {
         );
         res.json(details.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/meal-item-alternatives/:id', async (req, res) => {
+router.delete('/meal-item-alternatives/:id', async (req, res, next) => {
     try {
         const result = await pool.query(
             'DELETE FROM nutrition_meal_item_alternatives WHERE id = $1 RETURNING *',
@@ -1343,13 +1306,12 @@ router.delete('/meal-item-alternatives/:id', async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // Activate a nutrition plan for a client (deactivates all others for the same client)
-router.post('/plans/:id/activate', async (req, res) => {
+router.post('/plans/:id/activate', async (req, res, next) => {
     try {
         const updatedPlan = await activateSinglePlan({
             pool,
@@ -1365,8 +1327,7 @@ router.post('/plans/:id/activate', async (req, res) => {
 
         res.json(updatedPlan);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 

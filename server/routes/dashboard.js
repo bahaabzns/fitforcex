@@ -4,7 +4,7 @@ const pool = require('../db');
 
 const router = express.Router();
 
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddleware, async (req, res, next) => {
     const wsId = req.user.workspaceId;
     try {
         const [userRes, statsRes, recentRes, pendingFormsRes] = await Promise.all([
@@ -54,8 +54,7 @@ router.get('/', authMiddleware, async (req, res) => {
             recentClients: recentRes.rows,
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
+        next(err);
     }
 });
 

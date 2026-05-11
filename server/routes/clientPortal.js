@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const clientAuthMiddleware = require('../middleware/clientAuth');
 const { loginLimiter } = require('../middleware/rateLimit');
+const { toPublicUrl } = require('../lib/storage');
 
 async function activateDueClientScheduledRequests(clientId) {
     await pool.query(
@@ -20,7 +21,7 @@ async function activateDueClientScheduledRequests(clientId) {
 }
 
 // POST /api/client-portal/login
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
     // Accept both field names during transition; Phase 5 frontend will standardise on workspace_slug
     const { email, password, workspace_slug, coach_slug } = req.body;
     const slug = workspace_slug || coach_slug;
@@ -71,8 +72,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         }).status(200).json({ message: 'Login successful' });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Login failed' });
+        next(err);
     }
 });
 
@@ -82,7 +82,7 @@ router.post('/logout', (req, res) => {
 });
 
 // GET /api/client-portal/me  — protected
-router.get('/me', clientAuthMiddleware, async (req, res) => {
+router.get('/me', clientAuthMiddleware, async (req, res, next) => {
     try {
         const result = await pool.query(
             'SELECT id, fname, lname, email, phone, client_code, workspace_id FROM clients WHERE id = $1',
@@ -93,8 +93,7 @@ router.get('/me', clientAuthMiddleware, async (req, res) => {
         }
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
@@ -194,7 +193,7 @@ function buildNutritionPlanHierarchy(plan, flatRows) {
 }
 
 // GET /api/client-portal/active-plan  — protected
-router.get('/active-plan', clientAuthMiddleware, async (req, res) => {
+router.get('/active-plan', clientAuthMiddleware, async (req, res, next) => {
     try {
         const planResult = await pool.query(
             `SELECT * FROM nutrition_plans
@@ -243,8 +242,7 @@ router.get('/active-plan', clientAuthMiddleware, async (req, res) => {
         res.json(result);
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
@@ -276,8 +274,8 @@ function buildTrainingPlanHierarchy(plan, flatRows) {
                 equipment: row.equipment,
                 notes: row.exercise_notes,
                 exercise_library_id: row.exercise_library_id,
-                thumbnail_path: row.thumbnail_path,
-                video_path: row.video_path,
+                thumbnail_path: toPublicUrl(row.thumbnail_path),
+                video_path:     toPublicUrl(row.video_path),
                 youtube_url: row.youtube_url,
                 muscle_group: row.muscle_group,
                 instructions: row.instructions,
@@ -315,9 +313,9 @@ function buildTrainingPlanHierarchy(plan, flatRows) {
                     name: row.alt_name,
                     muscle_group: row.alt_muscle_group,
                     equipment: row.alt_equipment,
-                    thumbnail_path: row.alt_thumbnail_path,
+                    thumbnail_path: toPublicUrl(row.alt_thumbnail_path),
                     youtube_url: row.alt_youtube_url,
-                    video_path: row.alt_video_path
+                    video_path:  toPublicUrl(row.alt_video_path)
                 });
             }
         }
@@ -337,7 +335,7 @@ function buildTrainingPlanHierarchy(plan, flatRows) {
 }
 
 // GET /api/client-portal/active-training-plan  — protected
-router.get('/active-training-plan', clientAuthMiddleware, async (req, res) => {
+router.get('/active-training-plan', clientAuthMiddleware, async (req, res, next) => {
     try {
         const planResult = await pool.query(
             `SELECT * FROM training_plans
@@ -382,15 +380,14 @@ router.get('/active-training-plan', clientAuthMiddleware, async (req, res) => {
         res.json(result);
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // ── Form Requests (client side) ───────────────────────────────────────────────
 
 // GET /api/client-portal/form-requests — list all form requests for this client
-router.get('/form-requests', clientAuthMiddleware, async (req, res) => {
+router.get('/form-requests', clientAuthMiddleware, async (req, res, next) => {
     try {
         await activateDueClientScheduledRequests(req.client.id);
 
@@ -405,13 +402,12 @@ router.get('/form-requests', clientAuthMiddleware, async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // GET /api/client-portal/form-requests/:request_id — get form + questions for a specific request
-router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res) => {
+router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res, next) => {
     try {
         await activateDueClientScheduledRequests(req.client.id);
 
@@ -447,13 +443,12 @@ router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res) 
 
         res.json({ ...request, questions: questions.rows, responses });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // POST /api/client-portal/form-requests/:request_id/submit — submit answers
-router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (req, res) => {
+router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (req, res, next) => {
     const { answers } = req.body; // [{ question_id, answer }]
     if (!answers || !Array.isArray(answers)) {
         return res.status(400).json({ error: 'answers array is required' });
@@ -482,8 +477,7 @@ router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (re
 
         res.json({ success: true });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 

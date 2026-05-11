@@ -8,7 +8,7 @@ const { checkSeatLimit } = require('../lib/seatLimits');
 router.use(authMiddleware);
 
 // Get pending invitations for the current user
-router.get('/me', async (req, res) => {
+router.get('/me', async (req, res, next) => {
     try {
         const { rows } = await pool.query(
             `SELECT wi.id, wi.role, wi.message, wi.created_at,
@@ -36,13 +36,12 @@ router.get('/me', async (req, res) => {
 
         res.json(invitations);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch invitations' });
+        next(err);
     }
 });
 
 // Accept an invitation
-router.post('/:id/accept', async (req, res) => {
+router.post('/:id/accept', async (req, res, next) => {
     const invitationId = parseInt(req.params.id);
 
     try {
@@ -98,13 +97,12 @@ router.post('/:id/accept', async (req, res) => {
     } catch (err) {
         if (err.status) return res.status(err.status).json({ message: err.message });
         if (err.code === '23505') return res.status(409).json({ message: 'You are already a member of this workspace' });
-        console.error(err);
-        res.status(500).json({ message: 'Failed to accept invitation' });
+        next(err);
     }
 });
 
 // Decline an invitation
-router.post('/:id/decline', async (req, res) => {
+router.post('/:id/decline', async (req, res, next) => {
     const invitationId = parseInt(req.params.id);
 
     try {
@@ -117,8 +115,7 @@ router.post('/:id/decline', async (req, res) => {
         if (!rows.length) return res.status(404).json({ message: 'Invitation not found or already responded' });
         res.json({ message: 'Invitation declined' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to decline invitation' });
+        next(err);
     }
 });
 

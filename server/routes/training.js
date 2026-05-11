@@ -1,12 +1,10 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const multer = require('multer');
 const router = express.Router();
 
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
+const { makeUploader, deleteFile, toPublicUrl } = require('../lib/storage');
 const {
     toIsoDateOrNull,
     serializePlanRow,
@@ -18,51 +16,24 @@ const {
     saveSinglePlanDraft,
 } = require('../lib/planEngine');
 
-let trainingSchemaReadyPromise;
-
-function deleteUploadedFile(relativePath) {
-    if (!relativePath) return;
-    try {
-        const abs = path.join(__dirname, '..', relativePath);
-        if (fs.existsSync(abs)) fs.unlinkSync(abs);
-    } catch (e) {
-        console.error('Failed to delete upload:', relativePath, e.message);
+const upload = makeUploader(
+    (file) => file.fieldname === 'video' ? 'exercise-library/videos' : 'exercise-library/thumbnails',
+    null,
+    {
+        maxSize: 5 * 1024 * 1024,
+        fileFilter: (req, file, cb) => {
+            if (file.fieldname === 'video') {
+                if (!file.mimetype.startsWith('video/')) return cb(new Error('Video must be a video file'));
+                return cb(null, true);
+            }
+            if (file.fieldname === 'thumbnail') {
+                if (!file.mimetype.startsWith('image/')) return cb(new Error('Thumbnail must be an image file'));
+                return cb(null, true);
+            }
+            cb(null, true);
+        },
     }
-}
-
-const uploadRoot = path.join(__dirname, '..', 'uploads', 'exercise-library');
-const videoDir = path.join(uploadRoot, 'videos');
-const thumbDir = path.join(uploadRoot, 'thumbnails');
-fs.mkdirSync(videoDir, { recursive: true });
-fs.mkdirSync(thumbDir, { recursive: true });
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        if (file.fieldname === 'video') return cb(null, videoDir);
-        if (file.fieldname === 'thumbnail') return cb(null, thumbDir);
-        cb(null, uploadRoot);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname || '').toLowerCase();
-        cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
-    },
-});
-
-const upload = multer({
-    storage,
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        if (file.fieldname === 'video') {
-            if (!file.mimetype.startsWith('video/')) return cb(new Error('Video must be a video file'));
-            return cb(null, true);
-        }
-        if (file.fieldname === 'thumbnail') {
-            if (!file.mimetype.startsWith('image/')) return cb(new Error('Thumbnail must be an image file'));
-            return cb(null, true);
-        }
-        cb(null, true);
-    },
-});
+);
 
 
 router.use(authMiddleware);
@@ -72,7 +43,7 @@ router.use((req, res, next) => {
 });
 
 // --- Exercise Library Taxonomies ---
-router.get('/muscle-groups', async (req, res) => {
+router.get('/muscle-groups', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT emg.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = emg.workspace_id AND el.muscle_group = emg.name) AS exercise_count
@@ -83,12 +54,11 @@ router.get('/muscle-groups', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/muscle-groups', async (req, res) => {
+router.post('/muscle-groups', async (req, res, next) => {
     try {
         const { name } = req.body;
         const result = await pool.query(
@@ -97,12 +67,11 @@ router.post('/muscle-groups', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/muscle-groups/:id', async (req, res) => {
+router.put('/muscle-groups/:id', async (req, res, next) => {
     try {
         const oldRow = await pool.query('SELECT * FROM exercise_muscle_groups WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (oldRow.rows.length === 0) return res.status(404).json({ error: 'Muscle group not found' });
@@ -120,23 +89,21 @@ router.put('/muscle-groups/:id', async (req, res) => {
 
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/muscle-groups/:id', async (req, res) => {
+router.delete('/muscle-groups/:id', async (req, res, next) => {
     try {
         const result = await pool.query('DELETE FROM exercise_muscle_groups WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user.workspaceId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Muscle group not found' });
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.get('/equipments', async (req, res) => {
+router.get('/equipments', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT ee.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = ee.workspace_id AND el.equipment = ee.name) AS exercise_count
@@ -147,12 +114,11 @@ router.get('/equipments', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/equipments', async (req, res) => {
+router.post('/equipments', async (req, res, next) => {
     try {
         const { name } = req.body;
         const result = await pool.query(
@@ -161,12 +127,11 @@ router.post('/equipments', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/equipments/:id', async (req, res) => {
+router.put('/equipments/:id', async (req, res, next) => {
     try {
         const oldRow = await pool.query('SELECT * FROM exercise_equipments WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (oldRow.rows.length === 0) return res.status(404).json({ error: 'Equipment not found' });
@@ -184,24 +149,22 @@ router.put('/equipments/:id', async (req, res) => {
 
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/equipments/:id', async (req, res) => {
+router.delete('/equipments/:id', async (req, res, next) => {
     try {
         const result = await pool.query('DELETE FROM exercise_equipments WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user.workspaceId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Equipment not found' });
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // --- Exercise Library ---
-router.get('/exercise-library', async (req, res) => {
+router.get('/exercise-library', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT *
@@ -210,14 +173,19 @@ router.get('/exercise-library', async (req, res) => {
              ORDER BY created_at DESC`,
             [req.user.workspaceId]
         );
-        res.json(result.rows.map((r) => ({ ...r, created_at: toIsoDateOrNull(r.created_at), updated_at: toIsoDateOrNull(r.updated_at) })));
+        res.json(result.rows.map((r) => ({
+            ...r,
+            video_path:     toPublicUrl(r.video_path),
+            thumbnail_path: toPublicUrl(r.thumbnail_path),
+            created_at:     toIsoDateOrNull(r.created_at),
+            updated_at:     toIsoDateOrNull(r.updated_at),
+        })));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res) => {
+router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res, next) => {
     try {
         const {
             name,
@@ -231,8 +199,8 @@ router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, 
             return res.status(400).json({ error: 'Exercise name is required' });
         }
 
-        const videoPath = req.files?.video?.[0] ? `/uploads/exercise-library/videos/${path.basename(req.files.video[0].path)}` : null;
-        const thumbnailPath = req.files?.thumbnail?.[0] ? `/uploads/exercise-library/thumbnails/${path.basename(req.files.thumbnail[0].path)}` : null;
+        const videoPath     = req.files?.video?.[0]?.key     ?? null;
+        const thumbnailPath = req.files?.thumbnail?.[0]?.key ?? null;
 
         const result = await pool.query(
             `INSERT INTO exercise_library (workspace_id, name, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions, created_at, updated_at)
@@ -243,12 +211,11 @@ router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, 
 
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res) => {
+router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res, next) => {
     try {
         const existing = await pool.query('SELECT * FROM exercise_library WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (existing.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
@@ -258,10 +225,10 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
             return res.status(400).json({ error: 'Exercise name is required' });
         }
 
-        const newVideoFile = req.files?.video?.[0];
-        const newThumbFile = req.files?.thumbnail?.[0];
-        const videoPath = newVideoFile ? `/uploads/exercise-library/videos/${path.basename(newVideoFile.path)}` : current.video_path;
-        const thumbnailPath = newThumbFile ? `/uploads/exercise-library/thumbnails/${path.basename(newThumbFile.path)}` : current.thumbnail_path;
+        const newVideoFile  = req.files?.video?.[0];
+        const newThumbFile  = req.files?.thumbnail?.[0];
+        const videoPath     = newVideoFile ? newVideoFile.key     : current.video_path;
+        const thumbnailPath = newThumbFile ? newThumbFile.key     : current.thumbnail_path;
 
         const result = await pool.query(
             `UPDATE exercise_library
@@ -288,32 +255,30 @@ router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 
             ]
         );
 
-        // Delete replaced files
-        if (newVideoFile && current.video_path) deleteUploadedFile(current.video_path);
-        if (newThumbFile && current.thumbnail_path) deleteUploadedFile(current.thumbnail_path);
+        // Delete replaced files from S3 (fire-and-forget)
+        if (newVideoFile  && current.video_path)     deleteFile(current.video_path).catch(() => {});
+        if (newThumbFile  && current.thumbnail_path) deleteFile(current.thumbnail_path).catch(() => {});
 
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.delete('/exercise-library/:id', async (req, res) => {
+router.delete('/exercise-library/:id', async (req, res, next) => {
     try {
         const result = await pool.query('DELETE FROM exercise_library WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user.workspaceId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
         const deleted = result.rows[0];
-        deleteUploadedFile(deleted.video_path);
-        deleteUploadedFile(deleted.thumbnail_path);
+        deleteFile(deleted.video_path).catch(() => {});
+        deleteFile(deleted.thumbnail_path).catch(() => {});
         res.json(deleted);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.get('/plans', async (req, res) => {
+router.get('/plans', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT tp.*,
@@ -326,12 +291,11 @@ router.get('/plans', async (req, res) => {
 
         res.json(serializePlanRows(result.rows));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.get('/plans/:id', async (req, res) => {
+router.get('/plans/:id', async (req, res, next) => {
     try {
         const planResult = await pool.query(
             'SELECT * FROM training_plans WHERE id = $1 AND workspace_id = $2',
@@ -375,8 +339,14 @@ router.get('/plans/:id', async (req, res) => {
 
                 return {
                     ...exercise,
+                    thumbnail_path: toPublicUrl(exercise.thumbnail_path),
+                    video_path:     toPublicUrl(exercise.video_path),
                     sets: setsResult.rows,
-                    alternatives: alternativesResult.rows,
+                    alternatives: alternativesResult.rows.map(alt => ({
+                        ...alt,
+                        thumbnail_path: toPublicUrl(alt.thumbnail_path),
+                        video_path:     toPublicUrl(alt.video_path),
+                    })),
                 };
             }));
 
@@ -392,12 +362,11 @@ router.get('/plans/:id', async (req, res) => {
             day_count: days.length,
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/plans/save-draft', async (req, res) => {
+router.post('/plans/save-draft', async (req, res, next) => {
     const { clientId, plans = [], activePlanId = null } = req.body;
 
     try {
@@ -506,12 +475,11 @@ router.post('/plans/save-draft', async (req, res) => {
 
         res.json({ plans: serializePlanRows(summary.rows) });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/plans/save-plan-draft', async (req, res) => {
+router.post('/plans/save-plan-draft', async (req, res, next) => {
     const { clientId, plan, activePlanId = null } = req.body;
 
     try {
@@ -648,12 +616,11 @@ router.post('/plans/save-plan-draft', async (req, res) => {
 
         res.json(result);
     } catch (err) {
-        console.error(err);
-        res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+        next(err);
     }
 });
 
-router.post('/plans/:id/activate', async (req, res) => {
+router.post('/plans/:id/activate', async (req, res, next) => {
     try {
         const updatedPlan = await activateSinglePlan({
             pool,
@@ -669,8 +636,7 @@ router.post('/plans/:id/activate', async (req, res) => {
 
         res.json(updatedPlan);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 

@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { makeUploader, createSignedUrl } = require('../lib/storage');
 const { computeSubscriptionStatus } = require('../utils/subscriptionStatus');
 
 router.use(authMiddleware);
@@ -18,26 +17,11 @@ const VALID_STATUSES = ['completed', 'refunded'];
 const VALID_TYPES = ['subscription', 'session', 'one-time', 'other'];
 const VALID_START_MODES = ['on_first_plan', 'custom', 'queued'];
 
-// Multer setup for proof-of-transaction images
-const uploadDir = path.join(__dirname, '../uploads/transactions');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `proof_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
-    },
-});
-
-const upload = multer({
-    storage,
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
-        cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
-    },
-});
+const upload = makeUploader(
+    'transactions',
+    ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'],
+    { maxSize: 5 * 1024 * 1024 }
+);
 
 function mapRow(row) {
     return {
@@ -140,29 +124,32 @@ async function getFirstPlanActivation(clientId) {
 }
 
 // GET /api/transactions/proof/:filename — authenticated, ownership-checked
-router.get('/proof/:filename', async (req, res) => {
+router.get('/proof/:filename', async (req, res, next) => {
     const filename = path.basename(req.params.filename);
+    const dbPath = `/api/transactions/proof/${filename}`;
+    const s3Key  = `transactions/${filename}`;
     try {
         const result = await pool.query(
-            'SELECT id FROM transactions WHERE proof_image LIKE $1 AND workspace_id = $2',
-            [`%${filename}`, req.user.workspaceId]
+            'SELECT id FROM transactions WHERE proof_image = $1 AND workspace_id = $2',
+            [dbPath, req.user.workspaceId]
         );
         if (!result.rows.length) return res.status(403).json({ error: 'Forbidden' });
-        res.sendFile(path.join(__dirname, '../uploads/transactions', filename));
+        const url = await createSignedUrl(s3Key);
+        res.redirect(url);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // POST /api/transactions/upload-proof
 router.post('/upload-proof', upload.single('proof'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    res.json({ path: `/api/transactions/proof/${req.file.filename}` });
+    const filename = path.basename(req.file.key);
+    res.json({ path: `/api/transactions/proof/${filename}` });
 });
 
 // GET /api/transactions/by-client/:clientId
-router.get('/by-client/:clientId', async (req, res) => {
+router.get('/by-client/:clientId', async (req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT * FROM transactions
@@ -180,7 +167,7 @@ router.get('/by-client/:clientId', async (req, res) => {
 });
 
 // GET /api/transactions
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
@@ -263,14 +250,13 @@ router.get('/', async (req, res) => {
             totalPages: Math.ceil(total / limit),
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 
 // POST /api/transactions
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const {
         clientName, clientId, packageVariation, paymentMethod, amount, currency,
         duration, type, status, notes, date, proofImage, subscriptionStartDate,
@@ -339,15 +325,15 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json(mapRow(result.rows[0]));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // PUT /api/transactions
-router.put('/', async (req, res) => {
+router.put('/:id', async (req, res, next) => {
+    const id = parseInt(req.params.id);
     const {
-        id, clientName, clientId, packageVariation, paymentMethod, amount, currency,
+        clientName, clientId, packageVariation, paymentMethod, amount, currency,
         duration, type, status, notes, date, proofImage, subscriptionStartDate,
     } = req.body;
 
@@ -378,11 +364,11 @@ router.put('/', async (req, res) => {
 
         const result = await pool.query(
             `UPDATE transactions
-             SET client_id = $1, client_name = $2, package_variation = $3, payment_method = $4,
-                 amount = $5, currency = $6, duration = $7, type = $8, status = $9,
-                 notes = $10, proof_image = $11, transaction_date = $12,
-                 subscription_start_date = $13, start_mode = $14
-             WHERE id = $15 AND workspace_id = $16
+                SET client_id = $1, client_name = $2, package_variation = $3, payment_method = $4,
+                    amount = $5, currency = $6, duration = $7, type = $8, status = $9,
+                    notes = $10, proof_image = $11, transaction_date = $12,
+                    subscription_start_date = $13, start_mode = $14
+                WHERE id = $15 AND workspace_id = $16
              RETURNING *`,
             [
                 clientId   !== undefined ? (clientId || null)                       : cur.client_id,
@@ -405,14 +391,14 @@ router.put('/', async (req, res) => {
         );
         res.json(mapRow(result.rows[0]));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 
 // DELETE /api/transactions?id=X
-router.delete('/', async (req, res) => {
-    const id = req.query.id;
+router.delete('/:id', async (req, res, next) => {
+    const id = parseInt(req.params.id);
+    
     if (!id) return res.status(400).json({ error: 'id is required' });
 
     try {
@@ -423,8 +409,7 @@ router.delete('/', async (req, res) => {
         if (!result.rows.length) return res.status(404).json({ error: 'Transaction not found' });
         res.json({ deleted: result.rows[0].id });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        next(err);
     }
 });
 

@@ -29,7 +29,7 @@ function sameWorkspace(req, res, next) {
 
 // ── Create workspace ──────────────────────────────────────────────────────────
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const { name, slug } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: 'Workspace name is required' });
 
@@ -61,14 +61,13 @@ router.post('/', async (req, res) => {
         res.status(201).json(workspace);
     } catch (err) {
         if (err.status) return res.status(err.status).json({ message: err.message });
-        console.error(err);
-        res.status(500).json({ message: 'Failed to create workspace' });
+        next(err);
     }
 });
 
 // ── Get workspace details ─────────────────────────────────────────────────────
 
-router.get('/:id', sameWorkspace, async (req, res) => {
+router.get('/:id', sameWorkspace, async (req, res, next) => {
     try {
         const { rows } = await pool.query(
             `SELECT w.id, w.slug, w.name, w.owner_id, w.slug_customized, w.created_at,
@@ -88,14 +87,13 @@ router.get('/:id', sameWorkspace, async (req, res) => {
         if (!rows.length) return res.status(404).json({ message: 'Workspace not found' });
         res.json(rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch workspace' });
+        next(err);
     }
 });
 
 // ── Rename workspace ──────────────────────────────────────────────────────────
 
-router.patch('/:id/name', sameWorkspace, requireOwner, async (req, res) => {
+router.patch('/:id/name', sameWorkspace, requireOwner, async (req, res, next) => {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
 
@@ -114,14 +112,13 @@ router.patch('/:id/name', sameWorkspace, requireOwner, async (req, res) => {
 
         res.json(rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to rename workspace' });
+        next(err);
     }
 });
 
 // ── Update slug ───────────────────────────────────────────────────────────────
 
-router.put('/:id/slug', sameWorkspace, requireOwner, async (req, res) => {
+router.put('/:id/slug', sameWorkspace, requireOwner, async (req, res, next) => {
     const { slug } = req.body;
     if (!slug?.trim()) return res.status(400).json({ message: 'Slug is required' });
 
@@ -151,14 +148,13 @@ router.put('/:id/slug', sameWorkspace, requireOwner, async (req, res) => {
         );
         res.json(rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update slug' });
+        next(err);
     }
 });
 
 // ── Archive workspace (soft delete) ──────────────────────────────────────────
 
-router.delete('/:id', sameWorkspace, requireOwner, async (req, res) => {
+router.delete('/:id', sameWorkspace, requireOwner, async (req, res, next) => {
     try {
         const { rows } = await pool.query(
             `UPDATE workspaces SET archived_at = NOW()
@@ -176,14 +172,13 @@ router.delete('/:id', sameWorkspace, requireOwner, async (req, res) => {
 
         res.json({ message: 'Workspace archived' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to archive workspace' });
+        next(err);
     }
 });
 
 // ── Team members ──────────────────────────────────────────────────────────────
 
-router.get('/:id/members', sameWorkspace, requirePermission('team', 'read'), async (req, res) => {
+router.get('/:id/members', sameWorkspace, requirePermission('team', 'read'), async (req, res, next) => {
     try {
         const { rows } = await pool.query(
             `SELECT wm.id, wm.user_id, wm.role, wm.permissions, wm.is_active, wm.joined_at,
@@ -196,13 +191,12 @@ router.get('/:id/members', sameWorkspace, requirePermission('team', 'read'), asy
         );
         res.json(rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch members' });
+        next(err);
     }
 });
 
 // Direct add — owner-only, bypasses invitation flow
-router.post('/:id/members', sameWorkspace, requireOwner, async (req, res) => {
+router.post('/:id/members', sameWorkspace, requireOwner, async (req, res, next) => {
     const { email, role } = req.body;
     if (!email?.trim()) return res.status(400).json({ message: 'Email is required' });
     if (!VALID_ROLES.includes(role)) {
@@ -249,13 +243,12 @@ router.post('/:id/members', sameWorkspace, requireOwner, async (req, res) => {
     } catch (err) {
         if (err.status) return res.status(err.status).json({ message: err.message });
         if (err.code === '23505') return res.status(409).json({ message: 'This person is already in your workspace' });
-        console.error(err);
-        res.status(500).json({ message: 'Failed to add member' });
+        next(err);
     }
 });
 
 // Update member role (owner: any role; manager: can't touch managers)
-router.put('/:id/members/:memberId', sameWorkspace, async (req, res) => {
+router.put('/:id/members/:memberId', sameWorkspace, async (req, res, next) => {
     const { role } = req.body;
     if (!VALID_ROLES.includes(role)) {
         return res.status(400).json({ message: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
@@ -299,13 +292,12 @@ router.put('/:id/members/:memberId', sameWorkspace, async (req, res) => {
 
         res.json(rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update member role' });
+        next(err);
     }
 });
 
 // Update member permissions (owner-only fine-grained override)
-router.put('/:id/members/:memberId/permissions', sameWorkspace, requireOwner, async (req, res) => {
+router.put('/:id/members/:memberId/permissions', sameWorkspace, requireOwner, async (req, res, next) => {
     const { permissions } = req.body;
     if (!permissions || typeof permissions !== 'object') {
         return res.status(400).json({ message: 'Permissions object is required' });
@@ -333,13 +325,12 @@ router.put('/:id/members/:memberId/permissions', sameWorkspace, requireOwner, as
 
         res.json(rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update permissions' });
+        next(err);
     }
 });
 
 // Remove member (owner: any; manager: can't remove managers)
-router.delete('/:id/members/:memberId', sameWorkspace, async (req, res) => {
+router.delete('/:id/members/:memberId', sameWorkspace, async (req, res, next) => {
     const memberId = parseInt(req.params.memberId);
 
     try {
@@ -373,14 +364,13 @@ router.delete('/:id/members/:memberId', sameWorkspace, async (req, res) => {
 
         res.json({ message: 'Member removed' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to remove member' });
+        next(err);
     }
 });
 
 // ── Invitations (workspace-scoped) ────────────────────────────────────────────
 
-router.get('/:id/invitations', sameWorkspace, requirePermission('team', 'read'), async (req, res) => {
+router.get('/:id/invitations', sameWorkspace, requirePermission('team', 'read'), async (req, res, next) => {
     try {
         const { rows } = await pool.query(
             `SELECT wi.id, wi.invited_user_id, wi.role, wi.message, wi.status, wi.created_at,
@@ -395,12 +385,11 @@ router.get('/:id/invitations', sameWorkspace, requirePermission('team', 'read'),
         );
         res.json(rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch invitations' });
+        next(err);
     }
 });
 
-router.post('/:id/invitations', sameWorkspace, async (req, res) => {
+router.post('/:id/invitations', sameWorkspace, async (req, res, next) => {
     const { email, role, message } = req.body;
     if (!email?.trim()) return res.status(400).json({ message: 'Email is required' });
     if (!VALID_ROLES.includes(role)) {
@@ -457,12 +446,11 @@ router.post('/:id/invitations', sameWorkspace, async (req, res) => {
     } catch (err) {
         if (err.status) return res.status(err.status).json({ message: err.message });
         if (err.code === '23505') return res.status(409).json({ message: 'A pending invitation already exists for this user' });
-        console.error(err);
-        res.status(500).json({ message: 'Failed to send invitation' });
+        next(err);
     }
 });
 
-router.delete('/:id/invitations/:invitationId', sameWorkspace, async (req, res) => {
+router.delete('/:id/invitations/:invitationId', sameWorkspace, async (req, res, next) => {
     if (!req.user.isOwner && !req.user.permissions?.team?.write) {
         return res.status(403).json({ message: 'Insufficient permissions' });
     }
@@ -489,14 +477,13 @@ router.delete('/:id/invitations/:invitationId', sameWorkspace, async (req, res) 
 
         res.json({ message: 'Invitation cancelled' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to cancel invitation' });
+        next(err);
     }
 });
 
 // ── Transfer ownership ────────────────────────────────────────────────────────
 
-router.post('/:id/transfer-ownership', sameWorkspace, requireOwner, async (req, res) => {
+router.post('/:id/transfer-ownership', sameWorkspace, requireOwner, async (req, res, next) => {
     const { memberId, ownerPassword } = req.body;
     if (!memberId) return res.status(400).json({ message: 'Member ID is required' });
     if (!ownerPassword) return res.status(400).json({ message: 'Owner password is required' });
@@ -554,8 +541,7 @@ router.post('/:id/transfer-ownership', sameWorkspace, requireOwner, async (req, 
 
         res.json({ message: 'Ownership transferred successfully' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to transfer ownership' });
+        next(err);
     }
 });
 

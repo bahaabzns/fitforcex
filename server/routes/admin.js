@@ -8,7 +8,7 @@ const { loginLimiter } = require('../middleware/rateLimit');
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
 
@@ -35,12 +35,11 @@ router.post('/login', loginLimiter, async (req, res) => {
            .status(200)
            .json({ message: 'Admin login successful', admin: { id: admin.id, email: admin.email, fname: admin.fname, lname: admin.lname } });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Login failed' });
+        next(err);
     }
 });
 
-router.get('/me', adminAuthMiddleware, async (req, res) => {
+router.get('/me', adminAuthMiddleware, async (req, res, next) => {
     try {
         const result = await pool.query(
             'SELECT id, email, fname, lname, created_at FROM admins WHERE id = $1',
@@ -49,8 +48,7 @@ router.get('/me', adminAuthMiddleware, async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ message: 'Admin not found' });
         res.status(200).json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch admin' });
+        next(err);
     }
 });
 
@@ -60,7 +58,7 @@ router.post('/logout', adminAuthMiddleware, (req, res) => {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
-router.get('/stats', adminAuthMiddleware, async (req, res) => {
+router.get('/stats', adminAuthMiddleware, async (req, res, next) => {
     try {
         const [usersResult, workspacesResult, planBreakdown, recent] = await Promise.all([
             pool.query('SELECT COUNT(*) AS total_users FROM users'),
@@ -90,14 +88,13 @@ router.get('/stats', adminAuthMiddleware, async (req, res) => {
             recentRegistrations: recent.rows,
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch stats' });
+        next(err);
     }
 });
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
-router.get('/users', adminAuthMiddleware, async (req, res) => {
+router.get('/users', adminAuthMiddleware, async (req, res, next) => {
     const { search = '', page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
@@ -123,12 +120,11 @@ router.get('/users', adminAuthMiddleware, async (req, res) => {
 
         res.json({ users: rows, total: parseInt(countRows[0].count), page: parseInt(page), limit: parseInt(limit) });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch users' });
+        next(err);
     }
 });
 
-router.get('/users/:id', adminAuthMiddleware, async (req, res) => {
+router.get('/users/:id', adminAuthMiddleware, async (req, res, next) => {
     try {
         const { rows } = await pool.query(`
             SELECT id, fname, lname, email, created_at, is_admin, default_workspace_id
@@ -163,14 +159,13 @@ router.get('/users/:id', adminAuthMiddleware, async (req, res) => {
 
         res.json({ ...user, workspaces });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch user' });
+        next(err);
     }
 });
 
 // ── Workspaces ────────────────────────────────────────────────────────────────
 
-router.get('/workspaces', adminAuthMiddleware, async (req, res) => {
+router.get('/workspaces', adminAuthMiddleware, async (req, res, next) => {
     const { search = '', plan = '', archived = 'false', page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const showArchived = archived === 'true';
@@ -217,12 +212,11 @@ router.get('/workspaces', adminAuthMiddleware, async (req, res) => {
 
         res.json({ workspaces: rows, total: parseInt(countRows[0].count), page: parseInt(page), limit: parseInt(limit) });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch workspaces' });
+        next(err);
     }
 });
 
-router.get('/workspaces/:id', adminAuthMiddleware, async (req, res) => {
+router.get('/workspaces/:id', adminAuthMiddleware, async (req, res, next) => {
     try {
         const { rows } = await pool.query(`
             SELECT w.id, w.slug, w.name, w.archived_at, w.created_at, w.slug_customized,
@@ -254,12 +248,11 @@ router.get('/workspaces/:id', adminAuthMiddleware, async (req, res) => {
 
         res.json({ ...rows[0], members });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch workspace' });
+        next(err);
     }
 });
 
-router.put('/workspaces/:id/subscription', adminAuthMiddleware, async (req, res) => {
+router.put('/workspaces/:id/subscription', adminAuthMiddleware, async (req, res, next) => {
     const { planId, notes } = req.body;
     if (!planId) return res.status(400).json({ message: 'planId is required' });
 
@@ -275,12 +268,11 @@ router.put('/workspaces/:id/subscription', adminAuthMiddleware, async (req, res)
 
         res.json({ message: 'Subscription updated' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update subscription' });
+        next(err);
     }
 });
 
-router.post('/workspaces/:id/restore', adminAuthMiddleware, async (req, res) => {
+router.post('/workspaces/:id/restore', adminAuthMiddleware, async (req, res, next) => {
     try {
         const { rowCount } = await pool.query(
             'UPDATE workspaces SET archived_at = NULL WHERE id = $1 AND archived_at IS NOT NULL',
@@ -289,12 +281,11 @@ router.post('/workspaces/:id/restore', adminAuthMiddleware, async (req, res) => 
         if (!rowCount) return res.status(400).json({ message: 'Workspace is not archived or does not exist' });
         res.json({ message: 'Workspace restored' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to restore workspace' });
+        next(err);
     }
 });
 
-router.post('/workspaces/:id/archive', adminAuthMiddleware, async (req, res) => {
+router.post('/workspaces/:id/archive', adminAuthMiddleware, async (req, res, next) => {
     try {
         const { rowCount } = await pool.query(
             'UPDATE workspaces SET archived_at = NOW() WHERE id = $1 AND archived_at IS NULL',
@@ -303,14 +294,13 @@ router.post('/workspaces/:id/archive', adminAuthMiddleware, async (req, res) => 
         if (!rowCount) return res.status(400).json({ message: 'Workspace is already archived or does not exist' });
         res.json({ message: 'Workspace archived' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to archive workspace' });
+        next(err);
     }
 });
 
 // ── Plans ─────────────────────────────────────────────────────────────────────
 
-router.get('/plans', adminAuthMiddleware, async (req, res) => {
+router.get('/plans', adminAuthMiddleware, async (req, res, next) => {
     try {
         const { rows } = await pool.query(`
             SELECT p.*,
@@ -322,12 +312,11 @@ router.get('/plans', adminAuthMiddleware, async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to fetch plans' });
+        next(err);
     }
 });
 
-router.post('/plans', adminAuthMiddleware, async (req, res) => {
+router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
     const { name, display_name, max_team_seats, max_workspaces, price_monthly, features } = req.body;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
 
@@ -340,12 +329,12 @@ router.post('/plans', adminAuthMiddleware, async (req, res) => {
         res.status(201).json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ message: 'A plan with this name already exists' });
-        console.error(err);
-        res.status(500).json({ message: 'Failed to create plan' });
+        req.log.error({ err }, 'Error creating plan');
+        next(err);
     }
 });
 
-router.put('/plans/:id', adminAuthMiddleware, async (req, res) => {
+router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
     const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active } = req.body;
 
     try {
@@ -365,8 +354,7 @@ router.put('/plans/:id', adminAuthMiddleware, async (req, res) => {
         if (!rows.length) return res.status(404).json({ message: 'Plan not found' });
         res.json(rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Failed to update plan' });
+        next(err);
     }
 });
 
