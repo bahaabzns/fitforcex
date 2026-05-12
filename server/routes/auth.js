@@ -172,7 +172,7 @@ router.post('/register', async (req, res, next) => {
 
         await pool.query(
             `INSERT INTO workspace_subscriptions (workspace_id, plan_id)
-             VALUES ($1, (SELECT id FROM plans WHERE name = 'free'))`,
+             VALUES ($1, (SELECT id FROM plans WHERE is_default = TRUE LIMIT 1))`,
             [workspaceId]
         );
 
@@ -185,6 +185,9 @@ router.post('/register', async (req, res, next) => {
         });
 
     } catch (err) {
+        if (err.code === '23505' && err.constraint === 'users_email_key') {
+            return res.status(409).json({ message: 'An account with this email already exists' });
+        }
         next(err);
     }
 });

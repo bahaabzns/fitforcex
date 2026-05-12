@@ -450,6 +450,34 @@ async function step11_seedWorkspaceSubscriptions(client) {
     console.log(`  → subscriptions seeded for ${rowCount} workspace(s)`);
 }
 
+async function step13_addIsDefaultToPlan(client) {
+    console.log('Step 13: Add is_default column to plans…');
+    if (!await columnExists(client, 'plans', 'is_default')) {
+        await client.query(`ALTER TABLE plans ADD COLUMN is_default BOOLEAN NOT NULL DEFAULT FALSE`);
+        console.log('  → is_default column added');
+    } else {
+        console.log('  → is_default already exists');
+    }
+
+    if (!await indexExists(client, 'plans_one_default')) {
+        await client.query(`
+            CREATE UNIQUE INDEX plans_one_default ON plans (is_default) WHERE is_default = TRUE
+        `);
+        console.log('  → unique partial index created');
+    } else {
+        console.log('  → index already exists');
+    }
+
+    // Mark the free plan as default if no plan is currently marked default
+    const { rows } = await client.query(`SELECT id FROM plans WHERE is_default = TRUE`);
+    if (rows.length === 0) {
+        await client.query(`UPDATE plans SET is_default = TRUE WHERE name = 'free'`);
+        console.log('  → free plan marked as default');
+    } else {
+        console.log('  → a default plan already set, skipped');
+    }
+}
+
 async function step12_verify(client) {
     console.log('Step 12: Verification checks…');
 
@@ -525,6 +553,7 @@ async function run() {
         await step9_createNewTables(client);
         await step10_createAndSeedPlans(client);
         await step11_seedWorkspaceSubscriptions(client);
+        await step13_addIsDefaultToPlan(client);
 
         await client.query('COMMIT');
         console.log('\nMigration committed successfully.\n');

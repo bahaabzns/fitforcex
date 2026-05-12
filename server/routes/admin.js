@@ -335,26 +335,40 @@ router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
 });
 
 router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
-    const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active } = req.body;
+    const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default } = req.body;
 
+    const client = await pool.connect();
     try {
-        const { rows } = await pool.query(`
+        await client.query('BEGIN');
+
+        if (is_default === true) {
+            await client.query(`UPDATE plans SET is_default = FALSE WHERE is_default = TRUE AND id != $1`, [req.params.id]);
+        }
+
+        const { rows } = await client.query(`
             UPDATE plans
             SET display_name   = COALESCE($1, display_name),
                 max_team_seats = $2,
                 max_workspaces = $3,
                 price_monthly  = $4,
                 features       = COALESCE($5::jsonb, features),
-                is_active      = COALESCE($6, is_active)
-            WHERE id = $7
+                is_active      = COALESCE($6, is_active),
+                is_default     = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE is_default END
+            WHERE id = $8
             RETURNING *
         `, [display_name ?? null, max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null,
-            features ? JSON.stringify(features) : null, is_active ?? null, req.params.id]);
+            features ? JSON.stringify(features) : null, is_active ?? null,
+            is_default != null ? is_default : null, req.params.id]);
 
-        if (!rows.length) return res.status(404).json({ message: 'Plan not found' });
+        if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Plan not found' }); }
+
+        await client.query('COMMIT');
         res.json(rows[0]);
     } catch (err) {
+        await client.query('ROLLBACK');
         next(err);
+    } finally {
+        client.release();
     }
 });
 

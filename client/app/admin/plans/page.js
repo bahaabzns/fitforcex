@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
-import { Plus, Pencil } from 'lucide-react';
+import { Plus, Pencil, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
-const EMPTY_FORM = { name: '', display_name: '', max_team_seats: '', max_workspaces: '', price_monthly: '', is_active: true };
+const EMPTY_FORM = { name: '', display_name: '', max_team_seats: '', max_workspaces: '', price_monthly: '', is_active: true, is_default: false };
 
 function PlanModal({ plan, onClose, onSaved }) {
     const isEdit = !!plan;
@@ -19,6 +19,7 @@ function PlanModal({ plan, onClose, onSaved }) {
                 max_workspaces: plan.max_workspaces ?? '',
                 price_monthly: plan.price_monthly ?? '',
                 is_active: plan.is_active,
+                is_default: plan.is_default,
               }
             : EMPTY_FORM
     );
@@ -40,6 +41,7 @@ function PlanModal({ plan, onClose, onSaved }) {
                 max_workspaces: parseOptInt(form.max_workspaces),
                 price_monthly: parseOptFloat(form.price_monthly),
                 is_active: form.is_active,
+                is_default: form.is_default,
             };
             if (isEdit) {
                 await api.put(`/api/admin/plans/${plan.id}`, payload);
@@ -93,6 +95,14 @@ function PlanModal({ plan, onClose, onSaved }) {
                     Active
                 </label>
 
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
+                    <span className="flex items-center gap-1">
+                        <Star size={13} className="text-yellow-500" />
+                        Default plan for new registrations
+                    </span>
+                </label>
+
                 {error && <p className="text-sm text-red-500">{error}</p>}
 
                 <div className="flex gap-2 justify-end pt-1">
@@ -136,13 +146,14 @@ export default function AdminPlansPage() {
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Name</span>
                     <span>Display</span>
                     <span>Seats</span>
                     <span>Workspaces</span>
                     <span>Price/mo</span>
                     <span>Workspaces Using</span>
+                    <span>Default</span>
                     <span></span>
                 </div>
 
@@ -156,7 +167,7 @@ export default function AdminPlansPage() {
                     plans.map((p, idx) => (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
+                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
                         >
                             <span className="text-sm font-mono text-muted-foreground w-20">{p.name}</span>
                             <span className="text-sm font-medium text-foreground">{p.display_name}</span>
@@ -166,6 +177,9 @@ export default function AdminPlansPage() {
                                 {p.price_monthly != null ? `$${parseFloat(p.price_monthly).toFixed(2)}` : '—'}
                             </span>
                             <span className="text-sm text-foreground w-24 text-center">{p.workspace_count}</span>
+                            <span className="w-16 flex justify-center">
+                                {p.is_default && <Star size={14} className="text-yellow-500" title="Default plan for new registrations" />}
+                            </span>
                             <button
                                 onClick={() => setModal(p)}
                                 className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
