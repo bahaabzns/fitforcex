@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
-import { Plus, Pencil, Star } from 'lucide-react';
+import { Plus, Pencil, Star, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
-const EMPTY_FORM = { name: '', display_name: '', max_team_seats: '', max_workspaces: '', price_monthly: '', is_active: true, is_default: false };
+const EMPTY_FORM = { name: '', display_name: '', max_team_seats: '', max_workspaces: '', price_monthly: '', trial_days: '', is_active: true, is_default: false };
 
 function PlanModal({ plan, onClose, onSaved }) {
     const isEdit = !!plan;
@@ -18,6 +18,7 @@ function PlanModal({ plan, onClose, onSaved }) {
                 max_team_seats: plan.max_team_seats ?? '',
                 max_workspaces: plan.max_workspaces ?? '',
                 price_monthly: plan.price_monthly ?? '',
+                trial_days: plan.trial_days ?? '',
                 is_active: plan.is_active,
                 is_default: plan.is_default,
               }
@@ -40,6 +41,7 @@ function PlanModal({ plan, onClose, onSaved }) {
                 max_team_seats: parseOptInt(form.max_team_seats),
                 max_workspaces: parseOptInt(form.max_workspaces),
                 price_monthly: parseOptFloat(form.price_monthly),
+                trial_days: parseOptInt(form.trial_days),
                 is_active: form.is_active,
                 is_default: form.is_default,
             };
@@ -85,9 +87,15 @@ function PlanModal({ plan, onClose, onSaved }) {
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs">Monthly price <span className="text-muted-foreground">(blank = TBD)</span></Label>
-                    <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.price_monthly} onChange={e => set('price_monthly', e.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs">Monthly price <span className="text-muted-foreground">(blank = TBD)</span></Label>
+                        <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.price_monthly} onChange={e => set('price_monthly', e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs">Trial days <span className="text-muted-foreground">(blank = no expiry)</span></Label>
+                        <Input type="number" min="1" placeholder="—" value={form.trial_days} onChange={e => set('trial_days', e.target.value)} />
+                    </div>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -114,11 +122,49 @@ function PlanModal({ plan, onClose, onSaved }) {
     );
 }
 
+function DeleteConfirmModal({ plan, onClose, onDeleted }) {
+    const [deleting, setDeleting] = useState(false);
+    const [error, setError] = useState('');
+
+    async function handleDelete() {
+        setDeleting(true);
+        setError('');
+        try {
+            await api.delete(`/api/admin/plans/${plan.id}`);
+            onDeleted();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to delete');
+            setDeleting(false);
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+                <h2 className="text-base font-bold text-foreground">Delete Plan</h2>
+                <p className="text-sm text-muted-foreground">
+                    Are you sure you want to delete <span className="font-semibold text-foreground">{plan.display_name}</span>? This cannot be undone.
+                </p>
+                {error && <p className="text-sm text-red-500">{error}</p>}
+                <div className="flex gap-2 justify-end pt-1">
+                    <Button variant="outline" onClick={onClose} disabled={deleting}>Cancel</Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                        {deleting ? 'Deleting…' : 'Delete'}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function AdminPlansPage() {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modal, setModal] = useState(null); // null | 'new' | plan object
+    const [deleteTarget, setDeleteTarget] = useState(null); // plan to delete
 
     function load() {
         setLoading(true);
@@ -146,12 +192,13 @@ export default function AdminPlansPage() {
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Name</span>
                     <span>Display</span>
                     <span>Seats</span>
                     <span>Workspaces</span>
                     <span>Price/mo</span>
+                    <span>Trial days</span>
                     <span>Workspaces Using</span>
                     <span>Default</span>
                     <span></span>
@@ -167,7 +214,7 @@ export default function AdminPlansPage() {
                     plans.map((p, idx) => (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
+                            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''} ${!p.is_active ? 'opacity-50' : ''}`}
                         >
                             <span className="text-sm font-mono text-muted-foreground w-20">{p.name}</span>
                             <span className="text-sm font-medium text-foreground">{p.display_name}</span>
@@ -176,17 +223,29 @@ export default function AdminPlansPage() {
                             <span className="text-sm text-foreground w-20 text-right">
                                 {p.price_monthly != null ? `$${parseFloat(p.price_monthly).toFixed(2)}` : '—'}
                             </span>
+                            <span className="text-sm text-foreground w-20 text-center">
+                                {p.trial_days != null ? `${p.trial_days}d` : '—'}
+                            </span>
                             <span className="text-sm text-foreground w-24 text-center">{p.workspace_count}</span>
                             <span className="w-16 flex justify-center">
                                 {p.is_default && <Star size={14} className="text-yellow-500" title="Default plan for new registrations" />}
                             </span>
-                            <button
-                                onClick={() => setModal(p)}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                                title="Edit plan"
-                            >
-                                <Pencil size={14} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setModal(p)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                    title="Edit plan"
+                                >
+                                    <Pencil size={14} />
+                                </button>
+                                <button
+                                    onClick={() => setDeleteTarget(p)}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                                    title="Delete plan"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
                         </div>
                     ))
                 )}
@@ -197,6 +256,14 @@ export default function AdminPlansPage() {
                     plan={modal === 'new' ? null : modal}
                     onClose={() => setModal(null)}
                     onSaved={load}
+                />
+            )}
+
+            {deleteTarget && (
+                <DeleteConfirmModal
+                    plan={deleteTarget}
+                    onClose={() => setDeleteTarget(null)}
+                    onDeleted={load}
                 />
             )}
         </div>

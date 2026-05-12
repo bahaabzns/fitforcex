@@ -295,11 +295,12 @@ cat ~/.ssh/id_ed25519.pub
 ```
 
 Copy the output. Go to **GitHub → Settings → SSH and GPG keys → New SSH key** and paste it.
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKbt4c2TtG7k+S/qMdYWWJUf0Ik26TDNMtJLjikSYGYP fitforce-vps-deploy
 
 Then clone with SSH:
 
 ```bash
-git clone git@github.com:YOUR_USERNAME/fitforce-x.git app
+git clone git@github.com:bahaabzns/fitforcex.git app
 ```
 
 ### Option B — Upload via SCP (if not using Git)
@@ -307,7 +308,7 @@ git clone git@github.com:YOUR_USERNAME/fitforce-x.git app
 On your **local machine:**
 
 ```bash
-scp -r /path/to/fitforce-x fitforce@YOUR_VPS_IP:/home/fitforce/app
+scp -r /path/to/fitforcex fitforce@YOUR_VPS_IP:/home/fitforce/app
 ```
 
 ---
@@ -325,28 +326,28 @@ Paste and fill in every value:
 
 ```env
 # ── Database ──────────────────────────────────────────────────────
-DATABASE_URL=postgresql://fitforce_user:STRONG_DB_PASSWORD_HERE@localhost:5432/fitforce_db
+DATABASE_URL=postgresql://fitforce_user:Canyouseeme@441199@localhost:5432/fitforce_db
 
 # ── Server ────────────────────────────────────────────────────────
 PORT=4000
 NODE_ENV=production
-ALLOWED_ORIGINS=https://yourdomain.com
+ALLOWED_ORIGINS=srv1663411.hstgr.cloud
 
 # ── Auth ──────────────────────────────────────────────────────────
-# Generate with: node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
-JWT_SECRET=GENERATE_A_LONG_RANDOM_STRING_HERE
-ADMIN_JWT_SECRET=GENERATE_A_DIFFERENT_LONG_RANDOM_STRING_HERE
+
+JWT_SECRET=8cb339f69868223aac5e0a6adac932ccbc82dc99def2cf939d7bb6675a6153677871abdccebb555c6f896dd99aabf4ba8a0acfebadc5822a240380aa557ff2be
+ADMIN_JWT_SECRET=b56bf2b1e1cec2f2c57808b435d7a97c448c617f3d53eaed3216c05f3e1d947844658eb64bef6187d5aaa78cd0bad94046e001f0d4667de35f3714fc7adbf3c0
 
 # ── Cloudflare R2 File Storage ────────────────────────────────────
 S3_REGION=auto
-S3_ENDPOINT=https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+S3_ENDPOINT=https://518046ac9f663ed7542381e0a5217123.r2.cloudflarestorage.com
 S3_BUCKET=fitforce-uploads
-S3_ACCESS_KEY=YOUR_R2_ACCESS_KEY
-S3_SECRET_KEY=YOUR_R2_SECRET_KEY
-S3_PUBLIC_URL=https://pub-YOUR_HASH.r2.dev
+S3_ACCESS_KEY=4261b0c9b2d85412e989606cacfcddf6
+S3_SECRET_KEY=75c0b072ec0c4275ca44e719398401b188385248b8e1aa148164a40e4823de1e
+S3_PUBLIC_URL=https://pub-e20e5151777b4a8cb598133a75ab85de.r2.dev
 
 # ── Observability ─────────────────────────────────────────────────
-SENTRY_DSN=https://YOUR_KEY@sentry.io/YOUR_PROJECT_ID
+SENTRY_DSN=https://46dd7ccb635fc58983d408472123d32e@o4511345433968640.ingest.de.sentry.io/4511345440653392
 LOG_LEVEL=info
 ```
 
@@ -638,8 +639,8 @@ At this point, `http://yourdomain.com` should show your app over plain HTTP. We'
 sudo apt install -y certbot python3-certbot-nginx
 
 # Get the certificate (replace with your actual domain and email)
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com \
-    --email your@email.com \
+sudo certbot --nginx -d srv1663411.hstgr.cloud -d www.srv1663411.hstgr.cloud \
+    --email bahaa.bzns@email.com \
     --agree-tos \
     --non-interactive \
     --redirect
@@ -1056,3 +1057,40 @@ pm2 logs fitforce-api --lines 100 | grep -i "s3\|r2\|storage"
 [ ] R2 bucket credentials are scoped to fitforce-uploads only
 [ ] Ports 3000 and 4000 are NOT exposed to internet (only Nginx is)
 ```
+
+
+
+
+redeploy steps
+1. Push your local changes to GitHub (from your local machine)
+
+git add .
+git commit -m "feat: add is_default plan for new coach registrations"
+git push origin main
+
+2. SSH into the server
+
+ssh fitforce@srv1663411.hstgr.cloud
+3. Deploy (run these on the server)
+
+cd /home/fitforce/app
+
+# Pull latest code
+git pull origin main
+
+# Run the migration (adds is_default column to plans, marks free as default)
+cd server && npm run migrate && cd ..
+
+# Rebuild the frontend (admin plans page changed)
+cd client && npm run build && cd ..
+
+# Restart both apps
+pm2 restart fitforce-api
+pm2 restart fitforce-web
+
+# Confirm both are online
+pm2 status
+Or if you already have the deploy script, just:
+
+
+~/deploy.sh

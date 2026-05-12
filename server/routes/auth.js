@@ -171,8 +171,10 @@ router.post('/register', async (req, res, next) => {
         );
 
         await pool.query(
-            `INSERT INTO workspace_subscriptions (workspace_id, plan_id)
-             VALUES ($1, (SELECT id FROM plans WHERE is_default = TRUE LIMIT 1))`,
+            `INSERT INTO workspace_subscriptions (workspace_id, plan_id, expires_at)
+             SELECT $1, p.id,
+                    CASE WHEN p.trial_days IS NOT NULL THEN NOW() + (p.trial_days || ' days')::interval ELSE NULL END
+             FROM plans p WHERE p.is_default = TRUE LIMIT 1`,
             [workspaceId]
         );
 

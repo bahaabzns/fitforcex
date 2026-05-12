@@ -317,15 +317,15 @@ router.get('/plans', adminAuthMiddleware, async (req, res, next) => {
 });
 
 router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
-    const { name, display_name, max_team_seats, max_workspaces, price_monthly, features } = req.body;
+    const { name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days } = req.body;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
 
     try {
         const { rows } = await pool.query(`
-            INSERT INTO plans (name, display_name, max_team_seats, max_workspaces, price_monthly, features)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO plans (name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
-        `, [name.trim(), display_name.trim(), max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null, features ? JSON.stringify(features) : '{}']);
+        `, [name.trim(), display_name.trim(), max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null, features ? JSON.stringify(features) : '{}', trial_days ?? null]);
         res.status(201).json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ message: 'A plan with this name already exists' });
@@ -335,7 +335,7 @@ router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
 });
 
 router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
-    const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default } = req.body;
+    const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default, trial_days } = req.body;
 
     const client = await pool.connect();
     try {
@@ -353,12 +353,13 @@ router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
                 price_monthly  = $4,
                 features       = COALESCE($5::jsonb, features),
                 is_active      = COALESCE($6, is_active),
-                is_default     = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE is_default END
-            WHERE id = $8
+                is_default     = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE is_default END,
+                trial_days     = $8
+            WHERE id = $9
             RETURNING *
         `, [display_name ?? null, max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null,
             features ? JSON.stringify(features) : null, is_active ?? null,
-            is_default != null ? is_default : null, req.params.id]);
+            is_default != null ? is_default : null, trial_days ?? null, req.params.id]);
 
         if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Plan not found' }); }
 
@@ -369,6 +370,30 @@ router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
         next(err);
     } finally {
         client.release();
+    }
+});
+
+router.delete('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT p.id, p.is_default, COUNT(ws.id) AS workspace_count
+             FROM plans p
+             LEFT JOIN workspace_subscriptions ws ON ws.plan_id = p.id
+             WHERE p.id = $1
+             GROUP BY p.id`,
+            [req.params.id]
+        );
+
+        if (!rows.length) return res.status(404).json({ message: 'Plan not found' });
+
+        const plan = rows[0];
+        if (plan.is_default) return res.status(409).json({ message: 'Cannot delete the default plan. Set another plan as default first.' });
+        if (parseInt(plan.workspace_count) > 0) return res.status(409).json({ message: `Cannot delete: ${plan.workspace_count} workspace(s) are on this plan. Reassign them first.` });
+
+        await pool.query('DELETE FROM plans WHERE id = $1', [req.params.id]);
+        res.status(204).end();
+    } catch (err) {
+        next(err);
     }
 });
 
