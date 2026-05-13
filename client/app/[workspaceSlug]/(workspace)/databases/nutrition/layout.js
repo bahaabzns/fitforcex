@@ -5,8 +5,8 @@ import Link from "next/link";
 export default function NutritionDatabaseLayout({ children }) {
     const pathname = usePathname();
     const tabs = [
-        { name: 'Food Items', href: '/databases/nutrition/food-items' },
-        { name: 'Food Categories', href: '/databases/nutrition/food-categories' },
+        { name: 'Food Items', href: `/${pathname.split('/')[2]}/databases/nutrition/food-items` },
+        { name: 'Food Categories', href: `/${pathname.split('/')[2]}/databases/nutrition/food-categories` },
     ];
 
     return (

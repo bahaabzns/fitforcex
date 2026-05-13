@@ -5,9 +5,9 @@ import Link from "next/link";
 export default function ExerciseLibraryLayout({ children }) {
     const pathname = usePathname();
     const tabs = [
-        { name: "Exercises", href: "/databases/training/exercise-library" },
-        { name: "Muscle Groups", href: "/databases/training/exercise-library/muscle-groups" },
-        { name: "Equipment", href: "/databases/training/exercise-library/equipment" },
+        { name: "Exercises", href: `/${pathname.split('/')[2]}/databases/training/exercise-library` },
+        { name: "Muscle Groups", href: `/${pathname.split('/')[2]}/databases/training/exercise-library/muscle-groups` },
+        { name: "Equipment", href: `/${pathname.split('/')[2]}/databases/training/exercise-library/equipment` },
     ];
 
     return (
