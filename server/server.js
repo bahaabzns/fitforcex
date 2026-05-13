@@ -4,6 +4,8 @@ const path = require('path');
 
 const server = express();
 
+server.set('trust proxy', 1); // trust first hop (Nginx reverse proxy)
+
 const PORT = process.env.PORT || 4000;
 
 const pool = require('./db');
@@ -85,8 +87,8 @@ server.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-    server.listen(PORT, () => {
-        console.log('Server running on http://localhost:' + PORT);
+    server.listen(PORT, '127.0.0.1', () => {
+        console.log('Server running on http://127.0.0.1:' + PORT);
     });
 }
 
