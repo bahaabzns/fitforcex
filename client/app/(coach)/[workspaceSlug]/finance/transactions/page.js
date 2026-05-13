@@ -342,8 +342,8 @@ export default function TransactionsPage() {
             api.get("/api/packages"),
             api.get("/api/payment-methods"),
         ]).then(([txRes, clientRes, pkgRes, pmRes]) => {
-            setTransactions(txRes.data ?? []);
-            setClients(clientRes.data ?? []);
+            setTransactions(txRes.data?.data ?? []);
+            setClients(clientRes.data?.data ?? []);
             setPackages(pkgRes.data ?? []);
             setPaymentMethods((pmRes.data ?? []).filter(m => m.active));
         }).catch(console.error).finally(() => setLoading(false));
