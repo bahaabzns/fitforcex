@@ -89,7 +89,7 @@ function TabButton({ active, onClick, children, badge }) {
 
 // ── Permissions Editor ────────────────────────────────────────────────────────
 
-const MODULES = ["clients", "training", "nutrition", "forms", "finance", "databases", "team"];
+const MODULES = ["clients", "training", "nutrition", "forms", "finance", "team"];
 const ACTIONS = ["read", "write", "delete"];
 
 function PermissionsModal({ member, workspaceId, onClose, onSaved }) {

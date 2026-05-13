@@ -159,7 +159,7 @@ chmod 600 /home/fitforce/.ssh/authorized_keys
 Test the new user in a **new terminal window** before proceeding:
 
 ```bash
-ssh fitforce@YOUR_VPS_IP
+ssh fitforce@76.13.145.228
 ```
 
 If it connects, you are good. All remaining steps run as `fitforce` unless stated otherwise.

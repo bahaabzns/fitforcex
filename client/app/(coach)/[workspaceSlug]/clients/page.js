@@ -7,19 +7,17 @@ import { Copy, Check } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 
 // --- HELPERS ---
-function statusColor(status) {
+function statusChipColor(status) {
     switch (status) {
-        case "Active":           return "bg-green-100 text-green-600";
-        case "Expired":          return "bg-red-50 text-destructive";
-        case "Frozen":           return "bg-blue-50 text-blue-600";
-        case "Pre-start":        return "bg-yellow-50 text-yellow-600";
-        case "No Subscriptions": return "bg-secondary text-muted-foreground";
-        case "Cancelled":        return "bg-secondary text-muted-foreground";
-        case "Refunded":         return "bg-purple-50 text-purple-600";
-        default:                 return "bg-secondary text-muted-foreground";
+        case "Active":           return "success";
+        case "Expired":          return "danger";
+        case "Frozen":           return "accent";
+        case "Pre-start":        return "warning";
+        default:                 return "default";
     }
 }
 
@@ -543,9 +541,9 @@ export default function ClientsPage() {
             options: ["Active", "Expired", "Frozen", "Pre-start", "Cancelled", "Refunded"],
             sortable: true,
             render: (row) => (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor(row.currentSubscriptionStatus)}`}>
+                <Chip size="sm" variant="soft" color={statusChipColor(row.currentSubscriptionStatus)}>
                     {row.currentSubscriptionStatus}
-                </span>
+                </Chip>
             ),
         },
         {
@@ -563,13 +561,14 @@ export default function ClientsPage() {
             cardPriority: "hidden",
             render: (row) => (
                 <div className="flex items-center gap-2 justify-end">
-                    <button
+                    <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => openFreeze(row)}
                         title="Freeze subscription"
-                        className="text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-blue-600 hover:border-blue-300 transition-colors cursor-pointer"
                     >
                         Freeze
-                    </button>
+                    </Button>
                 </div>
             ),
         },
@@ -592,8 +591,8 @@ export default function ClientsPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-foreground">Clients</h1>
                 <Button
+                    variant="primary"
                     onClick={() => { resetForm(); setShowForm(true); }}
-                    // className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                     + Add Client
                 </Button>
@@ -775,9 +774,9 @@ export default function ClientsPage() {
                     <label className="text-muted-foreground text-xs font-medium">Assign Forms (optional)</label>
                     <MultiSelectDropdown options={formOptions} selected={selectedForms} onChange={setSelectedForms} placeholder="Select forms..." />
 
-                    <button type="submit" className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer mt-1">
+                    <Button type="submit" variant="primary" fullWidth className="mt-1">
                         Add Client
-                    </button>
+                    </Button>
                 </form>
             </Modal>
 
@@ -824,23 +823,24 @@ export default function ClientsPage() {
                     <span className="text-sm text-foreground font-medium">
                         {selectedIds.size} client{selectedIds.size > 1 ? "s" : ""} selected
                     </span>
-                    <button
+                    <Button
+                        variant="primary"
+                        size="sm"
                         onClick={() => {
                             setShowFormPicker(true);
                             setPickerForms([]);
                             setSendMode("now");
                             setScheduledDate("");
                         }}
-                        className="bg-primary hover:bg-primary/90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         Request Form
-                    </button>
-                    <button onClick={() => setSelectedIds(new Set())} className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer">
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
                         Cancel
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -886,13 +886,14 @@ export default function ClientsPage() {
                             className={`${inputCls} resize-none mt-1`}
                         />
                     </div>
-                    <button
+                    <Button
                         type="submit"
-                        disabled={freezeSaving}
-                        className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                        variant="primary"
+                        fullWidth
+                        isDisabled={freezeSaving}
                     >
                         {freezeSaving ? "Saving…" : "Add Freeze"}
-                    </button>
+                    </Button>
                 </form>
             </Modal>
 
@@ -984,19 +985,20 @@ export default function ClientsPage() {
                         </div>
 
                         <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => setShowFormPicker(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                            <Button variant="ghost" size="sm" onClick={() => setShowFormPicker(false)}>
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="primary"
+                                size="sm"
                                 onClick={handleBulkAssign}
-                                disabled={pickerForms.length === 0 || assigning || (sendMode === "scheduled" && !scheduledDate)}
-                                className="bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm cursor-pointer"
+                                isDisabled={pickerForms.length === 0 || assigning || (sendMode === "scheduled" && !scheduledDate)}
                             >
                                 {assigning ? "Assigning..." : sendMode === "scheduled"
                                     ? `Schedule${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
                                     : `Assign${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
                                 }
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

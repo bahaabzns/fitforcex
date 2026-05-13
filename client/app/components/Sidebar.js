@@ -9,31 +9,45 @@ import {
     LayoutDashboard,
     Users,
     Users2,
-    Database,
     Salad,
     Dumbbell,
     ClipboardList,
     Settings,
     LogOut,
     ChevronDown,
-    ChevronUp,
-    ChevronLeft,
     ChevronRight,
     Wallet,
-    Package,
-    Receipt,
     Building2,
     Check,
     Plus,
 } from "lucide-react";
+import { Button } from "@heroui/react/button";
+import { Avatar } from "@heroui/react/avatar";
+import { Chip } from "@heroui/react/chip";
+import { Disclosure } from "@heroui/react/disclosure";
+import { Separator } from "@heroui/react/separator";
 
-export default function Sidebar() {
+const navLink = (active) =>
+    `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
+        active
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            : "text-muted-foreground hover:bg-sidebar-accent"
+    }`;
+
+const subLink = (active) =>
+    `flex items-center gap-2 px-2.5 py-1.5 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
+        active
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            : "text-muted-foreground hover:bg-sidebar-accent"
+    }`;
+
+export default function Sidebar({ collapsed }) {
     const pathname = usePathname();
     const router = useRouter();
-    const [dbOpen, setDbOpen] = useState(pathname.includes('/databases'));
+    const [nutritionOpen, setNutritionOpen] = useState(pathname.includes('/nutrition'));
+    const [trainingOpen, setTrainingOpen] = useState(pathname.includes('/training'));
     const [financeOpen, setFinanceOpen] = useState(pathname.includes('/finance'));
     const [user, setUser] = useState(null);
-    const [collapsed, setCollapsed] = useState(false);
     const [wsOpen, setWsOpen] = useState(false);
     const [switching, setSwitching] = useState(false);
     const wsRef = useRef(null);
@@ -44,7 +58,6 @@ export default function Sidebar() {
             .catch(() => setUser(null));
     }, []);
 
-    // Close workspace dropdown on outside click
     useEffect(() => {
         function handler(e) {
             if (wsRef.current && !wsRef.current.contains(e.target)) setWsOpen(false);
@@ -68,12 +81,9 @@ export default function Sidebar() {
         try {
             await api.post('/api/auth/switch-workspace', { workspaceId });
             setWsOpen(false);
-            // Find the target workspace slug so we can navigate to it
             const targetWs = (user?.workspaces ?? []).find(w => w.id === workspaceId);
-            const targetSlug = targetWs?.slug ?? '';
-            router.push(`/${targetSlug}/dashboard`);
+            router.push(`/${targetWs?.slug ?? ''}/dashboard`);
             router.refresh();
-            // Re-fetch user to update currentWorkspace display
             const res = await api.get('/api/auth/me');
             setUser(res.data);
         } catch (err) {
@@ -95,78 +105,68 @@ export default function Sidebar() {
 
     return (
         <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-            {/* Brand + collapse toggle */}
-            <div className="flex items-center justify-between px-4 py-5 border-b border-border shrink-0">
+            {/* Brand */}
+            <div className={`flex items-center px-4 py-4 shrink-0 ${collapsed ? 'justify-center' : 'gap-2.5'}`}>
+                <div className="size-8 rounded-2xl bg-primary flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-white">F</span>
+                </div>
                 {!collapsed && (
-                    <span className="text-xl font-bold truncate text-primary" style={{ letterSpacing: '-0.3px' }}>
+                    <span className="text-sm font-semibold truncate text-foreground" style={{ letterSpacing: '-0.2px' }}>
                         FitForce X
                     </span>
                 )}
-                <button
-                    onClick={() => setCollapsed(c => !c)}
-                    title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    className={`p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer shrink-0 ${collapsed ? 'mx-auto' : 'ml-auto'}`}
-                >
-                    {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                </button>
             </div>
 
-            {/* User Info */}
-            <div className="sidebar-user">
-                <div className="sidebar-avatar shrink-0">{getInitials(user)}</div>
-                {!collapsed && (
-                    <div className="sidebar-user-info min-w-0">
-                        <span className="sidebar-user-name">
-                            {user ? `${user.fname} ${user.lname}` : '—'}
-                        </span>
-                        <span className="sidebar-user-email">
-                            {user?.email ?? ''}
-                        </span>
-                    </div>
-                )}
-            </div>
+            <Separator />
 
             {/* Workspace Switcher */}
-            {!collapsed && currentWs && (
-                <div className="px-3 pb-2 relative" ref={wsRef}>
-                    <button
-                        onClick={() => setWsOpen(o => !o)}
-                        disabled={switching}
-                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg bg-secondary/60 hover:bg-accent text-left transition-colors group cursor-pointer"
+            {currentWs && (
+                <div className="px-3 py-2 relative" ref={wsRef}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        fullWidth
+                        onClick={() => !collapsed && setWsOpen(o => !o)}
+                        isDisabled={switching}
+                        className={`gap-2 px-2.5 ${collapsed ? 'justify-center pointer-events-none' : 'justify-start'}`}
+                        title={collapsed ? currentWs.name : undefined}
                     >
-                        <Building2 size={13} className="text-muted-foreground shrink-0" />
-                        <span className="flex-1 min-w-0 text-xs text-foreground font-medium truncate">
-                            {currentWs.name}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground capitalize shrink-0">{currentWs.role}</span>
-                        <ChevronDown size={12} className={`text-muted-foreground shrink-0 transition-transform ${wsOpen ? 'rotate-180' : ''}`} />
-                    </button>
+                        <Building2 size={14} className="text-muted-foreground shrink-0" />
+                        {!collapsed && (
+                            <>
+                                <span className="flex-1 min-w-0 text-xs text-foreground font-medium truncate text-left">
+                                    {currentWs.name}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground capitalize shrink-0">{currentWs.role}</span>
+                                <ChevronDown size={12} className={`text-muted-foreground shrink-0 transition-transform ${wsOpen ? 'rotate-180' : ''}`} />
+                            </>
+                        )}
+                    </Button>
 
-                    {wsOpen && (
-                        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                    {wsOpen && !collapsed && (
+                        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
                             <div className="p-1.5 flex flex-col gap-0.5">
                                 {allWorkspaces.map(ws => (
-                                    <button
+                                    <Button
                                         key={ws.id}
+                                        variant={ws.id === currentWs.id ? "tertiary" : "ghost"}
+                                        size="sm"
+                                        fullWidth
                                         onClick={() => handleSwitchWorkspace(ws.id)}
-                                        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left text-xs transition-colors cursor-pointer ${
-                                            ws.id === currentWs.id
-                                                ? 'bg-primary/10 text-primary'
-                                                : 'text-foreground hover:bg-accent'
-                                        }`}
+                                        className="justify-start gap-2 px-2.5"
                                     >
                                         <Building2 size={12} className="shrink-0" />
-                                        <span className="flex-1 truncate font-medium">{ws.name}</span>
-                                        <span className="text-muted-foreground capitalize shrink-0">{ws.role}</span>
+                                        <span className="flex-1 truncate font-medium text-left">{ws.name}</span>
+                                        <span className="text-muted-foreground capitalize shrink-0 text-xs">{ws.role}</span>
                                         {ws.id === currentWs.id && <Check size={12} className="text-primary shrink-0" />}
-                                    </button>
+                                    </Button>
                                 ))}
                             </div>
                             <div className="border-t border-border p-1.5">
                                 <Link
                                     href={`/${slug}/team?action=new-workspace`}
                                     onClick={() => setWsOpen(false)}
-                                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-muted-foreground hover:text-primary hover:bg-accent transition-colors cursor-pointer"
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
                                 >
                                     <Plus size={12} />
                                     Create workspace
@@ -178,13 +178,18 @@ export default function Sidebar() {
             )}
 
             {/* Navigation */}
-            <nav className="sidebar-nav">
-                <ul className="flex flex-col gap-1">
+            <nav className="flex-1 overflow-y-auto px-3 py-2">
+                {!collapsed && (
+                    <p className="px-2.5 pb-1.5 text-xs font-medium text-muted-foreground tracking-wide">
+                        Navigation
+                    </p>
+                )}
+                <ul className="flex flex-col gap-0.5">
                     <li>
                         <Link
                             href={`/${slug}/dashboard`}
                             title={collapsed ? 'Dashboard' : undefined}
-                            className={`${pathname.includes('/dashboard') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${navLink(pathname.includes('/dashboard'))} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <LayoutDashboard size={17} className="shrink-0" />
                             {!collapsed && 'Dashboard'}
@@ -195,7 +200,7 @@ export default function Sidebar() {
                         <Link
                             href={`/${slug}/clients`}
                             title={collapsed ? 'Clients' : undefined}
-                            className={`${pathname.includes('/clients') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${navLink(pathname.includes('/clients'))} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <Users size={17} className="shrink-0" />
                             {!collapsed && 'Clients'}
@@ -203,93 +208,156 @@ export default function Sidebar() {
                     </li>
 
                     <li>
-                        <button
-                            onClick={() => !collapsed && setDbOpen(!dbOpen)}
-                            title={collapsed ? 'Databases' : undefined}
-                            className={`${pathname.includes('/databases') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0 w-full' : ''}`}
-                        >
-                            <Database size={17} className="shrink-0" />
-                            {!collapsed && (
-                                <>
-                                    <span className="flex-1 text-left">Databases</span>
-                                    {dbOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                </>
-                            )}
-                        </button>
-
-                        {!collapsed && (
-                            <div className={`sidebar-submenu ${dbOpen ? 'open' : ''}`}>
-                                <ul className="flex flex-col gap-1 mt-1">
-                                    <li>
-                                        <Link
-                                            href={`/${slug}/databases/nutrition/food-items`}
-                                            className={pathname.includes('/databases/nutrition') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
-                                        >
-                                            <Salad size={15} />
-                                            Nutrition
-                                        </Link>
-                                    </li>
-                                    <li>
-                                        <Link
-                                            href={`/${slug}/databases/training/exercise-library`}
-                                            className={pathname.includes('/databases/training') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
-                                        >
-                                            <Dumbbell size={15} />
-                                            Training
-                                        </Link>
-                                    </li>
-                                </ul>
-                            </div>
+                        {collapsed ? (
+                            <button
+                                title="Nutrition"
+                                className={`${navLink(pathname.includes('/nutrition'))} justify-center px-0 w-full`}
+                            >
+                                <Salad size={17} className="shrink-0" />
+                            </button>
+                        ) : (
+                            <Disclosure isExpanded={nutritionOpen} onExpandedChange={setNutritionOpen}>
+                                <Disclosure.Heading>
+                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/nutrition'))} w-full`}>
+                                        <Salad size={17} className="shrink-0" />
+                                        <span className="flex-1 text-left">Nutrition</span>
+                                        {nutritionOpen
+                                            ? <ChevronDown size={14} className="shrink-0" />
+                                            : <ChevronRight size={14} className="shrink-0" />
+                                        }
+                                    </Disclosure.Trigger>
+                                </Disclosure.Heading>
+                                <Disclosure.Content>
+                                    <Disclosure.Body>
+                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/nutrition/food-items`}
+                                                    className={subLink(pathname.includes('/nutrition/food-items'))}
+                                                >
+                                                    Food Items
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/nutrition/food-categories`}
+                                                    className={subLink(pathname.includes('/nutrition/food-categories'))}
+                                                >
+                                                    Food Categories
+                                                </Link>
+                                            </li>
+                                        </ul>
+                                    </Disclosure.Body>
+                                </Disclosure.Content>
+                            </Disclosure>
                         )}
                     </li>
 
                     <li>
-                        <button
-                            onClick={() => !collapsed && setFinanceOpen(!financeOpen)}
-                            title={collapsed ? 'Finance' : undefined}
-                            className={`${pathname.includes('/finance') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0 w-full' : ''}`}
-                        >
-                            <Wallet size={17} className="shrink-0" />
-                            {!collapsed && (
-                                <>
-                                    <span className="flex-1 text-left">Finance</span>
-                                    {financeOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                </>
-                            )}
-                        </button>
+                        {collapsed ? (
+                            <button
+                                title="Training"
+                                className={`${navLink(pathname.includes('/training'))} justify-center px-0 w-full`}
+                            >
+                                <Dumbbell size={17} className="shrink-0" />
+                            </button>
+                        ) : (
+                            <Disclosure isExpanded={trainingOpen} onExpandedChange={setTrainingOpen}>
+                                <Disclosure.Heading>
+                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/training'))} w-full`}>
+                                        <Dumbbell size={17} className="shrink-0" />
+                                        <span className="flex-1 text-left">Training</span>
+                                        {trainingOpen
+                                            ? <ChevronDown size={14} className="shrink-0" />
+                                            : <ChevronRight size={14} className="shrink-0" />
+                                        }
+                                    </Disclosure.Trigger>
+                                </Disclosure.Heading>
+                                <Disclosure.Content>
+                                    <Disclosure.Body>
+                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/training/exercises`}
+                                                    className={subLink(pathname.includes('/training/exercises'))}
+                                                >
+                                                    Exercises
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/training/muscle-groups`}
+                                                    className={subLink(pathname.includes('/training/muscle-groups'))}
+                                                >
+                                                    Muscle Groups
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/training/equipment`}
+                                                    className={subLink(pathname.includes('/training/equipment'))}
+                                                >
+                                                    Equipment
+                                                </Link>
+                                            </li>
+                                        </ul>
+                                    </Disclosure.Body>
+                                </Disclosure.Content>
+                            </Disclosure>
+                        )}
+                    </li>
 
-                        {!collapsed && (
-                            <div className={`sidebar-submenu ${financeOpen ? 'open' : ''}`}>
-                                <ul className="flex flex-col gap-1 mt-1">
-                                    <li>
-                                        <Link
-                                            href={`/${slug}/finance/transactions`}
-                                            className={pathname.includes('/finance/transactions') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
-                                        >
-                                            <Receipt size={15} />
-                                            Transactions
-                                        </Link>
-                                    </li>
-                                    <li>
-                                        <Link
-                                            href={`/${slug}/finance/packages`}
-                                            className={pathname.includes('/finance/packages') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
-                                        >
-                                            <Package size={15} />
-                                            Packages
-                                        </Link>
-                                    </li>
-                                    <li>
-                                        <Link
-                                            href={`/${slug}/finance/payment-methods`}
-                                            className={pathname.includes('/finance/payment-methods') ? 'sidebar-sub-link-active' : 'sidebar-sub-link'}
-                                        >
-                                            <Wallet size={15} />
-                                            Payment Methods
-                                        </Link>
-                                    </li>
-                                </ul>
-                            </div>
+                    <li>
+                        {collapsed ? (
+                            <button
+                                title="Finance"
+                                className={`${navLink(pathname.includes('/finance'))} justify-center px-0 w-full`}
+                            >
+                                <Wallet size={17} className="shrink-0" />
+                            </button>
+                        ) : (
+                            <Disclosure isExpanded={financeOpen} onExpandedChange={setFinanceOpen}>
+                                <Disclosure.Heading>
+                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/finance'))} w-full`}>
+                                        <Wallet size={17} className="shrink-0" />
+                                        <span className="flex-1 text-left">Finance</span>
+                                        {financeOpen
+                                            ? <ChevronDown size={14} className="shrink-0" />
+                                            : <ChevronRight size={14} className="shrink-0" />
+                                        }
+                                    </Disclosure.Trigger>
+                                </Disclosure.Heading>
+                                <Disclosure.Content>
+                                    <Disclosure.Body>
+                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/finance/transactions`}
+                                                    className={subLink(pathname.includes('/finance/transactions'))}
+                                                >
+                                                    Transactions
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/finance/packages`}
+                                                    className={subLink(pathname.includes('/finance/packages'))}
+                                                >
+                                                    Packages
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/finance/payment-methods`}
+                                                    className={subLink(pathname.includes('/finance/payment-methods'))}
+                                                >
+                                                    Payment Methods
+                                                </Link>
+                                            </li>
+                                        </ul>
+                                    </Disclosure.Body>
+                                </Disclosure.Content>
+                            </Disclosure>
                         )}
                     </li>
 
@@ -297,7 +365,7 @@ export default function Sidebar() {
                         <Link
                             href={`/${slug}/forms`}
                             title={collapsed ? 'Forms' : undefined}
-                            className={`${pathname.includes('/forms') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${navLink(pathname.includes('/forms'))} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <ClipboardList size={17} className="shrink-0" />
                             {!collapsed && 'Forms'}
@@ -308,7 +376,7 @@ export default function Sidebar() {
                         <Link
                             href={`/${slug}/plans-queue`}
                             title={collapsed ? 'Plans Queue' : undefined}
-                            className={`${pathname.includes('/plans-queue') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${navLink(pathname.includes('/plans-queue'))} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <ClipboardList size={17} className="shrink-0" />
                             {!collapsed && 'Plans Queue'}
@@ -319,11 +387,11 @@ export default function Sidebar() {
                         <Link
                             href={`/${slug}/team`}
                             title={collapsed ? 'Team' : undefined}
-                            className={`${pathname.includes('/team') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${navLink(pathname.includes('/team'))} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <div className="relative shrink-0">
                                 <Users2 size={17} />
-                                {pendingCount > 0 && (
+                                {collapsed && pendingCount > 0 && (
                                     <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-primary text-white text-[8px] font-bold flex items-center justify-center leading-none">
                                         {pendingCount > 9 ? '9+' : pendingCount}
                                     </span>
@@ -331,11 +399,11 @@ export default function Sidebar() {
                             </div>
                             {!collapsed && (
                                 <>
-                                    Team
+                                    <span className="flex-1">Team</span>
                                     {pendingCount > 0 && (
-                                        <span className="ml-auto px-1.5 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold leading-none">
+                                        <Chip size="sm" color="accent" variant="soft" className="shrink-0">
                                             {pendingCount > 9 ? '9+' : pendingCount}
-                                        </span>
+                                        </Chip>
                                     )}
                                 </>
                             )}
@@ -346,7 +414,7 @@ export default function Sidebar() {
                         <Link
                             href={`/${slug}/settings`}
                             title={collapsed ? 'Settings' : undefined}
-                            className={`${pathname.includes('/settings') ? 'sidebar-link-active' : 'sidebar-link'} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={`${navLink(pathname.includes('/settings'))} ${collapsed ? 'justify-center px-0' : ''}`}
                         >
                             <Settings size={17} className="shrink-0" />
                             {!collapsed && 'Settings'}
@@ -355,16 +423,39 @@ export default function Sidebar() {
                 </ul>
             </nav>
 
-            {/* Footer */}
-            <div className="sidebar-footer">
-                <button
+            <Separator />
+
+            {/* Footer: user + logout */}
+            <div className="px-3 py-3 flex flex-col gap-1 shrink-0">
+                {user && (
+                    <div className={`flex items-center gap-3 px-3 py-2 rounded-2xl ${collapsed ? 'justify-center' : ''}`}>
+                        <Avatar size="sm" color="primary" className="shrink-0">
+                            <Avatar.Fallback>{getInitials(user)}</Avatar.Fallback>
+                        </Avatar>
+                        {!collapsed && (
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-sm font-medium truncate text-foreground">
+                                    {user.fname} {user.lname}
+                                </span>
+                                <span className="text-xs truncate text-muted-foreground">
+                                    {user.email}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <Button
+                    variant="danger-soft"
+                    size="sm"
+                    fullWidth
                     onClick={handleLogout}
                     title={collapsed ? 'Logout' : undefined}
-                    className={`sidebar-logout-btn ${collapsed ? 'justify-center px-0' : ''}`}
+                    className={`${collapsed ? 'justify-center px-0' : 'justify-start'}`}
                 >
-                    <LogOut size={17} className="shrink-0" />
+                    <LogOut size={15} className="shrink-0" />
                     {!collapsed && 'Logout'}
-                </button>
+                </Button>
             </div>
         </aside>
     );
