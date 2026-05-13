@@ -20,7 +20,7 @@ export default function ClientSidebar() {
 
     const handleLogout = async () => {
         await api.post("/api/client-portal/logout").catch(() => {});
-        router.push("/client/login");
+        router.push("/portal/login");
     };
 
     const getInitials = (c) => {
@@ -29,9 +29,9 @@ export default function ClientSidebar() {
     };
 
     const navItems = [
-        { href: "/client/dashboard", label: "Nutrition Plan", icon: Salad },
-        { href: "/client/training", label: "Training Plan", icon: Dumbbell },
-        { href: "/client/forms", label: "Forms", icon: ClipboardList },
+        { href: "/portal/dashboard", label: "Nutrition Plan", icon: Salad },
+        { href: "/portal/training", label: "Training Plan", icon: Dumbbell },
+        { href: "/portal/forms", label: "Forms", icon: ClipboardList },
     ];
 
     return (
@@ -71,7 +71,7 @@ export default function ClientSidebar() {
             <nav className="sidebar-nav">
                 <ul className="flex flex-col gap-1">
                     {navItems.map(({ href, label, icon: Icon }) => {
-                        const active = pathname === href || (href !== "/client/dashboard" && pathname.startsWith(href));
+                        const active = pathname === href || (href !== "/portal/dashboard" && pathname.startsWith(href));
                         return (
                             <li key={href}>
                                 <Link
