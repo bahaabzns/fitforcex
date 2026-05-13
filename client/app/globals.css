@@ -1,133 +1,85 @@
-@import "tailwindcss";
+@import "@heroui/react/styles";
 
-/* ── shadcn/ui design tokens ── */
+/* ── App-specific tokens (sidebar + brand supplements) ── */
+/* Only define tokens HeroUI doesn't already provide.     */
+/* Do NOT redefine --background, --foreground, --accent,  */
+/* etc. — those are owned by HeroUI's theme.              */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-
-  /* Brand blue — #007AFF ≈ hsl(211 100% 50%) */
-  --primary: 211 100% 50%;
+  /* Brand blue (raw HSL components for hsl(var(--primary) / alpha) usage) */
+  --primary:            211 100% 50%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 222 47% 11%;
-
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 9% 46%;
-
-  --accent: 220 14% 96%;
-  --accent-foreground: 222 47% 11%;
-
-  --destructive: 0 84% 60%;
+  /* Destructive red (raw HSL for alpha usage) */
+  --destructive:            0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
+  /* Muted text */
+  --muted-foreground: 220 9% 46%;
+
+  /* Border (raw HSL for alpha usage) */
   --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 211 100% 50%;
 
-  --radius: 0.5rem;
-
-  /* Sidebar */
-  --sidebar-background: 220 20% 97%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-primary: 211 100% 50%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 14% 93%;
-  --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-border: 220 13% 91%;
-  --sidebar-ring: 211 100% 50%;
+  /* Sidebar (HeroUI has no sidebar tokens) */
+  --sidebar-background:         220 20% 97%;
+  --sidebar-foreground:         222 47% 11%;
+  --sidebar-accent:             220 14% 93%;
+  --sidebar-accent-foreground:  222 47% 11%;
+  --sidebar-border:             220 13% 91%;
 }
 
 .dark {
-  --background: 222 47% 7%;
-  --foreground: 213 31% 91%;
-
-  --card: 222 47% 9%;
-  --card-foreground: 213 31% 91%;
-
-  --popover: 222 47% 9%;
-  --popover-foreground: 213 31% 91%;
-
-  --primary: 211 100% 60%;
+  --primary:            211 100% 60%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 222 47% 13%;
-  --secondary-foreground: 213 31% 91%;
-
-  --muted: 222 47% 13%;
-  --muted-foreground: 215 20% 55%;
-
-  --accent: 222 47% 13%;
-  --accent-foreground: 213 31% 91%;
-
-  --destructive: 0 63% 31%;
+  --destructive:            0 63% 31%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 222 47% 16%;
-  --input: 222 47% 16%;
-  --ring: 211 100% 60%;
+  --muted-foreground: 215 20% 55%;
 
-  --sidebar-background: 222 47% 9%;
-  --sidebar-foreground: 213 31% 91%;
-  --sidebar-primary: 211 100% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 222 47% 13%;
-  --sidebar-accent-foreground: 213 31% 91%;
-  --sidebar-border: 222 47% 16%;
-  --sidebar-ring: 211 100% 60%;
+  --border: 222 47% 16%;
+
+  --sidebar-background:         222 47% 9%;
+  --sidebar-foreground:         213 31% 91%;
+  --sidebar-accent:             222 47% 13%;
+  --sidebar-accent-foreground:  213 31% 91%;
+  --sidebar-border:             222 47% 16%;
 }
 
-/* ── Tailwind v4 @theme mapping ── */
+/* ── Tailwind v4 @theme — supplements HeroUI's own @theme inline ── */
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-
-  --color-primary: hsl(var(--primary));
+  /* Brand primary (used by .sidebar-link-active, .sidebar-avatar, etc.) */
+  --color-primary:            hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-
-  --color-destructive: hsl(var(--destructive));
+  /* Destructive (used by .sidebar-logout-btn) */
+  --color-destructive:            hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
 
+  /* Muted text (used by .sidebar-link, .auth-link, etc.) */
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  /* Border */
   --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
 
-  --color-sidebar: hsl(var(--sidebar-background));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  /* Sidebar */
+  --color-sidebar:                    hsl(var(--sidebar-background));
+  --color-sidebar-foreground:         hsl(var(--sidebar-foreground));
+  --color-sidebar-accent:             hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground:  hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border:             hsl(var(--sidebar-border));
 
+  /* Bridge: map tokens our component CSS uses → HeroUI equivalents */
+  --color-card:             var(--color-surface);
+  --color-card-foreground:  var(--color-surface-foreground);
+
+  /* Radius */
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Font */
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
 }
 
 /* ── Base layer ── */
@@ -136,15 +88,15 @@
     border-color: hsl(var(--border));
   }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* ── Shared component helpers (used by pages directly) ── */
+/* ── Shared component helpers ── */
 @layer components {
   /* Auth pages */
   .auth-wrapper {
