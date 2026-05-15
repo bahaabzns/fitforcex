@@ -47,15 +47,15 @@
 
 /* ── Tailwind v4 @theme — supplements HeroUI's own @theme inline ── */
 @theme inline {
-  /* Brand primary (used by .sidebar-link-active, .sidebar-avatar, etc.) */
+  /* Brand primary */
   --color-primary:            hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
 
-  /* Destructive (used by .sidebar-logout-btn) */
+  /* Destructive */
   --color-destructive:            hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
 
-  /* Muted text (used by .sidebar-link, .auth-link, etc.) */
+  /* Muted text */
   --color-muted-foreground: hsl(var(--muted-foreground));
 
   /* Border */

@@ -2,9 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
-import { Search, ChevronLeft, ChevronRight, Users, ArchiveRestore, Archive } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Search, ChevronLeft, ChevronRight, ArchiveRestore, Archive } from 'lucide-react';
+import { Skeleton } from '@heroui/react/skeleton';
+import { Button } from '@heroui/react/button';
+import { Chip } from '@heroui/react/chip';
+import { Avatar } from '@heroui/react/avatar';
+import { Modal } from '@heroui/react/modal';
+import { Drawer } from '@heroui/react/drawer';
 
 function useDebounce(value, delay = 350) {
     const [debounced, setDebounced] = useState(value);
@@ -36,44 +40,53 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
-                <div>
-                    <h2 className="text-base font-bold text-foreground">Override Subscription</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">{workspace.name}</p>
-                </div>
+        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <Modal.Backdrop>
+                <Modal.Container>
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>Override Subscription</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body className="flex flex-col gap-4">
+                            <p className="text-sm text-muted-foreground">{workspace.name}</p>
 
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Plan</label>
-                    <select
-                        value={planId}
-                        onChange={e => setPlanId(parseInt(e.target.value))}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                        {plans.map(p => (
-                            <option key={p.id} value={p.id}>{p.display_name} ({p.name})</option>
-                        ))}
-                    </select>
-                </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Plan</label>
+                                <select
+                                    value={planId}
+                                    onChange={e => setPlanId(parseInt(e.target.value))}
+                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none"
+                                >
+                                    {plans.map(p => (
+                                        <option key={p.id} value={p.id}>{p.display_name} ({p.name})</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
-                    <Input
-                        placeholder="e.g. trial, promo, enterprise deal"
-                        value={notes}
-                        onChange={e => setNotes(e.target.value)}
-                    />
-                </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. trial, promo, enterprise deal"
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
+                            </div>
 
-                {error && <p className="text-sm text-red-500">{error}</p>}
-
-                <div className="flex gap-2 justify-end pt-1">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
-                </div>
-            </div>
-        </div>
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                                {saving ? 'Saving…' : 'Save'}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
     );
 }
 
@@ -124,97 +137,104 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
 
     return (
         <>
-            <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-                <div className="absolute inset-0 bg-black/40" />
-                <div
-                    className="relative w-full max-w-md bg-card border-l border-border h-full overflow-y-auto p-6 flex flex-col gap-5 shadow-2xl"
-                    onClick={e => e.stopPropagation()}
-                >
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-foreground">Workspace Detail</h2>
-                        <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
-                    </div>
-
-                    {loading && <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}</div>}
-
-                    {workspace && (
-                        <>
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="text-base font-semibold text-foreground">{workspace.name}</h3>
-                                    {workspace.archived_at && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Archived</span>}
-                                </div>
-                                <p className="text-sm text-muted-foreground">/{workspace.slug}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Created {new Date(workspace.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div className="rounded-lg border border-border p-3">
-                                    <p className="text-xs text-muted-foreground">Owner</p>
-                                    <p className="font-medium text-foreground">{workspace.owner_fname} {workspace.owner_lname}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{workspace.owner_email}</p>
-                                </div>
-                                <div className="rounded-lg border border-border p-3">
-                                    <p className="text-xs text-muted-foreground">Plan</p>
-                                    <p className="font-medium text-foreground">{workspace.plan_display}</p>
-                                    <p className="text-xs text-muted-foreground">{workspace.subscription_status}</p>
-                                </div>
-                                <div className="rounded-lg border border-border p-3">
-                                    <p className="text-xs text-muted-foreground">Members</p>
-                                    <p className="font-bold text-foreground text-xl">{workspace.member_count}</p>
-                                </div>
-                                <div className="rounded-lg border border-border p-3">
-                                    <p className="text-xs text-muted-foreground">Clients</p>
-                                    <p className="font-bold text-foreground text-xl">{workspace.client_count}</p>
-                                </div>
-                            </div>
-
-                            {/* Members list */}
-                            {workspace.members.length > 0 && (
-                                <div>
-                                    <h4 className="text-sm font-semibold text-foreground mb-2">Team Members</h4>
-                                    <div className="rounded-xl border border-border overflow-hidden">
-                                        {workspace.members.map((m, idx) => (
-                                            <div key={m.id} className={`flex items-center gap-2 px-3 py-2.5 ${idx < workspace.members.length - 1 ? 'border-b border-border' : ''}`}>
-                                                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                                                    {`${m.fname?.[0] ?? ''}${m.lname?.[0] ?? ''}`.toUpperCase() || '?'}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-foreground truncate">{m.fname} {m.lname}</p>
-                                                    <p className="text-xs text-muted-foreground truncate">{m.email}</p>
-                                                </div>
-                                                <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.role}</span>
-                                            </div>
-                                        ))}
+            <Drawer isOpen={true} onOpenChange={(o) => !o && onClose()}>
+                <Drawer.Backdrop>
+                    <Drawer.Container className="justify-end">
+                        <Drawer.Dialog className="w-full max-w-md h-full rounded-none">
+                            <Drawer.Header>
+                                <Drawer.Heading>Workspace Detail</Drawer.Heading>
+                                <Drawer.CloseTrigger />
+                            </Drawer.Header>
+                            <Drawer.Body className="flex flex-col gap-5">
+                                {loading && (
+                                    <div className="flex flex-col gap-3">
+                                        {[1,2,3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                                     </div>
-                                </div>
-                            )}
-
-                            {actionError && <p className="text-sm text-red-500">{actionError}</p>}
-
-                            {/* Actions */}
-                            <div className="flex flex-col gap-2 pt-2 border-t border-border">
-                                <Button variant="outline" className="w-full" onClick={() => setShowSubModal(true)}>
-                                    Override Subscription Plan
-                                </Button>
-                                {workspace.archived_at ? (
-                                    <Button variant="outline" className="w-full" onClick={handleRestore} disabled={actionLoading}>
-                                        <ArchiveRestore size={14} className="mr-1.5" />
-                                        Restore Workspace
-                                    </Button>
-                                ) : (
-                                    <Button variant="outline" className="w-full text-orange-600 border-orange-200 hover:bg-orange-50" onClick={handleArchive} disabled={actionLoading}>
-                                        <Archive size={14} className="mr-1.5" />
-                                        Force Archive
-                                    </Button>
                                 )}
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
+
+                                {workspace && (
+                                    <>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="text-base font-semibold text-foreground">{workspace.name}</h3>
+                                                {workspace.archived_at && (
+                                                    <Chip size="sm" className="bg-orange-100 text-orange-700">Archived</Chip>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">/{workspace.slug}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Created {new Date(workspace.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div className="rounded-lg border border-border p-3">
+                                                <p className="text-xs text-muted-foreground">Owner</p>
+                                                <p className="font-medium text-foreground">{workspace.owner_fname} {workspace.owner_lname}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{workspace.owner_email}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border p-3">
+                                                <p className="text-xs text-muted-foreground">Plan</p>
+                                                <p className="font-medium text-foreground">{workspace.plan_display}</p>
+                                                <p className="text-xs text-muted-foreground">{workspace.subscription_status}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border p-3">
+                                                <p className="text-xs text-muted-foreground">Members</p>
+                                                <p className="font-bold text-foreground text-xl">{workspace.member_count}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border p-3">
+                                                <p className="text-xs text-muted-foreground">Clients</p>
+                                                <p className="font-bold text-foreground text-xl">{workspace.client_count}</p>
+                                            </div>
+                                        </div>
+
+                                        {workspace.members.length > 0 && (
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-foreground mb-2">Team Members</h4>
+                                                <div className="rounded-xl border border-border overflow-hidden">
+                                                    {workspace.members.map((m, idx) => (
+                                                        <div key={m.id} className={`flex items-center gap-2 px-3 py-2.5 ${idx < workspace.members.length - 1 ? 'border-b border-border' : ''}`}>
+                                                            <Avatar className="w-6 h-6 text-xs shrink-0">
+                                                                <Avatar.Fallback>
+                                                                    {`${m.fname?.[0] ?? ''}${m.lname?.[0] ?? ''}`.toUpperCase() || '?'}
+                                                                </Avatar.Fallback>
+                                                            </Avatar>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium text-foreground truncate">{m.fname} {m.lname}</p>
+                                                                <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                                                            </div>
+                                                            <Chip size="sm" className="bg-secondary text-muted-foreground">{m.role}</Chip>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {actionError && <p className="text-sm text-red-500">{actionError}</p>}
+
+                                        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                                            <Button variant="outline" className="w-full" onClick={() => setShowSubModal(true)}>
+                                                Override Subscription Plan
+                                            </Button>
+                                            {workspace.archived_at ? (
+                                                <Button variant="outline" className="w-full" isDisabled={actionLoading} onClick={handleRestore}>
+                                                    <ArchiveRestore size={14} className="mr-1.5" />
+                                                    Restore Workspace
+                                                </Button>
+                                            ) : (
+                                                <Button variant="outline" className="w-full text-orange-600 border-orange-200 hover:bg-orange-50" isDisabled={actionLoading} onClick={handleArchive}>
+                                                    <Archive size={14} className="mr-1.5" />
+                                                    Force Archive
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </Drawer.Body>
+                        </Drawer.Dialog>
+                    </Drawer.Container>
+                </Drawer.Backdrop>
+            </Drawer>
 
             {showSubModal && workspace && (
                 <SubscriptionModal
@@ -267,7 +287,12 @@ export default function AdminWorkspacesPage() {
             <div className="flex flex-wrap gap-3 items-center">
                 <div className="relative max-w-sm w-full">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input className="pl-8" placeholder="Search by name or slug…" value={search} onChange={e => setSearch(e.target.value)} />
+                    <input
+                        className="w-full pl-8 pr-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                        placeholder="Search by name or slug…"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
                 </div>
                 <select
                     value={planFilter}
@@ -298,7 +323,7 @@ export default function AdminWorkspacesPage() {
 
                 {loading ? (
                     Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="h-12 border-t border-border bg-secondary/20 animate-pulse" />
+                        <Skeleton key={i} className="h-12 border-t border-border rounded-none" />
                     ))
                 ) : workspaces.length === 0 ? (
                     <div className="py-14 text-center text-sm text-muted-foreground border-t border-border">No workspaces found.</div>
@@ -311,13 +336,15 @@ export default function AdminWorkspacesPage() {
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-foreground truncate">{w.name}</span>
-                                {w.archived_at && <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full shrink-0">archived</span>}
+                                {w.archived_at && (
+                                    <Chip size="sm" className="bg-orange-100 text-orange-700 shrink-0">archived</Chip>
+                                )}
                             </div>
                             <div className="min-w-0">
                                 <p className="text-sm text-foreground truncate">{w.owner_fname} {w.owner_lname}</p>
                                 <p className="text-xs text-muted-foreground truncate">{w.owner_email}</p>
                             </div>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{w.plan_display}</span>
+                            <Chip size="sm" className="bg-primary/10 text-primary">{w.plan_display}</Chip>
                             <span className="text-sm text-foreground text-center w-16">{w.member_count}</span>
                             <span className="text-sm text-foreground text-center w-16">{w.client_count}</span>
                             <span className="text-xs text-muted-foreground shrink-0">
@@ -333,12 +360,12 @@ export default function AdminWorkspacesPage() {
                 <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Page {page} of {totalPages}</p>
                     <div className="flex gap-2">
-                        <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="p-1.5 rounded-lg border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        <Button isIconOnly variant="outline" size="sm" isDisabled={page <= 1} onClick={() => setPage(p => p - 1)}>
                             <ChevronLeft size={15} />
-                        </button>
-                        <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="p-1.5 rounded-lg border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        </Button>
+                        <Button isIconOnly variant="outline" size="sm" isDisabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
                             <ChevronRight size={15} />
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}

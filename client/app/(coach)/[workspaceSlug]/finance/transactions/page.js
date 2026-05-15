@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
+import { Skeleton } from "@heroui/react/skeleton";
 
 // --- HELPERS ---
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
@@ -180,9 +184,9 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             options: ["completed", "refunded"],
             sortable: true,
             render: (row) => (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${statusColor(row.status)}`}>
+                <Chip size="sm" className={`capitalize ${statusColor(row.status)}`}>
                     {row.status}
-                </span>
+                </Chip>
             ),
         },
         {
@@ -193,7 +197,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             render: (row) => {
                 const s = row.subscriptionStatus;
                 return s
-                    ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${subStatusColor(s)}`}>{s}</span>
+                    ? <Chip size="sm" className={`${subStatusColor(s)}`}>{s}</Chip>
                     : <span className="text-muted-foreground text-xs">—</span>;
             },
         },
@@ -265,39 +269,47 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
 
             {/* Summary cards */}
             <div className="flex flex-wrap gap-3">
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
-                    <p className="text-muted-foreground text-xs font-medium uppercase">Completed</p>
-                    <p className="text-green-600 text-lg font-bold mt-0.5">
-                        {Math.round(totalCompleted).toLocaleString()} {displayCurrency}
-                    </p>
-                </div>
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
-                    <p className="text-muted-foreground text-xs font-medium uppercase">Refunded</p>
-                    <p className="text-destructive text-lg font-bold mt-0.5">
-                        {Math.round(totalRefunded).toLocaleString()} {displayCurrency}
-                    </p>
-                </div>
+                <Card>
+                    <Card.Content className="px-4 py-3">
+                        <p className="text-muted-foreground text-xs font-medium uppercase">Completed</p>
+                        <p className="text-green-600 text-lg font-bold mt-0.5">
+                            {Math.round(totalCompleted).toLocaleString()} {displayCurrency}
+                        </p>
+                    </Card.Content>
+                </Card>
+                <Card>
+                    <Card.Content className="px-4 py-3">
+                        <p className="text-muted-foreground text-xs font-medium uppercase">Refunded</p>
+                        <p className="text-destructive text-lg font-bold mt-0.5">
+                            {Math.round(totalRefunded).toLocaleString()} {displayCurrency}
+                        </p>
+                    </Card.Content>
+                </Card>
 
                 {Object.keys(byPaymentMethod).length > 0 && (
                     <div className="w-px bg-border mx-1 self-stretch" />
                 )}
                 {Object.entries(byPaymentMethod).map(([method, total]) => (
-                    <div key={method} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
-                        <p className="text-muted-foreground text-xs font-medium uppercase">{method}</p>
-                        <p className="text-foreground text-lg font-bold mt-0.5">
-                            {Math.round(total).toLocaleString()} {displayCurrency}
-                        </p>
-                    </div>
+                    <Card key={method}>
+                        <Card.Content className="px-4 py-3">
+                            <p className="text-muted-foreground text-xs font-medium uppercase">{method}</p>
+                            <p className="text-foreground text-lg font-bold mt-0.5">
+                                {Math.round(total).toLocaleString()} {displayCurrency}
+                            </p>
+                        </Card.Content>
+                    </Card>
                 ))}
 
                 {Object.keys(byCurrency).length > 0 && (
                     <div className="w-px bg-border mx-1 self-stretch" />
                 )}
                 {Object.entries(byCurrency).map(([currency, total]) => (
-                    <div key={currency} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 px-4 py-3">
-                        <p className="text-muted-foreground text-xs font-medium uppercase">{currency}</p>
-                        <p className="text-primary text-lg font-bold mt-0.5">{total.toLocaleString()} {currency}</p>
-                    </div>
+                    <Card key={currency}>
+                        <Card.Content className="px-4 py-3">
+                            <p className="text-muted-foreground text-xs font-medium uppercase">{currency}</p>
+                            <p className="text-primary text-lg font-bold mt-0.5">{total.toLocaleString()} {currency}</p>
+                        </Card.Content>
+                    </Card>
                 ))}
             </div>
 
@@ -471,7 +483,7 @@ export default function TransactionsPage() {
             <div className="p-6 flex flex-col gap-6">
                 <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
                 <div className="flex flex-col gap-2">
-                    {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
             </div>
         );
@@ -482,12 +494,9 @@ export default function TransactionsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
-                <button
-                    onClick={openCreate}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer"
-                >
+                <Button onClick={openCreate} variant="primary">
                     + New Transaction
-                </button>
+                </Button>
             </div>
 
             {/* Create / Edit Modal */}
@@ -625,15 +634,16 @@ export default function TransactionsPage() {
 
                     {formError && <p className="text-destructive text-sm">{formError}</p>}
 
-                    <button
+                    <Button
                         type="submit"
-                        disabled={submitting}
-                        className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer"
+                        isDisabled={submitting}
+                        variant="primary"
+                        fullWidth
                     >
                         {submitting
                             ? (editingTx ? "Saving…" : "Recording…")
                             : (editingTx ? "Save Changes" : "Record Transaction")}
-                    </button>
+                    </Button>
                 </form>
             </Modal>
 

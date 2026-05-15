@@ -1,5 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
+import { Button } from "@heroui/react/button";
+import { ProgressBar } from "@heroui/react/progress-bar";
 
 const ACTIVITY_LEVELS = [
     { value: 1.2,   label: "Sedentary",    sub: "Little or no exercise"        },
@@ -310,9 +312,9 @@ export default function CycleCalculator({ cycle, onApply }) {
             </div>
 
             {/* ── Calculate ── */}
-            <button className="inline-flex items-center justify-center w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold py-2.5 transition-colors cursor-pointer" onClick={handleCalculate}>
+            <Button variant="primary" fullWidth onClick={handleCalculate}>
                 Calculate
-            </button>
+            </Button>
 
             {/* ── Results ── */}
             {result && (
@@ -361,9 +363,11 @@ export default function CycleCalculator({ cycle, onApply }) {
                                         />
                                         <span className="pr-2 text-xs text-muted-foreground">%</span>
                                     </div>
-                                    <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
-                                        <div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${macros[key]}%` }} />
-                                    </div>
+                                    <ProgressBar value={macros[key]} className="flex-1">
+                                        <ProgressBar.Track className="h-1.5">
+                                            <ProgressBar.Fill className={bar} />
+                                        </ProgressBar.Track>
+                                    </ProgressBar>
                                     <span className="text-xs font-semibold text-foreground w-10 text-right shrink-0">{g}g</span>
                                 </div>
                             ))}
@@ -407,13 +411,9 @@ export default function CycleCalculator({ cycle, onApply }) {
                     )}
 
                     {/* Apply */}
-                    <button
-                        className="inline-flex items-center justify-center w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold py-2.5 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
-                        onClick={handleApply}
-                        disabled={totalPct !== 100 || !tdee}
-                    >
+                    <Button variant="primary" fullWidth isDisabled={totalPct !== 100 || !tdee} onClick={handleApply}>
                         Apply to Cycle Goals
-                    </button>
+                    </Button>
                 </div>
             )}
         </div>

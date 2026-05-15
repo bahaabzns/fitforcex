@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
+import { Button } from "@heroui/react/button";
+import { Skeleton } from "@heroui/react/skeleton";
+import { Chip } from "@heroui/react/chip";
+import { Avatar } from "@heroui/react/avatar";
 import {
     Users2, UserPlus, Mail,
     Trash2, Clock, CheckCircle2, XCircle, Building2, Plus, SlidersHorizontal,
@@ -52,18 +56,18 @@ const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background 
 function RoleBadge({ role }) {
     const meta = ROLE_META[role] ?? { label: role, cls: "bg-secondary text-muted-foreground border border-border" };
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${meta.cls}`}>
+        <Chip size="sm" className={meta.cls}>
             {meta.label}
-        </span>
+        </Chip>
     );
 }
 
-function Avatar({ fname, lname }) {
+function MemberAvatar({ fname, lname }) {
     const initials = `${fname?.[0] ?? ""}${lname?.[0] ?? ""}`.toUpperCase() || "?";
     return (
-        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-            {initials}
-        </div>
+        <Avatar className="w-8 h-8 shrink-0">
+            <Avatar.Fallback className="bg-primary/10 text-primary text-xs font-bold">{initials}</Avatar.Fallback>
+        </Avatar>
     );
 }
 
@@ -179,19 +183,12 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
                 {error && <p className="text-sm text-red-500">{error}</p>}
 
                 <div className="flex gap-2 justify-end pt-1">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    >
+                    <Button variant="ghost" onClick={onClose}>
                         Cancel
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors cursor-pointer"
-                    >
+                    </Button>
+                    <Button onClick={handleSave} isDisabled={saving} variant="primary">
                         {saving ? "Saving…" : "Save Permissions"}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </Modal>
@@ -402,13 +399,14 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                         className={inputCls}
                                     />
                                 </div>
-                                <button
+                                <Button
                                     type="submit"
-                                    disabled={inviting || !inviteEmail.trim()}
-                                    className="self-start inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                                    isDisabled={inviting || !inviteEmail.trim()}
+                                    variant="primary"
+                                    className="self-start"
                                 >
                                     {inviting ? "Sending…" : "Send Invitation"}
-                                </button>
+                                </Button>
                             </form>
                         )}
                     </div>
@@ -420,7 +418,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                 {/* Owner row — always at top */}
                 {workspace?.owner_fname && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0">
-                        <Avatar fname={workspace.owner_fname} lname={workspace.owner_lname} />
+                        <MemberAvatar fname={workspace.owner_fname} lname={workspace.owner_lname} />
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground truncate">
                                 {workspace.owner_fname} {workspace.owner_lname}
@@ -443,7 +441,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                     const removeAllowed = canRemoveMember(member);
                     return (
                         <div key={member.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                            <Avatar fname={member.fname} lname={member.lname} />
+                            <MemberAvatar fname={member.fname} lname={member.lname} />
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">
                                     {member.fname} {member.lname}
@@ -508,19 +506,16 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                         They will lose access immediately.
                     </p>
                     <div className="flex gap-2 justify-end">
-                        <button
-                            onClick={() => setConfirmRemove(null)}
-                            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                        >
+                        <Button variant="ghost" onClick={() => setConfirmRemove(null)}>
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={() => handleRemove(confirmRemove.id)}
-                            disabled={removingId === confirmRemove?.id}
-                            className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 disabled:opacity-60 transition-colors cursor-pointer"
+                            isDisabled={removingId === confirmRemove?.id}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                             {removingId === confirmRemove?.id ? "Removing…" : "Remove"}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </Modal>
@@ -574,7 +569,7 @@ function InvitationsTab({ workspace, invitations, setInvitations, me }) {
         <div className="rounded-lg border border-border overflow-hidden">
             {invitations.map(inv => (
                 <div key={inv.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                    <Avatar fname={inv.fname} lname={inv.lname} />
+                    <MemberAvatar fname={inv.fname} lname={inv.lname} />
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{inv.fname} {inv.lname}</p>
                         <p className="text-xs text-muted-foreground truncate">{inv.email}</p>
@@ -665,20 +660,22 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                        <button
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleDecline(inv.id)}
-                            disabled={respondingId === inv.id}
-                            className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            isDisabled={respondingId === inv.id}
                         >
                             Decline
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="primary"
+                            size="sm"
                             onClick={() => handleAccept(inv)}
-                            disabled={respondingId === inv.id}
-                            className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors cursor-pointer"
+                            isDisabled={respondingId === inv.id}
                         >
                             {respondingId === inv.id ? "…" : "Accept"}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             ))}
@@ -768,13 +765,14 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                                 {ownedCount} of {maxWorkspaces} workspace{maxWorkspaces === 1 ? "" : "s"} used on your plan.
                             </p>
                         )}
-                        <button
+                        <Button
                             type="submit"
-                            disabled={creating || !name.trim()}
-                            className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                            isDisabled={creating || !name.trim()}
+                            variant="primary"
+                            className="self-start"
                         >
                             {creating ? "Creating…" : "Create Workspace"}
-                        </button>
+                        </Button>
                     </form>
                 )}
             </div>
@@ -851,7 +849,7 @@ export default function TeamPage() {
                 <h1 className="text-3xl font-bold text-foreground mb-6">Team</h1>
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="h-14 rounded-lg bg-secondary animate-pulse" />
+                        <Skeleton key={i} className="h-14 rounded-lg" />
                     ))}
                 </div>
             </div>
@@ -868,13 +866,14 @@ export default function TeamPage() {
                         <p className="text-sm text-muted-foreground mt-0.5">{workspace.name}</p>
                     )}
                 </div>
-                <button
+                <Button
                     onClick={() => setShowNewWs(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                    variant="outline"
+                    size="sm"
                 >
                     <Plus size={14} />
                     New Workspace
-                </button>
+                </Button>
             </div>
 
             {/* Tabs */}

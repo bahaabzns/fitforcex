@@ -9,6 +9,7 @@ import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
+import { Skeleton } from "@heroui/react/skeleton";
 
 // --- HELPERS ---
 function statusChipColor(status) {
@@ -579,7 +580,7 @@ export default function ClientsPage() {
             <div className="p-8">
                 <h1 className="text-3xl font-bold text-foreground mb-6">Clients</h1>
                 <div className="flex flex-col gap-2">
-                    {[1, 2, 3, 4].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
+                    {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
             </div>
         );
@@ -815,6 +816,11 @@ export default function ClientsPage() {
                 onSelectionChange={setSelectedIds}
                 defaultSort="dateCreated"
                 defaultSortDirection="desc"
+                quickSearch={{
+                    fields: ["code", "name", "email", "phoneSearch"],
+                    placeholder: "Search clients...",
+                    description: "Search by code, name, email or phone",
+                }}
             />
 
             {/* Floating bulk action bar */}
@@ -898,111 +904,108 @@ export default function ClientsPage() {
             </Modal>
 
             {/* Bulk form picker modal */}
-            {showFormPicker && (
-                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => setShowFormPicker(false)}>
-                    <div className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-md p-6 flex flex-col gap-4 animate-[fadeIn_150ms_ease-out]" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-semibold text-foreground">Request Forms</h3>
-                        <p className="text-muted-foreground text-sm">
-                            Choose forms to assign to {selectedIds.size} selected client{selectedIds.size > 1 ? "s" : ""}.
-                        </p>
+            <Modal open={showFormPicker} onClose={() => setShowFormPicker(false)} title="Request Forms">
+                <div className="flex flex-col gap-4">
+                    <p className="text-muted-foreground text-sm">
+                        Choose forms to assign to {selectedIds.size} selected client{selectedIds.size > 1 ? "s" : ""}.
+                    </p>
 
-                        <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
-                            {availableForms.length === 0 ? (
-                                <p className="text-muted-foreground text-sm">No active forms available.</p>
-                            ) : (
-                                availableForms.map(form => {
-                                    const isChecked = pickerForms.includes(form.id);
-                                    return (
-                                        <button
-                                            key={form.id}
-                                            type="button"
-                                            onClick={() => setPickerForms(prev => isChecked ? prev.filter(f => f !== form.id) : [...prev, form.id])}
-                                            className={`w-full px-3 py-2.5 rounded-lg text-left text-sm flex items-center gap-2 transition-colors ${
-                                                isChecked
-                                                    ? "bg-primary/10 text-primary border border-primary/30"
-                                                    : "bg-background text-foreground hover:bg-accent border border-transparent"
-                                            }`}
-                                        >
-                                            <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                                                isChecked ? "bg-primary border-primary" : "border-border"
-                                            }`}>
-                                                {isChecked && (
-                                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                        <path d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                )}
-                                            </span>
-                                            <span className="flex-1">{form.title}</span>
-                                            {form.type && (
-                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                                    form.type === "assessment" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
-                                                }`}>
-                                                    {form.type === "assessment" ? "Assessment" : "Check-in"}
-                                                </span>
+                    <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+                        {availableForms.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">No active forms available.</p>
+                        ) : (
+                            availableForms.map(form => {
+                                const isChecked = pickerForms.includes(form.id);
+                                return (
+                                    <button
+                                        key={form.id}
+                                        type="button"
+                                        onClick={() => setPickerForms(prev => isChecked ? prev.filter(f => f !== form.id) : [...prev, form.id])}
+                                        className={`w-full px-3 py-2.5 rounded-lg text-left text-sm flex items-center gap-2 transition-colors ${
+                                            isChecked
+                                                ? "bg-primary/10 text-primary border border-primary/30"
+                                                : "bg-background text-foreground hover:bg-accent border border-transparent"
+                                        }`}
+                                    >
+                                        <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                            isChecked ? "bg-primary border-primary" : "border-border"
+                                        }`}>
+                                            {isChecked && (
+                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                    <path d="M5 13l4 4L19 7" />
+                                                </svg>
                                             )}
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
+                                        </span>
+                                        <span className="flex-1">{form.title}</span>
+                                        {form.type && (
+                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                                form.type === "assessment" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                                            }`}>
+                                                {form.type === "assessment" ? "Assessment" : "Check-in"}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
 
-                        {/* Send mode */}
-                        <div className="flex flex-col gap-3 border-t border-border pt-4">
-                            <span className="text-muted-foreground text-xs font-medium">When to send</span>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setSendMode("now")}
-                                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                                        sendMode === "now"
-                                            ? "bg-primary/10 text-primary border border-primary/30"
-                                            : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
-                                    }`}
-                                >
-                                    Send Now
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setSendMode("scheduled")}
-                                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                                        sendMode === "scheduled"
-                                            ? "bg-blue-50 text-blue-600 border border-blue-200"
-                                            : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
-                                    }`}
-                                >
-                                    Schedule
-                                </button>
-                            </div>
-                            {sendMode === "scheduled" && (
-                                <input
-                                    type="datetime-local"
-                                    value={scheduledDate}
-                                    onChange={(e) => setScheduledDate(e.target.value)}
-                                    min={new Date().toISOString().slice(0, 16)}
-                                    className="w-full px-3 py-2 rounded-lg bg-background border border-input text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
-                                />
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => setShowFormPicker(false)}>
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={handleBulkAssign}
-                                isDisabled={pickerForms.length === 0 || assigning || (sendMode === "scheduled" && !scheduledDate)}
+                    {/* Send mode */}
+                    <div className="flex flex-col gap-3 border-t border-border pt-4">
+                        <span className="text-muted-foreground text-xs font-medium">When to send</span>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setSendMode("now")}
+                                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                                    sendMode === "now"
+                                        ? "bg-primary/10 text-primary border border-primary/30"
+                                        : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
+                                }`}
                             >
-                                {assigning ? "Assigning..." : sendMode === "scheduled"
-                                    ? `Schedule${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
-                                    : `Assign${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
-                                }
-                            </Button>
+                                Send Now
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSendMode("scheduled")}
+                                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                                    sendMode === "scheduled"
+                                        ? "bg-blue-50 text-blue-600 border border-blue-200"
+                                        : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
+                                }`}
+                            >
+                                Schedule
+                            </button>
                         </div>
+                        {sendMode === "scheduled" && (
+                            <input
+                                type="datetime-local"
+                                value={scheduledDate}
+                                onChange={(e) => setScheduledDate(e.target.value)}
+                                min={new Date().toISOString().slice(0, 16)}
+                                className="w-full px-3 py-2 rounded-lg bg-background border border-input text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                            />
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setShowFormPicker(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleBulkAssign}
+                            isDisabled={pickerForms.length === 0 || assigning || (sendMode === "scheduled" && !scheduledDate)}
+                        >
+                            {assigning ? "Assigning..." : sendMode === "scheduled"
+                                ? `Schedule${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
+                                : `Assign${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
+                            }
+                        </Button>
                     </div>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 }

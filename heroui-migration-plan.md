@@ -189,17 +189,18 @@ import { Modal } from "@heroui/react/modal";
 
 export default function AppModal({ open, onClose, title, children, wide }) {
   return (
-    <Modal open={open} onOpenChange={(o) => !o && onClose()}>
-      <Modal.Backdrop />
-      <Modal.Container className={wide ? "max-w-2xl" : "max-w-lg"}>
-        <Modal.Dialog>
-          <Modal.Header>
-            <Modal.Heading>{title}</Modal.Heading>
-            <Modal.CloseTrigger />
-          </Modal.Header>
-          <Modal.Body>{children}</Modal.Body>
-        </Modal.Dialog>
-      </Modal.Container>
+    <Modal isOpen={open} onOpenChange={(o) => !o && onClose()}>
+      <Modal.Backdrop>
+        <Modal.Container className={wide ? "max-w-2xl" : "max-w-lg"}>
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading>{title}</Modal.Heading>
+              <Modal.CloseTrigger />
+            </Modal.Header>
+            <Modal.Body>{children}</Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }
@@ -555,21 +556,23 @@ grep -r "<button " app/              # review each hit — ensure using HeroUI B
 
 // Modal (HeroUI has NO Dialog component — use Modal)
 // import { Modal } from "@heroui/react/modal"
-<Modal open={open} onOpenChange={(o) => !o && onClose()}>
-  <Modal.Backdrop />
-  <Modal.Container>
-    <Modal.Dialog>
-      <Modal.Header>
-        <Modal.Heading>Title</Modal.Heading>
-        <Modal.CloseTrigger />
-      </Modal.Header>
-      <Modal.Body>content</Modal.Body>
-      <Modal.Footer>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="primary">Confirm</Button>
-      </Modal.Footer>
-    </Modal.Dialog>
-  </Modal.Container>
+// NOTE: prop is isOpen not open (React Aria DialogTrigger underneath)
+<Modal isOpen={open} onOpenChange={(o) => !o && onClose()}>
+  <Modal.Backdrop>
+    <Modal.Container>
+      <Modal.Dialog>
+        <Modal.Header>
+          <Modal.Heading>Title</Modal.Heading>
+          <Modal.CloseTrigger />
+        </Modal.Header>
+        <Modal.Body>content</Modal.Body>
+        <Modal.Footer>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary">Confirm</Button>
+        </Modal.Footer>
+      </Modal.Dialog>
+    </Modal.Container>
+  </Modal.Backdrop>
 </Modal>
 
 // AlertDialog — for destructive confirmations (delete, archive)

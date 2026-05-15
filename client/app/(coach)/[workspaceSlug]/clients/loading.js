@@ -1,26 +1,17 @@
+import { Skeleton } from "@heroui/react/skeleton";
+
 export default function Loading() {
   return (
-    <div className="p-6 animate-pulse">
-      {/* Header row */}
+    <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <div className="h-8 w-32 bg-muted rounded-lg"></div>
-        <div className="h-9 w-36 bg-muted rounded-lg"></div>
+        <Skeleton className="h-8 w-32 rounded-lg" />
+        <Skeleton className="h-9 w-36 rounded-lg" />
       </div>
-
-      {/* Filter / search bar */}
-      <div className="h-10 w-56 bg-muted rounded-lg mb-4"></div>
-
-      {/* Table card */}
-      <div className="rounded-lg border bg-card shadow-sm p-0 overflow-hidden">
-        {/* Table header */}
-        <div className="h-10 bg-muted/60 w-full mb-1"></div>
-        {/* Table rows */}
+      <Skeleton className="h-10 w-56 rounded-lg mb-4" />
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <Skeleton className="h-10 w-full rounded-none mb-1" />
         {[...Array(8)].map((_, i) => (
-          <div
-            key={i}
-            className="h-12 mx-4 bg-muted rounded-lg mb-2"
-            style={{ opacity: 1 - i * 0.08 }}
-          ></div>
+          <Skeleton key={i} className="h-12 mx-4 rounded-lg mb-2" style={{ opacity: 1 - i * 0.08 }} />
         ))}
       </div>
     </div>

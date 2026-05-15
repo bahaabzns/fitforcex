@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
+import { Button } from "@heroui/react/button";
+import { Skeleton } from "@heroui/react/skeleton";
 
 // --- CURRENCY LIST ---
 const CURRENCIES = [
@@ -555,7 +557,7 @@ export default function PackagesPage() {
                     <h1 className="text-3xl font-bold text-foreground">Packages</h1>
                 </div>
                 <div className="flex flex-col gap-2">
-                    {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
             </div>
         );
@@ -566,12 +568,12 @@ export default function PackagesPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-foreground">Packages</h1>
-                <button
+                <Button
                     onClick={() => { setShowForm(true); setError(""); setPackageName(""); setSelectedPackageId(null); setVariations([emptyVariation()]); }}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer"
+                    variant="primary"
                 >
                     + New Package
-                </button>
+                </Button>
             </div>
 
             {/* Error from edit/delete */}
@@ -595,9 +597,9 @@ export default function PackagesPage() {
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-sm text-muted-foreground">Variations (at least 1)</label>
-                            <button type="button" onClick={addVariation} className="text-xs text-primary hover:text-primary/80 transition-colors cursor-pointer">
+                            <Button type="button" variant="ghost" size="sm" onClick={addVariation} className="text-xs text-primary px-0">
                                 + Add Variation
-                            </button>
+                            </Button>
                         </div>
 
                         <div className="flex flex-col gap-3">
@@ -654,9 +656,9 @@ export default function PackagesPage() {
 
                     {error && <p className="text-destructive text-sm">{error}</p>}
 
-                    <button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer">
+                    <Button type="submit" variant="primary" fullWidth>
                         {selectedPackageId ? "Add Variations" : "Create Package"}
-                    </button>
+                    </Button>
                 </form>
             </Modal>
 

@@ -4,6 +4,10 @@ import { useState, useEffect } from "react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
+import { Skeleton } from "@heroui/react/skeleton";
 
 const TYPES = ["cash", "card", "wallet", "bank_transfer"];
 
@@ -83,9 +87,9 @@ export default function PaymentMethodsPage() {
                     );
                 }
                 return (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[row._typeRaw] ?? "bg-secondary text-muted-foreground"}`}>
+                    <Chip size="sm" className={`${TYPE_COLORS[row._typeRaw] ?? "bg-secondary text-muted-foreground"}`}>
                         {row.type}
-                    </span>
+                    </Chip>
                 );
             },
         },
@@ -224,7 +228,7 @@ export default function PaymentMethodsPage() {
             <div className="p-6 flex flex-col gap-6">
                 <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
                 <div className="flex flex-col gap-2">
-                    {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
             </div>
         );
@@ -235,27 +239,31 @@ export default function PaymentMethodsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
-                <button
+                <Button
                     onClick={() => { setShowForm(true); setError(""); setFormName(""); setFormType("cash"); }}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer"
+                    variant="primary"
                 >
                     + New Method
-                </button>
+                </Button>
             </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-                    <p className="text-sm text-muted-foreground font-medium">Total</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{methods.length}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{activeCount} active</p>
-                </div>
+                <Card>
+                    <Card.Content className="p-6">
+                        <p className="text-sm text-muted-foreground font-medium">Total</p>
+                        <p className="text-2xl font-bold text-foreground mt-1">{methods.length}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{activeCount} active</p>
+                    </Card.Content>
+                </Card>
                 {TYPES.map(t => (
-                    <div key={t} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-                        <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS[t]}</p>
-                        <p className="text-2xl font-bold text-foreground mt-1">{typeCounts[t]}</p>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full w-fit mt-1 inline-block ${TYPE_COLORS[t]}`}>{t}</span>
-                    </div>
+                    <Card key={t}>
+                        <Card.Content className="p-6">
+                            <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS[t]}</p>
+                            <p className="text-2xl font-bold text-foreground mt-1">{typeCounts[t]}</p>
+                            <Chip size="sm" className={`text-xs mt-1 ${TYPE_COLORS[t]}`}>{t}</Chip>
+                        </Card.Content>
+                    </Card>
                 ))}
             </div>
 
@@ -280,25 +288,25 @@ export default function PaymentMethodsPage() {
                         <label className="block text-sm text-muted-foreground mb-1">Type</label>
                         <div className="flex gap-2 flex-wrap">
                             {TYPES.map(t => (
-                                <button
+                                <Button
                                     key={t}
                                     type="button"
                                     onClick={() => setFormType(t)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
+                                    className={`px-3 py-1.5 text-sm font-medium border ${
                                         formType === t
                                             ? "border-primary bg-primary/10 text-primary"
                                             : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
                                     }`}
                                 >
                                     {TYPE_LABELS[t]}
-                                </button>
+                                </Button>
                             ))}
                         </div>
                     </div>
                     {error && <p className="text-destructive text-sm">{error}</p>}
-                    <button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer">
+                    <Button type="submit" variant="primary" fullWidth>
                         Create Method
-                    </button>
+                    </Button>
                 </form>
             </Modal>
 

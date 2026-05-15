@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import NextImage from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { Salad, Dumbbell, ClipboardList, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@heroui/react/button";
+import { Avatar } from "@heroui/react/avatar";
+import { Chip } from "@heroui/react/chip";
+import { Separator } from "@heroui/react/separator";
+
+const navLink = (active) =>
+    `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
+        active
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            : "text-muted-foreground hover:bg-sidebar-accent"
+    }`;
 
 export default function ClientSidebar() {
     const pathname = usePathname();
@@ -37,39 +49,34 @@ export default function ClientSidebar() {
     return (
         <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
             {/* Brand + collapse toggle */}
-            <div className="flex items-center justify-between px-4 py-5 border-b border-(--border-color) shrink-0">
-                {!collapsed && (
-                    <span className="text-xl font-bold truncate" style={{ color: "var(--accent)", letterSpacing: "-0.3px" }}>
-                        FitForce X
-                    </span>
-                )}
-                <button
+            <div className="flex items-center px-3 h-16 shrink-0 gap-2">
+                {collapsed
+                    ? <NextImage src="/dark - i.png" alt="FitForce X" width={32} height={32} className="shrink-0 mx-auto" />
+                    : <NextImage src="/Dark - H.png" alt="FitForce X" width={148} height={40} className="shrink-0" />
+                }
+                {!collapsed && <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px] ml-auto">Beta</Chip>}
+                <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
                     onClick={() => setCollapsed(c => !c)}
                     title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    className={`p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0 ${collapsed ? "mx-auto" : "ml-auto"}`}
+                    className="shrink-0 ml-auto"
                 >
                     {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                </button>
+                </Button>
             </div>
 
-            {/* User Info */}
-            <div className="sidebar-user">
-                <div className="sidebar-avatar shrink-0">{getInitials(client)}</div>
-                {!collapsed && (
-                    <div className="sidebar-user-info min-w-0">
-                        <span className="sidebar-user-name">
-                            {client ? `${client.fname} ${client.lname}` : "—"}
-                        </span>
-                        <span className="sidebar-user-email">
-                            {client ? `#${client.client_code}` : ""}
-                        </span>
-                    </div>
-                )}
-            </div>
+            <Separator />
 
             {/* Navigation */}
-            <nav className="sidebar-nav">
-                <ul className="flex flex-col gap-1">
+            <nav className="flex-1 overflow-y-auto px-3 py-2">
+                {!collapsed && (
+                    <p className="px-2.5 pb-1.5 text-xs font-medium text-muted-foreground tracking-wide">
+                        Navigation
+                    </p>
+                )}
+                <ul className="flex flex-col gap-0.5">
                     {navItems.map(({ href, label, icon: Icon }) => {
                         const active = pathname === href || (href !== "/portal/dashboard" && pathname.startsWith(href));
                         return (
@@ -77,7 +84,7 @@ export default function ClientSidebar() {
                                 <Link
                                     href={href}
                                     title={collapsed ? label : undefined}
-                                    className={`${active ? "sidebar-link-active" : "sidebar-link"} ${collapsed ? "justify-center px-0" : ""}`}
+                                    className={`${navLink(active)} ${collapsed ? "justify-center px-0" : ""}`}
                                 >
                                     <Icon size={17} className="shrink-0" />
                                     {!collapsed && label}
@@ -88,16 +95,39 @@ export default function ClientSidebar() {
                 </ul>
             </nav>
 
-            {/* Footer / Logout */}
-            <div className="sidebar-footer">
-                <button
+            <Separator />
+
+            {/* Footer: user + logout */}
+            <div className="px-3 py-3 flex flex-col gap-1 shrink-0">
+                {client && (
+                    <div className={`flex items-center gap-3 px-3 py-2 rounded-2xl ${collapsed ? "justify-center" : ""}`}>
+                        <Avatar size="sm" color="primary" className="shrink-0">
+                            <Avatar.Fallback>{getInitials(client)}</Avatar.Fallback>
+                        </Avatar>
+                        {!collapsed && (
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-sm font-medium truncate text-foreground">
+                                    {client.fname} {client.lname}
+                                </span>
+                                <span className="text-xs truncate text-muted-foreground">
+                                    #{client.client_code}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <Button
+                    variant="danger-soft"
+                    size="sm"
+                    fullWidth
                     onClick={handleLogout}
                     title={collapsed ? "Logout" : undefined}
-                    className={`sidebar-logout-btn ${collapsed ? "justify-center px-0" : ""}`}
+                    className={`${collapsed ? "justify-center px-0" : "justify-start"}`}
                 >
-                    <LogOut size={17} className="shrink-0" />
+                    <LogOut size={15} className="shrink-0" />
                     {!collapsed && "Logout"}
-                </button>
+                </Button>
             </div>
         </aside>
     );

@@ -5,6 +5,17 @@ import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
 import { Pagination } from "@heroui/react/pagination";
 import { Button } from "@heroui/react/button";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { DateField } from "@heroui/react/date-field";
+import { DateRangePicker } from "@heroui/react/date-range-picker";
+import { RangeCalendar } from "@heroui/react/range-calendar";
+import { SearchField } from "@heroui/react/search-field";
+import { Kbd } from "@heroui/react/kbd";
+import { Description } from "@heroui/react/description";
+import { parseDate } from "@internationalized/date";
 
 // ============================================================
 // DataTable — Reusable filterable/sortable table using HeroUI
@@ -36,7 +47,25 @@ export default function DataTable({
     scrollable,
     defaultSort,
     defaultSortDirection,
+    quickSearch,
 }) {
+    // ── Quick search ──────────────────────────────────────────
+    const [quickSearchValue, setQuickSearchValue] = useState("");
+    const [searchFocused, setSearchFocused] = useState(false);
+    const searchContainerRef = useRef(null);
+
+    useEffect(() => {
+        if (!quickSearch) return;
+        function handleKeyDown(e) {
+            if (e.ctrlKey && e.key === "k") {
+                e.preventDefault();
+                searchContainerRef.current?.querySelector("input")?.focus();
+            }
+        }
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [!!quickSearch]);
+
     // ── Filters ──────────────────────────────────────────────
     function buildInitialFilters() {
         const initial = {};
@@ -50,31 +79,9 @@ export default function DataTable({
 
     const [filters, setFilters]         = useState(buildInitialFilters);
     const [showFilters, setShowFilters] = useState(false);
-    const [openDropdown, setOpenDropdown] = useState(null);
-    const dropdownRef = useRef(null);
-
-    useEffect(() => {
-        function handler(e) {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target))
-                setOpenDropdown(null);
-        }
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
-
-    function toggleMultiFilter(key, value) {
-        setFilters(prev => {
-            const current = prev[key];
-            const updated = current.includes(value)
-                ? current.filter(v => v !== value)
-                : [...current, value];
-            return { ...prev, [key]: updated };
-        });
-    }
 
     function clearFilters() {
         setFilters(buildInitialFilters());
-        setOpenDropdown(null);
     }
 
     const hasActiveFilters = columns.some(col => {
@@ -110,7 +117,16 @@ export default function DataTable({
     }
 
     // ── Filtered + sorted data ────────────────────────────────
-    const filteredData = data.filter(row => {
+    const baseData = quickSearch && quickSearchValue
+        ? data.filter(row => {
+            const q = quickSearchValue.toLowerCase();
+            return quickSearch.fields.some(field =>
+                String(row[field] ?? "").toLowerCase().includes(q)
+            );
+        })
+        : data;
+
+    const filteredData = baseData.filter(row => {
         for (const col of columns) {
             if (!col.filterType) continue;
             const filterVal = filters[col.key];
@@ -125,7 +141,11 @@ export default function DataTable({
                 if (filterVal.from || filterVal.to) {
                     const rowDate = dateParser(row[col.key]);
                     if (filterVal.from && rowDate < new Date(filterVal.from)) return false;
-                    if (filterVal.to   && rowDate > new Date(filterVal.to))   return false;
+                    if (filterVal.to) {
+                        const toDate = new Date(filterVal.to);
+                        toDate.setHours(23, 59, 59, 999);
+                        if (rowDate > toDate) return false;
+                    }
                 }
             }
         }
@@ -214,8 +234,49 @@ export default function DataTable({
     // ── Render ────────────────────────────────────────────────
     return (
         <div>
+            {/* ── Quick search ── */}
+            
+
             {/* ── Toolbar ── */}
             <div className="flex items-center gap-2 mt-4 flex-wrap">
+                {quickSearch && (
+                <div ref={searchContainerRef} className="mt-4">
+                    <SearchField
+                        value={quickSearchValue}
+                        onChange={setQuickSearchValue}
+                        onClear={() => {
+                            setQuickSearchValue("");
+                            searchContainerRef.current?.querySelector("input")?.blur();
+                        }}
+                        aria-label="Quick search"
+                        fullWidth
+                    >
+                        <SearchField.Group>
+                            <SearchField.SearchIcon />
+                            <SearchField.Input
+                                placeholder={quickSearch.placeholder ?? "Search..."}
+                                onFocus={() => setSearchFocused(true)}
+                                onBlur={() => setSearchFocused(false)}
+                            />
+                            <div className="flex items-center gap-1 pr-2 shrink-0">
+                                {(searchFocused || quickSearchValue) ? (
+                                    <Kbd>
+                                        <Kbd.Abbr keyValue="escape" />
+                                    </Kbd>
+                                ) : (
+                                    <Kbd>
+                                        <Kbd.Abbr keyValue="ctrl" />
+                                        <Kbd.Content>K</Kbd.Content>
+                                    </Kbd>
+                                )}
+                            </div>
+                        </SearchField.Group>
+                        {quickSearch.description && (
+                            <Description>{quickSearch.description}</Description>
+                        )}
+                    </SearchField>
+                </div>
+            )}
                 <Button
                     size="sm"
                     variant={showFilters ? "primary" : "secondary"}
@@ -223,11 +284,15 @@ export default function DataTable({
                 >
                     {showFilters ? "Hide Filters" : "Show Filters"}
                 </Button>
+
                 {hasActiveFilters && (
                     <Button size="sm" variant="danger-soft" onClick={clearFilters}>
                         Clear Filters ✕
                     </Button>
                 )}
+
+                
+
                 <div className="flex items-center gap-3 ml-auto">
                     <div className="flex items-center gap-1.5">
                         <span className="text-muted-foreground text-xs">Rows:</span>
@@ -254,56 +319,92 @@ export default function DataTable({
                             <div key={col.key} className="flex flex-col gap-1.5 min-w-36">
                                 <label className="text-muted-foreground text-xs font-medium">{col.label}</label>
                                 {col.filterType === "text" && (
-                                    <input
+                                    <TextField
                                         value={filters[col.key]}
-                                        onChange={(e) => setFilters({ ...filters, [col.key]: e.target.value })}
-                                        type="text"
-                                        placeholder={`Search ${col.label.toLowerCase()}...`}
-                                        className="px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                                    />
+                                        onChange={(val) => setFilters({ ...filters, [col.key]: val })}
+                                    >
+                                        <Input type="text" placeholder={`Search ${col.label.toLowerCase()}...`} />
+                                    </TextField>
                                 )}
                                 {col.filterType === "multi" && (
-                                    <div className="relative" ref={openDropdown === col.key ? dropdownRef : null}>
-                                        <button
-                                            onClick={() => setOpenDropdown(openDropdown === col.key ? null : col.key)}
-                                            className="px-3 py-1.5 rounded-lg text-sm bg-background border border-input text-foreground hover:bg-accent transition-colors"
-                                        >
-                                            {col.label}{filters[col.key].length > 0 ? ` (${filters[col.key].length})` : ""} ▼
-                                        </button>
-                                        {openDropdown === col.key && (
-                                            <div className="absolute top-full left-0 mt-1 z-10 bg-popover border border-border rounded-lg shadow-md p-2 flex flex-col gap-1 min-w-36">
+                                    <Select
+                                        selectionMode="multiple"
+                                        value={filters[col.key]}
+                                        onChange={(keys) => setFilters(prev => ({ ...prev, [col.key]: keys }))}
+                                        placeholder={`Filter ${col.label.toLowerCase()}...`}
+                                        className="min-w-36"
+                                    >
+                                        <Select.Trigger>
+                                            <Select.Value />
+                                            <Select.Indicator />
+                                        </Select.Trigger>
+                                        <Select.Popover>
+                                            <ListBox>
                                                 {col.options.map(option => (
-                                                    <button
-                                                        key={option}
-                                                        onClick={() => toggleMultiFilter(col.key, option)}
-                                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium text-left transition-colors ${
-                                                            filters[col.key].includes(option)
-                                                                ? "bg-primary text-primary-foreground"
-                                                                : "bg-secondary text-foreground hover:bg-secondary/80"
-                                                        }`}
-                                                    >
+                                                    <ListBox.Item key={option} id={option} textValue={option}>
                                                         {option}
-                                                    </button>
+                                                        <ListBox.ItemIndicator />
+                                                    </ListBox.Item>
                                                 ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                            </ListBox>
+                                        </Select.Popover>
+                                    </Select>
                                 )}
                                 {col.filterType === "dateRange" && (
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="date"
-                                            value={filters[col.key].from}
-                                            onChange={(e) => setFilters({ ...filters, [col.key]: { ...filters[col.key], from: e.target.value } })}
-                                            className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                                        />
-                                        <input
-                                            type="date"
-                                            value={filters[col.key].to}
-                                            onChange={(e) => setFilters({ ...filters, [col.key]: { ...filters[col.key], to: e.target.value } })}
-                                            className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                                        />
-                                    </div>
+                                    <DateRangePicker
+                                        value={
+                                            filters[col.key].from && filters[col.key].to
+                                                ? { start: parseDate(filters[col.key].from), end: parseDate(filters[col.key].to) }
+                                                : null
+                                        }
+                                        onChange={(range) => setFilters(prev => ({
+                                            ...prev,
+                                            [col.key]: {
+                                                from: range?.start?.toString() ?? "",
+                                                to: range?.end?.toString() ?? "",
+                                            }
+                                        }))}
+                                    >
+                                        <DateField.Group fullWidth>
+                                            <DateField.Input slot="start">
+                                                {(segment) => <DateField.Segment segment={segment} />}
+                                            </DateField.Input>
+                                            <DateRangePicker.RangeSeparator />
+                                            <DateField.Input slot="end">
+                                                {(segment) => <DateField.Segment segment={segment} />}
+                                            </DateField.Input>
+                                            <DateField.Suffix>
+                                                <DateRangePicker.Trigger>
+                                                    <DateRangePicker.TriggerIndicator />
+                                                </DateRangePicker.Trigger>
+                                            </DateField.Suffix>
+                                        </DateField.Group>
+                                        <DateRangePicker.Popover>
+                                            <RangeCalendar aria-label={col.label}>
+                                                <RangeCalendar.Header>
+                                                    <RangeCalendar.YearPickerTrigger>
+                                                        <RangeCalendar.YearPickerTriggerHeading />
+                                                        <RangeCalendar.YearPickerTriggerIndicator />
+                                                    </RangeCalendar.YearPickerTrigger>
+                                                    <RangeCalendar.NavButton slot="previous" />
+                                                    <RangeCalendar.NavButton slot="next" />
+                                                </RangeCalendar.Header>
+                                                <RangeCalendar.Grid>
+                                                    <RangeCalendar.GridHeader>
+                                                        {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                                                    </RangeCalendar.GridHeader>
+                                                    <RangeCalendar.GridBody>
+                                                        {(date) => <RangeCalendar.Cell date={date} />}
+                                                    </RangeCalendar.GridBody>
+                                                </RangeCalendar.Grid>
+                                                <RangeCalendar.YearPickerGrid>
+                                                    <RangeCalendar.YearPickerGridBody>
+                                                        {({year}) => <RangeCalendar.YearPickerCell year={year} />}
+                                                    </RangeCalendar.YearPickerGridBody>
+                                                </RangeCalendar.YearPickerGrid>
+                                            </RangeCalendar>
+                                        </DateRangePicker.Popover>
+                                    </DateRangePicker>
                                 )}
                             </div>
                         );
@@ -338,7 +439,7 @@ export default function DataTable({
                                         key={col.key}
                                         id={col.key}
                                         allowsSorting={!!col.sortable}
-                                        isRowHeader={!selectable && i === 0}
+                                        isRowHeader={i === 0}
                                         style={col.width ? { width: col.width, minWidth: col.width } : undefined}
                                         className={col.key === "_actions" ? "text-end" : ""}
                                     >
@@ -458,17 +559,21 @@ export default function DataTable({
                         >
                             <div className="flex items-start gap-3">
                                 {selectable && (
-                                    <input
-                                        type="checkbox"
-                                        checked={isSelected || false}
+                                    <Checkbox
+                                        isSelected={isSelected || false}
                                         onChange={() => {
                                             if (!onSelectionChange) return;
                                             const next = new Set(selectedKeys);
                                             if (next.has(key)) next.delete(key); else next.add(key);
                                             onSelectionChange(next);
                                         }}
-                                        className="accent-primary w-4 h-4 mt-1 cursor-pointer shrink-0"
-                                    />
+                                        aria-label={`Select row ${key}`}
+                                        className="mt-1 shrink-0"
+                                    >
+                                        <Checkbox.Control>
+                                            <Checkbox.Indicator />
+                                        </Checkbox.Control>
+                                    </Checkbox>
                                 )}
                                 <div className="flex-1 min-w-0">
                                     {primaryCols.map(col => (
@@ -496,7 +601,7 @@ export default function DataTable({
                             )}
 
                             {secondaryCols.length > 0 && (
-                                <button
+                                <Button
                                     onClick={() => toggleCard(key)}
                                     className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                                 >
@@ -504,7 +609,7 @@ export default function DataTable({
                                         <path d="M19 9l-7 7-7-7" />
                                     </svg>
                                     {isExpanded ? "Show less" : `+${secondaryCols.length} more`}
-                                </button>
+                                </Button>
                             )}
 
                             {renderMobileExpanded && renderMobileExpanded(row)}

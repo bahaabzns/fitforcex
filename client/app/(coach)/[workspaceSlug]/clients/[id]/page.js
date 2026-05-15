@@ -5,6 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
 import Modal from "@/app/components/Modal";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Skeleton } from "@heroui/react/skeleton";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
@@ -212,7 +215,7 @@ export default function ClientOverviewPage() {
     <>
       {loading ? (
         <div className="p-8 flex flex-col gap-4">
-          {[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-secondary animate-pulse" />)}
+          {[1,2,3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
         </div>
       ) : !client ? (
         <div className="p-8 text-muted-foreground">Client not found.</div>
@@ -223,22 +226,21 @@ export default function ClientOverviewPage() {
             <h1 className="text-3xl font-bold text-foreground flex-1">
               #{client.code ?? client.client_code} — {client.fname} {client.lname}
             </h1>
-            <button
-              onClick={openEdit}
-              className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
-            >
+            <Button onClick={openEdit} variant="primary" size="sm">
               Edit
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleDelete}
-              className="bg-destructive/10 hover:bg-destructive/20 text-destructive font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
+              className="bg-destructive/10 hover:bg-destructive/20 text-destructive"
+              size="sm"
             >
               Delete
-            </button>
+            </Button>
           </div>
 
           {/* Info Card */}
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+          <Card>
+            <Card.Content className="p-6">
             <div className="flex flex-col gap-3">
               <div className="flex gap-2">
                 <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Email</span>
@@ -290,17 +292,20 @@ export default function ClientOverviewPage() {
                   <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
                     Save this password — it won&apos;t be shown again after you leave the page.
                   </p>
-                  <button
+                  <Button
                     onClick={copyCredentials}
-                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer self-start"
+                    variant="outline"
+                    size="sm"
+                    className="self-start"
                   >
                     {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                     {copied ? "Copied!" : "Copy Credentials"}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
-          </div>
+            </Card.Content>
+          </Card>
 
           {/* Edit Modal */}
           <Modal open={showEditForm} onClose={() => setShowEditForm(false)} title="Edit Client">
@@ -353,9 +358,9 @@ export default function ClientOverviewPage() {
                   </div>
                 )}
                 {editPhoneCount < 3 && (
-                  <button type="button" onClick={() => setEditPhoneCount(c => c + 1)} className="text-xs text-primary hover:text-primary/80 self-start transition-colors cursor-pointer">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditPhoneCount(c => c + 1)} className="text-xs text-primary self-start px-0">
                     + Add another phone
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -394,16 +399,16 @@ export default function ClientOverviewPage() {
               </div>
 
               <div className="flex gap-2 mt-1">
-                <button type="submit" className="bg-primary hover:bg-primary/90 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer flex-1 text-sm">
+                <Button type="submit" variant="primary" fullWidth>
                   Save Changes
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setShowEditForm(false)}
-                  className="bg-destructive/10 hover:bg-destructive/20 text-destructive font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer flex-1 text-sm"
+                  className="flex-1 bg-destructive/10 hover:bg-destructive/20 text-destructive"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </Modal>

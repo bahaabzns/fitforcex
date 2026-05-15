@@ -4,6 +4,10 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
+import { Skeleton } from "@heroui/react/skeleton";
 
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 
@@ -22,9 +26,9 @@ function StatusBadge({ status }) {
         ? "bg-green-100 text-green-600"
         : "bg-red-50 text-destructive";
     return (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${cls}`}>
+        <Chip size="sm" className={`capitalize ${cls}`}>
             {status}
-        </span>
+        </Chip>
     );
 }
 
@@ -364,7 +368,7 @@ export default function ClientTransactionsPage() {
     if (loading) {
         return (
             <div className="p-6 flex flex-col gap-4">
-                {[1, 2, 3].map(i => <div key={i} className="h-10 rounded-lg bg-secondary animate-pulse" />)}
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
             </div>
         );
     }
@@ -374,29 +378,26 @@ export default function ClientTransactionsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-foreground">Transactions</h2>
-                <button
-                    onClick={openAdd}
-                    className="text-sm px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors cursor-pointer font-medium"
-                >
+                <Button onClick={openAdd} variant="primary" size="sm">
                     + Add Transaction
-                </button>
+                </Button>
             </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+                <Card><Card.Content className="p-6">
                     <p className="text-xs text-muted-foreground font-medium">Total</p>
                     <p className="text-2xl font-bold text-foreground mt-1">{transactions.length}</p>
-                </div>
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+                </Card.Content></Card>
+                <Card><Card.Content className="p-6">
                     <p className="text-xs text-muted-foreground font-medium">Completed</p>
                     <p className="text-2xl font-bold text-green-600 mt-1">{completedTx.length}</p>
-                </div>
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+                </Card.Content></Card>
+                <Card><Card.Content className="p-6">
                     <p className="text-xs text-muted-foreground font-medium">Refunded</p>
                     <p className="text-2xl font-bold text-destructive mt-1">{refundedTx.length}</p>
-                </div>
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+                </Card.Content></Card>
+                <Card><Card.Content className="p-6">
                     <p className="text-xs text-muted-foreground font-medium">Revenue (EGP equiv.)</p>
                     <p className="text-2xl font-bold text-primary mt-1">
                         {totalEGP.toLocaleString("en-US", { maximumFractionDigits: 0 })}
@@ -408,7 +409,7 @@ export default function ClientTransactionsPage() {
                             ))}
                         </div>
                     )}
-                </div>
+                </Card.Content></Card>
             </div>
 
             {/* Subscription Status Card */}
@@ -537,7 +538,7 @@ export default function ClientTransactionsPage() {
                                         {(() => {
                                             const s = getPerTxStatus(tx, timeline, freezes, today);
                                             return s
-                                                ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${subStatusColor(s)}`}>{s}</span>
+                                                ? <Chip size="sm" className={subStatusColor(s)}>{s}</Chip>
                                                 : <span className="text-muted-foreground text-xs">—</span>;
                                         })()}
                                     </td>
@@ -683,20 +684,12 @@ export default function ClientTransactionsPage() {
                     {addError && <p className="text-destructive text-sm">{addError}</p>}
 
                     <div className="flex gap-2">
-                        <button
-                            type="submit"
-                            disabled={addSaving}
-                            className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
-                        >
+                        <Button type="submit" isDisabled={addSaving} variant="primary" fullWidth>
                             {addSaving ? "Saving…" : "Add Transaction"}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setShowAddModal(false)}
-                            className="flex-1 bg-secondary hover:bg-secondary/80 text-foreground font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
-                        >
+                        </Button>
+                        <Button type="button" onClick={() => setShowAddModal(false)} variant="ghost" fullWidth>
                             Cancel
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </Modal>
@@ -807,20 +800,12 @@ export default function ClientTransactionsPage() {
                     {editError && <p className="text-destructive text-sm">{editError}</p>}
 
                     <div className="flex gap-2">
-                        <button
-                            type="submit"
-                            disabled={saving}
-                            className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
-                        >
+                        <Button type="submit" isDisabled={saving} variant="primary" fullWidth>
                             {saving ? "Saving…" : "Save Changes"}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={closeEdit}
-                            className="flex-1 bg-secondary hover:bg-secondary/80 text-foreground font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
-                        >
+                        </Button>
+                        <Button type="button" onClick={closeEdit} variant="ghost" fullWidth>
                             Cancel
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </Modal>
@@ -866,13 +851,9 @@ export default function ClientTransactionsPage() {
                     <p className="text-xs text-muted-foreground">
                         The freeze extends the subscription expiry date by the specified number of days.
                     </p>
-                    <button
-                        type="submit"
-                        disabled={freezeSaving}
-                        className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
-                    >
+                    <Button type="submit" isDisabled={freezeSaving} variant="primary" fullWidth>
                         {freezeSaving ? "Saving…" : "Add Freeze"}
-                    </button>
+                    </Button>
                 </form>
             </Modal>
         </div>

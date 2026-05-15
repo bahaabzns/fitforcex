@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { Clock, CheckCircle, ClipboardList, CalendarClock } from "lucide-react";
+import { Skeleton } from "@heroui/react/skeleton";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
 
 export default function ClientFormsListPage() {
     const [requests, setRequests] = useState([]);
@@ -28,8 +31,9 @@ export default function ClientFormsListPage() {
 
     if (loading) {
         return (
-            <div className="p-8 flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="p-8 max-w-3xl mx-auto flex flex-col gap-3">
+                <Skeleton className="h-8 w-32 rounded-lg mb-2" />
+                {[1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
             </div>
         );
     }
@@ -40,9 +44,7 @@ export default function ClientFormsListPage() {
             <div className="flex items-center gap-3 mb-6">
                 <h1 className="text-2xl font-bold text-foreground flex-1">Forms</h1>
                 {pendingCount > 0 && (
-                    <span className="text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
-                        {pendingCount} pending
-                    </span>
+                    <Chip size="sm" className="bg-yellow-100 text-yellow-700">{pendingCount} pending</Chip>
                 )}
             </div>
 
@@ -69,73 +71,77 @@ export default function ClientFormsListPage() {
             </div>
 
             {filtered.length === 0 ? (
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col items-center justify-center py-16 gap-3 text-center">
-                    <ClipboardList size={40} className="text-muted-foreground/30" />
-                    <p className="text-base font-medium text-muted-foreground">
-                        {filter === "pending"
-                            ? "No pending forms"
-                            : filter === "scheduled"
-                            ? "No scheduled forms"
-                            : filter === "submitted"
-                            ? "No submitted forms yet"
-                            : "No forms yet"}
-                    </p>
-                    <p className="text-sm text-muted-foreground/70">Your coach will send forms for you to fill out.</p>
-                </div>
+                <Card>
+                    <Card.Content className="p-6 flex flex-col items-center justify-center py-16 gap-3 text-center">
+                        <ClipboardList size={40} className="text-muted-foreground/30" />
+                        <p className="text-base font-medium text-muted-foreground">
+                            {filter === "pending"
+                                ? "No pending forms"
+                                : filter === "scheduled"
+                                ? "No scheduled forms"
+                                : filter === "submitted"
+                                ? "No submitted forms yet"
+                                : "No forms yet"}
+                        </p>
+                        <p className="text-sm text-muted-foreground/70">Your coach will send forms for you to fill out.</p>
+                    </Card.Content>
+                </Card>
             ) : (
                 <div className="flex flex-col gap-3">
                     {filtered.map(req => (
-                        <div key={req.id} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex items-center gap-4">
-                            <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-foreground">{req.form_title}</p>
-                                {req.form_description && (
-                                    <p className="text-sm text-muted-foreground mt-0.5">{req.form_description}</p>
-                                )}
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {req.status === "scheduled" && req.scheduled_at
-                                        ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
-                                        : `Requested ${new Date(req.requested_at).toLocaleDateString()}`}
-                                    {req.submitted_at && ` · Submitted ${new Date(req.submitted_at).toLocaleDateString()}`}
-                                </p>
-                            </div>
+                        <Card key={req.id}>
+                            <Card.Content className="p-6 flex items-center gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-foreground">{req.form_title}</p>
+                                    {req.form_description && (
+                                        <p className="text-sm text-muted-foreground mt-0.5">{req.form_description}</p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {req.status === "scheduled" && req.scheduled_at
+                                            ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
+                                            : `Requested ${new Date(req.requested_at).toLocaleDateString()}`}
+                                        {req.submitted_at && ` · Submitted ${new Date(req.submitted_at).toLocaleDateString()}`}
+                                    </p>
+                                </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                                {req.status === "pending" ? (
-                                    <>
-                                        <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium">
-                                            <Clock size={11} /> Pending
-                                        </span>
-                                        <Link
-                                            href={`/client/forms/${req.id}`}
-                                            className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer"
-                                        >
-                                            Fill Form
-                                        </Link>
-                                    </>
-                                ) : req.status === "scheduled" ? (
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
-                                            <CalendarClock size={11} /> Scheduled
-                                        </span>
-                                        <span className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
-                                            Not Open Yet
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-medium">
-                                            <CheckCircle size={11} /> Submitted
-                                        </span>
-                                        <Link
-                                            href={`/client/forms/${req.id}`}
-                                            className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
-                                        >
-                                            View Answers
-                                        </Link>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {req.status === "pending" ? (
+                                        <>
+                                            <Chip size="sm" className="bg-yellow-100 text-yellow-700">
+                                                <Clock size={11} className="mr-1" /> Pending
+                                            </Chip>
+                                            <Link
+                                                href={`/client/forms/${req.id}`}
+                                                className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer"
+                                            >
+                                                Fill Form
+                                            </Link>
+                                        </>
+                                    ) : req.status === "scheduled" ? (
+                                        <div className="flex items-center gap-2">
+                                            <Chip size="sm" className="bg-blue-100 text-blue-700">
+                                                <CalendarClock size={11} className="mr-1" /> Scheduled
+                                            </Chip>
+                                            <span className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
+                                                Not Open Yet
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <Chip size="sm" className="bg-green-100 text-green-700">
+                                                <CheckCircle size={11} className="mr-1" /> Submitted
+                                            </Chip>
+                                            <Link
+                                                href={`/client/forms/${req.id}`}
+                                                className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+                                            >
+                                                View Answers
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card.Content>
+                        </Card>
                     ))}
                 </div>
             )}

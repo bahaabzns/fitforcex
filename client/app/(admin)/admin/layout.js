@@ -5,6 +5,9 @@ import api from '@/lib/axios';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, Users, Building2, Package, LogOut } from 'lucide-react';
+import { Skeleton } from '@heroui/react/skeleton';
+import { Button } from '@heroui/react/button';
+import { Avatar } from '@heroui/react/avatar';
 
 const NAV = [
     { href: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -38,7 +41,7 @@ export default function AdminLayout({ children }) {
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center bg-background">
-                <div className="h-8 w-32 rounded-lg bg-secondary animate-pulse" />
+                <Skeleton className="h-8 w-32 rounded-lg" />
             </div>
         );
     }
@@ -73,17 +76,25 @@ export default function AdminLayout({ children }) {
                 </nav>
 
                 <div className="p-3 border-t border-border">
-                    <div className="px-3 py-2 mb-1">
-                        <p className="text-xs font-medium text-foreground truncate">{admin?.fname} {admin?.lname}</p>
-                        <p className="text-xs text-muted-foreground truncate">{admin?.email}</p>
+                    <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
+                        <Avatar className="w-7 h-7 text-xs shrink-0">
+                            <Avatar.Fallback>
+                                {admin?.fname?.[0]}{admin?.lname?.[0]}
+                            </Avatar.Fallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                            <p className="text-xs font-medium text-foreground truncate">{admin?.fname} {admin?.lname}</p>
+                            <p className="text-xs text-muted-foreground truncate">{admin?.email}</p>
+                        </div>
                     </div>
-                    <button
+                    <Button
+                        variant="ghost"
                         onClick={handleLogout}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        className="flex items-center gap-2.5 w-full justify-start px-3 py-2 text-sm text-muted-foreground"
                     >
                         <LogOut size={15} />
                         Sign out
-                    </button>
+                    </Button>
                 </div>
             </aside>
 

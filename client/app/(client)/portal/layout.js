@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import api from "@/lib/axios";
 import ClientSidebar from "@/app/components/ClientSidebar";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@heroui/react/skeleton";
 
 export default function ClientLayout({ children }) {
     const [loading, setLoading] = useState(true);

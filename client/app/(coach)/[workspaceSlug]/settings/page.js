@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { Button } from "@heroui/react/button";
+import { Skeleton } from "@heroui/react/skeleton";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
@@ -125,13 +127,14 @@ function ProfileTab({ me }) {
                     </div>
                     <ErrorMsg msg={nameError} />
                     <SuccessMsg msg={nameSuccess} />
-                    <button
+                    <Button
                         type="submit"
-                        disabled={savingName || !fname.trim()}
-                        className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                        isDisabled={savingName || !fname.trim()}
+                        variant="primary"
+                        className="self-start"
                     >
                         {savingName ? "Saving…" : "Save Name"}
-                    </button>
+                    </Button>
                 </form>
             </div>
 
@@ -175,13 +178,14 @@ function ProfileTab({ me }) {
                     </div>
                     <ErrorMsg msg={pwError} />
                     <SuccessMsg msg={pwSuccess} />
-                    <button
+                    <Button
                         type="submit"
-                        disabled={savingPw || !currentPassword || !newPassword || !confirmPassword}
-                        className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                        isDisabled={savingPw || !currentPassword || !newPassword || !confirmPassword}
+                        variant="primary"
+                        className="self-start"
                     >
                         {savingPw ? "Changing…" : "Change Password"}
-                    </button>
+                    </Button>
                 </form>
             </div>
         </div>
@@ -265,13 +269,14 @@ function WorkspaceTab({ me, workspace, setWorkspace }) {
                         </div>
                         <ErrorMsg msg={renameError} />
                         <SuccessMsg msg={renameSuccess} />
-                        <button
+                        <Button
                             type="submit"
-                            disabled={renameSaving || !wsName.trim() || wsName.trim() === workspace?.name}
-                            className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                            isDisabled={renameSaving || !wsName.trim() || wsName.trim() === workspace?.name}
+                            variant="primary"
+                            className="self-start"
                         >
                             {renameSaving ? "Saving…" : "Save"}
-                        </button>
+                        </Button>
                     </form>
                 </div>
             )}
@@ -314,13 +319,14 @@ function WorkspaceTab({ me, workspace, setWorkspace }) {
                         </div>
                         <ErrorMsg msg={slugError} />
                         <SuccessMsg msg={slugSuccess} />
-                        <button
+                        <Button
                             type="submit"
-                            disabled={slugSaving || !newSlug.trim()}
-                            className="self-start px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                            isDisabled={slugSaving || !newSlug.trim()}
+                            variant="primary"
+                            className="self-start"
                         >
                             {slugSaving ? "Saving…" : "Customize Slug"}
-                        </button>
+                        </Button>
                     </form>
                 )}
 
@@ -363,7 +369,6 @@ function DangerZoneTab({ me, workspace, members }) {
                 memberId: parseInt(transferMemberId),
                 ownerPassword: transferPassword,
             });
-            // After transfer, switch workspace context to refresh role
             router.push("/dashboard");
             router.refresh();
         } catch (err) {
@@ -414,13 +419,13 @@ function DangerZoneTab({ me, workspace, members }) {
                 </div>
 
                 {!showTransfer ? (
-                    <button
+                    <Button
                         onClick={() => setShowTransfer(true)}
-                        disabled={activeMembers.length === 0}
-                        className="self-start px-4 py-2 rounded-lg border border-amber-300 bg-amber-100 text-amber-800 text-sm font-medium hover:bg-amber-200 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+                        isDisabled={activeMembers.length === 0}
+                        className="self-start border border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200"
                     >
                         Transfer Ownership
-                    </button>
+                    </Button>
                 ) : (
                     <form onSubmit={handleTransfer} className="flex flex-col gap-3">
                         {activeMembers.length === 0 ? (
@@ -456,20 +461,20 @@ function DangerZoneTab({ me, workspace, members }) {
                                 </div>
                                 <ErrorMsg msg={transferError} />
                                 <div className="flex gap-2">
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="ghost"
                                         onClick={() => { setShowTransfer(false); setTransferError(""); setTransferPassword(""); setTransferMemberId(""); }}
-                                        className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                                     >
                                         Cancel
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="submit"
-                                        disabled={transferring || !transferMemberId || !transferPassword}
-                                        className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                                        isDisabled={transferring || !transferMemberId || !transferPassword}
+                                        className="bg-amber-600 text-white hover:bg-amber-700"
                                     >
                                         {transferring ? "Transferring…" : "Confirm Transfer"}
-                                    </button>
+                                    </Button>
                                 </div>
                             </>
                         )}
@@ -490,12 +495,12 @@ function DangerZoneTab({ me, workspace, members }) {
                 </div>
 
                 {!showArchive ? (
-                    <button
+                    <Button
                         onClick={() => setShowArchive(true)}
-                        className="self-start px-4 py-2 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors cursor-pointer"
+                        className="self-start border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
                     >
                         Archive Workspace
-                    </button>
+                    </Button>
                 ) : (
                     <form onSubmit={handleArchive} className="flex flex-col gap-3">
                         <div>
@@ -512,20 +517,20 @@ function DangerZoneTab({ me, workspace, members }) {
                         </div>
                         <ErrorMsg msg={archiveError} />
                         <div className="flex gap-2">
-                            <button
+                            <Button
                                 type="button"
+                                variant="ghost"
                                 onClick={() => { setShowArchive(false); setArchiveConfirm(""); setArchiveError(""); }}
-                                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="submit"
-                                disabled={archiving || archiveConfirm !== workspace?.name}
-                                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 disabled:opacity-60 disabled:pointer-events-none transition-colors cursor-pointer"
+                                isDisabled={archiving || archiveConfirm !== workspace?.name}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >
                                 {archiving ? "Archiving…" : "Archive Workspace"}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 )}
@@ -567,12 +572,12 @@ export default function SettingsPage() {
     if (loading) {
         return (
             <div className="p-8 max-w-2xl">
-                <div className="h-9 w-28 rounded-lg bg-secondary animate-pulse mb-6" />
+                <Skeleton className="h-9 w-28 rounded-lg mb-6" />
                 <div className="flex gap-2 mb-6">
-                    {[1, 2, 3].map(i => <div key={i} className="h-9 w-24 rounded bg-secondary animate-pulse" />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-9 w-24 rounded" />)}
                 </div>
                 <div className="flex flex-col gap-3">
-                    {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-lg bg-secondary animate-pulse" />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-lg" />)}
                 </div>
             </div>
         );

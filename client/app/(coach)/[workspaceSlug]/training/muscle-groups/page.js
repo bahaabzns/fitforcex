@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
+import { Button } from "@heroui/react/button";
+import { Skeleton } from "@heroui/react/skeleton";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
@@ -60,7 +62,14 @@ export default function MuscleGroupsPage() {
         }
     }
 
-    if (loading) return <div className="p-8">Loading...</div>;
+    if (loading) {
+        return (
+            <div className="p-8 flex flex-col gap-4">
+                <Skeleton className="h-9 w-48 rounded-lg" />
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
+            </div>
+        );
+    }
 
     const columns = [
         { key: "name", label: "Name", filterType: "text", sortable: true },
@@ -85,7 +94,7 @@ export default function MuscleGroupsPage() {
                     <h1 className="text-3xl font-bold">Muscle Groups</h1>
                     <p className="text-sm text-muted-foreground mt-1">Manage muscle group categories for your exercise library.</p>
                 </div>
-                <button onClick={() => setShowForm(true)} className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 text-sm font-medium transition-colors cursor-pointer shrink-0">+ Add Muscle Group</button>
+                <Button onClick={() => setShowForm(true)} variant="primary" className="shrink-0">+ Add Muscle Group</Button>
             </div>
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setNewName(""); }} title="Add Muscle Group">
@@ -98,7 +107,7 @@ export default function MuscleGroupsPage() {
                         required
                         autoFocus
                     />
-                    <button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer">Add Muscle Group</button>
+                    <Button type="submit" variant="primary" fullWidth>Add Muscle Group</Button>
                 </form>
             </Modal>
 
@@ -111,7 +120,7 @@ export default function MuscleGroupsPage() {
                         required
                         autoFocus
                     />
-                    <button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors cursor-pointer">Save Changes</button>
+                    <Button type="submit" variant="primary" fullWidth>Save Changes</Button>
                 </form>
             </Modal>
 

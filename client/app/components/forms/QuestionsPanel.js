@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Button } from "@heroui/react/button";
 
 const QUESTION_TYPES = [
     { value: "text",        label: "Short Text",   icon: "T" },
@@ -160,12 +161,9 @@ export default function QuestionsPanel({
                     </h3>
                     {!questionsCollapsed && (
                         <div className="relative" ref={typePickerRef}>
-                            <button
-                                className="cursor-pointer h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors"
-                                onClick={() => setShowTypePicker(v => !v)}
-                            >
+                            <Button variant="primary" onClick={() => setShowTypePicker(v => !v)}>
                                 + Question
-                            </button>
+                            </Button>
                             {showTypePicker && (
                                 <div className="absolute right-0 top-9 z-30 bg-card border border-border rounded-lg shadow-lg py-1.5 min-w-45">
                                     {QUESTION_TYPES.map(({ value, label, icon }) => (

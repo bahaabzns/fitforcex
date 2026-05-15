@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { Button } from "@heroui/react/button";
+import { Switch } from "@heroui/react/switch";
 
 const QUESTION_TYPES = [
     { value: "text",        label: "Short Text",    icon: "T" },
@@ -124,18 +126,11 @@ export default function QuestionEditorPanel({
                     <p className="text-sm font-medium text-foreground">Required</p>
                     <p className="text-xs text-muted-foreground">Client must answer this question</p>
                 </div>
-                <button
-                    onClick={() => save({ required: !q.required })}
-                    className={`cursor-pointer relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
-                        q.required ? "bg-primary" : "bg-secondary"
-                    }`}
-                >
-                    <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                            q.required ? "translate-x-5" : "translate-x-0"
-                        }`}
-                    />
-                </button>
+                <Switch checked={q.required} onCheckedChange={(checked) => save({ required: checked })}>
+                    <Switch.Control>
+                        <Switch.Thumb />
+                    </Switch.Control>
+                </Switch>
             </div>
 
             {/* Placeholder — text / long_text / number */}
@@ -231,12 +226,9 @@ export default function QuestionEditorPanel({
                             placeholder="Add option…"
                             className="flex-1 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                         />
-                        <button
-                            onClick={addOption}
-                            className="cursor-pointer h-9 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors shrink-0"
-                        >
+                        <Button variant="primary" onClick={addOption} className="shrink-0">
                             Add
-                        </button>
+                        </Button>
                     </div>
                 </Field>
             )}

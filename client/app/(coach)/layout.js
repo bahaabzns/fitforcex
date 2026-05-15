@@ -4,7 +4,7 @@ import Sidebar from "@/app/components/Sidebar";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { useRouter, useParams, usePathname } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@heroui/react/skeleton";
 import { Button } from "@heroui/react/button";
 import {
     PanelLeft,

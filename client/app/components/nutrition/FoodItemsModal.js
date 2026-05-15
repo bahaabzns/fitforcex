@@ -1,6 +1,9 @@
-
+'use client';
 import { useState } from 'react';
 import Modal from "@/app/components/Modal";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { Button } from "@heroui/react/button";
 
 export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -25,7 +28,6 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
         });
     };
 
-    // #7 — select / deselect all visible rows
     const allFilteredSelected = filtered.length > 0 && filtered.every(fi => selectedIds.has(fi.id));
     const toggleSelectAll = () => {
         setSelectedIds(prev => {
@@ -50,25 +52,19 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
 
                 {/* Search + results count */}
                 <div className="flex gap-3 mb-3 items-center">
-                    <input
-                        type="text"
-                        className="flex-1 px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
-                        placeholder="Search for food..."
-                        value={foodSearchQuery}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                        autoFocus
-                    />
-                    {/* #1 — results count */}
+                    <TextField value={foodSearchQuery} onChange={onSearchChange} className="flex-1">
+                        <Input type="text" placeholder="Search for food..." autoFocus />
+                    </TextField>
                     <span className="text-sm text-muted-foreground shrink-0">
                         {filtered.length} result{filtered.length !== 1 ? 's' : ''}
                     </span>
                 </div>
 
-                {/* #4 — pill-style category filter (replaces native <select>) */}
+                {/* Category filter pills */}
                 {!lockedCategory ? (
                     <div className="flex gap-2 flex-wrap mb-4">
                         {['', ...categories].map(cat => (
-                            <button
+                            <Button
                                 key={cat}
                                 onClick={() => setCategoryFilter(cat)}
                                 className={`text-xs px-3 py-1 rounded-full border transition-colors ${
@@ -78,7 +74,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                 }`}
                             >
                                 {cat || 'All'}
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 ) : (
@@ -91,10 +87,8 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                 {/* Table */}
                 <div className="flex-1 overflow-y-auto min-h-0">
                     <table className="w-full text-sm">
-                        {/* #3 — stronger header separation */}
                         <thead className="sticky top-0 bg-card shadow-sm">
                             <tr className="border-b-2 border-border text-left text-muted-foreground">
-                                {/* #7 — select-all checkbox */}
                                 <th className="p-2 w-8">
                                     <div
                                         className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
@@ -114,12 +108,10 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                 <th className="p-2">Name</th>
                                 <th className="p-2">Category</th>
                                 <th className="p-2">Serving</th>
-                                {/* #5 — single Macros column replacing 4 columns */}
                                 <th className="p-2">Macros</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {/* #2 — empty state */}
                             {filtered.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="text-center py-12 text-muted-foreground">
@@ -135,7 +127,6 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                     className={`border-b cursor-pointer transition-colors hover:bg-accent ${selectedIds.has(fi.id) ? 'bg-primary/10' : ''}`}
                                     onClick={() => toggleItem(fi.id)}
                                 >
-                                    {/* #6 — custom styled checkbox */}
                                     <td className="p-2">
                                         <div
                                             className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
@@ -159,7 +150,6 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                         }
                                     </td>
                                     <td className="p-2 text-muted-foreground">{fi.serving_size} {fi.serving_unit}</td>
-                                    {/* #5 — color-coded macro badges in a single cell */}
                                     <td className="p-2">
                                         <div className="flex gap-1 flex-wrap">
                                             <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800">{fi.calories_per_serving} kcal</span>
@@ -178,20 +168,19 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                 <div className="flex justify-between items-center mt-4 pt-4 border-t">
                     <span className="text-sm text-muted-foreground">{selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selected</span>
                     <div className="flex gap-3">
-                        <button
-                            className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-4 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                        <Button
+                            variant="outline"
                             onClick={() => setSelectedIds(new Set())}
                             disabled={selectedIds.size === 0}
                         >
                             Reset Selection
-                        </button>
-                        <button
-                            className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                        </Button>
+                        <Button
                             onClick={handleConfirm}
                             disabled={selectedIds.size === 0}
                         >
                             Add Selected
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

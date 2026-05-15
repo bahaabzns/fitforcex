@@ -7,6 +7,22 @@ const requirePermission = require('../middleware/requirePermission');
 const { makeUploader, createSignedUrl } = require('../lib/storage');
 const { computeSubscriptionStatus } = require('../utils/subscriptionStatus');
 
+async function syncClientPackage(clientId, workspaceId) {
+    if (!clientId) return;
+    const latest = await pool.query(
+        `SELECT package_variation FROM transactions
+         WHERE client_id = $1 AND workspace_id = $2
+         ORDER BY transaction_date DESC, created_at DESC LIMIT 1`,
+        [clientId, workspaceId]
+    );
+    if (latest.rows.length) {
+        await pool.query(
+            'UPDATE clients SET current_package = $1 WHERE id = $2 AND workspace_id = $3',
+            [latest.rows[0].package_variation, clientId, workspaceId]
+        );
+    }
+}
+
 router.use(authMiddleware);
 router.use((req, res, next) => {
     const action = req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'delete' : 'write';
@@ -323,6 +339,7 @@ router.post('/', async (req, res, next) => {
                 startMode,
             ]
         );
+        await syncClientPackage(result.rows[0].client_id, req.user.workspaceId);
         res.status(201).json(mapRow(result.rows[0]));
     } catch (err) {
         next(err);
@@ -389,6 +406,7 @@ router.put('/:id', async (req, res, next) => {
                 req.user.workspaceId,
             ]
         );
+        await syncClientPackage(result.rows[0].client_id, req.user.workspaceId);
         res.json(mapRow(result.rows[0]));
     } catch (err) {
         next(err);

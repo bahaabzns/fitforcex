@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
+import { Chip } from "@heroui/react/chip";
 
 export default function PlansQueueTable({ initialSubmissions, awaiting, forms }) {
     const [submissions, setSubmissions] = useState(initialSubmissions);
@@ -120,9 +121,9 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             "action-done": "Action Done",
         };
         return (
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${styles[status] || "bg-zinc-500/20 text-zinc-400"}`}>
+            <Chip size="sm" className={`whitespace-nowrap ${styles[status] || "bg-zinc-500/20 text-zinc-400"}`}>
                 {labels[status] || status}
-            </span>
+            </Chip>
         );
     }
 
@@ -168,13 +169,13 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             width: "100px",
             cardPriority: "secondary",
             render: (row) => (
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
+                <Chip size="sm" className={`whitespace-nowrap ${
                     row.formType === "assessment"
                         ? "bg-purple-500/20 text-purple-400"
                         : "bg-blue-500/20 text-blue-400"
                 }`}>
                     {row.formType}
-                </span>
+                </Chip>
             ),
         },
         {
@@ -232,9 +233,9 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             cardPriority: "primary",
             render: (row) => {
                 const typeBadge = row.postAction === "nutrition-plan"
-                    ? <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/20 text-amber-400 whitespace-nowrap">Nutrition</span>
+                    ? <Chip size="sm" className="bg-amber-500/20 text-amber-400 whitespace-nowrap">Nutrition</Chip>
                     : row.postAction === "workout-plan"
-                    ? <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/20 text-blue-400 whitespace-nowrap">Workout</span>
+                    ? <Chip size="sm" className="bg-blue-500/20 text-blue-400 whitespace-nowrap">Workout</Chip>
                     : null;
 
                 if (row.status === "awaiting") {

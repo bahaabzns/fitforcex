@@ -2,6 +2,9 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { Button } from "@heroui/react/button";
 
 export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const [items, setItems] = useState([]);
@@ -78,14 +81,9 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
 
                 {/* Search + results count */}
                 <div className="flex gap-3 mb-3 items-center">
-                    <input
-                        type="text"
-                        className="flex-1 px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
-                        placeholder="Search exercises..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        autoFocus
-                    />
+                    <TextField value={search} onChange={setSearch} className="flex-1">
+                        <Input type="text" placeholder="Search exercises..." autoFocus />
+                    </TextField>
                     <span className="text-sm text-muted-foreground shrink-0">
                         {filtered.length} result{filtered.length !== 1 ? "s" : ""}
                     </span>
@@ -94,7 +92,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                 {/* Muscle group pills */}
                 <div className="flex gap-2 flex-wrap mb-2">
                     {["", ...muscleGroups.map((g) => g.name)].map((group) => (
-                        <button
+                        <Button
                             key={group}
                             onClick={() => setFilterGroup(group)}
                             className={`text-xs px-3 py-1 rounded-full border transition-colors ${
@@ -104,14 +102,14 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                             }`}
                         >
                             {group || "All muscles"}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
                 {/* Equipment pills */}
                 <div className="flex gap-2 flex-wrap mb-4">
                     {["", ...equipments.map((e) => e.name)].map((equip) => (
-                        <button
+                        <Button
                             key={equip}
                             onClick={() => setFilterEquipment(equip)}
                             className={`text-xs px-3 py-1 rounded-full border transition-colors ${
@@ -121,7 +119,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                             }`}
                         >
                             {equip || "All equipment"}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
@@ -226,20 +224,19 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                 <div className="flex justify-between items-center mt-4 pt-4 border-t">
                     <span className="text-sm text-muted-foreground">{selectedIds.size} exercise{selectedIds.size !== 1 ? "s" : ""} selected</span>
                     <div className="flex gap-3">
-                        <button
-                            className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-4 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                        <Button
+                            variant="outline"
                             onClick={() => setSelectedIds(new Set())}
                             disabled={selectedIds.size === 0}
                         >
                             Reset Selection
-                        </button>
-                        <button
-                            className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                        </Button>
+                        <Button
                             onClick={handleConfirm}
                             disabled={selectedIds.size === 0}
                         >
                             Add Selected
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

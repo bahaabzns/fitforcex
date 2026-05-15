@@ -3,24 +3,24 @@
 import { useState } from 'react';
 import api from '@/lib/axios';
 import { useRouter } from 'next/navigation';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { TextField } from '@heroui/react/textfield';
+import { Label } from '@heroui/react/label';
+import { Input } from '@heroui/react/input';
+import { Button } from '@heroui/react/button';
 
 export default function AdminLoginPage() {
     const router = useRouter();
-    const [formData, setFormData] = useState({ email: '', password: '' });
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
         try {
-            await api.post('/api/admin/login', formData);
+            await api.post('/api/admin/login', { email, password });
             router.push('/admin');
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
@@ -34,30 +34,16 @@ export default function AdminLoginPage() {
             <div className="auth-card">
                 <h1 className="auth-title">Admin Login</h1>
                 <form className="auth-form" onSubmit={handleSubmit}>
-                    <div className="auth-field">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                            id="email"
-                            name="email"
-                            type="email"
-                            required
-                            value={formData.email}
-                            onChange={handleChange}
-                        />
-                    </div>
-                    <div className="auth-field">
-                        <Label htmlFor="password">Password</Label>
-                        <Input
-                            id="password"
-                            name="password"
-                            type="password"
-                            required
-                            value={formData.password}
-                            onChange={handleChange}
-                        />
-                    </div>
+                    <TextField value={email} onChange={setEmail} isRequired>
+                        <Label>Email</Label>
+                        <Input type="email" />
+                    </TextField>
+                    <TextField value={password} onChange={setPassword} isRequired>
+                        <Label>Password</Label>
+                        <Input type="password" />
+                    </TextField>
                     {error && <p className="text-red-500 text-sm">{error}</p>}
-                    <Button type="submit" className="w-full" disabled={loading}>
+                    <Button type="submit" variant="primary" fullWidth isDisabled={loading}>
                         {loading ? 'Signing in…' : 'Sign in'}
                     </Button>
                 </form>

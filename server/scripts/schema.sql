@@ -2274,20 +2274,6 @@ ALTER TABLE ONLY public.workspaces
     ADD CONSTRAINT fk_workspaces_owner FOREIGN KEY (owner_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
 
---
--- Name: food_categories food_categories_coach_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.food_categories
-    ADD CONSTRAINT food_categories_coach_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: food_items food_items_coach_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.food_items
-    ADD CONSTRAINT food_items_coach_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

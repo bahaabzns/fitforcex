@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { Plus, Pencil, Star, Trash2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { Skeleton } from '@heroui/react/skeleton';
+import { Button } from '@heroui/react/button';
+import { Modal } from '@heroui/react/modal';
+import { AlertDialog } from '@heroui/react/alert-dialog';
 
 const EMPTY_FORM = { name: '', display_name: '', max_team_seats: '', max_workspaces: '', price_monthly: '', trial_days: '', is_active: true, is_default: false };
 
@@ -60,65 +61,99 @@ function PlanModal({ plan, onClose, onSaved }) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
-                <h2 className="text-base font-bold text-foreground">{isEdit ? 'Edit Plan' : 'New Plan'}</h2>
+        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <Modal.Backdrop>
+                <Modal.Container>
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>{isEdit ? 'Edit Plan' : 'New Plan'}</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body className="flex flex-col gap-4">
+                            {!isEdit && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-foreground">
+                                        Internal name <span className="text-muted-foreground">(e.g. pro)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="pro"
+                                        value={form.name}
+                                        onChange={e => set('name', e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    />
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-foreground">Display name</label>
+                                <input
+                                    type="text"
+                                    placeholder="Pro"
+                                    value={form.display_name}
+                                    onChange={e => set('display_name', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
+                            </div>
 
-                {!isEdit && (
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Internal name <span className="text-muted-foreground">(e.g. pro)</span></Label>
-                        <Input placeholder="pro" value={form.name} onChange={e => set('name', e.target.value)} />
-                    </div>
-                )}
-                <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs">Display name</Label>
-                    <Input placeholder="Pro" value={form.display_name} onChange={e => set('display_name', e.target.value)} />
-                </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-foreground">
+                                        Max team seats <span className="text-muted-foreground">(blank = unlimited)</span>
+                                    </label>
+                                    <input type="number" min="0" placeholder="∞" value={form.max_team_seats} onChange={e => set('max_team_seats', e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-foreground">
+                                        Max workspaces <span className="text-muted-foreground">(blank = unlimited)</span>
+                                    </label>
+                                    <input type="number" min="1" placeholder="∞" value={form.max_workspaces} onChange={e => set('max_workspaces', e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors" />
+                                </div>
+                            </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Max team seats <span className="text-muted-foreground">(blank = unlimited)</span></Label>
-                        <Input type="number" min="0" placeholder="∞" value={form.max_team_seats} onChange={e => set('max_team_seats', e.target.value)} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Max workspaces <span className="text-muted-foreground">(blank = unlimited)</span></Label>
-                        <Input type="number" min="1" placeholder="∞" value={form.max_workspaces} onChange={e => set('max_workspaces', e.target.value)} />
-                    </div>
-                </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-foreground">
+                                        Monthly price <span className="text-muted-foreground">(blank = TBD)</span>
+                                    </label>
+                                    <input type="number" min="0" step="0.01" placeholder="0.00" value={form.price_monthly} onChange={e => set('price_monthly', e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors" />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-foreground">
+                                        Trial days <span className="text-muted-foreground">(blank = no expiry)</span>
+                                    </label>
+                                    <input type="number" min="1" placeholder="—" value={form.trial_days} onChange={e => set('trial_days', e.target.value)}
+                                        className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors" />
+                                </div>
+                            </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Monthly price <span className="text-muted-foreground">(blank = TBD)</span></Label>
-                        <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.price_monthly} onChange={e => set('price_monthly', e.target.value)} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Trial days <span className="text-muted-foreground">(blank = no expiry)</span></Label>
-                        <Input type="number" min="1" placeholder="—" value={form.trial_days} onChange={e => set('trial_days', e.target.value)} />
-                    </div>
-                </div>
+                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
+                                Active
+                            </label>
 
-                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                    <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
-                    Active
-                </label>
+                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
+                                <span className="flex items-center gap-1">
+                                    <Star size={13} className="text-yellow-500" />
+                                    Default plan for new registrations
+                                </span>
+                            </label>
 
-                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                    <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
-                    <span className="flex items-center gap-1">
-                        <Star size={13} className="text-yellow-500" />
-                        Default plan for new registrations
-                    </span>
-                </label>
-
-                {error && <p className="text-sm text-red-500">{error}</p>}
-
-                <div className="flex gap-2 justify-end pt-1">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
-                </div>
-            </div>
-        </div>
+                            {error && <p className="text-sm text-red-500">{error}</p>}
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                                {saving ? 'Saving…' : 'Save'}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
     );
 }
 
@@ -140,22 +175,33 @@ function DeleteConfirmModal({ plan, onClose, onDeleted }) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="relative bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
-                <h2 className="text-base font-bold text-foreground">Delete Plan</h2>
-                <p className="text-sm text-muted-foreground">
-                    Are you sure you want to delete <span className="font-semibold text-foreground">{plan.display_name}</span>? This cannot be undone.
-                </p>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                <div className="flex gap-2 justify-end pt-1">
-                    <Button variant="outline" onClick={onClose} disabled={deleting}>Cancel</Button>
-                    <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                        {deleting ? 'Deleting…' : 'Delete'}
-                    </Button>
-                </div>
-            </div>
-        </div>
+        <AlertDialog isOpen={true} onOpenChange={(o) => !o && onClose()}>
+            <AlertDialog.Backdrop>
+                <AlertDialog.Container>
+                    <AlertDialog.Dialog>
+                        <AlertDialog.Header>
+                            <AlertDialog.Heading>Delete Plan</AlertDialog.Heading>
+                        </AlertDialog.Header>
+                        <AlertDialog.Body>
+                            <p className="text-sm text-muted-foreground">
+                                Are you sure you want to delete <span className="font-semibold text-foreground">{plan.display_name}</span>? This cannot be undone.
+                            </p>
+                            {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+                        </AlertDialog.Body>
+                        <AlertDialog.Footer>
+                            <Button variant="ghost" isDisabled={deleting} onClick={onClose}>Cancel</Button>
+                            <Button
+                                isDisabled={deleting}
+                                onClick={handleDelete}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                {deleting ? 'Deleting…' : 'Delete'}
+                            </Button>
+                        </AlertDialog.Footer>
+                    </AlertDialog.Dialog>
+                </AlertDialog.Container>
+            </AlertDialog.Backdrop>
+        </AlertDialog>
     );
 }
 
@@ -183,7 +229,7 @@ export default function AdminPlansPage() {
                     <h1 className="text-2xl font-bold text-foreground">Plans</h1>
                     <p className="text-sm text-muted-foreground mt-1">Manage subscription tiers</p>
                 </div>
-                <Button onClick={() => setModal('new')}>
+                <Button variant="primary" onClick={() => setModal('new')}>
                     <Plus size={15} className="mr-1.5" />
                     New Plan
                 </Button>
@@ -206,7 +252,7 @@ export default function AdminPlansPage() {
 
                 {loading ? (
                     Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="h-12 border-t border-border bg-secondary/20 animate-pulse" />
+                        <Skeleton key={i} className="h-12 border-t border-border rounded-none" />
                     ))
                 ) : plans.length === 0 ? (
                     <div className="py-14 text-center text-sm text-muted-foreground border-t border-border">No plans found.</div>

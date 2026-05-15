@@ -1,6 +1,7 @@
 'use client'
 
 import Link from "next/link";
+import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
@@ -106,15 +107,14 @@ export default function Sidebar({ collapsed }) {
     return (
         <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
             {/* Brand */}
-            <div className={`flex items-center px-4 py-4 shrink-0 ${collapsed ? 'justify-center' : 'gap-2.5'}`}>
-                <div className="size-8 rounded-2xl bg-primary flex items-center justify-center shrink-0">
-                    <span className="text-sm font-bold text-white">F</span>
-                </div>
-                {!collapsed && (
-                    <span className="text-sm font-semibold truncate text-foreground" style={{ letterSpacing: '-0.2px' }}>
-                        FitForce X
-                    </span>
-                )}
+            <div className={`flex items-center px-4 h-16 shrink-0 ${collapsed ? 'justify-center' : 'gap-2'}`}>
+                {collapsed
+                    ? <NextImage src="/dark - i.png" alt="FitForce X" width={32} height={32} className="shrink-0" />
+                    : <>
+                        <NextImage src="/Dark - H.png" alt="FitForce X" width={148} height={40} className="shrink-0" />
+                        <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px] ml-auto">Beta</Chip>
+                      </>
+                }
             </div>
 
             <Separator />
@@ -204,6 +204,82 @@ export default function Sidebar({ collapsed }) {
                         >
                             <Users size={17} className="shrink-0" />
                             {!collapsed && 'Clients'}
+                        </Link>
+                    </li>
+
+                    <li>
+                        {collapsed ? (
+                            <button
+                                title="Finance"
+                                className={`${navLink(pathname.includes('/finance'))} justify-center px-0 w-full`}
+                            >
+                                <Wallet size={17} className="shrink-0" />
+                            </button>
+                        ) : (
+                            <Disclosure isExpanded={financeOpen} onExpandedChange={setFinanceOpen}>
+                                <Disclosure.Heading>
+                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/finance'))} w-full`}>
+                                        <Wallet size={17} className="shrink-0" />
+                                        <span className="flex-1 text-left">Finance</span>
+                                        {financeOpen
+                                            ? <ChevronDown size={14} className="shrink-0" />
+                                            : <ChevronRight size={14} className="shrink-0" />
+                                        }
+                                    </Disclosure.Trigger>
+                                </Disclosure.Heading>
+                                <Disclosure.Content>
+                                    <Disclosure.Body>
+                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/finance/transactions`}
+                                                    className={subLink(pathname.includes('/finance/transactions'))}
+                                                >
+                                                    Transactions
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/finance/packages`}
+                                                    className={subLink(pathname.includes('/finance/packages'))}
+                                                >
+                                                    Packages
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link
+                                                    href={`/${slug}/finance/payment-methods`}
+                                                    className={subLink(pathname.includes('/finance/payment-methods'))}
+                                                >
+                                                    Payment Methods
+                                                </Link>
+                                            </li>
+                                        </ul>
+                                    </Disclosure.Body>
+                                </Disclosure.Content>
+                            </Disclosure>
+                        )}
+                    </li>
+
+                    <li>
+                        <Link
+                            href={`/${slug}/plans-queue`}
+                            title={collapsed ? 'Plans Queue' : undefined}
+                            className={`${navLink(pathname.includes('/plans-queue'))} ${collapsed ? 'justify-center px-0' : ''}`}
+                        >
+                            <ClipboardList size={17} className="shrink-0" />
+                            {!collapsed && 'Plans Queue'}
+                        </Link>
+                    </li>
+
+                    <li>
+                        <Link
+                            href={`/${slug}/forms`}
+                            title={collapsed ? 'Forms' : undefined}
+                            className={`${navLink(pathname.includes('/forms'))} ${collapsed ? 'justify-center px-0' : ''}`}
+                        >
+                            <ClipboardList size={17} className="shrink-0" />
+                            {!collapsed && 'Forms'}
                         </Link>
                     </li>
 
@@ -305,82 +381,6 @@ export default function Sidebar({ collapsed }) {
                                 </Disclosure.Content>
                             </Disclosure>
                         )}
-                    </li>
-
-                    <li>
-                        {collapsed ? (
-                            <button
-                                title="Finance"
-                                className={`${navLink(pathname.includes('/finance'))} justify-center px-0 w-full`}
-                            >
-                                <Wallet size={17} className="shrink-0" />
-                            </button>
-                        ) : (
-                            <Disclosure isExpanded={financeOpen} onExpandedChange={setFinanceOpen}>
-                                <Disclosure.Heading>
-                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/finance'))} w-full`}>
-                                        <Wallet size={17} className="shrink-0" />
-                                        <span className="flex-1 text-left">Finance</span>
-                                        {financeOpen
-                                            ? <ChevronDown size={14} className="shrink-0" />
-                                            : <ChevronRight size={14} className="shrink-0" />
-                                        }
-                                    </Disclosure.Trigger>
-                                </Disclosure.Heading>
-                                <Disclosure.Content>
-                                    <Disclosure.Body>
-                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
-                                            <li>
-                                                <Link
-                                                    href={`/${slug}/finance/transactions`}
-                                                    className={subLink(pathname.includes('/finance/transactions'))}
-                                                >
-                                                    Transactions
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link
-                                                    href={`/${slug}/finance/packages`}
-                                                    className={subLink(pathname.includes('/finance/packages'))}
-                                                >
-                                                    Packages
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link
-                                                    href={`/${slug}/finance/payment-methods`}
-                                                    className={subLink(pathname.includes('/finance/payment-methods'))}
-                                                >
-                                                    Payment Methods
-                                                </Link>
-                                            </li>
-                                        </ul>
-                                    </Disclosure.Body>
-                                </Disclosure.Content>
-                            </Disclosure>
-                        )}
-                    </li>
-
-                    <li>
-                        <Link
-                            href={`/${slug}/forms`}
-                            title={collapsed ? 'Forms' : undefined}
-                            className={`${navLink(pathname.includes('/forms'))} ${collapsed ? 'justify-center px-0' : ''}`}
-                        >
-                            <ClipboardList size={17} className="shrink-0" />
-                            {!collapsed && 'Forms'}
-                        </Link>
-                    </li>
-
-                    <li>
-                        <Link
-                            href={`/${slug}/plans-queue`}
-                            title={collapsed ? 'Plans Queue' : undefined}
-                            className={`${navLink(pathname.includes('/plans-queue'))} ${collapsed ? 'justify-center px-0' : ''}`}
-                        >
-                            <ClipboardList size={17} className="shrink-0" />
-                            {!collapsed && 'Plans Queue'}
-                        </Link>
                     </li>
 
                     <li>
