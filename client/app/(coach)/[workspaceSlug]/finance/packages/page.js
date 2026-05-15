@@ -201,7 +201,7 @@ function emptyVariation() {
     return { name: "", description: "", duration: "", price: "", currency: "EGP" };
 }
 
-const activeBadge   = "bg-green-100 text-green-600 hover:bg-green-100/80";
+const activeBadge   = "bg-green-500/15 text-green-600 hover:bg-green-500/25";
 const inactiveBadge = "bg-secondary text-muted-foreground hover:bg-secondary/80";
 
 export default function PackagesPage() {

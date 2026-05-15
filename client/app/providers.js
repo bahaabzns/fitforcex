@@ -1,11 +1,18 @@
 'use client';
 
-import { HeroUIProvider } from '@heroui/react';
+import { RouterProvider } from '@heroui/react';
+import { ThemeProvider } from 'next-themes';
 
-export function Providers({ children }) {
+export function Providers({ children, defaultTheme = 'system' }) {
     return (
-        <HeroUIProvider>
-            {children}
-        </HeroUIProvider>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme={defaultTheme}
+            enableSystem
+        >
+            <RouterProvider>
+                {children}
+            </RouterProvider>
+        </ThemeProvider>
     );
 }

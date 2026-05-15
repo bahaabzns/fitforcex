@@ -94,13 +94,13 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
     }
 
     function shortDate(dateStr) {
-        if (!dateStr) return <span className="text-zinc-600">-</span>;
+        if (!dateStr) return <span className="text-muted-foreground">-</span>;
         const d = new Date(dateStr);
-        if (Number.isNaN(d.getTime())) return <span className="text-zinc-400 text-xs">{dateStr}</span>;
+        if (Number.isNaN(d.getTime())) return <span className="text-muted-foreground/60 text-xs">{dateStr}</span>;
         return (
-            <span className="text-zinc-500 text-xs whitespace-nowrap">
+            <span className="text-muted-foreground text-xs whitespace-nowrap">
                 {d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                <span className="text-zinc-600 ml-1">
+                <span className="text-muted-foreground ml-1">
                     {d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}
                 </span>
             </span>
@@ -135,7 +135,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             filterType: "text",
             width: "70px",
             cardPriority: "secondary",
-            render: (row) => <span className="text-zinc-500 font-mono text-xs">#{row.clientCode ?? "-"}</span>,
+            render: (row) => <span className="text-muted-foreground font-mono text-xs">#{row.clientCode ?? "-"}</span>,
         },
         {
             key: "clientName",
@@ -146,8 +146,8 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             cardPriority: "primary",
             render: (row) => (
                 <div className="min-w-0">
-                    <p className="text-zinc-900 font-medium text-sm truncate">{row.clientName}</p>
-                    <p className="text-zinc-500 text-[10px] truncate">{row.clientEmail}</p>
+                    <p className="text-foreground font-medium text-sm truncate">{row.clientName}</p>
+                    <p className="text-muted-foreground text-[10px] truncate">{row.clientEmail}</p>
                 </div>
             ),
         },
@@ -159,7 +159,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             sortable: true,
             width: "180px",
             cardPriority: "primary",
-            render: (row) => <span className="text-zinc-900 text-sm">{row.formTitle}</span>,
+            render: (row) => <span className="text-foreground text-sm">{row.formTitle}</span>,
         },
         {
             key: "formType",
@@ -242,7 +242,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     return (
                         <div className="flex items-center gap-2">
                             {typeBadge}
-                            <span className="text-zinc-500 text-xs italic whitespace-nowrap">Waiting for client</span>
+                            <span className="text-muted-foreground text-xs italic whitespace-nowrap">Waiting for client</span>
                         </div>
                     );
                 }
@@ -260,7 +260,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     <div className="flex items-center gap-1">
                         <button
                             onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === row.id ? null : row.id); }}
-                            className="text-zinc-500 hover:text-zinc-900 text-xs px-2 py-1 rounded hover:bg-zinc-100 transition-colors"
+                            className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded hover:bg-accent transition-colors"
                         >
                             {expandedId === row.id ? "Hide" : "View"}
                         </button>
@@ -271,7 +271,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                         e.stopPropagation();
                                         router.push(`/clients/${row.clientId}/nutrition?submissionId=${row.id}`);
                                     }}
-                                    className="text-amber-600 hover:text-amber-700 text-[11px] px-2 py-1 rounded hover:bg-amber-100 transition-colors whitespace-nowrap"
+                                    className="text-amber-600 hover:text-amber-700 text-[11px] px-2 py-1 rounded hover:bg-amber-500/15 transition-colors whitespace-nowrap"
                                 >
                                     Open Nutrition
                                 </button>
@@ -289,7 +289,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                 <button
                                     onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "review"); }}
                                     disabled={marking}
-                                    className="text-emerald-600 hover:text-emerald-700 text-[11px] px-2 py-1 rounded hover:bg-emerald-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    className="text-emerald-600 hover:text-emerald-700 text-[11px] px-2 py-1 rounded hover:bg-emerald-500/15 transition-colors disabled:opacity-50 whitespace-nowrap"
                                 >
                                     Mark Reviewed
                                 </button>
@@ -299,7 +299,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                             <button
                                 onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "undo"); }}
                                 disabled={marking}
-                                className="text-zinc-600 hover:text-zinc-800 text-[11px] px-2 py-1 rounded hover:bg-zinc-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                className="text-muted-foreground hover:text-foreground text-[11px] px-2 py-1 rounded hover:bg-accent transition-colors disabled:opacity-50 whitespace-nowrap"
                             >
                                 Undo
                             </button>
@@ -315,16 +315,16 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         if (questions.length > 0) {
             return questions.map((q) => (
                 <div key={q.id} className="flex flex-col gap-0.5">
-                    <span className="text-zinc-500 text-xs">{q.label}</span>
-                    <span className="text-zinc-900 text-sm">{formatAnswer(row.answers?.[q.id])}</span>
+                    <span className="text-muted-foreground text-xs">{q.label}</span>
+                    <span className="text-foreground text-sm">{formatAnswer(row.answers?.[q.id])}</span>
                 </div>
             ));
         }
 
         return (row.responses || []).map((r, index) => (
             <div key={`${row.id}-${index}`} className="flex flex-col gap-0.5">
-                <span className="text-zinc-500 text-xs">{r.label || `Question ${index + 1}`}</span>
-                <span className="text-zinc-900 text-sm">{formatAnswer(r.answer)}</span>
+                <span className="text-muted-foreground text-xs">{r.label || `Question ${index + 1}`}</span>
+                <span className="text-foreground text-sm">{formatAnswer(r.answer)}</span>
             </div>
         ));
     }
@@ -335,8 +335,8 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         return (
             <tr key={`expanded-${row.id}`}>
                 <td colSpan={columns.length + 1} className="px-4 py-0">
-                    <div className="bg-zinc-100 rounded-lg p-4 my-2 border border-zinc-200">
-                        <h4 className="text-zinc-900 text-sm font-semibold mb-3">
+                    <div className="bg-secondary rounded-lg p-4 my-2 border border-border">
+                        <h4 className="text-foreground text-sm font-semibold mb-3">
                             Submission Answers - {row.formTitle}
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -352,8 +352,8 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         if (expandedId !== row.id || row.status === "awaiting" || row.status === "scheduled") return null;
 
         return (
-            <div className="mt-3 bg-zinc-100 rounded-lg p-4 border border-zinc-200">
-                <h4 className="text-zinc-900 text-sm font-semibold mb-3">Submission Answers</h4>
+            <div className="mt-3 bg-secondary rounded-lg p-4 border border-border">
+                <h4 className="text-foreground text-sm font-semibold mb-3">Submission Answers</h4>
                 <div className="flex flex-col gap-3">{renderAnswers(row)}</div>
             </div>
         );
@@ -364,16 +364,16 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold">Plans Queue</h1>
-                    <p className="text-zinc-500 text-sm mt-1">Review submitted forms and trigger client plan work.</p>
+                    <p className="text-muted-foreground text-sm mt-1">Review submitted forms and trigger client plan work.</p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-blue-400" />
                         <span className="text-primary text-sm font-medium">{scheduledCount} Scheduled</span>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-500/10 rounded-lg">
-                        <div className="w-2 h-2 rounded-full bg-zinc-500" />
-                        <span className="text-zinc-500 text-sm font-medium">{awaitingCount} Awaiting</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
+                        <div className="w-2 h-2 rounded-full bg-muted-foreground/50" />
+                        <span className="text-muted-foreground text-sm font-medium">{awaitingCount} Awaiting</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-amber-400" />
@@ -385,15 +385,15 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-zinc-500 text-xs">Action Type:</span>
+                    <span className="text-muted-foreground text-xs">Action Type:</span>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-lg">
                         <span className="text-amber-500 text-sm font-medium">{nutritionPlanCount} Nutrition</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
                         <span className="text-primary text-sm font-medium">{workoutPlanCount} Workout</span>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-500/10 rounded-lg">
-                        <span className="text-zinc-500 text-sm font-medium">{noActionCount} No Action</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
+                        <span className="text-muted-foreground text-sm font-medium">{noActionCount} No Action</span>
                     </div>
                 </div>
             </div>

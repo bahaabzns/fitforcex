@@ -57,7 +57,7 @@ function UserDrawer({ userId, onClose }) {
                                             <p className="font-semibold text-foreground">{user.fname} {user.lname}</p>
                                             <p className="text-sm text-muted-foreground">{user.email}</p>
                                             {user.is_admin && (
-                                                <Chip size="sm" className="bg-orange-100 text-orange-700 mt-1">Admin</Chip>
+                                                <Chip size="sm" className="bg-orange-500/15 text-orange-700 mt-1">Admin</Chip>
                                             )}
                                         </div>
                                     </div>
@@ -83,7 +83,7 @@ function UserDrawer({ userId, onClose }) {
                                                             {w.role}
                                                         </Chip>
                                                         {w.archived_at && (
-                                                            <Chip size="sm" className="bg-orange-100 text-orange-600">archived</Chip>
+                                                            <Chip size="sm" className="bg-orange-500/15 text-orange-600">archived</Chip>
                                                         )}
                                                     </div>
                                                 ))}
@@ -178,7 +178,7 @@ export default function AdminUsersPage() {
                                 </Avatar>
                                 <span className="text-sm font-medium text-foreground truncate">{u.fname} {u.lname}</span>
                                 {u.is_admin && (
-                                    <Chip size="sm" className="bg-orange-100 text-orange-700 shrink-0">Admin</Chip>
+                                    <Chip size="sm" className="bg-orange-500/15 text-orange-700 shrink-0">Admin</Chip>
                                 )}
                             </div>
                             <span className="text-sm text-muted-foreground truncate">{u.email}</span>

@@ -19,14 +19,14 @@ const TYPE_LABELS = {
 };
 
 const TYPE_COLORS = {
-    cash:          "bg-emerald-50 text-emerald-700",
-    card:          "bg-blue-50 text-blue-600",
-    wallet:        "bg-purple-50 text-purple-600",
-    bank_transfer: "bg-orange-50 text-orange-600",
+    cash:          "bg-emerald-500/15 text-emerald-600",
+    card:          "bg-blue-500/15 text-blue-600",
+    wallet:        "bg-purple-500/15 text-purple-600",
+    bank_transfer: "bg-orange-500/15 text-orange-600",
 };
 
 const editInputCls = "w-full px-2 py-1 rounded-lg border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
-const activeBadge   = "bg-green-100 text-green-600 hover:bg-green-100/80";
+const activeBadge   = "bg-green-500/15 text-green-600 hover:bg-green-500/25";
 const inactiveBadge = "bg-secondary text-muted-foreground hover:bg-secondary/80";
 
 export default function PaymentMethodsPage() {

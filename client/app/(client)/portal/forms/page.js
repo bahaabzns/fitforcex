@@ -44,7 +44,7 @@ export default function ClientFormsListPage() {
             <div className="flex items-center gap-3 mb-6">
                 <h1 className="text-2xl font-bold text-foreground flex-1">Forms</h1>
                 {pendingCount > 0 && (
-                    <Chip size="sm" className="bg-yellow-100 text-yellow-700">{pendingCount} pending</Chip>
+                    <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">{pendingCount} pending</Chip>
                 )}
             </div>
 
@@ -107,7 +107,7 @@ export default function ClientFormsListPage() {
                                 <div className="flex items-center gap-2 shrink-0">
                                     {req.status === "pending" ? (
                                         <>
-                                            <Chip size="sm" className="bg-yellow-100 text-yellow-700">
+                                            <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">
                                                 <Clock size={11} className="mr-1" /> Pending
                                             </Chip>
                                             <Link
@@ -119,7 +119,7 @@ export default function ClientFormsListPage() {
                                         </>
                                     ) : req.status === "scheduled" ? (
                                         <div className="flex items-center gap-2">
-                                            <Chip size="sm" className="bg-blue-100 text-blue-700">
+                                            <Chip size="sm" className="bg-blue-500/15 text-blue-600">
                                                 <CalendarClock size={11} className="mr-1" /> Scheduled
                                             </Chip>
                                             <span className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
@@ -128,7 +128,7 @@ export default function ClientFormsListPage() {
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-2">
-                                            <Chip size="sm" className="bg-green-100 text-green-700">
+                                            <Chip size="sm" className="bg-green-500/15 text-green-700">
                                                 <CheckCircle size={11} className="mr-1" /> Submitted
                                             </Chip>
                                             <Link

@@ -75,15 +75,15 @@ export default function ClientTrainingPage() {
                         <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">Active Training Plan</p>
                         <h2 className="text-lg font-bold text-foreground">{trainingPlan.name}</h2>
                     </div>
-                    <Chip size="sm" className="bg-green-100 text-green-700">Active</Chip>
+                    <Chip size="sm" className="bg-green-500/15 text-green-700">Active</Chip>
                 </Card.Content>
             </Card>
 
             {/* Plan notes */}
             {trainingPlan.notes && (
-                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-6">
-                    <p className="text-xs font-semibold text-yellow-700 mb-1">Coach Note</p>
-                    <p className="text-sm text-yellow-800 whitespace-pre-wrap">{trainingPlan.notes}</p>
+                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-6">
+                    <p className="text-xs font-semibold text-yellow-600 mb-1">Coach Note</p>
+                    <p className="text-sm text-yellow-600 whitespace-pre-wrap">{trainingPlan.notes}</p>
                 </div>
             )}
 
@@ -169,7 +169,7 @@ export default function ClientTrainingPage() {
                                                     <Chip size="sm" className="bg-secondary text-foreground">{exercise.muscle_group}</Chip>
                                                 )}
                                                 {exercise.equipment && (
-                                                    <Chip size="sm" className="bg-violet-50 text-violet-600">{exercise.equipment}</Chip>
+                                                    <Chip size="sm" className="bg-violet-500/15 text-violet-600">{exercise.equipment}</Chip>
                                                 )}
                                             </div>
                                         </div>

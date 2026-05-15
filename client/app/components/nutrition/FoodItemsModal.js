@@ -152,10 +152,10 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                     <td className="p-2 text-muted-foreground">{fi.serving_size} {fi.serving_unit}</td>
                                     <td className="p-2">
                                         <div className="flex gap-1 flex-wrap">
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800">{fi.calories_per_serving} kcal</span>
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 border border-blue-300 text-blue-800">P {fi.protein_per_serving}g</span>
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-lime-100 border border-lime-300 text-lime-800">C {fi.carbs_per_serving}g</span>
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 border border-purple-300 text-purple-800">F {fi.fats_per_serving}g</span>
+                                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-600">{fi.calories_per_serving} kcal</span>
+                                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-600">P {fi.protein_per_serving}g</span>
+                                            <span className="text-xs px-1.5 py-0.5 rounded bg-lime-500/15 border border-lime-500/30 text-lime-600">C {fi.carbs_per_serving}g</span>
+                                            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 text-purple-600">F {fi.fats_per_serving}g</span>
                                         </div>
                                     </td>
                                 </tr>

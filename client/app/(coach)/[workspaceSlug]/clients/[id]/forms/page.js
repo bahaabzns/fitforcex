@@ -144,7 +144,7 @@ export default function ClientFormsPage() {
                         <h2 className="text-base font-semibold text-foreground">Form Requests</h2>
                         <div className="flex items-center gap-2">
                             {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length > 0 && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 font-medium">
                                     {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length} open
                                 </span>
                             )}
@@ -179,15 +179,15 @@ export default function ClientFormsPage() {
                                     <div className="flex items-start justify-between gap-2">
                                         <p className="text-sm font-medium text-foreground truncate flex-1">{req.form_title}</p>
                                         {req.status === 'pending' ? (
-                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium shrink-0">
+                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 font-medium shrink-0">
                                                 <Clock size={10} /> Pending
                                             </span>
                                         ) : req.status === 'scheduled' ? (
-                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium shrink-0">
+                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 font-medium shrink-0">
                                                 <CalendarClock size={10} /> Scheduled
                                             </span>
                                         ) : (
-                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium shrink-0">
+                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 font-medium shrink-0">
                                                 <CheckCircle size={10} /> Submitted
                                             </span>
                                         )}
@@ -248,11 +248,11 @@ export default function ClientFormsPage() {
                                     {selected.status === 'pending' || selected.status === 'scheduled' ? (
                                         <>
                                             {selected.status === 'scheduled' ? (
-                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-600 font-medium">
                                                     <CalendarClock size={11} /> Scheduled
                                                 </span>
                                             ) : (
-                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium">
+                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-500/15 text-yellow-600 font-medium">
                                                     <Clock size={11} /> Pending
                                                 </span>
                                             )}
@@ -264,7 +264,7 @@ export default function ClientFormsPage() {
                                             </button>
                                         </>
                                     ) : (
-                                        <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-medium">
+                                        <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-500/15 text-green-700 font-medium">
                                             <CheckCircle size={11} /> Submitted
                                         </span>
                                     )}
@@ -277,13 +277,13 @@ export default function ClientFormsPage() {
                                     <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
                                         {selected.status === 'scheduled' ? (
                                             <>
-                                                <CalendarClock size={36} className="text-blue-300" />
+                                                <CalendarClock size={36} className="text-blue-500" />
                                                 <p className="text-sm font-medium text-muted-foreground">Form is scheduled</p>
                                                 <p className="text-xs text-muted-foreground/70">Client will receive it at {selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : 'the selected time'}.</p>
                                             </>
                                         ) : (
                                             <>
-                                                <Clock size={36} className="text-yellow-300" />
+                                                <Clock size={36} className="text-yellow-500" />
                                                 <p className="text-sm font-medium text-muted-foreground">Waiting for client to respond</p>
                                                 <p className="text-xs text-muted-foreground/70">The client will see this form when they log in.</p>
                                             </>

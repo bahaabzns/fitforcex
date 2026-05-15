@@ -17,19 +17,19 @@ const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background 
 
 function statusColor(status) {
     switch (status) {
-        case "completed": return "bg-green-100 text-green-600";
-        case "refunded":  return "bg-red-50 text-destructive";
+        case "completed": return "bg-green-500/15 text-green-600";
+        case "refunded":  return "bg-destructive/10 text-destructive";
         default:          return "bg-secondary text-muted-foreground";
     }
 }
 
 function subStatusColor(s) {
     switch (s) {
-        case "Active":    return "bg-green-100 text-green-600";
-        case "Expired":   return "bg-red-50 text-destructive";
-        case "Frozen":    return "bg-blue-50 text-blue-600";
-        case "Pre-start": return "bg-yellow-50 text-yellow-600";
-        case "Refunded":  return "bg-purple-50 text-purple-600";
+        case "Active":    return "bg-green-500/15 text-green-600";
+        case "Expired":   return "bg-destructive/10 text-destructive";
+        case "Frozen":    return "bg-blue-500/15 text-blue-600";
+        case "Pre-start": return "bg-yellow-500/15 text-yellow-600";
+        case "Refunded":  return "bg-purple-500/15 text-purple-600";
         default:          return "bg-secondary text-muted-foreground";
     }
 }

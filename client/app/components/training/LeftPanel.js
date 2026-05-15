@@ -171,12 +171,12 @@ export default function LeftPanel({
                                                                 {plan.name}
                                                             </p>
                                                             {plan.status === "active" && (
-                                                                <Chip size="sm" className="bg-green-100 text-green-600 shrink-0">
+                                                                <Chip size="sm" className="bg-green-500/15 text-green-600 shrink-0">
                                                                     <span className="flex items-center gap-0.5"><CheckIcon /> Active</span>
                                                                 </Chip>
                                                             )}
                                                             {isPlanDirty && (
-                                                                <Chip size="sm" className="bg-amber-50 text-amber-700 border border-amber-200/70 shrink-0">
+                                                                <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
                                                                     Unsaved
                                                                 </Chip>
                                                             )}

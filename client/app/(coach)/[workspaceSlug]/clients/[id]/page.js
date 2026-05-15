@@ -289,7 +289,7 @@ export default function ClientOverviewPage() {
               </div>
               {tempPassword && (
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                  <p className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-1.5">
                     Save this password — it won&apos;t be shown again after you leave the page.
                   </p>
                   <Button

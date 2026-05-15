@@ -11,12 +11,12 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
 
 const STATUS_CHIP = {
-    Active:      "bg-green-100 text-green-700",
-    Expired:     "bg-red-50 text-red-600",
-    Frozen:      "bg-blue-50 text-blue-600",
-    "Pre-start": "bg-yellow-50 text-yellow-600",
+    Active:      "bg-green-500/15 text-green-700",
+    Expired:     "bg-destructive/10 text-destructive",
+    Frozen:      "bg-blue-500/15 text-blue-600",
+    "Pre-start": "bg-yellow-500/15 text-yellow-600",
     Cancelled:   "bg-secondary text-muted-foreground",
-    Refunded:    "bg-purple-50 text-purple-600",
+    Refunded:    "bg-purple-500/15 text-purple-600",
 };
 
 export default function DashboardPage() {

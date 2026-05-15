@@ -159,7 +159,7 @@ export default function TrainingPage({ onDirtyChange }) {
                         />
                     ) : (
                         <div className="card w-full flex flex-col overflow-hidden min-h-full">
-                            <p className="text-gray-600 text-center flex justify-center items-center h-full">Select a training plan to view details</p>
+                            <p className="text-muted-foreground text-center flex justify-center items-center h-full">Select a training plan to view details</p>
                         </div>
                     )}
                 </div>

@@ -209,7 +209,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                         </td>
                                         <td className="p-2">
                                             {item.equipment
-                                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-600">{item.equipment}</span>
+                                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600">{item.equipment}</span>
                                                 : <span className="text-muted-foreground/40">—</span>
                                             }
                                         </td>

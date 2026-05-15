@@ -81,7 +81,7 @@ export default function ClientDashboardPage() {
                                 <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">Active Plan</p>
                                 <h2 className="text-lg font-bold text-foreground">{plan.name}</h2>
                             </div>
-                            <Chip size="sm" className="bg-green-100 text-green-700">Active</Chip>
+                            <Chip size="sm" className="bg-green-500/15 text-green-700">Active</Chip>
                         </Card.Content>
                     </Card>
 
@@ -131,9 +131,9 @@ export default function ClientDashboardPage() {
 
                             {/* Cycle Note */}
                             {cycle.note && (
-                                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-6">
-                                    <p className="text-xs font-semibold text-yellow-700 mb-1">Coach Note</p>
-                                    <p className="text-sm text-yellow-800 whitespace-pre-wrap">{cycle.note}</p>
+                                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-6">
+                                    <p className="text-xs font-semibold text-yellow-600 mb-1">Coach Note</p>
+                                    <p className="text-sm text-yellow-600 whitespace-pre-wrap">{cycle.note}</p>
                                 </div>
                             )}
 

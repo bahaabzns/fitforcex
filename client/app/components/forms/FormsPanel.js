@@ -166,7 +166,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                 <div className="flex items-center gap-2">
                     <p className="text-sm font-medium truncate text-foreground flex-1">{form.title}</p>
                     {form.status === 'active' && (
-                        <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 text-xs font-semibold">
+                        <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 text-xs font-semibold">
                             <CheckIcon /> Active
                         </span>
                     )}
@@ -183,7 +183,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                 {form.status !== 'active' && (
                     <button
                         title="Set to Active"
-                        className="cursor-pointer px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:border-green-500 hover:text-green-600 hover:bg-green-50 text-xs font-medium transition-colors"
+                        className="cursor-pointer px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:border-green-500 hover:text-green-600 hover:bg-green-500/10 text-xs font-medium transition-colors"
                         onClick={(e) => { e.stopPropagation(); onUpdate({ status: 'active' }); }}
                     >
                         Activate

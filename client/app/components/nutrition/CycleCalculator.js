@@ -344,7 +344,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                         <div className="flex items-center justify-between mb-3">
                             <SectionLabel>Macro Split</SectionLabel>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                totalPct === 100 ? "bg-green-100 text-green-700" : "bg-destructive/10 text-destructive"
+                                totalPct === 100 ? "bg-green-500/15 text-green-700" : "bg-destructive/10 text-destructive"
                             }`}>
                                 {totalPct}%
                             </span>
@@ -396,7 +396,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                                         return false;
                                     })();
                                     return (
-                                        <div key={label} className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${isHighlighted ? "bg-amber-50 border border-amber-200" : ""}`}>
+                                        <div key={label} className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${isHighlighted ? "bg-amber-500/10 border border-amber-500/20" : ""}`}>
                                             <span className={`text-xs font-medium ${isHighlighted ? "text-amber-600" : "text-muted-foreground"}`}>
                                                 {isHighlighted && "▶ "}{label}
                                             </span>

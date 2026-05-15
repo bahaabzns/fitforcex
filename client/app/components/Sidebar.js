@@ -27,6 +27,7 @@ import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure } from "@heroui/react/disclosure";
 import { Separator } from "@heroui/react/separator";
+import { ThemeToggle } from "./ThemeToggle";
 
 const navLink = (active) =>
     `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
@@ -442,6 +443,13 @@ export default function Sidebar({ collapsed }) {
                                 </span>
                             </div>
                         )}
+                        {!collapsed && <ThemeToggle />}
+                    </div>
+                )}
+
+                {collapsed && (
+                    <div className="flex justify-center">
+                        <ThemeToggle />
                     </div>
                 )}
 

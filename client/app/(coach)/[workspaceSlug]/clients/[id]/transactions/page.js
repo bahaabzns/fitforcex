@@ -23,8 +23,8 @@ function fmtDate(d) {
 
 function StatusBadge({ status }) {
     const cls = status === "completed"
-        ? "bg-green-100 text-green-600"
-        : "bg-red-50 text-destructive";
+        ? "bg-green-500/15 text-green-600"
+        : "bg-destructive/10 text-destructive";
     return (
         <Chip size="sm" className={`capitalize ${cls}`}>
             {status}
@@ -34,11 +34,11 @@ function StatusBadge({ status }) {
 
 function subStatusColor(s) {
     switch (s) {
-        case "Active":    return "bg-green-100 text-green-600";
-        case "Expired":   return "bg-red-50 text-destructive";
-        case "Frozen":    return "bg-blue-50 text-blue-600";
-        case "Pre-start": return "bg-yellow-50 text-yellow-600";
-        case "Refunded":  return "bg-purple-50 text-purple-600";
+        case "Active":    return "bg-green-500/15 text-green-600";
+        case "Expired":   return "bg-destructive/10 text-destructive";
+        case "Frozen":    return "bg-blue-500/15 text-blue-600";
+        case "Pre-start": return "bg-yellow-500/15 text-yellow-600";
+        case "Refunded":  return "bg-purple-500/15 text-purple-600";
         default:          return "bg-secondary text-muted-foreground";
     }
 }
@@ -416,9 +416,9 @@ export default function ClientTransactionsPage() {
             {(displayPeriod || isPreStart || hasNoSubscriptions) && (
                 <div className={`rounded-lg bg-card text-card-foreground shadow-sm p-6 border ${
                     hasNoSubscriptions ? "border-border bg-background" :
-                    isFrozen   ? "border-blue-300/50 bg-blue-50/40" :
-                    isExpired  ? "border-destructive/30 bg-red-50/50" :
-                    isPreStart ? "border-yellow-300/50 bg-yellow-50/40" :
+                    isFrozen   ? "border-blue-500/30 bg-blue-500/5" :
+                    isExpired  ? "border-destructive/30 bg-destructive/5" :
+                    isPreStart ? "border-yellow-500/30 bg-yellow-500/5" :
                                  "border-green-600/30 bg-green-100/5"
                 }`}>
                     <div className="flex items-start justify-between gap-4">
@@ -814,7 +814,7 @@ export default function ClientTransactionsPage() {
             <Modal open={showFreezeModal} onClose={() => setShowFreezeModal(false)} title="Add Subscription Freeze">
                 <form onSubmit={handleAddFreeze} className="flex flex-col gap-3">
                     {freezeError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                             <p className="text-destructive text-xs">{freezeError}</p>
                         </div>
                     )}

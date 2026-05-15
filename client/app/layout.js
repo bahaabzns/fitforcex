@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -6,11 +7,14 @@ export const metadata = {
     description: "Fitness coaching platform",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+    const cookieStore = await cookies();
+    const theme = cookieStore.get("theme")?.value ?? "system";
+
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <body>
-                <Providers>{children}</Providers>
+                <Providers defaultTheme={theme}>{children}</Providers>
             </body>
         </html>
     );

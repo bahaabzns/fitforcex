@@ -158,7 +158,7 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                             <div className="flex items-center gap-2 mb-1">
                                                 <h3 className="text-base font-semibold text-foreground">{workspace.name}</h3>
                                                 {workspace.archived_at && (
-                                                    <Chip size="sm" className="bg-orange-100 text-orange-700">Archived</Chip>
+                                                    <Chip size="sm" className="bg-orange-500/15 text-orange-700">Archived</Chip>
                                                 )}
                                             </div>
                                             <p className="text-sm text-muted-foreground">/{workspace.slug}</p>
@@ -222,7 +222,7 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                                     Restore Workspace
                                                 </Button>
                                             ) : (
-                                                <Button variant="outline" className="w-full text-orange-600 border-orange-200 hover:bg-orange-50" isDisabled={actionLoading} onClick={handleArchive}>
+                                                <Button variant="outline" className="w-full text-orange-600 border-orange-500/30 hover:bg-orange-500/10" isDisabled={actionLoading} onClick={handleArchive}>
                                                     <Archive size={14} className="mr-1.5" />
                                                     Force Archive
                                                 </Button>
@@ -337,7 +337,7 @@ export default function AdminWorkspacesPage() {
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-foreground truncate">{w.name}</span>
                                 {w.archived_at && (
-                                    <Chip size="sm" className="bg-orange-100 text-orange-700 shrink-0">archived</Chip>
+                                    <Chip size="sm" className="bg-orange-500/15 text-orange-700 shrink-0">archived</Chip>
                                 )}
                             </div>
                             <div className="min-w-0">

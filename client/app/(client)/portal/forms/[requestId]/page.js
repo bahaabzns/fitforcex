@@ -94,7 +94,7 @@ export default function ClientFillFormPage() {
                     {data.form_description && <p className="text-sm text-muted-foreground mt-0.5">{data.form_description}</p>}
                 </div>
                 {isSubmitted && (
-                    <Chip size="sm" className="bg-green-100 text-green-700 mt-1">Submitted</Chip>
+                    <Chip size="sm" className="bg-green-500/15 text-green-700 mt-1">Submitted</Chip>
                 )}
             </div>
 

@@ -211,7 +211,7 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                                     <span className="flex-1">{opt.label}</span>
                                     {opt.type && (
                                         <span className={`ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                            opt.type === "assessment" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                                            opt.type === "assessment" ? "bg-blue-500/15 text-blue-600" : "bg-purple-500/15 text-purple-600"
                                         }`}>
                                             {opt.type === "assessment" ? "Assessment" : "Check-in"}
                                         </span>
@@ -604,7 +604,7 @@ export default function ClientsPage() {
                 <form onSubmit={handleAddClient} className="flex flex-col gap-3">
                     {/* Validation errors */}
                     {formErrors.length > 0 && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                             {formErrors.map((err, i) => <p key={i} className="text-destructive text-xs">{err}</p>)}
                         </div>
                     )}
@@ -784,7 +784,7 @@ export default function ClientsPage() {
             {/* One-time credentials reveal modal */}
             <Modal open={!!credsModal} onClose={() => setCredsModal(null)} title="Client Created">
                 <div className="flex flex-col gap-4">
-                    <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <p className="text-sm text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
                         Save this password — it won&apos;t be shown again after you close this window.
                     </p>
                     <div className="flex flex-col gap-1.5">
@@ -858,7 +858,7 @@ export default function ClientsPage() {
             >
                 <form onSubmit={handleFreeze} className="flex flex-col gap-3">
                     {freezeError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                             <p className="text-destructive text-xs">{freezeError}</p>
                         </div>
                     )}
@@ -939,7 +939,7 @@ export default function ClientsPage() {
                                         <span className="flex-1">{form.title}</span>
                                         {form.type && (
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                                form.type === "assessment" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                                                form.type === "assessment" ? "bg-blue-500/15 text-blue-600" : "bg-purple-500/15 text-purple-600"
                                             }`}>
                                                 {form.type === "assessment" ? "Assessment" : "Check-in"}
                                             </span>
@@ -970,7 +970,7 @@ export default function ClientsPage() {
                                 onClick={() => setSendMode("scheduled")}
                                 className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                                     sendMode === "scheduled"
-                                        ? "bg-blue-50 text-blue-600 border border-blue-200"
+                                        ? "bg-blue-500/15 text-blue-600 border border-blue-500/20"
                                         : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
                                 }`}
                             >

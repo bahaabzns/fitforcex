@@ -191,7 +191,7 @@ return (
                 />
             ) : (
                 <div className="card w-full flex flex-col overflow-hidden min-h-full">
-                    <p className="text-gray-600 text-center flex justify-center items-center h-full">
+                    <p className="text-muted-foreground text-center flex justify-center items-center h-full">
                         Select a plan to view details
                     </p>
                 </div>
@@ -234,7 +234,7 @@ return (
                 />
             ) : (
                 <div className="card w-full flex flex-col overflow-hidden min-h-full">
-                    <p className="text-gray-600 text-center flex justify-center items-center h-full">
+                    <p className="text-muted-foreground text-center flex justify-center items-center h-full">
                         Select a meal to view details
                     </p>
                 </div>

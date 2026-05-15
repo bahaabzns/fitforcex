@@ -27,7 +27,7 @@ function TabButton({ active, onClick, children }) {
 function SuccessMsg({ msg }) {
     if (!msg) return null;
     return (
-        <p className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+        <p className="flex items-center gap-2 text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
             <CheckCircle2 size={14} className="shrink-0" /> {msg}
         </p>
     );
@@ -331,7 +331,7 @@ function WorkspaceTab({ me, workspace, setWorkspace }) {
                 )}
 
                 {workspace?.slug_customized && (
-                    <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <p className="text-xs text-blue-600 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2">
                         ✓ Your portal slug has been customized and cannot be changed again.
                     </p>
                 )}
@@ -407,7 +407,7 @@ function DangerZoneTab({ me, workspace, members }) {
     return (
         <div className="flex flex-col gap-4">
             {/* Transfer Ownership */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-5 flex flex-col gap-4">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-5 flex flex-col gap-4">
                 <div className="flex items-start gap-3">
                     <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
                     <div>
@@ -422,7 +422,7 @@ function DangerZoneTab({ me, workspace, members }) {
                     <Button
                         onClick={() => setShowTransfer(true)}
                         isDisabled={activeMembers.length === 0}
-                        className="self-start border border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200"
+                        className="self-start border border-amber-500/40 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25"
                     >
                         Transfer Ownership
                     </Button>

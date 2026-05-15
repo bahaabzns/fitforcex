@@ -19,11 +19,11 @@ const ROLES = ["manager", "trainer", "assistant"];
 
 function UpgradeBanner({ message }) {
     return (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
             <span className="text-amber-500 mt-0.5 text-base leading-none">⚠</span>
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-amber-900">{message}</p>
-                <p className="text-xs text-amber-700 mt-0.5">
+                <p className="text-sm font-medium text-amber-600">{message}</p>
+                <p className="text-xs text-amber-600/70 mt-0.5">
                     Contact us to upgrade your plan and unlock more capacity.
                 </p>
             </div>
@@ -45,9 +45,9 @@ function SeatUsageBar({ used, max }) {
 }
 
 const ROLE_META = {
-    owner:     { label: "Owner",     cls: "bg-yellow-50 text-yellow-700 border border-yellow-200" },
-    manager:   { label: "Manager",   cls: "bg-blue-50 text-blue-700 border border-blue-200" },
-    trainer:   { label: "Trainer",   cls: "bg-green-50 text-green-700 border border-green-200" },
+    owner:     { label: "Owner",     cls: "bg-yellow-500/15 text-yellow-600 border border-yellow-500/20" },
+    manager:   { label: "Manager",   cls: "bg-blue-500/15 text-blue-600 border border-blue-500/20" },
+    trainer:   { label: "Trainer",   cls: "bg-green-500/15 text-green-600 border border-green-500/20" },
     assistant: { label: "Assistant", cls: "bg-secondary text-muted-foreground border border-border" },
 };
 
@@ -298,7 +298,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                             <p className="text-sm font-medium text-foreground">{workspace.plan_display_name ?? workspace.plan_name}</p>
                         </div>
                     </div>
-                    <div className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${atSeatLimit || noSeats ? "bg-amber-50 border-amber-200" : "bg-secondary/50 border-border"}`}>
+                    <div className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${atSeatLimit || noSeats ? "bg-amber-500/5 border-amber-500/30" : "bg-secondary/50 border-border"}`}>
                         <Users2 size={15} className={atSeatLimit || noSeats ? "text-amber-500" : "text-muted-foreground"} />
                         <div className="min-w-0">
                             <p className="text-xs text-muted-foreground">Team Seats</p>
@@ -359,7 +359,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                     )
                                 )}
                                 {inviteSuccess && (
-                                    <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                                    <p className="text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
                                         <CheckCircle2 size={14} /> {inviteSuccess}
                                     </p>
                                 )}

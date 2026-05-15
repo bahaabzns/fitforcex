@@ -50,7 +50,7 @@ function SlidingIndicator({ selectedKey }) {
         <div
             ref={ref}
             aria-hidden="true"
-            className="absolute left-0 bg-white rounded-3xl shadow-sm pointer-events-none"
+            className="absolute left-0 bg-background rounded-3xl shadow-sm pointer-events-none"
             style={{ zIndex: 0 }}
         />
     );
@@ -109,7 +109,6 @@ export default function ClientLayout({ children }) {
     return (
         <div className="p-6 flex flex-col h-full">
             <div className="flex items-center justify-between mb-6 shrink-0">
-                <h2 className="text-lg font-semibold text-foreground">Clients</h2>
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { Salad, Dumbbell, ClipboardList, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
@@ -114,6 +115,13 @@ export default function ClientSidebar() {
                                 </span>
                             </div>
                         )}
+                        {!collapsed && <ThemeToggle />}
+                    </div>
+                )}
+
+                {collapsed && (
+                    <div className="flex justify-center">
+                        <ThemeToggle />
                     </div>
                 )}
 

@@ -128,12 +128,12 @@ export default function MiddlePanel({
                         </Button>
                     )}
                     {isSelectedPlanDirty && (
-                        <Chip size="sm" className="bg-amber-50 text-amber-700 border border-amber-200/70 shrink-0">
+                        <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
                             Unsaved
                         </Chip>
                     )}
                     {!isSelectedPlanDirty && saveStatus === "saved" && (
-                        <Chip size="sm" className="bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0">
+                        <Chip size="sm" className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 shrink-0">
                             Saved
                         </Chip>
                     )}
