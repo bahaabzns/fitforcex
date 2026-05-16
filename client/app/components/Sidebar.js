@@ -167,7 +167,7 @@ export default function Sidebar({ collapsed }) {
                                 <Link
                                     href={`/${slug}/team?action=new-workspace`}
                                     onClick={() => setWsOpen(false)}
-                                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-default transition-colors cursor-pointer"
                                 >
                                     <Plus size={12} />
                                     Create workspace

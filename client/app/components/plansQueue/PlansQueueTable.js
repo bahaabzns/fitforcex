@@ -109,7 +109,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
 
     function statusBadge(status) {
         const styles = {
-            scheduled: "bg-blue-500/20 text-blue-400",
+            scheduled: "bg-accent/15 text-accent",
             awaiting: "bg-zinc-500/20 text-zinc-400",
             "need-action": "bg-amber-500/20 text-amber-400",
             "action-done": "bg-emerald-500/20 text-emerald-400",
@@ -172,7 +172,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                 <Chip size="sm" className={`whitespace-nowrap ${
                     row.formType === "assessment"
                         ? "bg-purple-500/20 text-purple-400"
-                        : "bg-blue-500/20 text-blue-400"
+                        : "bg-accent/15 text-accent"
                 }`}>
                     {row.formType}
                 </Chip>
@@ -235,7 +235,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                 const typeBadge = row.postAction === "nutrition-plan"
                     ? <Chip size="sm" className="bg-amber-500/20 text-amber-400 whitespace-nowrap">Nutrition</Chip>
                     : row.postAction === "workout-plan"
-                    ? <Chip size="sm" className="bg-blue-500/20 text-blue-400 whitespace-nowrap">Workout</Chip>
+                    ? <Chip size="sm" className="bg-accent/15 text-accent whitespace-nowrap">Workout</Chip>
                     : null;
 
                 if (row.status === "awaiting") {
@@ -260,7 +260,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     <div className="flex items-center gap-1">
                         <button
                             onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === row.id ? null : row.id); }}
-                            className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded hover:bg-accent transition-colors"
+                            className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded hover:bg-default transition-colors"
                         >
                             {expandedId === row.id ? "Hide" : "View"}
                         </button>
@@ -299,7 +299,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                             <button
                                 onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "undo"); }}
                                 disabled={marking}
-                                className="text-muted-foreground hover:text-foreground text-[11px] px-2 py-1 rounded hover:bg-accent transition-colors disabled:opacity-50 whitespace-nowrap"
+                                className="text-muted-foreground hover:text-foreground text-[11px] px-2 py-1 rounded hover:bg-default transition-colors disabled:opacity-50 whitespace-nowrap"
                             >
                                 Undo
                             </button>
@@ -368,7 +368,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
-                        <div className="w-2 h-2 rounded-full bg-blue-400" />
+                        <div className="w-2 h-2 rounded-full bg-accent" />
                         <span className="text-primary text-sm font-medium">{scheduledCount} Scheduled</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">

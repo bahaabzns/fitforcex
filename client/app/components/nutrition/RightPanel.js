@@ -70,7 +70,7 @@ export default function RightPanel({
                 />
                 <button
                     title="Close meal"
-                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedMeal(null)}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -124,7 +124,7 @@ export default function RightPanel({
                                                         onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                                                         onDrop={() => { handleReorderFoodItems(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                                         onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                                        className={`group flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-150 hover:bg-accent group-data-open/disc:bg-primary/10 ${isDragging ? "opacity-30 scale-95" : ""}`}
+                                                        className={`group flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-150 hover:bg-default group-data-open/disc:bg-primary/10 ${isDragging ? "opacity-30 scale-95" : ""}`}
                                                     >
                                                         {/* Drag grip */}
                                                         <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
@@ -171,7 +171,7 @@ export default function RightPanel({
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             <Button
                                                                 slot="trigger"
-                                                                className="cursor-pointer px-2 py-1 rounded-lg border text-xs font-medium transition-all border-border text-muted-foreground data-hover:bg-accent data-open:border-primary/40 data-open:bg-primary/10 data-open:text-primary"
+                                                                className="cursor-pointer px-2 py-1 rounded-lg border text-xs font-medium transition-all border-border text-muted-foreground data-hover:bg-default data-open:border-primary/40 data-open:bg-primary/10 data-open:text-primary"
                                                             >
                                                                 {alternatives.length} alt
                                                             </Button>

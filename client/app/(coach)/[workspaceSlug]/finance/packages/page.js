@@ -74,7 +74,7 @@ function CurrencySelect({ value, onChange }) {
                                 className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
                                     c === value
                                         ? "bg-primary/10 text-primary"
-                                        : "text-foreground hover:bg-accent"
+                                        : "text-foreground hover:bg-default"
                                 }`}
                             >
                                 {c}
@@ -148,7 +148,7 @@ function PackageNameCombo({ value, onChange, packages }) {
                                 className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between ${
                                     pkg.id === (packages.find(p => p.name === value)?.id)
                                         ? "bg-primary/10 text-primary"
-                                        : "text-foreground hover:bg-accent"
+                                        : "text-foreground hover:bg-default"
                                 }`}
                             >
                                 <span>{pkg.name}</span>
@@ -159,7 +159,7 @@ function PackageNameCombo({ value, onChange, packages }) {
                             <button
                                 type="button"
                                 onClick={handleCreateNew}
-                                className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-accent transition-colors border-t border-border"
+                                className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-default transition-colors border-t border-border"
                             >
                                 + Create &quot;{search.trim()}&quot; as new package
                             </button>
@@ -552,7 +552,7 @@ export default function PackagesPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex flex-col gap-6">
+            <div className="p-8 flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-bold text-foreground">Packages</h1>
                 </div>
@@ -564,16 +564,11 @@ export default function PackagesPage() {
     }
 
     return (
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-8 flex flex-col gap-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div>
                 <h1 className="text-3xl font-bold text-foreground">Packages</h1>
-                <Button
-                    onClick={() => { setShowForm(true); setError(""); setPackageName(""); setSelectedPackageId(null); setVariations([emptyVariation()]); }}
-                    variant="primary"
-                >
-                    + New Package
-                </Button>
+                <p className="text-sm text-muted-foreground mt-1">Create and manage pricing packages for your coaching services.</p>
             </div>
 
             {/* Error from edit/delete */}
@@ -667,6 +662,8 @@ export default function PackagesPage() {
                 columns={columns}
                 data={displayRows}
                 rowKey="_rowId"
+                quickSearch={{ fields: ["packageName", "variationName"], placeholder: "Search packages..." }}
+                toolbarEnd={<Button variant="primary" onClick={() => { setShowForm(true); setError(""); setPackageName(""); setSelectedPackageId(null); setVariations([emptyVariation()]); }}>+ New Package</Button>}
             />
         </div>
     );

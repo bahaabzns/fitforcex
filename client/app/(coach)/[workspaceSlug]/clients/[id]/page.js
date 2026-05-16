@@ -93,7 +93,7 @@ function CountryCodeSelect({ value, onChange }) {
                                 type="button"
                                 onClick={() => { onChange(c.code); setOpen(false); setSearch(""); }}
                                 className={`w-full px-3 py-1.5 text-left text-xs transition-colors flex justify-between ${
-                                    value === c.code ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"
+                                    value === c.code ? "bg-primary/10 text-primary" : "text-foreground hover:bg-default"
                                 }`}
                             >
                                 <span>{c.name}</span>

@@ -27,7 +27,7 @@ function subStatusColor(s) {
     switch (s) {
         case "Active":    return "bg-green-500/15 text-green-600";
         case "Expired":   return "bg-destructive/10 text-destructive";
-        case "Frozen":    return "bg-blue-500/15 text-blue-600";
+        case "Frozen":    return "bg-accent/15 text-accent";
         case "Pre-start": return "bg-yellow-500/15 text-yellow-600";
         case "Refunded":  return "bg-purple-500/15 text-purple-600";
         default:          return "bg-secondary text-muted-foreground";
@@ -106,7 +106,7 @@ function SearchableClientSelect({ clients, selected, onSelect }) {
                             type="button"
                             onMouseDown={e => e.preventDefault()}
                             onClick={() => { onSelect(c); setQuery(""); setOpen(false); }}
-                            className="w-full px-3 py-2.5 text-left hover:bg-accent flex items-center gap-2 transition-colors"
+                            className="w-full px-3 py-2.5 text-left hover:bg-default flex items-center gap-2 transition-colors"
                         >
                             <span className="text-foreground text-sm font-medium flex-1">{c.name}</span>
                             <span className="text-muted-foreground text-xs">#{c.code}</span>
@@ -124,7 +124,7 @@ function SearchableClientSelect({ clients, selected, onSelect }) {
 }
 
 // --- TRANSACTIONS TABLE ---
-function TransactionsTable({ transactions, allClientNames, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit }) {
+function TransactionsTable({ transactions, allClientNames, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
     const [filteredRows, setFilteredRows] = useState(transactions);
     const [displayCurrency, setDisplayCurrency] = useState("EGP");
 
@@ -319,6 +319,8 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 rowKey="id"
                 dateParser={parseTransactionDate}
                 onFilteredDataChange={setFilteredRows}
+                quickSearch={{ fields: ["clientName", "packageVariation"], placeholder: "Search by client or package..." }}
+                toolbarEnd={toolbarEnd}
             />
         </>
     );
@@ -480,7 +482,7 @@ export default function TransactionsPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex flex-col gap-6">
+            <div className="p-8 flex flex-col gap-6">
                 <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
@@ -490,13 +492,11 @@ export default function TransactionsPage() {
     }
 
     return (
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-8 flex flex-col gap-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div>
                 <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
-                <Button onClick={openCreate} variant="primary">
-                    + New Transaction
-                </Button>
+                <p className="text-sm text-muted-foreground mt-1">Track all financial transactions across your workspace.</p>
             </div>
 
             {/* Create / Edit Modal */}
@@ -656,6 +656,7 @@ export default function TransactionsPage() {
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onEdit={openEdit}
+                toolbarEnd={<Button variant="primary" onClick={openCreate}>+ New Transaction</Button>}
             />
         </div>
     );

@@ -48,7 +48,7 @@ function UserDrawer({ userId, onClose }) {
                             {user && (
                                 <>
                                     <div className="flex items-center gap-3">
-                                        <Avatar className="w-12 h-12 text-base shrink-0">
+                                        <Avatar color="primary" className="w-12 h-12 text-base shrink-0">
                                             <Avatar.Fallback>
                                                 {`${user.fname?.[0] ?? ''}${user.lname?.[0] ?? ''}`.toUpperCase() || '?'}
                                             </Avatar.Fallback>
@@ -168,7 +168,7 @@ export default function AdminUsersPage() {
                         <button
                             key={u.id}
                             onClick={() => setSelectedUserId(u.id)}
-                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-accent/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="flex items-center gap-2.5 min-w-0">
                                 <Avatar className="w-7 h-7 text-xs shrink-0">

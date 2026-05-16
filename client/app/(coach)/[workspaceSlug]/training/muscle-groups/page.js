@@ -88,13 +88,10 @@ export default function MuscleGroupsPage() {
     ];
 
     return (
-        <div className="p-8">
-            <div className="flex items-center mb-6 gap-4">
-                <div className="flex-1">
-                    <h1 className="text-3xl font-bold">Muscle Groups</h1>
-                    <p className="text-sm text-muted-foreground mt-1">Manage muscle group categories for your exercise library.</p>
-                </div>
-                <Button onClick={() => setShowForm(true)} variant="primary" className="shrink-0">+ Add Muscle Group</Button>
+        <div className="p-8 flex flex-col gap-6">
+            <div>
+                <h1 className="text-3xl font-bold">Muscle Groups</h1>
+                <p className="text-sm text-muted-foreground mt-1">Manage muscle group categories for your exercise library.</p>
             </div>
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setNewName(""); }} title="Add Muscle Group">
@@ -124,7 +121,13 @@ export default function MuscleGroupsPage() {
                 </form>
             </Modal>
 
-            <DataTable columns={columns} data={groups} rowKey="id" />
+            <DataTable
+                columns={columns}
+                data={groups}
+                rowKey="id"
+                quickSearch={{ fields: ["name"], placeholder: "Search muscle groups..." }}
+                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>+ Add Muscle Group</Button>}
+            />
         </div>
     );
 }

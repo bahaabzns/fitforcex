@@ -97,7 +97,7 @@ export default function ClientTrainingPage() {
                             className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
                                 activeDayIndex === i
                                     ? "bg-primary border-primary text-primary-foreground"
-                                    : "border-border text-muted-foreground hover:bg-accent"
+                                    : "border-border text-muted-foreground hover:bg-default"
                             }`}
                         >
                             {day.name}

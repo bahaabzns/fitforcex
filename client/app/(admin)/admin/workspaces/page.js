@@ -194,7 +194,7 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                                 <div className="rounded-xl border border-border overflow-hidden">
                                                     {workspace.members.map((m, idx) => (
                                                         <div key={m.id} className={`flex items-center gap-2 px-3 py-2.5 ${idx < workspace.members.length - 1 ? 'border-b border-border' : ''}`}>
-                                                            <Avatar className="w-6 h-6 text-xs shrink-0">
+                                                            <Avatar color="primary" className="w-6 h-6 text-xs shrink-0">
                                                                 <Avatar.Fallback>
                                                                     {`${m.fname?.[0] ?? ''}${m.lname?.[0] ?? ''}`.toUpperCase() || '?'}
                                                                 </Avatar.Fallback>
@@ -332,7 +332,7 @@ export default function AdminWorkspacesPage() {
                         <button
                             key={w.id}
                             onClick={() => setSelectedId(w.id)}
-                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-accent/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`w-full grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 text-left hover:bg-default/40 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm font-medium text-foreground truncate">{w.name}</span>

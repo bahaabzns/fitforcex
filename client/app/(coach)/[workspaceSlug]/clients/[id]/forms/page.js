@@ -173,7 +173,7 @@ export default function ClientFormsPage() {
                                     className={`w-full text-left px-3 py-3 rounded-lg border transition-all cursor-pointer ${
                                         selected?.id === req.id
                                             ? 'border-primary/40 bg-primary/5'
-                                            : 'border-border hover:border-border/80 hover:bg-accent'
+                                            : 'border-border hover:border-border/80 hover:bg-default'
                                     }`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
@@ -183,7 +183,7 @@ export default function ClientFormsPage() {
                                                 <Clock size={10} /> Pending
                                             </span>
                                         ) : req.status === 'scheduled' ? (
-                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 font-medium shrink-0">
+                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent font-medium shrink-0">
                                                 <CalendarClock size={10} /> Scheduled
                                             </span>
                                         ) : (
@@ -213,7 +213,7 @@ export default function ClientFormsPage() {
                 className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
                 onMouseDown={handleDividerMouseDown}
             >
-                <div className="w-1.5 h-12 bg-blue-200 rounded-full group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+                <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
             </div>
 
             {/* ── Right Panel: Responses Detail ───────────────────── */}
@@ -248,7 +248,7 @@ export default function ClientFormsPage() {
                                     {selected.status === 'pending' || selected.status === 'scheduled' ? (
                                         <>
                                             {selected.status === 'scheduled' ? (
-                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-600 font-medium">
+                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-accent/15 text-accent font-medium">
                                                     <CalendarClock size={11} /> Scheduled
                                                 </span>
                                             ) : (
@@ -277,7 +277,7 @@ export default function ClientFormsPage() {
                                     <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
                                         {selected.status === 'scheduled' ? (
                                             <>
-                                                <CalendarClock size={36} className="text-blue-500" />
+                                                <CalendarClock size={36} className="text-accent" />
                                                 <p className="text-sm font-medium text-muted-foreground">Form is scheduled</p>
                                                 <p className="text-xs text-muted-foreground/70">Client will receive it at {selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : 'the selected time'}.</p>
                                             </>
@@ -325,7 +325,7 @@ export default function ClientFormsPage() {
                             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
                                 requestMode === 'now'
                                     ? 'bg-primary border-primary text-white'
-                                    : 'border-border text-muted-foreground hover:bg-accent'
+                                    : 'border-border text-muted-foreground hover:bg-default'
                             }`}
                         >
                             Request Now
@@ -335,7 +335,7 @@ export default function ClientFormsPage() {
                             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
                                 requestMode === 'schedule'
                                     ? 'bg-primary border-primary text-white'
-                                    : 'border-border text-muted-foreground hover:bg-accent'
+                                    : 'border-border text-muted-foreground hover:bg-default'
                             }`}
                         >
                             Schedule

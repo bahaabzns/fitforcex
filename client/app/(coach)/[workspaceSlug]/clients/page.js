@@ -117,7 +117,7 @@ function CountryCodeSelect({ value, onChange }) {
                                 className={`w-full px-3 py-1.5 text-left text-xs transition-colors flex justify-between ${
                                     value === c.code
                                         ? "bg-primary/10 text-primary"
-                                        : "text-foreground hover:bg-accent"
+                                        : "text-foreground hover:bg-default"
                                 }`}
                             >
                                 <span>{c.name}</span>
@@ -194,7 +194,7 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                                     className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${
                                         selected.includes(opt.value)
                                             ? "bg-primary/10 text-primary"
-                                            : "text-foreground hover:bg-accent"
+                                            : "text-foreground hover:bg-default"
                                     }`}
                                 >
                                     <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
@@ -211,7 +211,7 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                                     <span className="flex-1">{opt.label}</span>
                                     {opt.type && (
                                         <span className={`ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                            opt.type === "assessment" ? "bg-blue-500/15 text-blue-600" : "bg-purple-500/15 text-purple-600"
+                                            opt.type === "assessment" ? "bg-accent/15 text-accent" : "bg-purple-500/15 text-purple-600"
                                         }`}>
                                             {opt.type === "assessment" ? "Assessment" : "Check-in"}
                                         </span>
@@ -589,14 +589,9 @@ export default function ClientsPage() {
     return (
         <div className="p-8 flex flex-col gap-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div>
                 <h1 className="text-3xl font-bold text-foreground">Clients</h1>
-                <Button
-                    variant="primary"
-                    onClick={() => { resetForm(); setShowForm(true); }}
-                >
-                    + Add Client
-                </Button>
+                <p className="text-sm text-muted-foreground mt-1">Manage your client roster and track their progress.</p>
             </div>
 
             {/* Add Client Modal */}
@@ -820,6 +815,11 @@ export default function ClientsPage() {
                     fields: ["code", "name", "email", "phoneSearch"],
                     placeholder: "Search by code, name, email or phone",
                 }}
+                toolbarEnd={
+                    <Button variant="primary" onClick={() => { resetForm(); setShowForm(true); }}>
+                        + Add Client
+                    </Button>
+                }
             />
 
             {/* Floating bulk action bar */}
@@ -923,7 +923,7 @@ export default function ClientsPage() {
                                         className={`w-full px-3 py-2.5 rounded-lg text-left text-sm flex items-center gap-2 transition-colors ${
                                             isChecked
                                                 ? "bg-primary/10 text-primary border border-primary/30"
-                                                : "bg-background text-foreground hover:bg-accent border border-transparent"
+                                                : "bg-background text-foreground hover:bg-default border border-transparent"
                                         }`}
                                     >
                                         <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
@@ -938,7 +938,7 @@ export default function ClientsPage() {
                                         <span className="flex-1">{form.title}</span>
                                         {form.type && (
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                                form.type === "assessment" ? "bg-blue-500/15 text-blue-600" : "bg-purple-500/15 text-purple-600"
+                                                form.type === "assessment" ? "bg-accent/15 text-accent" : "bg-purple-500/15 text-purple-600"
                                             }`}>
                                                 {form.type === "assessment" ? "Assessment" : "Check-in"}
                                             </span>
@@ -969,7 +969,7 @@ export default function ClientsPage() {
                                 onClick={() => setSendMode("scheduled")}
                                 className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                                     sendMode === "scheduled"
-                                        ? "bg-blue-500/15 text-blue-600 border border-blue-500/20"
+                                        ? "bg-accent/15 text-accent border border-accent/20"
                                         : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
                                 }`}
                             >

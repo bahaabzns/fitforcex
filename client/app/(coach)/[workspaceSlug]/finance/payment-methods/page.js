@@ -20,7 +20,7 @@ const TYPE_LABELS = {
 
 const TYPE_COLORS = {
     cash:          "bg-emerald-500/15 text-emerald-600",
-    card:          "bg-blue-500/15 text-blue-600",
+    card:          "bg-accent/15 text-accent",
     wallet:        "bg-purple-500/15 text-purple-600",
     bank_transfer: "bg-orange-500/15 text-orange-600",
 };
@@ -225,7 +225,7 @@ export default function PaymentMethodsPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex flex-col gap-6">
+            <div className="p-8 flex flex-col gap-6">
                 <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
@@ -235,16 +235,11 @@ export default function PaymentMethodsPage() {
     }
 
     return (
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-8 flex flex-col gap-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div>
                 <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
-                <Button
-                    onClick={() => { setShowForm(true); setError(""); setFormName(""); setFormType("cash"); }}
-                    variant="primary"
-                >
-                    + New Method
-                </Button>
+                <p className="text-sm text-muted-foreground mt-1">Configure the payment methods you accept from clients.</p>
             </div>
 
             {/* Summary Cards */}
@@ -315,6 +310,8 @@ export default function PaymentMethodsPage() {
                 columns={columns}
                 data={displayRows}
                 rowKey="id"
+                quickSearch={{ fields: ["name", "type"], placeholder: "Search payment methods..." }}
+                toolbarEnd={<Button variant="primary" onClick={() => { setShowForm(true); setError(""); setFormName(""); setFormType("cash"); }}>+ New Method</Button>}
             />
         </div>
     );

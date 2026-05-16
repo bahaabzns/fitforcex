@@ -46,7 +46,7 @@ function SeatUsageBar({ used, max }) {
 
 const ROLE_META = {
     owner:     { label: "Owner",     cls: "bg-yellow-500/15 text-yellow-600 border border-yellow-500/20" },
-    manager:   { label: "Manager",   cls: "bg-blue-500/15 text-blue-600 border border-blue-500/20" },
+    manager:   { label: "Manager",   cls: "bg-accent/15 text-accent border border-accent/20" },
     trainer:   { label: "Trainer",   cls: "bg-green-500/15 text-green-600 border border-green-500/20" },
     assistant: { label: "Assistant", cls: "bg-secondary text-muted-foreground border border-border" },
 };
@@ -340,7 +340,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                     <div className="rounded-lg border border-border">
                         <button
                             onClick={() => { setShowInviteForm(o => !o); setInviteError(""); setInviteSuccess(""); }}
-                            className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors rounded-lg cursor-pointer"
+                            className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-default transition-colors rounded-lg cursor-pointer"
                         >
                             <UserPlus size={15} className="text-muted-foreground" />
                             <span className="flex-1 text-left">Invite team member</span>
@@ -440,7 +440,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                     const roleChangeAllowed = canChangeRole(member);
                     const removeAllowed = canRemoveMember(member);
                     return (
-                        <div key={member.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                        <div key={member.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-default/30 transition-colors">
                             <MemberAvatar fname={member.fname} lname={member.lname} />
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">
@@ -568,7 +568,7 @@ function InvitationsTab({ workspace, invitations, setInvitations, me }) {
     return (
         <div className="rounded-lg border border-border overflow-hidden">
             {invitations.map(inv => (
-                <div key={inv.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
+                <div key={inv.id} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0 hover:bg-default/30 transition-colors">
                     <MemberAvatar fname={inv.fname} lname={inv.lname} />
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{inv.fname} {inv.lname}</p>
@@ -862,9 +862,7 @@ export default function TeamPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Team</h1>
-                    {workspace && (
-                        <p className="text-sm text-muted-foreground mt-0.5">{workspace.name}</p>
-                    )}
+                    <p className="text-sm text-muted-foreground mt-1">Manage members and invitations for your workspace.</p>
                 </div>
                 <Button
                     onClick={() => setShowNewWs(true)}

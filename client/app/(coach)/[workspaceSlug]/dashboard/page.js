@@ -13,7 +13,7 @@ import { Avatar } from "@heroui/react/avatar";
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
     Expired:     "bg-destructive/10 text-destructive",
-    Frozen:      "bg-blue-500/15 text-blue-600",
+    Frozen:      "bg-accent/15 text-accent",
     "Pre-start": "bg-yellow-500/15 text-yellow-600",
     Cancelled:   "bg-secondary text-muted-foreground",
     Refunded:    "bg-purple-500/15 text-purple-600",
@@ -50,7 +50,7 @@ export default function DashboardPage() {
     const { fname, stats, recentClients } = data;
 
     return (
-        <div className="p-8 flex flex-col gap-8">
+        <div className="p-8 flex flex-col gap-6">
             {/* Greeting */}
             <div>
                 <h1 className="text-3xl font-bold text-foreground">
@@ -114,7 +114,7 @@ export default function DashboardPage() {
                             <Link
                                 key={client.id}
                                 href={`/${workspaceSlug}/clients/${client.id}`}
-                                className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${
+                                className={`flex items-center gap-3 px-4 py-3 hover:bg-default/40 transition-colors ${
                                     idx < recentClients.length - 1 ? "border-b border-border" : ""
                                 }`}
                             >

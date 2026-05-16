@@ -1,76 +1,86 @@
 @import "@heroui/react/styles";
 
 /* ── App-specific tokens (sidebar + brand supplements) ── */
-/* Only define tokens HeroUI doesn't already provide.     */
-/* Do NOT redefine --background, --foreground, --accent,  */
-/* etc. — those are owned by HeroUI's theme.              */
+/* --accent overrides HeroUI's default to match logo #159bff */
 :root {
-  /* Brand blue (raw HSL components for hsl(var(--primary) / alpha) usage) */
---primary:            206 100% 54%;
---primary-foreground: 0 0% 100%;
+  /* Brand blue — logo primary color #159bff = oklch(0.675 0.18 249) */
+  --accent:            oklch(0.675 0.18 249);
+  --accent-foreground: oklch(0.991 0 0);
 
-  /* Destructive red (raw HSL for alpha usage) */
-  --destructive:            0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
+  /* Alias used by app component classes */
+  --primary:            var(--accent);
+  --primary-foreground: var(--accent-foreground);
+
+  /* Destructive red */
+  --destructive:            hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
 
   /* Muted text */
-  --muted-foreground: 220 9% 46%;
+  --muted-foreground: hsl(220 9% 46%);
 
-  /* Border (raw HSL for alpha usage) */
-  --border: 220 13% 91%;
+  /* Border — overrides HeroUI's border with app value */
+  --border: hsl(220 13% 91%);
 
   /* Sidebar (HeroUI has no sidebar tokens) */
-  --sidebar-background:         220 20% 97%;
-  --sidebar-foreground:         222 47% 11%;
-  --sidebar-accent:             206 100% 54% / 0.1;
-  --sidebar-accent-foreground:  206 100% 54%;
-  --sidebar-border:             220 13% 91%;
+  --sidebar-background:        hsl(220 20% 97%);
+  --sidebar-foreground:        hsl(222 47% 11%);
+  --sidebar-accent:            color-mix(in oklch, var(--accent) 12%, transparent);
+  --sidebar-accent-foreground: var(--accent);
+  --sidebar-border:            hsl(220 13% 91%);
 }
 
 .dark {
-  --primary:            211 100% 60%;
-  --primary-foreground: 0 0% 100%;
+  /* Raised lightness for WCAG contrast on dark surfaces */
+  --accent:            oklch(0.72 0.18 249);
+  --accent-foreground: oklch(0.991 0 0);
 
-  --destructive:            0 63% 31%;
-  --destructive-foreground: 0 0% 98%;
+  --primary:            var(--accent);
+  --primary-foreground: var(--accent-foreground);
 
-  --muted-foreground: 215 20% 55%;
+  /* Bright enough to convey urgency on dark surfaces */
+  --destructive:            hsl(0 84% 65%);
+  --destructive-foreground: hsl(0 0% 98%);
 
-  --border: 240 5% 14%;
+  /* Raised from 55% → 65% for WCAG AA on dark surfaces */
+  --muted-foreground: hsl(215 20% 65%);
 
-  --sidebar-background:         240 13% 3%;
-  --sidebar-foreground:         213 31% 91%;
-  --sidebar-accent:             206 100% 54% / 0.2;
-  --sidebar-accent-foreground:  206 100% 54%;
-  --sidebar-border:             240 5% 14%;
+  /* Raised from 14% → 26% so borders are actually visible in dark mode */
+  --border: hsl(240 5% 26%);
+
+  /* Raised from 3% → 8% to distinguish sidebar from main content area */
+  --sidebar-background:        hsl(240 13% 8%);
+  --sidebar-foreground:        hsl(213 31% 91%);
+  --sidebar-accent:            color-mix(in oklch, var(--accent) 18%, transparent);
+  --sidebar-accent-foreground: var(--accent);
+  --sidebar-border:            hsl(240 5% 20%);
 }
 
 /* ── Tailwind v4 @theme — supplements HeroUI's own @theme inline ── */
 @theme inline {
   /* Brand primary */
-  --color-primary:            hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary:            var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
 
   /* Destructive */
-  --color-destructive:            hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive:            var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
 
   /* Muted text */
-  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted-foreground: var(--muted-foreground);
 
   /* Border */
-  --color-border: hsl(var(--border));
+  --color-border: var(--border);
 
   /* Sidebar */
-  --color-sidebar:                    hsl(var(--sidebar-background));
-  --color-sidebar-foreground:         hsl(var(--sidebar-foreground));
-  --color-sidebar-accent:             hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground:  hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-border:             hsl(var(--sidebar-border));
+  --color-sidebar:                   var(--sidebar-background);
+  --color-sidebar-foreground:        var(--sidebar-foreground);
+  --color-sidebar-accent:            var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border:            var(--sidebar-border);
 
   /* Bridge: map tokens our component CSS uses → HeroUI equivalents */
-  --color-card:             var(--color-surface);
-  --color-card-foreground:  var(--color-surface-foreground);
+  --color-card:            var(--color-surface);
+  --color-card-foreground: var(--color-surface-foreground);
 
   /* Radius */
   --radius-lg: var(--radius);
@@ -85,7 +95,7 @@
 /* ── Base layer ── */
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: var(--border);
     transition: background-color 200ms ease, border-color 200ms ease, color 150ms ease;
   }
   body {
@@ -123,8 +133,8 @@
   .sidebar {
     @apply h-screen flex flex-col shrink-0 overflow-hidden;
     width: 16rem;
-    background-color: hsl(var(--sidebar-background));
-    border-right: 1px solid hsl(var(--sidebar-border));
+    background-color: var(--sidebar-background);
+    border-right: 1px solid var(--sidebar-border);
     transition: width 200ms ease;
   }
   .sidebar.collapsed { width: 4rem; }

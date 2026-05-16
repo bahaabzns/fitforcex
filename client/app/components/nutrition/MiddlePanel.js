@@ -168,7 +168,7 @@ export default function MiddlePanel({
                 )}
                 <button
                     title="Close plan"
-                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedPlan(null)}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -297,7 +297,7 @@ export default function MiddlePanel({
                                             } ${
                                                 isActive
                                                     ? "bg-primary text-white"
-                                                    : "bg-card text-muted-foreground border border-border hover:border-border hover:bg-accent"
+                                                    : "bg-card text-muted-foreground border border-border hover:border-border hover:bg-default"
                                             }`}
                                         >
                                             <svg width="8" height="13" viewBox="0 0 8 13" fill="currentColor" className={`shrink-0 transition-opacity ${isActive ? "opacity-50" : "opacity-25 group-hover:opacity-50"}`}>
@@ -391,7 +391,7 @@ export default function MiddlePanel({
                                                 } ${
                                                     isSelected
                                                         ? "bg-primary/10 border-primary/30 shadow-sm"
-                                                        : "bg-card border-border hover:bg-accent hover:border-primary/30 hover:shadow-sm"
+                                                        : "bg-card border-border hover:bg-default hover:border-primary/30 hover:shadow-sm"
                                                 }`}
                                                 onClick={() => setSelectedMeal(meal)}
                                             >
@@ -421,7 +421,7 @@ export default function MiddlePanel({
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                     <button
                                                         title="Duplicate meal"
-                                                        className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                                        className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
                                                         onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
                                                     >
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>

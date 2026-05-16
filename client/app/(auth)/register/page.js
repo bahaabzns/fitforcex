@@ -56,7 +56,7 @@ export default function RegisterPage() {
                     {error && (
                         <p className="text-sm text-destructive">{error}</p>
                     )}
-                    <Button type="submit" fullWidth isDisabled={loading} className="mt-2">
+                    <Button type="submit" color="primary" fullWidth isDisabled={loading} className="mt-2">
                         {loading ? 'Creating account…' : 'Register'}
                     </Button>
                     <p className="auth-link">

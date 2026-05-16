@@ -92,7 +92,7 @@ export default function FormsPanel({
                                             className={`cursor-pointer text-xs px-3 py-1 rounded-full border transition-colors ${
                                                 sortOrder === value
                                                     ? "bg-primary border-primary text-white"
-                                                    : "border-border text-muted-foreground hover:border-border hover:bg-accent"
+                                                    : "border-border text-muted-foreground hover:border-border hover:bg-default"
                                             }`}
                                         >
                                             {label}
@@ -155,7 +155,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
             className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-lg transition-all duration-150 ${
                 isActive
                     ? "bg-primary/10 border border-primary/30"
-                    : "hover:bg-accent border border-transparent"
+                    : "hover:bg-default border border-transparent"
             }`}
         >
             {/* Active dot */}
@@ -191,7 +191,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                 )}
                 <button
                     title="Duplicate form"
-                    className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
                     onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
                 >
                     <DuplicateIcon />

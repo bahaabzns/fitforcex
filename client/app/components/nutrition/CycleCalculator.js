@@ -240,7 +240,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all cursor-pointer ${
                                 activity === l.value
                                     ? "border-primary bg-primary/10"
-                                    : "border-transparent hover:border-border hover:bg-accent"
+                                    : "border-transparent hover:border-border hover:bg-default"
                             }`}
                         >
                             <span className={`text-sm font-medium ${activity === l.value ? "text-primary" : "text-foreground"}`}>

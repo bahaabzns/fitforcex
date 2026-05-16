@@ -83,12 +83,10 @@ export default function FoodCategoriesPage() {
     ];
 
     return (
-        <div className="p-8">
-            <div className="flex items-center mb-6 gap-4">
-                <h1 className="text-3xl font-bold flex-1">Food Categories</h1>
-                <Button onClick={() => setShowForm(!showForm)} variant="primary" className="shrink-0">
-                    + Add Category
-                </Button>
+        <div className="p-8 flex flex-col gap-6">
+            <div>
+                <h1 className="text-3xl font-bold">Food Categories</h1>
+                <p className="text-sm text-muted-foreground mt-1">Organize food items into categories for your nutrition library.</p>
             </div>
 
             <Modal open={showForm} onClose={() => setShowForm(false)} title="New Category">
@@ -119,7 +117,13 @@ export default function FoodCategoriesPage() {
                         </form>
             </Modal>
 
-            <DataTable columns={categoryColumns} data={categories} rowKey="id" />
+            <DataTable
+                columns={categoryColumns}
+                data={categories}
+                rowKey="id"
+                quickSearch={{ fields: ["name"], placeholder: "Search categories..." }}
+                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(!showForm)}>+ Add Category</Button>}
+            />
         </div>
     );
 }

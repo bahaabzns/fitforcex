@@ -119,7 +119,7 @@ export default function ClientFormsListPage() {
                                         </>
                                     ) : req.status === "scheduled" ? (
                                         <div className="flex items-center gap-2">
-                                            <Chip size="sm" className="bg-blue-500/15 text-blue-600">
+                                            <Chip size="sm" className="bg-accent/15 text-accent">
                                                 <CalendarClock size={11} className="mr-1" /> Scheduled
                                             </Chip>
                                             <span className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">

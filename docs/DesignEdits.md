@@ -14,7 +14,8 @@ Verification
 # [done] disclosure sections of builders .. add x padding in the title and reduce padding between sections and change chevron icon to be in the start 
 # [done] add scroll shadow to the builder sections
 
-
+# [done] add quick search to all tables and change the add button to be to the right of the table header
+# [done] fix kbd in the quick search in the clients table and make it ctrl + k instead commad + k
 
 # fix close panel button in training builder and fix the auto day open
 # hover of plans cards on builders .. change color (we will change the card design itself)
@@ -25,12 +26,13 @@ https://heroui.com/docs/react/components/meter#colors
 https://heroui.com/docs/react/components/radio-group#delivery--payment
 # use this with amount and unit 
 https://heroui.com/docs/react/components/number-field#with-chevrons
-# change the sorting plan buttons to match design system
+# change the sorting buttons to match design system
 
 # add load plan to builders
 
 # double active tabs in side bar when navigating nutrition builder and training builder
 
+# client code is not correct
 
 #  change the bg color to the blue and active buttons like sidebar
 > GLOBAL
@@ -103,7 +105,6 @@ https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 # use this for tempo
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
-# fix kbd in the quick search in the clients table and make it ctrl + k instead commad + k
 
 # add external links to quick add equipment or food category or add exercises in builders
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix

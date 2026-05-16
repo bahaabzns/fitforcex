@@ -48,7 +48,7 @@ export default function AdminOverviewPage() {
     }
 
     return (
-        <div className="p-8 flex flex-col gap-8">
+        <div className="p-8 flex flex-col gap-6">
             <div>
                 <h1 className="text-2xl font-bold text-foreground">Overview</h1>
                 <p className="text-sm text-muted-foreground mt-1">Platform-wide statistics</p>
@@ -98,9 +98,9 @@ export default function AdminOverviewPage() {
                             <Link
                                 key={u.id}
                                 href={`/admin/users?highlight=${u.id}`}
-                                className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${idx < data.recentRegistrations.length - 1 ? 'border-b border-border' : ''}`}
+                                className={`flex items-center gap-3 px-4 py-3 hover:bg-default/40 transition-colors ${idx < data.recentRegistrations.length - 1 ? 'border-b border-border' : ''}`}
                             >
-                                <Avatar className="w-8 h-8 text-xs shrink-0">
+                                <Avatar color="primary" className="w-8 h-8 text-xs shrink-0">
                                     <Avatar.Fallback>
                                         {`${u.fname?.[0] ?? ''}${u.lname?.[0] ?? ''}`.toUpperCase() || '?'}
                                     </Avatar.Fallback>

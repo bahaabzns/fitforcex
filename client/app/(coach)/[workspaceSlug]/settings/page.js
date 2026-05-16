@@ -331,7 +331,7 @@ function WorkspaceTab({ me, workspace, setWorkspace }) {
                 )}
 
                 {workspace?.slug_customized && (
-                    <p className="text-xs text-blue-600 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2">
+                    <p className="text-xs text-accent bg-accent/10 border border-accent/20 rounded-lg px-3 py-2">
                         ✓ Your portal slug has been customized and cannot be changed again.
                     </p>
                 )}
@@ -585,7 +585,10 @@ export default function SettingsPage() {
 
     return (
         <div className="p-8 max-w-2xl flex flex-col gap-6">
-            <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+            <div>
+                <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+                <p className="text-sm text-muted-foreground mt-1">Configure your workspace preferences and profile details.</p>
+            </div>
 
             {/* Tabs */}
             <div className="border-b border-border -mb-2">

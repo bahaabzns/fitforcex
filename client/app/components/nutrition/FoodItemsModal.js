@@ -124,7 +124,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                             {filtered.map(fi => (
                                 <tr
                                     key={fi.id}
-                                    className={`border-b cursor-pointer transition-colors hover:bg-accent ${selectedIds.has(fi.id) ? 'bg-primary/10' : ''}`}
+                                    className={`border-b cursor-pointer transition-colors hover:bg-default ${selectedIds.has(fi.id) ? 'bg-primary/10' : ''}`}
                                     onClick={() => toggleItem(fi.id)}
                                 >
                                     <td className="p-2">

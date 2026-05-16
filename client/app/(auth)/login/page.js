@@ -56,7 +56,7 @@ export default function LoginPage() {
                     {error && (
                         <p className="text-sm text-destructive">{error}</p>
                     )}
-                    <Button type="submit" fullWidth isDisabled={loading} className="mt-2">
+                    <Button type="submit" color="primary" fullWidth isDisabled={loading} className="mt-2">
                         {loading ? 'Logging in…' : 'Login'}
                     </Button>
                     <p className="auth-link">

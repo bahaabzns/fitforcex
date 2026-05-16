@@ -128,7 +128,7 @@ export default function LeftPanel({
                                         className={`cursor-pointer text-xs px-3 py-1 rounded-full border transition-colors ${
                                             sortOrder === value
                                                 ? "bg-primary border-primary text-white"
-                                                : "border-border text-muted-foreground hover:border-border hover:bg-accent"
+                                                : "border-border text-muted-foreground hover:border-border hover:bg-default"
                                         }`}
                                     >
                                         {label}
@@ -163,7 +163,7 @@ export default function LeftPanel({
                                                     className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-lg transition-all duration-150 ${
                                                         isActive
                                                             ? "bg-primary/10 border border-primary/30"
-                                                            : "hover:bg-accent border border-transparent"
+                                                            : "hover:bg-default border border-transparent"
                                                     }`}
                                                 >
                                                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-primary" : "bg-border group-hover:bg-muted-foreground"}`} />
@@ -192,7 +192,7 @@ export default function LeftPanel({
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                         <button
                                                             title="Duplicate plan"
-                                                            className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                                            className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
                                                             onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
                                                         >
                                                             <DuplicateIcon />
@@ -263,7 +263,7 @@ export default function LeftPanel({
                                                 <Button
                                                     slot="trigger"
                                                     variant="ghost"
-                                                    className="w-full justify-start gap-2 px-3 py-2.5 data-hover:bg-accent rounded-none"
+                                                    className="w-full justify-start gap-2 px-3 py-2.5 data-hover:bg-default rounded-none"
                                                 >
                                                     <span className="flex-1 text-sm font-medium text-foreground truncate text-left">{req.form_title}</span>
                                                     <span className="text-[10px] text-muted-foreground shrink-0">

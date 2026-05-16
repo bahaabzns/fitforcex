@@ -124,12 +124,10 @@ export default function FoodItemsPage() {
     ];
 
     return (
-        <div className="p-8">
-            <div className="flex items-center mb-6 gap-4">
-                <h1 className="text-3xl font-bold flex-1">Food Items</h1>
-                <Button onClick={() => setShowForm(!showForm)} variant="primary" className="shrink-0">
-                    + Add Food Item
-                </Button>
+        <div className="p-8 flex flex-col gap-6">
+            <div>
+                <h1 className="text-3xl font-bold">Food Items</h1>
+                <p className="text-sm text-muted-foreground mt-1">Build your food database with nutritional values per serving.</p>
             </div>
 
             <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Food Item">
@@ -208,7 +206,14 @@ export default function FoodItemsPage() {
                         </form>
             </Modal>
 
-            <DataTable columns={foodItemColumns} data={foodItems} rowKey="id" scrollable />
+            <DataTable
+                columns={foodItemColumns}
+                data={foodItems}
+                rowKey="id"
+                scrollable
+                quickSearch={{ fields: ["name", "food_category"], placeholder: "Search food items..." }}
+                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(!showForm)}>+ Add Food Item</Button>}
+            />
         </div>
     );
 }

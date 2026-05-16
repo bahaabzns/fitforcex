@@ -65,7 +65,7 @@ export default function AdminLayout({ children }) {
                                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                     active
                                         ? 'bg-primary text-primary-foreground'
-                                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                        : 'text-muted-foreground hover:bg-default hover:text-foreground'
                                 }`}
                             >
                                 <Icon size={15} />
@@ -77,7 +77,7 @@ export default function AdminLayout({ children }) {
 
                 <div className="p-3 border-t border-border">
                     <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-                        <Avatar className="w-7 h-7 text-xs shrink-0">
+                        <Avatar color="primary" className="w-7 h-7 text-xs shrink-0">
                             <Avatar.Fallback>
                                 {admin?.fname?.[0]}{admin?.lname?.[0]}
                             </Avatar.Fallback>

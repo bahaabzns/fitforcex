@@ -37,7 +37,7 @@ function subStatusColor(s) {
     switch (s) {
         case "Active":    return "bg-green-500/15 text-green-600";
         case "Expired":   return "bg-destructive/10 text-destructive";
-        case "Frozen":    return "bg-blue-500/15 text-blue-600";
+        case "Frozen":    return "bg-accent/15 text-accent";
         case "Pre-start": return "bg-yellow-500/15 text-yellow-600";
         case "Refunded":  return "bg-purple-500/15 text-purple-600";
         default:          return "bg-secondary text-muted-foreground";
@@ -506,21 +506,16 @@ export default function ClientTransactionsPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex flex-col gap-4">
+            <div className="p-8 flex flex-col gap-4">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
             </div>
         );
     }
 
     return (
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-8 flex flex-col gap-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-foreground">Transactions</h2>
-                <Button onClick={openAdd} variant="primary" size="sm">
-                    + Add Transaction
-                </Button>
-            </div>
+            <h2 className="text-base font-semibold text-foreground">Transactions</h2>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -555,7 +550,7 @@ export default function ClientTransactionsPage() {
             {(displayPeriod || isPreStart || hasNoSubscriptions) && (
                 <div className={`rounded-lg bg-card text-card-foreground shadow-sm p-6 border ${
                     hasNoSubscriptions ? "border-border bg-background" :
-                    isFrozen   ? "border-blue-500/30 bg-blue-500/5" :
+                    isFrozen   ? "border-accent/30 bg-accent/5" :
                     isExpired  ? "border-destructive/30 bg-destructive/5" :
                     isPreStart ? "border-yellow-500/30 bg-yellow-500/5" :
                                  "border-green-600/30 bg-green-100/5"
@@ -572,7 +567,7 @@ export default function ClientTransactionsPage() {
                             {displayPeriod && (
                                 <>
                                     <p className={`text-lg font-bold mt-1 ${
-                                        isFrozen   ? "text-blue-600" :
+                                        isFrozen   ? "text-accent" :
                                         isExpired  ? "text-destructive" :
                                         isPreStart ? "text-yellow-600" :
                                                      "text-green-600"
@@ -655,6 +650,8 @@ export default function ClientTransactionsPage() {
                 defaultSort="date"
                 defaultSortDirection="desc"
                 dateParser={(d) => new Date(d)}
+                quickSearch={{ fields: ["packageVariation", "paymentMethod", "status"], placeholder: "Search transactions..." }}
+                toolbarEnd={<Button size="sm" variant="primary" onClick={openAdd}>+ Add Transaction</Button>}
             />
 
             {/* Add Transaction Modal */}

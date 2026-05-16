@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter } from "lucide-react";
 import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
 import { Pagination } from "@heroui/react/pagination";
 import { Button } from "@heroui/react/button";
-import { TextField } from "@heroui/react/textfield";
-import { Input } from "@heroui/react/input";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { DateField } from "@heroui/react/date-field";
@@ -49,6 +47,7 @@ export default function DataTable({
     defaultSort,
     defaultSortDirection,
     quickSearch,
+    toolbarEnd,
 }) {
     // ── Quick search ──────────────────────────────────────────
     const [quickSearchValue, setQuickSearchValue] = useState("");
@@ -77,6 +76,8 @@ export default function DataTable({
     useEffect(() => {
         if (!pendingColKey) { setPendingValue(null); return; }
         const col = columns.find(c => c.key === pendingColKey);
+        const existing = filterRules.find(r => r.colKey === pendingColKey);
+        if (existing) { setPendingValue(existing.value); return; }
         if (col.filterType === "text")      setPendingValue("");
         if (col.filterType === "multi")     setPendingValue([]);
         if (col.filterType === "dateRange") setPendingValue({ from: "", to: "" });
@@ -97,16 +98,20 @@ export default function DataTable({
         return String(rule.value);
     }
 
-    function applyPendingFilter() {
-        if (pendingColKey === null || pendingValue === null) return;
+    function upsertFilter(colKey, value) {
         const isEmpty =
-            (typeof pendingValue === "string" && pendingValue === "") ||
-            (Array.isArray(pendingValue) && pendingValue.length === 0) ||
-            (typeof pendingValue === "object" && !Array.isArray(pendingValue) && !pendingValue.from && !pendingValue.to);
-        if (!isEmpty) {
-            setFilterRules(rs => [...rs, { id: String(Date.now() + Math.random()), colKey: pendingColKey, value: pendingValue }]);
+            (typeof value === "string" && value === "") ||
+            (Array.isArray(value) && value.length === 0) ||
+            (typeof value === "object" && !Array.isArray(value) && !value?.from && !value?.to);
+        if (isEmpty) {
+            setFilterRules(rs => rs.filter(r => r.colKey !== colKey));
+        } else {
+            setFilterRules(rs => {
+                const exists = rs.some(r => r.colKey === colKey);
+                if (exists) return rs.map(r => r.colKey === colKey ? { ...r, value } : r);
+                return [...rs, { id: String(Date.now() + Math.random()), colKey, value }];
+            });
         }
-        setPendingColKey(null);
     }
 
     // ── Sort ──────────────────────────────────────────────────
@@ -250,8 +255,8 @@ export default function DataTable({
     // ── Render ────────────────────────────────────────────────
     return (
         <div>
-            {/* ── Toolbar ── */}
-            <div className="flex items-center gap-2 mt-4 flex-wrap">
+            {/* ── Toolbar row 1: search + filter + toolbarEnd ── */}
+            <div className="flex items-center gap-2 mt-4">
                 {quickSearch && (
                     <div ref={searchContainerRef}>
                         <SearchField
@@ -274,12 +279,12 @@ export default function DataTable({
                                 <div className="flex items-center gap-1 pr-2 shrink-0">
                                     {(searchFocused || quickSearchValue) ? (
                                         <Kbd>
-                                            <Kbd.Abbr keyValue="escape" />
+                                            <Kbd.Content>Esc</Kbd.Content>
                                         </Kbd>
                                     ) : (
                                         <Kbd>
-                                            <Kbd.Abbr keyValue="ctrl" />
-                                            <Kbd.Content>K</Kbd.Content>
+                                            <Kbd.Content>Ctrl</Kbd.Content>
+                                            <Kbd.Content> + K</Kbd.Content>
                                         </Kbd>
                                     )}
                                 </div>
@@ -291,152 +296,165 @@ export default function DataTable({
                     </div>
                 )}
 
-                {/* + Add filter */}
+                {/* Filter */}
                 {columns.some(c => c.filterType) && (
                     <div className="relative">
                         {addFilterOpen && (
-                            <div className="fixed inset-0 z-10" onClick={() => setAddFilterOpen(false)} />
+                            <div className="fixed inset-0 z-10" onClick={() => { setAddFilterOpen(false); setPendingColKey(null); }} />
                         )}
                         <Button
                             size="sm"
                             variant="secondary"
                             onClick={() => setAddFilterOpen(v => !v)}
                         >
-                            + Add filter
+                            <ListFilter size={14} />
+                            Filter
                         </Button>
                         {addFilterOpen && (
-                            <div className="absolute z-20 top-full mt-1 bg-popover border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-40">
+                            <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
                                 {columns.filter(c => c.filterType).map(col => (
-                                    <button
-                                        key={col.key}
-                                        className="text-left text-sm px-3 py-1.5 rounded-lg hover:bg-accent transition-colors"
-                                        onClick={() => { setPendingColKey(col.key); setAddFilterOpen(false); }}
-                                    >
-                                        {col.label}
-                                    </button>
+                                    <div key={col.key} className="relative">
+                                        <button
+                                            className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
+                                            onClick={() => { setPendingColKey(pendingColKey === col.key ? null : col.key); setPendingValue(null); }}
+                                        >
+                                            {col.label}
+                                            <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                                        </button>
+
+                                        {pendingColKey === col.key && pendingValue !== null && (
+                                            <div className="absolute z-30 left-full top-0 ml-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                                                {col.filterType === "text" && (
+                                                    <SearchField
+                                                        autoFocus
+                                                        value={pendingValue ?? ""}
+                                                        onChange={v => { setPendingValue(v); upsertFilter(col.key, v); }}
+                                                        aria-label={`Search ${col.label}`}
+                                                        fullWidth
+                                                    >
+                                                        <SearchField.Group>
+                                                            <SearchField.SearchIcon />
+                                                            <SearchField.Input placeholder={`Search ${col.label.toLowerCase()}...`} />
+                                                            <SearchField.ClearButton />
+                                                        </SearchField.Group>
+                                                    </SearchField>
+                                                )}
+
+                                                {col.filterType === "multi" && (
+                                                    <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+                                                        {col.options.map(option => (
+                                                            <label
+                                                                key={option}
+                                                                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={(pendingValue ?? []).includes(option)}
+                                                                    onChange={e => {
+                                                                        const next = e.target.checked
+                                                                            ? [...(pendingValue ?? []), option]
+                                                                            : (pendingValue ?? []).filter(v => v !== option);
+                                                                        setPendingValue(next);
+                                                                        upsertFilter(col.key, next);
+                                                                    }}
+                                                                    className="rounded"
+                                                                />
+                                                                {option}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {col.filterType === "dateRange" && (
+                                                    <DateRangePicker
+                                                        value={
+                                                            (pendingValue?.from && pendingValue?.to)
+                                                                ? { start: parseDate(pendingValue.from), end: parseDate(pendingValue.to) }
+                                                                : null
+                                                        }
+                                                        onChange={(range) => {
+                                                            const next = { from: range?.start?.toString() ?? "", to: range?.end?.toString() ?? "" };
+                                                            setPendingValue(next);
+                                                            upsertFilter(col.key, next);
+                                                        }}
+                                                    >
+                                                        <DateField.Group fullWidth>
+                                                            <DateField.Input slot="start">
+                                                                {(segment) => <DateField.Segment segment={segment} />}
+                                                            </DateField.Input>
+                                                            <DateRangePicker.RangeSeparator />
+                                                            <DateField.Input slot="end">
+                                                                {(segment) => <DateField.Segment segment={segment} />}
+                                                            </DateField.Input>
+                                                            <DateField.Suffix>
+                                                                <DateRangePicker.Trigger>
+                                                                    <DateRangePicker.TriggerIndicator />
+                                                                </DateRangePicker.Trigger>
+                                                            </DateField.Suffix>
+                                                        </DateField.Group>
+                                                        <DateRangePicker.Popover>
+                                                            <RangeCalendar aria-label={col.label}>
+                                                                <RangeCalendar.Header>
+                                                                    <RangeCalendar.YearPickerTrigger>
+                                                                        <RangeCalendar.YearPickerTriggerHeading />
+                                                                        <RangeCalendar.YearPickerTriggerIndicator />
+                                                                    </RangeCalendar.YearPickerTrigger>
+                                                                    <RangeCalendar.NavButton slot="previous" />
+                                                                    <RangeCalendar.NavButton slot="next" />
+                                                                </RangeCalendar.Header>
+                                                                <RangeCalendar.Grid>
+                                                                    <RangeCalendar.GridHeader>
+                                                                        {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                                                                    </RangeCalendar.GridHeader>
+                                                                    <RangeCalendar.GridBody>
+                                                                        {(date) => <RangeCalendar.Cell date={date} />}
+                                                                    </RangeCalendar.GridBody>
+                                                                </RangeCalendar.Grid>
+                                                                <RangeCalendar.YearPickerGrid>
+                                                                    <RangeCalendar.YearPickerGridBody>
+                                                                        {({year}) => <RangeCalendar.YearPickerCell year={year} />}
+                                                                    </RangeCalendar.YearPickerGridBody>
+                                                                </RangeCalendar.YearPickerGrid>
+                                                            </RangeCalendar>
+                                                        </DateRangePicker.Popover>
+                                                    </DateRangePicker>
+                                                )}
+
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Active filter chips */}
-                {filterRules.map(rule => {
-                    const col = columns.find(c => c.key === rule.colKey);
-                    if (!col) return null;
-                    return (
-                        <div key={rule.id} className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm border border-primary/20">
-                            <span className="font-medium">{col.label}:</span>
-                            <span>{summarizeFilter(rule, col)}</span>
-                            <button
-                                className="ml-0.5 hover:text-destructive transition-colors leading-none"
-                                onClick={() => setFilterRules(rs => rs.filter(r => r.id !== rule.id))}
-                            >✕</button>
-                        </div>
-                    );
-                })}
+                {toolbarEnd && <div className="ml-auto">{toolbarEnd}</div>}
+            </div>
 
-                {hasActiveFilters && (
+            {/* ── Toolbar row 2: active filter chips ── */}
+            {hasActiveFilters && (
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {filterRules.map(rule => {
+                        const col = columns.find(c => c.key === rule.colKey);
+                        if (!col) return null;
+                        return (
+                            <div key={rule.id} className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm border border-primary/20">
+                                <span className="font-medium">{col.label}:</span>
+                                <span>{summarizeFilter(rule, col)}</span>
+                                <button
+                                    className="ml-0.5 hover:text-destructive transition-colors leading-none"
+                                    onClick={() => setFilterRules(rs => rs.filter(r => r.id !== rule.id))}
+                                >✕</button>
+                            </div>
+                        );
+                    })}
                     <Button size="sm" variant="ghost" onClick={() => setFilterRules([])}>
                         Clear all
                     </Button>
-                )}
-            </div>
-
-            {/* ── Pending filter value entry ── */}
-            {pendingCol && pendingValue !== null && (
-                <div className="mt-3 p-4 bg-card rounded-xl border border-border flex flex-wrap items-end gap-4">
-                    <div className="flex flex-col gap-1.5 min-w-36">
-                        <label className="text-muted-foreground text-xs font-medium">{pendingCol.label}</label>
-                        {pendingCol.filterType === "text" && (
-                            <TextField value={pendingValue} onChange={setPendingValue}>
-                                <Input type="text" placeholder={`Search ${pendingCol.label.toLowerCase()}...`} />
-                            </TextField>
-                        )}
-                        {pendingCol.filterType === "multi" && (
-                            <Select
-                                selectionMode="multiple"
-                                value={pendingValue}
-                                onChange={(keys) => setPendingValue(keys)}
-                                placeholder={`Filter ${pendingCol.label.toLowerCase()}...`}
-                                className="min-w-36"
-                            >
-                                <Select.Trigger>
-                                    <Select.Value />
-                                    <Select.Indicator />
-                                </Select.Trigger>
-                                <Select.Popover>
-                                    <ListBox>
-                                        {pendingCol.options.map(option => (
-                                            <ListBox.Item key={option} id={option} textValue={option}>
-                                                {option}
-                                                <ListBox.ItemIndicator />
-                                            </ListBox.Item>
-                                        ))}
-                                    </ListBox>
-                                </Select.Popover>
-                            </Select>
-                        )}
-                        {pendingCol.filterType === "dateRange" && (
-                            <DateRangePicker
-                                value={
-                                    pendingValue.from && pendingValue.to
-                                        ? { start: parseDate(pendingValue.from), end: parseDate(pendingValue.to) }
-                                        : null
-                                }
-                                onChange={(range) => setPendingValue({
-                                    from: range?.start?.toString() ?? "",
-                                    to: range?.end?.toString() ?? "",
-                                })}
-                            >
-                                <DateField.Group fullWidth>
-                                    <DateField.Input slot="start">
-                                        {(segment) => <DateField.Segment segment={segment} />}
-                                    </DateField.Input>
-                                    <DateRangePicker.RangeSeparator />
-                                    <DateField.Input slot="end">
-                                        {(segment) => <DateField.Segment segment={segment} />}
-                                    </DateField.Input>
-                                    <DateField.Suffix>
-                                        <DateRangePicker.Trigger>
-                                            <DateRangePicker.TriggerIndicator />
-                                        </DateRangePicker.Trigger>
-                                    </DateField.Suffix>
-                                </DateField.Group>
-                                <DateRangePicker.Popover>
-                                    <RangeCalendar aria-label={pendingCol.label}>
-                                        <RangeCalendar.Header>
-                                            <RangeCalendar.YearPickerTrigger>
-                                                <RangeCalendar.YearPickerTriggerHeading />
-                                                <RangeCalendar.YearPickerTriggerIndicator />
-                                            </RangeCalendar.YearPickerTrigger>
-                                            <RangeCalendar.NavButton slot="previous" />
-                                            <RangeCalendar.NavButton slot="next" />
-                                        </RangeCalendar.Header>
-                                        <RangeCalendar.Grid>
-                                            <RangeCalendar.GridHeader>
-                                                {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-                                            </RangeCalendar.GridHeader>
-                                            <RangeCalendar.GridBody>
-                                                {(date) => <RangeCalendar.Cell date={date} />}
-                                            </RangeCalendar.GridBody>
-                                        </RangeCalendar.Grid>
-                                        <RangeCalendar.YearPickerGrid>
-                                            <RangeCalendar.YearPickerGridBody>
-                                                {({year}) => <RangeCalendar.YearPickerCell year={year} />}
-                                            </RangeCalendar.YearPickerGridBody>
-                                        </RangeCalendar.YearPickerGrid>
-                                    </RangeCalendar>
-                                </DateRangePicker.Popover>
-                            </DateRangePicker>
-                        )}
-                    </div>
-                    <div className="flex gap-2">
-                        <Button size="sm" variant="primary" onClick={applyPendingFilter}>Apply</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setPendingColKey(null)}>Cancel</Button>
-                    </div>
                 </div>
             )}
+
 
             {/* ── Desktop: HeroUI Table ── */}
             <div className={`hidden md:block mt-4 ${scrollable ? "overflow-x-auto" : ""}`}>
@@ -473,9 +491,9 @@ export default function DataTable({
                                             ? ({ sortDirection: sd }) => (
                                                 <span className="flex items-center justify-between gap-1">
                                                     {col.label}
-                                                    {sd === "ascending"  && <span className="text-primary text-[10px]">▲</span>}
-                                                    {sd === "descending" && <span className="text-primary text-[10px]">▼</span>}
-                                                    {!sd && <span className="text-border text-[10px] opacity-60">⇅</span>}
+                                                    {sd === "ascending"  && <ChevronUp size={13} className="text-primary shrink-0" />}
+                                                    {sd === "descending" && <ChevronDown size={13} className="text-primary shrink-0" />}
+                                                    {!sd && <ChevronsUpDown size={13} className="text-muted-foreground shrink-0 opacity-50" />}
                                                 </span>
                                             )
                                             : col.label

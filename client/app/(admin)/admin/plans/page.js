@@ -279,7 +279,7 @@ export default function AdminPlansPage() {
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => setModal(p)}
-                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-default hover:text-foreground transition-colors"
                                     title="Edit plan"
                                 >
                                     <Pencil size={14} />

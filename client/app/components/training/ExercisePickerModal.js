@@ -165,7 +165,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                 {filtered.map((item) => (
                                     <tr
                                         key={item.id}
-                                        className={`border-b cursor-pointer transition-colors hover:bg-accent ${selectedIds.has(item.id) ? "bg-primary/10" : ""}`}
+                                        className={`border-b cursor-pointer transition-colors hover:bg-default ${selectedIds.has(item.id) ? "bg-primary/10" : ""}`}
                                         onClick={() => toggleItem(item.id)}
                                     >
                                         <td className="p-2">

@@ -156,13 +156,10 @@ export default function ExerciseLibraryPage() {
     ];
 
     return (
-        <div className="p-8">
-            <div className="flex items-center mb-6 gap-4">
-                <div className="flex-1">
-                    <h1 className="text-3xl font-bold">Exercise Library</h1>
-                    <p className="text-sm text-muted-foreground mt-1">Create exercises with media, instructions, and categories.</p>
-                </div>
-                <Button onClick={() => setShowForm(true)} variant="primary" className="shrink-0">+ Add Exercise</Button>
+        <div className="p-8 flex flex-col gap-6">
+            <div>
+                <h1 className="text-3xl font-bold">Exercise Library</h1>
+                <p className="text-sm text-muted-foreground mt-1">Create exercises with media, instructions, and categories.</p>
             </div>
 
             <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title="Add Exercise">
@@ -191,7 +188,14 @@ export default function ExerciseLibraryPage() {
                 />
             </Modal>
 
-            <DataTable columns={columns} data={items} rowKey="id" scrollable />
+            <DataTable
+                columns={columns}
+                data={items}
+                rowKey="id"
+                scrollable
+                quickSearch={{ fields: ["name", "muscle_group", "equipment"], placeholder: "Search exercises..." }}
+                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>+ Add Exercise</Button>}
+            />
         </div>
     );
 }

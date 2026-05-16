@@ -10,7 +10,7 @@ export default function NameModal({ open, title, value, placeholder, submitText,
                 <TextField value={value} onChange={onChange}>
                     <Input type="text" placeholder={placeholder} autoFocus />
                 </TextField>
-                <Button type="submit" className="w-full">
+                <Button type="submit" color="primary" className="w-full">
                     {submitText}
                 </Button>
             </form>
