@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 import { Button } from "@heroui/react/button";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 const INPUT_CLASS = "h-8 w-full rounded-md border border-border px-2 text-xs focus:outline-none focus:border-primary/40";
 const SERVER = "http://localhost:4000";
@@ -44,14 +45,14 @@ export default function RightPanel({
 
     if (!selectedDay) {
         return (
-            <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
                 <p className="text-muted-foreground text-sm text-center flex items-center justify-center h-full">Select a day to edit exercises</p>
             </Surface>
         );
     }
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
                 <input
@@ -89,20 +90,20 @@ export default function RightPanel({
             <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
                 {/* Exercises section */}
-                <div className="flex flex-col min-h-0" style={{ flex: expandedKeys.has("exercises") ? "1 1 0" : "0 0 auto" }}>
+                <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("exercises") ? "1 1 0" : "0 0 auto" }}>
                     <Disclosure id="exercises">
                         <Disclosure.Heading>
                             <div className="flex items-center gap-2 w-full my-3">
                                 <Button
                                     slot="trigger"
                                     variant="ghost"
-                                    className="flex-1 justify-start gap-2 px-0 data-hover:bg-transparent min-w-0"
+                                    className="flex-1 justify-start gap-2 px-3 data-hover:bg-transparent min-w-0"
                                 >
+                                    <Disclosure.Indicator />
                                     <h3 className="text-base font-semibold text-foreground">
                                         Exercises
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedDay.exercises?.length ?? 0}</span>
                                     </h3>
-                                    <Disclosure.Indicator />
                                 </Button>
                                 {expandedKeys.has("exercises") && (
                                     <Button variant="primary" onClick={() => setShowPicker(true)} className="shrink-0">
@@ -111,8 +112,9 @@ export default function RightPanel({
                                 )}
                             </div>
                         </Disclosure.Heading>
-                        <Disclosure.Content>
-                            <Disclosure.Body className="flex-1 min-h-0 overflow-y-auto px-0 pt-0">
+                    </Disclosure>
+                    {expandedKeys.has("exercises") && (
+                    <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 <div className="flex flex-col gap-3">
                                     {(() => {
                                         const exercises = selectedDay.exercises ?? [];
@@ -276,12 +278,13 @@ export default function RightPanel({
                                     })()}
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
-                                        <div className="text-center text-sm text-muted-foreground py-10">No exercises in this day yet</div>
+                                        <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
+                                            <p className="text-sm text-muted-foreground">No exercises in this day yet</p>
+                                        </Surface>
                                     )}
                                 </div>
-                            </Disclosure.Body>
-                        </Disclosure.Content>
-                    </Disclosure>
+                    </ScrollShadow>
+                    )}
                 </div>
 
                 <Separator className="my-2" />
@@ -293,10 +296,10 @@ export default function RightPanel({
                             <Button
                                 slot="trigger"
                                 variant="ghost"
-                                className="w-full justify-start gap-2 px-0 mb-3 data-hover:bg-transparent"
+                                className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                             >
-                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
                                 <Disclosure.Indicator />
+                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
                             </Button>
                         </Disclosure.Heading>
                         <Disclosure.Content>

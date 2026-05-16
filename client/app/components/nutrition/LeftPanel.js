@@ -5,6 +5,7 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 function formatRelativeTime(dateStr) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -76,24 +77,24 @@ export default function LeftPanel({
 
     return (
         <>
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
             <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Plans Section ── */}
-            <div className="flex flex-col min-h-0" style={{ flex: expandedKeys.has("plans") ? "1 1 0" : "0 0 auto" }}>
+            <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("plans") ? "1 1 0" : "0 0 auto" }}>
                 <Disclosure id="plans">
                     <Disclosure.Heading>
-                        <div className="flex items-center gap-2 w-full mb-4">
+                        <div className="flex items-center gap-2 w-full mb-2">
                             <Button
                                 slot="trigger"
                                 variant="ghost"
-                                className="flex-1 justify-start gap-2 px-0 data-hover:bg-transparent min-w-0"
+                                className="flex-1 justify-start gap-2 px-3 data-hover:bg-transparent min-w-0"
                             >
+                                <Disclosure.Indicator />
                                 <h2 className="text-base font-semibold text-foreground">
                                     Plans
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{plans.length}</span>
                                 </h2>
-                                <Disclosure.Indicator />
                             </Button>
                             {expandedKeys.has("plans") && (
                                 <div className="flex items-center gap-2 shrink-0">
@@ -113,8 +114,9 @@ export default function LeftPanel({
                             )}
                         </div>
                     </Disclosure.Heading>
-                    <Disclosure.Content>
-                        <Disclosure.Body className="flex flex-col flex-1 min-h-0 px-0 pt-0">
+                </Disclosure>
+                {expandedKeys.has("plans") && (
+                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                             {/* Sort Pills */}
                             <div className="flex gap-2 mb-4 shrink-0">
                                 {[
@@ -137,9 +139,9 @@ export default function LeftPanel({
                             </div>
 
                             {/* Plans List */}
-                            <div className="flex-1 overflow-y-auto min-h-0">
+                            <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 {plans.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
+                                    <Surface variant="default" className="rounded-xl p-6 flex flex-col items-center justify-center gap-3 text-center mx-2 my-2">
                                         <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
@@ -150,7 +152,7 @@ export default function LeftPanel({
                                         <Button variant="primary" onClick={handleCreatePlan}>
                                             + Create Plan
                                         </Button>
-                                    </div>
+                                    </Surface>
                                 ) : (
                                     <div className="divide-y divide-border">
                                         {plans.map((plan) => {
@@ -210,34 +212,34 @@ export default function LeftPanel({
                                         })}
                                     </div>
                                 )}
-                            </div>
-                        </Disclosure.Body>
-                    </Disclosure.Content>
-                </Disclosure>
+                            </ScrollShadow>
+                </div>
+                )}
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-2" />
 
             {/* ── Form Submissions Section ── */}
-            <div className="flex flex-col min-h-0" style={{ flex: expandedKeys.has("forms") ? "1 1 0" : "0 0 auto" }}>
+            <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("forms") ? "1 1 0" : "0 0 auto" }}>
                 <Disclosure id="forms">
                     <Disclosure.Heading>
                         <Button
                             slot="trigger"
                             variant="ghost"
-                            className="w-full justify-start gap-2 px-0 mb-4 data-hover:bg-transparent"
+                            className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                         >
+                            <Disclosure.Indicator />
                             <h2 className="text-base font-semibold text-foreground flex-1 text-left">
                                 Form Submissions
                                 {submittedForms.length > 0 && (
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{submittedForms.length}</span>
                                 )}
                             </h2>
-                            <Disclosure.Indicator />
                         </Button>
                     </Disclosure.Heading>
-                    <Disclosure.Content>
-                        <Disclosure.Body className="flex-1 overflow-y-auto min-h-0 px-0 pt-0">
+                </Disclosure>
+                {expandedKeys.has("forms") && (
+                <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                             {formsLoading ? (
                                 <div className="flex flex-col gap-2">
                                     {[1,2].map(i => (
@@ -245,12 +247,12 @@ export default function LeftPanel({
                                     ))}
                                 </div>
                             ) : submittedForms.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                                <Surface variant="default" className="rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center mx-2 my-1">
                                     <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
                                     <p className="text-xs font-medium text-muted-foreground">No submitted forms yet</p>
-                                </div>
+                                </Surface>
                             ) : (
                                 <DisclosureGroup className="flex flex-col gap-1.5">
                                     {submittedForms.map(req => (
@@ -294,28 +296,28 @@ export default function LeftPanel({
                                     ))}
                                 </DisclosureGroup>
                             )}
-                        </Disclosure.Body>
-                    </Disclosure.Content>
-                </Disclosure>
+                </ScrollShadow>
+                )}
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-2" />
 
             {/* ── Calorie Calculator Section ── */}
-            <div className="flex flex-col min-h-0" style={{ flex: expandedKeys.has("calc") ? "1 1 0" : "0 0 auto" }}>
+            <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("calc") ? "1 1 0" : "0 0 auto" }}>
                 <Disclosure id="calc">
                     <Disclosure.Heading>
                         <Button
                             slot="trigger"
                             variant="ghost"
-                            className="w-full justify-start gap-2 px-0 mb-4 data-hover:bg-transparent"
+                            className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                         >
-                            <h2 className="text-base font-semibold text-foreground flex-1 text-left">Calorie Calculator</h2>
                             <Disclosure.Indicator />
+                            <h2 className="text-base font-semibold text-foreground flex-1 text-left">Calorie Calculator</h2>
                         </Button>
                     </Disclosure.Heading>
-                    <Disclosure.Content>
-                        <Disclosure.Body className="overflow-y-auto flex-1 min-h-0 px-0 pt-0">
+                </Disclosure>
+                {expandedKeys.has("calc") && (
+                <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                             {currentCycle ? (
                                 <CycleCalculator
                                     cycle={currentCycle}
@@ -326,9 +328,8 @@ export default function LeftPanel({
                                     Select a plan and cycle to use the calculator
                                 </p>
                             )}
-                        </Disclosure.Body>
-                    </Disclosure.Content>
-                </Disclosure>
+                </ScrollShadow>
+                )}
             </div>
 
             </DisclosureGroup>

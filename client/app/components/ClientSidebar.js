@@ -53,7 +53,7 @@ export default function ClientSidebar() {
             <div className="flex items-center px-3 h-16 shrink-0 gap-2">
                 {collapsed
                     ? <NextImage src="/dark - i.png" alt="FitForce X" width={32} height={32} className="shrink-0 mx-auto" />
-                    : <NextImage src="/Dark - H.png" alt="FitForce X" width={148} height={40} className="shrink-0" />
+                    : <NextImage src="/ff_logo_main.svg" alt="FitForce X" width={148} height={40} className="shrink-0" />
                 }
                 {!collapsed && <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px] ml-auto">Beta</Chip>}
                 <Button

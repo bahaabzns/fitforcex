@@ -8,6 +8,7 @@ import LeftPanel from "@/app/components/nutrition/LeftPanel";
 import MiddlePanel from "@/app/components/nutrition/MiddlePanel";
 import RightPanel from "@/app/components/nutrition/RightPanel";
 import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
+import { Surface } from "@heroui/react";
 
 export default function NutritionPage({ onDirtyChange }) {
 
@@ -122,7 +123,7 @@ return (
     <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-0">
 
         {/* Panel 1: Plans List */}
-        <div style={{ width: `${widths[0]}%` }} className="flex flex-col min-h-full overflow-hidden">
+        <div style={{ width: `${widths[0]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
             <LeftPanel
                 plans={sortedPlans}
                 selectedPlan={selectedPlan}
@@ -155,7 +156,7 @@ return (
             </div>
 
         {/* Panel 2: Plan Detail */}
-        <div style={{ width: `${widths[1]}%` }} className="flex flex-col min-h-full overflow-hidden">
+        <div style={{ width: `${widths[1]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
             {selectedPlan ? (
                 <MiddlePanel
                     selectedPlan={selectedPlan}
@@ -190,11 +191,11 @@ return (
                     submissionId={submissionId}
                 />
             ) : (
-                <div className="card w-full flex flex-col overflow-hidden min-h-full">
-                    <p className="text-muted-foreground text-center flex justify-center items-center h-full">
+                <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+                    <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">
                         Select a plan to view details
                     </p>
-                </div>
+                </Surface>
             )}
         </div>
 
@@ -207,7 +208,7 @@ return (
             </div>
 
         {/* Panel 3: Meal Detail */}
-        <div style={{ width: `${widths[2]}%` }} className="flex flex-col min-h-full overflow-hidden">
+        <div style={{ width: `${widths[2]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
             {selectedMeal && selectedPlan ? (
                 <RightPanel
                     selectedMeal={selectedMeal}
@@ -233,11 +234,11 @@ return (
                     handleAlternativeAmountChange={handleAlternativeAmountChange}
                 />
             ) : (
-                <div className="card w-full flex flex-col overflow-hidden min-h-full">
-                    <p className="text-muted-foreground text-center flex justify-center items-center h-full">
+                <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+                    <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">
                         Select a meal to view details
                     </p>
-                </div>
+                </Surface>
             )}
         </div>
 

@@ -6,8 +6,8 @@
 /* etc. — those are owned by HeroUI's theme.              */
 :root {
   /* Brand blue (raw HSL components for hsl(var(--primary) / alpha) usage) */
-  --primary:            211 100% 50%;
-  --primary-foreground: 0 0% 100%;
+--primary:            206 100% 54%;
+--primary-foreground: 0 0% 100%;
 
   /* Destructive red (raw HSL for alpha usage) */
   --destructive:            0 84% 60%;
@@ -22,8 +22,8 @@
   /* Sidebar (HeroUI has no sidebar tokens) */
   --sidebar-background:         220 20% 97%;
   --sidebar-foreground:         222 47% 11%;
-  --sidebar-accent:             220 14% 93%;
-  --sidebar-accent-foreground:  222 47% 11%;
+  --sidebar-accent:             206 100% 54% / 0.1;
+  --sidebar-accent-foreground:  206 100% 54%;
   --sidebar-border:             220 13% 91%;
 }
 
@@ -36,13 +36,13 @@
 
   --muted-foreground: 215 20% 55%;
 
-  --border: 222 47% 16%;
+  --border: 240 5% 14%;
 
-  --sidebar-background:         222 47% 9%;
+  --sidebar-background:         240 13% 3%;
   --sidebar-foreground:         213 31% 91%;
-  --sidebar-accent:             222 47% 13%;
-  --sidebar-accent-foreground:  213 31% 91%;
-  --sidebar-border:             222 47% 16%;
+  --sidebar-accent:             206 100% 54% / 0.2;
+  --sidebar-accent-foreground:  206 100% 54%;
+  --sidebar-border:             240 5% 14%;
 }
 
 /* ── Tailwind v4 @theme — supplements HeroUI's own @theme inline ── */

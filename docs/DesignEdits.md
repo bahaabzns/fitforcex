@@ -1,8 +1,56 @@
 
-# add client name and client code to the path next to clients in the header
+Context
+Files to change
+Step-by-step implementation
+Result
+Verification
 
 
+> CLIENT DETAILS PAGE
+# [done] add client name and client code to the path next to clients in the header
+# [done] allow scrolling in builders sections
+# [done] change the clients details page transactions to match the design system (tables)
+# [done] empty states in builders should have surface
+# [done] disclosure sections of builders .. add x padding in the title and reduce padding between sections and change chevron icon to be in the start 
+# [done] add scroll shadow to the builder sections
+
+
+
+# fix close panel button in training builder and fix the auto day open
+# hover of plans cards on builders .. change color (we will change the card design itself)
+# [] enhance the calories calculator cards 
+# use these meters in calorie target card
+https://heroui.com/docs/react/components/meter#colors
+# use this in the calorie calculator equasion
+https://heroui.com/docs/react/components/radio-group#delivery--payment
+# use this with amount and unit 
+https://heroui.com/docs/react/components/number-field#with-chevrons
+# change the sorting plan buttons to match design system
+
+# add load plan to builders
+
+# double active tabs in side bar when navigating nutrition builder and training builder
+
+
+#  change the bg color to the blue and active buttons like sidebar
+> GLOBAL
 # arabic version
+
+# Dashboard insights
+# export bulk data
+# landing page
+# payment gateway
+
+
+# add bulk data
+
+# apply single shimmer skeleton on all loader pages with the compatible or use spinner instead
+https://heroui.com/docs/react/components/skeleton
+
+
+
+
+> 
 
 # add alert dialoge for all actions signout, delete, discard changes, complete task, reset password
 https://heroui.com/docs/react/components/alert-dialog
@@ -29,11 +77,9 @@ https://heroui.com/docs/react/components/badge#with-content
 
 # add the default nutrition and training databases on new accounts
 
-# allow scrolling in builders sections
 
 # change the logo in dark mode
 
-# change the clients details page to match the design system (tables)
 
 # change the location of the number of max rows in data tables and use this theme
 https://heroui.com/docs/react/components/tabs#custom-styles
@@ -44,13 +90,9 @@ https://heroui.com/docs/react/components/tabs#custom-styles
 
 # on clicking client in the clients table it it selects it (don't select until the user clicks on the check box only)
 
-# empty states in builders should have surface
 
-# hover of plans cards on builders .. change color
 
-# disclosure sections of builders .. add x padding in the title and reduce padding between sections
 
-# enhance the calories cards 
 
 # on setting any price use this field
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
@@ -66,44 +108,34 @@ https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 # add external links to quick add equipment or food category or add exercises in builders
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
-# use these meters in calorie target card
-https://heroui.com/docs/react/components/meter#colors
 
+
+
+> MODALS
 # unify all modals
 https://heroui.com/docs/react/components/modal
 
-# use this with amount and unit 
-https://heroui.com/docs/react/components/number-field#with-chevrons
 
 
-# use this in the calorie calculator equasion
-https://heroui.com/docs/react/components/radio-group#delivery--payment
-
-# add scroll shadow to the builder sections
-https://heroui.com/docs/react/components/radio-group#delivery--payment
-
+> TABLES
 # use search field instead of plain text field in any search field
 https://heroui.com/docs/react/components/radio-group#delivery--payment
 
-# add load plan to builders
 
 
-
-# enhance client portal
-
+> SIDEBAR
 # use this toggle for dark mode and light mode
 https://heroui.com/docs/react/components/switch#with-icons
 
 
-# apply single shimmer skeleton on all loader pages with the compatible or use spinner instead
-https://heroui.com/docs/react/components/skeleton
+
+> CLIENT PORTAL
+# enhance client portal
 
 
+> LOGIC 
 # subscription logic audit
 
 
 
-
-
-
-
+# responsiveness

@@ -5,6 +5,7 @@ import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -87,7 +88,7 @@ export default function MiddlePanel({
 
     return (
         <>
-            <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
                 {/* Plan name + actions */}
                 <div className="flex justify-between items-center mb-3 gap-4">
                     <input
@@ -152,19 +153,20 @@ export default function MiddlePanel({
                 <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
                 {/* Days Section */}
+                <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("days") ? "1 1 0" : "0 0 auto" }}>
                 <Disclosure id="days">
                     <Disclosure.Heading>
-                        <div className="flex items-center gap-2 w-full mb-3">
+                        <div className="flex items-center gap-2 w-full mb-2">
                             <Button
                                 slot="trigger"
                                 variant="ghost"
-                                className="flex-1 justify-start gap-2 px-0 data-hover:bg-transparent min-w-0"
+                                className="flex-1 justify-start gap-2 px-3 data-hover:bg-transparent min-w-0"
                             >
+                                <Disclosure.Indicator />
                                 <h3 className="text-base font-semibold text-foreground">
                                     Days
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedPlan.days?.length ?? 0}</span>
                                 </h3>
-                                <Disclosure.Indicator />
                             </Button>
                             {expandedKeys.has("days") && (
                                 <Button variant="primary" onClick={handleCreateDay} className="shrink-0">
@@ -173,8 +175,9 @@ export default function MiddlePanel({
                             )}
                         </div>
                     </Disclosure.Heading>
-                    <Disclosure.Content>
-                        <Disclosure.Body className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 px-0 pt-0">
+                </Disclosure>
+                {expandedKeys.has("days") && (
+                <ScrollShadow className="flex flex-col gap-2 flex-1 min-h-0" hideScrollBar>
                             {previewDays.map((day) => {
                                 const originalIndex = currentDays.findIndex((d) => d.id === day.id);
                                 const isDragging = dragIndex !== null && currentDays[dragIndex]?.id === day.id;
@@ -232,11 +235,13 @@ export default function MiddlePanel({
                                 );
                             })}
                             {currentDays.length === 0 && (
-                                <div className="text-center py-10 text-sm text-muted-foreground">No days yet</div>
+                                <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
+                                    <p className="text-sm text-muted-foreground">No days yet</p>
+                                </Surface>
                             )}
-                        </Disclosure.Body>
-                    </Disclosure.Content>
-                </Disclosure>
+                </ScrollShadow>
+                )}
+                </div>
 
                 <Separator className="my-2" />
 
@@ -246,10 +251,10 @@ export default function MiddlePanel({
                         <Button
                             slot="trigger"
                             variant="ghost"
-                            className="w-full justify-start gap-2 px-0 mb-3 data-hover:bg-transparent"
+                            className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                         >
-                            <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
                             <Disclosure.Indicator />
+                            <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
                         </Button>
                     </Disclosure.Heading>
                     <Disclosure.Content>

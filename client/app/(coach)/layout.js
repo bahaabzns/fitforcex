@@ -20,14 +20,14 @@ import {
 } from "lucide-react";
 
 // Returns { icon: ReactElement, crumbs: string[] } for the current path
-function getPageInfo(pathname) {
+function getPageInfo(pathname, { clientLabel } = {}) {
     const p = pathname;
 
     if (p.includes('/dashboard'))
         return { icon: <LayoutDashboard size={15} />, crumbs: ['Dashboard'] };
 
     if (p.includes('/clients'))
-        return { icon: <Users size={15} />, crumbs: ['Clients'] };
+        return { icon: <Users size={15} />, crumbs: clientLabel ? ['Clients', clientLabel] : ['Clients'] };
 
     if (p.includes('/nutrition/food-categories'))
         return { icon: <Salad size={15} />, crumbs: ['Nutrition', 'Food Categories'] };
@@ -64,11 +64,15 @@ function getPageInfo(pathname) {
 export default function WorkspaceLayout({ children }) {
     const [loading, setLoading] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
+    const [clientLabel, setClientLabel] = useState(null);
     const router = useRouter();
     const { workspaceSlug } = useParams();
     const pathname = usePathname();
 
-    const { icon, crumbs } = getPageInfo(pathname);
+    const clientIdMatch = pathname.match(/\/clients\/([^/]+)/);
+    const clientId = clientIdMatch ? clientIdMatch[1] : null;
+
+    const { icon, crumbs } = getPageInfo(pathname, { clientLabel });
 
     useEffect(() => {
         api.get('/api/auth/me')
@@ -93,6 +97,16 @@ export default function WorkspaceLayout({ children }) {
             })
             .catch(() => router.push('/login'));
     }, [router, workspaceSlug]);
+
+    useEffect(() => {
+        if (!clientId) { setClientLabel(null); return; }
+        api.get(`/api/clients/${clientId}`)
+            .then(res => {
+                const c = res.data;
+                setClientLabel(`#${c.code ?? c.client_code} ${c.fname} ${c.lname}`);
+            })
+            .catch(() => setClientLabel(null));
+    }, [clientId]);
 
     if (loading) {
         return (

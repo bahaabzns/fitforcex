@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
+import DataTable from "@/app/components/DataTable";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
@@ -174,6 +175,144 @@ export default function ClientTransactionsPage() {
         }))
     );
     const paymentMethodOptions = paymentMethods.map(m => m.name);
+
+    const transactionColumns = [
+        {
+            key: "date",
+            label: "Tx Date",
+            sortable: true,
+            filterType: "dateRange",
+            cardPriority: "primary",
+            render: (tx) => (
+                <span className="text-muted-foreground whitespace-nowrap">{fmtDate(tx.date)}</span>
+            ),
+        },
+        {
+            key: "packageVariation",
+            label: "Package",
+            sortable: true,
+            filterType: "multi",
+            options: packageVariationOptions.map(p => p.label),
+            cardPriority: "primary",
+            render: (tx) => (
+                <span className="text-foreground max-w-40 truncate block">{tx.packageVariation || "—"}</span>
+            ),
+        },
+        {
+            key: "subscriptionStartDate",
+            label: "Sub Start",
+            render: (tx) =>
+                tx.startMode === "custom" && tx.subscriptionStartDate ? (
+                    <span className="text-foreground whitespace-nowrap">{fmtDate(tx.subscriptionStartDate)}</span>
+                ) : tx.startMode === "queued" ? (
+                    <span className="text-muted-foreground italic text-xs whitespace-nowrap">Queued</span>
+                ) : (
+                    <span className="text-muted-foreground italic text-xs whitespace-nowrap">On First Plan</span>
+                ),
+        },
+        {
+            key: "subStatus",
+            label: "Sub Status",
+            render: (tx) => {
+                const s = getPerTxStatus(tx, timeline, freezes, today);
+                return s
+                    ? <Chip size="sm" className={subStatusColor(s)}>{s}</Chip>
+                    : <span className="text-muted-foreground text-xs">—</span>;
+            },
+        },
+        {
+            key: "amount",
+            label: "Amount",
+            sortable: true,
+            cardPriority: "primary",
+            render: (tx) => (
+                <span className="font-medium text-foreground whitespace-nowrap">
+                    {tx.amount.toLocaleString()} {tx.currency}
+                </span>
+            ),
+        },
+        {
+            key: "duration",
+            label: "Duration",
+            sortable: true,
+            render: (tx) => (
+                <span className="text-muted-foreground whitespace-nowrap">
+                    {tx.duration ? `${tx.duration} days` : "—"}
+                </span>
+            ),
+        },
+        {
+            key: "paymentMethod",
+            label: "Method",
+            sortable: true,
+            filterType: "multi",
+            options: paymentMethodOptions,
+            render: (tx) => (
+                <span className="text-muted-foreground whitespace-nowrap">{tx.paymentMethod}</span>
+            ),
+        },
+        {
+            key: "type",
+            label: "Type",
+            render: (tx) => (
+                <span className="text-muted-foreground capitalize">{tx.type}</span>
+            ),
+        },
+        {
+            key: "status",
+            label: "Pay Status",
+            filterType: "multi",
+            options: ["completed", "refunded"],
+            render: (tx) => <StatusBadge status={tx.status} />,
+        },
+        {
+            key: "proofImage",
+            label: "Proof",
+            cardPriority: "hidden",
+            render: (tx) =>
+                tx.proofImage ? (
+                    <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}${tx.proofImage}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary hover:underline"
+                    >
+                        View
+                    </a>
+                ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                ),
+        },
+        {
+            key: "actions",
+            label: "",
+            cardPriority: "hidden",
+            render: (tx) => (
+                <div className="flex items-center gap-2 justify-end">
+                    <button
+                        onClick={() => openEdit(tx)}
+                        className="text-xs text-primary hover:text-primary/80 transition-colors cursor-pointer"
+                    >
+                        Edit
+                    </button>
+                    {tx.status === "completed" && (
+                        <button
+                            onClick={() => handleRefund(tx)}
+                            className="text-xs text-orange-500 hover:text-orange-700 transition-colors cursor-pointer"
+                        >
+                            Refund
+                        </button>
+                    )}
+                    <button
+                        onClick={() => handleDelete(tx)}
+                        className="text-xs text-destructive hover:text-red-700 transition-colors cursor-pointer"
+                    >
+                        Delete
+                    </button>
+                </div>
+            ),
+        },
+    ];
 
     function openEdit(tx) {
         const found = packageVariationOptions.find(p => p.key === tx.packageVariation);
@@ -508,96 +647,15 @@ export default function ClientTransactionsPage() {
             )}
 
             {/* Transactions Table */}
-            {transactions.length === 0 ? (
-                <div className="rounded-lg border bg-card shadow-sm p-6 text-muted-foreground text-sm">No transactions yet.</div>
-            ) : (
-                <div className="overflow-x-auto rounded-lg border border-border">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-background border-b border-border">
-                                {["Tx Date", "Sub Start", "Sub Status", "Package", "Amount", "Duration", "Method", "Type", "Pay Status", "Proof", ""].map(h => (
-                                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {transactions.map((tx, i) => (
-                                <tr key={tx.id} className={`border-b border-secondary ${i % 2 === 0 ? "bg-card" : "bg-background/40"}`}>
-                                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                                        {fmtDate(tx.date)}
-                                    </td>
-                                    <td className="px-4 py-2.5 whitespace-nowrap">
-                                        {tx.startMode === "custom" && tx.subscriptionStartDate
-                                            ? <span className="text-foreground">{fmtDate(tx.subscriptionStartDate)}</span>
-                                            : tx.startMode === "queued"
-                                                ? <span className="text-muted-foreground italic text-xs">Queued</span>
-                                                : <span className="text-muted-foreground italic text-xs">On First Plan</span>
-                                        }
-                                    </td>
-                                    <td className="px-4 py-2.5 whitespace-nowrap">
-                                        {(() => {
-                                            const s = getPerTxStatus(tx, timeline, freezes, today);
-                                            return s
-                                                ? <Chip size="sm" className={subStatusColor(s)}>{s}</Chip>
-                                                : <span className="text-muted-foreground text-xs">—</span>;
-                                        })()}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-foreground max-w-40 truncate">
-                                        {tx.packageVariation || "—"}
-                                    </td>
-                                    <td className="px-4 py-2.5 font-medium text-foreground whitespace-nowrap">
-                                        {tx.amount.toLocaleString()} {tx.currency}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                                        {tx.duration ? `${tx.duration} days` : "—"}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{tx.paymentMethod}</td>
-                                    <td className="px-4 py-2.5 text-muted-foreground capitalize">{tx.type}</td>
-                                    <td className="px-4 py-2.5">
-                                        <StatusBadge status={tx.status} />
-                                    </td>
-                                    <td className="px-4 py-2.5">
-                                        {tx.proofImage ? (
-                                            <a
-                                                href={`${process.env.NEXT_PUBLIC_API_URL}${tx.proofImage}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-xs text-primary hover:underline"
-                                            >
-                                                View
-                                            </a>
-                                        ) : <span className="text-muted-foreground text-xs">—</span>}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                                        <div className="flex items-center gap-2 justify-end">
-                                            <button
-                                                onClick={() => openEdit(tx)}
-                                                className="text-xs text-primary hover:text-primary/80 transition-colors cursor-pointer"
-                                            >
-                                                Edit
-                                            </button>
-                                            {tx.status === "completed" && (
-                                                <button
-                                                    onClick={() => handleRefund(tx)}
-                                                    className="text-xs text-orange-500 hover:text-orange-700 transition-colors cursor-pointer"
-                                                >
-                                                    Refund
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => handleDelete(tx)}
-                                                className="text-xs text-destructive hover:text-red-700 transition-colors cursor-pointer"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            <DataTable
+                columns={transactionColumns}
+                data={transactions}
+                rowKey="id"
+                scrollable
+                defaultSort="date"
+                defaultSortDirection="desc"
+                dateParser={(d) => new Date(d)}
+            />
 
             {/* Add Transaction Modal */}
             <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Transaction">

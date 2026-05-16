@@ -818,8 +818,7 @@ export default function ClientsPage() {
                 defaultSortDirection="desc"
                 quickSearch={{
                     fields: ["code", "name", "email", "phoneSearch"],
-                    placeholder: "Search clients...",
-                    description: "Search by code, name, email or phone",
+                    placeholder: "Search by code, name, email or phone",
                 }}
             />
 

@@ -3,6 +3,7 @@ import MacrosBadges from "../MacrosBadges";
 import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 import { Button } from "@heroui/react/button";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 export default function RightPanel({
     selectedMeal,
@@ -43,7 +44,7 @@ export default function RightPanel({
     })();
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4">
                 <input
@@ -84,20 +85,20 @@ export default function RightPanel({
             <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
                 {/* Food Items Section */}
-                <div className="flex flex-col min-h-0" style={{ flex: expandedKeys.has("items") ? "1 1 0" : "0 0 auto" }}>
+                <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("items") ? "1 1 0" : "0 0 auto" }}>
                     <Disclosure id="items">
                         <Disclosure.Heading>
                             <div className="flex items-center gap-2 w-full my-3">
                                 <Button
                                     slot="trigger"
                                     variant="ghost"
-                                    className="flex-1 justify-start gap-2 px-0 data-hover:bg-transparent min-w-0"
+                                    className="flex-1 justify-start gap-2 px-3 data-hover:bg-transparent min-w-0"
                                 >
+                                    <Disclosure.Indicator />
                                     <h3 className="text-base font-semibold text-foreground">
                                         Food Items
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedMeal.items.length}</span>
                                     </h3>
-                                    <Disclosure.Indicator />
                                 </Button>
                                 {expandedKeys.has("items") && (
                                     <Button variant="primary" onClick={() => setFoodItemModalOpen(true)}>
@@ -106,8 +107,9 @@ export default function RightPanel({
                                 )}
                             </div>
                         </Disclosure.Heading>
-                        <Disclosure.Content>
-                            <Disclosure.Body className="flex-1 overflow-y-auto min-h-0 px-0 pt-0">
+                    </Disclosure>
+                    {expandedKeys.has("items") && (
+                    <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 <DisclosureGroup className="divide-y divide-border">
                                     {previewItems.map((item) => {
                                         const originalIndex = currentItems.findIndex(i => i.id === item.id);
@@ -227,9 +229,8 @@ export default function RightPanel({
                                         );
                                     })}
                                 </DisclosureGroup>
-                            </Disclosure.Body>
-                        </Disclosure.Content>
-                    </Disclosure>
+                    </ScrollShadow>
+                    )}
                 </div>
 
                 <Separator className="my-2" />
@@ -241,10 +242,10 @@ export default function RightPanel({
                             <Button
                                 slot="trigger"
                                 variant="ghost"
-                                className="w-full justify-start gap-2 px-0 mb-3 data-hover:bg-transparent"
+                                className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                             >
-                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
                                 <Disclosure.Indicator />
+                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
                             </Button>
                         </Disclosure.Heading>
                         <Disclosure.Content>
