@@ -1070,7 +1070,7 @@ git push origin main
 
 2. SSH into the server
 
-ssh fitforce@srv1663411.hstgr.cloud
+ssh fitforce@76.13.145.228
 3. Deploy (run these on the server)
 
 cd /home/fitforce/app
