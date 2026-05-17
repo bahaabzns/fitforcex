@@ -317,15 +317,15 @@ router.get('/plans', adminAuthMiddleware, async (req, res, next) => {
 });
 
 router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
-    const { name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days } = req.body;
+    const { name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link } = req.body;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
 
     try {
         const { rows } = await pool.query(`
-            INSERT INTO plans (name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO plans (name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
-        `, [name.trim(), display_name.trim(), max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null, features ? JSON.stringify(features) : '{}', trial_days ?? null]);
+        `, [name.trim(), display_name.trim(), max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null, features ? JSON.stringify(features) : '{}', trial_days ?? null, payment_link?.trim() || null]);
         res.status(201).json(rows[0]);
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ message: 'A plan with this name already exists' });
@@ -335,7 +335,7 @@ router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
 });
 
 router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
-    const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default, trial_days } = req.body;
+    const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default, trial_days, payment_link } = req.body;
 
     const client = await pool.connect();
     try {
@@ -354,12 +354,14 @@ router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
                 features       = COALESCE($5::jsonb, features),
                 is_active      = COALESCE($6, is_active),
                 is_default     = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE is_default END,
-                trial_days     = $8
+                trial_days     = $8,
+                payment_link   = COALESCE($10, payment_link)
             WHERE id = $9
             RETURNING *
         `, [display_name ?? null, max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null,
             features ? JSON.stringify(features) : null, is_active ?? null,
-            is_default != null ? is_default : null, trial_days ?? null, req.params.id]);
+            is_default != null ? is_default : null, trial_days ?? null, req.params.id,
+            payment_link !== undefined ? (payment_link?.trim() || null) : null]);
 
         if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Plan not found' }); }
 
@@ -392,6 +394,91 @@ router.delete('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
 
         await pool.query('DELETE FROM plans WHERE id = $1', [req.params.id]);
         res.status(204).end();
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+
+// GET /api/admin/payments/stats
+router.get('/payments/stats', adminAuthMiddleware, async (req, res, next) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT
+                COUNT(*) FILTER (WHERE fawaterak_status = 'paid')    AS total_paid,
+                COUNT(*) FILTER (WHERE fawaterak_status = 'pending') AS total_pending,
+                COUNT(*) FILTER (WHERE fawaterak_status = 'failed')  AS total_failed,
+                COALESCE(SUM(amount) FILTER (WHERE fawaterak_status = 'paid'), 0) AS total_revenue
+            FROM workspace_payments
+        `);
+        res.json(rows[0]);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/admin/payments
+router.get('/payments', adminAuthMiddleware, async (req, res, next) => {
+    const { page = 1, limit = 25, status = '', search = '' } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    try {
+        const conditions = ['1=1'];
+        const params     = [];
+
+        if (status) {
+            params.push(status);
+            conditions.push(`wp.fawaterak_status = $${params.length}`);
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            conditions.push(`(w.name ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
+        }
+
+        const where = conditions.join(' AND ');
+
+        const { rows } = await pool.query(`
+            SELECT
+                wp.id,
+                wp.amount,
+                wp.currency,
+                wp.duration_days,
+                wp.fawaterak_status,
+                wp.fawaterak_invoice_id,
+                wp.created_at,
+                wp.paid_at,
+                w.id   AS workspace_id,
+                w.name AS workspace_name,
+                w.slug AS workspace_slug,
+                p.display_name AS plan_display,
+                u.fname AS owner_fname,
+                u.lname AS owner_lname,
+                u.email AS owner_email
+            FROM workspace_payments wp
+            JOIN workspaces w ON w.id = wp.workspace_id
+            JOIN plans p      ON p.id = wp.plan_id
+            JOIN users u      ON u.id = w.owner_id
+            WHERE ${where}
+            ORDER BY wp.created_at DESC
+            LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+        `, [...params, parseInt(limit), offset]);
+
+        const { rows: countRows } = await pool.query(`
+            SELECT COUNT(*)
+            FROM workspace_payments wp
+            JOIN workspaces w ON w.id = wp.workspace_id
+            JOIN users u      ON u.id = w.owner_id
+            WHERE ${where}
+        `, params);
+
+        res.json({
+            payments:   rows,
+            total:      parseInt(countRows[0].count),
+            page:       parseInt(page),
+            limit:      parseInt(limit),
+            totalPages: Math.ceil(parseInt(countRows[0].count) / parseInt(limit)),
+        });
     } catch (err) {
         next(err);
     }

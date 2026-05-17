@@ -53,6 +53,9 @@ server.use(cors({
     credentials: true,
 }));
 
+// Webhook must be registered BEFORE express.json() — it needs the raw body for HMAC verification
+server.use('/api/payments/webhook', require('./routes/payments-webhook'));
+
 server.use(express.json());
 server.use(cookieParser());
 
@@ -70,6 +73,8 @@ server.use('/api/transactions',   mutationLimiter, uploadLimiter, require('./rou
 server.use('/api/admin',          mutationLimiter, require('./routes/admin'));
 server.use('/api/workspaces',     mutationLimiter, require('./routes/workspaces'));
 server.use('/api/invitations',    mutationLimiter, require('./routes/invitations'));
+const { router: billingRouter } = require('./routes/billing');
+server.use('/api/billing',        mutationLimiter, billingRouter);
 
 server.get('/api/health', (req, res) => {
     res.status(200).json({message: 'All is good!'})

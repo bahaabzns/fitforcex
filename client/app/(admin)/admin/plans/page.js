@@ -8,7 +8,7 @@ import { Button } from '@heroui/react/button';
 import { Modal } from '@heroui/react/modal';
 import { AlertDialog } from '@heroui/react/alert-dialog';
 
-const EMPTY_FORM = { name: '', display_name: '', max_team_seats: '', max_workspaces: '', price_monthly: '', trial_days: '', is_active: true, is_default: false };
+const EMPTY_FORM = { name: '', display_name: '', max_team_seats: '', max_workspaces: '', price_monthly: '', trial_days: '', payment_link: '', is_active: true, is_default: false };
 
 function PlanModal({ plan, onClose, onSaved }) {
     const isEdit = !!plan;
@@ -20,6 +20,7 @@ function PlanModal({ plan, onClose, onSaved }) {
                 max_workspaces: plan.max_workspaces ?? '',
                 price_monthly: plan.price_monthly ?? '',
                 trial_days: plan.trial_days ?? '',
+                payment_link: plan.payment_link ?? '',
                 is_active: plan.is_active,
                 is_default: plan.is_default,
               }
@@ -43,6 +44,7 @@ function PlanModal({ plan, onClose, onSaved }) {
                 max_workspaces: parseOptInt(form.max_workspaces),
                 price_monthly: parseOptFloat(form.price_monthly),
                 trial_days: parseOptInt(form.trial_days),
+                payment_link: form.payment_link.trim() || null,
                 is_active: form.is_active,
                 is_default: form.is_default,
             };
@@ -127,6 +129,19 @@ function PlanModal({ plan, onClose, onSaved }) {
                                     <input type="number" min="1" placeholder="—" value={form.trial_days} onChange={e => set('trial_days', e.target.value)}
                                         className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors" />
                                 </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium text-foreground">
+                                    Fawaterak payment link <span className="text-muted-foreground">(paste from your Fawaterak dashboard)</span>
+                                </label>
+                                <input
+                                    type="url"
+                                    placeholder="https://app.fawaterak.com/pay/..."
+                                    value={form.payment_link}
+                                    onChange={e => set('payment_link', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                />
                             </div>
 
                             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">

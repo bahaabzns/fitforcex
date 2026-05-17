@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const { Pool, types } = require('pg');
 
 // OID 1114 = TIMESTAMP WITHOUT TIME ZONE

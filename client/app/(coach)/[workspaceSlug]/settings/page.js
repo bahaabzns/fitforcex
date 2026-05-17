@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Chip } from "@heroui/react/chip";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
@@ -340,6 +341,269 @@ function WorkspaceTab({ me, workspace, setWorkspace }) {
     );
 }
 
+// ── Billing Tab ───────────────────────────────────────────────────────────────
+
+const STATUS_CHIP = {
+    paid:     "bg-green-500/15 text-green-600",
+    pending:  "bg-yellow-500/15 text-yellow-600",
+    failed:   "bg-red-500/15 text-red-600",
+    refunded: "bg-orange-500/15 text-orange-600",
+};
+
+function BillingTab() {
+    const [data, setData]             = useState(null);
+    const [plans, setPlans]           = useState([]);
+    const [loading, setLoading]       = useState(true);
+    const [paying, setPaying]         = useState(false);
+    const [error, setError]           = useState("");
+    const [iframeUrl, setIframeUrl]   = useState(null);
+    const [iframePayId, setIframePayId] = useState(null);
+    const [payStatus, setPayStatus]   = useState(null); // null | 'confirmed' | 'processing'
+
+    function loadBilling() {
+        return Promise.all([
+            api.get("/api/billing/subscription"),
+            api.get("/api/billing/plans"),
+        ]).then(([subRes, plansRes]) => {
+            setData(subRes.data);
+            setPlans(plansRes.data);
+        }).catch(() => setError("Failed to load billing info."))
+          .finally(() => setLoading(false));
+    }
+
+    useEffect(() => { loadBilling(); }, []);
+
+    // Poll payment status while iframe is open
+    useEffect(() => {
+        if (!iframePayId) return;
+        let attempts = 0;
+        const id = setInterval(async () => {
+            try {
+                const res = await api.get(`/api/billing/payment-status/${iframePayId}`);
+                if (res.data.status === "paid") {
+                    clearInterval(id);
+                    setPayStatus("confirmed");
+                    loadBilling();
+                } else if (attempts++ > 60) {
+                    clearInterval(id);
+                    setPayStatus("processing");
+                }
+            } catch { /* keep polling */ }
+        }, 3000);
+        return () => clearInterval(id);
+    }, [iframePayId]);
+
+    function closeIframe() {
+        setIframeUrl(null);
+        setIframePayId(null);
+        setPayStatus(null);
+    }
+
+    async function handlePay(planId) {
+        setPaying(planId);
+        setError("");
+        try {
+            const res = await api.post("/api/billing/create-invoice", { planId });
+            setIframeUrl(res.data.paymentUrl);
+            setIframePayId(res.data.paymentId);
+            setPayStatus(null);
+        } catch (err) {
+            setError(err.response?.data?.error || "Failed to start payment. Please try again.");
+        } finally {
+            setPaying(false);
+        }
+    }
+
+    if (loading) return (
+        <div className="flex flex-col gap-3">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+    );
+
+    if (error && !data) return <ErrorMsg msg={error} />;
+
+    const { subscription, payments } = data ?? {};
+    const isExpired  = subscription?.daysRemaining === 0;
+    const isExpiring = !isExpired && subscription?.daysRemaining !== null && subscription.daysRemaining <= 7;
+
+    return (
+        <div className="flex flex-col gap-6">
+            {/* Current plan card */}
+            <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Current Plan</p>
+                        <p className="text-2xl font-bold text-foreground mt-1">{subscription?.planDisplay ?? "—"}</p>
+                    </div>
+                    <Chip size="sm" className={
+                        subscription?.status === "active"
+                            ? "bg-green-500/15 text-green-600"
+                            : "bg-red-500/15 text-red-600"
+                    }>
+                        {subscription?.status ?? "unknown"}
+                    </Chip>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-lg bg-secondary/50 p-3">
+                        <p className="text-xs text-muted-foreground">Days Remaining</p>
+                        <p className={`text-xl font-bold mt-0.5 ${
+                            isExpired ? "text-destructive" : isExpiring ? "text-orange-500" : "text-foreground"
+                        }`}>
+                            {subscription?.daysRemaining ?? "∞"}
+                        </p>
+                    </div>
+                    <div className="rounded-lg bg-secondary/50 p-3">
+                        <p className="text-xs text-muted-foreground">Expires</p>
+                        <p className="text-sm font-medium text-foreground mt-0.5">
+                            {subscription?.expiresAt
+                                ? new Date(subscription.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                : "—"}
+                        </p>
+                    </div>
+                    <div className="rounded-lg bg-secondary/50 p-3">
+                        <p className="text-xs text-muted-foreground">Team Seats</p>
+                        <p className="text-sm font-medium text-foreground mt-0.5">
+                            {subscription?.maxTeamSeats ?? "∞"}
+                        </p>
+                    </div>
+                </div>
+
+                {(isExpired || isExpiring) && (
+                    <p className={`text-sm rounded-lg px-3 py-2 border ${
+                        isExpired
+                            ? "bg-destructive/10 text-destructive border-destructive/20"
+                            : "bg-orange-500/10 text-orange-600 border-orange-500/20"
+                    }`}>
+                        {isExpired
+                            ? "Your subscription has expired. Renew below to restore access."
+                            : `Your subscription expires in ${subscription.daysRemaining} days. Renew now to avoid interruption.`}
+                    </p>
+                )}
+            </div>
+
+            {/* Plans */}
+            <div>
+                <p className="text-sm font-semibold text-foreground mb-3">
+                    {isExpired ? "Choose a plan to reactivate" : "Renew or upgrade your plan"}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {plans.map(plan => (
+                        <div key={plan.id} className={`rounded-lg border p-4 flex flex-col gap-3 ${
+                            subscription?.planId === plan.id ? "border-primary bg-primary/5" : "border-border"
+                        }`}>
+                            <div>
+                                <p className="font-semibold text-foreground">{plan.display_name}</p>
+                                {plan.max_team_seats && (
+                                    <p className="text-xs text-muted-foreground mt-0.5">Up to {plan.max_team_seats} team seats</p>
+                                )}
+                            </div>
+                            <div>
+                                <span className="text-2xl font-bold text-foreground">
+                                    {plan.price_monthly ? `${Number(plan.price_monthly).toLocaleString()} EGP` : "Free"}
+                                </span>
+                                {plan.price_monthly && (
+                                    <span className="text-xs text-muted-foreground ml-1">/ {plan.duration_days} days</span>
+                                )}
+                            </div>
+                            {plan.price_monthly ? (
+                                <Button
+                                    variant="primary"
+                                    isDisabled={!!paying}
+                                    onClick={() => handlePay(plan.id)}
+                                    className="w-full"
+                                >
+                                    {paying === plan.id
+                                        ? "Redirecting…"
+                                        : subscription?.planId === plan.id ? "Renew" : "Switch & Pay"}
+                                </Button>
+                            ) : (
+                                <p className="text-xs text-muted-foreground italic">No payment required</p>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {error && <ErrorMsg msg={error} />}
+
+            {/* Payment iframe overlay */}
+            {iframeUrl && (
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                    <div className="bg-background rounded-xl shadow-xl flex flex-col w-full max-w-2xl" style={{ height: "80vh" }}>
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+                            <p className="text-sm font-semibold text-foreground">Complete Payment</p>
+                            <button onClick={closeIframe} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">✕</button>
+                        </div>
+
+                        {payStatus === "confirmed" ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+                                <div className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-bold text-foreground">Payment Confirmed!</p>
+                                    <p className="text-sm text-muted-foreground mt-1">Your subscription has been activated.</p>
+                                </div>
+                                <Button variant="primary" onClick={closeIframe}>Done</Button>
+                            </div>
+                        ) : payStatus === "processing" ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+                                <div className="w-16 h-16 rounded-full bg-yellow-500/15 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-bold text-foreground">Payment Processing</p>
+                                    <p className="text-sm text-muted-foreground mt-1">Your subscription will activate shortly.</p>
+                                </div>
+                                <Button variant="primary" onClick={closeIframe}>Close</Button>
+                            </div>
+                        ) : (
+                            <iframe
+                                src={iframeUrl}
+                                className="flex-1 w-full rounded-b-xl border-0"
+                                title="Fawaterak Payment"
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Payment history */}
+            {payments?.length > 0 && (
+                <div>
+                    <p className="text-sm font-semibold text-foreground mb-3">Payment History</p>
+                    <div className="rounded-lg border border-border overflow-hidden">
+                        {payments.map((p, idx) => (
+                            <div key={p.id} className={`flex items-center justify-between px-4 py-3 ${idx > 0 ? "border-t border-border" : ""}`}>
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">{p.plan_display}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                        {" · "}{p.duration_days} days
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-semibold text-foreground">
+                                        {Number(p.amount).toLocaleString()} {p.currency}
+                                    </span>
+                                    <Chip size="sm" className={STATUS_CHIP[p.fawaterak_status] ?? "bg-secondary text-muted-foreground"}>
+                                        {p.fawaterak_status}
+                                    </Chip>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── Danger Zone Tab ───────────────────────────────────────────────────────────
 
 function DangerZoneTab({ me, workspace, members }) {
@@ -596,6 +860,9 @@ export default function SettingsPage() {
                     <TabButton active={tab === "profile"} onClick={() => setTab("profile")}>Profile</TabButton>
                     <TabButton active={tab === "workspace"} onClick={() => setTab("workspace")}>Workspace</TabButton>
                     {me?.currentWorkspace?.role === "owner" && (
+                        <TabButton active={tab === "billing"} onClick={() => setTab("billing")}>Billing</TabButton>
+                    )}
+                    {me?.currentWorkspace?.role === "owner" && (
                         <TabButton active={tab === "danger"} onClick={() => setTab("danger")}>
                             <span className="text-destructive">Danger Zone</span>
                         </TabButton>
@@ -603,13 +870,10 @@ export default function SettingsPage() {
                 </div>
             </div>
 
-            {tab === "profile" && <ProfileTab me={me} />}
-            {tab === "workspace" && (
-                <WorkspaceTab me={me} workspace={workspace} setWorkspace={setWorkspace} />
-            )}
-            {tab === "danger" && (
-                <DangerZoneTab me={me} workspace={workspace} members={members} />
-            )}
+            {tab === "profile"   && <ProfileTab me={me} />}
+            {tab === "workspace" && <WorkspaceTab me={me} workspace={workspace} setWorkspace={setWorkspace} />}
+            {tab === "billing"   && <BillingTab />}
+            {tab === "danger"    && <DangerZoneTab me={me} workspace={workspace} members={members} />}
         </div>
     );
 }
