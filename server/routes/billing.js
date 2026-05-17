@@ -1,8 +1,41 @@
 const express = require('express');
 const router  = express.Router();
+const crypto  = require('crypto');
 const pool    = require('../db');
 const authMiddleware    = require('../middleware/auth');
 const { getInvoiceStatus } = require('../lib/fawaterak');
+
+// ─── GET /api/billing/callback ────────────────────────────────────────────────
+// Fawaterak redirects the iframe here after a successful payment.
+// No authMiddleware — the browser (inside the iframe) is the caller, not a logged-in user.
+// HMAC signature prevents forging activations.
+router.get('/callback', async (req, res) => {
+    const { p: paymentId, sig } = req.query;
+    const SECRET = process.env.JWT_SECRET;
+    if (!paymentId || !sig || !SECRET) {
+        return res.status(400).send('<p>Invalid request.</p>');
+    }
+    const expected = crypto.createHmac('sha256', SECRET).update(String(paymentId)).digest('hex');
+    if (sig !== expected) {
+        return res.status(400).send('<p>Invalid signature.</p>');
+    }
+    try {
+        const { rows } = await pool.query(
+            'SELECT workspace_id FROM workspace_payments WHERE id = $1',
+            [Number(paymentId)]
+        );
+        if (rows.length) {
+            await applyPayment(Number(paymentId), rows[0].workspace_id);
+            console.log('[Callback] Payment', paymentId, '→ activated via success redirect');
+        }
+    } catch (err) {
+        console.error('[Callback] applyPayment error:', err.message);
+    }
+    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<script>window.parent.postMessage('payment_confirmed','*')</script>
+<p style="font-family:sans-serif;text-align:center;padding:2rem;color:#16a34a">Payment confirmed!</p>
+</body></html>`);
+});
 
 router.use(authMiddleware);
 
@@ -129,9 +162,16 @@ router.post('/create-invoice', async (req, res, next) => {
         `, [req.user.workspaceId, plan.id, Number(plan.price_monthly) || 0, plan.duration_days]);
         const paymentId = pmtRows[0].id;
 
-        // 3. Append our payment ID as customerRef so the webhook can match it back
+        // 3. Build payment URL with customerRef and a signed success callback so Fawaterak
+        //    redirects the iframe back to us after payment, triggering automatic activation.
+        const SERVER_URL = process.env.SERVER_URL || 'http://localhost:4000';
+        const sig = crypto
+            .createHmac('sha256', process.env.JWT_SECRET || '')
+            .update(String(paymentId))
+            .digest('hex');
+        const callbackUrl = `${SERVER_URL}/api/billing/callback?p=${paymentId}&sig=${sig}`;
         const sep = plan.payment_link.includes('?') ? '&' : '?';
-        const paymentUrl = `${plan.payment_link}${sep}customerRef=${paymentId}`;
+        const paymentUrl = `${plan.payment_link}${sep}customerRef=${paymentId}&successUrl=${encodeURIComponent(callbackUrl)}`;
 
         await pool.query(
             'UPDATE workspace_payments SET fawaterak_payment_url = $1 WHERE id = $2',

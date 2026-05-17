@@ -484,4 +484,22 @@ router.get('/payments', adminAuthMiddleware, async (req, res, next) => {
     }
 });
 
+// ─── POST /api/admin/payments/:id/mark-paid ───────────────────────────────────
+router.post('/payments/:id/mark-paid', adminAuthMiddleware, async (req, res, next) => {
+    try {
+        const { rows } = await pool.query(
+            'SELECT id, workspace_id, fawaterak_status FROM workspace_payments WHERE id = $1',
+            [req.params.id]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'Payment not found' });
+        if (rows[0].fawaterak_status === 'paid') return res.status(409).json({ message: 'Already paid' });
+
+        const { applyPayment } = require('./billing');
+        await applyPayment(rows[0].id, rows[0].workspace_id);
+        res.json({ message: 'Payment marked as paid and subscription activated' });
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;

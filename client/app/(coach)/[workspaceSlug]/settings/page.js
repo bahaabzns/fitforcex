@@ -373,7 +373,19 @@ function BillingTab() {
 
     useEffect(() => { loadBilling(); }, []);
 
-    // Poll payment status while iframe is open
+    // Listen for payment_confirmed postMessage from the callback iframe
+    useEffect(() => {
+        function onMessage(e) {
+            if (e.data === 'payment_confirmed') {
+                setPayStatus('confirmed');
+                loadBilling();
+            }
+        }
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, []);
+
+    // Poll payment status while iframe is open (fallback if postMessage doesn't fire)
     useEffect(() => {
         if (!iframePayId) return;
         let attempts = 0;
