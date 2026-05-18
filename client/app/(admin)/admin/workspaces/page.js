@@ -8,7 +8,6 @@ import { Button } from '@heroui/react/button';
 import { Chip } from '@heroui/react/chip';
 import { Avatar } from '@heroui/react/avatar';
 import { Modal } from '@heroui/react/modal';
-import { Drawer } from '@heroui/react/drawer';
 
 function useDebounce(value, delay = 350) {
     const [debounced, setDebounced] = useState(value);
@@ -137,104 +136,102 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
 
     return (
         <>
-            <Drawer isOpen={true} onOpenChange={(o) => !o && onClose()}>
-                <Drawer.Backdrop>
-                    <Drawer.Container className="justify-end">
-                        <Drawer.Dialog className="w-full max-w-md h-full rounded-none">
-                            <Drawer.Header>
-                                <Drawer.Heading>Workspace Detail</Drawer.Heading>
-                                <Drawer.CloseTrigger />
-                            </Drawer.Header>
-                            <Drawer.Body className="flex flex-col gap-5">
-                                {loading && (
-                                    <div className="flex flex-col gap-3">
-                                        {[1,2,3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
+            <div className="fixed inset-0 z-50 flex justify-end">
+                <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+                <div className="relative w-full max-w-md h-full bg-background border-l border-border flex flex-col shadow-xl">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+                        <p className="text-sm font-semibold text-foreground">Workspace Detail</p>
+                        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">✕</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+                        {loading && (
+                            <div className="flex flex-col gap-3">
+                                {[1,2,3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
+                            </div>
+                        )}
+
+                        {workspace && (
+                            <>
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className="text-base font-semibold text-foreground">{workspace.name}</h3>
+                                        {workspace.archived_at && (
+                                            <Chip size="sm" className="bg-orange-500/15 text-orange-700">Archived</Chip>
+                                        )}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">/{workspace.slug}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Created {new Date(workspace.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div className="rounded-lg border border-border p-3">
+                                        <p className="text-xs text-muted-foreground">Owner</p>
+                                        <p className="font-medium text-foreground">{workspace.owner_fname} {workspace.owner_lname}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{workspace.owner_email}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-border p-3">
+                                        <p className="text-xs text-muted-foreground">Plan</p>
+                                        <p className="font-medium text-foreground">{workspace.plan_display}</p>
+                                        <p className="text-xs text-muted-foreground">{workspace.subscription_status}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-border p-3">
+                                        <p className="text-xs text-muted-foreground">Members</p>
+                                        <p className="font-bold text-foreground text-xl">{workspace.member_count}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-border p-3">
+                                        <p className="text-xs text-muted-foreground">Clients</p>
+                                        <p className="font-bold text-foreground text-xl">{workspace.client_count}</p>
+                                    </div>
+                                </div>
+
+                                {workspace.members.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-foreground mb-2">Team Members</h4>
+                                        <div className="rounded-xl border border-border overflow-hidden">
+                                            {workspace.members.map((m, idx) => (
+                                                <div key={m.id} className={`flex items-center gap-2 px-3 py-2.5 ${idx < workspace.members.length - 1 ? 'border-b border-border' : ''}`}>
+                                                    <Avatar color="primary" className="w-6 h-6 text-xs shrink-0">
+                                                        <Avatar.Fallback>
+                                                            {`${m.fname?.[0] ?? ''}${m.lname?.[0] ?? ''}`.toUpperCase() || '?'}
+                                                        </Avatar.Fallback>
+                                                    </Avatar>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-foreground truncate">{m.fname} {m.lname}</p>
+                                                        <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                                                    </div>
+                                                    <Chip size="sm" className="bg-secondary text-muted-foreground">{m.role}</Chip>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
 
-                                {workspace && (
-                                    <>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="text-base font-semibold text-foreground">{workspace.name}</h3>
-                                                {workspace.archived_at && (
-                                                    <Chip size="sm" className="bg-orange-500/15 text-orange-700">Archived</Chip>
-                                                )}
-                                            </div>
-                                            <p className="text-sm text-muted-foreground">/{workspace.slug}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Created {new Date(workspace.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                                            </p>
-                                        </div>
+                                {actionError && <p className="text-sm text-red-500">{actionError}</p>}
 
-                                        <div className="grid grid-cols-2 gap-3 text-sm">
-                                            <div className="rounded-lg border border-border p-3">
-                                                <p className="text-xs text-muted-foreground">Owner</p>
-                                                <p className="font-medium text-foreground">{workspace.owner_fname} {workspace.owner_lname}</p>
-                                                <p className="text-xs text-muted-foreground truncate">{workspace.owner_email}</p>
-                                            </div>
-                                            <div className="rounded-lg border border-border p-3">
-                                                <p className="text-xs text-muted-foreground">Plan</p>
-                                                <p className="font-medium text-foreground">{workspace.plan_display}</p>
-                                                <p className="text-xs text-muted-foreground">{workspace.subscription_status}</p>
-                                            </div>
-                                            <div className="rounded-lg border border-border p-3">
-                                                <p className="text-xs text-muted-foreground">Members</p>
-                                                <p className="font-bold text-foreground text-xl">{workspace.member_count}</p>
-                                            </div>
-                                            <div className="rounded-lg border border-border p-3">
-                                                <p className="text-xs text-muted-foreground">Clients</p>
-                                                <p className="font-bold text-foreground text-xl">{workspace.client_count}</p>
-                                            </div>
-                                        </div>
-
-                                        {workspace.members.length > 0 && (
-                                            <div>
-                                                <h4 className="text-sm font-semibold text-foreground mb-2">Team Members</h4>
-                                                <div className="rounded-xl border border-border overflow-hidden">
-                                                    {workspace.members.map((m, idx) => (
-                                                        <div key={m.id} className={`flex items-center gap-2 px-3 py-2.5 ${idx < workspace.members.length - 1 ? 'border-b border-border' : ''}`}>
-                                                            <Avatar color="primary" className="w-6 h-6 text-xs shrink-0">
-                                                                <Avatar.Fallback>
-                                                                    {`${m.fname?.[0] ?? ''}${m.lname?.[0] ?? ''}`.toUpperCase() || '?'}
-                                                                </Avatar.Fallback>
-                                                            </Avatar>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium text-foreground truncate">{m.fname} {m.lname}</p>
-                                                                <p className="text-xs text-muted-foreground truncate">{m.email}</p>
-                                                            </div>
-                                                            <Chip size="sm" className="bg-secondary text-muted-foreground">{m.role}</Chip>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {actionError && <p className="text-sm text-red-500">{actionError}</p>}
-
-                                        <div className="flex flex-col gap-2 pt-2 border-t border-border">
-                                            <Button variant="outline" className="w-full" onClick={() => setShowSubModal(true)}>
-                                                Override Subscription Plan
-                                            </Button>
-                                            {workspace.archived_at ? (
-                                                <Button variant="outline" className="w-full" isDisabled={actionLoading} onClick={handleRestore}>
-                                                    <ArchiveRestore size={14} className="mr-1.5" />
-                                                    Restore Workspace
-                                                </Button>
-                                            ) : (
-                                                <Button variant="outline" className="w-full text-orange-600 border-orange-500/30 hover:bg-orange-500/10" isDisabled={actionLoading} onClick={handleArchive}>
-                                                    <Archive size={14} className="mr-1.5" />
-                                                    Force Archive
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </Drawer.Body>
-                        </Drawer.Dialog>
-                    </Drawer.Container>
-                </Drawer.Backdrop>
-            </Drawer>
+                                <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                                    <Button variant="outline" className="w-full" onClick={() => setShowSubModal(true)}>
+                                        Override Subscription Plan
+                                    </Button>
+                                    {workspace.archived_at ? (
+                                        <Button variant="outline" className="w-full" isDisabled={actionLoading} onClick={handleRestore}>
+                                            <ArchiveRestore size={14} className="mr-1.5" />
+                                            Restore Workspace
+                                        </Button>
+                                    ) : (
+                                        <Button variant="outline" className="w-full text-orange-600 border-orange-500/30 hover:bg-orange-500/10" isDisabled={actionLoading} onClick={handleArchive}>
+                                            <Archive size={14} className="mr-1.5" />
+                                            Force Archive
+                                        </Button>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             {showSubModal && workspace && (
                 <SubscriptionModal
