@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
 const { computeSubscriptionStatus } = require('../utils/subscriptionStatus');
+const { checkClientLimit } = require('../lib/seatLimits');
 
 router.use(authMiddleware);
 router.use((req, res, next) => {
@@ -158,6 +159,7 @@ router.post('/', async (req, res, next) => {
     }
 
     try {
+        await checkClientLimit(req.user.workspaceId);
         // Generate random unique client code (1-9999) to avoid race conditions
         let nextCode = null;
         let retries = 0;
@@ -202,6 +204,20 @@ router.post('/', async (req, res, next) => {
         );
         res.status(201).json({ ...mapClient(result.rows[0]) });
     } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/clients/limit-check
+router.get('/limit-check', async (req, res, next) => {
+    try {
+        await checkClientLimit(req.user.workspaceId);
+        res.json({ allowed: true });
+    } catch (err) {
+        if (err.status === 403) {
+            const limit = parseInt(err.message.split(':')[1]);
+            return res.json({ allowed: false, limit });
+        }
         next(err);
     }
 });

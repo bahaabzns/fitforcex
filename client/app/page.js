@@ -1,173 +1,177 @@
 import Link from "next/link";
-import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
-
-const features = [
-    {
-        icon: "🏋️",
-        title: "Training Programs",
-        description:
-            "Build and assign custom workout plans with an extensive exercise library.",
-    },
-    {
-        icon: "🥗",
-        title: "Nutrition Tracking",
-        description:
-            "Create macro-based meal plans and cycle calories to match your clients' goals.",
-    },
-    {
-        icon: "📊",
-        title: "Client Dashboard",
-        description:
-            "Monitor progress, measurements, and check-ins from a single dashboard.",
-    },
-];
-
-const stats = [
-    { value: "500+", label: "Coaches" },
-    { value: "10k+", label: "Clients managed" },
-    { value: "99.9%", label: "Uptime" },
-];
-
-const footerLinks = ["Privacy", "Terms", "Contact"];
+import LandingNav from "./components/LandingNav";
+import LandingHeroCarousel from "./components/LandingHeroCarousel";
+import LandingFeatures from "./components/LandingFeatures";
+import LandingTestimonials from "./components/LandingTestimonials";
+import LandingPricing from "./components/LandingPricing";
+import LandingFounder from "./components/LandingFounder";
+import LandingFaq from "./components/LandingFaq";
+import LandingCta from "./components/LandingCta";
 
 export default function HomePage() {
     return (
-        <main className="min-h-screen bg-background text-foreground flex flex-col">
+        <main className="dark min-h-screen bg-[#080d1a] text-white flex flex-col">
 
             {/* ── Nav ── */}
-            <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 bg-surface/80 backdrop-blur-md border-b border-border">
-                <span className="text-xl font-bold tracking-tight">
-                    FitForce<span className="text-accent">X</span>
-                </span>
-                <div className="flex items-center gap-2">
-                    <Link href="/login" className="button button--ghost button--md">
-                        Log In
-                    </Link>
-                    <Link href="/register" className="button button--primary button--md">
-                        Get Started
-                    </Link>
-                </div>
-            </nav>
+            <LandingNav />
 
             {/* ── Hero ── */}
-            <section
-                className="flex flex-col items-center justify-center flex-1 text-center px-6 py-28 gap-6"
-                style={{
-                    background:
-                        "radial-gradient(ellipse 80% 55% at 50% -5%, color-mix(in oklch, var(--color-accent) 10%, transparent), transparent)",
-                }}
-            >
-                <Chip size="lg" className="bg-accent/10 text-accent">
-                    Built for fitness coaches
+            <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-0 gap-8 overflow-hidden">
+
+                {/* Radial glow behind heading */}
+                <div
+                    className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-125"
+                    style={{
+                        background:
+                            "radial-gradient(ellipse 70% 50% at 50% 0%, color-mix(in oklch, var(--color-primary) 18%, transparent), transparent)",
+                    }}
+                />
+
+                {/* Badge */}
+                <Chip color="accent" size="md">
+                    Built for Fitness Coaches
                 </Chip>
 
-                <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight leading-tight max-w-3xl">
-                    The all-in-one platform for{" "}
-                    <span className="text-accent">fitness coaches</span>
+                {/* Heading */}
+                <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] max-w-4xl text-white">
+                    One System to Run Your{" "}
+                    <span className="text-primary">Coaching Business</span>
                 </h1>
 
-                <p className="text-lg text-foreground/60 max-w-xl">
-                    Manage your clients, build training programs, track nutrition,
-                    and grow your coaching business — all in one place.
+                {/* Subtitle */}
+                <p className="text-lg text-white/55 max-w-2xl leading-relaxed">
+                    Manage unlimited clients, deliver custom workout and nutrition plans,
+                    and grow your coaching business—all in one place.
                 </p>
 
-                <div className="flex flex-wrap justify-center gap-3 mt-2">
+                {/* CTA */}
+                <div className="flex flex-col items-center gap-2">
                     <Link href="/register" className="button button--primary button--lg">
-                        Start for Free
+                        Get Started – It&apos;s FREE!
                     </Link>
-                    <Link
-                        href="/login"
-                        className="button button--outline button--lg"
-                        style={{ borderColor: "color-mix(in oklch, var(--color-foreground) 25%, transparent)" }}
-                    >
-                        Log In
-                    </Link>
+                    <p className="text-white/55 text-sm">✓ No credit card needed, cancel any time</p>
                 </div>
 
-                <div className="flex items-center gap-10 mt-10 pt-10 border-t border-border w-full max-w-sm justify-center">
-                    {stats.map(({ value, label }) => (
-                        <div key={label} className="flex flex-col items-center gap-1">
-                            <span className="text-2xl font-bold text-foreground">{value}</span>
-                            <span className="text-xs text-foreground/50">{label}</span>
-                        </div>
-                    ))}
-                </div>
+                {/* Feature carousel */}
+                <LandingHeroCarousel />
             </section>
 
-            {/* ── Features ── */}
-            <section className="px-8 pb-20 max-w-5xl mx-auto w-full">
-                <div className="text-center mb-10">
-                    <Chip size="md" className="bg-accent/10 text-accent">Features</Chip>
-                    <h2 className="text-3xl font-bold mt-4 text-foreground">
-                        Everything you need
-                    </h2>
-                    <p className="text-foreground/55 mt-2">
-                        All the tools to run and scale your coaching business.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {features.map(({ icon, title, description }) => (
-                        <Card key={title} className="transition-transform duration-200 hover:-translate-y-1">
-                            <Card.Content className="flex flex-col gap-4 p-6">
-                                <div
-                                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
-                                    style={{ backgroundColor: "color-mix(in oklch, var(--color-accent) 10%, transparent)" }}
-                                >
-                                    {icon}
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <h3 className="text-base font-semibold text-foreground">{title}</h3>
-                                    <p className="text-sm text-foreground/55 leading-relaxed">{description}</p>
-                                </div>
-                            </Card.Content>
-                        </Card>
-                    ))}
-                </div>
+            {/* ── Trust banner ── */}
+            <section className="mt-8 sm:mt-16 py-5 border-y border-white/8 bg-white/2">
+                <p className="text-center text-white/55 text-sm sm:text-base font-medium px-4">
+                    Build plans, manage clients, and track progress —{" "}
+                    <span className="text-white/85">everything in one place.</span>
+                </p>
             </section>
 
-            {/* ── CTA Banner ── */}
-            <section className="px-8 pb-24 max-w-5xl mx-auto w-full">
-                <Card className="overflow-hidden relative">
-                    <Card.Content
-                        className="flex flex-col items-center gap-4 text-center py-14 px-8"
-                        style={{
-                            background:
-                                "radial-gradient(ellipse 100% 120% at 50% 110%, color-mix(in oklch, var(--color-accent) 8%, var(--color-surface-secondary)), var(--color-surface-secondary))",
-                        }}
-                    >
-                        <h2 className="text-3xl font-bold text-foreground">
-                            Ready to grow your coaching business?
-                        </h2>
-                        <p className="text-foreground/55 max-w-md">
-                            Join hundreds of coaches already using FitForceX to manage
-                            their clients and scale their business.
+            {/* ── Features (Phase 3) ── */}
+            <LandingFeatures />
+
+            {/* ── Testimonials (Phase 6) ── */}
+            <LandingTestimonials />
+
+            {/* ── Pricing (Phase 4) ── */}
+            <LandingPricing />
+
+            {/* ── Founder's Guarantee (Phase 7) ── */}
+            <LandingFounder />
+
+            {/* ── FAQ (Phase 5) ── */}
+            <LandingFaq />
+
+            {/* ── Final CTA (Phase 8) ── */}
+            <LandingCta />
+
+            {/* ── Footer (Phase 9) ── */}
+            <footer className="border-t border-white/10 bg-[#080d1a]">
+                {/* Top row — logo + link columns */}
+                <div className="mx-auto max-w-7xl px-8 py-10 md:py-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+
+                    {/* Brand */}
+                    <div className="flex flex-col gap-4 lg:col-span-1">
+                        <span className="text-xl font-bold tracking-tight text-white">
+                            FitForce
+                        </span>
+                        <p className="text-sm text-white/40 leading-relaxed max-w-xs">
+                            The all-in-one coaching platform for serious fitness professionals.
                         </p>
-                        <Link href="/register" className="button button--primary button--lg mt-2">
-                            Get Started — It&apos;s Free
-                        </Link>
-                    </Card.Content>
-                </Card>
-            </section>
-
-            {/* ── Footer ── */}
-            <footer className="py-8 border-t border-border">
-                <div className="max-w-5xl mx-auto px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <span className="text-xs text-foreground/45">
-                        © {new Date().getFullYear()} FitForceX. All rights reserved.
-                    </span>
-                    <div className="flex gap-6">
-                        {footerLinks.map((link) => (
-                            <a
-                                key={link}
-                                href="#"
-                                className="text-xs text-foreground/45 hover:text-foreground transition-colors"
-                            >
-                                {link}
-                            </a>
-                        ))}
                     </div>
+
+                    {/* Product links */}
+                    <div className="flex flex-col gap-4">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-white/30">
+                            Product
+                        </p>
+                        <nav className="flex flex-col gap-3">
+                            {[
+                                { label: "Features", href: "#features" },
+                                { label: "Pricing", href: "#pricing" },
+                                { label: "Client Portal", href: "/login" },
+                                { label: "Get Started", href: "/register" },
+                            ].map(({ label, href }) => (
+                                <a
+                                    key={label}
+                                    href={href}
+                                    className="text-sm text-white/45 hover:text-white transition-colors"
+                                >
+                                    {label}
+                                </a>
+                            ))}
+                        </nav>
+                    </div>
+
+                    {/* Company links */}
+                    <div className="flex flex-col gap-4">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-white/30">
+                            Company
+                        </p>
+                        <nav className="flex flex-col gap-3">
+                            {[
+                                { label: "About", href: "#about" },
+                                { label: "Blog", href: "#" },
+                                { label: "Careers", href: "#" },
+                                { label: "Contact", href: "#" },
+                            ].map(({ label, href }) => (
+                                <a
+                                    key={label}
+                                    href={href}
+                                    className="text-sm text-white/45 hover:text-white transition-colors"
+                                >
+                                    {label}
+                                </a>
+                            ))}
+                        </nav>
+                    </div>
+
+                    {/* Legal links */}
+                    <div className="flex flex-col gap-4">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-white/30">
+                            Legal
+                        </p>
+                        <nav className="flex flex-col gap-3">
+                            {[
+                                { label: "Privacy Policy", href: "#" },
+                                { label: "Terms of Service", href: "#" },
+                                { label: "Cookie Policy", href: "#" },
+                            ].map(({ label, href }) => (
+                                <a
+                                    key={label}
+                                    href={href}
+                                    className="text-sm text-white/45 hover:text-white transition-colors"
+                                >
+                                    {label}
+                                </a>
+                            ))}
+                        </nav>
+                    </div>
+                </div>
+
+                {/* Bottom row — copyright */}
+                <div className="border-t border-white/8 py-6 px-8">
+                    <p className="text-center text-xs text-white/25">
+                        © {new Date().getFullYear()} FitForce. All rights reserved.
+                    </p>
                 </div>
             </footer>
         </main>

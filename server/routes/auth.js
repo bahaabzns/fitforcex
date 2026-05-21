@@ -125,7 +125,7 @@ function issueToken(payload) {
 
 router.post('/register', async (req, res, next) => {
     try {
-        const { fname, lname, email, password } = req.body;
+        const { fname, lname, email, password, phone } = req.body;
 
         // Input validation
         if (!email || typeof email !== 'string' || !email.trim()) {
@@ -153,8 +153,8 @@ router.post('/register', async (req, res, next) => {
         const slug = slugRows.length > 0 ? `${normalizedSlug}-${Date.now()}` : normalizedSlug;
 
         const userResult = await pool.query(
-            'INSERT INTO users (fname, lname, email, password) VALUES ($1, $2, $3, $4) RETURNING id, fname, lname, email',
-            [fname, lname, email, hashed]
+            'INSERT INTO users (fname, lname, email, password, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id, fname, lname, email',
+            [fname, lname, email, hashed, phone?.trim() || null]
         );
         const user = userResult.rows[0];
 

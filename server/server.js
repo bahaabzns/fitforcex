@@ -70,6 +70,7 @@ server.use('/api/forms',          mutationLimiter, uploadLimiter, require('./rou
 server.use('/api/packages',       mutationLimiter, require('./routes/packages'));
 server.use('/api/payment-methods',mutationLimiter, require('./routes/payment-methods'));
 server.use('/api/transactions',   mutationLimiter, uploadLimiter, require('./routes/transactions'));
+server.use('/api/plans',                         require('./routes/plans'));
 server.use('/api/admin',          mutationLimiter, require('./routes/admin'));
 server.use('/api/workspaces',     mutationLimiter, require('./routes/workspaces'));
 server.use('/api/invitations',    mutationLimiter, require('./routes/invitations'));

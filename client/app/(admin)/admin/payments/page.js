@@ -3,16 +3,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
 import { Skeleton } from '@heroui/react/skeleton';
-import { Chip } from '@heroui/react/chip';
 import { Button } from '@heroui/react/button';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
-const STATUS_CHIP = {
-    paid:     'bg-green-500/15 text-green-600',
-    pending:  'bg-yellow-500/15 text-yellow-600',
-    failed:   'bg-red-500/15 text-red-600',
-    refunded: 'bg-orange-500/15 text-orange-600',
+const STATUS_STYLES = {
+    paid:     'bg-green-500/15 text-green-700 border-green-300',
+    pending:  'bg-yellow-500/15 text-yellow-700 border-yellow-300',
+    failed:   'bg-red-500/15 text-red-700 border-red-300',
+    refunded: 'bg-orange-500/15 text-orange-700 border-orange-300',
 };
+
+const STATUSES = ['paid', 'pending', 'failed', 'refunded'];
 
 function StatCard({ label, value, sub, accent }) {
     return (
@@ -33,7 +34,7 @@ export default function AdminPaymentsPage() {
     const [search, setSearch]       = useState('');
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState('');
-    const [activating, setActivating] = useState(null);
+    const [changingStatus, setChangingStatus] = useState(null);
 
     const limit      = 25;
     const totalPages = Math.ceil(total / limit);
@@ -54,15 +55,15 @@ export default function AdminPaymentsPage() {
     }, []);
     useEffect(() => { setPage(1); }, [statusFilter, search]);
 
-    async function handleMarkPaid(paymentId) {
-        setActivating(paymentId);
+    async function handleStatusChange(paymentId, newStatus) {
+        setChangingStatus(paymentId);
         try {
-            await api.post(`/api/admin/payments/${paymentId}/mark-paid`);
+            await api.patch(`/api/admin/payments/${paymentId}/status`, { status: newStatus });
             fetchPayments();
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to activate');
+            alert(err.response?.data?.message || 'Failed to update status');
         } finally {
-            setActivating(null);
+            setChangingStatus(null);
         }
     }
 
@@ -115,14 +116,13 @@ export default function AdminPaymentsPage() {
 
             {/* Table */}
             <div className="rounded-xl border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     <span>Workspace</span>
                     <span>Owner</span>
                     <span>Plan</span>
                     <span className="text-right">Amount</span>
                     <span>Status</span>
                     <span>Date</span>
-                    <span></span>
                 </div>
 
                 {loading ? (
@@ -137,7 +137,7 @@ export default function AdminPaymentsPage() {
                     payments.map((p, idx) => (
                         <div
                             key={p.id}
-                            className={`grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
+                            className={`grid grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 items-center px-4 py-3 ${idx > 0 ? 'border-t border-border' : ''}`}
                         >
                             <div className="min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">{p.workspace_name}</p>
@@ -151,22 +151,16 @@ export default function AdminPaymentsPage() {
                             <span className="text-sm font-semibold text-foreground text-right whitespace-nowrap">
                                 {Number(p.amount).toLocaleString()} {p.currency}
                             </span>
-                            <Chip size="sm" className={STATUS_CHIP[p.fawaterak_status] ?? 'bg-secondary text-muted-foreground'}>
-                                {p.fawaterak_status}
-                            </Chip>
-                            {p.fawaterak_status === 'pending' ? (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    isDisabled={activating === p.id}
-                                    onClick={() => handleMarkPaid(p.id)}
-                                    className="text-xs whitespace-nowrap"
-                                >
-                                    {activating === p.id ? 'Activating…' : 'Mark Paid'}
-                                </Button>
-                            ) : (
-                                <span />
-                            )}
+                            <select
+                                value={p.fawaterak_status}
+                                disabled={changingStatus === p.id}
+                                onChange={e => handleStatusChange(p.id, e.target.value)}
+                                className={`text-xs font-medium rounded-full px-2.5 py-1 border cursor-pointer outline-none disabled:opacity-50 disabled:cursor-wait ${STATUS_STYLES[p.fawaterak_status] ?? 'bg-secondary text-muted-foreground border-border'}`}
+                            >
+                                {STATUSES.map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                                 {new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
                             </span>

@@ -3,7 +3,7 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata = {
-    title: "FitForce X",
+    title: "FitForce",
     description: "Fitness coaching platform",
 };
 

@@ -302,7 +302,7 @@ router.post('/workspaces/:id/archive', adminAuthMiddleware, async (req, res, nex
 
 router.get('/plans', adminAuthMiddleware, async (req, res, next) => {
     try {
-        const { rows } = await pool.query(`
+        const { rows: plans } = await pool.query(`
             SELECT p.*,
                    COUNT(ws.id) AS workspace_count
             FROM plans p
@@ -310,32 +310,107 @@ router.get('/plans', adminAuthMiddleware, async (req, res, next) => {
             GROUP BY p.id
             ORDER BY p.id
         `);
-        res.json(rows);
+
+        if (plans.length === 0) return res.json([]);
+
+        const planIds = plans.map(p => p.id);
+        const { rows: links } = await pool.query(`
+            SELECT ppl.plan_id, bd.period_key, ppl.payment_link
+            FROM plan_period_links ppl
+            JOIN billing_discounts bd ON bd.id = ppl.billing_discount_id
+            WHERE ppl.plan_id = ANY($1)
+        `, [planIds]);
+
+        const linkMap = {};
+        links.forEach(({ plan_id, period_key, payment_link }) => {
+            if (!linkMap[plan_id]) linkMap[plan_id] = {};
+            linkMap[plan_id][period_key] = payment_link ?? '';
+        });
+
+        res.json(plans.map(p => ({ ...p, period_links: linkMap[p.id] ?? {} })));
     } catch (err) {
         next(err);
     }
 });
 
+// Upserts { period_key: payment_link } map into plan_period_links using a pooled client
+async function upsertPeriodLinks(client, planId, periodLinks) {
+    if (!periodLinks || typeof periodLinks !== 'object') return;
+    for (const [periodKey, link] of Object.entries(periodLinks)) {
+        const url = typeof link === 'string' ? link.trim() || null : null;
+        await client.query(`
+            INSERT INTO plan_period_links (plan_id, billing_discount_id, payment_link)
+            SELECT $1, bd.id, $2
+            FROM billing_discounts bd
+            WHERE bd.period_key = $3
+            ON CONFLICT (plan_id, billing_discount_id)
+            DO UPDATE SET payment_link = EXCLUDED.payment_link
+        `, [planId, url, periodKey]);
+    }
+}
+
 router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
-    const { name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link } = req.body;
+    const {
+        name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link,
+        subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
+        has_team_counter, sort_order, currency, show_on_landing,
+        price_per_seat, min_seat_count, max_seat_count,
+        period_links, max_clients,
+    } = req.body;
     if (!name || !display_name) return res.status(400).json({ message: 'name and display_name are required' });
 
+    const client = await pool.connect();
     try {
-        const { rows } = await pool.query(`
-            INSERT INTO plans (name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        await client.query('BEGIN');
+        const { rows } = await client.query(`
+            INSERT INTO plans (
+                name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link,
+                subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
+                has_team_counter, sort_order, currency, show_on_landing,
+                price_per_seat, min_seat_count, max_seat_count, max_clients
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
             RETURNING *
-        `, [name.trim(), display_name.trim(), max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null, features ? JSON.stringify(features) : '{}', trial_days ?? null, payment_link?.trim() || null]);
+        `, [
+            name.trim(), display_name.trim(),
+            max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null,
+            features ? JSON.stringify(features) : '[]', trial_days ?? null, payment_link?.trim() || null,
+            subtitle?.trim() || null,
+            is_popular ?? false,
+            cta_text?.trim() || 'Get Started',
+            cta_variant?.trim() || 'outline',
+            features_header?.trim() || "What's included:",
+            features_subheader?.trim() || null,
+            has_team_counter ?? false,
+            sort_order ?? 0,
+            currency?.trim() || 'LE',
+            show_on_landing ?? true,
+            price_per_seat ?? null,
+            min_seat_count ?? 1,
+            max_seat_count ?? 20,
+            max_clients ?? null,
+        ]);
+        await upsertPeriodLinks(client, rows[0].id, period_links);
+        await client.query('COMMIT');
         res.status(201).json(rows[0]);
     } catch (err) {
+        await client.query('ROLLBACK');
         if (err.code === '23505') return res.status(409).json({ message: 'A plan with this name already exists' });
         req.log.error({ err }, 'Error creating plan');
         next(err);
+    } finally {
+        client.release();
     }
 });
 
 router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
-    const { display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default, trial_days, payment_link } = req.body;
+    const {
+        display_name, max_team_seats, max_workspaces, price_monthly, features, is_active, is_default, trial_days, payment_link,
+        subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
+        has_team_counter, sort_order, currency, show_on_landing,
+        price_per_seat, min_seat_count, max_seat_count,
+        period_links, max_clients,
+    } = req.body;
 
     const client = await pool.connect();
     try {
@@ -347,24 +422,59 @@ router.put('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
 
         const { rows } = await client.query(`
             UPDATE plans
-            SET display_name   = COALESCE($1, display_name),
-                max_team_seats = $2,
-                max_workspaces = $3,
-                price_monthly  = $4,
-                features       = COALESCE($5::jsonb, features),
-                is_active      = COALESCE($6, is_active),
-                is_default     = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE is_default END,
-                trial_days     = $8,
-                payment_link   = COALESCE($10, payment_link)
+            SET display_name      = COALESCE($1, display_name),
+                max_team_seats    = $2,
+                max_workspaces    = $3,
+                price_monthly     = $4,
+                features          = COALESCE($5::jsonb, features),
+                is_active         = COALESCE($6, is_active),
+                is_default        = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE is_default END,
+                trial_days        = $8,
+                payment_link      = COALESCE($10, payment_link),
+                subtitle          = COALESCE($11, subtitle),
+                is_popular        = COALESCE($12, is_popular),
+                cta_text          = COALESCE($13, cta_text),
+                cta_variant       = COALESCE($14, cta_variant),
+                features_header   = COALESCE($15, features_header),
+                features_subheader= $16,
+                has_team_counter  = COALESCE($17, has_team_counter),
+                sort_order        = COALESCE($18, sort_order),
+                currency          = COALESCE($19, currency),
+                show_on_landing   = COALESCE($20, show_on_landing),
+                price_per_seat    = $21,
+                min_seat_count    = COALESCE($22, min_seat_count),
+                max_seat_count    = COALESCE($23, max_seat_count),
+                max_clients       = $24
             WHERE id = $9
             RETURNING *
-        `, [display_name ?? null, max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null,
-            features ? JSON.stringify(features) : null, is_active ?? null,
-            is_default != null ? is_default : null, trial_days ?? null, req.params.id,
-            payment_link !== undefined ? (payment_link?.trim() || null) : null]);
+        `, [
+            display_name ?? null,
+            max_team_seats ?? null, max_workspaces ?? null, price_monthly ?? null,
+            features ? JSON.stringify(features) : null,
+            is_active ?? null,
+            is_default != null ? is_default : null,
+            trial_days ?? null,
+            req.params.id,
+            payment_link !== undefined ? (payment_link?.trim() || null) : null,
+            subtitle !== undefined ? (subtitle?.trim() || null) : null,
+            is_popular ?? null,
+            cta_text !== undefined ? (cta_text?.trim() || null) : null,
+            cta_variant !== undefined ? (cta_variant?.trim() || null) : null,
+            features_header !== undefined ? (features_header?.trim() || null) : null,
+            features_subheader !== undefined ? (features_subheader?.trim() || null) : null,
+            has_team_counter ?? null,
+            sort_order ?? null,
+            currency !== undefined ? (currency?.trim() || null) : null,
+            show_on_landing ?? null,
+            price_per_seat !== undefined ? (price_per_seat ?? null) : null,
+            min_seat_count ?? null,
+            max_seat_count ?? null,
+            max_clients !== undefined ? (max_clients ?? null) : null,
+        ]);
 
         if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Plan not found' }); }
 
+        await upsertPeriodLinks(client, req.params.id, period_links);
         await client.query('COMMIT');
         res.json(rows[0]);
     } catch (err) {
@@ -397,6 +507,42 @@ router.delete('/plans/:id', adminAuthMiddleware, async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+});
+
+// ── Billing Discounts ─────────────────────────────────────────────────────────
+
+router.get('/billing-discounts', adminAuthMiddleware, async (req, res, next) => {
+    try {
+        const { rows } = await pool.query('SELECT * FROM billing_discounts ORDER BY sort_order ASC');
+        res.json(rows);
+    } catch (err) { next(err); }
+});
+
+router.put('/billing-discounts/:id', adminAuthMiddleware, async (req, res, next) => {
+    const { label, save_label, discount_percent, months, sort_order, is_active } = req.body;
+    try {
+        const { rows } = await pool.query(`
+            UPDATE billing_discounts
+            SET label            = COALESCE($1, label),
+                save_label       = $2,
+                discount_percent = COALESCE($3, discount_percent),
+                months           = COALESCE($4, months),
+                sort_order       = COALESCE($5, sort_order),
+                is_active        = COALESCE($6, is_active)
+            WHERE id = $7
+            RETURNING *
+        `, [
+            label?.trim() || null,
+            save_label !== undefined ? (save_label?.trim() || null) : null,
+            discount_percent ?? null,
+            months ?? null,
+            sort_order ?? null,
+            is_active ?? null,
+            req.params.id,
+        ]);
+        if (!rows.length) return res.status(404).json({ message: 'Billing period not found' });
+        res.json(rows[0]);
+    } catch (err) { next(err); }
 });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
@@ -497,6 +643,42 @@ router.post('/payments/:id/mark-paid', adminAuthMiddleware, async (req, res, nex
         const { applyPayment } = require('./billing');
         await applyPayment(rows[0].id, rows[0].workspace_id);
         res.json({ message: 'Payment marked as paid and subscription activated' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ─── PATCH /api/admin/payments/:id/status ─────────────────────────────────────
+const ALLOWED_STATUSES = ['paid', 'pending', 'failed', 'refunded'];
+router.patch('/payments/:id/status', adminAuthMiddleware, async (req, res, next) => {
+    try {
+        const { status } = req.body;
+        if (!ALLOWED_STATUSES.includes(status)) {
+            return res.status(400).json({ message: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
+        }
+
+        const { rows } = await pool.query(
+            'SELECT id, workspace_id, fawaterak_status FROM workspace_payments WHERE id = $1',
+            [req.params.id]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'Payment not found' });
+
+        const payment = rows[0];
+        if (payment.fawaterak_status === status) {
+            return res.json({ message: 'Status unchanged' });
+        }
+
+        if (status === 'paid') {
+            const { applyPayment } = require('./billing');
+            await applyPayment(payment.id, payment.workspace_id);
+        } else {
+            await pool.query(
+                'UPDATE workspace_payments SET fawaterak_status = $1, paid_at = NULL WHERE id = $2',
+                [status, payment.id]
+            );
+        }
+
+        res.json({ message: `Payment status updated to ${status}` });
     } catch (err) {
         next(err);
     }

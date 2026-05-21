@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/axios";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -817,8 +817,12 @@ function DangerZoneTab({ me, workspace, members }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+const VALID_TABS = ["profile", "workspace", "billing", "danger"];
+
 export default function SettingsPage() {
-    const [tab, setTab] = useState("profile");
+    const searchParams = useSearchParams();
+    const initialTab = VALID_TABS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "profile";
+    const [tab, setTab] = useState(initialTab);
     const [me, setMe] = useState(null);
     const [workspace, setWorkspace] = useState(null);
     const [members, setMembers] = useState([]);

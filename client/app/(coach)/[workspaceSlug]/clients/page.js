@@ -234,8 +234,9 @@ export default function ClientsPage() {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [availableForms, setAvailableForms] = useState([]);
     const [loading, setLoading]           = useState(true);
-    const [credsModal, setCredsModal]     = useState(null); // { email, password } | null
-    const [credsCopied, setCredsCopied]   = useState(false);
+    const [credsModal, setCredsModal]         = useState(null); // { email, password } | null
+    const [credsCopied, setCredsCopied]       = useState(false);
+    const [clientLimitModal, setClientLimitModal] = useState(null); // { limit: number } | null
 
     // Add-client modal
     const [showForm, setShowForm]             = useState(false);
@@ -336,6 +337,20 @@ export default function ClientsPage() {
         return errors;
     }
 
+    async function openAddClientForm() {
+        try {
+            const { data } = await api.get('/api/clients/limit-check');
+            if (!data.allowed) {
+                setClientLimitModal({ limit: data.limit });
+                return;
+            }
+        } catch {
+            // if check fails, let the form open and handle errors on submit
+        }
+        resetForm();
+        setShowForm(true);
+    }
+
     async function handleAddClient(e) {
         e.preventDefault();
         const errors = validateForm();
@@ -407,7 +422,13 @@ export default function ClientsPage() {
             resetForm();
             setShowForm(false);
         } catch (err) {
-            setFormErrors([err.response?.data?.error || "Failed to create client"]);
+            const msg = err.response?.data?.error || '';
+            if (err.response?.status === 403 && msg.startsWith('client_limit_reached:')) {
+                const limit = parseInt(msg.split(':')[1]);
+                setClientLimitModal({ limit });
+            } else {
+                setFormErrors([msg || "Failed to create client"]);
+            }
         }
     }
 
@@ -816,7 +837,7 @@ export default function ClientsPage() {
                     placeholder: "Search by code, name, email or phone",
                 }}
                 toolbarEnd={
-                    <Button variant="primary" onClick={() => { resetForm(); setShowForm(true); }}>
+                    <Button variant="primary" onClick={openAddClientForm}>
                         + Add Client
                     </Button>
                 }
@@ -900,6 +921,40 @@ export default function ClientsPage() {
                         {freezeSaving ? "Saving…" : "Add Freeze"}
                     </Button>
                 </form>
+            </Modal>
+
+            {/* Client limit reached modal */}
+            <Modal
+                open={!!clientLimitModal}
+                onClose={() => setClientLimitModal(null)}
+                title="Client Limit Reached"
+            >
+                <div className="flex flex-col gap-5">
+                    <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                        <span className="text-amber-500 mt-0.5 text-base leading-none">⚠</span>
+                        <div>
+                            <p className="text-sm font-medium text-amber-600">
+                                You&apos;ve reached your plan&apos;s limit of {clientLimitModal?.limit} active client{clientLimitModal?.limit !== 1 ? 's' : ''}.
+                            </p>
+                            <p className="text-xs text-amber-600/70 mt-0.5">
+                                Upgrade your plan to add more clients and unlock additional capacity.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm text-muted-foreground">
+                            To upgrade, contact us and we&apos;ll get you set up on a higher plan right away.
+                        </p>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                        <Button variant="ghost" onClick={() => setClientLimitModal(null)}>
+                            Dismiss
+                        </Button>
+                        <Button variant="primary" onClick={() => { setClientLimitModal(null); window.location.href = `/${workspaceSlug}/settings?tab=billing`; }}>
+                            Upgrade Plan
+                        </Button>
+                    </div>
+                </div>
             </Modal>
 
             {/* Bulk form picker modal */}

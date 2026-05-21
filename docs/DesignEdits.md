@@ -41,7 +41,9 @@ https://heroui.com/docs/react/components/number-field#with-chevrons
 # Dashboard insights
 # export bulk data
 # landing page
-# payment gateway
+
+
+# [pending] payment gateway
 
 
 # add bulk data

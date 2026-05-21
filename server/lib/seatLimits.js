@@ -40,4 +40,23 @@ async function checkWorkspaceLimit(userId, currentWorkspaceId) {
     }
 }
 
-module.exports = { checkSeatLimit, checkWorkspaceLimit };
+async function checkClientLimit(workspaceId) {
+    const { rows } = await pool.query(`
+        SELECT p.max_clients,
+               COUNT(c.id) AS active_clients
+        FROM workspace_subscriptions ws
+        JOIN plans p ON p.id = ws.plan_id
+        LEFT JOIN clients c ON c.workspace_id = $1
+        WHERE ws.workspace_id = $1
+        GROUP BY p.max_clients
+    `, [workspaceId]);
+
+    if (!rows.length) throw { status: 500, message: 'Subscription not found for workspace' };
+    const { max_clients, active_clients } = rows[0];
+    if (max_clients === null) return;  // unlimited
+    if (parseInt(active_clients) >= parseInt(max_clients)) {
+        throw { status: 403, message: `client_limit_reached:${max_clients}` };
+    }
+}
+
+module.exports = { checkSeatLimit, checkWorkspaceLimit, checkClientLimit };
