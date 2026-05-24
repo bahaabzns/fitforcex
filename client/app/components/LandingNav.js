@@ -13,7 +13,7 @@ const navLinks = [
     { href: '#faq', label: 'FAQ' },
 ];
 
-export default function LandingNav() {
+export default function LandingNav({ user, dashboardUrl }) {
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/60 backdrop-blur-md">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -38,16 +38,26 @@ export default function LandingNav() {
 
                 {/* Desktop CTA buttons */}
                 <div className="hidden items-center gap-2 md:flex">
-                    <NextLink href="/login">
-                        <Button variant="ghost" size="md">
-                            Log In
-                        </Button>
-                    </NextLink>
-                    <NextLink href="/register">
-                        <Button variant="primary" size="md">
-                            Get Started
-                        </Button>
-                    </NextLink>
+                    {dashboardUrl ? (
+                        <NextLink href={dashboardUrl}>
+                            <Button variant="primary" size="md">
+                                Go to Dashboard
+                            </Button>
+                        </NextLink>
+                    ) : (
+                        <>
+                            <NextLink href="/login">
+                                <Button variant="ghost" size="md">
+                                    Log In
+                                </Button>
+                            </NextLink>
+                            <NextLink href="/register">
+                                <Button variant="primary" size="md">
+                                    Get Started
+                                </Button>
+                            </NextLink>
+                        </>
+                    )}
                 </div>
 
                 {/* Mobile hamburger + Drawer */}
@@ -84,16 +94,26 @@ export default function LandingNav() {
                                     </Drawer.Body>
 
                                     <Drawer.Footer className="flex flex-col gap-3 border-t border-border px-6 py-6">
-                                        <NextLink href="/login" className="w-full">
-                                            <Button variant="outline" size="md" fullWidth>
-                                                Log In
-                                            </Button>
-                                        </NextLink>
-                                        <NextLink href="/register" className="w-full">
-                                            <Button variant="primary" size="md" fullWidth>
-                                                Get Started
-                                            </Button>
-                                        </NextLink>
+                                        {dashboardUrl ? (
+                                            <NextLink href={dashboardUrl} className="w-full">
+                                                <Button variant="primary" size="md" fullWidth>
+                                                    Go to Dashboard
+                                                </Button>
+                                            </NextLink>
+                                        ) : (
+                                            <>
+                                                <NextLink href="/login" className="w-full">
+                                                    <Button variant="outline" size="md" fullWidth>
+                                                        Log In
+                                                    </Button>
+                                                </NextLink>
+                                                <NextLink href="/register" className="w-full">
+                                                    <Button variant="primary" size="md" fullWidth>
+                                                        Get Started
+                                                    </Button>
+                                                </NextLink>
+                                            </>
+                                        )}
                                     </Drawer.Footer>
 
                                 </Drawer.Dialog>

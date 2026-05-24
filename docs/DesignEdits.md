@@ -7,16 +7,6 @@ Verification
 
 
 > CLIENT DETAILS PAGE
-# [done] add client name and client code to the path next to clients in the header
-# [done] allow scrolling in builders sections
-# [done] change the clients details page transactions to match the design system (tables)
-# [done] empty states in builders should have surface
-# [done] disclosure sections of builders .. add x padding in the title and reduce padding between sections and change chevron icon to be in the start 
-# [done] add scroll shadow to the builder sections
-
-# [done] add quick search to all tables and change the add button to be to the right of the table header
-# [done] fix kbd in the quick search in the clients table and make it ctrl + k instead commad + k
-
 # fix close panel button in training builder and fix the auto day open
 # hover of plans cards on builders .. change color (we will change the card design itself)
 # [] enhance the calories calculator cards 
@@ -26,7 +16,6 @@ https://heroui.com/docs/react/components/meter#colors
 https://heroui.com/docs/react/components/radio-group#delivery--payment
 # use this with amount and unit 
 https://heroui.com/docs/react/components/number-field#with-chevrons
-# change the sorting buttons to match design system
 
 # add load plan to builders
 
@@ -142,3 +131,16 @@ https://heroui.com/docs/react/components/switch#with-icons
 
 
 # responsiveness
+
+
+# [done] add client name and client code to the path next to clients in the header
+# [done] allow scrolling in builders sections
+# [done] change the clients details page transactions to match the design system (tables)
+# [done] empty states in builders should have surface
+# [done] disclosure sections of builders .. add x padding in the title and reduce padding between sections and change chevron icon to be in the start 
+# [done] add scroll shadow to the builder sections
+
+# [done] add quick search to all tables and change the add button to be to the right of the table header
+# [done] fix kbd in the quick search in the clients table and make it ctrl + k instead commad + k
+
+# [done] change the sorting buttons to match design system

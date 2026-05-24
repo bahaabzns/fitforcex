@@ -1,5 +1,9 @@
+'use client';
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Chip } from "@heroui/react/chip";
+import api from "@/lib/axios";
 import LandingNav from "./components/LandingNav";
 import LandingHeroCarousel from "./components/LandingHeroCarousel";
 import LandingFeatures from "./components/LandingFeatures";
@@ -10,11 +14,40 @@ import LandingFaq from "./components/LandingFaq";
 import LandingCta from "./components/LandingCta";
 
 export default function HomePage() {
+    const [checking, setChecking] = useState(true);
+    const [user, setUser] = useState(null);
+
+    useEffect(() => {
+        api.get('/api/auth/me')
+            .then(res => {
+                setUser(res.data);
+            })
+            .catch(() => {
+                setUser(null);
+            })
+            .finally(() => {
+                setChecking(false);
+            });
+    }, []);
+
+    if (checking) {
+        return (
+            <div className="dark min-h-screen bg-[#080d1a] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                    <p className="text-muted-foreground">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    const dashboardUrl = user?.currentWorkspace?.slug ? `/${user.currentWorkspace.slug}/dashboard` : null;
+
     return (
         <main className="dark min-h-screen bg-[#080d1a] text-white flex flex-col">
 
             {/* ── Nav ── */}
-            <LandingNav />
+            <LandingNav user={user} dashboardUrl={dashboardUrl} />
 
             {/* ── Hero ── */}
             <section className="relative flex flex-col items-center text-center px-6 pt-20 pb-0 gap-8 overflow-hidden">
@@ -47,10 +80,18 @@ export default function HomePage() {
 
                 {/* CTA */}
                 <div className="flex flex-col items-center gap-2">
-                    <Link href="/register" className="button button--primary button--lg">
-                        Get Started – It&apos;s FREE!
-                    </Link>
-                    <p className="text-white/55 text-sm">✓ No credit card needed, cancel any time</p>
+                    {dashboardUrl ? (
+                        <Link href={dashboardUrl} className="button button--primary button--lg">
+                            Go to Dashboard
+                        </Link>
+                    ) : (
+                        <>
+                            <Link href="/register" className="button button--primary button--lg">
+                                Get Started – It&apos;s FREE!
+                            </Link>
+                            <p className="text-white/55 text-sm">✓ No credit card needed, cancel any time</p>
+                        </>
+                    )}
                 </div>
 
                 {/* Feature carousel */}
@@ -107,8 +148,13 @@ export default function HomePage() {
                             {[
                                 { label: "Features", href: "#features" },
                                 { label: "Pricing", href: "#pricing" },
-                                { label: "Client Portal", href: "/login" },
-                                { label: "Get Started", href: "/register" },
+                                ...(dashboardUrl
+                                    ? [{ label: "Dashboard", href: dashboardUrl }]
+                                    : [
+                                        { label: "Client Portal", href: "/login" },
+                                        { label: "Get Started", href: "/register" },
+                                    ]
+                                ),
                             ].map(({ label, href }) => (
                                 <a
                                     key={label}

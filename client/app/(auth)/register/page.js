@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
@@ -8,8 +8,12 @@ import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
-
-const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+import { Autocomplete } from "@heroui/react/autocomplete";
+import { EmptyState } from "@heroui/react/empty-state";
+import { SearchField } from "@heroui/react/search-field";
+import { ListBox } from "@heroui/react/list-box";
+import { useFilter } from "@heroui/react/rac";
+import { ChevronsUpDown } from "lucide-react";
 
 const COUNTRY_CODES = [
     { code: "+93", name: "Afghanistan" }, { code: "+355", name: "Albania" }, { code: "+213", name: "Algeria" },
@@ -40,76 +44,15 @@ const COUNTRY_CODES = [
     { code: "+886", name: "Taiwan" }, { code: "+255", name: "Tanzania" }, { code: "+66", name: "Thailand" },
     { code: "+216", name: "Tunisia" }, { code: "+90", name: "Turkey" }, { code: "+256", name: "Uganda" },
     { code: "+380", name: "Ukraine" }, { code: "+971", name: "United Arab Emirates" }, { code: "+44", name: "United Kingdom" },
-    { code: "+1", name: "United States" }, { code: "+998", name: "Uzbekistan" }, { code: "+58", name: "Venezuela" },
+    { code: "+998", name: "Uzbekistan" }, { code: "+58", name: "Venezuela" },
     { code: "+84", name: "Vietnam" }, { code: "+967", name: "Yemen" }, { code: "+260", name: "Zambia" },
     { code: "+263", name: "Zimbabwe" },
 ];
 
-function CountryCodeSelect({ value, onChange }) {
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState("");
-    const ref = useRef(null);
-
-    useEffect(() => {
-        function handler(e) {
-            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-        }
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
-
-    const filtered = COUNTRY_CODES.filter(c =>
-        c.name.toLowerCase().includes(search.toLowerCase()) || c.code.includes(search)
-    );
-
-    return (
-        <div className="relative" ref={ref}>
-            <button
-                type="button"
-                onClick={() => setOpen(!open)}
-                className="w-24 px-3 py-2 rounded-md bg-background border border-input text-foreground text-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring truncate transition-colors"
-            >
-                {value || "+?"}
-            </button>
-            {open && (
-                <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
-                    <input
-                        type="text"
-                        placeholder="Search country or code..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full px-3 py-2 bg-background border-b border-border text-foreground text-xs placeholder:text-muted-foreground focus-visible:outline-none"
-                        autoFocus
-                    />
-                    <div className="max-h-48 overflow-y-auto">
-                        {filtered.map((c, i) => (
-                            <button
-                                key={`${c.code}-${i}`}
-                                type="button"
-                                onClick={() => { onChange(c.code); setOpen(false); setSearch(""); }}
-                                className={`w-full px-3 py-1.5 text-left text-xs transition-colors flex justify-between ${
-                                    value === c.code
-                                        ? "bg-primary/10 text-primary"
-                                        : "text-foreground hover:bg-default"
-                                }`}
-                            >
-                                <span>{c.name}</span>
-                                <span className="text-muted-foreground">{c.code}</span>
-                            </button>
-                        ))}
-                        {filtered.length === 0 && (
-                            <p className="px-3 py-2 text-muted-foreground text-xs">No results</p>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
 export default function RegisterPage() {
     const searchParams = useSearchParams();
     const planSlug = searchParams.get('plan');
+    const periodKey = searchParams.get('period');
 
     const [formData, setFormData] = useState({
         fname: '', lname: '', email: '', password: '',
@@ -117,7 +60,27 @@ export default function RegisterPage() {
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [checkingAuth, setCheckingAuth] = useState(true);
     const router = useRouter();
+    const { contains } = useFilter({ sensitivity: "base" });
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const me = await api.get('/api/auth/me');
+                if (me.data) {
+                    const slug = me.data?.currentWorkspace?.slug;
+                    router.push(slug ? `/${slug}/dashboard` : '/login');
+                    return;
+                }
+                setCheckingAuth(false);
+            } catch {
+                // Not authenticated, allow registration
+                setCheckingAuth(false);
+            }
+        };
+        checkAuth();
+    }, [router]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -133,9 +96,13 @@ export default function RegisterPage() {
                 email: formData.email,
                 password: formData.password,
                 phone,
+                plan: planSlug,
+                period: periodKey,
             });
             const slug = res.data?.workspace_slug;
-            router.push(slug ? `/${slug}/settings?tab=billing` : '/login');
+            const billingUrl = slug ? `/${slug}/settings/billing` : '/login';
+            const finalUrl = planSlug ? `${billingUrl}?plan=${encodeURIComponent(planSlug)}` : billingUrl;
+            router.push(finalUrl);
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed. Please try again.');
         } finally {
@@ -145,10 +112,26 @@ export default function RegisterPage() {
 
     const set = (field) => (val) => setFormData(prev => ({ ...prev, [field]: val }));
 
+    if (checkingAuth) {
+        return (
+            <div className="auth-wrapper">
+                <div className="auth-card flex flex-col items-center justify-center gap-4">
+                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                    <p className="text-center text-muted-foreground">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="auth-wrapper">
             <div className="auth-card">
                 <h1 className="auth-title">Create Account</h1>
+                {planSlug && (
+                    <p className="mb-4 text-sm text-primary/70 text-center">
+                        You selected: <span className="font-semibold text-primary">{planSlug}</span>
+                    </p>
+                )}
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="grid grid-cols-2 gap-3">
                         <TextField fullWidth isRequired value={formData.fname} onChange={set('fname')}>
@@ -170,18 +153,47 @@ export default function RegisterPage() {
                     </TextField>
 
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-foreground">Phone Number</label>
+                        <Label>Phone Number</Label>
                         <div className="flex gap-2">
-                            <CountryCodeSelect
+                            <Autocomplete
                                 value={formData.countryCode}
-                                onChange={(code) => setFormData(prev => ({ ...prev, countryCode: code }))}
-                            />
-                            <input
+                                onChange={(code) => { if (code) setFormData(prev => ({ ...prev, countryCode: code })); }}
+                            >
+                                <Autocomplete.Trigger className="w-28">
+                                    <Autocomplete.Value>
+                                        {({ isPlaceholder }) => isPlaceholder ? '+?' : formData.countryCode}
+                                    </Autocomplete.Value>
+                                    <Autocomplete.Indicator className="size-3">
+                                        <ChevronsUpDown />
+                                    </Autocomplete.Indicator>
+                                </Autocomplete.Trigger>
+                                <Autocomplete.Popover>
+                                    <Autocomplete.Filter filter={contains}>
+                                        <SearchField autoFocus name="search" variant="secondary">
+                                            <SearchField.Group>
+                                                <SearchField.SearchIcon />
+                                                <SearchField.Input placeholder="Search country..." />
+                                                <SearchField.ClearButton />
+                                            </SearchField.Group>
+                                        </SearchField>
+                                        <ListBox renderEmptyState={() => <EmptyState>No results found</EmptyState>}>
+                                            {COUNTRY_CODES.map((c) => (
+                                                <ListBox.Item key={c.code} id={c.code} textValue={`${c.name} ${c.code}`}>
+                                                    <span className="w-10 shrink-0 text-muted-foreground">{c.code}</span>
+                                                    <span className="flex-1">{c.name}</span>
+                                                    <ListBox.ItemIndicator />
+                                                </ListBox.Item>
+                                            ))}
+                                        </ListBox>
+                                    </Autocomplete.Filter>
+                                </Autocomplete.Popover>
+                            </Autocomplete>
+                            <Input
                                 type="tel"
                                 value={formData.phoneNumber}
                                 onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                                 placeholder="1012345678"
-                                className={`flex-1 ${inputCls}`}
+                                fullWidth
                             />
                         </div>
                     </div>

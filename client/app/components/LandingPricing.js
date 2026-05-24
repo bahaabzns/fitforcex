@@ -27,9 +27,15 @@ function BillingPeriodToggle({ discounts, selected, onSelect }) {
                         >
                             {d.label}
                             {d.save_label && (
-                                <span className={`text-xs font-semibold ${isActive ? 'text-primary-foreground/80' : 'text-primary'}`}>
-                                    {d.save_label}
-                                </span>
+                                isActive ? (
+                                    <span className="text-xs font-semibold text-primary-foreground/80">
+                                        {d.save_label}
+                                    </span>
+                                ) : (
+                                    <span className="text-xs font-semibold text-primary bg-primary/15 rounded-full px-1.5 py-0.5 leading-none">
+                                        {d.save_label}
+                                    </span>
+                                )
                             )}
                         </button>
                     );
@@ -76,7 +82,7 @@ function TeamMemberCounter({ value, onChange, min, max, pricePerSeat, currency }
     );
 }
 
-export default function LandingPricing() {
+export default function LandingPricing({ onCtaClick, currentPlanId, isInline = false }) {
     const [plans, setPlans] = useState([]);
     const [discounts, setDiscounts] = useState([]);
     const [selectedPeriod, setSelectedPeriod] = useState(null);
@@ -112,16 +118,26 @@ export default function LandingPricing() {
     const months       = selectedPeriod?.months ?? 1;
 
     return (
-        <section id="pricing" className="py-16 md:py-24 px-6">
-            <div className="mx-auto max-w-7xl flex flex-col gap-14">
+        <section id="pricing" className={isInline ? "" : "py-16 md:py-24 px-6"}>
+            <div className={isInline ? "flex flex-col gap-6" : "mx-auto max-w-7xl flex flex-col gap-14"}>
 
-                <div className="text-center flex flex-col gap-4">
-                    <Chip color="accent" size="sm" className="mx-auto">Pricing</Chip>
-                    <h2 className="text-4xl sm:text-5xl font-bold text-white">Choose Your Plan</h2>
-                    <p className="text-white/50 max-w-lg mx-auto leading-relaxed">
-                        Start free, scale as you grow. No hidden fees, cancel anytime.
-                    </p>
-                </div>
+                {!isInline && (
+                    <div className="text-center flex flex-col gap-4">
+                        <Chip color="accent" size="sm" className="mx-auto">Pricing</Chip>
+                        <h2 className="text-4xl sm:text-5xl font-bold text-white">Choose Your Plan</h2>
+                        <p className="text-white/50 max-w-lg mx-auto leading-relaxed">
+                            Start free, scale as you grow. No hidden fees, cancel anytime.
+                        </p>
+                    </div>
+                )}
+                {isInline && (
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-semibold text-foreground">Available Plans</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Upgrade or switch your subscription plan
+                        </p>
+                    </div>
+                )}
 
                 {loading && (
                     <div className="flex flex-col gap-6">
@@ -150,7 +166,7 @@ export default function LandingPricing() {
                             />
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${isInline ? "items-stretch" : "items-center"}`}>
                             {plans.map((plan) => {
                                 const periodKey  = selectedPeriod?.period_key;
                                 const ctaHref    = `/register?plan=${encodeURIComponent(plan.name)}`
@@ -166,11 +182,12 @@ export default function LandingPricing() {
                                     ? `billed ${periodTotal.toLocaleString('en-EG')} ${plan.currency} every ${months} mo`
                                     : null;
                                 const features = Array.isArray(plan.features) ? plan.features : [];
+                                const isCurrentPlan = currentPlanId === plan.id;
 
                                 return (
                                     <div
                                         key={plan.id}
-                                        className={plan.is_popular ? "md:-mt-4 md:mb-4" : ""}
+                                        className={plan.is_popular && !isInline ? "md:-mt-4 md:mb-4" : ""}
                                     >
                                         <Card
                                             className="flex flex-col h-full"
@@ -180,7 +197,12 @@ export default function LandingPricing() {
                                                           border: "1px solid oklch(0.72 0.18 249 / 0.5)",
                                                           boxShadow: "0 0 0 1px oklch(0.72 0.18 249 / 0.15), 0 24px 60px rgba(0,0,0,0.4), 0 0 50px oklch(0.72 0.18 249 / 0.12)",
                                                       }
-                                                    : undefined
+                                                    : isCurrentPlan
+                                                        ? {
+                                                              border: "1px solid oklch(0.72 0.18 249 / 0.35)",
+                                                              background: "oklch(0.72 0.18 249 / 0.04)",
+                                                          }
+                                                        : undefined
                                             }
                                         >
                                             <Card.Header className="flex flex-col gap-3 pb-0">
@@ -250,12 +272,21 @@ export default function LandingPricing() {
                                             </Card.Content>
 
                                             <Card.Footer className="flex flex-col gap-2">
-                                                <Link
-                                                    href={ctaHref}
-                                                    className={`button button--${plan.cta_variant} button--md button--full-width`}
-                                                >
-                                                    {plan.cta_text}
-                                                </Link>
+                                                {onCtaClick ? (
+                                                    <button
+                                                        onClick={() => onCtaClick(plan.id, plan)}
+                                                        className={`button button--${isCurrentPlan ? "secondary" : plan.cta_variant} button--md button--full-width`}
+                                                    >
+                                                        {isCurrentPlan ? "✓ Current Plan" : plan.cta_text}
+                                                    </button>
+                                                ) : (
+                                                    <Link
+                                                        href={ctaHref}
+                                                        className={`button button--${plan.cta_variant} button--md button--full-width`}
+                                                    >
+                                                        {plan.cta_text}
+                                                    </Link>
+                                                )}
                                                 {priceDisplay && (
                                                     <p className="text-center text-xs text-foreground/40">
                                                         ✓ No credit card needed, cancel any time

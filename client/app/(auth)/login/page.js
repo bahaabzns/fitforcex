@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { TextField } from "@heroui/react/textfield";
@@ -13,6 +13,20 @@ export default function LoginPage() {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [checking, setChecking] = useState(true);
+
+    useEffect(() => {
+        api.get('/api/auth/me')
+            .then(res => {
+                const slug = res.data?.currentWorkspace?.slug;
+                if (slug) {
+                    router.push(`/${slug}/dashboard`);
+                    return;
+                }
+                setChecking(false);
+            })
+            .catch(() => setChecking(false));
+    }, [router]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -29,6 +43,17 @@ export default function LoginPage() {
             setLoading(false);
         }
     };
+
+    if (checking) {
+        return (
+            <div className="auth-wrapper">
+                <div className="auth-card flex flex-col items-center justify-center gap-4">
+                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                    <p className="text-center text-muted-foreground">Loading...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="auth-wrapper">

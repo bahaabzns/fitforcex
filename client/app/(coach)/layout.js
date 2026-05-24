@@ -55,6 +55,12 @@ function getPageInfo(pathname, { clientLabel } = {}) {
         return { icon: <ClipboardList size={15} />, crumbs: ['Plans Queue'] };
     if (p.includes('/team'))
         return { icon: <Users2 size={15} />, crumbs: ['Team'] };
+    if (p.includes('/settings/profile'))
+        return { icon: <Settings size={15} />, crumbs: ['Settings', 'Profile'] };
+    if (p.includes('/settings/workspace'))
+        return { icon: <Settings size={15} />, crumbs: ['Settings', 'Workspace'] };
+    if (p.includes('/settings/billing'))
+        return { icon: <Settings size={15} />, crumbs: ['Settings', 'Billing'] };
     if (p.includes('/settings'))
         return { icon: <Settings size={15} />, crumbs: ['Settings'] };
 

@@ -49,6 +49,7 @@ export default function Sidebar({ collapsed }) {
     const [nutritionOpen, setNutritionOpen] = useState(pathname.includes('/nutrition'));
     const [trainingOpen, setTrainingOpen] = useState(pathname.includes('/training'));
     const [financeOpen, setFinanceOpen] = useState(pathname.includes('/finance'));
+    const [settingsOpen, setSettingsOpen] = useState(pathname.includes('/settings'));
     const [user, setUser] = useState(null);
     const [wsOpen, setWsOpen] = useState(false);
     const [switching, setSwitching] = useState(false);
@@ -180,20 +181,16 @@ export default function Sidebar({ collapsed }) {
 
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-2">
-                {!collapsed && (
-                    <p className="px-2.5 pb-1.5 text-xs font-medium text-muted-foreground tracking-wide">
-                        Navigation
-                    </p>
-                )}
                 <ul className="flex flex-col gap-0.5">
+                    {/* Simple link item */}
                     <li>
                         <Link
                             href={`/${slug}/dashboard`}
                             title={collapsed ? 'Dashboard' : undefined}
-                            className={`${navLink(pathname.includes('/dashboard'))} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={navLink(pathname.includes('/dashboard'))}
                         >
                             <LayoutDashboard size={17} className="shrink-0" />
-                            {!collapsed && 'Dashboard'}
+                            {!collapsed && <span className="flex-1">Dashboard</span>}
                         </Link>
                     </li>
 
@@ -201,75 +198,61 @@ export default function Sidebar({ collapsed }) {
                         <Link
                             href={`/${slug}/clients`}
                             title={collapsed ? 'Clients' : undefined}
-                            className={`${navLink(pathname.includes('/clients'))} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={navLink(pathname.includes('/clients'))}
                         >
                             <Users size={17} className="shrink-0" />
-                            {!collapsed && 'Clients'}
+                            {!collapsed && <span className="flex-1">Clients</span>}
                         </Link>
                     </li>
 
+                    {/* Expandable menu: Finance */}
                     <li>
-                        {collapsed ? (
-                            <button
-                                title="Finance"
-                                className={`${navLink(pathname.includes('/finance'))} justify-center px-0 w-full`}
-                            >
-                                <Wallet size={17} className="shrink-0" />
-                            </button>
-                        ) : (
-                            <Disclosure isExpanded={financeOpen} onExpandedChange={setFinanceOpen}>
-                                <Disclosure.Heading>
-                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/finance'))} w-full`}>
-                                        <Wallet size={17} className="shrink-0" />
-                                        <span className="flex-1 text-left">Finance</span>
-                                        {financeOpen
-                                            ? <ChevronDown size={14} className="shrink-0" />
-                                            : <ChevronRight size={14} className="shrink-0" />
-                                        }
-                                    </Disclosure.Trigger>
-                                </Disclosure.Heading>
+                        <Disclosure isExpanded={financeOpen} onExpandedChange={setFinanceOpen}>
+                            <Disclosure.Heading>
+                                <Disclosure.Trigger className={`${navLink(pathname.includes('/finance'))} w-full cursor-pointer`} disabled={collapsed}>
+                                    <Wallet size={17} className="shrink-0" />
+                                    {!collapsed && (
+                                        <>
+                                            <span className="flex-1">Finance</span>
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${financeOpen ? 'rotate-90' : ''}`} />
+                                        </>
+                                    )}
+                                </Disclosure.Trigger>
+                            </Disclosure.Heading>
+                            {!collapsed && (
                                 <Disclosure.Content>
                                     <Disclosure.Body>
                                         <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/finance/transactions`}
-                                                    className={subLink(pathname.includes('/finance/transactions'))}
-                                                >
+                                                <Link href={`/${slug}/finance/transactions`} className={subLink(pathname.includes('/finance/transactions'))}>
                                                     Transactions
                                                 </Link>
                                             </li>
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/finance/packages`}
-                                                    className={subLink(pathname.includes('/finance/packages'))}
-                                                >
+                                                <Link href={`/${slug}/finance/packages`} className={subLink(pathname.includes('/finance/packages'))}>
                                                     Packages
                                                 </Link>
                                             </li>
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/finance/payment-methods`}
-                                                    className={subLink(pathname.includes('/finance/payment-methods'))}
-                                                >
+                                                <Link href={`/${slug}/finance/payment-methods`} className={subLink(pathname.includes('/finance/payment-methods'))}>
                                                     Payment Methods
                                                 </Link>
                                             </li>
                                         </ul>
                                     </Disclosure.Body>
                                 </Disclosure.Content>
-                            </Disclosure>
-                        )}
+                            )}
+                        </Disclosure>
                     </li>
 
                     <li>
                         <Link
                             href={`/${slug}/plans-queue`}
                             title={collapsed ? 'Plans Queue' : undefined}
-                            className={`${navLink(pathname.includes('/plans-queue'))} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={navLink(pathname.includes('/plans-queue'))}
                         >
                             <ClipboardList size={17} className="shrink-0" />
-                            {!collapsed && 'Plans Queue'}
+                            {!collapsed && <span className="flex-1">Plans Queue</span>}
                         </Link>
                     </li>
 
@@ -277,118 +260,93 @@ export default function Sidebar({ collapsed }) {
                         <Link
                             href={`/${slug}/forms`}
                             title={collapsed ? 'Forms' : undefined}
-                            className={`${navLink(pathname.includes('/forms'))} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={navLink(pathname.includes('/forms'))}
                         >
                             <ClipboardList size={17} className="shrink-0" />
-                            {!collapsed && 'Forms'}
+                            {!collapsed && <span className="flex-1">Forms</span>}
                         </Link>
                     </li>
 
+                    {/* Expandable menu: Nutrition */}
                     <li>
-                        {collapsed ? (
-                            <button
-                                title="Nutrition"
-                                className={`${navLink(pathname.includes('/nutrition'))} justify-center px-0 w-full`}
-                            >
-                                <Salad size={17} className="shrink-0" />
-                            </button>
-                        ) : (
-                            <Disclosure isExpanded={nutritionOpen} onExpandedChange={setNutritionOpen}>
-                                <Disclosure.Heading>
-                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/nutrition'))} w-full`}>
-                                        <Salad size={17} className="shrink-0" />
-                                        <span className="flex-1 text-left">Nutrition</span>
-                                        {nutritionOpen
-                                            ? <ChevronDown size={14} className="shrink-0" />
-                                            : <ChevronRight size={14} className="shrink-0" />
-                                        }
-                                    </Disclosure.Trigger>
-                                </Disclosure.Heading>
+                        <Disclosure isExpanded={nutritionOpen} onExpandedChange={setNutritionOpen}>
+                            <Disclosure.Heading>
+                                <Disclosure.Trigger className={`${navLink(pathname.includes('/nutrition'))} w-full cursor-pointer`} disabled={collapsed}>
+                                    <Salad size={17} className="shrink-0" />
+                                    {!collapsed && (
+                                        <>
+                                            <span className="flex-1">Nutrition</span>
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${nutritionOpen ? 'rotate-90' : ''}`} />
+                                        </>
+                                    )}
+                                </Disclosure.Trigger>
+                            </Disclosure.Heading>
+                            {!collapsed && (
                                 <Disclosure.Content>
                                     <Disclosure.Body>
                                         <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/nutrition/food-items`}
-                                                    className={subLink(pathname.includes('/nutrition/food-items'))}
-                                                >
+                                                <Link href={`/${slug}/nutrition/food-items`} className={subLink(pathname.includes('/nutrition/food-items'))}>
                                                     Food Items
                                                 </Link>
                                             </li>
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/nutrition/food-categories`}
-                                                    className={subLink(pathname.includes('/nutrition/food-categories'))}
-                                                >
+                                                <Link href={`/${slug}/nutrition/food-categories`} className={subLink(pathname.includes('/nutrition/food-categories'))}>
                                                     Food Categories
                                                 </Link>
                                             </li>
                                         </ul>
                                     </Disclosure.Body>
                                 </Disclosure.Content>
-                            </Disclosure>
-                        )}
+                            )}
+                        </Disclosure>
                     </li>
 
+                    {/* Expandable menu: Training */}
                     <li>
-                        {collapsed ? (
-                            <button
-                                title="Training"
-                                className={`${navLink(pathname.includes('/training'))} justify-center px-0 w-full`}
-                            >
-                                <Dumbbell size={17} className="shrink-0" />
-                            </button>
-                        ) : (
-                            <Disclosure isExpanded={trainingOpen} onExpandedChange={setTrainingOpen}>
-                                <Disclosure.Heading>
-                                    <Disclosure.Trigger className={`${navLink(pathname.includes('/training'))} w-full`}>
-                                        <Dumbbell size={17} className="shrink-0" />
-                                        <span className="flex-1 text-left">Training</span>
-                                        {trainingOpen
-                                            ? <ChevronDown size={14} className="shrink-0" />
-                                            : <ChevronRight size={14} className="shrink-0" />
-                                        }
-                                    </Disclosure.Trigger>
-                                </Disclosure.Heading>
+                        <Disclosure isExpanded={trainingOpen} onExpandedChange={setTrainingOpen}>
+                            <Disclosure.Heading>
+                                <Disclosure.Trigger className={`${navLink(pathname.includes('/training'))} w-full cursor-pointer`} disabled={collapsed}>
+                                    <Dumbbell size={17} className="shrink-0" />
+                                    {!collapsed && (
+                                        <>
+                                            <span className="flex-1">Training</span>
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${trainingOpen ? 'rotate-90' : ''}`} />
+                                        </>
+                                    )}
+                                </Disclosure.Trigger>
+                            </Disclosure.Heading>
+                            {!collapsed && (
                                 <Disclosure.Content>
                                     <Disclosure.Body>
                                         <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/training/exercises`}
-                                                    className={subLink(pathname.includes('/training/exercises'))}
-                                                >
+                                                <Link href={`/${slug}/training/exercises`} className={subLink(pathname.includes('/training/exercises'))}>
                                                     Exercises
                                                 </Link>
                                             </li>
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/training/muscle-groups`}
-                                                    className={subLink(pathname.includes('/training/muscle-groups'))}
-                                                >
+                                                <Link href={`/${slug}/training/muscle-groups`} className={subLink(pathname.includes('/training/muscle-groups'))}>
                                                     Muscle Groups
                                                 </Link>
                                             </li>
                                             <li>
-                                                <Link
-                                                    href={`/${slug}/training/equipment`}
-                                                    className={subLink(pathname.includes('/training/equipment'))}
-                                                >
+                                                <Link href={`/${slug}/training/equipment`} className={subLink(pathname.includes('/training/equipment'))}>
                                                     Equipment
                                                 </Link>
                                             </li>
                                         </ul>
                                     </Disclosure.Body>
                                 </Disclosure.Content>
-                            </Disclosure>
-                        )}
+                            )}
+                        </Disclosure>
                     </li>
 
                     <li>
                         <Link
                             href={`/${slug}/team`}
                             title={collapsed ? 'Team' : undefined}
-                            className={`${navLink(pathname.includes('/team'))} ${collapsed ? 'justify-center px-0' : ''}`}
+                            className={navLink(pathname.includes('/team'))}
                         >
                             <div className="relative shrink-0">
                                 <Users2 size={17} />
@@ -411,15 +369,46 @@ export default function Sidebar({ collapsed }) {
                         </Link>
                     </li>
 
+                    {/* Expandable menu: Settings */}
                     <li>
-                        <Link
-                            href={`/${slug}/settings`}
-                            title={collapsed ? 'Settings' : undefined}
-                            className={`${navLink(pathname.includes('/settings'))} ${collapsed ? 'justify-center px-0' : ''}`}
-                        >
-                            <Settings size={17} className="shrink-0" />
-                            {!collapsed && 'Settings'}
-                        </Link>
+                        <Disclosure isExpanded={settingsOpen} onExpandedChange={setSettingsOpen}>
+                            <Disclosure.Heading>
+                                <Disclosure.Trigger className={`${navLink(pathname.includes('/settings'))} w-full cursor-pointer`} disabled={collapsed}>
+                                    <Settings size={17} className="shrink-0" />
+                                    {!collapsed && (
+                                        <>
+                                            <span className="flex-1">Settings</span>
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${settingsOpen ? 'rotate-90' : ''}`} />
+                                        </>
+                                    )}
+                                </Disclosure.Trigger>
+                            </Disclosure.Heading>
+                            {!collapsed && (
+                                <Disclosure.Content>
+                                    <Disclosure.Body>
+                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                            <li>
+                                                <Link href={`/${slug}/settings/profile`} className={subLink(pathname.includes('/settings/profile'))}>
+                                                    Profile
+                                                </Link>
+                                            </li>
+                                            <li>
+                                                <Link href={`/${slug}/settings/workspace`} className={subLink(pathname.includes('/settings/workspace'))}>
+                                                    Workspace
+                                                </Link>
+                                            </li>
+                                            {user?.currentWorkspace?.role === 'owner' && (
+                                                <li>
+                                                    <Link href={`/${slug}/settings/billing`} className={subLink(pathname.includes('/settings/billing'))}>
+                                                        Billing
+                                                    </Link>
+                                                </li>
+                                            )}
+                                        </ul>
+                                    </Disclosure.Body>
+                                </Disclosure.Content>
+                            )}
+                        </Disclosure>
                     </li>
                 </ul>
             </nav>
