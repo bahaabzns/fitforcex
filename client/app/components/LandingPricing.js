@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Tabs } from "@heroui/react";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Separator } from "@heroui/react/separator";
@@ -11,36 +12,31 @@ import { CheckCircle2 } from "lucide-react";
 function BillingPeriodToggle({ discounts, selected, onSelect }) {
     return (
         <div className="flex justify-center">
-            <div className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
-                {discounts.map(d => {
-                    const isActive = selected?.period_key === d.period_key;
-                    return (
-                        <button
-                            key={d.period_key}
-                            onClick={() => onSelect(d)}
-                            className={`
-                                flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all
-                                ${isActive
-                                    ? 'bg-primary text-primary-foreground shadow-sm'
-                                    : 'text-foreground/60 hover:text-foreground hover:bg-white/5'}
-                            `}
-                        >
-                            {d.label}
-                            {d.save_label && (
-                                isActive ? (
-                                    <span className="text-xs font-semibold text-primary-foreground/80">
-                                        {d.save_label}
-                                    </span>
-                                ) : (
-                                    <span className="text-xs font-semibold text-primary bg-primary/15 rounded-full px-1.5 py-0.5 leading-none">
-                                        {d.save_label}
-                                    </span>
-                                )
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
+            <Tabs
+                selectedKey={selected?.period_key}
+                onSelectionChange={(key) => onSelect(discounts.find(d => d.period_key === key))}
+            >
+                <Tabs.ListContainer>
+                    <Tabs.List
+                        aria-label="Billing period"
+                        className="w-fit *:h-6 *:w-fit *:px-3 *:text-sm *:font-normal *:data-[selected=true]:text-accent-foreground"
+                    >
+                        {discounts.map(d => (
+                            <Tabs.Tab key={d.period_key} id={d.period_key}>
+                                <span className="flex items-center gap-1.5">
+                                    {d.label}
+                                    {d.save_label && (
+                                        <span className="text-xs font-semibold text-primary bg-primary/15 rounded-full px-1.5 py-0.5 leading-none in-data-[selected=true]:bg-white/25 in-data-[selected=true]:text-white">
+                                            {d.save_label}
+                                        </span>
+                                    )}
+                                </span>
+                                <Tabs.Indicator className="bg-accent" />
+                            </Tabs.Tab>
+                        ))}
+                    </Tabs.List>
+                </Tabs.ListContainer>
+            </Tabs>
         </div>
     );
 }
@@ -73,9 +69,9 @@ function TeamMemberCounter({ value, onChange, min, max, pricePerSeat, currency }
                     </button>
                 </div>
             </div>
-            {pricePerSeat && extraCost > 0 && (
+            {pricePerSeat && (
                 <p className="text-xs text-foreground/40">
-                    +{extraCost.toLocaleString('en-EG')} {currency} / mo for {extraSeats} extra seat{extraSeats !== 1 ? 's' : ''}
+                    Base includes {min} seat{min !== 1 ? 's' : ''}. +{Number(pricePerSeat).toLocaleString('en-EG')} {currency} / mo per extra seat.
                 </p>
             )}
         </div>
@@ -130,14 +126,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                         </p>
                     </div>
                 )}
-                {isInline && (
-                    <div className="flex flex-col gap-2">
-                        <h3 className="text-lg font-semibold text-foreground">Available Plans</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Upgrade or switch your subscription plan
-                        </p>
-                    </div>
-                )}
+                {isInline && <div />}
 
                 {loading && (
                     <div className="flex flex-col gap-6">
@@ -187,7 +176,7 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                 return (
                                     <div
                                         key={plan.id}
-                                        className={plan.is_popular && !isInline ? "md:-mt-4 md:mb-4" : ""}
+                                        className={`h-full${plan.is_popular && !isInline ? " md:-mt-4 md:mb-4" : ""}`}
                                     >
                                         <Card
                                             className="flex flex-col h-full"
@@ -231,6 +220,13 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
                                                             <span className="text-3xl font-bold text-foreground leading-none">Custom pricing</span>
                                                         )}
                                                     </div>
+                                                    {plan.has_team_counter && priceDisplay && (
+                                                        <p className="text-xs text-foreground/35 font-medium">
+                                                            {extraSeats > 0
+                                                                ? `Total for ${teamCount} seats`
+                                                                : `Base price for ${teamCount} seat${teamCount !== 1 ? 's' : ''}`}
+                                                        </p>
+                                                    )}
                                                     {periodLabel && (
                                                         <p className="text-xs text-foreground/30">{periodLabel}</p>
                                                     )}

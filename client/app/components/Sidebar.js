@@ -74,7 +74,7 @@ export default function Sidebar({ collapsed }) {
             await api.post('/api/auth/logout');
             router.push('/login');
         } catch (err) {
-            console.log(err);
+            console.error(err);
         }
     };
 
@@ -100,6 +100,15 @@ export default function Sidebar({ collapsed }) {
         if (!u) return '?';
         return `${u.fname?.[0] ?? ''}${u.lname?.[0] ?? ''}`.toUpperCase();
     };
+
+    useEffect(() => {
+        if (collapsed) {
+            setFinanceOpen(false);
+            setNutritionOpen(false);
+            setTrainingOpen(false);
+            setSettingsOpen(false);
+        }
+    }, [collapsed]);
 
     const currentWs = user?.currentWorkspace;
     const slug = user?.currentWorkspace?.slug ?? '';
@@ -219,29 +228,27 @@ export default function Sidebar({ collapsed }) {
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
-                            {!collapsed && (
-                                <Disclosure.Content>
-                                    <Disclosure.Body>
-                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
-                                            <li>
-                                                <Link href={`/${slug}/finance/transactions`} className={subLink(pathname.includes('/finance/transactions'))}>
-                                                    Transactions
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link href={`/${slug}/finance/packages`} className={subLink(pathname.includes('/finance/packages'))}>
-                                                    Packages
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link href={`/${slug}/finance/payment-methods`} className={subLink(pathname.includes('/finance/payment-methods'))}>
-                                                    Payment Methods
-                                                </Link>
-                                            </li>
-                                        </ul>
-                                    </Disclosure.Body>
-                                </Disclosure.Content>
-                            )}
+                            <Disclosure.Content>
+                                <Disclosure.Body>
+                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                        <li>
+                                            <Link href={`/${slug}/finance/transactions`} className={subLink(pathname.includes('/finance/transactions'))}>
+                                                Transactions
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link href={`/${slug}/finance/packages`} className={subLink(pathname.includes('/finance/packages'))}>
+                                                Packages
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link href={`/${slug}/finance/payment-methods`} className={subLink(pathname.includes('/finance/payment-methods'))}>
+                                                Payment Methods
+                                            </Link>
+                                        </li>
+                                    </ul>
+                                </Disclosure.Body>
+                            </Disclosure.Content>
                         </Disclosure>
                     </li>
 
@@ -281,24 +288,22 @@ export default function Sidebar({ collapsed }) {
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
-                            {!collapsed && (
-                                <Disclosure.Content>
-                                    <Disclosure.Body>
-                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
-                                            <li>
-                                                <Link href={`/${slug}/nutrition/food-items`} className={subLink(pathname.includes('/nutrition/food-items'))}>
-                                                    Food Items
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link href={`/${slug}/nutrition/food-categories`} className={subLink(pathname.includes('/nutrition/food-categories'))}>
-                                                    Food Categories
-                                                </Link>
-                                            </li>
-                                        </ul>
-                                    </Disclosure.Body>
-                                </Disclosure.Content>
-                            )}
+                            <Disclosure.Content>
+                                <Disclosure.Body>
+                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                        <li>
+                                            <Link href={`/${slug}/nutrition/food-items`} className={subLink(pathname.includes('/nutrition/food-items'))}>
+                                                Food Items
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link href={`/${slug}/nutrition/food-categories`} className={subLink(pathname.includes('/nutrition/food-categories'))}>
+                                                Food Categories
+                                            </Link>
+                                        </li>
+                                    </ul>
+                                </Disclosure.Body>
+                            </Disclosure.Content>
                         </Disclosure>
                     </li>
 
@@ -316,29 +321,27 @@ export default function Sidebar({ collapsed }) {
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
-                            {!collapsed && (
-                                <Disclosure.Content>
-                                    <Disclosure.Body>
-                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
-                                            <li>
-                                                <Link href={`/${slug}/training/exercises`} className={subLink(pathname.includes('/training/exercises'))}>
-                                                    Exercises
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link href={`/${slug}/training/muscle-groups`} className={subLink(pathname.includes('/training/muscle-groups'))}>
-                                                    Muscle Groups
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link href={`/${slug}/training/equipment`} className={subLink(pathname.includes('/training/equipment'))}>
-                                                    Equipment
-                                                </Link>
-                                            </li>
-                                        </ul>
-                                    </Disclosure.Body>
-                                </Disclosure.Content>
-                            )}
+                            <Disclosure.Content>
+                                <Disclosure.Body>
+                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                        <li>
+                                            <Link href={`/${slug}/training/exercises`} className={subLink(pathname.includes('/training/exercises'))}>
+                                                Exercises
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link href={`/${slug}/training/muscle-groups`} className={subLink(pathname.includes('/training/muscle-groups'))}>
+                                                Muscle Groups
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link href={`/${slug}/training/equipment`} className={subLink(pathname.includes('/training/equipment'))}>
+                                                Equipment
+                                            </Link>
+                                        </li>
+                                    </ul>
+                                </Disclosure.Body>
+                            </Disclosure.Content>
                         </Disclosure>
                     </li>
 
@@ -383,31 +386,29 @@ export default function Sidebar({ collapsed }) {
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
-                            {!collapsed && (
-                                <Disclosure.Content>
-                                    <Disclosure.Body>
-                                        <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                            <Disclosure.Content>
+                                <Disclosure.Body>
+                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                        <li>
+                                            <Link href={`/${slug}/settings/profile`} className={subLink(pathname.includes('/settings/profile'))}>
+                                                Profile
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link href={`/${slug}/settings/workspace`} className={subLink(pathname.includes('/settings/workspace'))}>
+                                                Workspace
+                                            </Link>
+                                        </li>
+                                        {user?.currentWorkspace?.role === 'owner' && (
                                             <li>
-                                                <Link href={`/${slug}/settings/profile`} className={subLink(pathname.includes('/settings/profile'))}>
-                                                    Profile
+                                                <Link href={`/${slug}/settings/billing`} className={subLink(pathname.includes('/settings/billing'))}>
+                                                    Billing
                                                 </Link>
                                             </li>
-                                            <li>
-                                                <Link href={`/${slug}/settings/workspace`} className={subLink(pathname.includes('/settings/workspace'))}>
-                                                    Workspace
-                                                </Link>
-                                            </li>
-                                            {user?.currentWorkspace?.role === 'owner' && (
-                                                <li>
-                                                    <Link href={`/${slug}/settings/billing`} className={subLink(pathname.includes('/settings/billing'))}>
-                                                        Billing
-                                                    </Link>
-                                                </li>
-                                            )}
-                                        </ul>
-                                    </Disclosure.Body>
-                                </Disclosure.Content>
-                            )}
+                                        )}
+                                    </ul>
+                                </Disclosure.Body>
+                            </Disclosure.Content>
                         </Disclosure>
                     </li>
                 </ul>
