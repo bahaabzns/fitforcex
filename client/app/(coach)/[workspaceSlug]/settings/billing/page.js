@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
+import { Tabs } from "@heroui/react";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Download } from "lucide-react";
 import LandingPricing from "@/app/components/LandingPricing";
+import DataTable from "@/app/components/DataTable";
 
 const STATUS_CHIP = {
     paid:     "bg-green-500/15 text-green-600",
@@ -30,7 +33,6 @@ export default function BillingPage() {
     const [iframeUrl, setIframeUrl] = useState(null);
     const [iframePayId, setIframePayId] = useState(null);
     const [payStatus, setPayStatus] = useState(null);
-    const [showAllPayments, setShowAllPayments] = useState(false);
     const [activeTab, setActiveTab] = useState("plans");
 
     function loadBilling() {
@@ -111,26 +113,83 @@ export default function BillingPage() {
     const isFreePlan = subscription?.daysRemaining === null && (subscription?.priceMonthly === null || subscription?.priceMonthly === undefined)
         || subscription?.planDisplay?.toLowerCase() === 'free';
 
-    return (
-        <div className="flex flex-col gap-6 w-full">
-            <div>
-                <h1 className="text-3xl font-bold text-foreground">Billing & Plans</h1>
-                <p className="text-sm text-muted-foreground mt-1">Manage your subscription and view payment history.</p>
-            </div>
+    const paymentColumns = [
+        {
+            key: "created_at",
+            label: "Date",
+            sortable: true,
+            render: (row) => new Date(row.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        },
+        {
+            key: "plan_display",
+            label: "Plan / Description",
+            sortable: true,
+            render: (row) => (
+                <div className="flex flex-col gap-0.5">
+                    <span className="font-medium text-foreground">{row.plan_display}</span>
+                    <span className="text-xs text-muted-foreground">{row.duration_days} days</span>
+                </div>
+            ),
+        },
+        {
+            key: "amount",
+            label: "Amount",
+            sortable: true,
+            render: (row) => (
+                <span className="font-semibold tabular-nums text-foreground">
+                    {Number(row.amount).toLocaleString()} {row.currency}
+                </span>
+            ),
+        },
+        {
+            key: "fawaterak_status",
+            label: "Status",
+            filterType: "multi",
+            options: ["paid", "pending", "failed", "refunded"],
+            sortable: true,
+            render: (row) => (
+                <Chip size="sm" className={STATUS_CHIP[row.fawaterak_status] ?? "bg-secondary text-muted-foreground"}>
+                    {row.fawaterak_status}
+                </Chip>
+            ),
+        },
+        {
+            key: "_invoice",
+            label: "Invoice",
+            render: (row) => (
+                <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL}/api/billing/invoice/${row.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground transition-colors inline-flex"
+                    title="Download invoice"
+                >
+                    <Download className="h-4 w-4" />
+                </a>
+            ),
+        },
+    ];
 
-            {/* Current plan card */}
-            <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Current Plan</p>
-                        <p className="text-2xl font-bold text-foreground mt-1">{subscription?.planDisplay ?? "—"}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                        {isFreePlan && (
-                            <span className="text-xs font-medium text-muted-foreground bg-secondary/70 border border-border rounded-full px-2.5 py-0.5">
-                                No credit card needed
-                            </span>
-                        )}
+    return (
+        <div className="flex flex-col gap-4 w-full">
+            {/* Header + horizontal tabs */}
+            <div className="flex flex-row gap-4">
+                <div className="flex flex-col flex-1 gap-1">
+                    <h1 className="text-3xl font-bold text-foreground">Billing & Plans</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Manage your subscription and view payment history.</p>
+
+                </div>
+
+                {/* Current plan banner */}
+                <div className={`rounded-lg border px-4 py-3 flex items-center justify-between gap-4 flex-wrap ${
+                    isExpired ? "border-destructive/30 bg-destructive/5" :
+                    isExpiring ? "border-orange-500/30 bg-orange-500/5" :
+                    "border-border bg-secondary/30"
+                }`}>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Plan</span>
+                        <span className="text-sm font-bold text-foreground">{subscription?.planDisplay ?? "—"}</span>
+                        <span className="text-border">·</span>
                         <Chip size="sm" className={
                             subscription?.status === "active"
                                 ? "bg-green-500/15 text-green-600"
@@ -138,137 +197,73 @@ export default function BillingPage() {
                         }>
                             {subscription?.status ?? "unknown"}
                         </Chip>
+                        <span className="text-border">·</span>
+                        <span className="text-sm text-muted-foreground">
+                            {subscription?.maxTeamSeats ? `${subscription.maxTeamSeats} seat${subscription.maxTeamSeats > 1 ? "s" : ""}` : "Unlimited seats"}
+                        </span>
+                        <span className="text-border">·</span>
+                        <span className={`text-sm ${isExpired ? "text-destructive font-medium" : isExpiring ? "text-orange-500 font-medium" : "text-muted-foreground"}`}>
+                            {subscription?.daysRemaining === null
+                                ? "No expiration"
+                                : isExpired
+                                    ? "Expired"
+                                    : `${subscription.daysRemaining}d remaining`}
+                        </span>
                     </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-lg bg-secondary/50 p-3">
-                        <p className="text-xs text-muted-foreground">Days Remaining</p>
-                        {subscription?.daysRemaining === null ? (
-                            <div className="mt-0.5">
-                                <p className="text-xl font-bold text-foreground">∞</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">No expiration</p>
-                            </div>
-                        ) : (
-                            <p className={`text-xl font-bold mt-0.5 ${
-                                isExpired ? "text-destructive" : isExpiring ? "text-orange-500" : "text-foreground"
-                            }`}>
-                                {subscription.daysRemaining}
-                            </p>
-                        )}
-                    </div>
-                    <div className="rounded-lg bg-secondary/50 p-3">
-                        <p className="text-xs text-muted-foreground">
-                            {isFreePlan ? "Expires" : "Next Billing"}
-                        </p>
-                        <p className="text-sm font-medium text-foreground mt-0.5">
-                            {isFreePlan
-                                ? "Never"
-                                : subscription?.expiresAt
-                                    ? new Date(subscription.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                                    : "—"}
-                        </p>
-                    </div>
-                    <div className="rounded-lg bg-secondary/50 p-3">
-                        <p className="text-xs text-muted-foreground">Team Seats</p>
-                        <p className="text-sm font-medium text-foreground mt-0.5">
-                            {subscription?.maxTeamSeats ?? "∞"}
-                        </p>
-                    </div>
-                </div>
-
-                {(isExpired || isExpiring) && (
-                    <p className={`text-sm rounded-lg px-3 py-2 border ${
-                        isExpired
-                            ? "bg-destructive/10 text-destructive border-destructive/20"
-                            : "bg-orange-500/10 text-orange-600 border-orange-500/20"
-                    }`}>
-                        {isExpired
-                            ? "Your subscription has expired. Renew below to restore access."
-                            : `Your subscription expires in ${subscription.daysRemaining} days. Renew now to avoid interruption.`}
-                    </p>
-                )}
-
-                {isFreePlan && (
-                    <div className="mt-1 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-foreground/80">
-                            Unlock team features, branded app, and more with a paid plan
-                        </p>
+                    {isFreePlan ? (
                         <button
-                            onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
-                            className="button button--primary button--md shrink-0"
+                            onClick={() => setActiveTab("plans")}
+                            className="button button--primary button--sm shrink-0"
                         >
                             Upgrade Plan
                         </button>
-                    </div>
-                )}
+                    ) : (isExpired || isExpiring) ? (
+                        <button
+                            onClick={() => setActiveTab("plans")}
+                            className={`button button--sm shrink-0 ${isExpired ? "button--primary" : "button--outline"}`}
+                        >
+                            {isExpired ? "Renew Now" : "Renew Early"}
+                        </button>
+                    ) : null}
+                </div>
             </div>
 
-            {/* Navigation Tabs */}
             <Tabs
-                className="w-full"
                 selectedKey={activeTab}
                 onSelectionChange={setActiveTab}
             >
-                <Tabs.ListContainer>
+                <Tabs.ListContainer className="w-max">
                     <Tabs.List aria-label="Billing sections">
-                        <Tabs.Tab id="plans" key="plans">
+                        <Tabs.Tab id="plans" className="whitespace-nowrap">
                             Available Plans
                             <Tabs.Indicator />
                         </Tabs.Tab>
-                        <Tabs.Tab id="history" key="history">
+                        <Tabs.Tab id="history" className="whitespace-nowrap">
                             Payment History
                             <Tabs.Indicator />
                         </Tabs.Tab>
                     </Tabs.List>
                 </Tabs.ListContainer>
-                <Tabs.Panel className="pt-6" id="plans" key="plans">
-                    {/* Plans - using LandingPricing component */}
+
+                <Tabs.Panel className="pt-4 flex flex-col gap-4" id="plans">
+                    
+
                     <LandingPricing
                         isInline={true}
                         currentPlanId={subscription?.planId}
                         onCtaClick={(planId) => handlePay(planId)}
                     />
                 </Tabs.Panel>
-                <Tabs.Panel className="pt-6" id="history" key="history">
-                    {/* Payment history */}
-                    {payments?.length > 0 ? (
-                        <div>
-                            <div className="rounded-lg border border-border overflow-hidden">
-                                {(showAllPayments ? payments : payments.slice(0, 3)).map((p, idx) => (
-                                    <div key={p.id} className={`flex items-center justify-between px-4 py-3 ${idx > 0 ? "border-t border-border" : ""}`}>
-                                        <div>
-                                            <p className="text-sm font-medium text-foreground">{p.plan_display}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                                                {" · "}{p.duration_days} days
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-sm font-semibold text-foreground">
-                                                {Number(p.amount).toLocaleString()} {p.currency}
-                                            </span>
-                                            <Chip size="sm" className={STATUS_CHIP[p.fawaterak_status] ?? "bg-secondary text-muted-foreground"}>
-                                                {p.fawaterak_status}
-                                            </Chip>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            {payments.length > 3 && (
-                                <button
-                                    onClick={() => setShowAllPayments(prev => !prev)}
-                                    className="mt-2 w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2 rounded-lg hover:bg-secondary/50"
-                                >
-                                    {showAllPayments
-                                        ? "Show less"
-                                        : `Show all ${payments.length} payments`}
-                                </button>
-                            )}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">No payment history yet.</p>
-                    )}
+
+                <Tabs.Panel className="pt-4" id="history">
+                    <DataTable
+                        columns={paymentColumns}
+                        data={payments ?? []}
+                        rowKey="id"
+                        dateParser={(str) => new Date(str)}
+                        defaultSort="created_at"
+                        defaultSortDirection="desc"
+                    />
                 </Tabs.Panel>
             </Tabs>
 

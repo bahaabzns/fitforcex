@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function SettingsPage({ params }) {
     const router = useRouter();
-    const workspaceSlug = params.workspaceSlug;
+    const workspaceSlug = use(params).workspaceSlug;
 
     useEffect(() => {
         router.replace(`/${workspaceSlug}/settings/profile`);

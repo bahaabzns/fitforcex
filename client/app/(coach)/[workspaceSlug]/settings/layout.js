@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import api from "@/lib/axios";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -13,7 +13,7 @@ export default function SettingsLayout({ children, params }) {
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const workspaceSlug = params.workspaceSlug;
+    const workspaceSlug = use(params).workspaceSlug;
 
     const load = useCallback(async () => {
         try {
@@ -42,7 +42,7 @@ export default function SettingsLayout({ children, params }) {
 
     if (loading) {
         return (
-            <div className="p-8 max-w-7xl">
+            <div className="p-8 max-w-full flex flex-col gap-6">
                 <Skeleton className="h-9 w-28 rounded-lg mb-6" />
                 <div className="flex gap-2 mb-6">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-9 w-24 rounded" />)}
@@ -55,7 +55,7 @@ export default function SettingsLayout({ children, params }) {
     }
 
     return (
-        <div className="p-8 max-w-7xl flex flex-col gap-6">
+        <div className="p-8 max-w-full flex flex-col gap-6">
             {/* Page content */}
             {children}
         </div>
