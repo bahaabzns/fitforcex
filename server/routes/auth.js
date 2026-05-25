@@ -249,7 +249,7 @@ router.get('/me', async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const { rows } = await pool.query(
-            'SELECT id, fname, lname, email, default_workspace_id FROM users WHERE id = $1',
+            'SELECT id, fname, lname, email, default_workspace_id, preferred_language FROM users WHERE id = $1',
             [decoded.userId]
         );
         if (!rows.length) return res.status(404).json({ message: 'User not found' });
@@ -276,6 +276,7 @@ router.get('/me', async (req, res, next) => {
             workspaces,
             pendingInvitationsCount,
             defaultWorkspaceId: user.default_workspace_id,
+            preferredLanguage: user.preferred_language,
         });
 
     } catch (err) {
@@ -376,9 +377,9 @@ router.post('/logout', (req, res) => {
 
 // Update personal profile (name and/or password)
 router.patch('/profile', authMiddleware, async (req, res, next) => {
-    const { fname, lname, currentPassword, newPassword } = req.body;
+    const { fname, lname, currentPassword, newPassword, preferred_language } = req.body;
 
-    if (!fname?.trim() && !lname?.trim() && !newPassword) {
+    if (!fname?.trim() && !lname?.trim() && !newPassword && !preferred_language) {
         return res.status(400).json({ message: 'Nothing to update' });
     }
 
@@ -395,6 +396,7 @@ router.patch('/profile', authMiddleware, async (req, res, next) => {
 
         if (fname?.trim()) updates.fname = fname.trim();
         if (lname?.trim() !== undefined) updates.lname = lname.trim();
+        if (preferred_language === 'en' || preferred_language === 'ar') updates.preferred_language = preferred_language;
 
         if (newPassword) {
             if (!currentPassword) {
@@ -412,7 +414,7 @@ router.patch('/profile', authMiddleware, async (req, res, next) => {
         const setClauses = Object.keys(updates).map((k, i) => { params.push(updates[k]); return `${k} = $${i + 1}`; });
         params.push(req.user.userId);
         const { rows: updated } = await pool.query(
-            `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING id, fname, lname, email`,
+            `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING id, fname, lname, email, preferred_language`,
             params
         );
 
