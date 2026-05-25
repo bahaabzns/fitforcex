@@ -3,12 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/axios";
+import { useLocale } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
 import Modal from "@/app/components/Modal";
 import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send } from "lucide-react";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
 export default function ClientFormsPage() {
+    const locale = useLocale();
     const { id } = useParams();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -177,7 +180,7 @@ export default function ClientFormsPage() {
                                     }`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
-                                        <p className="text-sm font-medium text-foreground truncate flex-1">{req.form_title}</p>
+                                        <p className="text-sm font-medium text-foreground truncate flex-1">{getLocalizedField(req, 'form_title', locale)}</p>
                                         {req.status === 'pending' ? (
                                             <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 font-medium shrink-0">
                                                 <Clock size={10} /> Pending
@@ -192,8 +195,8 @@ export default function ClientFormsPage() {
                                             </span>
                                         )}
                                     </div>
-                                    {req.form_description && (
-                                        <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{req.form_description}</p>
+                                    {getLocalizedField(req, 'form_description', locale) && (
+                                        <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{getLocalizedField(req, 'form_description', locale)}</p>
                                     )}
                                     <p className="text-xs text-muted-foreground/70 mt-1">
                                         {req.status === 'scheduled' && req.scheduled_at
@@ -233,9 +236,9 @@ export default function ClientFormsPage() {
                             {/* Detail Header */}
                             <div className="flex items-start justify-between gap-4 mb-5 shrink-0">
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg font-bold text-foreground">{selected.form_title}</h3>
-                                    {selected.form_description && (
-                                        <p className="text-sm text-muted-foreground mt-0.5">{selected.form_description}</p>
+                                    <h3 className="text-lg font-bold text-foreground">{getLocalizedField(selected, 'form_title', locale)}</h3>
+                                    {getLocalizedField(selected, 'form_description', locale) && (
+                                        <p className="text-sm text-muted-foreground mt-0.5">{getLocalizedField(selected, 'form_description', locale)}</p>
                                     )}
                                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                                         <span>Requested {new Date(selected.requested_at).toLocaleDateString()}</span>
@@ -296,7 +299,7 @@ export default function ClientFormsPage() {
                                         {selected.responses.map((r, i) => (
                                             <div key={i} className="flex flex-col gap-1.5">
                                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                                    {i + 1}. {r.label}
+                                                    {i + 1}. {getLocalizedField(r, 'label', locale)}
                                                 </p>
                                                 <div className="bg-secondary rounded-lg px-4 py-3 border border-border">
                                                     <p className="text-sm text-foreground whitespace-pre-wrap">
@@ -365,8 +368,8 @@ export default function ClientFormsPage() {
                                     className="mt-0.5 cursor-pointer accent-primary"
                                 />
                                 <div>
-                                    <p className="text-sm font-medium text-foreground">{form.title}</p>
-                                    {form.description && <p className="text-xs text-muted-foreground mt-0.5">{form.description}</p>}
+                                    <p className="text-sm font-medium text-foreground">{getLocalizedField(form, 'title', locale)}</p>
+                                    {getLocalizedField(form, 'description', locale) && <p className="text-xs text-muted-foreground mt-0.5">{getLocalizedField(form, 'description', locale)}</p>}
                                     <p className="text-xs text-muted-foreground">{form.question_count} question{form.question_count !== 1 ? 's' : ''}</p>
                                 </div>
                             </label>

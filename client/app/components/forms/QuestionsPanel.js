@@ -102,12 +102,12 @@ export default function QuestionsPanel({
             <textarea
                 key={`desc-${selectedForm.id}`}
                 rows={2}
-                defaultValue={selectedForm.description || ''}
+                defaultValue={selectedForm.description_en || ''}
                 placeholder="Form description (optional)"
                 onBlur={(e) => {
                     const val = e.target.value.trim() || null;
-                    if (val !== (selectedForm.description || null)) {
-                        handleUpdateForm(selectedForm.id, { description: val });
+                    if (val !== (selectedForm.description_en || null)) {
+                        handleUpdateForm(selectedForm.id, { description_en: val });
                     }
                 }}
                 className="w-full mb-3 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors shrink-0"
@@ -229,7 +229,7 @@ export default function QuestionsPanel({
 
                                             {/* Label */}
                                             <span className={`flex-1 text-sm font-medium truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
-                                                {q.label}
+                                                {q.label_en}
                                             </span>
 
                                             {/* Type badge */}
@@ -282,15 +282,15 @@ function FormTitleInput({ form, onUpdate, pendingFocusFormId, setPendingFocusFor
             ref={ref}
             key={form.id}
             type="text"
-            defaultValue={form.title}
+            defaultValue={form.title_en}
             onBlur={(e) => {
                 const trimmed = e.target.value.trim() || "Untitled Form";
                 e.target.value = trimmed;
-                if (trimmed !== form.title) onUpdate(form.id, { title: trimmed });
+                if (trimmed !== form.title_en) onUpdate(form.id, { title_en: trimmed });
             }}
             onKeyDown={(e) => {
                 if (e.key === 'Enter') e.target.blur();
-                if (e.key === 'Escape') { e.target.value = form.title; e.target.blur(); }
+                if (e.key === 'Escape') { e.target.value = form.title_en; e.target.blur(); }
             }}
             className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
         />

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
+import { useLocale } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
@@ -59,6 +61,7 @@ export default function LeftPanel({
     saveStatus,
     clientId,
 }) {
+    const locale = useLocale();
     const [expandedKeys, setExpandedKeys] = useState(new Set(["plans"]));
     const [loadModalOpen, setLoadModalOpen] = useState(false);
 
@@ -276,7 +279,7 @@ export default function LeftPanel({
                                                     variant="ghost"
                                                     className="w-full justify-start gap-2 px-3 py-2.5 data-hover:bg-default rounded-none"
                                                 >
-                                                    <span className="flex-1 text-sm font-medium text-foreground truncate text-left">{req.form_title}</span>
+                                                    <span className="flex-1 text-sm font-medium text-foreground truncate text-left">{getLocalizedField(req, 'form_title', locale)}</span>
                                                     <span className="text-[10px] text-muted-foreground shrink-0">
                                                         {req.submitted_at ? new Date(req.submitted_at).toLocaleDateString() : ''}
                                                     </span>
@@ -290,8 +293,8 @@ export default function LeftPanel({
                                                     ) : (
                                                         req.responses.map((r, i) => (
                                                             <div key={i} className="pt-2">
-                                                                <p className="text-[11px] font-semibold text-muted-foreground mb-0.5">{r.question_text}</p>
-                                                                <p className="text-xs text-foreground whitespace-pre-wrap">{r.answer_text || <span className="italic text-muted-foreground">No answer</span>}</p>
+                                                                <p className="text-[11px] font-semibold text-muted-foreground mb-0.5">{getLocalizedField(r, 'label', locale)}</p>
+                                                                <p className="text-xs text-foreground whitespace-pre-wrap">{r.answer || <span className="italic text-muted-foreground">No answer</span>}</p>
                                                             </div>
                                                         ))
                                                     )}

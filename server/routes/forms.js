@@ -326,7 +326,9 @@ router.get('/requests/client/:client_id', async (req, res, next) => {
 
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id, f.title AS form_title, f.description AS form_description,
+                    f.id AS form_id,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.description_en AS form_description_en, f.description_ar AS form_description_ar,
                     f.post_action AS form_post_action, f.form_type
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
@@ -345,7 +347,7 @@ router.get('/requests/client/:client_id', async (req, res, next) => {
                 };
             }
             const responses = await pool.query(
-                `SELECT fr.answer, fq.label, fq.type, fq.order_index
+                `SELECT fr.answer, fq.label_en, fq.label_ar, fq.type, fq.order_index
                  FROM form_responses fr
                  JOIN form_questions fq ON fq.id = fr.question_id
                  WHERE fr.request_id = $1
@@ -373,7 +375,8 @@ router.get('/queue', async (req, res, next) => {
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
                     fr.scheduled_at, fr.post_action, fr.action_taken_at,
-                    f.title AS form_title, f.form_type, f.post_action AS form_post_action,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.form_type, f.post_action AS form_post_action,
                     c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
                     NULL::text AS client_package,
                     NULL::text AS subscription_status
@@ -396,7 +399,8 @@ router.get('/queue', async (req, res, next) => {
                     clientPackage: row.client_package,
                     subscriptionStatus: row.subscription_status,
                     formId: row.form_id,
-                    formTitle: row.form_title,
+                    formTitle_en: row.form_title_en,
+                    formTitle_ar: row.form_title_ar,
                     formType: row.form_type || 'check-in',
                     postAction: normalizePostAction(row.post_action || row.form_post_action),
                     requestedAt: row.requested_at,
@@ -410,7 +414,7 @@ router.get('/queue', async (req, res, next) => {
             }
 
             const responsesResult = await pool.query(
-                `SELECT fr.question_id, fr.answer, fq.label, fq.type, fq.order_index
+                `SELECT fr.question_id, fr.answer, fq.label_en, fq.label_ar, fq.type, fq.order_index
                  FROM form_responses fr
                  JOIN form_questions fq ON fq.id = fr.question_id
                  WHERE fr.request_id = $1
@@ -432,7 +436,8 @@ router.get('/queue', async (req, res, next) => {
                 clientPackage: row.client_package,
                 subscriptionStatus: row.subscription_status,
                 formId: row.form_id,
-                formTitle: row.form_title,
+                formTitle_en: row.form_title_en,
+                formTitle_ar: row.form_title_ar,
                 formType: row.form_type || 'check-in',
                 postAction: normalizePostAction(row.post_action || row.form_post_action),
                 requestedAt: row.requested_at,

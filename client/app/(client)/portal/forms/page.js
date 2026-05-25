@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
+import { useLocale } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
 import { Clock, CheckCircle, ClipboardList, CalendarClock } from "lucide-react";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 
 export default function ClientFormsListPage() {
+    const locale = useLocale();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("all"); // "all" | "pending" | "scheduled" | "submitted"
@@ -92,9 +95,9 @@ export default function ClientFormsListPage() {
                         <Card key={req.id}>
                             <Card.Content className="p-6 flex items-center gap-4">
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-foreground">{req.form_title}</p>
-                                    {req.form_description && (
-                                        <p className="text-sm text-muted-foreground mt-0.5">{req.form_description}</p>
+                                    <p className="font-semibold text-foreground">{getLocalizedField(req, 'form_title', locale)}</p>
+                                    {getLocalizedField(req, 'form_description', locale) && (
+                                        <p className="text-sm text-muted-foreground mt-0.5">{getLocalizedField(req, 'form_description', locale)}</p>
                                     )}
                                     <p className="text-xs text-muted-foreground mt-1">
                                         {req.status === "scheduled" && req.scheduled_at

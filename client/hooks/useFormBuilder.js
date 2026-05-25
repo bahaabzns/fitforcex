@@ -35,7 +35,7 @@ export function useFormBuilder() {
     const sortedForms = [...forms].sort((a, b) => {
         if (sortOrder === 'created_asc')  return new Date(a.created_at) - new Date(b.created_at);
         if (sortOrder === 'created_desc') return new Date(b.created_at) - new Date(a.created_at);
-        if (sortOrder === 'a-z')          return a.title.localeCompare(b.title);
+        if (sortOrder === 'a-z')          return (a.title_en || '').localeCompare(b.title_en || '');
         return 0;
     });
 
@@ -55,7 +55,7 @@ export function useFormBuilder() {
 
     const handleCreateForm = async () => {
         try {
-            const res = await api.post('/api/forms', { title: 'Untitled Form' });
+            const res = await api.post('/api/forms', { title_en: 'Untitled Form' });
             const newForm = { ...res.data, question_count: 0 };
             setForms(prev => [newForm, ...prev]);
             setSelectedForm(newForm);
@@ -98,8 +98,10 @@ export function useFormBuilder() {
             const qs = await api.get(`/api/forms/${id}/questions`);
 
             const newFormRes = await api.post('/api/forms', {
-                title: `${source.title} (copy)`,
-                description: source.description,
+                title_en: `${source.title_en || 'Untitled Form'} (copy)`,
+                title_ar: source.title_ar,
+                description_en: source.description_en,
+                description_ar: source.description_ar,
                 postAction: source.post_action || source.postAction || 'nothing',
                 formType: source.form_type || source.formType || 'check-in',
             });
@@ -108,8 +110,10 @@ export function useFormBuilder() {
             // Re-create all questions
             for (const q of qs.data) {
                 await api.post(`/api/forms/${newForm.id}/questions`, {
-                    label: q.label, type: q.type, required: q.required,
-                    placeholder: q.placeholder, options: q.options,
+                    label_en: q.label_en, label_ar: q.label_ar,
+                    type: q.type, required: q.required,
+                    placeholder_en: q.placeholder_en, placeholder_ar: q.placeholder_ar,
+                    options: q.options, options_ar: q.options_ar,
                     min_value: q.min_value, max_value: q.max_value,
                 });
             }
@@ -127,7 +131,7 @@ export function useFormBuilder() {
         if (!selectedForm) return;
         try {
             const res = await api.post(`/api/forms/${selectedForm.id}/questions`, {
-                label: 'Question',
+                label_en: 'Question',
                 type,
             });
             const newQ = res.data;

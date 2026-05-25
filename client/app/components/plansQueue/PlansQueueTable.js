@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
 import { Chip } from "@heroui/react/chip";
+import { useLocale } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
 
 export default function PlansQueueTable({ initialSubmissions, awaiting, forms }) {
+    const locale = useLocale();
     const [submissions, setSubmissions] = useState(initialSubmissions);
     const [expandedId, setExpandedId] = useState(null);
     const [marking, setMarking] = useState(false);
@@ -152,14 +155,14 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             ),
         },
         {
-            key: "formTitle",
+            key: "formTitle_en",
             label: "Form",
             filterType: "multi",
-            options: [...new Set(allItems.map((s) => s.formTitle).filter(Boolean))],
+            options: [...new Set(allItems.map((s) => getLocalizedField(s, 'formTitle', locale)).filter(Boolean))],
             sortable: true,
             width: "180px",
             cardPriority: "primary",
-            render: (row) => <span className="text-foreground text-sm">{row.formTitle}</span>,
+            render: (row) => <span className="text-foreground text-sm">{getLocalizedField(row, 'formTitle', locale)}</span>,
         },
         {
             key: "formType",
@@ -315,7 +318,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         if (questions.length > 0) {
             return questions.map((q) => (
                 <div key={q.id} className="flex flex-col gap-0.5">
-                    <span className="text-muted-foreground text-xs">{q.label}</span>
+                    <span className="text-muted-foreground text-xs">{getLocalizedField(q, 'label', locale)}</span>
                     <span className="text-foreground text-sm">{formatAnswer(row.answers?.[q.id])}</span>
                 </div>
             ));
@@ -323,7 +326,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
 
         return (row.responses || []).map((r, index) => (
             <div key={`${row.id}-${index}`} className="flex flex-col gap-0.5">
-                <span className="text-muted-foreground text-xs">{r.label || `Question ${index + 1}`}</span>
+                <span className="text-muted-foreground text-xs">{getLocalizedField(r, 'label', locale) || `Question ${index + 1}`}</span>
                 <span className="text-foreground text-sm">{formatAnswer(r.answer)}</span>
             </div>
         ));
@@ -337,7 +340,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                 <td colSpan={columns.length + 1} className="px-4 py-0">
                     <div className="bg-secondary rounded-lg p-4 my-2 border border-border">
                         <h4 className="text-foreground text-sm font-semibold mb-3">
-                            Submission Answers - {row.formTitle}
+                            Submission Answers - {getLocalizedField(row, 'formTitle', locale)}
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {renderAnswers(row)}

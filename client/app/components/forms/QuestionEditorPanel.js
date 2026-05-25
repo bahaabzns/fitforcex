@@ -79,15 +79,15 @@ export default function QuestionEditorPanel({
                     ref={labelRef}
                     key={`label-${q.id}`}
                     type="text"
-                    defaultValue={q.label}
+                    defaultValue={q.label_en}
                     onBlur={(e) => {
                         const trimmed = e.target.value.trim() || "Question";
                         e.target.value = trimmed;
-                        if (trimmed !== q.label) save({ label: trimmed });
+                        if (trimmed !== q.label_en) save({ label_en: trimmed });
                     }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') e.target.blur();
-                        if (e.key === 'Escape') { e.target.value = q.label; e.target.blur(); }
+                        if (e.key === 'Escape') { e.target.value = q.label_en; e.target.blur(); }
                     }}
                     className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
                 />
@@ -139,10 +139,10 @@ export default function QuestionEditorPanel({
                     <input
                         key={`ph-${q.id}`}
                         type="text"
-                        defaultValue={q.placeholder || ''}
+                        defaultValue={q.placeholder_en || ''}
                         onBlur={(e) => {
                             const val = e.target.value.trim() || null;
-                            if (val !== (q.placeholder || null)) save({ placeholder: val });
+                            if (val !== (q.placeholder_en || null)) save({ placeholder_en: val });
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                         placeholder="e.g. Your answer here…"
@@ -257,7 +257,7 @@ function Field({ label, required, children }) {
 }
 
 function QuestionPreview({ question: q }) {
-    const ph = q.placeholder || "Your answer…";
+    const ph = q.placeholder_en || "Your answer…";
     switch (q.type) {
         case 'text':
             return <input type="text" placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;

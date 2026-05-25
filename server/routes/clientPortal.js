@@ -393,7 +393,9 @@ router.get('/form-requests', clientAuthMiddleware, async (req, res, next) => {
 
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+                    f.id AS form_id,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.description_en AS form_description_en, f.description_ar AS form_description_ar
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
              WHERE fr.client_id = $1
@@ -413,7 +415,9 @@ router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res, 
 
         const reqResult = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+                    f.id AS form_id,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.description_en AS form_description_en, f.description_ar AS form_description_ar
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
              WHERE fr.id = $1 AND fr.client_id = $2`,
