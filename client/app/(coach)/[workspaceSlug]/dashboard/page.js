@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { useRouter, useParams } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { Users, ClipboardList, TrendingUp, AlertCircle } from "lucide-react";
 import { Card } from "@heroui/react/card";
@@ -23,6 +24,8 @@ export default function DashboardPage() {
     const [data, setData] = useState(null);
     const router = useRouter();
     const { workspaceSlug } = useParams();
+    const t = useTranslations('dashboard');
+    const locale = useLocale();
 
     useEffect(() => {
         api.get('/api/dashboard')
@@ -54,22 +57,22 @@ export default function DashboardPage() {
             {/* Greeting */}
             <div>
                 <h1 className="text-3xl font-bold text-foreground">
-                    Welcome back, {fname}!
+                    {t('welcomeBack', { name: fname })}
                 </h1>
-                <p className="text-sm text-muted-foreground mt-1">Here's what's happening in your workspace.</p>
+                <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
 
             {/* Stats */}
             <div className="flex flex-wrap gap-4">
                 {[
-                    { icon: Users,         label: "Total Clients",  value: stats.totalClients },
-                    { icon: TrendingUp,    label: "Active Clients", value: stats.activeClients,
+                    { icon: Users,         label: t('totalClients'),  value: stats.totalClients },
+                    { icon: TrendingUp,    label: t('activeClients'), value: stats.activeClients,
                       sub: stats.totalClients > 0
-                          ? `${Math.round((stats.activeClients / stats.totalClients) * 100)}% of total`
+                          ? t('ofTotal', { pct: Math.round((stats.activeClients / stats.totalClients) * 100) })
                           : undefined },
-                    { icon: AlertCircle,   label: "Expired",        value: stats.expiredClients },
-                    { icon: ClipboardList, label: "Pending Forms",  value: stats.pendingForms,
-                      sub: stats.pendingForms > 0 ? "awaiting response" : "all caught up" },
+                    { icon: AlertCircle,   label: t('expired'),        value: stats.expiredClients },
+                    { icon: ClipboardList, label: t('pendingForms'),  value: stats.pendingForms,
+                      sub: stats.pendingForms > 0 ? t('awaitingResponse') : t('allCaughtUp') },
                 ].map(({ icon: Icon, label, value, sub, accent }) => (
                     <Card key={label} className="min-w-40">
                         <Card.Content className="flex flex-col gap-3 p-5">
@@ -89,23 +92,23 @@ export default function DashboardPage() {
             {/* Recent clients */}
             <div>
                 <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-base font-semibold text-foreground">Recent Clients</h2>
+                    <h2 className="text-base font-semibold text-foreground">{t('recentClients')}</h2>
                     <Link
                         href={`/${workspaceSlug}/clients`}
                         className="text-xs text-primary hover:text-primary/80 transition-colors"
                     >
-                        View all →
+                        {t('viewAll')} →
                     </Link>
                 </div>
 
                 {recentClients.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border py-10 text-center">
-                        <p className="text-sm text-muted-foreground">No clients yet.</p>
+                        <p className="text-sm text-muted-foreground">{t('noClients')}</p>
                         <Link
                             href={`/${workspaceSlug}/clients`}
                             className="mt-2 inline-block text-xs text-primary hover:text-primary/80 transition-colors"
                         >
-                            Add your first client →
+                            {t('addFirstClient')} →
                         </Link>
                     </div>
                 ) : (
@@ -136,7 +139,7 @@ export default function DashboardPage() {
                                     {client.subscription_status}
                                 </Chip>
                                 <span className="text-xs text-muted-foreground shrink-0">
-                                    {new Date(client.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                    {new Date(client.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                                 </span>
                             </Link>
                         ))}

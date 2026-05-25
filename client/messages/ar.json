@@ -31,11 +31,11 @@
     "createWorkspace": "إنشاء مساحة عمل"
   },
   "dashboard": {
-    "welcomeBack": "مرحباً بعودتك",
+    "welcomeBack": "مرحباً بعودتك، {name}!",
     "subtitle": "إليك ما يحدث في مساحة عملك",
     "totalClients": "إجمالي العملاء",
     "activeClients": "العملاء النشطون",
-    "ofTotal": "٪ من الإجمالي",
+    "ofTotal": "{pct}٪ من الإجمالي",
     "expired": "منتهي",
     "pendingForms": "الاستمارات المعلقة",
     "awaitingResponse": "في انتظار الرد",

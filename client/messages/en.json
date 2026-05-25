@@ -31,11 +31,11 @@
     "createWorkspace": "Create workspace"
   },
   "dashboard": {
-    "welcomeBack": "Welcome back",
+    "welcomeBack": "Welcome back, {name}!",
     "subtitle": "Here's what's happening in your workspace",
     "totalClients": "Total Clients",
     "activeClients": "Active Clients",
-    "ofTotal": "% of total",
+    "ofTotal": "{pct}% of total",
     "expired": "Expired",
     "pendingForms": "Pending Forms",
     "awaitingResponse": "awaiting response",
