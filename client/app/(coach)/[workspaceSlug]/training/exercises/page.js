@@ -8,13 +8,16 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+const labelCls = "text-xs text-muted-foreground mb-1 block";
 
 const initialState = {
-    name: "",
+    name_en: "",
+    name_ar: "",
     muscle_group: "",
     equipment: "",
     youtube_url: "",
-    instructions: "",
+    instructions_en: "",
+    instructions_ar: "",
 };
 
 export default function ExerciseLibraryPage() {
@@ -114,8 +117,8 @@ export default function ExerciseLibraryPage() {
         );
     }
 
-    const muscleGroupOptions = muscleGroups.map((g) => g.name);
-    const equipmentOptions = equipments.map((g) => g.name);
+    const muscleGroupOptions = muscleGroups.map((g) => g.name_en);
+    const equipmentOptions = equipments.map((g) => g.name_en);
 
     const columns = [
         {
@@ -123,23 +126,20 @@ export default function ExerciseLibraryPage() {
             label: "Thumbnail",
             render: (row) =>
                 row.thumbnail_path ? (
-                    <img
-                        src={`http://localhost:4000${row.thumbnail_path}`}
-                        alt={row.name}
-                        className="w-12 h-12 object-cover rounded"
-                    />
+                    <img src={`http://localhost:4000${row.thumbnail_path}`} alt={row.name_en} className="w-12 h-12 object-cover rounded" />
                 ) : (
                     <div className="w-12 h-12 bg-secondary rounded flex items-center justify-center text-muted-foreground text-xs">—</div>
                 ),
         },
-        { key: "name", label: "Name", filterType: "text", sortable: true },
+        { key: "name_en", label: "Name (EN)", filterType: "text", sortable: true },
+        { key: "name_ar", label: "الاسم (AR)", render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
         { key: "muscle_group", label: "Muscle Group", filterType: "multi", options: muscleGroupOptions, sortable: true },
         { key: "equipment", label: "Equipment", filterType: "multi", options: equipmentOptions, sortable: true },
         {
-            key: "instructions",
+            key: "instructions_en",
             label: "Instructions",
             render: (row) => (
-                <span className="text-sm text-muted-foreground line-clamp-2">{row.instructions || "—"}</span>
+                <span className="text-sm text-muted-foreground line-clamp-2">{row.instructions_en || "—"}</span>
             ),
         },
         {
@@ -193,7 +193,7 @@ export default function ExerciseLibraryPage() {
                 data={items}
                 rowKey="id"
                 scrollable
-                quickSearch={{ fields: ["name", "muscle_group", "equipment"], placeholder: "Search exercises..." }}
+                quickSearch={{ fields: ["name_en", "name_ar", "muscle_group", "equipment"], placeholder: "Search exercises..." }}
                 toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>+ Add Exercise</Button>}
             />
         </div>
@@ -201,22 +201,37 @@ export default function ExerciseLibraryPage() {
 }
 
 function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onVideoChange, onThumbnailChange, submitLabel }) {
-    const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
     return (
         <form onSubmit={onSubmit} className="flex flex-col gap-3">
-            <input
-                className={inputCls}
-                placeholder="Exercise name"
-                value={value?.name || ""}
-                onChange={(e) => onChange((prev) => ({ ...prev, name: e.target.value }))}
-            />
+            <div className="grid grid-cols-2 gap-3">
+                <div>
+                    <label className={labelCls}>Name (English) *</label>
+                    <input
+                        className={inputCls}
+                        placeholder="e.g. Bench Press"
+                        value={value?.name_en || ""}
+                        onChange={(e) => onChange((prev) => ({ ...prev, name_en: e.target.value }))}
+                        required
+                    />
+                </div>
+                <div>
+                    <label className={labelCls}>الاسم (عربي)</label>
+                    <input
+                        className={inputCls}
+                        placeholder="مثال: ضغط الصدر"
+                        value={value?.name_ar || ""}
+                        onChange={(e) => onChange((prev) => ({ ...prev, name_ar: e.target.value }))}
+                        dir="rtl"
+                    />
+                </div>
+            </div>
             <select
                 className={inputCls}
                 value={value?.muscle_group || ""}
                 onChange={(e) => onChange((prev) => ({ ...prev, muscle_group: e.target.value }))}
             >
                 <option value="">Select muscle group</option>
-                {muscleGroups.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
+                {muscleGroups.map((g) => <option key={g.id} value={g.name_en}>{g.name_en}{g.name_ar ? ` / ${g.name_ar}` : ''}</option>)}
             </select>
             <select
                 className={inputCls}
@@ -224,7 +239,7 @@ function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onV
                 onChange={(e) => onChange((prev) => ({ ...prev, equipment: e.target.value }))}
             >
                 <option value="">Select equipment</option>
-                {equipments.map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
+                {equipments.map((g) => <option key={g.id} value={g.name_en}>{g.name_en}{g.name_ar ? ` / ${g.name_ar}` : ''}</option>)}
             </select>
             <input
                 className={inputCls}
@@ -240,12 +255,27 @@ function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onV
                 <label className="text-xs text-muted-foreground">Thumbnail upload (images/gif)</label>
                 <input type="file" accept="image/*,.gif" className={inputCls} onChange={(e) => onThumbnailChange(e.target.files?.[0] || null)} />
             </div>
-            <textarea
-                className={`${inputCls} min-h-24`}
-                placeholder="General instructions"
-                value={value?.instructions || ""}
-                onChange={(e) => onChange((prev) => ({ ...prev, instructions: e.target.value }))}
-            />
+            <div className="grid grid-cols-2 gap-3">
+                <div>
+                    <label className={labelCls}>Instructions (English)</label>
+                    <textarea
+                        className={`${inputCls} min-h-24`}
+                        placeholder="General instructions"
+                        value={value?.instructions_en || ""}
+                        onChange={(e) => onChange((prev) => ({ ...prev, instructions_en: e.target.value }))}
+                    />
+                </div>
+                <div>
+                    <label className={labelCls}>التعليمات (عربي)</label>
+                    <textarea
+                        className={`${inputCls} min-h-24`}
+                        placeholder="التعليمات العامة"
+                        value={value?.instructions_ar || ""}
+                        onChange={(e) => onChange((prev) => ({ ...prev, instructions_ar: e.target.value }))}
+                        dir="rtl"
+                    />
+                </div>
+            </div>
             <Button type="submit" variant="primary" fullWidth>{submitLabel}</Button>
         </form>
     );

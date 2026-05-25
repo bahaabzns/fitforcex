@@ -43,7 +43,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     }, [open]);
 
     const filtered = items.filter((item) => {
-        const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
+        const matchSearch = !search || item.name_en.toLowerCase().includes(search.toLowerCase()) || (item.name_ar && item.name_ar.includes(search));
         const matchGroup = !filterGroup || item.muscle_group === filterGroup;
         const matchEquipment = !filterEquipment || item.equipment === filterEquipment;
         return matchSearch && matchGroup && matchEquipment;
@@ -91,7 +91,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
 
                 {/* Muscle group pills */}
                 <div className="flex gap-2 flex-wrap mb-2">
-                    {["", ...muscleGroups.map((g) => g.name)].map((group) => (
+                    {["", ...muscleGroups.map((g) => g.name_en)].map((group) => (
                         <Button
                             key={group}
                             onClick={() => setFilterGroup(group)}
@@ -108,7 +108,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
 
                 {/* Equipment pills */}
                 <div className="flex gap-2 flex-wrap mb-4">
-                    {["", ...equipments.map((e) => e.name)].map((equip) => (
+                    {["", ...equipments.map((e) => e.name_en)].map((equip) => (
                         <Button
                             key={equip}
                             onClick={() => setFilterEquipment(equip)}
@@ -188,7 +188,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                                 {item.thumbnail_path ? (
                                                     <img
                                                         src={`http://localhost:4000${item.thumbnail_path}`}
-                                                        alt={item.name}
+                                                        alt={item.name_en}
                                                         className="w-8 h-8 object-cover rounded-md shrink-0"
                                                     />
                                                 ) : (
@@ -198,7 +198,7 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                                         </svg>
                                                     </div>
                                                 )}
-                                                <span className="font-medium text-foreground">{item.name}</span>
+                                                <span className="font-medium text-foreground">{item.name_en}</span>
                                             </div>
                                         </td>
                                         <td className="p-2">

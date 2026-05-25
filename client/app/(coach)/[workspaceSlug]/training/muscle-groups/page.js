@@ -7,12 +7,14 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+const labelCls = "text-xs text-muted-foreground mb-1 block";
 
 export default function MuscleGroupsPage() {
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [newName, setNewName] = useState("");
+    const [newNameEn, setNewNameEn] = useState("");
+    const [newNameAr, setNewNameAr] = useState("");
     const [editing, setEditing] = useState(null);
 
     async function load() {
@@ -30,11 +32,12 @@ export default function MuscleGroupsPage() {
 
     async function handleAdd(e) {
         e.preventDefault();
-        if (!newName.trim()) return;
+        if (!newNameEn.trim()) return;
         try {
-            const res = await api.post("/api/training/muscle-groups", { name: newName.trim() });
+            const res = await api.post("/api/training/muscle-groups", { name_en: newNameEn.trim(), name_ar: newNameAr.trim() || null });
             setGroups((prev) => [...prev, res.data]);
-            setNewName("");
+            setNewNameEn("");
+            setNewNameAr("");
             setShowForm(false);
         } catch (err) {
             console.error("Failed to add muscle group:", err);
@@ -45,7 +48,7 @@ export default function MuscleGroupsPage() {
         e.preventDefault();
         if (!editing) return;
         try {
-            const res = await api.put(`/api/training/muscle-groups/${editing.id}`, { name: editing.name });
+            const res = await api.put(`/api/training/muscle-groups/${editing.id}`, { name_en: editing.name_en, name_ar: editing.name_ar || null });
             setGroups((prev) => prev.map((g) => (g.id === editing.id ? res.data : g)));
             setEditing(null);
         } catch (err) {
@@ -72,7 +75,8 @@ export default function MuscleGroupsPage() {
     }
 
     const columns = [
-        { key: "name", label: "Name", filterType: "text", sortable: true },
+        { key: "name_en", label: "Name (EN)", filterType: "text", sortable: true },
+        { key: "name_ar", label: "الاسم (AR)", render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
         { key: "exercise_count", label: "Exercises", sortable: true },
         {
             key: "actions",
@@ -94,29 +98,34 @@ export default function MuscleGroupsPage() {
                 <p className="text-sm text-muted-foreground mt-1">Manage muscle group categories for your exercise library.</p>
             </div>
 
-            <Modal open={showForm} onClose={() => { setShowForm(false); setNewName(""); }} title="Add Muscle Group">
+            <Modal open={showForm} onClose={() => { setShowForm(false); setNewNameEn(""); setNewNameAr(""); }} title="Add Muscle Group">
                 <form onSubmit={handleAdd} className="flex flex-col gap-4">
-                    <input
-                        className={inputCls}
-                        placeholder="Muscle group name"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        required
-                        autoFocus
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Name (English) *</label>
+                            <input className={inputCls} placeholder="e.g. Chest" value={newNameEn} onChange={(e) => setNewNameEn(e.target.value)} required autoFocus />
+                        </div>
+                        <div>
+                            <label className={labelCls}>الاسم (عربي)</label>
+                            <input className={inputCls} placeholder="مثال: الصدر" value={newNameAr} onChange={(e) => setNewNameAr(e.target.value)} dir="rtl" />
+                        </div>
+                    </div>
                     <Button type="submit" variant="primary" fullWidth>Add Muscle Group</Button>
                 </form>
             </Modal>
 
             <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Muscle Group">
                 <form onSubmit={handleUpdate} className="flex flex-col gap-4">
-                    <input
-                        className={inputCls}
-                        value={editing?.name ?? ""}
-                        onChange={(e) => setEditing((prev) => ({ ...prev, name: e.target.value }))}
-                        required
-                        autoFocus
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Name (English) *</label>
+                            <input className={inputCls} value={editing?.name_en ?? ""} onChange={(e) => setEditing((prev) => ({ ...prev, name_en: e.target.value }))} required autoFocus />
+                        </div>
+                        <div>
+                            <label className={labelCls}>الاسم (عربي)</label>
+                            <input className={inputCls} value={editing?.name_ar ?? ""} onChange={(e) => setEditing((prev) => ({ ...prev, name_ar: e.target.value }))} dir="rtl" />
+                        </div>
+                    </div>
                     <Button type="submit" variant="primary" fullWidth>Save Changes</Button>
                 </form>
             </Modal>
@@ -125,7 +134,7 @@ export default function MuscleGroupsPage() {
                 columns={columns}
                 data={groups}
                 rowKey="id"
-                quickSearch={{ fields: ["name"], placeholder: "Search muscle groups..." }}
+                quickSearch={{ fields: ["name_en", "name_ar"], placeholder: "Search muscle groups..." }}
                 toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>+ Add Muscle Group</Button>}
             />
         </div>

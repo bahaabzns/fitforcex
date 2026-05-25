@@ -7,12 +7,14 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+const labelCls = "text-xs text-muted-foreground mb-1 block";
 
 export default function FoodCategoriesPage() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [newName, setNewName] = useState('');
+    const [newNameEn, setNewNameEn] = useState('');
+    const [newNameAr, setNewNameAr] = useState('');
     const [editingItem, setEditingItem] = useState(null);
 
     const fetchCategories = async () => {
@@ -26,15 +28,15 @@ export default function FoodCategoriesPage() {
         }
     };
 
-    useEffect(() => {
-        fetchCategories();
-    }, []);
+    useEffect(() => { fetchCategories(); }, []);
 
     const handleAdd = async (e) => {
         e.preventDefault();
+        if (!newNameEn.trim()) return;
         try {
-            await api.post('/api/nutrition/food-categories', { name: newName });
-            setNewName('');
+            await api.post('/api/nutrition/food-categories', { name_en: newNameEn.trim(), name_ar: newNameAr.trim() || null });
+            setNewNameEn('');
+            setNewNameAr('');
             setShowForm(false);
             await fetchCategories();
         } catch (error) {
@@ -45,7 +47,7 @@ export default function FoodCategoriesPage() {
     const handleUpdate = async (e) => {
         e.preventDefault();
         try {
-            await api.put(`/api/nutrition/food-categories/${editingItem.id}`, { name: editingItem.name });
+            await api.put(`/api/nutrition/food-categories/${editingItem.id}`, { name_en: editingItem.name_en, name_ar: editingItem.name_ar || null });
             setEditingItem(null);
             await fetchCategories();
         } catch (error) {
@@ -72,7 +74,8 @@ export default function FoodCategoriesPage() {
     }
 
     const categoryColumns = [
-        { key: "name", label: "Name", filterType: "text", sortable: true },
+        { key: "name_en", label: "Name (EN)", filterType: "text", sortable: true },
+        { key: "name_ar", label: "الاسم (AR)", render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
         { key: "food_item_count", label: "Food Items", sortable: true },
         { key: "actions", label: "Actions", cardPriority: "hidden", render: (row) => (
             <div className="flex gap-2">
@@ -89,39 +92,43 @@ export default function FoodCategoriesPage() {
                 <p className="text-sm text-muted-foreground mt-1">Organize food items into categories for your nutrition library.</p>
             </div>
 
-            <Modal open={showForm} onClose={() => setShowForm(false)} title="New Category">
-                        <form onSubmit={handleAdd} className="flex flex-col gap-4">
-                            <input
-                                type="text"
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                placeholder="Category name"
-                                className={inputCls}
-                                required
-                            />
-                            <Button type="submit" variant="primary" fullWidth>Add Category</Button>
-                        </form>
+            <Modal open={showForm} onClose={() => { setShowForm(false); setNewNameEn(''); setNewNameAr(''); }} title="New Category">
+                <form onSubmit={handleAdd} className="flex flex-col gap-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Name (English) *</label>
+                            <input type="text" value={newNameEn} onChange={(e) => setNewNameEn(e.target.value)} placeholder="e.g. Proteins" className={inputCls} required autoFocus />
+                        </div>
+                        <div>
+                            <label className={labelCls}>الاسم (عربي)</label>
+                            <input type="text" value={newNameAr} onChange={(e) => setNewNameAr(e.target.value)} placeholder="مثال: بروتينات" className={inputCls} dir="rtl" />
+                        </div>
+                    </div>
+                    <Button type="submit" variant="primary" fullWidth>Add Category</Button>
+                </form>
             </Modal>
 
             <Modal open={!!editingItem} onClose={() => setEditingItem(null)} title="Edit Category">
-                        <form onSubmit={handleUpdate} className="flex flex-col gap-4">
-                            <input
-                                type="text"
-                                value={editingItem?.name || ''}
-                                onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                                placeholder="Category name"
-                                className={inputCls}
-                                required
-                            />
-                            <Button type="submit" variant="primary" fullWidth>Save Changes</Button>
-                        </form>
+                <form onSubmit={handleUpdate} className="flex flex-col gap-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>Name (English) *</label>
+                            <input type="text" value={editingItem?.name_en || ''} onChange={(e) => setEditingItem({ ...editingItem, name_en: e.target.value })} className={inputCls} required autoFocus />
+                        </div>
+                        <div>
+                            <label className={labelCls}>الاسم (عربي)</label>
+                            <input type="text" value={editingItem?.name_ar || ''} onChange={(e) => setEditingItem({ ...editingItem, name_ar: e.target.value })} className={inputCls} dir="rtl" />
+                        </div>
+                    </div>
+                    <Button type="submit" variant="primary" fullWidth>Save Changes</Button>
+                </form>
             </Modal>
 
             <DataTable
                 columns={categoryColumns}
                 data={categories}
                 rowKey="id"
-                quickSearch={{ fields: ["name"], placeholder: "Search categories..." }}
+                quickSearch={{ fields: ["name_en", "name_ar"], placeholder: "Search categories..." }}
                 toolbarEnd={<Button variant="primary" onClick={() => setShowForm(!showForm)}>+ Add Category</Button>}
             />
         </div>
