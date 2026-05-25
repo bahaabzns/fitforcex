@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 
-const QUESTION_TYPES = [
-    { value: "text",        label: "Short Text",   icon: "T" },
-    { value: "long_text",   label: "Long Text",    icon: "¶" },
-    { value: "number",      label: "Number",       icon: "#" },
-    { value: "scale",       label: "Scale",        icon: "↔" },
-    { value: "select",      label: "Single Choice",icon: "◉" },
-    { value: "multiselect", label: "Multi Choice", icon: "☑" },
-    { value: "date",        label: "Date",         icon: "📅" },
+const QUESTION_TYPE_VALUES = [
+    { value: "text",        labelKey: "typeShortText",   icon: "T" },
+    { value: "long_text",   labelKey: "typeLongText",    icon: "¶" },
+    { value: "number",      labelKey: "typeNumber",      icon: "#" },
+    { value: "scale",       labelKey: "typeScale",       icon: "↔" },
+    { value: "select",      labelKey: "typeSingleChoice",icon: "◉" },
+    { value: "multiselect", labelKey: "typeMultiChoice", icon: "☑" },
+    { value: "date",        labelKey: "typeDate",        icon: "📅" },
 ];
 
 const TrashIcon = () => (
@@ -39,6 +40,9 @@ export default function QuestionsPanel({
     handleReorderQuestions,
     handleUpdateForm,
 }) {
+    const t = useTranslations('forms');
+    const tCommon = useTranslations('common');
+    const QUESTION_TYPES = QUESTION_TYPE_VALUES.map(q => ({ ...q, label: t(q.labelKey) }));
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [questionsCollapsed, setQuestionsCollapsed] = useState(false);
@@ -72,8 +76,8 @@ export default function QuestionsPanel({
                 <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-sm font-medium text-muted-foreground">Select a form</p>
-                <p className="text-xs text-muted-foreground">Pick a form from the left panel to see its questions</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('selectForm')}</p>
+                <p className="text-xs text-muted-foreground">{t('selectFormHint')}</p>
             </div>
         );
     }
@@ -90,7 +94,7 @@ export default function QuestionsPanel({
                     setPendingFocusFormId={setPendingFocusFormId}
                 />
                 <button
-                    title="Close form"
+                    title={tCommon('close')}
                     className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedForm(null)}
                 >
@@ -103,7 +107,7 @@ export default function QuestionsPanel({
                 key={`desc-${selectedForm.id}`}
                 rows={2}
                 defaultValue={selectedForm.description_en || ''}
-                placeholder="Form description (optional)"
+                placeholder={t('descriptionHint')}
                 onBlur={(e) => {
                     const val = e.target.value.trim() || null;
                     if (val !== (selectedForm.description_en || null)) {
@@ -115,26 +119,26 @@ export default function QuestionsPanel({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 shrink-0">
                 <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">After Submission Action</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('afterSubmissionAction')}</label>
                     <select
                         value={selectedForm.post_action || selectedForm.postAction || 'nothing'}
                         onChange={(e) => handleUpdateForm(selectedForm.id, { postAction: e.target.value })}
                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
                     >
-                        <option value="nothing">Nothing - Mark as reviewed</option>
-                        <option value="nutrition-plan">Make Nutrition Plan</option>
-                        <option value="workout-plan">Make Training Plan</option>
+                        <option value="nothing">{t('actionNothing')}</option>
+                        <option value="nutrition-plan">{t('actionNutrition')}</option>
+                        <option value="workout-plan">{t('actionWorkout')}</option>
                     </select>
                 </div>
                 <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Form Type</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('formType')}</label>
                     <select
                         value={selectedForm.form_type || selectedForm.formType || 'check-in'}
                         onChange={(e) => handleUpdateForm(selectedForm.id, { formType: e.target.value })}
                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
                     >
-                        <option value="check-in">Check-in</option>
-                        <option value="assessment">Assessment</option>
+                        <option value="check-in">{t('formTypeCheckin')}</option>
+                        <option value="assessment">{t('formTypeAssessment')}</option>
                     </select>
                 </div>
             </div>
@@ -156,13 +160,13 @@ export default function QuestionsPanel({
                         </svg>
                     </button>
                     <h3 className="text-base font-semibold text-foreground flex-1">
-                        Questions
+                        {t('questions')}
                         <span className="ml-2 text-xs font-normal text-muted-foreground">{questions.length}</span>
                     </h3>
                     {!questionsCollapsed && (
                         <div className="relative" ref={typePickerRef}>
                             <Button variant="primary" onClick={() => setShowTypePicker(v => !v)}>
-                                + Question
+                                {t('newQuestion')}
                             </Button>
                             {showTypePicker && (
                                 <div className="absolute right-0 top-9 z-30 bg-card border border-border rounded-lg shadow-lg py-1.5 min-w-45">
@@ -192,8 +196,8 @@ export default function QuestionsPanel({
                                 <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                                 </svg>
-                                <p className="text-sm font-medium text-muted-foreground">No questions yet</p>
-                                <p className="text-xs text-muted-foreground">Add a question using the button above</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t('noQuestionsYet')}</p>
+                                <p className="text-xs text-muted-foreground">{t('noQuestionsHint')}</p>
                             </div>
                         ) : (
                             <div>
@@ -201,7 +205,7 @@ export default function QuestionsPanel({
                                     const originalIndex = questions.findIndex(orig => orig.id === q.id);
                                     const isDragging = dragIndex !== null && questions[dragIndex]?.id === q.id;
                                     const isSelected = selectedQuestion?.id === q.id;
-                                    const typeMeta = QUESTION_TYPES.find(t => t.value === q.type);
+                                    const typeMeta = QUESTION_TYPES.find(qt => qt.value === q.type);
                                     return (
                                         <div
                                             key={q.id}
@@ -248,7 +252,7 @@ export default function QuestionsPanel({
 
                                             {/* Delete */}
                                             <button
-                                                title="Delete question"
+                                                title={t('deleteQuestion')}
                                                 className="cursor-pointer shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id); }}
                                             >
