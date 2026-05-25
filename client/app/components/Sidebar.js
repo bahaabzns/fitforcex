@@ -28,6 +28,7 @@ import { Chip } from "@heroui/react/chip";
 import { Disclosure } from "@heroui/react/disclosure";
 import { Separator } from "@heroui/react/separator";
 import { ThemeToggle } from "./ThemeToggle";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 const navLink = (active) =>
     `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
@@ -433,13 +434,19 @@ export default function Sidebar({ collapsed }) {
                                 </span>
                             </div>
                         )}
-                        {!collapsed && <ThemeToggle />}
+                        {!collapsed && (
+                            <div className="flex items-center gap-1">
+                                <ThemeToggle />
+                                <LanguageSwitcher />
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {collapsed && (
-                    <div className="flex justify-center">
+                    <div className="flex flex-col items-center gap-1">
                         <ThemeToggle />
+                        <LanguageSwitcher />
                     </div>
                 )}
 
