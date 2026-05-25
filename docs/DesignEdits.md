@@ -8,6 +8,9 @@ Verification
 
 > CLIENT DETAILS PAGE
 # fix close panel button in training builder and fix the auto day open
+
+
+
 # hover of plans cards on builders .. change color (we will change the card design itself)
 # [] enhance the calories calculator cards 
 # use these meters in calorie target card
@@ -17,7 +20,6 @@ https://heroui.com/docs/react/components/radio-group#delivery--payment
 # use this with amount and unit 
 https://heroui.com/docs/react/components/number-field#with-chevrons
 
-# add load plan to builders
 
 # double active tabs in side bar when navigating nutrition builder and training builder
 
@@ -29,7 +31,10 @@ https://heroui.com/docs/react/components/number-field#with-chevrons
 
 # Dashboard insights
 # export bulk data
-# landing page
+
+
+
+# [pending] landing page
 
 
 # [pending] payment gateway
@@ -144,3 +149,4 @@ https://heroui.com/docs/react/components/switch#with-icons
 # [done] fix kbd in the quick search in the clients table and make it ctrl + k instead commad + k
 
 # [done] change the sorting buttons to match design system
+# [done] add load plan to builders
