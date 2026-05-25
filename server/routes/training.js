@@ -5,6 +5,7 @@ const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
 const { makeUploader, deleteFile, toPublicUrl } = require('../lib/storage');
+const { uploadLimiter } = require('../middleware/rateLimit');
 const {
     toIsoDateOrNull,
     serializePlanRow,
@@ -185,7 +186,7 @@ router.get('/exercise-library', async (req, res, next) => {
     }
 });
 
-router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res, next) => {
+router.post('/exercise-library', uploadLimiter, upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res, next) => {
     try {
         const {
             name,
@@ -215,7 +216,7 @@ router.post('/exercise-library', upload.fields([{ name: 'video', maxCount: 1 }, 
     }
 });
 
-router.put('/exercise-library/:id', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res, next) => {
+router.put('/exercise-library/:id', uploadLimiter, upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res, next) => {
     try {
         const existing = await pool.query('SELECT * FROM exercise_library WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (existing.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
@@ -273,6 +274,35 @@ router.delete('/exercise-library/:id', async (req, res, next) => {
         deleteFile(deleted.video_path).catch(() => {});
         deleteFile(deleted.thumbnail_path).catch(() => {});
         res.json(deleted);
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.get('/plans/workspace-library', async (req, res, next) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                tp.id,
+                tp.name,
+                tp.status,
+                tp.created_at,
+                tp.updated_at,
+                tp.created_by,
+                NULLIF(TRIM(COALESCE(c.fname, '') || ' ' || COALESCE(c.lname, '')), '') AS client_name,
+                NULLIF(TRIM(COALESCE(u.fname, '') || ' ' || COALESCE(u.lname, '')), '') AS creator_name,
+                (SELECT COUNT(*)::int FROM training_days td WHERE td.plan_id = tp.id) AS day_count,
+                (SELECT COUNT(*)::int FROM training_exercises te
+                    JOIN training_days td ON td.id = te.day_id
+                    WHERE td.plan_id = tp.id) AS exercise_count
+             FROM training_plans tp
+             LEFT JOIN clients c ON c.id = tp.client_id
+             LEFT JOIN users u ON u.id = tp.created_by
+             WHERE tp.workspace_id = $1
+             ORDER BY tp.updated_at DESC`,
+            [req.user.workspaceId]
+        );
+        res.json(serializePlanRows(result.rows));
     } catch (err) {
         next(err);
     }
@@ -382,8 +412,8 @@ router.post('/plans/save-draft', async (req, res, next) => {
                     const updatedAt = new Date().toISOString();
 
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at, created_by)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                          RETURNING *`,
                         [
                             plan.name || `Training Plan ${planIndex + 1}`,
@@ -393,6 +423,7 @@ router.post('/plans/save-draft', async (req, res, next) => {
                             plan.notes ?? null,
                             createdAt,
                             updatedAt,
+                            plan.created_by ?? req.user.id,
                         ]
                     );
 
@@ -483,6 +514,8 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
     const { clientId, plan, activePlanId = null } = req.body;
 
     try {
+        let existingCreatedBy = null;
+
         const result = await saveSinglePlanDraft({
             pool,
             plan,
@@ -491,20 +524,22 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
             activePlanId,
             loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }) => {
                 const existing = await dbClient.query(
-                    `SELECT id, created_at
+                    `SELECT id, created_at, created_by
                      FROM training_plans
                      WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
                 );
+                existingCreatedBy = existing.rows[0]?.created_by ?? null;
                 return existing.rows[0] ?? null;
             },
             deleteExistingPlanTree: async ({ dbClient, planId }) => {
                 await dbClient.query('DELETE FROM training_plans WHERE id = $1', [planId]);
             },
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }) => {
+                const createdBy = existingCreatedBy ?? req.user.id;
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at, created_by)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                      RETURNING *`,
                     [
                         incomingPlan.name || 'Untitled Training Plan',
@@ -514,6 +549,7 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                         incomingPlan.notes ?? null,
                         createdAt,
                         updatedAt,
+                        createdBy,
                     ]
                 );
 

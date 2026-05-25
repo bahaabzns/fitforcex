@@ -272,6 +272,49 @@ export function useNutritionPlan(clientId) {
         setSelectedMeal(null);
     };
 
+    const handleLoadPlan = async (sourcePlanId) => {
+        try {
+            const { data } = await api.get(`/api/nutrition/plans/${sourcePlanId}`);
+            const now = new Date().toISOString();
+            const loaded = hydratePlan({
+                ...data,
+                id: makeTempId("plan"),
+                name: data.name,
+                client_id: clientId,
+                status: "inactive",
+                created_at: now,
+                updated_at: now,
+                created_by: null,
+                cycles: (data.cycles ?? []).map((cycle) => ({
+                    ...cycle,
+                    id: makeTempId("cycle"),
+                    meals: (cycle.meals ?? []).map((meal) => ({
+                        ...meal,
+                        id: makeTempId("meal"),
+                        items: (meal.items ?? []).map((item) => ({
+                            ...item,
+                            id: makeTempId("item"),
+                            alternatives: (item.alternatives ?? []).map((alt) => ({
+                                ...alt,
+                                id: makeTempId("alt"),
+                            })),
+                        })),
+                    })),
+                })),
+            });
+            setPlans((prev) => [loaded, ...prev]);
+            setSelectedPlan(loaded);
+            setSelectedCycleIndex(0);
+            setSelectedMeal(null);
+            setPendingFocusPlanId(loaded.id);
+            markPlanDirty(loaded.id);
+            return true;
+        } catch (error) {
+            console.error("Error loading nutrition plan:", error);
+            return false;
+        }
+    };
+
     const handleCreatePlan = () => {
         const now = new Date().toISOString();
         const newCycle = {
@@ -971,6 +1014,7 @@ export function useNutritionPlan(clientId) {
         loading, setLoading,
         handleSelectedPlan,
         handleCreatePlan,
+        handleLoadPlan,
         handleCreateCycle,
         handleDeleteCycle,
         handleCreateMeal,

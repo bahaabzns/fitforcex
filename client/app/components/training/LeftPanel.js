@@ -5,6 +5,7 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import LoadPlanModal from "@/app/components/LoadPlanModal";
 
 const DuplicateIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -45,6 +46,7 @@ export default function LeftPanel({
     selectedPlan,
     handleSelectedPlan,
     handleCreatePlan,
+    handleLoadPlan,
     handleDeletePlan,
     handleDuplicatePlan,
     sortOrder,
@@ -58,6 +60,7 @@ export default function LeftPanel({
     clientId,
 }) {
     const [expandedKeys, setExpandedKeys] = useState(new Set(["plans"]));
+    const [loadModalOpen, setLoadModalOpen] = useState(false);
 
     const [formRequests, setFormRequests] = useState([]);
     const [formsLoading, setFormsLoading] = useState(true);
@@ -105,6 +108,9 @@ export default function LeftPanel({
                                             {isSaving || saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save All"}
                                         </Button>
                                     )}
+                                    <Button variant="outline" onClick={() => setLoadModalOpen(true)}>
+                                        Load Plan
+                                    </Button>
                                     <Button variant="primary" onClick={handleCreatePlan}>
                                         + Create Plan
                                     </Button>
@@ -147,9 +153,14 @@ export default function LeftPanel({
                                             <p className="text-sm font-medium text-muted-foreground">No plans yet</p>
                                             <p className="text-xs text-muted-foreground mt-1">Create your first training plan</p>
                                         </div>
-                                        <Button variant="primary" onClick={handleCreatePlan}>
-                                            + Create Plan
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            <Button variant="outline" onClick={() => setLoadModalOpen(true)}>
+                                                Load Plan
+                                            </Button>
+                                            <Button variant="primary" onClick={handleCreatePlan}>
+                                                + Create Plan
+                                            </Button>
+                                        </div>
                                     </Surface>
                                 ) : (
                                     <div className="divide-y divide-border">
@@ -295,6 +306,13 @@ export default function LeftPanel({
             </div>
 
             </DisclosureGroup>
+
+            <LoadPlanModal
+                open={loadModalOpen}
+                onClose={() => setLoadModalOpen(false)}
+                type="training"
+                onLoad={handleLoadPlan}
+            />
         </Surface>
     );
 }

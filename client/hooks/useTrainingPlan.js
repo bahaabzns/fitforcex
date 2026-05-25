@@ -177,6 +177,41 @@ export function useTrainingPlan(clientId) {
         setFocusPlanNameSignal((s) => s + 1);
     }, [plans, markPlanDirty]);
 
+    const handleLoadPlan = useCallback(async (sourcePlanId) => {
+        try {
+            const { data } = await api.get(`/api/training/plans/${sourcePlanId}`);
+            const now = new Date().toISOString();
+            const loaded = normalizePlan({
+                ...data,
+                id: makeTempId("plan"),
+                name: data.name,
+                client_id: clientId,
+                status: "inactive",
+                notes: data.notes ?? "",
+                created_at: now,
+                updated_at: now,
+                created_by: null,
+                days: (data.days ?? []).map((d) => ({
+                    ...d,
+                    id: makeTempId("day"),
+                    exercises: (d.exercises ?? []).map((e) => ({
+                        ...e,
+                        id: makeTempId("exercise"),
+                        sets: (e.sets ?? []).map((s) => ({ ...s, id: makeTempId("set") })),
+                    })),
+                })),
+            });
+            setPlans((prev) => [loaded, ...prev]);
+            setSelectedPlan(loaded);
+            setSelectedDayId(loaded.days[0]?.id ?? null);
+            markPlanDirty(loaded.id);
+            return true;
+        } catch (error) {
+            console.error("Error loading training plan:", error);
+            return false;
+        }
+    }, [clientId, markPlanDirty]);
+
     const handleCreatePlan = useCallback(() => {
         const now = new Date().toISOString();
         const newPlan = normalizePlan({
@@ -691,6 +726,7 @@ export function useTrainingPlan(clientId) {
         handleSelectedPlan,
         handleSelectDay,
         handleCreatePlan,
+        handleLoadPlan,
         handleRenamePlan,
         handleUpdatePlanNotes,
         handleCreateDay,

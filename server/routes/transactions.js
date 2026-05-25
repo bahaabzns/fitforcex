@@ -5,6 +5,7 @@ const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
 const { makeUploader, createSignedUrl } = require('../lib/storage');
+const { uploadLimiter } = require('../middleware/rateLimit');
 const { computeSubscriptionStatus } = require('../utils/subscriptionStatus');
 
 async function syncClientPackage(clientId, workspaceId) {
@@ -158,7 +159,7 @@ router.get('/proof/:filename', async (req, res, next) => {
 });
 
 // POST /api/transactions/upload-proof
-router.post('/upload-proof', upload.single('proof'), (req, res) => {
+router.post('/upload-proof', uploadLimiter, upload.single('proof'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const filename = path.basename(req.file.key);
     res.json({ path: `/api/transactions/proof/${filename}` });

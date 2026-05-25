@@ -75,3 +75,21 @@ Format:
 **Why it matters:** `main` should be production-only per CLAUDE.md branch strategy. Direct commits to main skip the safety buffer of a dev branch.
 **Effort:** Small (create `dev` branch, establish branch workflow going forward)
 **Priority:** High
+
+---
+
+## 2026-05-25 — server/server.js + all API routes
+**Type:** Shortcut
+**What:** `mutationLimiter` (100 req/min) is applied to all HTTP methods including GETs on every API route. The training and nutrition pages trigger N+1 fetches on load (1 summary + 1 per plan), so a coach with many clients could hit the cap.
+**Why it matters:** Could cause 429s on the training/nutrition pages for workspaces with large plan counts — the same root cause that caused the `uploadLimiter` 429 on `workspace-library`.
+**Effort:** Medium (split into `readLimiter` with higher cap and `mutationLimiter` applied only to POST/PUT/DELETE, or migrate plan fetching to a single bulk endpoint)
+**Priority:** Medium
+
+---
+
+## 2026-05-25 — client/app/components/LoadPlanModal.js (line 87)
+**Type:** Shortcut
+**What:** The workspace-library fetch in `useEffect` has no AbortController cleanup, so `setPlans` can be called after the modal unmounts if the request is still in flight.
+**Why it matters:** Benign in React 18 (no crash), but produces a stale state update. Clean pattern is to abort on cleanup.
+**Effort:** Small (add AbortController, pass `signal` to axios)
+**Priority:** Low

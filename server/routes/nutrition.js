@@ -186,6 +186,36 @@ router.delete('/food-categories/:id', async (req, res, next) => {
 
 
 
+router.get('/plans/workspace-library', async (req, res, next) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                np.id,
+                np.name,
+                np.status,
+                np.created_at,
+                np.updated_at,
+                np.created_by,
+                NULLIF(TRIM(COALESCE(c.fname, '') || ' ' || COALESCE(c.lname, '')), '') AS client_name,
+                NULLIF(TRIM(COALESCE(u.fname, '') || ' ' || COALESCE(u.lname, '')), '') AS creator_name,
+                (SELECT COUNT(*)::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id) AS cycle_count,
+                (SELECT ROUND(AVG(nc.goal_calories))::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_calories IS NOT NULL) AS avg_calories,
+                (SELECT ROUND(AVG(nc.goal_protein))::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_protein IS NOT NULL) AS avg_protein,
+                (SELECT ROUND(AVG(nc.goal_carbs))::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_carbs IS NOT NULL) AS avg_carbs,
+                (SELECT ROUND(AVG(nc.goal_fats))::int FROM nutrition_cycles nc WHERE nc.plan_id = np.id AND nc.goal_fats IS NOT NULL) AS avg_fats
+             FROM nutrition_plans np
+             LEFT JOIN clients c ON c.id = np.client_id
+             LEFT JOIN users u ON u.id = np.created_by
+             WHERE np.workspace_id = $1
+             ORDER BY np.updated_at DESC`,
+            [req.user.workspaceId]
+        );
+        res.json(serializePlanRows(result.rows));
+    } catch (err) {
+        next(err);
+    }
+});
+
 router.get('/plans', async (req, res, next) => {
     try {
         const result = await pool.query(
@@ -363,8 +393,8 @@ router.post('/plans/save-draft', async (req, res, next) => {
                     const createdAt = toIsoDateOrNull(plan.created_at) || new Date().toISOString();
                     const updatedAt = new Date().toISOString();
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at)
-                         VALUES ($1, $2, $3, $4, $5, $6)
+                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)
                          RETURNING *`,
                         [
                             plan.name || `Plan ${pIndex + 1}`,
@@ -373,6 +403,7 @@ router.post('/plans/save-draft', async (req, res, next) => {
                             plan.status === 'active' ? 'active' : 'inactive',
                             createdAt,
                             updatedAt,
+                            plan.created_by ?? req.user.id,
                         ]
                     );
 
@@ -490,6 +521,8 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
     const { clientId, plan, activePlanId = null } = req.body;
 
     try {
+        let existingCreatedBy = null;
+
         const result = await saveSinglePlanDraft({
             pool,
             plan,
@@ -498,11 +531,12 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
             activePlanId,
             loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }) => {
                 const existing = await dbClient.query(
-                    `SELECT id, created_at
+                    `SELECT id, created_at, created_by
                      FROM nutrition_plans
                      WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
                 );
+                existingCreatedBy = existing.rows[0]?.created_by ?? null;
                 return existing.rows[0] ?? null;
             },
             deleteExistingPlanTree: async ({ dbClient, planId }) => {
@@ -537,9 +571,10 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                 await dbClient.query('DELETE FROM nutrition_plans WHERE id = $1', [planId]);
             },
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }) => {
+                const createdBy = existingCreatedBy ?? req.user.id;
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at)
-                     VALUES ($1, $2, $3, $4, $5, $6)
+                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)
                      RETURNING *`,
                     [
                         incomingPlan.name || 'Untitled Plan',
@@ -548,6 +583,7 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                         incomingPlan.status === 'active' ? 'active' : 'inactive',
                         createdAt,
                         updatedAt,
+                        createdBy,
                     ]
                 );
 

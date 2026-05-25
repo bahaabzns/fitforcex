@@ -57,6 +57,7 @@ export default function TrainingPage({ onDirtyChange }) {
         handleSelectedPlan,
         handleSelectDay,
         handleCreatePlan,
+        handleLoadPlan,
         handleDeletePlan,
         handleDuplicatePlan,
         handleRenamePlan,
@@ -115,6 +116,7 @@ export default function TrainingPage({ onDirtyChange }) {
                         selectedPlan={selectedPlan}
                         handleSelectedPlan={handleSelectedPlan}
                         handleCreatePlan={handleCreatePlan}
+                        handleLoadPlan={handleLoadPlan}
                         handleDeletePlan={handleDeletePlan}
                         handleDuplicatePlan={handleDuplicatePlan}
                         sortOrder={sortOrder}

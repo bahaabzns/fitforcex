@@ -57,6 +57,7 @@ export default function NutritionPage({ onDirtyChange }) {
         loading, setLoading,
         handleSelectedPlan,
         handleCreatePlan,
+        handleLoadPlan,
         handleCreateCycle,
         handleDeleteCycle,
         handleCreateMeal,
@@ -128,6 +129,7 @@ return (
                 plans={sortedPlans}
                 selectedPlan={selectedPlan}
                 handleCreatePlan={handleCreatePlan}
+                handleLoadPlan={handleLoadPlan}
                 handleSelectedPlan={handleSelectedPlan}
                 handleDeletePlan={handleDeletePlan}
                 handleDuplicatePlan={handleDuplicatePlan}
