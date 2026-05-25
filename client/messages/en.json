@@ -125,7 +125,22 @@
     "assignCount": "Assign ({count})",
     "scheduleCount": "Schedule ({count})",
     "clientsSelectedBar": "{count} clients selected",
-    "requestFormBulk": "Request Form"
+    "requestFormBulk": "Request Form",
+    "editClientTitle": "Edit Client",
+    "clientNotFound": "Client not found",
+    "clientCodeLabel": "Client Code",
+    "packageLabel": "Package",
+    "passwordSetHint": "Password set — use Edit to reset & reveal",
+    "passwordNotSet": "Not set",
+    "newPassword": "New Password",
+    "newPasswordHint": "leave blank to keep current",
+    "newPasswordPlaceholder": "New portal password",
+    "firstNamePlaceholder": "First Name *",
+    "emailPlaceholder": "Email *",
+    "primaryPhonePlaceholder": "Primary phone",
+    "saveChanges": "Save Changes",
+    "confirmDeleteClient": "Are you sure you want to delete this client?",
+    "passwordMinLength": "Password must be at least 6 characters"
   },
   "training": {
     "savePlan": "Save Plan",

@@ -125,7 +125,22 @@
     "assignCount": "تعيين ({count})",
     "scheduleCount": "جدولة ({count})",
     "clientsSelectedBar": "{count} عملاء محددون",
-    "requestFormBulk": "طلب استمارة"
+    "requestFormBulk": "طلب استمارة",
+    "editClientTitle": "تعديل بيانات العميل",
+    "clientNotFound": "العميل غير موجود",
+    "clientCodeLabel": "كود العميل",
+    "packageLabel": "الباقة",
+    "passwordSetHint": "كلمة المرور مُعيَّنة — استخدم تعديل لإعادة تعيينها وإظهارها",
+    "passwordNotSet": "غير مُعيَّنة",
+    "newPassword": "كلمة مرور جديدة",
+    "newPasswordHint": "اتركها فارغة للإبقاء على الحالية",
+    "newPasswordPlaceholder": "كلمة مرور البوابة الجديدة",
+    "firstNamePlaceholder": "الاسم الأول *",
+    "emailPlaceholder": "البريد الإلكتروني *",
+    "primaryPhonePlaceholder": "الهاتف الرئيسي",
+    "saveChanges": "حفظ التعديلات",
+    "confirmDeleteClient": "هل أنت متأكد من حذف هذا العميل؟",
+    "passwordMinLength": "يجب أن تكون كلمة المرور 6 أحرف على الأقل"
   },
   "training": {
     "savePlan": "حفظ الخطة",

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
 import Modal from "@/app/components/Modal";
@@ -54,6 +55,7 @@ function CountryCodeSelect({ value, onChange }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
     const ref = useRef(null);
+    const t = useTranslations('clients');
 
     useEffect(() => {
         function handler(e) {
@@ -80,7 +82,7 @@ function CountryCodeSelect({ value, onChange }) {
                 <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
                     <input
                         type="text"
-                        placeholder="Search country or code..."
+                        placeholder={t('searchCountry')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full px-3 py-2 bg-background border-b border-border text-foreground text-xs placeholder:text-muted-foreground focus-visible:outline-none"
@@ -100,7 +102,7 @@ function CountryCodeSelect({ value, onChange }) {
                                 <span className="text-muted-foreground">{c.code}</span>
                             </button>
                         ))}
-                        {filtered.length === 0 && <p className="px-3 py-2 text-muted-foreground text-xs">No results</p>}
+                        {filtered.length === 0 && <p className="px-3 py-2 text-muted-foreground text-xs">{t('noResults')}</p>}
                     </div>
                 </div>
             )}
@@ -114,6 +116,8 @@ export default function ClientOverviewPage() {
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showEditForm, setShowEditForm] = useState(false);
+  const t = useTranslations('clients');
+  const tCommon = useTranslations('common');
 
   // Edit form state
   const [formData, setFormData] = useState({ fname: "", lname: "", email: "" });
@@ -168,7 +172,7 @@ export default function ClientOverviewPage() {
     e.preventDefault();
     setPasswordError("");
     if (newPassword && newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+      setPasswordError(t('passwordMinLength'));
       return;
     }
     const phonesToSend = editPhones.slice(0, editPhoneCount).filter(p => p.number.trim());
@@ -192,7 +196,7 @@ export default function ClientOverviewPage() {
   }
 
   async function handleDelete() {
-    if (confirm("Are you sure you want to delete this client?")) {
+    if (confirm(t('confirmDeleteClient'))) {
       try {
         await api.delete(`/api/clients/${id}`);
         router.push("/clients");
@@ -218,7 +222,7 @@ export default function ClientOverviewPage() {
           {[1,2,3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
         </div>
       ) : !client ? (
-        <div className="p-8 text-muted-foreground">Client not found.</div>
+        <div className="p-8 text-muted-foreground">{t('clientNotFound')}</div>
       ) : (
         <div className="p-8 flex flex-col gap-6">
           {/* Header */}
@@ -227,14 +231,14 @@ export default function ClientOverviewPage() {
               #{client.code ?? client.client_code} — {client.fname} {client.lname}
             </h1>
             <Button onClick={openEdit} variant="primary" size="sm">
-              Edit
+              {tCommon('edit')}
             </Button>
             <Button
               onClick={handleDelete}
               className="bg-destructive/10 hover:bg-destructive/20 text-destructive"
               size="sm"
             >
-              Delete
+              {tCommon('delete')}
             </Button>
           </div>
 
@@ -243,11 +247,11 @@ export default function ClientOverviewPage() {
             <Card.Content className="p-6">
             <div className="flex flex-col gap-3">
               <div className="flex gap-2">
-                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Email</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">{t('emailFieldLabel')}</span>
                 <span className="text-sm text-foreground">{client.email || "—"}</span>
               </div>
               <div className="flex gap-2">
-                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Phone</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">{t('colPhone')}</span>
                 <div className="flex flex-col gap-0.5">
                   {(client.phones && client.phones.length > 0)
                     ? client.phones.map((p, i) => (
@@ -260,15 +264,15 @@ export default function ClientOverviewPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Client Code</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">{t('clientCodeLabel')}</span>
                 <span className="text-sm font-semibold text-primary">#{client.code ?? client.client_code}</span>
               </div>
               <div className="flex gap-2">
-                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Package</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">{t('packageLabel')}</span>
                 <span className="text-sm text-foreground">{client.current_package || "—"}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">Portal Password</span>
+                <span className="text-sm text-muted-foreground font-medium w-32 shrink-0">{t('portalPassword')}</span>
                 {tempPassword ? (
                   <>
                     <span className="font-mono text-sm text-foreground">
@@ -282,15 +286,15 @@ export default function ClientOverviewPage() {
                     </button>
                   </>
                 ) : client.has_password ? (
-                  <span className="text-sm text-muted-foreground italic">Password set — use Edit to reset &amp; reveal</span>
+                  <span className="text-sm text-muted-foreground italic">{t('passwordSetHint')}</span>
                 ) : (
-                  <span className="text-sm text-muted-foreground">Not set</span>
+                  <span className="text-sm text-muted-foreground">{t('passwordNotSet')}</span>
                 )}
               </div>
               {tempPassword && (
                 <div className="flex flex-col gap-1.5">
                   <p className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-1.5">
-                    Save this password — it won&apos;t be shown again after you leave the page.
+                    {t('savePasswordWarning')}
                   </p>
                   <Button
                     onClick={copyCredentials}
@@ -299,7 +303,7 @@ export default function ClientOverviewPage() {
                     className="self-start"
                   >
                     {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                    {copied ? "Copied!" : "Copy Credentials"}
+                    {copied ? t('copied') : t('copyCredentials')}
                   </Button>
                 </div>
               )}
@@ -308,13 +312,13 @@ export default function ClientOverviewPage() {
           </Card>
 
           {/* Edit Modal */}
-          <Modal open={showEditForm} onClose={() => setShowEditForm(false)} title="Edit Client">
+          <Modal open={showEditForm} onClose={() => setShowEditForm(false)} title={t('editClientTitle')}>
             <form onSubmit={handleUpdate} className="flex flex-col gap-3">
               {/* First + Last name */}
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="First Name *"
+                  placeholder={t('firstNamePlaceholder')}
                   value={formData.fname}
                   onChange={e => setFormData({ ...formData, fname: e.target.value })}
                   className={`${inputCls} flex-1`}
@@ -322,7 +326,7 @@ export default function ClientOverviewPage() {
                 />
                 <input
                   type="text"
-                  placeholder="Last Name"
+                  placeholder={t('lastName')}
                   value={formData.lname}
                   onChange={e => setFormData({ ...formData, lname: e.target.value })}
                   className={`${inputCls} flex-1`}
@@ -332,34 +336,34 @@ export default function ClientOverviewPage() {
               {/* Email */}
               <input
                 type="email"
-                placeholder="Email *"
+                placeholder={t('emailPlaceholder')}
                 value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
                 className={inputCls}
               />
 
               {/* Phone numbers */}
-              <label className="text-muted-foreground text-xs font-medium">Phone Numbers</label>
+              <label className="text-muted-foreground text-xs font-medium">{t('phoneNumbers')}</label>
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2 items-center">
                   <CountryCodeSelect value={editPhones[0].countryCode} onChange={code => updateEditPhone(0, "countryCode", code)} />
-                  <input type="text" placeholder="Primary phone" value={editPhones[0].number} onChange={e => updateEditPhone(0, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                  <input type="text" placeholder={t('primaryPhonePlaceholder')} value={editPhones[0].number} onChange={e => updateEditPhone(0, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
                 </div>
                 {editPhoneCount >= 2 && (
                   <div className="flex gap-2 items-center">
                     <CountryCodeSelect value={editPhones[1].countryCode} onChange={code => updateEditPhone(1, "countryCode", code)} />
-                    <input type="text" placeholder="Phone 2 (optional)" value={editPhones[1].number} onChange={e => updateEditPhone(1, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                    <input type="text" placeholder={t('phone2')} value={editPhones[1].number} onChange={e => updateEditPhone(1, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
                   </div>
                 )}
                 {editPhoneCount >= 3 && (
                   <div className="flex gap-2 items-center">
                     <CountryCodeSelect value={editPhones[2].countryCode} onChange={code => updateEditPhone(2, "countryCode", code)} />
-                    <input type="text" placeholder="Phone 3 (optional)" value={editPhones[2].number} onChange={e => updateEditPhone(2, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                    <input type="text" placeholder={t('phone3')} value={editPhones[2].number} onChange={e => updateEditPhone(2, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
                   </div>
                 )}
                 {editPhoneCount < 3 && (
                   <Button type="button" variant="ghost" size="sm" onClick={() => setEditPhoneCount(c => c + 1)} className="text-xs text-primary self-start px-0">
-                    + Add another phone
+                    {t('addAnotherPhone')}
                   </Button>
                 )}
               </div>
@@ -367,7 +371,7 @@ export default function ClientOverviewPage() {
               {/* Password */}
               <div className="border-t border-border pt-3 mt-1 flex flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">
-                  New Password <span className="font-normal">(leave blank to keep current)</span>
+                  {t('newPassword')} <span className="font-normal">({t('newPasswordHint')})</span>
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -375,7 +379,7 @@ export default function ClientOverviewPage() {
                       type={showNewPassword ? "text" : "password"}
                       value={newPassword}
                       onChange={e => { setNewPassword(e.target.value); setPasswordError(""); }}
-                      placeholder="New portal password"
+                      placeholder={t('newPasswordPlaceholder')}
                       className={`${inputCls} pr-10 ${passwordError ? "border-destructive" : ""}`}
                     />
                     <button
@@ -400,14 +404,14 @@ export default function ClientOverviewPage() {
 
               <div className="flex gap-2 mt-1">
                 <Button type="submit" variant="primary" fullWidth>
-                  Save Changes
+                  {t('saveChanges')}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => setShowEditForm(false)}
                   className="flex-1 bg-destructive/10 hover:bg-destructive/20 text-destructive"
                 >
-                  Cancel
+                  {tCommon('cancel')}
                 </Button>
               </div>
             </form>
