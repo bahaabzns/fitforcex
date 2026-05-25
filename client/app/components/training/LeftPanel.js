@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -28,19 +28,19 @@ const CheckIcon = () => (
     </svg>
 );
 
-function formatRelativeTime(dateStr) {
+function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return "yesterday";
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
-    return `${Math.floor(diffDays / 365)}y ago`;
+    if (diffMins < 1) return t('justNow');
+    if (diffMins < 60) return t('minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('hoursAgo', { count: diffHours });
+    if (diffDays === 1) return t('yesterday');
+    if (diffDays < 7) return t('daysAgo', { count: diffDays });
+    if (diffDays < 30) return t('weeksAgo', { count: Math.floor(diffDays / 7) });
+    if (diffDays < 365) return t('monthsAgo', { count: Math.floor(diffDays / 30) });
+    return t('yearsAgo', { count: Math.floor(diffDays / 365) });
 }
 
 export default function LeftPanel({
@@ -62,6 +62,8 @@ export default function LeftPanel({
     clientId,
 }) {
     const locale = useLocale();
+    const t = useTranslations('training');
+    const tCommon = useTranslations('common');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["plans"]));
     const [loadModalOpen, setLoadModalOpen] = useState(false);
 
@@ -96,7 +98,7 @@ export default function LeftPanel({
                             >
                                 <Disclosure.Indicator />
                                 <h2 className="text-base font-semibold text-foreground">
-                                    Plans
+                                    {t('plans')}
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{plans.length}</span>
                                 </h2>
                             </Button>
@@ -108,14 +110,14 @@ export default function LeftPanel({
                                             isDisabled={!isDirty || isSaving}
                                             onClick={handleSaveAllDrafts}
                                         >
-                                            {isSaving || saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save All"}
+                                            {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}
                                         </Button>
                                     )}
                                     <Button variant="outline" onClick={() => setLoadModalOpen(true)}>
-                                        Load Plan
+                                        {t('loadPlan')}
                                     </Button>
                                     <Button variant="primary" onClick={handleCreatePlan}>
-                                        + Create Plan
+                                        {t('newPlan')}
                                     </Button>
                                 </div>
                             )}
@@ -127,9 +129,9 @@ export default function LeftPanel({
                             {/* Sort Pills */}
                             <div className="flex gap-2 mb-4 shrink-0">
                                 {[
-                                    { value: "created_desc", label: "Newest" },
-                                    { value: "created_asc",  label: "Oldest" },
-                                    { value: "updated_desc", label: "Last Edited" },
+                                    { value: "created_desc", label: t('newest') },
+                                    { value: "created_asc",  label: t('oldest') },
+                                    { value: "updated_desc", label: t('lastEdited') },
                                 ].map(({ value, label }) => (
                                     <button
                                         key={value}
@@ -153,15 +155,15 @@ export default function LeftPanel({
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                                         </svg>
                                         <div>
-                                            <p className="text-sm font-medium text-muted-foreground">No plans yet</p>
-                                            <p className="text-xs text-muted-foreground mt-1">Create your first training plan</p>
+                                            <p className="text-sm font-medium text-muted-foreground">{t('noPlanYet')}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">{t('createFirstPlan')}</p>
                                         </div>
                                         <div className="flex gap-2">
                                             <Button variant="outline" onClick={() => setLoadModalOpen(true)}>
-                                                Load Plan
+                                                {t('loadPlan')}
                                             </Button>
                                             <Button variant="primary" onClick={handleCreatePlan}>
-                                                + Create Plan
+                                                {t('newPlan')}
                                             </Button>
                                         </div>
                                     </Surface>
@@ -188,31 +190,31 @@ export default function LeftPanel({
                                                             </p>
                                                             {plan.status === "active" && (
                                                                 <Chip size="sm" className="bg-green-500/15 text-green-600 shrink-0">
-                                                                    <span className="flex items-center gap-0.5"><CheckIcon /> Active</span>
+                                                                    <span className="flex items-center gap-0.5"><CheckIcon /> {t('active')}</span>
                                                                 </Chip>
                                                             )}
                                                             {isPlanDirty && (
                                                                 <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
-                                                                    Unsaved
+                                                                    {t('unsaved')}
                                                                 </Chip>
                                                             )}
                                                         </div>
                                                         <p className="text-xs text-muted-foreground mt-0.5">
                                                             {plan.day_count ?? plan.days?.length ?? 0}{" "}
-                                                            {(plan.day_count ?? plan.days?.length ?? 0) === 1 ? "day" : "days"}
-                                                            {" · "}edited {formatRelativeTime(plan.updated_at)}
+                                                            {t('days')}
+                                                            {" · "}{t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
                                                         </p>
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                         <button
-                                                            title="Duplicate plan"
+                                                            title={t('duplicatePlan')}
                                                             className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
                                                             onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
                                                         >
                                                             <DuplicateIcon />
                                                         </button>
                                                         <button
-                                                            title="Delete plan"
+                                                            title={t('deletePlan')}
                                                             className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                                             onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
                                                         >
@@ -242,7 +244,7 @@ export default function LeftPanel({
                         >
                             <Disclosure.Indicator />
                             <h2 className="text-base font-semibold text-foreground flex-1 text-left">
-                                Form Submissions
+                                {t('formSubmissions')}
                                 {submittedForms.length > 0 && (
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{submittedForms.length}</span>
                                 )}
@@ -263,7 +265,7 @@ export default function LeftPanel({
                                     <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
-                                    <p className="text-xs font-medium text-muted-foreground">No submitted forms yet</p>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('noSubmittedForms')}</p>
                                 </Surface>
                             ) : (
                                 <DisclosureGroup className="flex flex-col gap-1.5">
@@ -289,7 +291,7 @@ export default function LeftPanel({
                                             <Disclosure.Content>
                                                 <Disclosure.Body className="px-3 pb-3 flex flex-col gap-2 border-t border-border pt-0">
                                                     {!req.responses?.length ? (
-                                                        <p className="text-xs text-muted-foreground pt-2">No responses recorded.</p>
+                                                        <p className="text-xs text-muted-foreground pt-2">{t('noResponses')}</p>
                                                     ) : (
                                                         req.responses.map((r, i) => (
                                                             <div key={i} className="pt-2">

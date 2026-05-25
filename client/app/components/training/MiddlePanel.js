@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
@@ -43,6 +44,9 @@ export default function MiddlePanel({
     onClose,
 }) {
     const router = useRouter();
+    const t = useTranslations('training');
+    const tModal = useTranslations('modal');
+    const tCommon = useTranslations('common');
     const [activateModal, setActivateModal] = useState(false);
     const [activating, setActivating] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["days", "notes"]));
@@ -115,7 +119,7 @@ export default function MiddlePanel({
                             onClick={() => handleSaveSelectedPlan(selectedPlan.id)}
                             className="shrink-0"
                         >
-                            {isSaving || saveStatus === "saving" ? "Saving..." : "Save Plan"}
+                            {isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}
                         </Button>
                     )}
                     {selectedPlan.status !== "active" && (
@@ -125,23 +129,23 @@ export default function MiddlePanel({
                             onClick={() => { if (submissionId) { setActivateModal(true); return; } handleActivatePlan(selectedPlan.id); }}
                             className="bg-emerald-500 hover:bg-emerald-600 text-white shrink-0"
                         >
-                            {activating ? "Activating..." : "Activate"}
+                            {activating ? t('activating') : t('activate')}
                         </Button>
                     )}
                     {isSelectedPlanDirty && (
                         <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
-                            Unsaved
+                            {t('unsaved')}
                         </Chip>
                     )}
                     {!isSelectedPlanDirty && saveStatus === "saved" && (
                         <Chip size="sm" className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 shrink-0">
-                            Saved
+                            {t('saved')}
                         </Chip>
                     )}
 
                     {onClose && (
                         <button
-                            title="Close panel"
+                            title={t('closePanel')}
                             onClick={onClose}
                             className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                         >
@@ -164,13 +168,13 @@ export default function MiddlePanel({
                             >
                                 <Disclosure.Indicator />
                                 <h3 className="text-base font-semibold text-foreground">
-                                    Days
+                                    {t('daysSection')}
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedPlan.days?.length ?? 0}</span>
                                 </h3>
                             </Button>
                             {expandedKeys.has("days") && (
                                 <Button variant="primary" onClick={handleCreateDay} className="shrink-0">
-                                    + Add Day
+                                    {t('addDay')}
                                 </Button>
                             )}
                         </div>
@@ -217,14 +221,14 @@ export default function MiddlePanel({
                                         </div>
                                         <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
-                                                title="Duplicate day"
+                                                title={tCommon('duplicate')}
                                                 onClick={(e) => { e.stopPropagation(); handleDuplicateDay(day.id); }}
                                                 className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground hover:bg-card/80 transition-colors"
                                             >
                                                 <DuplicateIcon />
                                             </button>
                                             <button
-                                                title="Delete day"
+                                                title={tCommon('delete')}
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteDay(day.id); }}
                                                 className="cursor-pointer p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                             >
@@ -236,7 +240,7 @@ export default function MiddlePanel({
                             })}
                             {currentDays.length === 0 && (
                                 <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
-                                    <p className="text-sm text-muted-foreground">No days yet</p>
+                                    <p className="text-sm text-muted-foreground">{t('noDaysYet')}</p>
                                 </Surface>
                             )}
                 </ScrollShadow>
@@ -254,7 +258,7 @@ export default function MiddlePanel({
                             className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                         >
                             <Disclosure.Indicator />
-                            <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
+                            <h3 className="text-base font-semibold text-foreground flex-1 text-left">{t('notes')}</h3>
                         </Button>
                     </Disclosure.Heading>
                     <Disclosure.Content>
@@ -262,7 +266,7 @@ export default function MiddlePanel({
                             <textarea
                                 key={selectedPlan.id + "-note"}
                                 defaultValue={selectedPlan.notes ?? ""}
-                                placeholder="Add a plan note..."
+                                placeholder={t('planNoteHint')}
                                 rows={3}
                                 onBlur={(e) => {
                                     const val = e.target.value;
@@ -281,24 +285,24 @@ export default function MiddlePanel({
                     <Modal.Container>
                         <Modal.Dialog>
                             <Modal.Header>
-                                <Modal.Heading>Activate & Mark as Done</Modal.Heading>
+                                <Modal.Heading>{t('activateModalTitle')}</Modal.Heading>
                                 <Modal.CloseTrigger />
                             </Modal.Header>
                             <Modal.Body>
                                 <p className="text-sm text-muted-foreground">
-                                    You will activate this training plan and mark the submission as <span className="font-medium text-emerald-600">Action Done</span>.
+                                    {t('activateModalBody')}
                                 </p>
                             </Modal.Body>
                             <Modal.Footer>
                                 <Button type="button" variant="ghost" onClick={() => setActivateModal(false)}>
-                                    Cancel
+                                    {tModal('cancel')}
                                 </Button>
                                 <Button type="button" isDisabled={activating} onClick={() => handleActivateAndMark(false)}
                                     className="bg-emerald-500 hover:bg-emerald-600 text-white">
-                                    {activating ? "Working..." : "Activate & Stay Here"}
+                                    {activating ? t('working') : t('activateAndStay')}
                                 </Button>
                                 <Button type="button" variant="primary" isDisabled={activating} onClick={() => handleActivateAndMark(true)}>
-                                    Activate & Go to Queue
+                                    {t('activateAndGoToQueue')}
                                 </Button>
                             </Modal.Footer>
                         </Modal.Dialog>

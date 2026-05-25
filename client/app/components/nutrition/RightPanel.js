@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import MacrosBadges from "../MacrosBadges";
 import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 import { Button } from "@heroui/react/button";
@@ -20,6 +21,7 @@ export default function RightPanel({
     handleDeleteAlternative,
     handleAlternativeAmountChange,
 }) {
+    const t = useTranslations('nutrition');
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["items", "notes"]));
@@ -69,7 +71,7 @@ export default function RightPanel({
                     className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
                 />
                 <button
-                    title="Close meal"
+                    title={t('closePanel')}
                     className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedMeal(null)}
                 >
@@ -96,13 +98,13 @@ export default function RightPanel({
                                 >
                                     <Disclosure.Indicator />
                                     <h3 className="text-base font-semibold text-foreground">
-                                        Food Items
+                                        {t('foodItems')}
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedMeal.items.length}</span>
                                     </h3>
                                 </Button>
                                 {expandedKeys.has("items") && (
                                     <Button variant="primary" onClick={() => setFoodItemModalOpen(true)}>
-                                        + Add Food
+                                        {t('addFood')}
                                     </Button>
                                 )}
                             </div>
@@ -173,10 +175,10 @@ export default function RightPanel({
                                                                 slot="trigger"
                                                                 className="cursor-pointer px-2 py-1 rounded-lg border text-xs font-medium transition-all border-border text-muted-foreground data-hover:bg-default data-open:border-primary/40 data-open:bg-primary/10 data-open:text-primary"
                                                             >
-                                                                {alternatives.length} alt
+                                                                {alternatives.length} {t('alternative')}
                                                             </Button>
                                                             <button
-                                                                title="Remove food item"
+                                                                title={t('removeFoodItem')}
                                                                 className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
                                                                 onClick={() => handleDeleteMealItem(item.id)}
                                                             >
@@ -209,7 +211,7 @@ export default function RightPanel({
                                                                     <span className="text-xs text-muted-foreground">kcal</span>
                                                                 </div>
                                                                 <button
-                                                                    title="Remove alternative"
+                                                                    title={t('removeAlternative')}
                                                                     className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
                                                                     onClick={() => handleDeleteAlternative(item.id, alt.id)}
                                                                 >
@@ -221,7 +223,7 @@ export default function RightPanel({
                                                             className="cursor-pointer w-full mt-1 py-2 text-xs font-medium text-primary border border-dashed border-primary/30 rounded-lg hover:bg-primary/10 transition-colors"
                                                             onClick={() => setAlternativeModalOpenForItemId(item.id)}
                                                         >
-                                                            + Add Alternative
+                                                            {t('addAlternative')}
                                                         </button>
                                                     </Disclosure.Body>
                                                 </Disclosure.Content>
@@ -245,7 +247,7 @@ export default function RightPanel({
                                 className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                             >
                                 <Disclosure.Indicator />
-                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
+                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">{t('notes')}</h3>
                             </Button>
                         </Disclosure.Heading>
                         <Disclosure.Content>
@@ -253,7 +255,7 @@ export default function RightPanel({
                                 <textarea
                                     key={selectedMeal.id + '-note'}
                                     defaultValue={selectedMeal.note ?? ""}
-                                    placeholder="Add a meal note..."
+                                    placeholder={t('addMealNote')}
                                     rows={3}
                                     onBlur={(e) => {
                                         const val = e.target.value;
