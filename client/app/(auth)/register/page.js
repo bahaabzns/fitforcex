@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
@@ -50,6 +51,8 @@ const COUNTRY_CODES = [
 ];
 
 export default function RegisterPage() {
+    const t = useTranslations('auth');
+    const tCommon = useTranslations('common');
     const searchParams = useSearchParams();
     const planSlug = searchParams.get('plan');
     const periodKey = searchParams.get('period');
@@ -104,7 +107,7 @@ export default function RegisterPage() {
             const finalUrl = planSlug ? `${billingUrl}?plan=${encodeURIComponent(planSlug)}` : billingUrl;
             router.push(finalUrl);
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed. Please try again.');
+            setError(err.response?.data?.message || t('registrationFailed'));
         } finally {
             setLoading(false);
         }
@@ -117,7 +120,7 @@ export default function RegisterPage() {
             <div className="auth-wrapper">
                 <div className="auth-card flex flex-col items-center justify-center gap-4">
                     <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                    <p className="text-center text-muted-foreground">Loading...</p>
+                    <p className="text-center text-muted-foreground">{tCommon('loading')}</p>
                 </div>
             </div>
         );
@@ -126,34 +129,34 @@ export default function RegisterPage() {
     return (
         <div className="auth-wrapper">
             <div className="auth-card">
-                <h1 className="auth-title">Create Account</h1>
+                <h1 className="auth-title">{t('createAccount')}</h1>
                 {planSlug && (
                     <p className="mb-4 text-sm text-primary/70 text-center">
-                        You selected: <span className="font-semibold text-primary">{planSlug}</span>
+                        {t('selectedPlan', { plan: planSlug })}
                     </p>
                 )}
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="grid grid-cols-2 gap-3">
                         <TextField fullWidth isRequired value={formData.fname} onChange={set('fname')}>
-                            <Label>First Name</Label>
+                            <Label>{t('firstName')}</Label>
                             <Input type="text" placeholder="John" />
                         </TextField>
                         <TextField fullWidth isRequired value={formData.lname} onChange={set('lname')}>
-                            <Label>Last Name</Label>
+                            <Label>{t('lastName')}</Label>
                             <Input type="text" placeholder="Doe" />
                         </TextField>
                     </div>
                     <TextField fullWidth isRequired value={formData.email} onChange={set('email')}>
-                        <Label>Email</Label>
+                        <Label>{t('email')}</Label>
                         <Input type="email" placeholder="you@example.com" />
                     </TextField>
                     <TextField fullWidth isRequired value={formData.password} onChange={set('password')}>
-                        <Label>Password</Label>
+                        <Label>{t('password')}</Label>
                         <Input type="password" placeholder="••••••••" />
                     </TextField>
 
                     <div className="flex flex-col gap-1.5">
-                        <Label>Phone Number</Label>
+                        <Label>{t('phoneNumber')}</Label>
                         <div className="flex gap-2">
                             <Autocomplete
                                 value={formData.countryCode}
@@ -172,11 +175,11 @@ export default function RegisterPage() {
                                         <SearchField autoFocus name="search" variant="secondary">
                                             <SearchField.Group>
                                                 <SearchField.SearchIcon />
-                                                <SearchField.Input placeholder="Search country..." />
+                                                <SearchField.Input placeholder={t('searchCountry')} />
                                                 <SearchField.ClearButton />
                                             </SearchField.Group>
                                         </SearchField>
-                                        <ListBox renderEmptyState={() => <EmptyState>No results found</EmptyState>}>
+                                        <ListBox renderEmptyState={() => <EmptyState>{t('noResults')}</EmptyState>}>
                                             {COUNTRY_CODES.map((c) => (
                                                 <ListBox.Item key={c.code} id={c.code} textValue={`${c.name} ${c.code}`}>
                                                     <span className="w-10 shrink-0 text-muted-foreground">{c.code}</span>
@@ -200,11 +203,11 @@ export default function RegisterPage() {
 
                     {error && <p className="text-sm text-destructive">{error}</p>}
                     <Button type="submit" color="primary" fullWidth isDisabled={loading} className="mt-2">
-                        {loading ? 'Creating account…' : 'Register'}
+                        {loading ? t('creatingAccount') : t('register')}
                     </Button>
                     <p className="auth-link">
-                        Already have an account?{" "}
-                        <a href="/login">Login here</a>
+                        {t('hasAccount')}{" "}
+                        <a href="/login">{t('loginHere')}</a>
                     </p>
                 </form>
             </div>

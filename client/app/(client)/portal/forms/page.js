@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { Clock, CheckCircle, ClipboardList, CalendarClock } from "lucide-react";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -11,6 +11,7 @@ import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 
 export default function ClientFormsListPage() {
+    const t = useTranslations('portal.forms');
     const locale = useLocale();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -45,19 +46,19 @@ export default function ClientFormsListPage() {
         <div className="p-8 max-w-3xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
-                <h1 className="text-2xl font-bold text-foreground flex-1">Forms</h1>
+                <h1 className="text-2xl font-bold text-foreground flex-1">{t('title')}</h1>
                 {pendingCount > 0 && (
-                    <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">{pendingCount} pending</Chip>
+                    <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">{t('pendingChip', { count: pendingCount })}</Chip>
                 )}
             </div>
 
             {/* Filter tabs */}
             <div className="flex gap-1 mb-5 border-b border-border -mt-2">
                 {[
-                    { key: "all", label: "All" },
-                    { key: "pending", label: "Pending" },
-                    { key: "scheduled", label: "Scheduled" },
-                    { key: "submitted", label: "Submitted" },
+                    { key: "all", label: t('filterAll') },
+                    { key: "pending", label: t('filterPending') },
+                    { key: "scheduled", label: t('filterScheduled') },
+                    { key: "submitted", label: t('filterSubmitted') },
                 ].map(tab => (
                     <button
                         key={tab.key}
@@ -79,14 +80,14 @@ export default function ClientFormsListPage() {
                         <ClipboardList size={40} className="text-muted-foreground/30" />
                         <p className="text-base font-medium text-muted-foreground">
                             {filter === "pending"
-                                ? "No pending forms"
+                                ? t('emptyPending')
                                 : filter === "scheduled"
-                                ? "No scheduled forms"
+                                ? t('emptyScheduled')
                                 : filter === "submitted"
-                                ? "No submitted forms yet"
-                                : "No forms yet"}
+                                ? t('emptySubmitted')
+                                : t('emptyAll')}
                         </p>
-                        <p className="text-sm text-muted-foreground/70">Your coach will send forms for you to fill out.</p>
+                        <p className="text-sm text-muted-foreground/70">{t('emptyHint')}</p>
                     </Card.Content>
                 </Card>
             ) : (
@@ -101,9 +102,9 @@ export default function ClientFormsListPage() {
                                     )}
                                     <p className="text-xs text-muted-foreground mt-1">
                                         {req.status === "scheduled" && req.scheduled_at
-                                            ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
-                                            : `Requested ${new Date(req.requested_at).toLocaleDateString()}`}
-                                        {req.submitted_at && ` · Submitted ${new Date(req.submitted_at).toLocaleDateString()}`}
+                                            ? `${t('filterScheduled')} ${new Date(req.scheduled_at).toLocaleString()}`
+                                            : `${t('filterPending')} ${new Date(req.requested_at).toLocaleDateString()}`}
+                                        {req.submitted_at && ` · ${t('filterSubmitted')} ${new Date(req.submitted_at).toLocaleDateString()}`}
                                     </p>
                                 </div>
 
@@ -111,34 +112,34 @@ export default function ClientFormsListPage() {
                                     {req.status === "pending" ? (
                                         <>
                                             <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">
-                                                <Clock size={11} className="mr-1" /> Pending
+                                                <Clock size={11} className="mr-1" /> {t('filterPending')}
                                             </Chip>
                                             <Link
                                                 href={`/client/forms/${req.id}`}
                                                 className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer"
                                             >
-                                                Fill Form
+                                                {t('fillForm')}
                                             </Link>
                                         </>
                                     ) : req.status === "scheduled" ? (
                                         <div className="flex items-center gap-2">
                                             <Chip size="sm" className="bg-accent/15 text-accent">
-                                                <CalendarClock size={11} className="mr-1" /> Scheduled
+                                                <CalendarClock size={11} className="mr-1" /> {t('filterScheduled')}
                                             </Chip>
                                             <span className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
-                                                Not Open Yet
+                                                {t('notOpenYet')}
                                             </span>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-2">
                                             <Chip size="sm" className="bg-green-500/15 text-green-700">
-                                                <CheckCircle size={11} className="mr-1" /> Submitted
+                                                <CheckCircle size={11} className="mr-1" /> {t('filterSubmitted')}
                                             </Chip>
                                             <Link
                                                 href={`/client/forms/${req.id}`}
                                                 className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
                                             >
-                                                View Answers
+                                                {t('viewAnswers')}
                                             </Link>
                                         </div>
                                     )}

@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
+import { useTranslations } from "next-intl";
 import { calcMeal } from "@/lib/nutritionCalc";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 
 export default function ClientDashboardPage() {
+    const t = useTranslations('portal.dashboard');
     const [client, setClient] = useState(null);
     const [plan, setPlan] = useState(null);
     const [activeCycleIndex, setActiveCycleIndex] = useState(0);
@@ -58,8 +60,8 @@ export default function ClientDashboardPage() {
         <div className="max-w-4xl mx-auto p-6 flex flex-col gap-6">
             {/* Page heading */}
             <div>
-                <h1 className="text-2xl font-bold text-foreground">Nutrition Plan</h1>
-                {client && <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {client.fname}!</p>}
+                <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+                {client && <p className="text-sm text-muted-foreground mt-0.5">{t('welcomeBack', { name: client.fname })}</p>}
             </div>
 
             {noplan || !plan ? (
@@ -68,8 +70,8 @@ export default function ClientDashboardPage() {
                         <svg className="w-12 h-12 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <p className="text-base font-medium text-muted-foreground">No active plan yet</p>
-                        <p className="text-sm text-muted-foreground/70">Your coach hasn&apos;t activated a nutrition plan for you yet.</p>
+                        <p className="text-base font-medium text-muted-foreground">{t('noActivePlan')}</p>
+                        <p className="text-sm text-muted-foreground/70">{t('noActivePlanHint')}</p>
                     </Card.Content>
                 </Card>
             ) : (
@@ -78,10 +80,10 @@ export default function ClientDashboardPage() {
                     <Card>
                         <Card.Content className="p-6 flex items-center justify-between">
                             <div>
-                                <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">Active Plan</p>
+                                <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">{t('activePlan')}</p>
                                 <h2 className="text-lg font-bold text-foreground">{plan.name}</h2>
                             </div>
-                            <Chip size="sm" className="bg-green-500/15 text-green-700">Active</Chip>
+                            <Chip size="sm" className="bg-green-500/15 text-green-700">{t('active')}</Chip>
                         </Card.Content>
                     </Card>
 
@@ -110,7 +112,7 @@ export default function ClientDashboardPage() {
                             {(cycle.goal_calories || cycle.goal_protein || cycle.goal_carbs || cycle.goal_fats) && (
                                 <Card>
                                     <Card.Content className="p-6">
-                                        <h3 className="text-sm font-semibold text-foreground mb-3">Daily Goals — {cycle.name}</h3>
+                                        <h3 className="text-sm font-semibold text-foreground mb-3">{t('dailyGoals', { name: cycle.name })}</h3>
                                         <div className="grid grid-cols-4 gap-3">
                                             {[
                                                 { label: "Calories", value: cycle.goal_calories, unit: "kcal", color: "text-orange-500" },
@@ -132,7 +134,7 @@ export default function ClientDashboardPage() {
                             {/* Cycle Note */}
                             {cycle.note && (
                                 <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-6">
-                                    <p className="text-xs font-semibold text-yellow-600 mb-1">Coach Note</p>
+                                    <p className="text-xs font-semibold text-yellow-600 mb-1">{t('coachNote')}</p>
                                     <p className="text-sm text-yellow-600 whitespace-pre-wrap">{cycle.note}</p>
                                 </div>
                             )}
@@ -175,7 +177,7 @@ export default function ClientDashboardPage() {
                                                             </div>
                                                             {item.alternatives?.length > 0 && (
                                                                 <div className="mt-2 pl-3 border-l-2 border-border">
-                                                                    <p className="text-xs text-muted-foreground mb-1">Alternatives:</p>
+                                                                    <p className="text-xs text-muted-foreground mb-1">{t('alternatives')}</p>
                                                                     {item.alternatives.map((alt) => (
                                                                         <div key={alt.id} className="flex items-center justify-between py-1">
                                                                             <span className="text-xs text-foreground">{alt.name}</span>

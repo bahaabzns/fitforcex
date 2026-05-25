@@ -278,7 +278,8 @@ function buildTrainingPlanHierarchy(plan, flatRows) {
                 video_path:     toPublicUrl(row.video_path),
                 youtube_url: row.youtube_url,
                 muscle_group: row.muscle_group,
-                instructions: row.instructions,
+                instructions_en: row.instructions_en,
+                instructions_ar: row.instructions_ar,
                 sets: [],
                 alternatives: []
             });
@@ -310,7 +311,8 @@ function buildTrainingPlanHierarchy(plan, flatRows) {
                     exercise_id: row.exercise_id,
                     exercise_library_id: row.alt_exercise_library_id,
                     alt_order: row.alt_order,
-                    name: row.alt_name,
+                    name_en: row.alt_name_en,
+                    name_ar: row.alt_name_ar,
                     muscle_group: row.alt_muscle_group,
                     equipment: row.alt_equipment,
                     thumbnail_path: toPublicUrl(row.alt_thumbnail_path),
@@ -359,10 +361,12 @@ router.get('/active-training-plan', clientAuthMiddleware, async (req, res, next)
                 td.id AS day_id, td.plan_id, td.name AS day_name, td.day_order, td.notes AS day_notes,
                 te.id AS exercise_id, te.day_id, te.name AS exercise_name, te.exercise_order, 
                     te.equipment, te.notes AS exercise_notes, te.exercise_library_id,
-                el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group, el.instructions,
+                el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
+                    el.instructions_en, el.instructions_ar,
                 ts.id AS set_id, ts.exercise_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir,
                 tea.id AS alt_id, tea.exercise_id, tea.exercise_library_id AS alt_exercise_library_id, tea.alt_order,
-                el2.name AS alt_name, el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment, 
+                el2.name_en AS alt_name_en, el2.name_ar AS alt_name_ar,
+                    el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment,
                     el2.thumbnail_path AS alt_thumbnail_path, el2.youtube_url AS alt_youtube_url, el2.video_path AS alt_video_path
              FROM training_plans tp
              LEFT JOIN training_days td ON td.plan_id = tp.id

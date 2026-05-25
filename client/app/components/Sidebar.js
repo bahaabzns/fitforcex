@@ -29,6 +29,7 @@ import { Disclosure } from "@heroui/react/disclosure";
 import { Separator } from "@heroui/react/separator";
 import { ThemeToggle } from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslations } from "next-intl";
 
 const navLink = (active) =>
     `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
@@ -45,6 +46,8 @@ const subLink = (active) =>
     }`;
 
 export default function Sidebar({ collapsed }) {
+    const tNav = useTranslations('nav');
+    const tSidebar = useTranslations('sidebar');
     const pathname = usePathname();
     const router = useRouter();
     const [nutritionOpen, setNutritionOpen] = useState(pathname.includes('/nutrition'));
@@ -181,7 +184,7 @@ export default function Sidebar({ collapsed }) {
                                     className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-default transition-colors cursor-pointer"
                                 >
                                     <Plus size={12} />
-                                    Create workspace
+                                    {tSidebar('createWorkspace')}
                                 </Link>
                             </div>
                         </div>
@@ -196,22 +199,22 @@ export default function Sidebar({ collapsed }) {
                     <li>
                         <Link
                             href={`/${slug}/dashboard`}
-                            title={collapsed ? 'Dashboard' : undefined}
+                            title={collapsed ? tNav('dashboard') : undefined}
                             className={navLink(pathname.includes('/dashboard'))}
                         >
                             <LayoutDashboard size={17} className="shrink-0" />
-                            {!collapsed && <span className="flex-1">Dashboard</span>}
+                            {!collapsed && <span className="flex-1">{tNav('dashboard')}</span>}
                         </Link>
                     </li>
 
                     <li>
                         <Link
                             href={`/${slug}/clients`}
-                            title={collapsed ? 'Clients' : undefined}
+                            title={collapsed ? tNav('clients') : undefined}
                             className={navLink(pathname.includes('/clients'))}
                         >
                             <Users size={17} className="shrink-0" />
-                            {!collapsed && <span className="flex-1">Clients</span>}
+                            {!collapsed && <span className="flex-1">{tNav('clients')}</span>}
                         </Link>
                     </li>
 
@@ -223,7 +226,7 @@ export default function Sidebar({ collapsed }) {
                                     <Wallet size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
-                                            <span className="flex-1">Finance</span>
+                                            <span className="flex-1">{tNav('finance')}</span>
                                             <ChevronRight size={14} className={`transition-transform duration-200 ${financeOpen ? 'rotate-90' : ''}`} />
                                         </>
                                     )}
@@ -234,17 +237,17 @@ export default function Sidebar({ collapsed }) {
                                     <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/finance/transactions`} className={subLink(pathname.includes('/finance/transactions'))}>
-                                                Transactions
+                                                {tNav('transactions')}
                                             </Link>
                                         </li>
                                         <li>
                                             <Link href={`/${slug}/finance/packages`} className={subLink(pathname.includes('/finance/packages'))}>
-                                                Packages
+                                                {tNav('packages')}
                                             </Link>
                                         </li>
                                         <li>
                                             <Link href={`/${slug}/finance/payment-methods`} className={subLink(pathname.includes('/finance/payment-methods'))}>
-                                                Payment Methods
+                                                {tNav('paymentMethods')}
                                             </Link>
                                         </li>
                                     </ul>
@@ -256,22 +259,22 @@ export default function Sidebar({ collapsed }) {
                     <li>
                         <Link
                             href={`/${slug}/plans-queue`}
-                            title={collapsed ? 'Plans Queue' : undefined}
+                            title={collapsed ? tNav('plansQueue') : undefined}
                             className={navLink(pathname.includes('/plans-queue'))}
                         >
                             <ClipboardList size={17} className="shrink-0" />
-                            {!collapsed && <span className="flex-1">Plans Queue</span>}
+                            {!collapsed && <span className="flex-1">{tNav('plansQueue')}</span>}
                         </Link>
                     </li>
 
                     <li>
                         <Link
                             href={`/${slug}/forms`}
-                            title={collapsed ? 'Forms' : undefined}
+                            title={collapsed ? tNav('forms') : undefined}
                             className={navLink(pathname.includes('/forms'))}
                         >
                             <ClipboardList size={17} className="shrink-0" />
-                            {!collapsed && <span className="flex-1">Forms</span>}
+                            {!collapsed && <span className="flex-1">{tNav('forms')}</span>}
                         </Link>
                     </li>
 
@@ -283,7 +286,7 @@ export default function Sidebar({ collapsed }) {
                                     <Salad size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
-                                            <span className="flex-1">Nutrition</span>
+                                            <span className="flex-1">{tNav('nutrition')}</span>
                                             <ChevronRight size={14} className={`transition-transform duration-200 ${nutritionOpen ? 'rotate-90' : ''}`} />
                                         </>
                                     )}
@@ -294,12 +297,12 @@ export default function Sidebar({ collapsed }) {
                                     <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/nutrition/food-items`} className={subLink(pathname.includes('/nutrition/food-items'))}>
-                                                Food Items
+                                                {tNav('foodItems')}
                                             </Link>
                                         </li>
                                         <li>
                                             <Link href={`/${slug}/nutrition/food-categories`} className={subLink(pathname.includes('/nutrition/food-categories'))}>
-                                                Food Categories
+                                                {tNav('foodCategories')}
                                             </Link>
                                         </li>
                                     </ul>
@@ -316,7 +319,7 @@ export default function Sidebar({ collapsed }) {
                                     <Dumbbell size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
-                                            <span className="flex-1">Training</span>
+                                            <span className="flex-1">{tNav('training')}</span>
                                             <ChevronRight size={14} className={`transition-transform duration-200 ${trainingOpen ? 'rotate-90' : ''}`} />
                                         </>
                                     )}
@@ -327,17 +330,17 @@ export default function Sidebar({ collapsed }) {
                                     <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/training/exercises`} className={subLink(pathname.includes('/training/exercises'))}>
-                                                Exercises
+                                                {tNav('exercises')}
                                             </Link>
                                         </li>
                                         <li>
                                             <Link href={`/${slug}/training/muscle-groups`} className={subLink(pathname.includes('/training/muscle-groups'))}>
-                                                Muscle Groups
+                                                {tNav('muscleGroups')}
                                             </Link>
                                         </li>
                                         <li>
                                             <Link href={`/${slug}/training/equipment`} className={subLink(pathname.includes('/training/equipment'))}>
-                                                Equipment
+                                                {tNav('equipment')}
                                             </Link>
                                         </li>
                                     </ul>
@@ -349,7 +352,7 @@ export default function Sidebar({ collapsed }) {
                     <li>
                         <Link
                             href={`/${slug}/team`}
-                            title={collapsed ? 'Team' : undefined}
+                            title={collapsed ? tNav('team') : undefined}
                             className={navLink(pathname.includes('/team'))}
                         >
                             <div className="relative shrink-0">
@@ -362,7 +365,7 @@ export default function Sidebar({ collapsed }) {
                             </div>
                             {!collapsed && (
                                 <>
-                                    <span className="flex-1">Team</span>
+                                    <span className="flex-1">{tNav('team')}</span>
                                     {pendingCount > 0 && (
                                         <Chip size="sm" color="accent" variant="soft" className="shrink-0">
                                             {pendingCount > 9 ? '9+' : pendingCount}
@@ -381,7 +384,7 @@ export default function Sidebar({ collapsed }) {
                                     <Settings size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
-                                            <span className="flex-1">Settings</span>
+                                            <span className="flex-1">{tNav('settings')}</span>
                                             <ChevronRight size={14} className={`transition-transform duration-200 ${settingsOpen ? 'rotate-90' : ''}`} />
                                         </>
                                     )}
@@ -392,18 +395,18 @@ export default function Sidebar({ collapsed }) {
                                     <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/settings/profile`} className={subLink(pathname.includes('/settings/profile'))}>
-                                                Profile
+                                                {tNav('profile')}
                                             </Link>
                                         </li>
                                         <li>
                                             <Link href={`/${slug}/settings/workspace`} className={subLink(pathname.includes('/settings/workspace'))}>
-                                                Workspace
+                                                {tNav('workspace')}
                                             </Link>
                                         </li>
                                         {user?.currentWorkspace?.role === 'owner' && (
                                             <li>
                                                 <Link href={`/${slug}/settings/billing`} className={subLink(pathname.includes('/settings/billing'))}>
-                                                    Billing
+                                                    {tNav('billing')}
                                                 </Link>
                                             </li>
                                         )}
@@ -455,11 +458,11 @@ export default function Sidebar({ collapsed }) {
                     size="sm"
                     fullWidth
                     onClick={handleLogout}
-                    title={collapsed ? 'Logout' : undefined}
+                    title={collapsed ? tSidebar('logout') : undefined}
                     className={`${collapsed ? 'justify-center px-0' : 'justify-start'}`}
                 >
                     <LogOut size={15} className="shrink-0" />
-                    {!collapsed && 'Logout'}
+                    {!collapsed && tSidebar('logout')}
                 </Button>
             </div>
         </aside>

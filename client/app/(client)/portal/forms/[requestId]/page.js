@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { CheckCircle } from "lucide-react";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -13,6 +13,7 @@ import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
 
 export default function ClientFillFormPage() {
+    const t = useTranslations('portal.forms');
     const locale = useLocale();
     const { requestId } = useParams();
     const router = useRouter();
@@ -46,7 +47,7 @@ export default function ClientFillFormPage() {
 
         const missing = data.questions.filter(q => q.required && !answers[q.id]?.toString().trim());
         if (missing.length > 0) {
-            setError(`Please answer all required questions (${missing.length} missing).`);
+            setError(t('requiredError', { count: missing.length }));
             return;
         }
 
@@ -59,7 +60,7 @@ export default function ClientFillFormPage() {
             await api.post(`/api/client-portal/form-requests/${requestId}/submit`, { answers: answersPayload });
             router.push("/client/forms");
         } catch (e) {
-            setError(e.response?.data?.error || 'Failed to submit. Please try again.');
+            setError(e.response?.data?.error || t('submitFailed'));
         } finally {
             setSubmitting(false);
         }
@@ -90,14 +91,14 @@ export default function ClientFillFormPage() {
                     onClick={() => router.push("/client/forms")}
                     className="mt-1 text-muted-foreground"
                 >
-                    ← Back
+                    {t('back')}
                 </Button>
                 <div className="flex-1">
                     <h1 className="text-2xl font-bold text-foreground">{getLocalizedField(data, 'form_title', locale)}</h1>
                     {getLocalizedField(data, 'form_description', locale) && <p className="text-sm text-muted-foreground mt-0.5">{getLocalizedField(data, 'form_description', locale)}</p>}
                 </div>
                 {isSubmitted && (
-                    <Chip size="sm" className="bg-green-500/15 text-green-700 mt-1">Submitted</Chip>
+                    <Chip size="sm" className="bg-green-500/15 text-green-700 mt-1">{t('filterSubmitted')}</Chip>
                 )}
             </div>
 
@@ -109,7 +110,7 @@ export default function ClientFillFormPage() {
                         </Alert.Indicator>
                         <Alert.Content>
                             <Alert.Description>
-                                You have already submitted this form. Your answers are shown below.
+                                {t('alreadySubmitted')}
                             </Alert.Description>
                         </Alert.Content>
                     </Alert>
@@ -159,7 +160,7 @@ export default function ClientFillFormPage() {
                             {q.type === 'select' && (
                                 <select value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
                                     disabled={isSubmitted} className={inputCls}>
-                                    <option value="">Select an option…</option>
+                                    <option value="">{t('selectOption')}</option>
                                     {(locale === 'ar' && q.options_ar?.length ? q.options_ar : (q.options ?? [])).map(opt => (
                                         <option key={opt} value={opt}>{opt}</option>
                                     ))}
@@ -203,7 +204,7 @@ export default function ClientFillFormPage() {
 
                 {!isSubmitted && (
                     <Button type="submit" variant="primary" fullWidth isDisabled={submitting}>
-                        {submitting ? 'Submitting…' : 'Submit Form'}
+                        {submitting ? t('submitting') : t('submit')}
                     </Button>
                 )}
             </form>
