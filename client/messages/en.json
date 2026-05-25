@@ -265,7 +265,10 @@
     "workout": "Workout",
     "noAction": "No Action",
     "noResults": "No results match the current filters",
-    "submissionAnswers": "Submission Answers"
+    "submissionAnswers": "Submission Answers",
+    "actionType": "Action Type:",
+    "waitingForClient": "Waiting for client",
+    "loadingQueue": "Loading plans queue…"
   },
   "auth": {
     "login": "Login",

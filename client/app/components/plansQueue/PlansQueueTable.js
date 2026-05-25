@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
 import { Chip } from "@heroui/react/chip";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 
 export default function PlansQueueTable({ initialSubmissions, awaiting, forms }) {
+    const t = useTranslations('plansQueue');
     const locale = useLocale();
     const [submissions, setSubmissions] = useState(initialSubmissions);
     const [expandedId, setExpandedId] = useState(null);
@@ -118,10 +119,10 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             "action-done": "bg-emerald-500/20 text-emerald-400",
         };
         const labels = {
-            scheduled: "Scheduled",
-            awaiting: "Awaiting",
-            "need-action": "Need Action",
-            "action-done": "Action Done",
+            scheduled: t('scheduled'),
+            awaiting: t('awaiting'),
+            "need-action": t('needAction'),
+            "action-done": t('actionDone'),
         };
         return (
             <Chip size="sm" className={`whitespace-nowrap ${styles[status] || "bg-zinc-500/20 text-zinc-400"}`}>
@@ -133,7 +134,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
     const columns = [
         {
             key: "clientCode",
-            label: "Code",
+            label: t('code'),
             sortable: true,
             filterType: "text",
             width: "70px",
@@ -142,7 +143,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "clientName",
-            label: "Client",
+            label: t('client'),
             filterType: "text",
             sortable: true,
             width: "180px",
@@ -156,7 +157,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "formTitle_en",
-            label: "Form",
+            label: t('form'),
             filterType: "multi",
             options: [...new Set(allItems.map((s) => getLocalizedField(s, 'formTitle', locale)).filter(Boolean))],
             sortable: true,
@@ -166,7 +167,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "formType",
-            label: "Type",
+            label: t('type'),
             filterType: "multi",
             options: ["assessment", "check-in"],
             width: "100px",
@@ -183,7 +184,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "requestedAt",
-            label: "Requested / Scheduled",
+            label: t('requestedScheduled'),
             sortable: true,
             filterType: "dateRange",
             width: "150px",
@@ -192,7 +193,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                 if (row.scheduledAt && row.status === "scheduled") {
                     return (
                         <span className="text-primary text-xs whitespace-nowrap">
-                            Scheduled {shortDate(row.scheduledAt)}
+                            {t('scheduled')} {shortDate(row.scheduledAt)}
                         </span>
                     );
                 }
@@ -201,7 +202,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "submittedAt",
-            label: "Submitted",
+            label: t('submitted'),
             sortable: true,
             filterType: "dateRange",
             width: "150px",
@@ -210,7 +211,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "actionTakenAt",
-            label: "Action Taken",
+            label: t('actionTaken'),
             sortable: true,
             filterType: "dateRange",
             width: "150px",
@@ -219,7 +220,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "status",
-            label: "Status",
+            label: t('status'),
             filterType: "multi",
             options: ["scheduled", "awaiting", "need-action", "action-done"],
             width: "130px",
@@ -228,7 +229,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         },
         {
             key: "actions",
-            label: "Action",
+            label: t('action'),
             filterType: "multi",
             options: ["nothing", "nutrition-plan", "workout-plan"],
             filterValue: (row) => row.postAction,
@@ -236,16 +237,16 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             cardPriority: "primary",
             render: (row) => {
                 const typeBadge = row.postAction === "nutrition-plan"
-                    ? <Chip size="sm" className="bg-amber-500/20 text-amber-400 whitespace-nowrap">Nutrition</Chip>
+                    ? <Chip size="sm" className="bg-amber-500/20 text-amber-400 whitespace-nowrap">{t('nutrition')}</Chip>
                     : row.postAction === "workout-plan"
-                    ? <Chip size="sm" className="bg-accent/15 text-accent whitespace-nowrap">Workout</Chip>
+                    ? <Chip size="sm" className="bg-accent/15 text-accent whitespace-nowrap">{t('workout')}</Chip>
                     : null;
 
                 if (row.status === "awaiting") {
                     return (
                         <div className="flex items-center gap-2">
                             {typeBadge}
-                            <span className="text-muted-foreground text-xs italic whitespace-nowrap">Waiting for client</span>
+                            <span className="text-muted-foreground text-xs italic whitespace-nowrap">{t('waitingForClient')}</span>
                         </div>
                     );
                 }
@@ -254,7 +255,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     return (
                         <div className="flex items-center gap-2">
                             {typeBadge}
-                            <span className="text-primary text-xs italic">Scheduled</span>
+                            <span className="text-primary text-xs italic">{t('scheduled')}</span>
                         </div>
                     );
                 }
@@ -265,7 +266,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                             onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === row.id ? null : row.id); }}
                             className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded hover:bg-default transition-colors"
                         >
-                            {expandedId === row.id ? "Hide" : "View"}
+                            {expandedId === row.id ? t('hide') : t('view')}
                         </button>
                         {row.status === "need-action" && (
                             row.postAction === "nutrition-plan" ? (
@@ -276,7 +277,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                     }}
                                     className="text-amber-600 hover:text-amber-700 text-[11px] px-2 py-1 rounded hover:bg-amber-500/15 transition-colors whitespace-nowrap"
                                 >
-                                    Open Nutrition
+                                    {t('openNutrition')}
                                 </button>
                             ) : row.postAction === "workout-plan" ? (
                                 <button
@@ -286,7 +287,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                     }}
                                     className="text-primary hover:text-primary/80 text-[11px] px-2 py-1 rounded hover:bg-primary/10 transition-colors whitespace-nowrap"
                                 >
-                                    Open Workout
+                                    {t('openWorkout')}
                                 </button>
                             ) : (
                                 <button
@@ -294,7 +295,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                     disabled={marking}
                                     className="text-emerald-600 hover:text-emerald-700 text-[11px] px-2 py-1 rounded hover:bg-emerald-500/15 transition-colors disabled:opacity-50 whitespace-nowrap"
                                 >
-                                    Mark Reviewed
+                                    {t('markReviewed')}
                                 </button>
                             )
                         )}
@@ -304,7 +305,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                                 disabled={marking}
                                 className="text-muted-foreground hover:text-foreground text-[11px] px-2 py-1 rounded hover:bg-default transition-colors disabled:opacity-50 whitespace-nowrap"
                             >
-                                Undo
+                                {t('undo')}
                             </button>
                         )}
                     </div>
@@ -340,7 +341,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                 <td colSpan={columns.length + 1} className="px-4 py-0">
                     <div className="bg-secondary rounded-lg p-4 my-2 border border-border">
                         <h4 className="text-foreground text-sm font-semibold mb-3">
-                            Submission Answers - {getLocalizedField(row, 'formTitle', locale)}
+                            {t('submissionAnswers')} - {getLocalizedField(row, 'formTitle', locale)}
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {renderAnswers(row)}
@@ -356,7 +357,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
 
         return (
             <div className="mt-3 bg-secondary rounded-lg p-4 border border-border">
-                <h4 className="text-foreground text-sm font-semibold mb-3">Submission Answers</h4>
+                <h4 className="text-foreground text-sm font-semibold mb-3">{t('submissionAnswers')}</h4>
                 <div className="flex flex-col gap-3">{renderAnswers(row)}</div>
             </div>
         );
@@ -366,37 +367,37 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         <>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold">Plans Queue</h1>
-                    <p className="text-muted-foreground text-sm mt-1">Review submitted forms and trigger client plan work.</p>
+                    <h1 className="text-3xl font-bold">{t('title')}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">{t('description')}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-accent" />
-                        <span className="text-primary text-sm font-medium">{scheduledCount} Scheduled</span>
+                        <span className="text-primary text-sm font-medium">{scheduledCount} {t('scheduled')}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-muted-foreground/50" />
-                        <span className="text-muted-foreground text-sm font-medium">{awaitingCount} Awaiting</span>
+                        <span className="text-muted-foreground text-sm font-medium">{awaitingCount} {t('awaiting')}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-amber-400" />
-                        <span className="text-amber-500 text-sm font-medium">{needActionCount} Need Action</span>
+                        <span className="text-amber-500 text-sm font-medium">{needActionCount} {t('needAction')}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-lg">
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-emerald-600 text-sm font-medium">{actionDoneCount} Action Done</span>
+                        <span className="text-emerald-600 text-sm font-medium">{actionDoneCount} {t('actionDone')}</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-muted-foreground text-xs">Action Type:</span>
+                    <span className="text-muted-foreground text-xs">{t('actionType')}</span>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-lg">
-                        <span className="text-amber-500 text-sm font-medium">{nutritionPlanCount} Nutrition</span>
+                        <span className="text-amber-500 text-sm font-medium">{nutritionPlanCount} {t('nutrition')}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
-                        <span className="text-primary text-sm font-medium">{workoutPlanCount} Workout</span>
+                        <span className="text-primary text-sm font-medium">{workoutPlanCount} {t('workout')}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
-                        <span className="text-muted-foreground text-sm font-medium">{noActionCount} No Action</span>
+                        <span className="text-muted-foreground text-sm font-medium">{noActionCount} {t('noAction')}</span>
                     </div>
                 </div>
             </div>

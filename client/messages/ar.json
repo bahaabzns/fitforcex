@@ -265,7 +265,10 @@
     "workout": "التدريب",
     "noAction": "لا إجراء",
     "noResults": "لا توجد نتائج تطابق الفلاتر الحالية",
-    "submissionAnswers": "إجابات الاستمارة"
+    "submissionAnswers": "إجابات الاستمارة",
+    "actionType": "نوع الإجراء:",
+    "waitingForClient": "في انتظار العميل",
+    "loadingQueue": "جارٍ تحميل قائمة الخطط…"
   },
   "auth": {
     "login": "تسجيل الدخول",
