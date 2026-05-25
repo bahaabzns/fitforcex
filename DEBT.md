@@ -75,6 +75,7 @@ Format:
 **Why it matters:** `main` should be production-only per CLAUDE.md branch strategy. Direct commits to main skip the safety buffer of a dev branch.
 **Effort:** Small (create `dev` branch, establish branch workflow going forward)
 **Priority:** High
+✅ RESOLVED 2026-05-25 — Created `dev` branch from `main`. `feature/load-plan` merged and cleaned up. All future feature branches will branch off `dev`.
 
 ---
 
