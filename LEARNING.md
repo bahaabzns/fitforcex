@@ -27,6 +27,16 @@ Format per session:
 
 ---
 
+## 2026-05-25 — Load Plan feature (training + nutrition builders)
+**What we built:** A shared "Load Plan" modal that lets a coach browse all plans across their workspace, filter by stats (days, exercises, macros) and team member, and load any plan as a new draft for the current client. Applied to both training and nutrition builders simultaneously.
+**New concepts learned:** Closure pattern to thread extra data (created_by) through a callback-based engine (planEngine's insertPlanTree) without modifying the engine's interface. Rate limiter scope — applying a limiter at the router level affects ALL methods including GETs, not just mutations. AbortController pattern for cleaning up in-flight fetch calls on component unmount.
+**Concepts I understood immediately:** Why `null ?? fallback` works for the created_by inheritance logic. Why the workspace-library endpoint must be registered before `/:id` to avoid Express matching "workspace-library" as an ID param.
+**Concepts I am still fuzzy on:** The right long-term fix for the N+1 fetch pattern in useTrainingPlan/useNutritionPlan — whether that's a bulk endpoint or something like React Query.
+**Question I want to explore next:** Should we consolidate plan fetching to a single endpoint that returns full plan trees in one query instead of N+1?
+**Confidence today (1–10):** 9
+
+---
+
 ## 2026-05-25 — Session opening debt fix
 **What we built:** All 7 missing project documentation files (PROJECT.md, DEBT.md, DEPENDENCIES.md, GLOSSARY.md, WHY.md, LEARNING.md, REVIEWS.md). Identified 6 debt items from code review.
 **New concepts learned:** The CLAUDE.md documentation scaffold exists so that decisions, debts, and learning don't live only in conversation history or memory.

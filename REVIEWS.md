@@ -14,7 +14,10 @@ Summary: [one sentence]
 
 ---
 
-> No formal reviews logged yet. Reviews will be recorded here going forward using the Code Review Routine from CLAUDE.md.
+### 2026-05-25 — load-plan feature — PASS WITH WARNINGS
+Files: LoadPlanModal.js, useTrainingPlan.js, useNutritionPlan.js, training/LeftPanel.js, nutrition/LeftPanel.js, training/page.js, nutrition/page.js, server/routes/training.js, server/routes/nutrition.js, server/migrations/010, server/server.js, server/routes/transactions.js
+Blockers: 0  Warnings: 2  Suggestions: 2
+Summary: Both warnings fixed before commit — created_by leak in bulk save path nulled out; handleLoadPlan now returns success boolean and modal surfaces load errors to the user.
 
 ---
 
