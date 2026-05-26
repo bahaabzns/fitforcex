@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
+import { useTranslations } from "next-intl";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@heroui/react/button";
 
@@ -26,6 +27,7 @@ function ErrorMsg({ msg }) {
 }
 
 export default function ProfilePage() {
+    const t = useTranslations('settings');
     const [me, setMe] = useState(null);
     const [fname, setFname] = useState("");
     const [lname, setLname] = useState("");
@@ -55,9 +57,9 @@ export default function ProfilePage() {
         setSavingName(true);
         try {
             await api.patch("/api/auth/profile", { fname: fname.trim(), lname: lname.trim() });
-            setNameSuccess("Name updated successfully.");
+            setNameSuccess(t('nameUpdated'));
         } catch (err) {
-            setNameError(err.response?.data?.message || "Failed to update name.");
+            setNameError(err.response?.data?.message || t('nameUpdateFailed'));
         } finally {
             setSavingName(false);
         }
@@ -66,15 +68,15 @@ export default function ProfilePage() {
     async function handleChangePassword(e) {
         e.preventDefault();
         setPwError(""); setPwSuccess("");
-        if (newPassword !== confirmPassword) { setPwError("New passwords do not match."); return; }
-        if (newPassword.length < 8) { setPwError("Password must be at least 8 characters."); return; }
+        if (newPassword !== confirmPassword) { setPwError(t('passwordMismatch')); return; }
+        if (newPassword.length < 8) { setPwError(t('passwordMinLength')); return; }
         setSavingPw(true);
         try {
             await api.patch("/api/auth/profile", { currentPassword, newPassword });
-            setPwSuccess("Password changed successfully.");
+            setPwSuccess(t('passwordChanged'));
             setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
         } catch (err) {
-            setPwError(err.response?.data?.message || "Failed to change password.");
+            setPwError(err.response?.data?.message || t('passwordChangeFailed'));
         } finally {
             setSavingPw(false);
         }
@@ -83,20 +85,20 @@ export default function ProfilePage() {
     return (
         <div className="flex flex-col gap-6">
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Profile</h1>
-                <p className="text-sm text-muted-foreground mt-1">Manage your personal information and security settings.</p>
+                <h1 className="text-3xl font-bold text-foreground">{t('profile')}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t('manageInfo')}</p>
             </div>
 
             {/* Name */}
             <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
-                <h3 className="text-sm font-semibold text-foreground">Personal Info</h3>
+                <h3 className="text-sm font-semibold text-foreground">{t('personalInfo')}</h3>
                 <div className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">Email: </span>{me?.email}
+                    <span className="font-medium text-foreground">{t('emailLabel')}: </span>{me?.email}
                 </div>
                 <form onSubmit={handleSaveName} className="flex flex-col gap-3">
                     <div className="flex gap-3">
                         <div className="flex-1">
-                            <label className="text-xs text-muted-foreground font-medium block mb-1">First name</label>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t('firstName')}</label>
                             <input
                                 type="text"
                                 value={fname}
@@ -106,7 +108,7 @@ export default function ProfilePage() {
                             />
                         </div>
                         <div className="flex-1">
-                            <label className="text-xs text-muted-foreground font-medium block mb-1">Last name</label>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t('lastName')}</label>
                             <input
                                 type="text"
                                 value={lname}
@@ -123,17 +125,17 @@ export default function ProfilePage() {
                         variant="primary"
                         className="self-start"
                     >
-                        {savingName ? "Saving…" : "Save Name"}
+                        {savingName ? t('saving') : t('saveName')}
                     </Button>
                 </form>
             </div>
 
             {/* Password */}
             <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
-                <h3 className="text-sm font-semibold text-foreground">Change Password</h3>
+                <h3 className="text-sm font-semibold text-foreground">{t('changePassword')}</h3>
                 <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
                     <div>
-                        <label className="text-xs text-muted-foreground font-medium block mb-1">Current password</label>
+                        <label className="text-xs text-muted-foreground font-medium block mb-1">{t('currentPassword')}</label>
                         <input
                             type="password"
                             value={currentPassword}
@@ -144,7 +146,7 @@ export default function ProfilePage() {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-muted-foreground font-medium block mb-1">New password</label>
+                        <label className="text-xs text-muted-foreground font-medium block mb-1">{t('newPasswordLabel')}</label>
                         <input
                             type="password"
                             value={newPassword}
@@ -156,7 +158,7 @@ export default function ProfilePage() {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-muted-foreground font-medium block mb-1">Confirm new password</label>
+                        <label className="text-xs text-muted-foreground font-medium block mb-1">{t('confirmPassword')}</label>
                         <input
                             type="password"
                             value={confirmPassword}
@@ -174,7 +176,7 @@ export default function ProfilePage() {
                         variant="primary"
                         className="self-start"
                     >
-                        {savingPw ? "Changing…" : "Change Password"}
+                        {savingPw ? t('changingPassword') : t('changePassword')}
                     </Button>
                 </form>
             </div>

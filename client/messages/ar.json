@@ -405,7 +405,22 @@
     "language": "اللغة",
     "chooseLanguage": "اختر لغتك المفضلة",
     "english": "English",
-    "arabic": "العربية"
+    "arabic": "العربية",
+    "emailLabel": "البريد الإلكتروني",
+    "firstName": "الاسم الأول",
+    "lastName": "اسم العائلة",
+    "saveName": "حفظ الاسم",
+    "saving": "جارٍ الحفظ…",
+    "nameUpdated": "تم تحديث الاسم بنجاح.",
+    "nameUpdateFailed": "فشل تحديث الاسم.",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPasswordLabel": "كلمة المرور الجديدة",
+    "confirmPassword": "تأكيد كلمة المرور الجديدة",
+    "changingPassword": "جارٍ التغيير…",
+    "passwordMismatch": "كلمتا المرور الجديدتان غير متطابقتين.",
+    "passwordMinLength": "يجب أن تكون كلمة المرور 8 أحرف على الأقل.",
+    "passwordChanged": "تم تغيير كلمة المرور بنجاح.",
+    "passwordChangeFailed": "فشل تغيير كلمة المرور."
   },
   "billing": {
     "plans": "الخطط",

@@ -405,7 +405,22 @@
     "language": "Language",
     "chooseLanguage": "Choose your preferred language",
     "english": "English",
-    "arabic": "Arabic"
+    "arabic": "Arabic",
+    "emailLabel": "Email",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "saveName": "Save Name",
+    "saving": "Saving…",
+    "nameUpdated": "Name updated successfully.",
+    "nameUpdateFailed": "Failed to update name.",
+    "currentPassword": "Current password",
+    "newPasswordLabel": "New password",
+    "confirmPassword": "Confirm new password",
+    "changingPassword": "Changing…",
+    "passwordMismatch": "New passwords do not match.",
+    "passwordMinLength": "Password must be at least 8 characters.",
+    "passwordChanged": "Password changed successfully.",
+    "passwordChangeFailed": "Failed to change password."
   },
   "billing": {
     "plans": "Plans",
