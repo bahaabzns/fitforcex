@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useNutritionPlan } from "@/hooks/useNutritionPlan";
 import { calcMeal, calcCycle, calcItem } from "@/lib/nutritionCalc";
 import NameModal from "@/app/components/NameModal";
@@ -11,6 +12,8 @@ import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
 import { Surface } from "@heroui/react";
 
 export default function NutritionPage({ onDirtyChange }) {
+    const t = useTranslations('nutrition');
+    const tCommon = useTranslations('common');
 
     const { id } = useParams();
     const searchParams = useSearchParams();
@@ -114,7 +117,7 @@ export default function NutritionPage({ onDirtyChange }) {
     }, [isDirty]);
 
 if (loading) {
-    return <div>Loading...</div>;
+    return <div>{tCommon('loading')}</div>;
 }
 
 return (
@@ -195,7 +198,7 @@ return (
             ) : (
                 <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
                     <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">
-                        Select a plan to view details
+                        {t('selectPlanHint')}
                     </p>
                 </Surface>
             )}
@@ -238,7 +241,7 @@ return (
             ) : (
                 <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
                     <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">
-                        Select a meal to view details
+                        {t('selectMealHint')}
                     </p>
                 </Surface>
             )}

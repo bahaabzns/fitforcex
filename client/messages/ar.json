@@ -202,7 +202,8 @@
     "saved": "تم الحفظ",
     "formSubmissions": "الاستمارات المُرسلة",
     "noSubmittedForms": "لا توجد استمارات مُرسلة بعد",
-    "noResponses": "لا توجد ردود مسجلة"
+    "noResponses": "لا توجد ردود مسجلة",
+    "selectPlanHint": "اختر خطة تدريبية لعرض تفاصيلها"
   },
   "nutrition": {
     "savePlan": "حفظ الخطة",
@@ -258,7 +259,9 @@
     "formSubmissions": "الاستمارات المُرسلة",
     "noSubmittedForms": "لا توجد استمارات مُرسلة بعد",
     "calorieCalculator": "حاسبة السعرات",
-    "selectPlanAndCycle": "اختر خطة ودورة لاستخدام الحاسبة"
+    "selectPlanAndCycle": "اختر خطة ودورة لاستخدام الحاسبة",
+    "selectPlanHint": "اختر خطة لعرض تفاصيلها",
+    "selectMealHint": "اختر وجبة لعرض تفاصيلها"
   },
   "forms": {
     "createForm": "+ استمارة جديدة",

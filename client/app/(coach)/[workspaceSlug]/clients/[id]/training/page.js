@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useTrainingPlan } from "@/hooks/useTrainingPlan";
 import LeftPanel from "@/app/components/training/LeftPanel";
 import MiddlePanel from "@/app/components/training/MiddlePanel";
@@ -11,6 +12,8 @@ import { Surface } from "@heroui/react";
 
 export default function TrainingPage({ onDirtyChange }) {
     const { id } = useParams();
+    const t = useTranslations('training');
+    const tCommon = useTranslations('common');
     const searchParams = useSearchParams();
     const submissionId = searchParams.get("submissionId") || null;
 
@@ -104,7 +107,7 @@ export default function TrainingPage({ onDirtyChange }) {
     }, [isDirty]);
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <div>{tCommon('loading')}</div>;
     }
 
     return (
@@ -162,7 +165,7 @@ export default function TrainingPage({ onDirtyChange }) {
                         />
                     ) : (
                         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
-                            <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">Select a training plan to view details</p>
+                            <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">{t('selectPlanHint')}</p>
                         </Surface>
                     )}
                 </div>

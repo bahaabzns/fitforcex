@@ -202,7 +202,8 @@
     "saved": "Saved",
     "formSubmissions": "Form Submissions",
     "noSubmittedForms": "No submitted forms yet",
-    "noResponses": "No responses recorded"
+    "noResponses": "No responses recorded",
+    "selectPlanHint": "Select a training plan to view details"
   },
   "nutrition": {
     "savePlan": "Save Plan",
@@ -258,7 +259,9 @@
     "formSubmissions": "Form Submissions",
     "noSubmittedForms": "No submitted forms yet",
     "calorieCalculator": "Calorie Calculator",
-    "selectPlanAndCycle": "Select a plan and cycle to use the calculator"
+    "selectPlanAndCycle": "Select a plan and cycle to use the calculator",
+    "selectPlanHint": "Select a plan to view details",
+    "selectMealHint": "Select a meal to view details"
   },
   "forms": {
     "createForm": "+ New Form",
