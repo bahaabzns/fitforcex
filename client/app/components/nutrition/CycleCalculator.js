@@ -1,15 +1,10 @@
 "use client";
 import { useState, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { ProgressBar } from "@heroui/react/progress-bar";
 
-const ACTIVITY_LEVELS = [
-    { value: 1.2,   label: "Sedentary",    sub: "Little or no exercise"        },
-    { value: 1.375, label: "Light",        sub: "1–3 days/week"                },
-    { value: 1.55,  label: "Moderate",     sub: "3–5 days/week"                },
-    { value: 1.725, label: "Active",       sub: "6–7 days/week"                },
-    { value: 1.9,   label: "Very Active",  sub: "Hard exercise + physical job"  },
-];
+const ACTIVITY_LEVEL_VALUES = [1.2, 1.375, 1.55, 1.725, 1.9];
 
 const BF_CATEGORIES_MALE = [
     { label: "Essential Fat", range: "2–5%"   },
@@ -95,6 +90,8 @@ function InputWithUnit({ label, unit, value, onChange, placeholder, step, min, m
 }
 
 export default function CycleCalculator({ cycle, onApply }) {
+    const t = useTranslations("nutrition");
+
     const [formula, setFormula]   = useState("mifflin");
     const [gender, setGender]     = useState("male");
     const [activity, setActivity] = useState(1.2);
@@ -121,6 +118,39 @@ export default function CycleCalculator({ cycle, onApply }) {
     const proteinG = gramsFrom(macros.protein, 4);
     const carbsG   = gramsFrom(macros.carbs,   4);
     const fatsG    = gramsFrom(macros.fats,     9);
+
+    const formulaOptions = [
+        { value: "mifflin", label: t("calcFormulaMifflin"), sub: t("calcFormulaMifflinSub") },
+        { value: "harris",  label: t("calcFormulaHarris"),  sub: t("calcFormulaHarrisSub") },
+        { value: "katch",   label: t("calcFormulaKatch"),   sub: t("calcFormulaKatchSub") },
+    ];
+
+    const activityOptions = [
+        { value: 1.2,   label: t("calcActivitySedentary"),  sub: t("calcActivitySedentarySub") },
+        { value: 1.375, label: t("calcActivityLight"),       sub: t("calcActivityLightSub") },
+        { value: 1.55,  label: t("calcActivityModerate"),    sub: t("calcActivityModerateSub") },
+        { value: 1.725, label: t("calcActivityActive"),      sub: t("calcActivityActiveSub") },
+        { value: 1.9,   label: t("calcActivityVeryActive"),  sub: t("calcActivityVeryActiveSub") },
+    ];
+
+    const bfModeOptions = [
+        { key: "navy",   label: t("calcBfMeasure") },
+        { key: "direct", label: t("calcBfDirect") },
+    ];
+
+    const BF_LABEL_MAP = {
+        "Essential Fat": t("bfEssentialFat"),
+        "Athletes":      t("bfAthletes"),
+        "Fitness":       t("bfFitness"),
+        "Average":       t("bfAverage"),
+        "Obese":         t("bfObese"),
+    };
+
+    const macroConfig = [
+        { key: "protein", label: t("protein"), bar: "bg-blue-400",  text: "text-primary",  g: proteinG },
+        { key: "carbs",   label: t("carbs"),   bar: "bg-amber-400", text: "text-amber-500", g: carbsG   },
+        { key: "fats",    label: t("fat"),     bar: "bg-pink-400",  text: "text-pink-500",  g: fatsG    },
+    ];
 
     const handleCalculate = () => {
         const a = Number(age), w = Number(weight), h = Number(height);
@@ -173,24 +203,14 @@ export default function CycleCalculator({ cycle, onApply }) {
 
     const bfCategories = gender === "male" ? BF_CATEGORIES_MALE : BF_CATEGORIES_FEMALE;
 
-    const macroConfig = [
-        { key: "protein", label: "Protein", bar: "bg-blue-400",  text: "text-primary",  g: proteinG },
-        { key: "carbs",   label: "Carbs",   bar: "bg-amber-400", text: "text-amber-500", g: carbsG   },
-        { key: "fats",    label: "Fats",    bar: "bg-pink-400",  text: "text-pink-500",  g: fatsG    },
-    ];
-
     return (
         <div ref={scrollContainerRef} className="flex flex-col gap-5 overflow-y-auto flex-1 min-h-0 pr-0.5">
 
             {/* ── Formula ── */}
             <div>
-                <SectionLabel>BMR Formula</SectionLabel>
+                <SectionLabel>{t("calcBmrFormula")}</SectionLabel>
                 <div className="flex flex-row gap-1.5">
-                    {[
-                        { value: "mifflin", label: "Mifflin-St Jeor",       sub: "Most accurate general formula" },
-                        { value: "harris",  label: "Harris-Benedict (rev.)", sub: "Classic revised formula"       },
-                        { value: "katch",   label: "Katch-McArdle",          sub: "Requires body fat %"           },
-                    ].map(opt => (
+                    {formulaOptions.map(opt => (
                         <button
                             key={opt.value}
                             onClick={() => setFormula(opt.value)}
@@ -211,7 +231,7 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* ── Gender ── */}
             <div>
-                <SectionLabel>Gender</SectionLabel>
+                <SectionLabel>{t("calcGender")}</SectionLabel>
                 <div className="flex gap-1 p-1 bg-secondary rounded-lg">
                     {["male", "female"].map(g => (
                         <button
@@ -223,7 +243,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                                     : "text-muted-foreground hover:text-foreground"
                             }`}
                         >
-                            {g === "male" ? "Male" : "Female"}
+                            {g === "male" ? t("calcMale") : t("calcFemale")}
                         </button>
                     ))}
                 </div>
@@ -231,22 +251,22 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* ── Activity Level ── */}
             <div>
-                <SectionLabel>Activity Level</SectionLabel>
+                <SectionLabel>{t("calcActivityLevel")}</SectionLabel>
                 <div className="flex flex-col gap-1">
-                    {ACTIVITY_LEVELS.map(l => (
+                    {activityOptions.map(opt => (
                         <button
-                            key={l.value}
-                            onClick={() => setActivity(l.value)}
+                            key={opt.value}
+                            onClick={() => setActivity(opt.value)}
                             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all cursor-pointer ${
-                                activity === l.value
+                                activity === opt.value
                                     ? "border-primary bg-primary/10"
                                     : "border-transparent hover:border-border hover:bg-default"
                             }`}
                         >
-                            <span className={`text-sm font-medium ${activity === l.value ? "text-primary" : "text-foreground"}`}>
-                                {l.label}
+                            <span className={`text-sm font-medium ${activity === opt.value ? "text-primary" : "text-foreground"}`}>
+                                {opt.label}
                             </span>
-                            <span className="text-xs text-muted-foreground">{l.sub}</span>
+                            <span className="text-xs text-muted-foreground">{opt.sub}</span>
                         </button>
                     ))}
                 </div>
@@ -254,11 +274,11 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* ── Body Metrics ── */}
             <div>
-                <SectionLabel>Body Metrics</SectionLabel>
+                <SectionLabel>{t("calcBodyMetrics")}</SectionLabel>
                 <div className="grid grid-cols-3 gap-2.5">
-                    <InputWithUnit label="Age"    unit="yrs" required value={age}    onChange={e => setAge(e.target.value)}    min={1} max={120} />
-                    <InputWithUnit label="Weight" unit="kg"  required value={weight} onChange={e => setWeight(e.target.value)} min={1} />
-                    <InputWithUnit label="Height" unit="cm"  required value={height} onChange={e => setHeight(e.target.value)} min={1} />
+                    <InputWithUnit label={t("calcAge")}    unit="yrs" required value={age}    onChange={e => setAge(e.target.value)}    min={1} max={120} />
+                    <InputWithUnit label={t("calcWeight")} unit="kg"  required value={weight} onChange={e => setWeight(e.target.value)} min={1} />
+                    <InputWithUnit label={t("calcHeight")} unit="cm"  required value={height} onChange={e => setHeight(e.target.value)} min={1} />
                 </div>
             </div>
 
@@ -266,10 +286,10 @@ export default function CycleCalculator({ cycle, onApply }) {
             <div>
                 <div className="flex items-center justify-between mb-2">
                     <SectionLabel>
-                        Body Fat{formula === "katch" && <span className="text-destructive ml-1">*</span>}
+                        {t("calcBodyFat")}{formula === "katch" && <span className="text-destructive ml-1">*</span>}
                     </SectionLabel>
                     <div className="flex gap-1 p-0.5 bg-secondary rounded-lg mb-2">
-                        {[{ key: "navy", label: "Measure" }, { key: "direct", label: "Direct %" }].map(m => (
+                        {bfModeOptions.map(m => (
                             <button
                                 key={m.key}
                                 onClick={() => setBfMode(m.key)}
@@ -298,13 +318,13 @@ export default function CycleCalculator({ cycle, onApply }) {
                 ) : (
                     <div className="flex flex-col gap-2">
                         {needsMeasurements && (
-                            <p className="text-xs text-amber-600 font-medium">Required for Katch-McArdle</p>
+                            <p className="text-xs text-amber-600 font-medium">{t("calcBfKatchRequired")}</p>
                         )}
                         <div className={`grid gap-2.5 ${gender === "female" ? "grid-cols-3" : "grid-cols-2"}`}>
-                            <InputWithUnit label="Neck"  unit="cm" value={neck}  onChange={e => setNeck(e.target.value)}  min={0} required={needsMeasurements} />
-                            <InputWithUnit label="Waist" unit="cm" value={waist} onChange={e => setWaist(e.target.value)} min={0} required={needsMeasurements} />
+                            <InputWithUnit label={t("calcNeck")}  unit="cm" value={neck}  onChange={e => setNeck(e.target.value)}  min={0} required={needsMeasurements} />
+                            <InputWithUnit label={t("calcWaist")} unit="cm" value={waist} onChange={e => setWaist(e.target.value)} min={0} required={needsMeasurements} />
                             {gender === "female" && (
-                                <InputWithUnit label="Hip" unit="cm" value={hip} onChange={e => setHip(e.target.value)} min={0} required={needsMeasurements} />
+                                <InputWithUnit label={t("calcHip")} unit="cm" value={hip} onChange={e => setHip(e.target.value)} min={0} required={needsMeasurements} />
                             )}
                         </div>
                     </div>
@@ -313,7 +333,7 @@ export default function CycleCalculator({ cycle, onApply }) {
 
             {/* ── Calculate ── */}
             <Button variant="primary" fullWidth onClick={handleCalculate}>
-                Calculate
+                {t("calcButtonCalculate")}
             </Button>
 
             {/* ── Results ── */}
@@ -322,13 +342,13 @@ export default function CycleCalculator({ cycle, onApply }) {
 
                     {/* BMR */}
                     <div className="flex items-center justify-between px-4 py-3 bg-secondary rounded-lg border border-border">
-                        <span className="text-xs font-semibold text-muted-foreground">Basal Metabolic Rate (BMR)</span>
+                        <span className="text-xs font-semibold text-muted-foreground">{t("calcBmrLabel")}</span>
                         <span className="text-sm font-bold text-foreground">{result.bmr.toLocaleString()} kcal</span>
                     </div>
 
                     {/* TDEE */}
                     <div className="flex flex-col items-center gap-1 py-4 bg-primary/10 rounded-lg border border-primary/20">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70">Daily Calorie Target</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70">{t("calcDailyCalTarget")}</span>
                         <input
                             type="number"
                             value={tdee}
@@ -336,13 +356,13 @@ export default function CycleCalculator({ cycle, onApply }) {
                             className="text-4xl font-bold text-primary bg-transparent text-center outline-none w-36"
                             min={0}
                         />
-                        <span className="text-xs text-primary/70">kcal / day · tap to adjust</span>
+                        <span className="text-xs text-primary/70">{t("calcKcalPerDay")}</span>
                     </div>
 
                     {/* Macros */}
                     <div>
                         <div className="flex items-center justify-between mb-3">
-                            <SectionLabel>Macro Split</SectionLabel>
+                            <SectionLabel>{t("calcMacroSplit")}</SectionLabel>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                                 totalPct === 100 ? "bg-green-500/15 text-green-700" : "bg-destructive/10 text-destructive"
                             }`}>
@@ -373,7 +393,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                             ))}
                         </div>
                         {totalPct !== 100 && (
-                            <p className="text-xs text-destructive mt-2">Macros must add up to 100%</p>
+                            <p className="text-xs text-destructive mt-2">{t("calcMacrosMustAdd")}</p>
                         )}
                     </div>
 
@@ -381,7 +401,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                     {result.bodyFat !== null && (
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between px-4 py-3 bg-secondary rounded-lg border border-border">
-                                <span className="text-xs font-semibold text-muted-foreground">Estimated Body Fat</span>
+                                <span className="text-xs font-semibold text-muted-foreground">{t("calcEstimatedBodyFat")}</span>
                                 <span className="text-sm font-bold text-foreground">{result.bodyFat}%</span>
                             </div>
                             <div className="flex flex-col gap-0.5">
@@ -398,7 +418,7 @@ export default function CycleCalculator({ cycle, onApply }) {
                                     return (
                                         <div key={label} className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${isHighlighted ? "bg-amber-500/10 border border-amber-500/20" : ""}`}>
                                             <span className={`text-xs font-medium ${isHighlighted ? "text-amber-600" : "text-muted-foreground"}`}>
-                                                {isHighlighted && "▶ "}{label}
+                                                {isHighlighted && "▶ "}{BF_LABEL_MAP[label]}
                                             </span>
                                             <span className={`text-xs font-semibold ${isHighlighted ? "text-amber-600" : "text-muted-foreground"}`}>
                                                 {range}
@@ -412,7 +432,7 @@ export default function CycleCalculator({ cycle, onApply }) {
 
                     {/* Apply */}
                     <Button variant="primary" fullWidth isDisabled={totalPct !== 100 || !tdee} onClick={handleApply}>
-                        Apply to Cycle Goals
+                        {t("calcApplyCycle")}
                     </Button>
                 </div>
             )}

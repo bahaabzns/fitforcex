@@ -1,11 +1,13 @@
 'use client';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Modal from "@/app/components/Modal";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
 
 export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
+    const t = useTranslations("nutrition");
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [categoryFilter, setCategoryFilter] = useState(lockedCategory || '');
 
@@ -47,16 +49,16 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
     };
 
     return (
-        <Modal open={open} onClose={onClose} title="Search Food Items" wide>
+        <Modal open={open} onClose={onClose} title={t("foodModalTitle")} wide>
             <div className="flex flex-col" style={{ maxHeight: '70vh' }}>
 
                 {/* Search + results count */}
                 <div className="flex gap-3 mb-3 items-center">
                     <TextField value={foodSearchQuery} onChange={onSearchChange} className="flex-1">
-                        <Input type="text" placeholder="Search for food..." autoFocus />
+                        <Input type="text" placeholder={t("foodSearchPlaceholder")} autoFocus />
                     </TextField>
                     <span className="text-sm text-muted-foreground shrink-0">
-                        {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+                        {t("foodResultsCount", { count: filtered.length })}
                     </span>
                 </div>
 
@@ -73,14 +75,14 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                         : 'border-border text-muted-foreground hover:border-border'
                                 }`}
                             >
-                                {cat || 'All'}
+                                {cat || t("foodCategoryAll")}
                             </Button>
                         ))}
                     </div>
                 ) : (
                     <div className="flex gap-2 flex-wrap mb-4 items-center">
                         <span className="text-xs px-3 py-1 rounded-full bg-primary border-primary text-white">{lockedCategory}</span>
-                        <span className="text-xs text-muted-foreground">Alternatives are filtered to this category</span>
+                        <span className="text-xs text-muted-foreground">{t("foodAlternativesFiltered")}</span>
                     </div>
                 )}
 
@@ -105,10 +107,10 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                         )}
                                     </div>
                                 </th>
-                                <th className="p-2">Name</th>
-                                <th className="p-2">Category</th>
-                                <th className="p-2">Serving</th>
-                                <th className="p-2">Macros</th>
+                                <th className="p-2">{t("foodColName")}</th>
+                                <th className="p-2">{t("foodColCategory")}</th>
+                                <th className="p-2">{t("foodColServing")}</th>
+                                <th className="p-2">{t("foodColMacros")}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -116,8 +118,8 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                 <tr>
                                     <td colSpan={5} className="text-center py-12 text-muted-foreground">
                                         {foodSearchQuery
-                                            ? `No food items match "${foodSearchQuery}"`
-                                            : 'No food items in this category'}
+                                            ? t("foodNoMatch", { query: foodSearchQuery })
+                                            : t("foodNoItems")}
                                     </td>
                                 </tr>
                             )}
@@ -166,20 +168,20 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
 
                 {/* Footer */}
                 <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                    <span className="text-sm text-muted-foreground">{selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selected</span>
+                    <span className="text-sm text-muted-foreground">{t("foodSelectedCount", { count: selectedIds.size })}</span>
                     <div className="flex gap-3">
                         <Button
                             variant="outline"
                             onClick={() => setSelectedIds(new Set())}
                             disabled={selectedIds.size === 0}
                         >
-                            Reset Selection
+                            {t("foodResetSelection")}
                         </Button>
                         <Button
                             onClick={handleConfirm}
                             disabled={selectedIds.size === 0}
                         >
-                            Add Selected
+                            {t("foodAddSelected")}
                         </Button>
                     </div>
                 </div>
