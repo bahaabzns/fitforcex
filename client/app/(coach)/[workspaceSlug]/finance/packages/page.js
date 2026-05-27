@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
@@ -32,6 +33,8 @@ const editInputCls = "w-full px-2 py-1 rounded-lg border border-border text-fore
 
 // --- SEARCHABLE CURRENCY DROPDOWN ---
 function CurrencySelect({ value, onChange }) {
+    const t = useTranslations('packages');
+    const tCommon = useTranslations('common');
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
     const ref = useRef(null);
@@ -53,13 +56,13 @@ function CurrencySelect({ value, onChange }) {
                 onClick={() => setOpen(!open)}
                 className="w-full px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm text-left focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
             >
-                {value || "Select currency"}
+                {value || t('selectCurrency')}
             </button>
             {open && (
                 <div className="absolute top-full left-0 mt-1 z-20 w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden animate-[fadeIn_150ms_ease-out]">
                     <input
                         type="text"
-                        placeholder="Search..."
+                        placeholder={tCommon('search')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full px-3 py-2 bg-background border-b border-border text-foreground text-xs placeholder:text-muted-foreground focus:outline-none"
@@ -80,7 +83,7 @@ function CurrencySelect({ value, onChange }) {
                                 {c}
                             </button>
                         ))}
-                        {filtered.length === 0 && <p className="px-3 py-2 text-xs text-muted-foreground">No match</p>}
+                        {filtered.length === 0 && <p className="px-3 py-2 text-xs text-muted-foreground">{t('noMatch')}</p>}
                     </div>
                 </div>
             )}
@@ -90,6 +93,7 @@ function CurrencySelect({ value, onChange }) {
 
 // --- PACKAGE NAME COMBO (select existing or type new) ---
 function PackageNameCombo({ value, onChange, packages }) {
+    const t = useTranslations('packages');
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState(value);
     const ref = useRef(null);
@@ -131,7 +135,7 @@ function PackageNameCombo({ value, onChange, packages }) {
         <div className="relative" ref={ref}>
             <input
                 type="text"
-                placeholder="Type to search or create new..."
+                placeholder={t('searchOrCreate')}
                 value={search}
                 onChange={handleInputChange}
                 onFocus={() => setOpen(true)}
@@ -152,7 +156,7 @@ function PackageNameCombo({ value, onChange, packages }) {
                                 }`}
                             >
                                 <span>{pkg.name}</span>
-                                <span className="text-xs text-muted-foreground">{pkg.variations.length} variation{pkg.variations.length !== 1 ? "s" : ""}</span>
+                                <span className="text-xs text-muted-foreground">{t('variationCount', { count: pkg.variations.length })}</span>
                             </button>
                         ))}
                         {search.trim() && !exactMatch && (
@@ -161,11 +165,11 @@ function PackageNameCombo({ value, onChange, packages }) {
                                 onClick={handleCreateNew}
                                 className="w-full text-left px-4 py-2 text-sm text-primary hover:bg-default transition-colors border-t border-border"
                             >
-                                + Create &quot;{search.trim()}&quot; as new package
+                                {t('createNew', { name: search.trim() })}
                             </button>
                         )}
                         {filtered.length === 0 && !search.trim() && (
-                            <p className="px-4 py-2 text-xs text-muted-foreground">No packages yet</p>
+                            <p className="px-4 py-2 text-xs text-muted-foreground">{t('noPackagesYet')}</p>
                         )}
                     </div>
                 </div>
@@ -205,6 +209,9 @@ const activeBadge   = "bg-green-500/15 text-green-600 hover:bg-green-500/25";
 const inactiveBadge = "bg-secondary text-muted-foreground hover:bg-secondary/80";
 
 export default function PackagesPage() {
+    const t = useTranslations('packages');
+    const tCommon = useTranslations('common');
+
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -229,7 +236,7 @@ export default function PackagesPage() {
     const columns = [
         {
             key: "packageName",
-            label: "Package",
+            label: t('colPackage'),
             filterType: "multi",
             options: packageNames,
             sortable: true,
@@ -249,14 +256,14 @@ export default function PackagesPage() {
         },
         {
             key: "packageActive",
-            label: "Pkg Active",
+            label: t('colPkgActive'),
             filterType: "multi",
-            options: ["Active", "Inactive"],
+            options: [t('active'), t('inactive')],
             render: (row) => (
                 <button
-                    onClick={() => handleTogglePackageActive(row._packageId, row.packageActive === "Active")}
+                    onClick={() => handleTogglePackageActive(row._packageId, row._packageActiveRaw)}
                     className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                        row.packageActive === "Active" ? activeBadge : inactiveBadge
+                        row._packageActiveRaw ? activeBadge : inactiveBadge
                     }`}
                 >
                     {row.packageActive}
@@ -265,7 +272,7 @@ export default function PackagesPage() {
         },
         {
             key: "variationName",
-            label: "Variation",
+            label: t('colVariation'),
             filterType: "text",
             sortable: true,
             render: (row) => {
@@ -284,9 +291,9 @@ export default function PackagesPage() {
         },
         {
             key: "variationActive",
-            label: "Var Active",
+            label: t('colVarActive'),
             filterType: "multi",
-            options: ["Active", "Inactive"],
+            options: [t('active'), t('inactive')],
             render: (row) => {
                 if (editingRow === row._rowId) {
                     return (
@@ -297,7 +304,7 @@ export default function PackagesPage() {
                                 editData.variationActive ? activeBadge : inactiveBadge
                             }`}
                         >
-                            {editData.variationActive ? "Active" : "Inactive"}
+                            {editData.variationActive ? t('active') : t('inactive')}
                         </button>
                     );
                 }
@@ -305,7 +312,7 @@ export default function PackagesPage() {
                     <button
                         onClick={() => handleToggleVariationActive(row._packageId, row._variationId, row._variationActiveRaw)}
                         className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                            row.variationActive === "Active" ? activeBadge : inactiveBadge
+                            row._variationActiveRaw ? activeBadge : inactiveBadge
                         }`}
                     >
                         {row.variationActive}
@@ -315,7 +322,7 @@ export default function PackagesPage() {
         },
         {
             key: "description",
-            label: "Description",
+            label: t('colDescription'),
             filterType: "text",
             render: (row) => {
                 if (editingRow === row._rowId) {
@@ -333,7 +340,7 @@ export default function PackagesPage() {
         },
         {
             key: "duration",
-            label: "Duration (days)",
+            label: t('colDuration'),
             filterType: "text",
             sortable: true,
             render: (row) => {
@@ -348,12 +355,12 @@ export default function PackagesPage() {
                         />
                     );
                 }
-                return `${row.duration} days`;
+                return t('durationDays', { count: row.duration });
             },
         },
         {
             key: "price",
-            label: "Price",
+            label: t('colPrice'),
             filterType: "text",
             sortable: true,
             render: (row) => {
@@ -384,15 +391,15 @@ export default function PackagesPage() {
                 if (editingRow === row._rowId) {
                     return (
                         <div className="flex gap-2 justify-end">
-                            <button onClick={() => handleSaveEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">Save</button>
-                            <button onClick={() => { setEditingRow(null); setError(""); }} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">Cancel</button>
+                            <button onClick={() => handleSaveEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">{t('save')}</button>
+                            <button onClick={() => { setEditingRow(null); setError(""); }} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">{tCommon('cancel')}</button>
                         </div>
                     );
                 }
                 return (
                     <div className="flex gap-2 justify-end">
-                        <button onClick={() => startEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">Edit</button>
-                        <button onClick={() => handleDeleteVariation(row._packageId, row._variationId)} className="text-xs text-destructive hover:text-red-700 cursor-pointer">Delete</button>
+                        <button onClick={() => startEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">{tCommon('edit')}</button>
+                        <button onClick={() => handleDeleteVariation(row._packageId, row._variationId)} className="text-xs text-destructive hover:text-red-700 cursor-pointer">{tCommon('delete')}</button>
                     </div>
                 );
             },
@@ -401,9 +408,10 @@ export default function PackagesPage() {
 
     const displayRows = rows.map(r => ({
         ...r,
+        _packageActiveRaw: r.packageActive,
         _variationActiveRaw: r.variationActive,
-        packageActive: r.packageActive ? "Active" : "Inactive",
-        variationActive: r.variationActive ? "Active" : "Inactive",
+        packageActive: r.packageActive ? t('active') : t('inactive'),
+        variationActive: r.variationActive ? t('active') : t('inactive'),
     }));
 
     async function handleTogglePackageActive(packageId, currentActive) {
@@ -413,7 +421,7 @@ export default function PackagesPage() {
                 p.id === packageId ? { ...p, active: !currentActive } : p
             ));
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to update package");
+            setError(err.response?.data?.error || t('errorUpdatePackage'));
         }
     }
 
@@ -427,7 +435,7 @@ export default function PackagesPage() {
             const res = await api.put("/api/packages", { id: packageId, variations: updatedVariations });
             setPackages(prev => prev.map(p => p.id === res.data.id ? res.data : p));
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to update variation");
+            setError(err.response?.data?.error || t('errorUpdateVariation'));
         }
     }
 
@@ -449,13 +457,13 @@ export default function PackagesPage() {
         const pkg = packages.find(p => p.id === row._packageId);
         if (!pkg) return;
 
-        if (!editData.packageName?.trim()) { setError("Package name is required"); return; }
-        if (!editData.variationName?.trim()) { setError("Variation name is required"); return; }
+        if (!editData.packageName?.trim()) { setError(t('errorPackageName')); return; }
+        if (!editData.variationName?.trim()) { setError(t('errorVariationName')); return; }
         const duration = Number(editData.duration);
-        if (!Number.isFinite(duration) || duration <= 0) { setError("Duration must be a positive number (days)"); return; }
+        if (!Number.isFinite(duration) || duration <= 0) { setError(t('errorVariationDurationN', { n: 1 })); return; }
         const price = Number(editData.price);
-        if (!Number.isFinite(price) || price <= 0) { setError("Price must be a positive number"); return; }
-        if (!editData.currency?.trim()) { setError("Currency is required"); return; }
+        if (!Number.isFinite(price) || price <= 0) { setError(t('errorVariationPriceN', { n: 1 })); return; }
+        if (!editData.currency?.trim()) { setError(t('errorVariationCurrencyN', { n: 1 })); return; }
 
         const updatedVariations = pkg.variations.map(v =>
             v.id === row._variationId
@@ -473,7 +481,7 @@ export default function PackagesPage() {
             setEditingRow(null);
             setError("");
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to save changes");
+            setError(err.response?.data?.error || t('errorSave'));
         }
     }
 
@@ -486,7 +494,7 @@ export default function PackagesPage() {
                 setPackages(prev => prev.map(p => p.id === res.data.id ? res.data : p));
             }
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to delete variation");
+            setError(err.response?.data?.error || t('errorDeleteVariation'));
         }
     }
 
@@ -507,21 +515,21 @@ export default function PackagesPage() {
         e.preventDefault();
         setError("");
 
-        if (!packageName.trim()) { setError("Package name is required."); return; }
+        if (!packageName.trim()) { setError(t('errorPackageName')); return; }
         for (let i = 0; i < variations.length; i++) {
             const v = variations[i];
-            if (!v.name.trim()) { setError(`Variation ${i + 1}: name is required.`); return; }
+            if (!v.name.trim()) { setError(t('errorVariationNameN', { n: i + 1 })); return; }
             const dur = Number(v.duration);
-            if (!Number.isFinite(dur) || dur <= 0) { setError(`Variation ${i + 1}: duration must be a positive number (days).`); return; }
+            if (!Number.isFinite(dur) || dur <= 0) { setError(t('errorVariationDurationN', { n: i + 1 })); return; }
             const pr = Number(v.price);
-            if (!Number.isFinite(pr) || pr <= 0) { setError(`Variation ${i + 1}: price must be a positive number.`); return; }
-            if (!v.currency.trim()) { setError(`Variation ${i + 1}: currency is required.`); return; }
+            if (!Number.isFinite(pr) || pr <= 0) { setError(t('errorVariationPriceN', { n: i + 1 })); return; }
+            if (!v.currency.trim()) { setError(t('errorVariationCurrencyN', { n: i + 1 })); return; }
         }
 
         try {
             if (selectedPackageId) {
                 const pkg = packages.find(p => p.id === selectedPackageId);
-                if (!pkg) { setError("Selected package not found."); return; }
+                if (!pkg) { setError(t('errorNotFound')); return; }
                 const maxVarId = pkg.variations.reduce((max, v) => Math.max(max, v.id), 0);
                 const newVars = variations.map((v, i) => ({
                     id: maxVarId + i + 1,
@@ -546,7 +554,7 @@ export default function PackagesPage() {
             setVariations([emptyVariation()]);
             setShowForm(false);
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to save package.");
+            setError(err.response?.data?.error || t('errorCreate'));
         }
     }
 
@@ -554,7 +562,7 @@ export default function PackagesPage() {
         return (
             <div className="p-8 flex flex-col gap-6">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-bold text-foreground">Packages</h1>
+                    <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
                 </div>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
@@ -567,33 +575,33 @@ export default function PackagesPage() {
         <div className="p-8 flex flex-col gap-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Packages</h1>
-                <p className="text-sm text-muted-foreground mt-1">Create and manage pricing packages for your coaching services.</p>
+                <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
 
             {/* Error from edit/delete */}
             {!showForm && error && <p className="text-destructive text-sm">{error}</p>}
 
             {/* Creation Modal */}
-            <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title="New Package" wide>
+            <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newPackageTitle')} wide>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Package Name</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('packageNameLabel')}</label>
                         <PackageNameCombo
                             value={packageName}
                             onChange={(name, pkgId) => { setPackageName(name); setSelectedPackageId(pkgId); }}
                             packages={packages}
                         />
                         {selectedPackageId && (
-                            <p className="text-xs text-primary mt-1">Adding variations to existing package</p>
+                            <p className="text-xs text-primary mt-1">{t('addingToExisting')}</p>
                         )}
                     </div>
 
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm text-muted-foreground">Variations (at least 1)</label>
+                            <label className="text-sm text-muted-foreground">{t('variationsLabel')}</label>
                             <Button type="button" variant="ghost" size="sm" onClick={addVariation} className="text-xs text-primary px-0">
-                                + Add Variation
+                                {t('addVariation')}
                             </Button>
                         </div>
 
@@ -601,17 +609,17 @@ export default function PackagesPage() {
                             {variations.map((v, i) => (
                                 <div key={i} className="p-3 bg-background rounded-lg border border-border flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs text-muted-foreground font-medium">Variation {i + 1}</span>
+                                        <span className="text-xs text-muted-foreground font-medium">{t('variationNumber', { n: i + 1 })}</span>
                                         {variations.length > 1 && (
                                             <button type="button" onClick={() => removeVariation(i)} className="text-xs text-destructive hover:text-red-700 transition-colors cursor-pointer">
-                                                Remove
+                                                {t('remove')}
                                             </button>
                                         )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <input
                                             type="text"
-                                            placeholder="Variation name"
+                                            placeholder={t('variationNamePlaceholder')}
                                             value={v.name}
                                             onChange={(e) => updateVariation(i, "name", e.target.value)}
                                             className={inputCls}
@@ -619,7 +627,7 @@ export default function PackagesPage() {
                                         <input
                                             type="number"
                                             min="1"
-                                            placeholder="Duration (days)"
+                                            placeholder={t('durationPlaceholder')}
                                             value={v.duration}
                                             onChange={(e) => updateVariation(i, "duration", e.target.value)}
                                             className={inputCls}
@@ -627,7 +635,7 @@ export default function PackagesPage() {
                                         <input
                                             type="number"
                                             min="0"
-                                            placeholder="Price"
+                                            placeholder={t('pricePlaceholder')}
                                             value={v.price}
                                             onChange={(e) => updateVariation(i, "price", e.target.value)}
                                             className={inputCls}
@@ -639,7 +647,7 @@ export default function PackagesPage() {
                                     </div>
                                     <input
                                         type="text"
-                                        placeholder="Description (optional)"
+                                        placeholder={t('descriptionPlaceholder')}
                                         value={v.description}
                                         onChange={(e) => updateVariation(i, "description", e.target.value)}
                                         className={inputCls}
@@ -652,7 +660,7 @@ export default function PackagesPage() {
                     {error && <p className="text-destructive text-sm">{error}</p>}
 
                     <Button type="submit" variant="primary" fullWidth>
-                        {selectedPackageId ? "Add Variations" : "Create Package"}
+                        {selectedPackageId ? t('addVariations') : t('createPackage')}
                     </Button>
                 </form>
             </Modal>
@@ -662,8 +670,8 @@ export default function PackagesPage() {
                 columns={columns}
                 data={displayRows}
                 rowKey="_rowId"
-                quickSearch={{ fields: ["packageName", "variationName"], placeholder: "Search packages..." }}
-                toolbarEnd={<Button variant="primary" onClick={() => { setShowForm(true); setError(""); setPackageName(""); setSelectedPackageId(null); setVariations([emptyVariation()]); }}>+ New Package</Button>}
+                quickSearch={{ fields: ["packageName", "variationName"], placeholder: t('searchPlaceholder') }}
+                toolbarEnd={<Button variant="primary" onClick={() => { setShowForm(true); setError(""); setPackageName(""); setSelectedPackageId(null); setVariations([emptyVariation()]); }}>{t('newPackage')}</Button>}
             />
         </div>
     );
