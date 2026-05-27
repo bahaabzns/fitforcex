@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
@@ -10,6 +11,7 @@ const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background 
 const labelCls = "text-xs text-muted-foreground mb-1 block";
 
 export default function EquipmentPage() {
+    const t = useTranslations("equipment");
     const [equipments, setEquipments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -75,17 +77,17 @@ export default function EquipmentPage() {
     }
 
     const columns = [
-        { key: "name_en", label: "Name (EN)", filterType: "text", sortable: true },
-        { key: "name_ar", label: "الاسم (AR)", render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
-        { key: "exercise_count", label: "Exercises", sortable: true },
+        { key: "name_en", label: t("columnNameEn"), filterType: "text", sortable: true },
+        { key: "name_ar", label: t("columnNameAr"), render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
+        { key: "exercise_count", label: t("columnExercises"), sortable: true },
         {
             key: "actions",
-            label: "Actions",
+            label: t("columnActions"),
             cardPriority: "hidden",
             render: (row) => (
                 <div className="flex gap-2">
-                    <button onClick={() => setEditing(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">Edit</button>
-                    <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">Delete</button>
+                    <button onClick={() => setEditing(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">{t("editButton")}</button>
+                    <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">{t("deleteButton")}</button>
                 </div>
             ),
         },
@@ -94,39 +96,39 @@ export default function EquipmentPage() {
     return (
         <div className="p-8 flex flex-col gap-6">
             <div>
-                <h1 className="text-3xl font-bold">Equipment</h1>
-                <p className="text-sm text-muted-foreground mt-1">Manage equipment categories for your exercise library.</p>
+                <h1 className="text-3xl font-bold">{t("pageTitle")}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
             </div>
 
-            <Modal open={showForm} onClose={() => { setShowForm(false); setNewNameEn(""); setNewNameAr(""); }} title="Add Equipment">
+            <Modal open={showForm} onClose={() => { setShowForm(false); setNewNameEn(""); setNewNameAr(""); }} title={t("addTitle")}>
                 <form onSubmit={handleAdd} className="flex flex-col gap-4">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className={labelCls}>Name (English) *</label>
-                            <input className={inputCls} placeholder="e.g. Barbell" value={newNameEn} onChange={(e) => setNewNameEn(e.target.value)} required autoFocus />
+                            <label className={labelCls}>{t("labelNameEn")}</label>
+                            <input className={inputCls} placeholder={t("placeholderNameEn")} value={newNameEn} onChange={(e) => setNewNameEn(e.target.value)} required autoFocus />
                         </div>
                         <div>
-                            <label className={labelCls}>الاسم (عربي)</label>
-                            <input className={inputCls} placeholder="مثال: بار" value={newNameAr} onChange={(e) => setNewNameAr(e.target.value)} dir="rtl" />
+                            <label className={labelCls}>{t("labelNameAr")}</label>
+                            <input className={inputCls} placeholder={t("placeholderNameAr")} value={newNameAr} onChange={(e) => setNewNameAr(e.target.value)} dir="rtl" />
                         </div>
                     </div>
-                    <Button type="submit" variant="primary" fullWidth>Add Equipment</Button>
+                    <Button type="submit" variant="primary" fullWidth>{t("submitAdd")}</Button>
                 </form>
             </Modal>
 
-            <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Equipment">
+            <Modal open={!!editing} onClose={() => setEditing(null)} title={t("editTitle")}>
                 <form onSubmit={handleUpdate} className="flex flex-col gap-4">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className={labelCls}>Name (English) *</label>
+                            <label className={labelCls}>{t("labelNameEn")}</label>
                             <input className={inputCls} value={editing?.name_en ?? ""} onChange={(e) => setEditing((prev) => ({ ...prev, name_en: e.target.value }))} required autoFocus />
                         </div>
                         <div>
-                            <label className={labelCls}>الاسم (عربي)</label>
+                            <label className={labelCls}>{t("labelNameAr")}</label>
                             <input className={inputCls} value={editing?.name_ar ?? ""} onChange={(e) => setEditing((prev) => ({ ...prev, name_ar: e.target.value }))} dir="rtl" />
                         </div>
                     </div>
-                    <Button type="submit" variant="primary" fullWidth>Save Changes</Button>
+                    <Button type="submit" variant="primary" fullWidth>{t("submitEdit")}</Button>
                 </form>
             </Modal>
 
@@ -134,8 +136,8 @@ export default function EquipmentPage() {
                 columns={columns}
                 data={equipments}
                 rowKey="id"
-                quickSearch={{ fields: ["name_en", "name_ar"], placeholder: "Search equipment..." }}
-                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>+ Add Equipment</Button>}
+                quickSearch={{ fields: ["name_en", "name_ar"], placeholder: t("searchPlaceholder") }}
+                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>{t("addButton")}</Button>}
             />
         </div>
     );
