@@ -1,6 +1,7 @@
 "use client";
 import { usePathname, useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
 import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard } from "lucide-react";
 import NutritionPage from "./nutrition/page";
@@ -60,6 +61,8 @@ export default function ClientLayout({ children }) {
     const { id, workspaceSlug } = useParams();
     const pathname = usePathname();
     const router = useRouter();
+    const tClients = useTranslations('clients');
+    const tNav = useTranslations('nav');
 
     const isNutrition = pathname === `/${workspaceSlug}/clients/${id}/nutrition`;
     const isTraining  = pathname === `/${workspaceSlug}/clients/${id}/training`;
@@ -86,7 +89,7 @@ export default function ClientLayout({ children }) {
             if (!link) return;
             const href = link.getAttribute("href");
             if (href && !href.startsWith(`/${workspaceSlug}/clients/${id}`)) {
-                if (!window.confirm("You have unsaved changes. Leave without saving?")) {
+                if (!window.confirm(tClients('unsavedChangesPrompt'))) {
                     e.preventDefault();
                     e.stopPropagation();
                 }
@@ -97,11 +100,11 @@ export default function ClientLayout({ children }) {
     }, [isDirty, id, workspaceSlug]);
 
     const tabs = [
-        { id: "overview",     name: "Overview",      icon: LayoutDashboard, href: `/${workspaceSlug}/clients/${id}` },
-        { id: "nutrition",    name: "Nutrition",     icon: Apple,           href: `/${workspaceSlug}/clients/${id}/nutrition` },
-        { id: "training",     name: "Training",      icon: Dumbbell,        href: `/${workspaceSlug}/clients/${id}/training` },
-        { id: "forms",        name: "Forms",         icon: ClipboardList,   href: `/${workspaceSlug}/clients/${id}/forms` },
-        { id: "transactions", name: "Transactions",  icon: CreditCard,      href: `/${workspaceSlug}/clients/${id}/transactions` },
+        { id: "overview",     name: tClients('tabOverview'),  icon: LayoutDashboard, href: `/${workspaceSlug}/clients/${id}` },
+        { id: "nutrition",    name: tNav('nutrition'),        icon: Apple,           href: `/${workspaceSlug}/clients/${id}/nutrition` },
+        { id: "training",     name: tNav('training'),         icon: Dumbbell,        href: `/${workspaceSlug}/clients/${id}/training` },
+        { id: "forms",        name: tNav('forms'),            icon: ClipboardList,   href: `/${workspaceSlug}/clients/${id}/forms` },
+        { id: "transactions", name: tNav('transactions'),     icon: CreditCard,      href: `/${workspaceSlug}/clients/${id}/transactions` },
     ];
 
     const selectedKey = tabs.find((t) => t.href === pathname)?.id ?? "overview";
