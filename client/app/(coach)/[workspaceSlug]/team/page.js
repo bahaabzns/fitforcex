@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
@@ -15,16 +16,26 @@ import {
 
 const ROLES = ["manager", "trainer", "assistant"];
 
+const ROLE_META_CLS = {
+    owner:     "bg-yellow-500/15 text-yellow-600 border border-yellow-500/20",
+    manager:   "bg-accent/15 text-accent border border-accent/20",
+    trainer:   "bg-green-500/15 text-green-600 border border-green-500/20",
+    assistant: "bg-secondary text-muted-foreground border border-border",
+};
+
+const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+
 // ── Upgrade CTA ───────────────────────────────────────────────────────────────
 
 function UpgradeBanner({ message }) {
+    const t = useTranslations("team");
     return (
         <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
             <span className="text-amber-500 mt-0.5 text-base leading-none">⚠</span>
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-amber-600">{message}</p>
                 <p className="text-xs text-amber-600/70 mt-0.5">
-                    Contact us to upgrade your plan and unlock more capacity.
+                    {t("upgradeContactUs")}
                 </p>
             </div>
         </div>
@@ -44,20 +55,18 @@ function SeatUsageBar({ used, max }) {
     );
 }
 
-const ROLE_META = {
-    owner:     { label: "Owner",     cls: "bg-yellow-500/15 text-yellow-600 border border-yellow-500/20" },
-    manager:   { label: "Manager",   cls: "bg-accent/15 text-accent border border-accent/20" },
-    trainer:   { label: "Trainer",   cls: "bg-green-500/15 text-green-600 border border-green-500/20" },
-    assistant: { label: "Assistant", cls: "bg-secondary text-muted-foreground border border-border" },
-};
-
-const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
-
 function RoleBadge({ role }) {
-    const meta = ROLE_META[role] ?? { label: role, cls: "bg-secondary text-muted-foreground border border-border" };
+    const t = useTranslations("team");
+    const ROLE_LABELS = {
+        owner: t("roleOwner"),
+        manager: t("roleManager"),
+        trainer: t("roleTrainer"),
+        assistant: t("roleAssistant"),
+    };
+    const cls = ROLE_META_CLS[role] ?? "bg-secondary text-muted-foreground border border-border";
     return (
-        <Chip size="sm" className={meta.cls}>
-            {meta.label}
+        <Chip size="sm" className={cls}>
+            {ROLE_LABELS[role] ?? role}
         </Chip>
     );
 }
@@ -97,8 +106,8 @@ const MODULES = ["clients", "training", "nutrition", "forms", "finance", "team"]
 const ACTIONS = ["read", "write", "delete"];
 
 function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
+    const t = useTranslations("team");
     const [perms, setPerms] = useState(() => {
-        // Deep clone so edits don't mutate the original
         const base = {};
         MODULES.forEach(mod => {
             base[mod] = { ...(member.permissions?.[mod] ?? { read: false, write: false, delete: false }) };
@@ -108,10 +117,24 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
+    const MODULE_LABELS = {
+        clients: t("modClients"),
+        training: t("modTraining"),
+        nutrition: t("modNutrition"),
+        forms: t("modForms"),
+        finance: t("modFinance"),
+        team: t("modTeam"),
+    };
+
+    const ACTION_LABELS = {
+        read: t("permRead"),
+        write: t("permWrite"),
+        delete: t("permDelete"),
+    };
+
     function toggle(mod, action) {
         setPerms(prev => {
             const next = { ...prev, [mod]: { ...prev[mod], [action]: !prev[mod][action] } };
-            // read is prerequisite for write/delete
             if (action === "read" && !next[mod].read) {
                 next[mod].write = false;
                 next[mod].delete = false;
@@ -131,25 +154,24 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
             onSaved(member.id, perms);
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || "Failed to save permissions");
+            setError(err.response?.data?.message || t("permFailed"));
         } finally {
             setSaving(false);
         }
     }
 
     return (
-        <Modal open onClose={onClose} title={`Permissions — ${member.fname} ${member.lname}`}>
+        <Modal open onClose={onClose} title={t("permissionsTitle", { name: `${member.fname} ${member.lname}` })}>
             <div className="flex flex-col gap-4">
                 <p className="text-xs text-muted-foreground">
-                    Role: <span className="font-medium capitalize">{member.role}</span> · Fine-grained overrides apply on top of role defaults.
+                    {t("permRole")} <span className="font-medium capitalize">{member.role}</span> · {t("permRoleHint")}
                 </p>
 
                 <div className="rounded-lg border border-border overflow-hidden">
-                    {/* Header */}
                     <div className="grid grid-cols-[1fr_auto_auto_auto] gap-0 px-3 py-2 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        <span>Module</span>
+                        <span>{t("permModule")}</span>
                         {ACTIONS.map(a => (
-                            <span key={a} className="w-14 text-center capitalize">{a}</span>
+                            <span key={a} className="w-14 text-center capitalize">{ACTION_LABELS[a]}</span>
                         ))}
                     </div>
 
@@ -158,7 +180,7 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
                             key={mod}
                             className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-0 px-3 py-2.5 ${idx > 0 ? "border-t border-border" : ""}`}
                         >
-                            <span className="text-sm font-medium text-foreground capitalize">{mod}</span>
+                            <span className="text-sm font-medium text-foreground">{MODULE_LABELS[mod] ?? mod}</span>
                             {ACTIONS.map(action => (
                                 <div key={action} className="w-14 flex justify-center">
                                     <button
@@ -184,10 +206,10 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
 
                 <div className="flex gap-2 justify-end pt-1">
                     <Button variant="ghost" onClick={onClose}>
-                        Cancel
+                        {t("cancel")}
                     </Button>
                     <Button onClick={handleSave} isDisabled={saving} variant="primary">
-                        {saving ? "Saving…" : "Save Permissions"}
+                        {saving ? t("permSaving") : t("permSave")}
                     </Button>
                 </div>
             </div>
@@ -198,6 +220,7 @@ function PermissionsModal({ member, workspaceId, onClose, onSaved }) {
 // ── Members Tab ───────────────────────────────────────────────────────────────
 
 function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
+    const t = useTranslations("team");
     const isOwner = me?.currentWorkspace?.role === "owner";
     const canManage = isOwner || me?.currentWorkspace?.permissions?.team?.write;
     const canDelete = isOwner || me?.currentWorkspace?.permissions?.team?.delete;
@@ -206,6 +229,12 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
     const seatsUsed = parseInt(workspace?.member_count ?? 0) + (pendingCount ?? 0);
     const noSeats = maxSeats === 0;
     const atSeatLimit = maxSeats !== null && seatsUsed >= maxSeats;
+
+    const ROLE_LABELS = {
+        manager: t("roleManager"),
+        trainer: t("roleTrainer"),
+        assistant: t("roleAssistant"),
+    };
 
     const [showInviteForm, setShowInviteForm] = useState(false);
     const [inviteEmail, setInviteEmail] = useState("");
@@ -233,11 +262,11 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                 role: inviteRole,
                 message: inviteMessage.trim() || undefined,
             });
-            setInviteSuccess(`Invitation sent to ${inviteEmail.trim()}`);
+            setInviteSuccess(t("inviteSent", { email: inviteEmail.trim() }));
             setInviteEmail("");
             setInviteMessage("");
         } catch (err) {
-            setInviteError(err.response?.data?.message || "Failed to send invitation");
+            setInviteError(err.response?.data?.message || t("inviteFailed"));
         } finally {
             setInviting(false);
         }
@@ -286,6 +315,10 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
         return true;
     }
 
+    const upgradeBannerMessage = noSeats
+        ? t("upgradeFreeSeats")
+        : t("upgradeSeatLimit", { count: maxSeats });
+
     return (
         <div className="flex flex-col gap-6">
             {/* Workspace stats */}
@@ -294,23 +327,23 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                     <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border">
                         <Building2 size={15} className="text-muted-foreground" />
                         <div>
-                            <p className="text-xs text-muted-foreground">Plan</p>
+                            <p className="text-xs text-muted-foreground">{t("statPlan")}</p>
                             <p className="text-sm font-medium text-foreground">{workspace.plan_display_name ?? workspace.plan_name}</p>
                         </div>
                     </div>
                     <div className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${atSeatLimit || noSeats ? "bg-amber-500/5 border-amber-500/30" : "bg-secondary/50 border-border"}`}>
                         <Users2 size={15} className={atSeatLimit || noSeats ? "text-amber-500" : "text-muted-foreground"} />
                         <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground">Team Seats</p>
+                            <p className="text-xs text-muted-foreground">{t("statSeats")}</p>
                             {maxSeats === null ? (
-                                <p className="text-sm font-medium text-foreground">{workspace.member_count} <span className="text-muted-foreground font-normal">/ unlimited</span></p>
+                                <p className="text-sm font-medium text-foreground">{workspace.member_count} <span className="text-muted-foreground font-normal">{t("statUnlimited")}</span></p>
                             ) : noSeats ? (
-                                <p className="text-sm font-medium text-amber-700">0 seats on Free plan</p>
+                                <p className="text-sm font-medium text-amber-700">{t("statFreeSeats")}</p>
                             ) : (
                                 <div className="flex flex-col gap-1 min-w-32">
                                     <p className="text-sm font-medium text-foreground">
-                                        {seatsUsed} used
-                                        <span className="text-muted-foreground font-normal"> of {maxSeats}</span>
+                                        {t("statSeatsUsed", { count: seatsUsed })}
+                                        <span className="text-muted-foreground font-normal"> {t("statSeatsOf", { count: maxSeats })}</span>
                                     </p>
                                     <SeatUsageBar used={seatsUsed} max={maxSeats} />
                                 </div>
@@ -320,7 +353,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                     <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-secondary/50 border border-border">
                         <Users2 size={15} className="text-muted-foreground" />
                         <div>
-                            <p className="text-xs text-muted-foreground">Clients</p>
+                            <p className="text-xs text-muted-foreground">{t("statClients")}</p>
                             <p className="text-sm font-medium text-foreground">{workspace.client_count}</p>
                         </div>
                     </div>
@@ -330,12 +363,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
             {/* Invite section */}
             {canManage && (
                 (noSeats || atSeatLimit) ? (
-                    <UpgradeBanner
-                        message={noSeats
-                            ? "Your Free plan doesn't include team seats."
-                            : `You've used all ${maxSeats} seat${maxSeats === 1 ? "" : "s"} on your current plan.`
-                        }
-                    />
+                    <UpgradeBanner message={upgradeBannerMessage} />
                 ) : (
                     <div className="rounded-lg border border-border">
                         <button
@@ -343,7 +371,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                             className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-default transition-colors rounded-lg cursor-pointer"
                         >
                             <UserPlus size={15} className="text-muted-foreground" />
-                            <span className="flex-1 text-left">Invite team member</span>
+                            <span className="flex-1 text-left">{t("inviteTeamMember")}</span>
                             <span className={`text-muted-foreground text-xs transition-transform ${showInviteForm ? 'rotate-180' : ''}`}>▾</span>
                         </button>
 
@@ -365,10 +393,10 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                 )}
                                 <div className="flex gap-3">
                                     <div className="flex-1">
-                                        <label className="text-xs text-muted-foreground font-medium block mb-1">Email address *</label>
+                                        <label className="text-xs text-muted-foreground font-medium block mb-1">{t("emailLabel")}</label>
                                         <input
                                             type="email"
-                                            placeholder="colleague@example.com"
+                                            placeholder={t("emailPlaceholder")}
                                             value={inviteEmail}
                                             onChange={e => setInviteEmail(e.target.value)}
                                             className={inputCls}
@@ -377,23 +405,23 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                         />
                                     </div>
                                     <div className="w-36">
-                                        <label className="text-xs text-muted-foreground font-medium block mb-1">Role *</label>
+                                        <label className="text-xs text-muted-foreground font-medium block mb-1">{t("roleLabel")}</label>
                                         <select
                                             value={inviteRole}
                                             onChange={e => setInviteRole(e.target.value)}
                                             className={inputCls}
                                         >
                                             {(isOwner ? ["manager", "trainer", "assistant"] : ["trainer", "assistant"]).map(r => (
-                                                <option key={r} value={r}>{ROLE_META[r]?.label ?? r}</option>
+                                                <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
                                             ))}
                                         </select>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs text-muted-foreground font-medium block mb-1">Message (optional)</label>
+                                    <label className="text-xs text-muted-foreground font-medium block mb-1">{t("messageLabel")}</label>
                                     <input
                                         type="text"
-                                        placeholder="Add a personal note..."
+                                        placeholder={t("messagePlaceholder")}
                                         value={inviteMessage}
                                         onChange={e => setInviteMessage(e.target.value)}
                                         className={inputCls}
@@ -405,7 +433,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                     variant="primary"
                                     className="self-start"
                                 >
-                                    {inviting ? "Sending…" : "Send Invitation"}
+                                    {inviting ? t("sending") : t("sendInvitation")}
                                 </Button>
                             </form>
                         )}
@@ -415,7 +443,6 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
 
             {/* Members list */}
             <div className="flex flex-col gap-0 rounded-lg border border-border overflow-hidden">
-                {/* Owner row — always at top */}
                 {workspace?.owner_fname && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-0">
                         <MemberAvatar fname={workspace.owner_fname} lname={workspace.owner_lname} />
@@ -423,7 +450,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                             <p className="text-sm font-medium text-foreground truncate">
                                 {workspace.owner_fname} {workspace.owner_lname}
                                 {workspace.owner_id === me?.userId && (
-                                    <span className="ml-1.5 text-[10px] text-muted-foreground">(you)</span>
+                                    <span className="ml-1.5 text-[10px] text-muted-foreground">{t("youLabel")}</span>
                                 )}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{workspace.owner_email}</p>
@@ -433,7 +460,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                 )}
 
                 {members.length === 0 && (
-                    <p className="px-4 py-6 text-sm text-muted-foreground text-center">No other members yet. Invite someone above.</p>
+                    <p className="px-4 py-6 text-sm text-muted-foreground text-center">{t("noMembers")}</p>
                 )}
 
                 {members.map(member => {
@@ -446,7 +473,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                 <p className="text-sm font-medium text-foreground truncate">
                                     {member.fname} {member.lname}
                                     {member.user_id === myUserId && (
-                                        <span className="ml-1.5 text-[10px] text-muted-foreground">(you)</span>
+                                        <span className="ml-1.5 text-[10px] text-muted-foreground">{t("youLabel")}</span>
                                     )}
                                 </p>
                                 <p className="text-xs text-muted-foreground truncate">{member.email}</p>
@@ -460,7 +487,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                     className="text-xs px-2 py-1 rounded-md border border-input bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-60 cursor-pointer"
                                 >
                                     {(isOwner ? ROLES : ["trainer", "assistant"]).map(r => (
-                                        <option key={r} value={r}>{ROLE_META[r]?.label ?? r}</option>
+                                        <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
                                     ))}
                                 </select>
                             ) : (
@@ -470,7 +497,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                             {isOwner && (
                                 <button
                                     onClick={() => setEditingPerms(member)}
-                                    title="Edit permissions"
+                                    title={t("editPermissions")}
                                     className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
                                 >
                                     <SlidersHorizontal size={14} />
@@ -481,7 +508,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
                                 <button
                                     onClick={() => setConfirmRemove(member)}
                                     disabled={removingId === member.id}
-                                    title="Remove member"
+                                    title={t("removeTitle")}
                                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer disabled:opacity-50"
                                 >
                                     <Trash2 size={14} />
@@ -498,23 +525,22 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
             <Modal
                 open={!!confirmRemove}
                 onClose={() => setConfirmRemove(null)}
-                title="Remove member"
+                title={t("removeTitle")}
             >
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-foreground">
-                        Remove <strong>{confirmRemove?.fname} {confirmRemove?.lname}</strong> from this workspace?
-                        They will lose access immediately.
+                        {t("removeConfirm", { name: `${confirmRemove?.fname} ${confirmRemove?.lname}` })}
                     </p>
                     <div className="flex gap-2 justify-end">
                         <Button variant="ghost" onClick={() => setConfirmRemove(null)}>
-                            Cancel
+                            {t("cancel")}
                         </Button>
                         <Button
                             onClick={() => handleRemove(confirmRemove.id)}
                             isDisabled={removingId === confirmRemove?.id}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {removingId === confirmRemove?.id ? "Removing…" : "Remove"}
+                            {removingId === confirmRemove?.id ? t("removing") : t("remove")}
                         </Button>
                     </div>
                 </div>
@@ -540,6 +566,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
 // ── Invitations Tab (outgoing) ────────────────────────────────────────────────
 
 function InvitationsTab({ workspace, invitations, setInvitations, me }) {
+    const t = useTranslations("team");
     const isOwner = me?.currentWorkspace?.role === "owner";
     const canManage = isOwner || me?.currentWorkspace?.permissions?.team?.write;
     const [cancellingId, setCancellingId] = useState(null);
@@ -560,7 +587,7 @@ function InvitationsTab({ workspace, invitations, setInvitations, me }) {
         return (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <Mail size={32} className="text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No pending invitations.</p>
+                <p className="text-sm text-muted-foreground">{t("noPendingInvitations")}</p>
             </div>
         );
     }
@@ -583,7 +610,7 @@ function InvitationsTab({ workspace, invitations, setInvitations, me }) {
                         <button
                             onClick={() => handleCancel(inv.id)}
                             disabled={cancellingId === inv.id}
-                            title="Cancel invitation"
+                            title={t("cancelInvitation")}
                             className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer disabled:opacity-50"
                         >
                             <XCircle size={14} />
@@ -598,6 +625,7 @@ function InvitationsTab({ workspace, invitations, setInvitations, me }) {
 // ── My Invitations Tab (incoming) ─────────────────────────────────────────────
 
 function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
+    const t = useTranslations("team");
     const [respondingId, setRespondingId] = useState(null);
     const router = useRouter();
 
@@ -606,7 +634,6 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
         try {
             await api.post(`/api/invitations/${inv.id}/accept`);
             setMyInvitations(prev => prev.filter(i => i.id !== inv.id));
-            // Re-fetch me to update workspace list and pending count
             const res = await api.get('/api/auth/me');
             setMe(res.data);
             router.refresh();
@@ -635,7 +662,7 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
         return (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <CheckCircle2 size={32} className="text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No pending invitations for you.</p>
+                <p className="text-sm text-muted-foreground">{t("noMyInvitations")}</p>
             </div>
         );
     }
@@ -651,7 +678,7 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
                         <div className="min-w-0">
                             <p className="text-sm font-semibold text-foreground truncate">{inv.workspace.name}</p>
                             <p className="text-xs text-muted-foreground">
-                                Invited by {inv.invitedBy.fname} {inv.invitedBy.lname} · as{" "}
+                                {t("invitedBy", { inviter: `${inv.invitedBy.fname} ${inv.invitedBy.lname}` })} · {t("invitedAs")}{" "}
                                 <span className="font-medium capitalize">{inv.role}</span>
                             </p>
                             {inv.message && (
@@ -666,7 +693,7 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
                             onClick={() => handleDecline(inv.id)}
                             isDisabled={respondingId === inv.id}
                         >
-                            Decline
+                            {t("decline")}
                         </Button>
                         <Button
                             variant="primary"
@@ -674,7 +701,7 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
                             onClick={() => handleAccept(inv)}
                             isDisabled={respondingId === inv.id}
                         >
-                            {respondingId === inv.id ? "…" : "Accept"}
+                            {respondingId === inv.id ? "…" : t("accept")}
                         </Button>
                     </div>
                 </div>
@@ -686,6 +713,7 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
 // ── Create Workspace Modal ────────────────────────────────────────────────────
 
 function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
+    const t = useTranslations("team");
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
     const [creating, setCreating] = useState(false);
@@ -706,22 +734,22 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
             reset();
             onCreated(res.data);
         } catch (err) {
-            setError(err.response?.data?.message || "Failed to create workspace");
+            setError(err.response?.data?.message || t("createFailed"));
         } finally {
             setCreating(false);
         }
     }
 
     return (
-        <Modal open={open} onClose={() => { reset(); onClose(); }} title="Create Workspace">
+        <Modal open={open} onClose={() => { reset(); onClose(); }} title={t("createWorkspaceTitle")}>
             <div className="flex flex-col gap-3">
                 {atWorkspaceLimit ? (
                     <>
                         <UpgradeBanner
-                            message={`Your plan allows ${maxWorkspaces} workspace${maxWorkspaces === 1 ? "" : "s"}. You've reached the limit.`}
+                            message={t("workspacePlanLimit", { count: maxWorkspaces })}
                         />
                         <p className="text-xs text-muted-foreground">
-                            You currently own {ownedCount} workspace{ownedCount === 1 ? "" : "s"}.
+                            {t("ownedWorkspaces", { count: ownedCount })}
                         </p>
                     </>
                 ) : (
@@ -736,10 +764,10 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                             )
                         )}
                         <div>
-                            <label className="text-xs text-muted-foreground font-medium block mb-1">Workspace name *</label>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t("workspaceNameLabel")}</label>
                             <input
                                 type="text"
-                                placeholder="e.g. Elite Performance Studio"
+                                placeholder={t("workspaceNamePlaceholder")}
                                 value={name}
                                 onChange={e => setName(e.target.value)}
                                 className={inputCls}
@@ -749,20 +777,20 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                         </div>
                         <div>
                             <label className="text-xs text-muted-foreground font-medium block mb-1">
-                                Slug <span className="font-normal opacity-60">(optional — auto-generated if blank)</span>
+                                {t("slugLabel")} <span className="font-normal opacity-60">{t("slugOptional")}</span>
                             </label>
                             <input
                                 type="text"
-                                placeholder="my-workspace"
+                                placeholder={t("slugPlaceholder")}
                                 value={slug}
                                 onChange={e => setSlug(e.target.value)}
                                 className={inputCls}
                             />
-                            <p className="text-xs text-muted-foreground mt-1">Lowercase letters, numbers, and hyphens only.</p>
+                            <p className="text-xs text-muted-foreground mt-1">{t("slugHint")}</p>
                         </div>
                         {maxWorkspaces !== null && (
                             <p className="text-xs text-muted-foreground">
-                                {ownedCount} of {maxWorkspaces} workspace{maxWorkspaces === 1 ? "" : "s"} used on your plan.
+                                {t("workspacesUsed", { used: ownedCount, max: maxWorkspaces })}
                             </p>
                         )}
                         <Button
@@ -771,7 +799,7 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                             variant="primary"
                             className="self-start"
                         >
-                            {creating ? "Creating…" : "Create Workspace"}
+                            {creating ? t("creating") : t("createWorkspace")}
                         </Button>
                     </form>
                 )}
@@ -783,6 +811,7 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TeamPage() {
+    const t = useTranslations("team");
     const searchParams = useSearchParams();
     const router = useRouter();
     const { workspaceSlug } = useParams();
@@ -796,7 +825,6 @@ export default function TeamPage() {
     const [loading, setLoading] = useState(true);
     const [showNewWs, setShowNewWs] = useState(false);
 
-    // Open create workspace modal if redirected from sidebar
     useEffect(() => {
         if (searchParams.get("action") === "new-workspace") {
             setShowNewWs(true);
@@ -834,7 +862,6 @@ export default function TeamPage() {
 
     function handleWorkspaceCreated(ws) {
         setShowNewWs(false);
-        // Switch to the new workspace
         api.post("/api/auth/switch-workspace", { workspaceId: ws.id })
             .then(() => { router.push(`/${ws.slug}/dashboard`); router.refresh(); })
             .catch(console.error);
@@ -846,7 +873,7 @@ export default function TeamPage() {
     if (loading) {
         return (
             <div className="p-8">
-                <h1 className="text-3xl font-bold text-foreground mb-6">Team</h1>
+                <h1 className="text-3xl font-bold text-foreground mb-6">{t("pageTitle")}</h1>
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
                         <Skeleton key={i} className="h-14 rounded-lg" />
@@ -861,8 +888,8 @@ export default function TeamPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Team</h1>
-                    <p className="text-sm text-muted-foreground mt-1">Manage members and invitations for your workspace.</p>
+                    <h1 className="text-3xl font-bold text-foreground">{t("pageTitle")}</h1>
+                    <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
                 </div>
                 <Button
                     onClick={() => setShowNewWs(true)}
@@ -870,7 +897,7 @@ export default function TeamPage() {
                     size="sm"
                 >
                     <Plus size={14} />
-                    New Workspace
+                    {t("newWorkspace")}
                 </Button>
             </div>
 
@@ -878,13 +905,13 @@ export default function TeamPage() {
             <div className="border-b border-border -mb-2">
                 <div className="flex gap-0">
                     <TabButton active={tab === "members"} onClick={() => setTab("members")}>
-                        <Users2 size={14} /> Members
+                        <Users2 size={14} /> {t("tabMembers")}
                     </TabButton>
                     <TabButton active={tab === "invitations"} onClick={() => setTab("invitations")} badge={pendingOutgoing}>
-                        <Mail size={14} /> Invitations
+                        <Mail size={14} /> {t("tabInvitations")}
                     </TabButton>
                     <TabButton active={tab === "mine"} onClick={() => setTab("mine")} badge={pendingIncoming}>
-                        <CheckCircle2 size={14} /> My Invitations
+                        <CheckCircle2 size={14} /> {t("tabMyInvitations")}
                     </TabButton>
                 </div>
             </div>
