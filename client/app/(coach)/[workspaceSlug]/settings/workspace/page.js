@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -27,6 +28,7 @@ function ErrorMsg({ msg }) {
 }
 
 export default function WorkspacePage() {
+    const t = useTranslations("workspaceSettings");
     const router = useRouter();
     const [me, setMe] = useState(null);
     const [workspace, setWorkspace] = useState(null);
@@ -87,9 +89,9 @@ export default function WorkspacePage() {
         try {
             const res = await api.patch(`/api/workspaces/${wsId}/name`, { name: wsName.trim() });
             setWorkspace(prev => ({ ...prev, name: res.data.name }));
-            setRenameSuccess("Workspace renamed successfully.");
+            setRenameSuccess(t("renameSuccess"));
         } catch (err) {
-            setRenameError(err.response?.data?.message || "Failed to rename workspace.");
+            setRenameError(err.response?.data?.message || t("renameFailed"));
         } finally {
             setRenameSaving(false);
         }
@@ -102,10 +104,10 @@ export default function WorkspacePage() {
         try {
             const res = await api.put(`/api/workspaces/${wsId}/slug`, { slug: newSlug.trim() });
             setWorkspace(prev => ({ ...prev, slug: res.data.slug, slug_customized: true }));
-            setSlugSuccess("Slug updated. Share the new portal URL with your clients.");
+            setSlugSuccess(t("slugUpdateSuccess"));
             setNewSlug("");
         } catch (err) {
-            setSlugError(err.response?.data?.message || "Failed to update slug.");
+            setSlugError(err.response?.data?.message || t("slugUpdateFailed"));
         } finally {
             setSlugSaving(false);
         }
@@ -123,7 +125,7 @@ export default function WorkspacePage() {
             router.push("/dashboard");
             router.refresh();
         } catch (err) {
-            setTransferError(err.response?.data?.message || "Failed to transfer ownership.");
+            setTransferError(err.response?.data?.message || t("transferFailed"));
         } finally {
             setTransferring(false);
         }
@@ -139,7 +141,7 @@ export default function WorkspacePage() {
             router.push("/dashboard");
             router.refresh();
         } catch (err) {
-            setArchiveError(err.response?.data?.message || "Failed to archive workspace.");
+            setArchiveError(err.response?.data?.message || t("archiveFailed"));
         } finally {
             setArchiving(false);
         }
@@ -150,17 +152,17 @@ export default function WorkspacePage() {
     return (
         <div className="flex flex-col gap-6">
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Workspace</h1>
-                <p className="text-sm text-muted-foreground mt-1">Manage your workspace, team members, and client portal.</p>
+                <h1 className="text-3xl font-bold text-foreground">{t("pageTitle")}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
             </div>
 
             {/* Rename */}
             {isOwner && (
                 <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
-                    <h3 className="text-sm font-semibold text-foreground">Workspace Name</h3>
+                    <h3 className="text-sm font-semibold text-foreground">{t("workspaceNameSection")}</h3>
                     <form onSubmit={handleRename} className="flex flex-col gap-3">
                         <div>
-                            <label className="text-xs text-muted-foreground font-medium block mb-1">Name</label>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t("nameLabel")}</label>
                             <input
                                 type="text"
                                 value={wsName}
@@ -177,7 +179,7 @@ export default function WorkspacePage() {
                             variant="primary"
                             className="self-start"
                         >
-                            {renameSaving ? "Saving…" : "Save"}
+                            {renameSaving ? t("saving") : t("save")}
                         </Button>
                     </form>
                 </div>
@@ -185,14 +187,14 @@ export default function WorkspacePage() {
 
             {/* Portal URL */}
             <div className="rounded-lg border border-border p-5 flex flex-col gap-4">
-                <h3 className="text-sm font-semibold text-foreground">Client Portal</h3>
+                <h3 className="text-sm font-semibold text-foreground">{t("clientPortalSection")}</h3>
                 <div>
-                    <label className="text-xs text-muted-foreground font-medium block mb-1">Your Portal URL</label>
+                    <label className="text-xs text-muted-foreground font-medium block mb-1">{t("portalUrlLabel")}</label>
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
                         <code className="text-sm text-foreground break-all">{portalUrl}</code>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1.5">
-                        Share this link with your clients so they can access their training and nutrition plans.
+                        {t("portalUrlHint")}
                     </p>
                 </div>
 
@@ -200,10 +202,10 @@ export default function WorkspacePage() {
                 {isOwner && !workspace?.slug_customized && (
                     <form onSubmit={handleCustomizeSlug} className="flex flex-col gap-3 pt-3 border-t border-border">
                         <p className="text-xs text-muted-foreground">
-                            Customize your portal slug to something memorable. <strong>This can only be done once.</strong>
+                            {t("slugHint")}
                         </p>
                         <div>
-                            <label className="text-xs text-muted-foreground font-medium block mb-1">Custom slug</label>
+                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t("customSlugLabel")}</label>
                             <div className="flex items-center gap-0">
                                 <span className="px-3 py-2 rounded-l-md border border-r-0 border-input bg-secondary text-muted-foreground text-sm select-none">
                                     /portal/
@@ -217,7 +219,7 @@ export default function WorkspacePage() {
                                     required
                                 />
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">Lowercase letters, numbers, and hyphens only.</p>
+                            <p className="text-xs text-muted-foreground mt-1">{t("slugFormat")}</p>
                         </div>
                         <ErrorMsg msg={slugError} />
                         <SuccessMsg msg={slugSuccess} />
@@ -227,14 +229,14 @@ export default function WorkspacePage() {
                             variant="primary"
                             className="self-start"
                         >
-                            {slugSaving ? "Saving…" : "Customize Slug"}
+                            {slugSaving ? t("saving") : t("customizeSlug")}
                         </Button>
                     </form>
                 )}
 
                 {workspace?.slug_customized && (
                     <p className="text-xs text-accent bg-accent/10 border border-accent/20 rounded-lg px-3 py-2">
-                        ✓ Your portal slug has been customized and cannot be changed again.
+                        ✓ {t("slugCustomized")}
                     </p>
                 )}
             </div>
@@ -242,16 +244,16 @@ export default function WorkspacePage() {
             {/* Danger Zone Section */}
             {isOwner ? (
                 <div className="flex flex-col gap-4">
-                    <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+                    <h3 className="text-sm font-semibold text-destructive">{t("dangerZone")}</h3>
 
                     {/* Transfer Ownership */}
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-5 flex flex-col gap-4">
                         <div className="flex items-start gap-3">
                             <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
                             <div>
-                                <h4 className="text-sm font-semibold text-foreground">Transfer Ownership</h4>
+                                <h4 className="text-sm font-semibold text-foreground">{t("transferTitle")}</h4>
                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                    Transfer this workspace to another active member. You will become a Manager.
+                                    {t("transferDesc")}
                                 </p>
                             </div>
                         </div>
@@ -262,23 +264,23 @@ export default function WorkspacePage() {
                                 isDisabled={activeMembers.length === 0}
                                 className="self-start border border-amber-500/40 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25"
                             >
-                                Transfer Ownership
+                                {t("transferButton")}
                             </Button>
                         ) : (
                             <form onSubmit={handleTransfer} className="flex flex-col gap-3">
                                 {activeMembers.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">No active members to transfer to. Invite a team member first.</p>
+                                    <p className="text-sm text-muted-foreground">{t("noActiveMembers")}</p>
                                 ) : (
                                     <>
                                         <div>
-                                            <label className="text-xs text-muted-foreground font-medium block mb-1">Transfer to</label>
+                                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t("transferToLabel")}</label>
                                             <select
                                                 value={transferMemberId}
                                                 onChange={e => setTransferMemberId(e.target.value)}
                                                 className={inputCls}
                                                 required
                                             >
-                                                <option value="">Select a member…</option>
+                                                <option value="">{t("selectMember")}</option>
                                                 {activeMembers.map(m => (
                                                     <option key={m.id} value={m.id}>
                                                         {m.fname} {m.lname} ({m.email})
@@ -287,7 +289,7 @@ export default function WorkspacePage() {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs text-muted-foreground font-medium block mb-1">Your password to confirm</label>
+                                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t("confirmPasswordLabel")}</label>
                                             <input
                                                 type="password"
                                                 value={transferPassword}
@@ -304,14 +306,14 @@ export default function WorkspacePage() {
                                                 variant="ghost"
                                                 onClick={() => { setShowTransfer(false); setTransferError(""); setTransferPassword(""); setTransferMemberId(""); }}
                                             >
-                                                Cancel
+                                                {t("cancel")}
                                             </Button>
                                             <Button
                                                 type="submit"
                                                 isDisabled={transferring || !transferMemberId || !transferPassword}
                                                 className="bg-amber-600 text-white hover:bg-amber-700"
                                             >
-                                                {transferring ? "Transferring…" : "Confirm Transfer"}
+                                                {transferring ? t("transferring") : t("confirmTransfer")}
                                             </Button>
                                         </div>
                                     </>
@@ -325,9 +327,9 @@ export default function WorkspacePage() {
                         <div className="flex items-start gap-3">
                             <AlertTriangle size={16} className="text-destructive mt-0.5 shrink-0" />
                             <div>
-                                <h4 className="text-sm font-semibold text-foreground">Archive Workspace</h4>
+                                <h4 className="text-sm font-semibold text-foreground">{t("archiveTitle")}</h4>
                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                    Archiving hides this workspace and removes access for all members. This cannot be undone.
+                                    {t("archiveDesc")}
                                 </p>
                             </div>
                         </div>
@@ -337,13 +339,13 @@ export default function WorkspacePage() {
                                 onClick={() => setShowArchive(true)}
                                 className="self-start border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
                             >
-                                Archive Workspace
+                                {t("archiveButton")}
                             </Button>
                         ) : (
                             <form onSubmit={handleArchive} className="flex flex-col gap-3">
                                 <div>
                                     <label className="text-xs text-muted-foreground font-medium block mb-1">
-                                        Type <strong>{workspace?.name}</strong> to confirm
+                                        {t("archiveConfirmLabel", { name: workspace?.name })}
                                     </label>
                                     <input
                                         type="text"
@@ -360,14 +362,14 @@ export default function WorkspacePage() {
                                         variant="ghost"
                                         onClick={() => { setShowArchive(false); setArchiveConfirm(""); setArchiveError(""); }}
                                     >
-                                        Cancel
+                                        {t("cancel")}
                                     </Button>
                                     <Button
                                         type="submit"
                                         isDisabled={archiving || archiveConfirm !== workspace?.name}
                                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
-                                        {archiving ? "Archiving…" : "Archive Workspace"}
+                                        {archiving ? t("archiving") : t("archiveButton")}
                                     </Button>
                                 </div>
                             </form>
@@ -376,7 +378,7 @@ export default function WorkspacePage() {
                 </div>
             ) : (
                 <div className="rounded-lg border border-dashed border-border py-10 text-center">
-                    <p className="text-sm text-muted-foreground">Only the workspace owner can access workspace management and danger zone.</p>
+                    <p className="text-sm text-muted-foreground">{t("ownerOnlyMessage")}</p>
                 </div>
             )}
         </div>
