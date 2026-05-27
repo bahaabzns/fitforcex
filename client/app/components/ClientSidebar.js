@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { Salad, Dumbbell, ClipboardList, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
@@ -22,6 +23,8 @@ const navLink = (active) =>
 export default function ClientSidebar() {
     const pathname = usePathname();
     const router = useRouter();
+    const tPortal = useTranslations('portal.sidebar');
+    const tSidebar = useTranslations('sidebar');
     const [client, setClient] = useState(null);
     const [collapsed, setCollapsed] = useState(false);
 
@@ -42,9 +45,9 @@ export default function ClientSidebar() {
     };
 
     const navItems = [
-        { href: "/portal/dashboard", label: "Nutrition Plan", icon: Salad },
-        { href: "/portal/training", label: "Training Plan", icon: Dumbbell },
-        { href: "/portal/forms", label: "Forms", icon: ClipboardList },
+        { href: "/portal/dashboard", label: tPortal('nutritionPlan'), icon: Salad },
+        { href: "/portal/training", label: tPortal('trainingPlan'), icon: Dumbbell },
+        { href: "/portal/forms", label: tPortal('forms'), icon: ClipboardList },
     ];
 
     return (
@@ -61,7 +64,7 @@ export default function ClientSidebar() {
                     size="sm"
                     variant="ghost"
                     onClick={() => setCollapsed(c => !c)}
-                    title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    title={collapsed ? tSidebar('expandSidebar') : tSidebar('collapseSidebar')}
                     className="shrink-0 ml-auto"
                 >
                     {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -130,11 +133,11 @@ export default function ClientSidebar() {
                     size="sm"
                     fullWidth
                     onClick={handleLogout}
-                    title={collapsed ? "Logout" : undefined}
+                    title={collapsed ? tSidebar('logout') : undefined}
                     className={`${collapsed ? "justify-center px-0" : "justify-start"}`}
                 >
                     <LogOut size={15} className="shrink-0" />
-                    {!collapsed && "Logout"}
+                    {!collapsed && tSidebar('logout')}
                 </Button>
             </div>
         </aside>

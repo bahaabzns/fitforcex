@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import api from '@/lib/axios';
 import { Modal } from '@heroui/react/modal';
 import { Button } from '@heroui/react/button';
@@ -23,6 +24,7 @@ function formatRelativeTime(dateStr) {
 }
 
 function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit = '' }) {
+    const tCommon = useTranslations('common');
     return (
         <div className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
@@ -30,7 +32,7 @@ function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit 
                 <input
                     type="number"
                     min="0"
-                    placeholder="Min"
+                    placeholder={tCommon('min')}
                     value={minValue}
                     onChange={(e) => onMinChange(e.target.value)}
                     className="w-16 text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
@@ -39,7 +41,7 @@ function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit 
                 <input
                     type="number"
                     min="0"
-                    placeholder="Max"
+                    placeholder={tCommon('max')}
                     value={maxValue}
                     onChange={(e) => onMaxChange(e.target.value)}
                     className="w-16 text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
@@ -51,6 +53,10 @@ function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit 
 }
 
 export default function LoadPlanModal({ open, onClose, type, onLoad }) {
+    const tFilter = useTranslations('filter');
+    const tTraining = useTranslations('training');
+    const tNutrition = useTranslations('nutrition');
+    const tModal = useTranslations('modal');
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState(false);
@@ -154,7 +160,7 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                             {/* Search */}
                             <input
                                 type="text"
-                                placeholder="Search by plan name..."
+                                placeholder={tFilter('searchPlanName')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
@@ -164,27 +170,27 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                             <div className="flex flex-wrap gap-x-5 gap-y-3 p-3 rounded-xl bg-default border border-border">
                                 {type === 'training' ? (
                                     <>
-                                        <RangeInput label="Days" minValue={minDays} maxValue={maxDays} onMinChange={setMinDays} onMaxChange={setMaxDays} />
-                                        <RangeInput label="Exercises" minValue={minExercises} maxValue={maxExercises} onMinChange={setMinExercises} onMaxChange={setMaxExercises} />
+                                        <RangeInput label={tTraining('daysSection')} minValue={minDays} maxValue={maxDays} onMinChange={setMinDays} onMaxChange={setMaxDays} />
+                                        <RangeInput label={tTraining('exercises')} minValue={minExercises} maxValue={maxExercises} onMinChange={setMinExercises} onMaxChange={setMaxExercises} />
                                     </>
                                 ) : (
                                     <>
-                                        <RangeInput label="Calories" minValue={minCalories} maxValue={maxCalories} onMinChange={setMinCalories} onMaxChange={setMaxCalories} unit="kcal" />
-                                        <RangeInput label="Protein" minValue={minProtein} maxValue={maxProtein} onMinChange={setMinProtein} onMaxChange={setMaxProtein} unit="g" />
-                                        <RangeInput label="Carbs" minValue={minCarbs} maxValue={maxCarbs} onMinChange={setMinCarbs} onMaxChange={setMaxCarbs} unit="g" />
-                                        <RangeInput label="Fat" minValue={minFats} maxValue={maxFats} onMinChange={setMinFats} onMaxChange={setMaxFats} unit="g" />
+                                        <RangeInput label={tNutrition('caloriesLabel')} minValue={minCalories} maxValue={maxCalories} onMinChange={setMinCalories} onMaxChange={setMaxCalories} unit="kcal" />
+                                        <RangeInput label={tNutrition('protein')} minValue={minProtein} maxValue={maxProtein} onMinChange={setMinProtein} onMaxChange={setMaxProtein} unit="g" />
+                                        <RangeInput label={tNutrition('carbs')} minValue={minCarbs} maxValue={maxCarbs} onMinChange={setMinCarbs} onMaxChange={setMaxCarbs} unit="g" />
+                                        <RangeInput label={tNutrition('fat')} minValue={minFats} maxValue={maxFats} onMinChange={setMinFats} onMaxChange={setMaxFats} unit="g" />
                                     </>
                                 )}
 
                                 {creators.length > 0 && (
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Created by</span>
+                                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{tFilter('createdBy')}</span>
                                         <select
                                             value={creatorFilter}
                                             onChange={(e) => setCreatorFilter(e.target.value)}
                                             className="text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:border-primary"
                                         >
-                                            <option value="">All members</option>
+                                            <option value="">{tFilter('allMembers')}</option>
                                             {creators.map((name) => (
                                                 <option key={name} value={name}>{name}</option>
                                             ))}
@@ -283,7 +289,7 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                                     : !loading && `${filteredPlans.length} of ${plans.length} plans`}
                             </p>
                             <div className="flex gap-2">
-                                <Button variant="outline" onClick={onClose}>Cancel</Button>
+                                <Button variant="outline" onClick={onClose}>{tModal('cancel')}</Button>
                                 <Button
                                     variant="primary"
                                     isDisabled={!selectedPlanId}

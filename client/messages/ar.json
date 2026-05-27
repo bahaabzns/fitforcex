@@ -241,6 +241,10 @@
     "notes": "ملاحظات",
     "addMealNote": "أضف ملاحظة للوجبة...",
     "calories": "سعرة",
+    "caloriesLabel": "سعرات حرارية",
+    "protein": "بروتين",
+    "carbs": "كربوهيدرات",
+    "fat": "دهون",
     "removeFoodItem": "إزالة الصنف الغذائي",
     "removeAlternative": "إزالة البديل",
     "cycles": "دورة/دورات",
@@ -330,7 +334,10 @@
     "schedule": "جدولة",
     "noActiveForms": "لا توجد استمارات نشطة. قم بتفعيل استمارة أولاً.",
     "sendRequest": "إرسال الطلب",
-    "sending": "جارٍ الإرسال…"
+    "sending": "جارٍ الإرسال…",
+    "setToActive": "تعيين كنشط",
+    "duplicateForm": "تكرار الاستمارة",
+    "deleteForm": "حذف الاستمارة"
   },
   "plansQueue": {
     "title": "قائمة الخطط",
@@ -433,6 +440,33 @@
     "downloadInvoice": "تحميل الفاتورة",
     "pay": "ادفع"
   },
+  "paymentMethods": {
+    "title": "طرق الدفع",
+    "subtitle": "قم بإعداد طرق الدفع التي تقبلها من العملاء.",
+    "total": "الإجمالي",
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "activeCount": "{count} نشط",
+    "nameLabel": "الاسم",
+    "typeLabel": "النوع",
+    "statusLabel": "الحالة",
+    "createdLabel": "تاريخ الإنشاء",
+    "typeCash": "نقداً",
+    "typeCard": "بطاقة",
+    "typeWallet": "محفظة",
+    "typeBankTransfer": "تحويل بنكي",
+    "newMethodTitle": "طريقة دفع جديدة",
+    "namePlaceholder": "مثال: فودافون كاش، بطاقة فيزا...",
+    "createMethod": "إنشاء طريقة دفع",
+    "newMethod": "+ طريقة جديدة",
+    "searchPlaceholder": "ابحث في طرق الدفع...",
+    "save": "حفظ",
+    "errorNameRequired": "الاسم مطلوب",
+    "errorUpdate": "فشل التحديث",
+    "errorSave": "فشل حفظ التغييرات",
+    "errorDelete": "فشل الحذف",
+    "errorCreate": "فشل إنشاء طريقة الدفع."
+  },
   "team": {
     "members": "الأعضاء",
     "invitations": "الدعوات",
@@ -462,6 +496,9 @@
     "next": "التالي",
     "clearAll": "مسح الكل",
     "showLess": "عرض أقل",
+    "showMore": "+{count} المزيد",
+    "filterButton": "فلتر",
+    "selectedCount": "{n} من {total} محدد",
     "loading": "جارٍ التحميل...",
     "noResults": "لا توجد نتائج تطابق بحثك",
     "searchExercises": "البحث عن تمارين...",
@@ -510,9 +547,16 @@
     "nameAr": "الاسم (عربي)",
     "instructionsEn": "التعليمات (إنجليزية)",
     "instructionsAr": "التعليمات (عربية)",
-    "optional": "اختياري"
+    "optional": "اختياري",
+    "min": "أدنى",
+    "max": "أقصى"
   },
   "portal": {
+    "sidebar": {
+      "nutritionPlan": "خطة التغذية",
+      "trainingPlan": "خطة التدريب",
+      "forms": "الاستمارات"
+    },
     "forms": {
       "title": "الاستمارات",
       "filterAll": "الكل",

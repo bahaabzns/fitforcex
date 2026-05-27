@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Disclosure, DisclosureGroup, Surface } from "@heroui/react";
 
@@ -48,6 +49,7 @@ export default function FormsPanel({
     handleDeleteForm,
     handleDuplicateForm,
 }) {
+    const tNutrition = useTranslations('nutrition');
     const [expandedKeys, setExpandedKeys] = useState(new Set(["forms"]));
 
     return (
@@ -82,8 +84,8 @@ export default function FormsPanel({
                                 {/* Sort Pills */}
                                 <div className="flex gap-2 mb-4 shrink-0">
                                     {[
-                                        { value: "created_desc", label: "Newest" },
-                                        { value: "created_asc",  label: "Oldest" },
+                                        { value: "created_desc", label: tNutrition('newest') },
+                                        { value: "created_asc",  label: tNutrition('oldest') },
                                         { value: "a-z",          label: "A–Z" },
                                     ].map(({ value, label }) => (
                                         <button
@@ -147,6 +149,7 @@ export default function FormsPanel({
 }
 
 function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onDuplicate }) {
+    const tForms = useTranslations('forms');
     const titleRef = useRef(null);
 
     return (
@@ -182,7 +185,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                 {form.status !== 'active' && (
                     <button
-                        title="Set to Active"
+                        title={tForms('setToActive')}
                         className="cursor-pointer px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:border-green-500 hover:text-green-600 hover:bg-green-500/10 text-xs font-medium transition-colors"
                         onClick={(e) => { e.stopPropagation(); onUpdate({ status: 'active' }); }}
                     >
@@ -190,14 +193,14 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                     </button>
                 )}
                 <button
-                    title="Duplicate form"
+                    title={tForms('duplicateForm')}
                     className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
                     onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
                 >
                     <DuplicateIcon />
                 </button>
                 <button
-                    title="Delete form"
+                    title={tForms('deleteForm')}
                     className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 >

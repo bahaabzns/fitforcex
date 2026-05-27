@@ -241,6 +241,10 @@
     "notes": "Notes",
     "addMealNote": "Add a meal note...",
     "calories": "kcal",
+    "caloriesLabel": "Calories",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fat": "Fat",
     "removeFoodItem": "Remove food item",
     "removeAlternative": "Remove alternative",
     "cycles": "cycle(s)",
@@ -330,7 +334,10 @@
     "schedule": "Schedule",
     "noActiveForms": "No active forms available. Activate a form first.",
     "sendRequest": "Send Request",
-    "sending": "Sending…"
+    "sending": "Sending…",
+    "setToActive": "Set to Active",
+    "duplicateForm": "Duplicate form",
+    "deleteForm": "Delete form"
   },
   "plansQueue": {
     "title": "Plans Queue",
@@ -433,6 +440,33 @@
     "downloadInvoice": "Download Invoice",
     "pay": "Pay"
   },
+  "paymentMethods": {
+    "title": "Payment Methods",
+    "subtitle": "Configure the payment methods you accept from clients.",
+    "total": "Total",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activeCount": "{count} active",
+    "nameLabel": "Name",
+    "typeLabel": "Type",
+    "statusLabel": "Status",
+    "createdLabel": "Created",
+    "typeCash": "Cash",
+    "typeCard": "Card",
+    "typeWallet": "Wallet",
+    "typeBankTransfer": "Bank Transfer",
+    "newMethodTitle": "New Payment Method",
+    "namePlaceholder": "e.g. Vodafone Cash, Visa Card...",
+    "createMethod": "Create Method",
+    "newMethod": "+ New Method",
+    "searchPlaceholder": "Search payment methods...",
+    "save": "Save",
+    "errorNameRequired": "Name is required",
+    "errorUpdate": "Failed to update",
+    "errorSave": "Failed to save changes",
+    "errorDelete": "Failed to delete",
+    "errorCreate": "Failed to create payment method."
+  },
   "team": {
     "members": "Members",
     "invitations": "Invitations",
@@ -462,6 +496,9 @@
     "next": "Next",
     "clearAll": "Clear all",
     "showLess": "Show less",
+    "showMore": "+{count} more",
+    "filterButton": "Filter",
+    "selectedCount": "{n} of {total} selected",
     "loading": "Loading...",
     "noResults": "No results match your search",
     "searchExercises": "Search exercises...",
@@ -510,9 +547,16 @@
     "nameAr": "Name (Arabic)",
     "instructionsEn": "Instructions (English)",
     "instructionsAr": "Instructions (Arabic)",
-    "optional": "optional"
+    "optional": "optional",
+    "min": "Min",
+    "max": "Max"
   },
   "portal": {
+    "sidebar": {
+      "nutritionPlan": "Nutrition Plan",
+      "trainingPlan": "Training Plan",
+      "forms": "Forms"
+    },
     "forms": {
       "title": "Forms",
       "filterAll": "All",

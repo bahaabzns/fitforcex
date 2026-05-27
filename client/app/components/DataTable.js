@@ -15,6 +15,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { Kbd } from "@heroui/react/kbd";
 import { Description } from "@heroui/react/description";
 import { parseDate } from "@internationalized/date";
+import { useTranslations } from "next-intl";
 
 // ============================================================
 // DataTable — Reusable filterable/sortable table using HeroUI
@@ -49,6 +50,8 @@ export default function DataTable({
     quickSearch,
     toolbarEnd,
 }) {
+    const t = useTranslations('filter');
+
     // ── Quick search ──────────────────────────────────────────
     const [quickSearchValue, setQuickSearchValue] = useState("");
     const [searchFocused, setSearchFocused] = useState(false);
@@ -308,7 +311,7 @@ export default function DataTable({
                             onClick={() => setAddFilterOpen(v => !v)}
                         >
                             <ListFilter size={14} />
-                            Filter
+                            {t('filterButton')}
                         </Button>
                         {addFilterOpen && (
                             <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
@@ -450,7 +453,7 @@ export default function DataTable({
                         );
                     })}
                     <Button size="sm" variant="ghost" onClick={() => setFilterRules([])}>
-                        Clear all
+                        {t('clearAll')}
                     </Button>
                 </div>
             )}
@@ -587,7 +590,7 @@ export default function DataTable({
                             size="sm"
                         >
                             <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-3! gap-2 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                                <span className="text-sm leading-none">Rows per page</span>
+                                <span className="text-sm leading-none">{t('rowsPerPage')}</span>
                                 <Select.Value className="text-sm font-medium leading-none" />
                                 <ChevronsUpDown size={13} className="shrink-0" />
                             </Select.Trigger>
@@ -608,7 +611,7 @@ export default function DataTable({
                     <div className="flex items-center gap-3 px-3">
                         {selectable && (
                             <span className="text-sm text-muted-foreground">
-                                {selectedKeys?.size ?? 0} of {sortedData.length} selected
+                                {t('selectedCount', { n: selectedKeys?.size ?? 0, total: sortedData.length })}
                             </span>
                         )}
                         <Button
@@ -617,7 +620,7 @@ export default function DataTable({
                             isDisabled={safePage === 1}
                             onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                         >
-                            Previous
+                            {t('previous')}
                         </Button>
                         <Button
                             size="sm"
@@ -625,7 +628,7 @@ export default function DataTable({
                             isDisabled={safePage === totalPages}
                             onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         >
-                            Next
+                            {t('next')}
                         </Button>
                     </div>
                 </div>
@@ -696,7 +699,7 @@ export default function DataTable({
                                     <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path d="M19 9l-7 7-7-7" />
                                     </svg>
-                                    {isExpanded ? "Show less" : `+${secondaryCols.length} more`}
+                                    {isExpanded ? t('showLess') : t('showMore', { count: secondaryCols.length })}
                                 </Button>
                             )}
 
