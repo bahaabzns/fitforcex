@@ -280,7 +280,9 @@
     "formSubmissions": "Form Submissions",
     "noSubmittedForms": "No submitted forms yet",
     "noResponses": "No responses recorded",
-    "selectPlanHint": "Select a training plan to view details"
+    "selectPlanHint": "Select a training plan to view details",
+    "dayCount": "{count, plural, one {# day} other {# days}}",
+    "exerciseCount": "{count, plural, one {# exercise} other {# exercises}}"
   },
   "nutrition": {
     "savePlan": "Save Plan",
@@ -401,7 +403,8 @@
     "foodNoItems": "No food items in this category",
     "foodSelectedCount": "{count} items selected",
     "foodResetSelection": "Reset Selection",
-    "foodAddSelected": "Add Selected"
+    "foodAddSelected": "Add Selected",
+    "cycleCount": "{count, plural, one {# cycle} other {# cycles}}"
   },
   "forms": {
     "createForm": "+ New Form",
@@ -473,7 +476,10 @@
     "sending": "Sending…",
     "setToActive": "Set to Active",
     "duplicateForm": "Duplicate form",
-    "deleteForm": "Delete form"
+    "deleteForm": "Delete form",
+    "active": "Active",
+    "edited": "edited",
+    "questionCount": "{count, plural, one {# question} other {# questions}}"
   },
   "plansQueue": {
     "title": "Plans Queue",
@@ -885,14 +891,21 @@
     "searchFood": "Search for food...",
     "searchPlanName": "Search by plan name...",
     "allMembers": "All members",
-    "createdBy": "Created by"
+    "createdBy": "Created by",
+    "noPlansYet": "No plans in this workspace yet.",
+    "noPlansMatch": "No plans match the current filters.",
+    "plansCount": "{filtered} of {total} plans"
   },
   "modal": {
     "cancel": "Cancel",
     "save": "Save",
     "delete": "Delete",
     "close": "Close",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "loadTrainingPlan": "Load Training Plan",
+    "loadNutritionPlan": "Load Nutrition Plan",
+    "loadSelectedPlan": "Load Selected Plan",
+    "loadFailed": "Could not load this plan — please try again."
   },
   "common": {
     "justNow": "just now",
@@ -929,7 +942,9 @@
     "instructionsAr": "Instructions (Arabic)",
     "optional": "optional",
     "min": "Min",
-    "max": "Max"
+    "max": "Max",
+    "unknownClient": "Unknown client",
+    "byCreator": "· by {name}"
   },
   "portal": {
     "sidebar": {

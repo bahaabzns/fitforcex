@@ -77,7 +77,7 @@ export default function ClientSidebar() {
             <nav className="flex-1 overflow-y-auto px-3 py-2">
                 {!collapsed && (
                     <p className="px-2.5 pb-1.5 text-xs font-medium text-muted-foreground tracking-wide">
-                        Navigation
+                        {tSidebar('navigation')}
                     </p>
                 )}
                 <ul className="flex flex-col gap-0.5">

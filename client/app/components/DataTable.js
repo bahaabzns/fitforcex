@@ -710,7 +710,7 @@ export default function DataTable({
             </div>
 
             {sortedData.length === 0 && (
-                <p className="text-muted-foreground mt-6 text-sm">No results match the current filters.</p>
+                <p className="text-muted-foreground mt-6 text-sm">{t('noResults')}</p>
             )}
         </div>
     );

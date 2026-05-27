@@ -280,7 +280,9 @@
     "formSubmissions": "الاستمارات المُرسلة",
     "noSubmittedForms": "لا توجد استمارات مُرسلة بعد",
     "noResponses": "لا توجد ردود مسجلة",
-    "selectPlanHint": "اختر خطة تدريبية لعرض تفاصيلها"
+    "selectPlanHint": "اختر خطة تدريبية لعرض تفاصيلها",
+    "dayCount": "{count, plural, one {# يوم} two {# يومان} few {# أيام} many {# يوماً} other {# أيام}}",
+    "exerciseCount": "{count, plural, one {# تمرين} two {# تمرينان} few {# تمارين} many {# تمريناً} other {# تمارين}}"
   },
   "nutrition": {
     "savePlan": "حفظ الخطة",
@@ -401,7 +403,8 @@
     "foodNoItems": "لا توجد عناصر طعام في هذه الفئة",
     "foodSelectedCount": "{count} عناصر محددة",
     "foodResetSelection": "إعادة تعيين التحديد",
-    "foodAddSelected": "إضافة المحدد"
+    "foodAddSelected": "إضافة المحدد",
+    "cycleCount": "{count, plural, one {# دورة} two {# دورتان} few {# دورات} many {# دورات} other {# دورات}}"
   },
   "forms": {
     "createForm": "+ استمارة جديدة",
@@ -473,7 +476,10 @@
     "sending": "جارٍ الإرسال…",
     "setToActive": "تعيين كنشط",
     "duplicateForm": "تكرار الاستمارة",
-    "deleteForm": "حذف الاستمارة"
+    "deleteForm": "حذف الاستمارة",
+    "active": "نشط",
+    "edited": "عُدِّل",
+    "questionCount": "{count, plural, one {# سؤال} two {# سؤالان} few {# أسئلة} many {# سؤالاً} other {# أسئلة}}"
   },
   "plansQueue": {
     "title": "قائمة الخطط",
@@ -885,14 +891,21 @@
     "searchFood": "البحث عن طعام...",
     "searchPlanName": "البحث باسم الخطة...",
     "allMembers": "كل الأعضاء",
-    "createdBy": "أنشأه"
+    "createdBy": "أنشأه",
+    "noPlansYet": "لا توجد خطط في هذه المساحة بعد.",
+    "noPlansMatch": "لا توجد خطط تطابق الفلاتر الحالية.",
+    "plansCount": "{filtered} من {total} خطة"
   },
   "modal": {
     "cancel": "إلغاء",
     "save": "حفظ",
     "delete": "حذف",
     "close": "إغلاق",
-    "confirm": "تأكيد"
+    "confirm": "تأكيد",
+    "loadTrainingPlan": "تحميل خطة تدريب",
+    "loadNutritionPlan": "تحميل خطة تغذية",
+    "loadSelectedPlan": "تحميل الخطة المحددة",
+    "loadFailed": "تعذّر تحميل هذه الخطة — يرجى المحاولة مجدداً."
   },
   "common": {
     "justNow": "الآن",
@@ -929,7 +942,9 @@
     "instructionsAr": "التعليمات (عربية)",
     "optional": "اختياري",
     "min": "أدنى",
-    "max": "أقصى"
+    "max": "أقصى",
+    "unknownClient": "عميل غير معروف",
+    "byCreator": "· بواسطة {name}"
   },
   "portal": {
     "sidebar": {

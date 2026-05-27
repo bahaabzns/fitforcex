@@ -3,19 +3,19 @@ import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Disclosure, DisclosureGroup, Surface } from "@heroui/react";
 
-function formatRelativeTime(dateStr) {
+function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return "yesterday";
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
-    return `${Math.floor(diffDays / 365)}y ago`;
+    if (diffMins < 1) return t('justNow');
+    if (diffMins < 60) return t('minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('hoursAgo', { count: diffHours });
+    if (diffDays === 1) return t('yesterday');
+    if (diffDays < 7) return t('daysAgo', { count: diffDays });
+    if (diffDays < 30) return t('weeksAgo', { count: Math.floor(diffDays / 7) });
+    if (diffDays < 365) return t('monthsAgo', { count: Math.floor(diffDays / 30) });
+    return t('yearsAgo', { count: Math.floor(diffDays / 365) });
 }
 
 const CheckIcon = () => (
@@ -150,6 +150,7 @@ export default function FormsPanel({
 
 function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onDuplicate }) {
     const tForms = useTranslations('forms');
+    const tCommon = useTranslations('common');
     const titleRef = useRef(null);
 
     return (
@@ -170,14 +171,14 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                     <p className="text-sm font-medium truncate text-foreground flex-1">{form.title}</p>
                     {form.status === 'active' && (
                         <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 text-xs font-semibold">
-                            <CheckIcon /> Active
+                            <CheckIcon /> {tForms('active')}
                         </span>
                     )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                    {form.question_count} {form.question_count === 1 ? "question" : "questions"}
+                    {tForms('questionCount', { count: form.question_count ?? 0 })}
                     {" · "}
-                    edited {formatRelativeTime(form.updated_at)}
+                    {tForms('edited')} {formatRelativeTime(form.updated_at, tCommon)}
                 </p>
             </div>
 
