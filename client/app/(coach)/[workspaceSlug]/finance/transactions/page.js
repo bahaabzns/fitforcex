@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
@@ -34,7 +35,6 @@ function subStatusColor(s) {
     }
 }
 
-
 function convert(amount, fromCurrency, toCurrency) {
     if (fromCurrency === toCurrency) return amount;
     return (amount * (EXCHANGE_RATES[fromCurrency] || 1)) / (EXCHANGE_RATES[toCurrency] || 1);
@@ -43,12 +43,13 @@ function convert(amount, fromCurrency, toCurrency) {
 function parseTransactionDate(dateStr) { return new Date(dateStr); }
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 
-function fmtDate(d) {
-    return d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
+function fmtDate(d, locale) {
+    return d ? new Date(d).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }) : "—";
 }
 
 // --- SEARCHABLE CLIENT SELECT ---
 function SearchableClientSelect({ clients, selected, onSelect }) {
+    const t = useTranslations('transactions');
     const [query, setQuery] = useState("");
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
@@ -84,7 +85,7 @@ function SearchableClientSelect({ clients, selected, onSelect }) {
                 onClick={() => {
                     if (selected) { onSelect(null); setQuery(""); setOpen(true); }
                 }}
-                placeholder="Search by name, phone, or code..."
+                placeholder={t('clientSearchPlaceholder')}
                 className={inputCls}
                 autoComplete="off"
             />
@@ -125,38 +126,41 @@ function SearchableClientSelect({ clients, selected, onSelect }) {
 
 // --- TRANSACTIONS TABLE ---
 function TransactionsTable({ transactions, allClientNames, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
+    const t = useTranslations('transactions');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
     const [filteredRows, setFilteredRows] = useState(transactions);
     const [displayCurrency, setDisplayCurrency] = useState("EGP");
 
-    const clientNames       = [...new Set([...allClientNames,       ...transactions.map(t => t.clientName).filter(Boolean)])];
-    const packageVariations = [...new Set([...allPackageVariations, ...transactions.map(t => t.packageVariation).filter(Boolean)])];
-    const paymentMethods    = [...new Set([...allPaymentMethods,    ...transactions.map(t => t.paymentMethod).filter(Boolean)])];
+    const clientNames       = [...new Set([...allClientNames,       ...transactions.map(tx => tx.clientName).filter(Boolean)])];
+    const packageVariations = [...new Set([...allPackageVariations, ...transactions.map(tx => tx.packageVariation).filter(Boolean)])];
+    const paymentMethods    = [...new Set([...allPaymentMethods,    ...transactions.map(tx => tx.paymentMethod).filter(Boolean)])];
 
     function convertedSum(rows) {
-        return rows.reduce((sum, t) => sum + convert(t.amount, t.currency, displayCurrency), 0);
+        return rows.reduce((sum, tx) => sum + convert(tx.amount, tx.currency, displayCurrency), 0);
     }
 
-    const totalCompleted = convertedSum(filteredRows.filter(t => t.status === "completed"));
-    const totalRefunded  = convertedSum(filteredRows.filter(t => t.status === "refunded"));
+    const totalCompleted = convertedSum(filteredRows.filter(tx => tx.status === "completed"));
+    const totalRefunded  = convertedSum(filteredRows.filter(tx => tx.status === "refunded"));
 
     const byPaymentMethod = {};
-    for (const t of filteredRows) {
-        if (!byPaymentMethod[t.paymentMethod]) byPaymentMethod[t.paymentMethod] = 0;
-        byPaymentMethod[t.paymentMethod] += convert(t.amount, t.currency, displayCurrency);
+    for (const tx of filteredRows) {
+        if (!byPaymentMethod[tx.paymentMethod]) byPaymentMethod[tx.paymentMethod] = 0;
+        byPaymentMethod[tx.paymentMethod] += convert(tx.amount, tx.currency, displayCurrency);
     }
 
     const byCurrency = {};
-    for (const t of filteredRows) {
-        if (!byCurrency[t.currency]) byCurrency[t.currency] = 0;
-        byCurrency[t.currency] += t.amount;
+    for (const tx of filteredRows) {
+        if (!byCurrency[tx.currency]) byCurrency[tx.currency] = 0;
+        byCurrency[tx.currency] += tx.amount;
     }
 
     const columns = [
-        { key: "id", label: "#", filterType: "text", sortable: true },
-        { key: "clientName", label: "Client", filterType: "multi", options: clientNames, sortable: true },
+        { key: "id", label: t('colId'), filterType: "text", sortable: true },
+        { key: "clientName", label: t('colClient'), filterType: "multi", options: clientNames, sortable: true },
         {
             key: "packageVariation",
-            label: "Package",
+            label: t('colPackage'),
             filterType: "multi",
             options: packageVariations,
             sortable: true,
@@ -164,22 +168,22 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         },
         {
             key: "amount",
-            label: "Amount",
+            label: t('colAmount'),
             sortable: true,
             render: (row) => <span className="font-medium text-foreground">{row.amount.toLocaleString()} {row.currency}</span>,
         },
         {
             key: "duration",
-            label: "Duration",
+            label: t('colDuration'),
             sortable: true,
             render: (row) => row.duration
-                ? <span className="text-muted-foreground">{row.duration} days</span>
+                ? <span className="text-muted-foreground">{t('durationDays', { count: row.duration })}</span>
                 : <span className="text-muted-foreground">—</span>,
         },
-        { key: "paymentMethod", label: "Method", filterType: "multi", options: paymentMethods, sortable: true },
+        { key: "paymentMethod", label: t('colMethod'), filterType: "multi", options: paymentMethods, sortable: true },
         {
             key: "status",
-            label: "Pay Status",
+            label: t('colPayStatus'),
             filterType: "multi",
             options: ["completed", "refunded"],
             sortable: true,
@@ -191,7 +195,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         },
         {
             key: "_subStatus",
-            label: "Sub Status",
+            label: t('colSubStatus'),
             filterType: "multi",
             options: ["Active", "Pre-start", "Expired", "Refunded"],
             render: (row) => {
@@ -203,20 +207,20 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         },
         {
             key: "date",
-            label: "Transaction Date",
+            label: t('colTxDate'),
             filterType: "dateRange",
             sortable: true,
-            render: (row) => fmtDate(row.date),
+            render: (row) => fmtDate(row.date, locale),
         },
         {
             key: "createdAt",
-            label: "Created",
+            label: t('colCreated'),
             sortable: true,
-            render: (row) => fmtDate(row.createdAt),
+            render: (row) => fmtDate(row.createdAt, locale),
         },
         {
             key: "_proof",
-            label: "Proof",
+            label: t('colProof'),
             render: (row) => row.proofImage ? (
                 <a
                     href={`${process.env.NEXT_PUBLIC_API_URL}${row.proofImage}`}
@@ -224,7 +228,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                     rel="noreferrer"
                     className="text-xs text-primary hover:underline"
                 >
-                    View
+                    {t('view')}
                 </a>
             ) : <span className="text-muted-foreground text-xs">—</span>,
         },
@@ -235,17 +239,17 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 <div className="flex gap-2 justify-end whitespace-nowrap">
                     {onEdit && (
                         <button onClick={() => onEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer transition-colors">
-                            Edit
+                            {tCommon('edit')}
                         </button>
                     )}
                     {row.status === "completed" && onStatusChange && (
                         <button onClick={() => onStatusChange(row.id, "refunded")} className="text-xs text-orange-500 hover:text-orange-600 cursor-pointer transition-colors">
-                            Refund
+                            {t('refundAction')}
                         </button>
                     )}
                     {onDelete && (
                         <button onClick={() => onDelete(row.id)} className="text-xs text-destructive hover:text-red-700 cursor-pointer transition-colors">
-                            Delete
+                            {tCommon('delete')}
                         </button>
                     )}
                 </div>
@@ -257,7 +261,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         <>
             {/* Currency selector */}
             <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-xs font-medium uppercase">Display currency</span>
+                <span className="text-muted-foreground text-xs font-medium uppercase">{t('displayCurrency')}</span>
                 <select
                     value={displayCurrency}
                     onChange={(e) => setDisplayCurrency(e.target.value)}
@@ -271,7 +275,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             <div className="flex flex-wrap gap-3">
                 <Card>
                     <Card.Content className="px-4 py-3">
-                        <p className="text-muted-foreground text-xs font-medium uppercase">Completed</p>
+                        <p className="text-muted-foreground text-xs font-medium uppercase">{t('completed')}</p>
                         <p className="text-green-600 text-lg font-bold mt-0.5">
                             {Math.round(totalCompleted).toLocaleString()} {displayCurrency}
                         </p>
@@ -279,7 +283,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 </Card>
                 <Card>
                     <Card.Content className="px-4 py-3">
-                        <p className="text-muted-foreground text-xs font-medium uppercase">Refunded</p>
+                        <p className="text-muted-foreground text-xs font-medium uppercase">{t('refunded')}</p>
                         <p className="text-destructive text-lg font-bold mt-0.5">
                             {Math.round(totalRefunded).toLocaleString()} {displayCurrency}
                         </p>
@@ -319,7 +323,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
                 rowKey="id"
                 dateParser={parseTransactionDate}
                 onFilteredDataChange={setFilteredRows}
-                quickSearch={{ fields: ["clientName", "packageVariation"], placeholder: "Search by client or package..." }}
+                quickSearch={{ fields: ["clientName", "packageVariation"], placeholder: t('searchPlaceholder') }}
                 toolbarEnd={toolbarEnd}
             />
         </>
@@ -328,6 +332,10 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
 
 // --- PAGE ---
 export default function TransactionsPage() {
+    const t = useTranslations('transactions');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
+
     const [transactions, setTransactions]     = useState([]);
     const [clients, setClients]               = useState([]);
     const [packages, setPackages]             = useState([]);
@@ -416,9 +424,9 @@ export default function TransactionsPage() {
     async function handleSubmit(e) {
         e.preventDefault();
         setFormError("");
-        if (!selectedClient) { setFormError("Client is required."); return; }
-        if (!selectedPkgKey) { setFormError("Package is required."); return; }
-        if (!formPaymentMethod) { setFormError("Payment method is required."); return; }
+        if (!selectedClient) { setFormError(t('errorClientRequired')); return; }
+        if (!selectedPkgKey) { setFormError(t('errorPackageRequired')); return; }
+        if (!formPaymentMethod) { setFormError(t('errorMethodRequired')); return; }
 
         setSubmitting(true);
         try {
@@ -448,14 +456,14 @@ export default function TransactionsPage() {
 
             if (editingTx) {
                 const res = await api.put("/api/transactions", { id: editingTx.id, ...payload });
-                setTransactions(prev => prev.map(t => t.id === editingTx.id ? res.data : t));
+                setTransactions(prev => prev.map(tx => tx.id === editingTx.id ? res.data : tx));
             } else {
                 const res = await api.post("/api/transactions", payload);
                 setTransactions(prev => [res.data, ...prev]);
             }
             closeForm();
         } catch (err) {
-            setFormError(err.response?.data?.error || "Failed to save transaction.");
+            setFormError(err.response?.data?.error || t('errorSave'));
         } finally {
             setSubmitting(false);
         }
@@ -464,17 +472,17 @@ export default function TransactionsPage() {
     async function handleStatusChange(id, status) {
         try {
             const res = await api.put("/api/transactions", { id, status });
-            setTransactions(prev => prev.map(t => t.id === id ? res.data : t));
+            setTransactions(prev => prev.map(tx => tx.id === id ? res.data : tx));
         } catch (err) {
             console.error(err);
         }
     }
 
     async function handleDelete(id) {
-        if (!confirm("Delete this transaction? This cannot be undone.")) return;
+        if (!confirm(t('deleteConfirm'))) return;
         try {
             await api.delete(`/api/transactions?id=${id}`);
-            setTransactions(prev => prev.filter(t => t.id !== id));
+            setTransactions(prev => prev.filter(tx => tx.id !== id));
         } catch (err) {
             console.error(err);
         }
@@ -483,7 +491,7 @@ export default function TransactionsPage() {
     if (loading) {
         return (
             <div className="p-8 flex flex-col gap-6">
-                <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
+                <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
@@ -495,17 +503,17 @@ export default function TransactionsPage() {
         <div className="p-8 flex flex-col gap-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
-                <p className="text-sm text-muted-foreground mt-1">Track all financial transactions across your workspace.</p>
+                <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
 
             {/* Create / Edit Modal */}
-            <Modal open={showForm} onClose={closeForm} title={editingTx ? "Edit Transaction" : "New Transaction"} wide>
+            <Modal open={showForm} onClose={closeForm} title={editingTx ? t('editTransactionTitle') : t('newTransactionTitle')} wide>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
                     {/* Client */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Client *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('clientLabel')} *</label>
                         <SearchableClientSelect
                             clients={clients}
                             selected={selectedClient}
@@ -520,7 +528,7 @@ export default function TransactionsPage() {
 
                     {/* Package */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Package *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('packageLabel')} *</label>
                         <select
                             value={selectedPkgKey}
                             onChange={e => {
@@ -530,35 +538,35 @@ export default function TransactionsPage() {
                             }}
                             className={`${inputCls} ${!selectedPkgKey ? "text-muted-foreground" : ""}`}
                         >
-                            <option value="">— Select a package —</option>
+                            <option value="">{t('selectPackage')}</option>
                             {packageVariationOptions.map(p => (
                                 <option key={p.key} value={p.key}>{p.label}</option>
                             ))}
                         </select>
                         {selectedPkg && (
                             <div className="flex gap-4 mt-2 px-1 text-xs text-muted-foreground">
-                                <span>Duration: <span className="text-foreground font-semibold">{selectedPkg.duration} days</span></span>
-                                <span>Price: <span className="text-foreground font-semibold">{selectedPkg.price.toLocaleString()} {selectedPkg.currency}</span></span>
+                                <span>{t('durationInfo')} <span className="text-foreground font-semibold">{t('durationDays', { count: selectedPkg.duration })}</span></span>
+                                <span>{t('priceInfo')} <span className="text-foreground font-semibold">{selectedPkg.price.toLocaleString(locale)} {selectedPkg.currency}</span></span>
                             </div>
                         )}
                     </div>
 
                     {/* Payment Method */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Payment Method *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('paymentMethodLabel')} *</label>
                         <select
                             value={formPaymentMethod}
                             onChange={e => setFormPaymentMethod(e.target.value)}
                             className={`${inputCls} ${!formPaymentMethod ? "text-muted-foreground" : ""}`}
                         >
-                            <option value="">— Select method —</option>
+                            <option value="">{t('selectMethod')}</option>
                             {allPaymentMethodNames.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
 
                     {/* Transaction Date */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Transaction Date</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('txDateLabel')}</label>
                         <input
                             type="date"
                             value={formDate}
@@ -570,7 +578,7 @@ export default function TransactionsPage() {
                     {/* Subscription Start Date */}
                     <div>
                         <label className="block text-sm text-muted-foreground mb-1">
-                            Subscription Start Date <span className="text-muted-foreground/60">(optional — leave empty to queue after current subscription)</span>
+                            {t('subStartDateLabel')} <span className="text-muted-foreground/60">{t('subStartDateHint')}</span>
                         </label>
                         <input
                             type="date"
@@ -584,17 +592,17 @@ export default function TransactionsPage() {
                                 onClick={() => setFormSubStartDate("")}
                                 className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
                             >
-                                Clear (use queue)
+                                {t('clearUseQueue')}
                             </button>
                         )}
                     </div>
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Notes <span className="text-muted-foreground/60">(optional)</span></label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></label>
                         <textarea
                             rows={2}
-                            placeholder="Any additional notes..."
+                            placeholder={t('notesPlaceholder')}
                             value={formNotes}
                             onChange={e => setFormNotes(e.target.value)}
                             className={`${inputCls} resize-none`}
@@ -603,7 +611,7 @@ export default function TransactionsPage() {
 
                     {/* Proof of transaction */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Proof of Transaction <span className="text-muted-foreground/60">(optional)</span></label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('proofLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></label>
                         {proofUrl && !proofFile && (
                             <div className="flex items-center gap-2 mb-2">
                                 <a
@@ -612,14 +620,14 @@ export default function TransactionsPage() {
                                     rel="noreferrer"
                                     className="text-xs text-primary hover:underline"
                                 >
-                                    View current proof
+                                    {t('viewCurrentProof')}
                                 </a>
                                 <button
                                     type="button"
                                     onClick={() => setProofUrl(null)}
                                     className="text-xs text-destructive hover:underline cursor-pointer"
                                 >
-                                    Remove
+                                    {t('removeProof')}
                                 </button>
                             </div>
                         )}
@@ -641,8 +649,8 @@ export default function TransactionsPage() {
                         fullWidth
                     >
                         {submitting
-                            ? (editingTx ? "Saving…" : "Recording…")
-                            : (editingTx ? "Save Changes" : "Record Transaction")}
+                            ? (editingTx ? t('saving') : t('recording'))
+                            : (editingTx ? t('saveChanges') : t('recordTransaction'))}
                     </Button>
                 </form>
             </Modal>
@@ -656,7 +664,7 @@ export default function TransactionsPage() {
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onEdit={openEdit}
-                toolbarEnd={<Button variant="primary" onClick={openCreate}>+ New Transaction</Button>}
+                toolbarEnd={<Button variant="primary" onClick={openCreate}>{t('newTransaction')}</Button>}
             />
         </div>
     );
