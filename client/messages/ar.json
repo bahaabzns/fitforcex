@@ -217,7 +217,17 @@
     "deleteConfirm": "حذف هذه المعاملة؟ لا يمكن التراجع عن هذا الإجراء.",
     "deleteFreezeFailed": "فشل إزالة التجميد.",
     "notesLabel": "ملاحظات",
-    "total": "الإجمالي"
+    "total": "الإجمالي",
+    "statusActive": "نشط",
+    "statusExpired": "منتهي",
+    "statusFrozen": "مجمّد",
+    "statusPreStart": "قبل البدء",
+    "statusRefunded": "مُسترجَع",
+    "timelineCurrent": "← الحالي",
+    "timelineQueued": "← في القائمة",
+    "timelineExpired": "← منتهي",
+    "storedPackage": "المحفوظ: {pkg}",
+    "noDuration": "بدون مدة"
   },
   "training": {
     "savePlan": "حفظ الخطة",

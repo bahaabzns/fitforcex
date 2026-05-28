@@ -220,8 +220,13 @@ export default function ClientTransactionsPage() {
             label: t('colSubStatus'),
             render: (tx) => {
                 const s = getPerTxStatus(tx, timeline, freezes, today);
+                const SUB_STATUS_LABELS = {
+                    Active: t('statusActive'), Expired: t('statusExpired'),
+                    Frozen: t('statusFrozen'), "Pre-start": t('statusPreStart'),
+                    Refunded: t('statusRefunded'),
+                };
                 return s
-                    ? <Chip size="sm" className={subStatusColor(s)}>{s}</Chip>
+                    ? <Chip size="sm" className={subStatusColor(s)}>{SUB_STATUS_LABELS[s] ?? s}</Chip>
                     : <span className="text-muted-foreground text-xs">—</span>;
             },
         },
@@ -602,8 +607,12 @@ export default function ClientTransactionsPage() {
                                 <div className="mt-2 flex flex-col gap-0.5">
                                     {timeline.map((p, i) => (
                                         <p key={i} className="text-xs text-muted-foreground">
-                                            {i === 0 ? "1st" : i === 1 ? "2nd" : `${i + 1}th`}: {fmtDate(p.start)} — {fmtDate(p.end)}
-                                            {today >= p.start && today < p.end ? " ← current" : today < p.start ? " ← queued" : " ← expired"}
+                                            {i + 1}. {fmtDate(p.start)} — {fmtDate(p.end)}
+                                            {today >= p.start && today < p.end
+                                                ? ` ${t('timelineCurrent')}`
+                                                : today < p.start
+                                                    ? ` ${t('timelineQueued')}`
+                                                    : ` ${t('timelineExpired')}`}
                                         </p>
                                     ))}
                                 </div>
@@ -781,7 +790,7 @@ export default function ClientTransactionsPage() {
                         )}
                         {!editPkg && editPkgKey && (
                             <p className="text-xs text-muted-foreground mt-1">
-                                Stored: {editPkgKey} · {editingTx?.amount} {editingTx?.currency} · {editingTx?.duration ? t('durationDays', { count: editingTx.duration }) : "no duration"}
+                                {t('storedPackage', { pkg: editPkgKey })} · {editingTx?.amount} {editingTx?.currency} · {editingTx?.duration ? t('durationDays', { count: editingTx.duration }) : t('noDuration')}
                             </p>
                         )}
                     </div>

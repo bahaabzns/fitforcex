@@ -217,7 +217,17 @@
     "deleteConfirm": "Delete this transaction? This cannot be undone.",
     "deleteFreezeFailed": "Failed to remove freeze.",
     "notesLabel": "Notes",
-    "total": "Total"
+    "total": "Total",
+    "statusActive": "Active",
+    "statusExpired": "Expired",
+    "statusFrozen": "Frozen",
+    "statusPreStart": "Pre-start",
+    "statusRefunded": "Refunded",
+    "timelineCurrent": "← current",
+    "timelineQueued": "← queued",
+    "timelineExpired": "← expired",
+    "storedPackage": "Stored: {pkg}",
+    "noDuration": "no duration"
   },
   "training": {
     "savePlan": "Save Plan",
