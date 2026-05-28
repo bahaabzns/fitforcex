@@ -292,7 +292,9 @@
     "noResponses": "لا توجد ردود مسجلة",
     "selectPlanHint": "اختر خطة تدريبية لعرض تفاصيلها",
     "dayCount": "{count, plural, one {# يوم} two {# يومان} few {# أيام} many {# يوماً} other {# أيام}}",
-    "exerciseCount": "{count, plural, one {# تمرين} two {# تمرينان} few {# تمارين} many {# تمريناً} other {# تمارين}}"
+    "exerciseCount": "{count, plural, one {# تمرين} two {# تمرينان} few {# تمارين} many {# تمريناً} other {# تمارين}}",
+    "untitledPlan": "خطة بدون عنوان",
+    "untitledDay": "يوم بدون عنوان"
   },
   "nutrition": {
     "savePlan": "حفظ الخطة",
@@ -414,7 +416,10 @@
     "foodSelectedCount": "{count} عناصر محددة",
     "foodResetSelection": "إعادة تعيين التحديد",
     "foodAddSelected": "إضافة المحدد",
-    "cycleCount": "{count, plural, one {# دورة} two {# دورتان} few {# دورات} many {# دورات} other {# دورات}}"
+    "cycleCount": "{count, plural, one {# دورة} two {# دورتان} few {# دورات} many {# دورات} other {# دورات}}",
+    "untitledPlan": "خطة بدون عنوان",
+    "untitledCycle": "دورة بدون عنوان",
+    "untitledMeal": "وجبة بدون عنوان"
   },
   "forms": {
     "createForm": "+ استمارة جديدة",

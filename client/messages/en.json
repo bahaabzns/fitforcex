@@ -292,7 +292,9 @@
     "noResponses": "No responses recorded",
     "selectPlanHint": "Select a training plan to view details",
     "dayCount": "{count, plural, one {# day} other {# days}}",
-    "exerciseCount": "{count, plural, one {# exercise} other {# exercises}}"
+    "exerciseCount": "{count, plural, one {# exercise} other {# exercises}}",
+    "untitledPlan": "Untitled Plan",
+    "untitledDay": "Untitled Day"
   },
   "nutrition": {
     "savePlan": "Save Plan",
@@ -414,7 +416,10 @@
     "foodSelectedCount": "{count} items selected",
     "foodResetSelection": "Reset Selection",
     "foodAddSelected": "Add Selected",
-    "cycleCount": "{count, plural, one {# cycle} other {# cycles}}"
+    "cycleCount": "{count, plural, one {# cycle} other {# cycles}}",
+    "untitledPlan": "Untitled Plan",
+    "untitledCycle": "Untitled Cycle",
+    "untitledMeal": "Untitled Meal"
   },
   "forms": {
     "createForm": "+ New Form",

@@ -55,7 +55,7 @@ export default function RightPanel({
                     type="text"
                     defaultValue={selectedMeal.name}
                     onBlur={(e) => {
-                        const trimmed = e.target.value.trim() || "Untitled Meal";
+                        const trimmed = e.target.value.trim() || t('untitledMeal');
                         e.target.value = trimmed;
                         if (trimmed !== selectedMeal.name) {
                             handleRenameMeal(selectedMeal.id, trimmed);

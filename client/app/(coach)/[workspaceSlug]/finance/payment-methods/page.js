@@ -261,7 +261,7 @@ export default function PaymentMethodsPage() {
                         <Card.Content className="p-6">
                             <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS_I18N[typeKey]}</p>
                             <p className="text-2xl font-bold text-foreground mt-1">{typeCounts[typeKey]}</p>
-                            <Chip size="sm" className={`text-xs mt-1 ${TYPE_COLORS[typeKey]}`}>{typeKey}</Chip>
+                            <Chip size="sm" className={`text-xs mt-1 ${TYPE_COLORS[typeKey]}`}>{TYPE_LABELS_I18N[typeKey]}</Chip>
                         </Card.Content>
                     </Card>
                 ))}

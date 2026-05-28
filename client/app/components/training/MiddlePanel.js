@@ -101,7 +101,7 @@ export default function MiddlePanel({
                         type="text"
                         defaultValue={selectedPlan.name}
                         onBlur={(e) => {
-                            const trimmed = e.target.value.trim() || "Untitled Plan";
+                            const trimmed = e.target.value.trim() || t('untitledPlan');
                             e.target.value = trimmed;
                             if (trimmed !== selectedPlan.name) handleRenamePlan(selectedPlan.id, trimmed);
                         }}

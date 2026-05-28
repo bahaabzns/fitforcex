@@ -62,7 +62,7 @@ export default function RightPanel({
                     type="text"
                     defaultValue={selectedDay.name}
                     onBlur={(e) => {
-                        const trimmed = e.target.value.trim() || "Untitled Day";
+                        const trimmed = e.target.value.trim() || t('untitledDay');
                         e.target.value = trimmed;
                         if (trimmed !== selectedDay.name) handleRenameDay(selectedDay.id, trimmed);
                     }}
