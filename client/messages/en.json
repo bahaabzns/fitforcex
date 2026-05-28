@@ -712,7 +712,12 @@
     "errorClientRequired": "Client is required.",
     "errorPackageRequired": "Package is required.",
     "errorMethodRequired": "Payment method is required.",
-    "errorSave": "Failed to save transaction."
+    "errorSave": "Failed to save transaction.",
+    "statusActive": "Active",
+    "statusExpired": "Expired",
+    "statusFrozen": "Frozen",
+    "statusPreStart": "Pre-start",
+    "statusRefunded": "Refunded"
   },
   "packages": {
     "title": "Packages",

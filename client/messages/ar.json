@@ -712,7 +712,12 @@
     "errorClientRequired": "العميل مطلوب.",
     "errorPackageRequired": "الباقة مطلوبة.",
     "errorMethodRequired": "طريقة الدفع مطلوبة.",
-    "errorSave": "فشل حفظ المعاملة."
+    "errorSave": "فشل حفظ المعاملة.",
+    "statusActive": "نشط",
+    "statusExpired": "منتهي",
+    "statusFrozen": "مجمد",
+    "statusPreStart": "ما قبل البدء",
+    "statusRefunded": "مسترد"
   },
   "packages": {
     "title": "الباقات",

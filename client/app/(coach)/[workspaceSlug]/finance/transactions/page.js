@@ -129,6 +129,12 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const STATUS_LABELS = { completed: t('completed'), refunded: t('refunded') };
+    const SUB_STATUS_LABELS = {
+        Active: t('statusActive'), Expired: t('statusExpired'),
+        Frozen: t('statusFrozen'), 'Pre-start': t('statusPreStart'),
+        Refunded: t('statusRefunded'),
+    };
     const [filteredRows, setFilteredRows] = useState(transactions);
     const [displayCurrency, setDisplayCurrency] = useState("EGP");
 
@@ -188,8 +194,8 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             options: ["completed", "refunded"],
             sortable: true,
             render: (row) => (
-                <Chip size="sm" className={`capitalize ${statusColor(row.status)}`}>
-                    {row.status}
+                <Chip size="sm" className={statusColor(row.status)}>
+                    {STATUS_LABELS[row.status] ?? row.status}
                 </Chip>
             ),
         },
@@ -201,7 +207,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             render: (row) => {
                 const s = row.subscriptionStatus;
                 return s
-                    ? <Chip size="sm" className={`${subStatusColor(s)}`}>{s}</Chip>
+                    ? <Chip size="sm" className={subStatusColor(s)}>{SUB_STATUS_LABELS[s] ?? s}</Chip>
                     : <span className="text-muted-foreground text-xs">—</span>;
             },
         },
