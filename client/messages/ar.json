@@ -970,6 +970,7 @@
   },
   "portal": {
     "sidebar": {
+      "home": "الرئيسية",
       "nutritionPlan": "خطة التغذية",
       "trainingPlan": "خطة التدريب",
       "forms": "الاستمارات"
@@ -1025,6 +1026,11 @@
       "alternatives": "البدائل:",
       "hideVideo": "إخفاء",
       "watchVideo": "مشاهدة"
+    },
+    "home": {
+      "title": "الرئيسية",
+      "comingSoon": "قريباً",
+      "comingSoonHint": "لوحة تحكمك الرئيسية في الطريق."
     },
     "profile": {
       "title": "الملف الشخصي",

@@ -970,6 +970,7 @@
   },
   "portal": {
     "sidebar": {
+      "home": "Home",
       "nutritionPlan": "Nutrition Plan",
       "trainingPlan": "Training Plan",
       "forms": "Forms"
@@ -1025,6 +1026,11 @@
       "alternatives": "Alternatives:",
       "hideVideo": "Hide",
       "watchVideo": "Watch"
+    },
+    "home": {
+      "title": "Home",
+      "comingSoon": "Coming soon",
+      "comingSoonHint": "Your home dashboard is on its way."
     },
     "profile": {
       "title": "Profile",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/axios";
 import { TextField } from "@heroui/react/textfield";
@@ -14,9 +14,17 @@ export default function PortalLoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [checkingSession, setCheckingSession] = useState(true);
     const router = useRouter();
     const params = useParams();
     const coachSlug = params?.coachSlug;
+
+    useEffect(() => {
+        // Already authenticated — skip login
+        api.get("/api/client-portal/me")
+            .then(() => router.replace("/portal/home"))
+            .catch(() => setCheckingSession(false));
+    }, [router]);
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -24,13 +32,15 @@ export default function PortalLoginPage() {
         setLoading(true);
         try {
             await api.post("/api/client-portal/login", { email, password, coach_slug: coachSlug });
-            router.push("/portal/nutrition");
+            router.push("/portal/home");
         } catch (err) {
             setError(err.response?.data?.message || "Login failed");
         } finally {
             setLoading(false);
         }
     }
+
+    if (checkingSession) return null;
 
     return (
         <div className="auth-wrapper">

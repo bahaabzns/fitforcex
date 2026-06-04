@@ -5,7 +5,7 @@ import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
-import { Salad, Dumbbell, ClipboardList, Bell } from "lucide-react";
+import { Home, Salad, Dumbbell, ClipboardList, Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 
@@ -25,10 +25,14 @@ export default function ClientPortalNav() {
         return `${c.fname?.[0] ?? ""}${c.lname?.[0] ?? ""}`.toUpperCase();
     };
 
+    // Routes that have no sub-pages use exact-match for the active state
+    const EXACT_MATCH_ROUTES = new Set(["/portal/home", "/portal/nutrition"]);
+
     const navItems = [
-        { href: "/portal/nutrition",    label: tPortal('nutritionPlan'), icon: Salad },
-        { href: "/portal/training",     label: tPortal('trainingPlan'),  icon: Dumbbell },
-        { href: "/portal/forms",        label: tPortal('forms'),         icon: ClipboardList },
+        { href: "/portal/home",      label: tPortal('home'),          icon: Home },
+        { href: "/portal/nutrition", label: tPortal('nutritionPlan'), icon: Salad },
+        { href: "/portal/training",  label: tPortal('trainingPlan'),  icon: Dumbbell },
+        { href: "/portal/forms",     label: tPortal('forms'),         icon: ClipboardList },
     ];
 
     const isProfileActive       = pathname.startsWith('/portal/profile');
@@ -85,7 +89,9 @@ export default function ClientPortalNav() {
             <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-background/95 backdrop-blur-sm border-t border-border">
                 <div className="flex items-center justify-around h-full max-w-lg mx-auto px-4">
                     {navItems.map(({ href, label, icon: Icon }) => {
-                        const active = pathname === href || (href !== "/portal/nutrition" && pathname.startsWith(href));
+                        const active = EXACT_MATCH_ROUTES.has(href)
+                            ? pathname === href
+                            : pathname.startsWith(href);
                         return (
                             <Link
                                 key={href}
