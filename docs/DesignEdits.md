@@ -122,15 +122,13 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 - add language switcher
 
 # enhance client portal
-- convert side bar into bottom navigation bar similar to mobile apps
 - change the route name of dashboard into nutrition
+- convert side bar into bottom navigation bar similar to mobile apps
 - add language switcher
 - add training mode to save client weight progress
 - fix exercise thumbnail
 - add diet diary log
 - add streak progress tracking for diet and workout
-- 
-
 
 
 
