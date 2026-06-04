@@ -28,7 +28,9 @@
     "navigation": "التنقل",
     "expandSidebar": "توسيع الشريط الجانبي",
     "collapseSidebar": "طي الشريط الجانبي",
-    "createWorkspace": "إنشاء مساحة عمل"
+    "createWorkspace": "إنشاء مساحة عمل",
+    "clientPortalLink": "رابط بوابة العميل",
+    "copyLink": "نسخ الرابط"
   },
   "dashboard": {
     "welcomeBack": "مرحباً بعودتك، {name}!",

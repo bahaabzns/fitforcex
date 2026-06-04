@@ -28,7 +28,9 @@
     "navigation": "Navigation",
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar",
-    "createWorkspace": "Create workspace"
+    "createWorkspace": "Create workspace",
+    "clientPortalLink": "Client Portal Link",
+    "copyLink": "Copy link"
   },
   "dashboard": {
     "welcomeBack": "Welcome back, {name}!",
