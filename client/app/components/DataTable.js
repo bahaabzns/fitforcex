@@ -469,25 +469,16 @@ export default function DataTable({
                     <Table.ScrollContainer>
                         <Table.Content
                             aria-label="Data table"
-                            selectionMode="none"
+                            selectionMode={selectable ? "multiple" : "none"}
                             selectedKeys={selectedKeys}
+                            onSelectionChange={handleSelectionChange}
                             sortDescriptor={sortDescriptor}
                             onSortChange={handleSortChange}
                         >
                             <Table.Header>
                                 {selectable && (
                                     <Table.Column className="w-10 pr-0">
-                                        <Checkbox
-                                            aria-label="Select all"
-                                            isSelected={paginatedData.length > 0 && paginatedData.every(r => selectedKeys?.has(r[rowKey]))}
-                                            isIndeterminate={paginatedData.some(r => selectedKeys?.has(r[rowKey])) && !paginatedData.every(r => selectedKeys?.has(r[rowKey]))}
-                                            onChange={(checked) => {
-                                                if (!onSelectionChange) return;
-                                                const next = new Set(selectedKeys);
-                                                paginatedData.forEach(r => checked ? next.add(r[rowKey]) : next.delete(r[rowKey]));
-                                                onSelectionChange(next);
-                                            }}
-                                        >
+                                        <Checkbox aria-label="Select all" slot="selection">
                                             <Checkbox.Control>
                                                 <Checkbox.Indicator />
                                             </Checkbox.Control>
@@ -535,14 +526,7 @@ export default function DataTable({
                                                         <Table.Cell className="pr-0" style={Object.keys(s).length ? s : undefined}>
                                                             <Checkbox
                                                                 aria-label={`Select row ${row[rowKey]}`}
-                                                                isSelected={selectedKeys?.has(row[rowKey]) || false}
-                                                                onChange={(checked) => {
-                                                                    if (!onSelectionChange) return;
-                                                                    const next = new Set(selectedKeys);
-                                                                    if (checked) next.add(row[rowKey]);
-                                                                    else next.delete(row[rowKey]);
-                                                                    onSelectionChange(next);
-                                                                }}
+                                                                slot="selection"
                                                                 variant="secondary"
                                                             >
                                                                 <Checkbox.Control>
@@ -571,6 +555,7 @@ export default function DataTable({
                                                             key={col.key}
                                                             style={cellStyle}
                                                             className={col.key === "_actions" ? "text-end" : ""}
+                                                            onPointerDown={(e) => e.stopPropagation()}
                                                         >
                                                             {col.render ? col.render(row) : row[col.key]}
                                                         </Table.Cell>
