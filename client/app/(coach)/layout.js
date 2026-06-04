@@ -18,6 +18,8 @@ import {
     Settings,
     ChevronRight,
 } from "lucide-react";
+import { ThemeToggle } from "@/app/components/ThemeToggle";
+import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 
 // Returns { icon: ReactElement, crumbs: string[] } for the current path
 function getPageInfo(pathname, { clientLabel } = {}) {
@@ -152,6 +154,11 @@ export default function WorkspaceLayout({ children }) {
                             ))}
                         </div>
                     )}
+
+                    <div className="ml-auto flex items-center gap-1">
+                        <ThemeToggle />
+                        <LanguageSwitcher />
+                    </div>
                 </header>
                 <main className="flex-1 h-full flex flex-col overflow-y-auto bg-background text-foreground">
                     {children}

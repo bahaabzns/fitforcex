@@ -29,8 +29,7 @@ import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure } from "@heroui/react/disclosure";
 import { Separator } from "@heroui/react/separator";
-import { ThemeToggle } from "./ThemeToggle";
-import LanguageSwitcher from "./LanguageSwitcher";
+
 import { useTranslations } from "next-intl";
 
 const navLink = (active) =>
@@ -482,19 +481,6 @@ export default function Sidebar({ collapsed }) {
                                 </span>
                             </div>
                         )}
-                        {!collapsed && (
-                            <div className="flex items-center gap-1">
-                                <ThemeToggle />
-                                <LanguageSwitcher />
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {collapsed && (
-                    <div className="flex flex-col items-center gap-1">
-                        <ThemeToggle />
-                        <LanguageSwitcher />
                     </div>
                 )}
 
