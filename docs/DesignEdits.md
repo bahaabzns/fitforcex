@@ -63,30 +63,10 @@ https://heroui.com/docs/react/components/alert-dialog#custom-animations
 # use multiple select in filter drop-downs without search field
 https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 
-# in selecting team members avatars add this drop down
-https://heroui.com/docs/react/components/alert-dialog#custom-trigger
-
-# use avatars for team members (gradient style)
-https://heroui.com/docs/react/components/alert-dialog#custom-trigger
-
-# use numbers badge for queue plans nav-item of the sidebar
-https://heroui.com/docs/react/components/badge#with-content
 
 
-# add the default nutrition and training databases on new accounts
 
 
-# change the logo in dark mode
-
-
-# change the location of the number of max rows in data tables and use this theme
-https://heroui.com/docs/react/components/tabs#custom-styles
-
-# enhance data tables filtering section
-
-# change the sorting icons of the data tables to match the design system
-
-# on clicking client in the clients table it it selects it (don't select until the user clicks on the check box only)
 
 
 
@@ -95,48 +75,72 @@ https://heroui.com/docs/react/components/tabs#custom-styles
 # on setting any price use this field
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
-# add client portal link next to workspaces in sidebar
-https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
 # use this for tempo
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
-
-# add external links to quick add equipment or food category or add exercises in builders
-https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
+# change the logo in dark mode
 
 
-
-
-> MODALS
-# unify all modals
-https://heroui.com/docs/react/components/modal
-
-
-
-> TABLES
-# use search field instead of plain text field in any search field
-https://heroui.com/docs/react/components/radio-group#delivery--payment
-
-
-
-> SIDEBAR
-# use this toggle for dark mode and light mode
-https://heroui.com/docs/react/components/switch#with-icons
-
-
-
-> CLIENT PORTAL
-# enhance client portal
-
-
-> LOGIC 
-# subscription logic audit
-
+# In-App Chat
 
 
 # responsiveness
 
+
+# use numbers badge for queue plans nav-item of the sidebar
+https://heroui.com/docs/react/components/badge#with-content
+
+# use search field instead of plain text field in any search field
+
+# add external links to quick add equipment or food category or add exercises in builders
+https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
+
+# unify all modals
+https://heroui.com/docs/react/components/modal
+
+# use this toggle for dark mode and light mode
+https://heroui.com/docs/react/components/switch#with-icons
+
+# subscription logic audit
+
+# team assignation on queue
+# in selecting team members avatars add this drop down
+https://heroui.com/docs/react/components/alert-dialog#custom-trigger
+# use avatars for team members (gradient style)
+https://heroui.com/docs/react/components/alert-dialog#custom-trigger
+
+# ask for features and voting on asked features
+# community for coaches
+# 
+
+# on clicking client in the clients table it it selects it (don't select until the user clicks on the check box only)
+
+# add the default nutrition and training databases on new accounts
+
+# landing page
+- add language switcher
+
+# enhance client portal
+- convert side bar into bottom navigation bar similar to mobile apps
+- change the route name of dashboard into nutrition
+- add language switcher
+- add training mode to save client weight progress
+- fix exercise thumbnail
+- add diet 
+
+
+
+
+
+
+
+
+
+# [done] change the sorting icons of the data tables to match the design system
+
+# [done] add client portal link next to workspaces in sidebar
+https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
 # [done] add client name and client code to the path next to clients in the header
 # [done] allow scrolling in builders sections
@@ -150,3 +154,6 @@ https://heroui.com/docs/react/components/switch#with-icons
 
 # [done] change the sorting buttons to match design system
 # [done] add load plan to builders
+# [done] enhance data tables filtering section
+
+# [done] change the location of the number of max rows in data tables and use this theme
