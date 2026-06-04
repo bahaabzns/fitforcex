@@ -51,8 +51,8 @@ function SlidingIndicator({ selectedKey }) {
         <div
             ref={ref}
             aria-hidden="true"
-            className="absolute left-0 bg-background rounded-3xl shadow-sm pointer-events-none"
-            style={{ zIndex: 0 }}
+            className="absolute left-0 rounded-3xl shadow-sm pointer-events-none"
+            style={{ zIndex: 0, backgroundColor: '#2c2c2c' }}
         />
     );
 }
@@ -122,11 +122,15 @@ export default function ClientLayout({ children }) {
                         if (tab) router.push(tab.href);
                     }}
                 >
-                    <TabListContainer>
+                    <TabListContainer style={{ backgroundColor: 'lab(15.7305% .613764 -2.16959)' }}>
                         <SlidingIndicator selectedKey={selectedKey} />
                         <TabList>
                             {tabs.map(({ id: tabId, name, icon: Icon }, i) => (
-                                <Tab key={tabId} id={tabId} className="flex items-center gap-1.5 whitespace-nowrap">
+                                <Tab
+                                    key={tabId}
+                                    id={tabId}
+                                    className="relative z-10 flex items-center gap-1.5 whitespace-nowrap cursor-pointer text-white/50 data-[selected=true]:text-white transition-colors"
+                                >
                                     {i > 0 && <TabSeparator style={isRtl ? { left: 'auto', right: 0 } : undefined} />}
                                     <Icon size={14} />
                                     {name}
