@@ -2,39 +2,76 @@
 
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Button } from '@heroui/react/button';
+import { Languages, Check } from 'lucide-react';
 import api from '@/lib/axios';
+
+const LANGS = [
+    { code: 'en', label: 'English' },
+    { code: 'ar', label: 'العربية' },
+];
 
 export default function LanguageSwitcher() {
     const locale = useLocale();
     const router = useRouter();
     const [switching, setSwitching] = useState(false);
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
 
-    async function handleSwitch() {
-        if (switching) return;
-        const next = locale === 'en' ? 'ar' : 'en';
-        setSwitching(true);
-        try {
-            // Persist preference to user account
-            await api.patch('/api/auth/profile', { preferred_language: next });
-        } catch {
-            // Non-fatal — cookie still gets set so the UI switches
+    useEffect(() => {
+        function handler(e) {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
         }
-        // Set NEXT_LOCALE cookie so the server reads it on next request
-        document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=31536000; SameSite=Lax`;
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    async function switchTo(lang) {
+        if (lang === locale || switching) return;
+        setSwitching(true);
+        setOpen(false);
+        try {
+            await api.patch('/api/auth/profile', { preferred_language: lang });
+        } catch {}
+        document.cookie = `NEXT_LOCALE=${lang}; path=/; max-age=31536000; SameSite=Lax`;
         router.refresh();
         setSwitching(false);
     }
 
     return (
-        <button
-            onClick={handleSwitch}
-            disabled={switching}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm font-medium transition-colors text-muted-foreground hover:bg-sidebar-accent disabled:opacity-50"
-            aria-label={locale === 'en' ? 'Switch to Arabic' : 'التبديل إلى الإنجليزية'}
-        >
-            <span className="text-base leading-none">{locale === 'en' ? '🇸🇦' : '🇬🇧'}</span>
-            <span>{locale === 'en' ? 'العربية' : 'English'}</span>
-        </button>
+        <div className="relative" ref={ref}>
+            <Button
+                isIconOnly
+                variant="ghost"
+                size="sm"
+                aria-label="Choose a language"
+                onPress={() => setOpen(o => !o)}
+                isDisabled={switching}
+                className="shrink-0"
+            >
+                <Languages size={16} />
+            </Button>
+
+            {open && (
+                <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                    <p className="text-xs font-medium text-muted-foreground px-3 py-2 border-b border-border">
+                        Choose a language
+                    </p>
+                    {LANGS.map(lang => (
+                        <button
+                            key={lang.code}
+                            onClick={() => switchTo(lang.code)}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-sidebar-accent transition-colors text-start"
+                        >
+                            <span className="w-4 shrink-0 flex items-center justify-center">
+                                {locale === lang.code && <Check size={13} className="text-primary" />}
+                            </span>
+                            {lang.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
