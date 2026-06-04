@@ -210,6 +210,34 @@ export default function Sidebar({ collapsed }) {
                 </div>
             )}
 
+            {/* Client Portal Link */}
+            {!collapsed && portalLink && (
+                <div className="px-3 pb-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                        <ExternalLink size={11} />
+                        {tSidebar('clientPortalLink')}
+                    </p>
+                    <div className="flex items-center gap-1 bg-default rounded-xl px-3 py-1.5">
+                        <span className="flex-1 text-xs text-muted-foreground truncate font-mono select-all">
+                            {portalLink.replace(/^https?:\/\//, '')}
+                        </span>
+                        <Button
+                            isIconOnly
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleCopyPortalLink}
+                            title={tSidebar('copyLink')}
+                            className="shrink-0 h-6 w-6 min-w-6"
+                        >
+                            {linkCopied
+                                ? <Check size={13} className="text-success" />
+                                : <Copy size={13} className="text-muted-foreground" />
+                            }
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-2">
                 <ul className="flex flex-col gap-0.5">
@@ -435,34 +463,6 @@ export default function Sidebar({ collapsed }) {
                     </li>
                 </ul>
             </nav>
-
-            {/* Client Portal Link */}
-            {!collapsed && (
-                <div className="px-3 py-2">
-                    <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                        <ExternalLink size={11} />
-                        {tSidebar('clientPortalLink')}
-                    </p>
-                    <div className="flex items-center gap-1 bg-default rounded-xl px-3 py-1.5">
-                        <span className="flex-1 text-xs text-muted-foreground truncate font-mono select-all">
-                            {portalLink.replace(/^https?:\/\//, '')}
-                        </span>
-                        <Button
-                            isIconOnly
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleCopyPortalLink}
-                            title={tSidebar('copyLink')}
-                            className="shrink-0 h-6 w-6 min-w-6"
-                        >
-                            {linkCopied
-                                ? <Check size={13} className="text-success" />
-                                : <Copy size={13} className="text-muted-foreground" />
-                            }
-                        </Button>
-                    </div>
-                </div>
-            )}
 
             <Separator />
 
