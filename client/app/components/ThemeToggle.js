@@ -10,17 +10,21 @@ const OPTIONS = [
     { value: 'system', icon: Monitor, label: 'System' },
 ];
 
-const BG   = 'lab(15.7305% .613764 -2.16959)';
-const HOVER = '#2c2c2c';
-
 export function ThemeToggle() {
-    const { theme, setTheme } = useTheme();
+    const { theme, resolvedTheme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => setMounted(true), []);
     if (!mounted) return <div className="h-8 w-24 rounded-full shrink-0" />;
 
-    const current = theme ?? 'system';
+    const current  = theme ?? 'system';
+    const isDark   = resolvedTheme === 'dark';
+
+    const pillBg     = isDark ? 'lab(15.7305% .613764 -2.16959)' : '#e5e7eb';
+    const activeBg   = isDark ? '#2c2c2c' : '#ffffff';
+    const hoverBg    = isDark ? '#2c2c2c' : '#d1d5db';
+    const activeText  = isDark ? 'text-white'      : 'text-foreground';
+    const inactiveText = isDark ? 'text-white/40'  : 'text-gray-500';
 
     function select(value) {
         setTheme(value);
@@ -28,7 +32,7 @@ export function ThemeToggle() {
     }
 
     return (
-        <div className="flex items-center gap-0.5 rounded-full p-0.5" style={{ backgroundColor: BG }}>
+        <div className="flex items-center gap-0.5 rounded-full p-0.5" style={{ backgroundColor: pillBg }}>
             {OPTIONS.map(({ value, icon: Icon, label }) => {
                 const active = current === value;
                 return (
@@ -36,11 +40,11 @@ export function ThemeToggle() {
                         key={value}
                         onClick={() => select(value)}
                         aria-label={label}
-                        style={active ? { backgroundColor: HOVER } : undefined}
-                        onMouseEnter={e => { if (!active) e.currentTarget.style.backgroundColor = HOVER; }}
+                        style={{ backgroundColor: active ? activeBg : undefined }}
+                        onMouseEnter={e => { if (!active) e.currentTarget.style.backgroundColor = hoverBg; }}
                         onMouseLeave={e => { if (!active) e.currentTarget.style.backgroundColor = ''; }}
                         className={`flex items-center justify-center w-7 h-7 rounded-full transition-colors shrink-0 cursor-pointer ${
-                            active ? 'text-white' : 'text-white/40 hover:text-white'
+                            active ? activeText : `${inactiveText} hover:${activeText}`
                         }`}
                     >
                         <Icon size={14} />

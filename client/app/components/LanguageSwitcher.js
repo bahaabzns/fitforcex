@@ -3,7 +3,7 @@
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@heroui/react/button';
+import { useTheme } from 'next-themes';
 import { Languages, Check } from 'lucide-react';
 import api from '@/lib/axios';
 
@@ -13,11 +13,15 @@ const LANGS = [
 ];
 
 export default function LanguageSwitcher() {
-    const locale = useLocale();
-    const router = useRouter();
+    const locale   = useLocale();
+    const router   = useRouter();
+    const { resolvedTheme } = useTheme();
     const [switching, setSwitching] = useState(false);
-    const [open, setOpen] = useState(false);
+    const [open, setOpen]           = useState(false);
+    const [mounted, setMounted]     = useState(false);
     const ref = useRef(null);
+
+    useEffect(() => setMounted(true), []);
 
     useEffect(() => {
         function handler(e) {
@@ -39,17 +43,23 @@ export default function LanguageSwitcher() {
         setSwitching(false);
     }
 
+    const isDark    = mounted && resolvedTheme === 'dark';
+    const pillBg    = isDark ? 'lab(15.7305% .613764 -2.16959)' : '#e5e7eb';
+    const btnBg     = isDark ? '#2c2c2c' : '#ffffff';
+    const btnHover  = isDark ? '#383838' : '#f3f4f6';
+    const btnText   = isDark ? 'text-white' : 'text-foreground';
+
     return (
         <div className="relative" ref={ref}>
-            <div className="flex items-center rounded-full p-0.5" style={{ backgroundColor: 'lab(15.7305% .613764 -2.16959)' }}>
+            <div className="flex items-center rounded-full p-0.5" style={{ backgroundColor: pillBg }}>
                 <button
                     onClick={() => setOpen(o => !o)}
                     disabled={switching}
                     aria-label="Choose a language"
-                    style={{ backgroundColor: '#2c2c2c' }}
-                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#383838'; }}
-                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#2c2c2c'; }}
-                    className="flex items-center justify-center w-7 h-7 rounded-full text-white shrink-0 cursor-pointer transition-colors"
+                    style={{ backgroundColor: btnBg }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = btnHover; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = btnBg; }}
+                    className={`flex items-center justify-center w-7 h-7 rounded-full shrink-0 cursor-pointer transition-colors ${btnText}`}
                 >
                     <Languages size={14} />
                 </button>
@@ -64,7 +74,7 @@ export default function LanguageSwitcher() {
                         <button
                             key={lang.code}
                             onClick={() => switchTo(lang.code)}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-gray-200 dark:bg-gray-700 transition-colors text-start"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-sidebar-accent transition-colors text-start cursor-pointer"
                         >
                             <span className="w-4 shrink-0 flex items-center justify-center">
                                 {locale === lang.code && <Check size={13} className="text-primary" />}
