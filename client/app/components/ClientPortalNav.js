@@ -2,20 +2,15 @@
 
 import Link from "next/link";
 import NextImage from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
-import { Salad, Dumbbell, ClipboardList, LogOut } from "lucide-react";
-import { ThemeToggle } from "./ThemeToggle";
-import LanguageSwitcher from "./LanguageSwitcher";
+import { Salad, Dumbbell, ClipboardList, Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
-import { Chip } from "@heroui/react/chip";
 
 export default function ClientPortalNav() {
     const pathname = usePathname();
-    const router = useRouter();
     const tPortal = useTranslations('portal.sidebar');
     const [client, setClient] = useState(null);
 
@@ -25,58 +20,64 @@ export default function ClientPortalNav() {
             .catch(() => {});
     }, []);
 
-    const handleLogout = async () => {
-        await api.post("/api/client-portal/logout").catch(() => {});
-        router.push("/portal/login");
-    };
-
     const getInitials = (c) => {
         if (!c) return "?";
         return `${c.fname?.[0] ?? ""}${c.lname?.[0] ?? ""}`.toUpperCase();
     };
 
     const navItems = [
-        { href: "/portal/nutrition", label: tPortal('nutritionPlan'), icon: Salad },
-        { href: "/portal/training", label: tPortal('trainingPlan'), icon: Dumbbell },
-        { href: "/portal/forms",    label: tPortal('forms'),         icon: ClipboardList },
+        { href: "/portal/nutrition",    label: tPortal('nutritionPlan'), icon: Salad },
+        { href: "/portal/training",     label: tPortal('trainingPlan'),  icon: Dumbbell },
+        { href: "/portal/forms",        label: tPortal('forms'),         icon: ClipboardList },
     ];
+
+    const isProfileActive       = pathname.startsWith('/portal/profile');
+    const isNotificationsActive = pathname.startsWith('/portal/notifications');
 
     return (
         <>
             {/* Sticky top header */}
-            <header className="sticky top-0 z-40 h-14 bg-background/95 backdrop-blur-sm border-b border-border flex items-center px-4 gap-3">
-                <NextImage
-                    src="/ff_logo_main.svg"
-                    alt="FitForce X"
-                    width={120}
-                    height={32}
-                    className="shrink-0"
-                />
-                <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px]">Beta</Chip>
+            <header className="sticky top-0 z-40 h-14 bg-background/95 backdrop-blur-sm border-b border-border grid grid-cols-3 items-center px-4">
 
-                <div className="ml-auto flex items-center gap-1">
-                    {client && (
-                        <div className="flex items-center gap-2 mr-1">
-                            <Avatar size="sm" color="primary" className="shrink-0">
-                                <Avatar.Fallback>{getInitials(client)}</Avatar.Fallback>
-                            </Avatar>
-                            <span className="text-sm font-medium text-foreground hidden sm:block">
-                                {client.fname}
-                            </span>
-                        </div>
-                    )}
-                    <ThemeToggle />
-                    <LanguageSwitcher />
-                    <Button
-                        isIconOnly
-                        size="sm"
-                        variant="ghost"
-                        onClick={handleLogout}
-                        title="Logout"
-                        className="text-muted-foreground hover:text-foreground"
+                {/* Left: profile avatar */}
+                <div className="flex justify-start">
+                    <Link
+                        href="/portal/profile"
+                        className={`rounded-full transition-opacity ${
+                            isProfileActive
+                                ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                                : "opacity-75 hover:opacity-100"
+                        }`}
                     >
-                        <LogOut size={16} />
-                    </Button>
+                        <Avatar size="sm" color="primary">
+                            <Avatar.Fallback>{getInitials(client)}</Avatar.Fallback>
+                        </Avatar>
+                    </Link>
+                </div>
+
+                {/* Center: logo */}
+                <div className="flex justify-center">
+                    <NextImage
+                        src="/ff_logo_main.svg"
+                        alt="FitForce X"
+                        width={120}
+                        height={32}
+                        className="shrink-0"
+                    />
+                </div>
+
+                {/* Right: notifications */}
+                <div className="flex justify-end">
+                    <Link
+                        href="/portal/notifications"
+                        className={`p-2 rounded-xl transition-colors ${
+                            isNotificationsActive
+                                ? "text-primary bg-sidebar-accent"
+                                : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+                        }`}
+                    >
+                        <Bell size={20} />
+                    </Link>
                 </div>
             </header>
 

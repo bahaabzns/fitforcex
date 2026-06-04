@@ -10,7 +10,7 @@ export default function ClientLayout({ children }) {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const pathname = usePathname();
-    const PROTECTED = ['/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements'];
+    const PROTECTED = ['/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications'];
     const isLoginPage = !PROTECTED.some(p => pathname.startsWith(p));
 
     useEffect(() => {

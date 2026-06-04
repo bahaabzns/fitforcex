@@ -1025,6 +1025,18 @@
       "alternatives": "Alternatives:",
       "hideVideo": "Hide",
       "watchVideo": "Watch"
+    },
+    "profile": {
+      "title": "Profile",
+      "preferences": "Preferences",
+      "appearance": "Appearance",
+      "language": "Language",
+      "logout": "Logout"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "comingSoon": "Coming soon",
+      "comingSoonHint": "You'll be notified about your plans and updates here."
     }
   },
   "error": {

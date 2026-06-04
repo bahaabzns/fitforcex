@@ -1025,6 +1025,18 @@
       "alternatives": "البدائل:",
       "hideVideo": "إخفاء",
       "watchVideo": "مشاهدة"
+    },
+    "profile": {
+      "title": "الملف الشخصي",
+      "preferences": "التفضيلات",
+      "appearance": "المظهر",
+      "language": "اللغة",
+      "logout": "تسجيل الخروج"
+    },
+    "notifications": {
+      "title": "الإشعارات",
+      "comingSoon": "قريباً",
+      "comingSoonHint": "ستُعلَم هنا بشأن خططك والتحديثات."
     }
   },
   "error": {
