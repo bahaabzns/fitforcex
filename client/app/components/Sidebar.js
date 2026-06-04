@@ -21,6 +21,8 @@ import {
     Building2,
     Check,
     Plus,
+    Copy,
+    ExternalLink,
 } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
@@ -32,14 +34,14 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslations } from "next-intl";
 
 const navLink = (active) =>
-    `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
+    `flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm w-full text-start transition-colors duration-150 ${
         active
             ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             : "text-muted-foreground hover:bg-sidebar-accent"
     }`;
 
 const subLink = (active) =>
-    `flex items-center gap-2 px-2.5 py-1.5 rounded-2xl text-sm w-full text-left transition-colors duration-150 ${
+    `flex items-center gap-2 px-2.5 py-1.5 rounded-2xl text-sm w-full text-start transition-colors duration-150 ${
         active
             ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             : "text-muted-foreground hover:bg-sidebar-accent"
@@ -57,6 +59,8 @@ export default function Sidebar({ collapsed }) {
     const [user, setUser] = useState(null);
     const [wsOpen, setWsOpen] = useState(false);
     const [switching, setSwitching] = useState(false);
+    const [portalLink, setPortalLink] = useState('');
+    const [linkCopied, setLinkCopied] = useState(false);
     const wsRef = useRef(null);
 
     useEffect(() => {
@@ -72,6 +76,19 @@ export default function Sidebar({ collapsed }) {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    useEffect(() => {
+        const currentSlug = user?.currentWorkspace?.slug;
+        if (currentSlug) setPortalLink(`${window.location.origin}/portal/${currentSlug}`);
+    }, [user]);
+
+    const handleCopyPortalLink = async () => {
+        try {
+            await navigator.clipboard.writeText(portalLink);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 2000);
+        } catch {}
+    };
 
     const handleLogout = async () => {
         try {
@@ -127,7 +144,7 @@ export default function Sidebar({ collapsed }) {
                     ? <NextImage src="/dark - i.png" alt="FitForce X" width={32} height={32} className="shrink-0" />
                     : <>
                         <NextImage src="/ff_logo_main.svg" alt="FitForce X" width={148} height={40} className="shrink-0" />
-                        <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px] ml-auto">Beta</Chip>
+                        <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px] ms-auto">Beta</Chip>
                       </>
                 }
             </div>
@@ -149,7 +166,7 @@ export default function Sidebar({ collapsed }) {
                         <Building2 size={14} className="text-muted-foreground shrink-0" />
                         {!collapsed && (
                             <>
-                                <span className="flex-1 min-w-0 text-xs text-foreground font-medium truncate text-left">
+                                <span className="flex-1 min-w-0 text-xs text-foreground font-medium truncate text-start">
                                     {currentWs.name}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground capitalize shrink-0">{currentWs.role}</span>
@@ -171,7 +188,7 @@ export default function Sidebar({ collapsed }) {
                                         className="justify-start gap-2 px-2.5"
                                     >
                                         <Building2 size={12} className="shrink-0" />
-                                        <span className="flex-1 truncate font-medium text-left">{ws.name}</span>
+                                        <span className="flex-1 truncate font-medium text-start">{ws.name}</span>
                                         <span className="text-muted-foreground capitalize shrink-0 text-xs">{ws.role}</span>
                                         {ws.id === currentWs.id && <Check size={12} className="text-primary shrink-0" />}
                                     </Button>
@@ -227,14 +244,14 @@ export default function Sidebar({ collapsed }) {
                                     {!collapsed && (
                                         <>
                                             <span className="flex-1">{tNav('finance')}</span>
-                                            <ChevronRight size={14} className={`transition-transform duration-200 ${financeOpen ? 'rotate-90' : ''}`} />
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${financeOpen ? 'rotate-90' : 'rtl:rotate-180'}`} />
                                         </>
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
                             <Disclosure.Content>
                                 <Disclosure.Body>
-                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                    <ul className="flex flex-col gap-0.5 mt-1 ms-5 ps-2 border-s border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/finance/transactions`} className={subLink(pathname.includes('/finance/transactions'))}>
                                                 {tNav('transactions')}
@@ -287,14 +304,14 @@ export default function Sidebar({ collapsed }) {
                                     {!collapsed && (
                                         <>
                                             <span className="flex-1">{tNav('nutrition')}</span>
-                                            <ChevronRight size={14} className={`transition-transform duration-200 ${nutritionOpen ? 'rotate-90' : ''}`} />
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${nutritionOpen ? 'rotate-90' : 'rtl:rotate-180'}`} />
                                         </>
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
                             <Disclosure.Content>
                                 <Disclosure.Body>
-                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                    <ul className="flex flex-col gap-0.5 mt-1 ms-5 ps-2 border-s border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/nutrition/food-items`} className={subLink(pathname.includes('/nutrition/food-items'))}>
                                                 {tNav('foodItems')}
@@ -320,14 +337,14 @@ export default function Sidebar({ collapsed }) {
                                     {!collapsed && (
                                         <>
                                             <span className="flex-1">{tNav('training')}</span>
-                                            <ChevronRight size={14} className={`transition-transform duration-200 ${trainingOpen ? 'rotate-90' : ''}`} />
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${trainingOpen ? 'rotate-90' : 'rtl:rotate-180'}`} />
                                         </>
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
                             <Disclosure.Content>
                                 <Disclosure.Body>
-                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                    <ul className="flex flex-col gap-0.5 mt-1 ms-5 ps-2 border-s border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/training/exercises`} className={subLink(pathname.includes('/training/exercises'))}>
                                                 {tNav('exercises')}
@@ -385,14 +402,14 @@ export default function Sidebar({ collapsed }) {
                                     {!collapsed && (
                                         <>
                                             <span className="flex-1">{tNav('settings')}</span>
-                                            <ChevronRight size={14} className={`transition-transform duration-200 ${settingsOpen ? 'rotate-90' : ''}`} />
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${settingsOpen ? 'rotate-90' : 'rtl:rotate-180'}`} />
                                         </>
                                     )}
                                 </Disclosure.Trigger>
                             </Disclosure.Heading>
                             <Disclosure.Content>
                                 <Disclosure.Body>
-                                    <ul className="flex flex-col gap-0.5 mt-1 ml-5 pl-2 border-l border-sidebar-border">
+                                    <ul className="flex flex-col gap-0.5 mt-1 ms-5 ps-2 border-s border-sidebar-border">
                                         <li>
                                             <Link href={`/${slug}/settings/profile`} className={subLink(pathname.includes('/settings/profile'))}>
                                                 {tNav('profile')}
@@ -417,6 +434,34 @@ export default function Sidebar({ collapsed }) {
                     </li>
                 </ul>
             </nav>
+
+            {/* Client Portal Link */}
+            {!collapsed && (
+                <div className="px-3 py-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                        <ExternalLink size={11} />
+                        {tSidebar('clientPortalLink')}
+                    </p>
+                    <div className="flex items-center gap-1 bg-default rounded-xl px-3 py-1.5">
+                        <span className="flex-1 text-xs text-muted-foreground truncate font-mono select-all">
+                            {portalLink}
+                        </span>
+                        <Button
+                            isIconOnly
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleCopyPortalLink}
+                            title={tSidebar('copyLink')}
+                            className="shrink-0 h-6 w-6 min-w-6"
+                        >
+                            {linkCopied
+                                ? <Check size={13} className="text-success" />
+                                : <Copy size={13} className="text-muted-foreground" />
+                            }
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             <Separator />
 

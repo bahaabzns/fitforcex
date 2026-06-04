@@ -23,6 +23,7 @@ export default function LanguageSwitcher() {
         // Set NEXT_LOCALE cookie so the server reads it on next request
         document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=31536000; SameSite=Lax`;
         router.refresh();
+        setSwitching(false);
     }
 
     return (

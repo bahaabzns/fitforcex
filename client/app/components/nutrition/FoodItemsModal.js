@@ -14,7 +14,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
     const categories = [...new Set(foodItems.map(fi => fi.food_category).filter(Boolean))];
 
     const filtered = foodItems.filter(fi => {
-        const matchesSearch = fi.name.toLowerCase().includes(foodSearchQuery.toLowerCase());
+        const matchesSearch = (fi.name_en || fi.name_ar || '').toLowerCase().includes((foodSearchQuery || '').toLowerCase());
         const matchesCategory = lockedCategory
             ? fi.food_category === lockedCategory
             : (!categoryFilter || fi.food_category === categoryFilter);
@@ -144,7 +144,7 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                                             )}
                                         </div>
                                     </td>
-                                    <td className="p-2 font-medium">{fi.name}</td>
+                                    <td className="p-2 font-medium">{fi.name_en || fi.name_ar}</td>
                                     <td className="p-2">
                                         {fi.food_category
                                             ? <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{fi.food_category}</span>

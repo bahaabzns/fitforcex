@@ -15,7 +15,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { Kbd } from "@heroui/react/kbd";
 import { Description } from "@heroui/react/description";
 import { parseDate } from "@internationalized/date";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 // ============================================================
 // DataTable — Reusable filterable/sortable table using HeroUI
@@ -51,6 +51,10 @@ export default function DataTable({
     toolbarEnd,
 }) {
     const t = useTranslations('filter');
+    const locale = useLocale();
+    const isRtl = locale === 'ar';
+    // CSS variable for table corner radius (matches HeroUI's own radius token)
+    const CORNER_RADIUS = 'var(--radius-2xl)';
 
     // ── Quick search ──────────────────────────────────────────
     const [quickSearchValue, setQuickSearchValue] = useState("");
@@ -506,35 +510,61 @@ export default function DataTable({
                             </Table.Header>
 
                             <Table.Body>
-                                {paginatedData.map(row => (
-                                    <React.Fragment key={row[rowKey]}>
-                                        <Table.Row id={row[rowKey]}>
-                                            {selectable && (
-                                                <Table.Cell className="pr-0">
-                                                    <Checkbox
-                                                        aria-label={`Select row ${row[rowKey]}`}
-                                                        slot="selection"
-                                                        variant="secondary"
-                                                    >
-                                                        <Checkbox.Control>
-                                                            <Checkbox.Indicator />
-                                                        </Checkbox.Control>
-                                                    </Checkbox>
-                                                </Table.Cell>
-                                            )}
-                                            {columns.map(col => (
-                                                <Table.Cell
-                                                    key={col.key}
-                                                    style={col.width ? { width: col.width, minWidth: col.width } : undefined}
-                                                    className={col.key === "_actions" ? "text-end" : ""}
-                                                >
-                                                    {col.render ? col.render(row) : row[col.key]}
-                                                </Table.Cell>
-                                            ))}
-                                        </Table.Row>
-                                        {renderExpandedRow && renderExpandedRow(row)}
-                                    </React.Fragment>
-                                ))}
+                                {paginatedData.map((row, rowIdx) => {
+                                    const isFirstRow = rowIdx === 0;
+                                    const isLastRow  = rowIdx === paginatedData.length - 1;
+                                    return (
+                                        <React.Fragment key={row[rowKey]}>
+                                            <Table.Row id={row[rowKey]}>
+                                                {selectable && (() => {
+                                                    const s = {};
+                                                    if (isRtl) {
+                                                        if (isFirstRow) { s.borderTopLeftRadius = 0; s.borderTopRightRadius = CORNER_RADIUS; }
+                                                        if (isLastRow)  { s.borderBottomLeftRadius = 0; s.borderBottomRightRadius = CORNER_RADIUS; }
+                                                    }
+                                                    return (
+                                                        <Table.Cell className="pr-0" style={Object.keys(s).length ? s : undefined}>
+                                                            <Checkbox
+                                                                aria-label={`Select row ${row[rowKey]}`}
+                                                                slot="selection"
+                                                                variant="secondary"
+                                                            >
+                                                                <Checkbox.Control>
+                                                                    <Checkbox.Indicator />
+                                                                </Checkbox.Control>
+                                                            </Checkbox>
+                                                        </Table.Cell>
+                                                    );
+                                                })()}
+                                                {columns.map((col, colIdx) => {
+                                                    const isFirstCol = !selectable && colIdx === 0;
+                                                    const isLastCol  = colIdx === columns.length - 1;
+                                                    const baseStyle  = col.width ? { width: col.width, minWidth: col.width } : {};
+                                                    const extra = {};
+                                                    if (isRtl) {
+                                                        if (isFirstRow && isFirstCol) { extra.borderTopLeftRadius = 0; extra.borderTopRightRadius = CORNER_RADIUS; }
+                                                        if (isFirstRow && isLastCol)  { extra.borderTopRightRadius = 0; extra.borderTopLeftRadius = CORNER_RADIUS; }
+                                                        if (isLastRow  && isFirstCol) { extra.borderBottomLeftRadius = 0; extra.borderBottomRightRadius = CORNER_RADIUS; }
+                                                        if (isLastRow  && isLastCol)  { extra.borderBottomRightRadius = 0; extra.borderBottomLeftRadius = CORNER_RADIUS; }
+                                                    }
+                                                    const cellStyle = Object.keys(extra).length
+                                                        ? { ...baseStyle, ...extra }
+                                                        : (Object.keys(baseStyle).length ? baseStyle : undefined);
+                                                    return (
+                                                        <Table.Cell
+                                                            key={col.key}
+                                                            style={cellStyle}
+                                                            className={col.key === "_actions" ? "text-end" : ""}
+                                                        >
+                                                            {col.render ? col.render(row) : row[col.key]}
+                                                        </Table.Cell>
+                                                    );
+                                                })}
+                                            </Table.Row>
+                                            {renderExpandedRow && renderExpandedRow(row)}
+                                        </React.Fragment>
+                                    );
+                                })}
                             </Table.Body>
                         </Table.Content>
                     </Table.ScrollContainer>
