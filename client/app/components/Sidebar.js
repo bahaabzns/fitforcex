@@ -443,7 +443,7 @@ export default function Sidebar({ collapsed }) {
                     </p>
                     <div className="flex items-center gap-1 bg-default rounded-xl px-3 py-1.5">
                         <span className="flex-1 text-xs text-muted-foreground truncate font-mono select-all">
-                            {portalLink}
+                            {portalLink.replace(/^https?:\/\//, '')}
                         </span>
                         <Button
                             isIconOnly
@@ -464,37 +464,42 @@ export default function Sidebar({ collapsed }) {
 
             <Separator />
 
-            {/* Footer: user + logout */}
-            <div className="px-3 py-3 flex flex-col gap-1 shrink-0">
+            {/* Footer: user badge (→ settings/profile) + logout icon */}
+            <div className="px-3 py-3 shrink-0">
                 {user && (
-                    <div className={`flex items-center gap-3 px-3 py-2 rounded-2xl ${collapsed ? 'justify-center' : ''}`}>
-                        <Avatar size="sm" color="primary" className="shrink-0">
-                            <Avatar.Fallback>{getInitials(user)}</Avatar.Fallback>
-                        </Avatar>
-                        {!collapsed && (
-                            <div className="flex flex-col min-w-0 flex-1">
-                                <span className="text-sm font-medium truncate text-foreground">
-                                    {user.fname} {user.lname}
-                                </span>
-                                <span className="text-xs truncate text-muted-foreground">
-                                    {user.email}
-                                </span>
-                            </div>
-                        )}
+                    <div className={`flex items-center gap-1 ${collapsed ? 'flex-col' : ''}`}>
+                        <Link
+                            href={`/${slug}/settings/profile`}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-sidebar-accent transition-colors ${
+                                collapsed ? 'justify-center' : 'flex-1 min-w-0'
+                            }`}
+                        >
+                            <Avatar size="sm" color="primary" className="shrink-0">
+                                <Avatar.Fallback>{getInitials(user)}</Avatar.Fallback>
+                            </Avatar>
+                            {!collapsed && (
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-sm font-medium truncate text-foreground">
+                                        {user.fname} {user.lname}
+                                    </span>
+                                    <span className="text-xs truncate text-muted-foreground">
+                                        {user.email}
+                                    </span>
+                                </div>
+                            )}
+                        </Link>
+                        <Button
+                            isIconOnly
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleLogout}
+                            title={tSidebar('logout')}
+                            className="shrink-0 text-muted-foreground hover:text-danger"
+                        >
+                            <LogOut size={15} />
+                        </Button>
                     </div>
                 )}
-
-                <Button
-                    variant="danger-soft"
-                    size="sm"
-                    fullWidth
-                    onClick={handleLogout}
-                    title={collapsed ? tSidebar('logout') : undefined}
-                    className={`${collapsed ? 'justify-center px-0' : 'justify-start'}`}
-                >
-                    <LogOut size={15} className="shrink-0" />
-                    {!collapsed && tSidebar('logout')}
-                </Button>
             </div>
         </aside>
     );
