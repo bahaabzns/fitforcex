@@ -127,7 +127,9 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 - add language switcher
 - add training mode to save client weight progress
 - fix exercise thumbnail
-- add diet 
+- add diet diary log
+- add streak progress tracking for diet and workout
+- 
 
 
 
