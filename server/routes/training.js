@@ -356,7 +356,9 @@ router.get('/plans/:id', async (req, res, next) => {
         const days = await Promise.all(daysResult.rows.map(async (day) => {
             const exercisesResult = await pool.query(
                 `SELECT te.*,
-                        el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group, el.instructions
+                        el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
+                        el.instructions_en AS instructions, el.instructions_ar,
+                        el.name_en AS library_name_en, el.name_ar AS library_name_ar
                  FROM training_exercises te
                  LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
                  WHERE te.day_id = $1 ORDER BY te.exercise_order ASC`,
@@ -369,7 +371,7 @@ router.get('/plans/:id', async (req, res, next) => {
                     [exercise.id]
                 );
                 const alternativesResult = await pool.query(
-                    `SELECT tea.*, el.name, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
+                    `SELECT tea.*, el.name_en AS name, el.name_ar, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
                      FROM training_exercise_alternatives tea
                      JOIN exercise_library el ON el.id = tea.exercise_library_id
                      WHERE tea.exercise_id = $1
@@ -667,11 +669,15 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
 });
 
 router.post('/plans/:id/activate', async (req, res, next) => {
+    const planId = Number(req.params.id);
+    if (!Number.isInteger(planId) || planId <= 0) {
+        return res.status(400).json({ error: 'Plan must be saved before it can be activated' });
+    }
     try {
         const updatedPlan = await activateSinglePlan({
             pool,
             tableName: 'training_plans',
-            planId: req.params.id,
+            planId,
             coachId: req.user.workspaceId,
             clientIdColumn: 'client_id',
         });
