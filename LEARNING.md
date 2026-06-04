@@ -44,3 +44,13 @@ Format per session:
 **Concepts I am still fuzzy on:** (nothing new this session — pure housekeeping)
 **Question I want to explore next:** Should we create a `dev` branch before continuing Phase 9 billing work?
 **Confidence today (1–10):** 8
+
+---
+
+## 2026-06-04 — Arabic i18n Phase 1: RTL layout, DataTable, Sidebar, portal wiring
+**What we built:** Wired Arabic i18n into DataTable (RTL detection via `useLocale`), Sidebar (`text-left` → `text-start` for bidirectional correctness), FoodItemsModal, portal pages, and client layout tab navigation. Added RTL-aware CSS in globals.css. Deleted legacy portal login pages consolidated into root auth. Large planEngine.js refactor and server route updates.
+**New concepts learned:** `text-start` vs `text-left` — `text-left` is always left regardless of direction; `text-start` respects the document's writing direction (`dir="rtl"` or `dir="ltr"`). This is the correct choice for any bilingual layout.
+**Concepts I understood immediately:** Why `isRtl = locale === 'ar'` is needed alongside CSS — some layout decisions (icon flipping, scroll direction) require JS-side awareness, not just CSS.
+**Concepts I am still fuzzy on:** How to handle mixed-direction content within a single cell (e.g., Arabic label + English number) — does HeroUI's Table handle this automatically or does each cell need a `dir` attr?
+**Question I want to explore next:** Are there remaining hardcoded `text-left` or `justify-start` patterns in other components that will break under RTL?
+**Confidence today (1–10):** 8

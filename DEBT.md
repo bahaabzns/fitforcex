@@ -94,3 +94,21 @@ Format:
 **Why it matters:** Benign in React 18 (no crash), but produces a stale state update. Clean pattern is to abort on cleanup.
 **Effort:** Small (add AbortController, pass `signal` to axios)
 **Priority:** Low
+
+---
+
+## 2026-06-04 — server/lib/planEngine.js
+**Type:** Knowledge
+**What:** planEngine.js was refactored (~426 line diff) with no automated test coverage in place.
+**Why it matters:** Any regression in plan creation, insertion, or serialization will only surface at runtime when a coach reports broken plan behaviour. No safety net exists.
+**Effort:** Medium (write integration tests covering insertPlanTree, serializePlanRow, and the main CRUD paths)
+**Priority:** High
+
+---
+
+## 2026-06-04 — client/app/(client)/portal/login/*
+**Type:** Knowledge
+**What:** portal/login/error.js, portal/login/loading.js, portal/login/page.js, and portal/page.js were deleted. The assumption is that root-level auth covers these routes, but no redirect audit was done.
+**Why it matters:** A broken or missing redirect leaves clients hitting a dead-end URL with no visible error.
+**Effort:** Small (audit middleware redirect paths for /portal and /portal/login)
+**Priority:** Medium

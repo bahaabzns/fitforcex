@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const c=fs.readFileSync\\('d:/fitforce-x/client/node_modules/@heroui/react/dist/components/table/table.js','utf8'\\); const m=c.match\\(/\\\\\"[a-z]+__[a-z]+\\\\\"/g\\)||[]; [...new Set\\(m\\)].forEach\\(x=>console.log\\(x\\)\\)\")",
+      "Bash(xargs grep -l \"tabsVariants\")"
+    ]
+  }
+}
