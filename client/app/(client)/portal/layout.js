@@ -19,7 +19,7 @@ export default function ClientLayout({ children }) {
             .then(() => setLoading(false))
             .catch(() => {
             const slug = localStorage.getItem('portal_slug');
-            router.push(slug ? `/portal/${slug}` : '/portal');
+            router.push(slug ? `/portal/${slug}` : '/');
         });
     }, [pathname, router, isLoginPage]);
 

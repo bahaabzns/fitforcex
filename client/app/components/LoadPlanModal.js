@@ -92,11 +92,13 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
         setMinCarbs(''); setMaxCarbs('');
         setMinFats(''); setMaxFats('');
 
+        const controller = new AbortController();
         const route = type === 'training' ? '/api/training/plans/workspace-library' : '/api/nutrition/plans/workspace-library';
-        api.get(route)
+        api.get(route, { signal: controller.signal })
             .then((res) => setPlans(res.data ?? []))
-            .catch(() => setPlans([]))
+            .catch((err) => { if (!api.isCancel?.(err) && err.name !== 'CanceledError') setPlans([]); })
             .finally(() => setLoading(false));
+        return () => controller.abort();
     }, [open, type]);
 
     const creators = useMemo(() => {

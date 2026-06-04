@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { Tabs } from "@heroui/react";
@@ -37,18 +37,18 @@ export default function BillingPage() {
     const [payStatus, setPayStatus] = useState(null);
     const [activeTab, setActiveTab] = useState("plans");
 
-    function loadBilling() {
+    const loadBilling = useCallback(() => {
         return Promise.all([
             api.get("/api/billing/subscription"),
         ]).then(([subRes]) => {
             setData(subRes.data);
         }).catch(() => setError(t("loadFailed")))
           .finally(() => setLoading(false));
-    }
+    }, [t]);
 
     useEffect(() => {
         loadBilling();
-    }, []);
+    }, [loadBilling]);
 
     useEffect(() => {
         function onMessage(e) {
@@ -112,8 +112,9 @@ export default function BillingPage() {
     const { subscription, payments } = data ?? {};
     const isExpired = subscription?.daysRemaining === 0;
     const isExpiring = !isExpired && subscription?.daysRemaining !== null && subscription.daysRemaining <= 7;
-    const isFreePlan = subscription?.daysRemaining === null && (subscription?.priceMonthly === null || subscription?.priceMonthly === undefined)
-        || subscription?.planDisplay?.toLowerCase() === 'free';
+    const isFreePlan = (
+        subscription?.daysRemaining === null && subscription?.priceMonthly == null
+    ) || subscription?.planDisplay?.toLowerCase() === 'free';
 
     const paymentColumns = [
         {
