@@ -53,7 +53,7 @@ export default function DataTable({
     const t = useTranslations('filter');
     const locale = useLocale();
     const isRtl = locale === 'ar';
-    // CSS variable for table corner radius (matches HeroUI's own radius token)
+    // RTL mode swaps which corners are rounded; this must match HeroUI's own table radius or the border visually misaligns
     const CORNER_RADIUS = 'var(--radius-2xl)';
 
     // ── Quick search ──────────────────────────────────────────
