@@ -210,40 +210,6 @@ export default function Sidebar({ collapsed }) {
                 </div>
             )}
 
-            {/* Client Portal Link */}
-            {!collapsed && portalLink && (
-                <div className="px-3 pb-3">
-                    <div className="flex items-stretch rounded-xl border border-border overflow-hidden">
-                        <a
-                            href={portalLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2.5 flex-1 min-w-0 px-3 py-2.5 hover:bg-sidebar-accent transition-colors group"
-                        >
-                            <ExternalLink size={13} className="text-primary shrink-0" />
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-0.5">
-                                    {tSidebar('clientPortalLink')}
-                                </span>
-                                <span className="text-xs font-mono text-foreground/70 group-hover:text-foreground truncate transition-colors leading-none">
-                                    {portalLink.replace(/^https?:\/\//, '')}
-                                </span>
-                            </div>
-                        </a>
-                        <button
-                            onClick={handleCopyPortalLink}
-                            title={tSidebar('copyLink')}
-                            className="shrink-0 px-2.5 border-l border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                        >
-                            {linkCopied
-                                ? <Check size={13} className="text-success" />
-                                : <Copy size={13} />
-                            }
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-2">
                 <ul className="flex flex-col gap-0.5">
@@ -471,6 +437,40 @@ export default function Sidebar({ collapsed }) {
             </nav>
 
             <Separator />
+
+            {/* Client Portal Link */}
+            {!collapsed && portalLink && (
+                <div className="px-3 pt-3">
+                    <div className="flex items-stretch rounded-xl border border-border overflow-hidden">
+                        <a
+                            href={portalLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2.5 flex-1 min-w-0 px-3 py-2.5 hover:bg-sidebar-accent transition-colors group"
+                        >
+                            <ExternalLink size={13} className="text-primary shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-0.5">
+                                    {tSidebar('clientPortalLink')}
+                                </span>
+                                <span className="text-xs font-mono text-foreground/70 group-hover:text-foreground truncate transition-colors leading-none">
+                                    {portalLink.replace(/^https?:\/\//, '')}
+                                </span>
+                            </div>
+                        </a>
+                        <button
+                            onClick={handleCopyPortalLink}
+                            title={tSidebar('copyLink')}
+                            className="shrink-0 px-2.5 border-l border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                        >
+                            {linkCopied
+                                ? <Check size={13} className="text-success" />
+                                : <Copy size={13} />
+                            }
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Footer: user badge (→ settings/profile) + logout icon */}
             <div className="px-3 py-3 shrink-0">
