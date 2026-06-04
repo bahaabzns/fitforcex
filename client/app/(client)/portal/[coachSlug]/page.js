@@ -24,7 +24,7 @@ export default function PortalLoginPage() {
         setLoading(true);
         try {
             await api.post("/api/client-portal/login", { email, password, coach_slug: coachSlug });
-            router.push("/portal/dashboard");
+            router.push("/portal/nutrition");
         } catch (err) {
             setError(err.response?.data?.message || "Login failed");
         } finally {
