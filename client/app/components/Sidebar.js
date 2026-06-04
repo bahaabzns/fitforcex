@@ -152,64 +152,6 @@ export default function Sidebar({ collapsed }) {
 
             <Separator />
 
-            {/* Workspace Switcher */}
-            {currentWs && (
-                <div className="px-3 py-2 relative" ref={wsRef}>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        fullWidth
-                        onClick={() => !collapsed && setWsOpen(o => !o)}
-                        isDisabled={switching}
-                        className={`gap-2 px-2.5 ${collapsed ? 'justify-center pointer-events-none' : 'justify-start'}`}
-                        title={collapsed ? currentWs.name : undefined}
-                    >
-                        <Building2 size={14} className="text-muted-foreground shrink-0" />
-                        {!collapsed && (
-                            <>
-                                <span className="flex-1 min-w-0 text-xs text-foreground font-medium truncate text-start">
-                                    {currentWs.name}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground capitalize shrink-0">{currentWs.role}</span>
-                                <ChevronDown size={12} className={`text-muted-foreground shrink-0 transition-transform ${wsOpen ? 'rotate-180' : ''}`} />
-                            </>
-                        )}
-                    </Button>
-
-                    {wsOpen && !collapsed && (
-                        <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-                            <div className="p-1.5 flex flex-col gap-0.5">
-                                {allWorkspaces.map(ws => (
-                                    <Button
-                                        key={ws.id}
-                                        variant={ws.id === currentWs.id ? "tertiary" : "ghost"}
-                                        size="sm"
-                                        fullWidth
-                                        onClick={() => handleSwitchWorkspace(ws.id)}
-                                        className="justify-start gap-2 px-2.5"
-                                    >
-                                        <Building2 size={12} className="shrink-0" />
-                                        <span className="flex-1 truncate font-medium text-start">{ws.name}</span>
-                                        <span className="text-muted-foreground capitalize shrink-0 text-xs">{ws.role}</span>
-                                        {ws.id === currentWs.id && <Check size={12} className="text-primary shrink-0" />}
-                                    </Button>
-                                ))}
-                            </div>
-                            <div className="border-t border-border p-1.5">
-                                <Link
-                                    href={`/${slug}/team?action=new-workspace`}
-                                    onClick={() => setWsOpen(false)}
-                                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-default transition-colors cursor-pointer"
-                                >
-                                    <Plus size={12} />
-                                    {tSidebar('createWorkspace')}
-                                </Link>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-2">
                 <ul className="flex flex-col gap-0.5">
@@ -437,6 +379,64 @@ export default function Sidebar({ collapsed }) {
             </nav>
 
             <Separator />
+
+            {/* Workspace Switcher */}
+            {currentWs && (
+                <div className="px-3 pt-2 relative" ref={wsRef}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        fullWidth
+                        onClick={() => !collapsed && setWsOpen(o => !o)}
+                        isDisabled={switching}
+                        className={`gap-2 px-2.5 ${collapsed ? 'justify-center pointer-events-none' : 'justify-start'}`}
+                        title={collapsed ? currentWs.name : undefined}
+                    >
+                        <Building2 size={14} className="text-muted-foreground shrink-0" />
+                        {!collapsed && (
+                            <>
+                                <span className="flex-1 min-w-0 text-xs text-foreground font-medium truncate text-start">
+                                    {currentWs.name}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground capitalize shrink-0">{currentWs.role}</span>
+                                <ChevronDown size={12} className={`text-muted-foreground shrink-0 transition-transform ${wsOpen ? 'rotate-180' : ''}`} />
+                            </>
+                        )}
+                    </Button>
+
+                    {wsOpen && !collapsed && (
+                        <div className="absolute left-3 right-3 bottom-full mb-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                            <div className="p-1.5 flex flex-col gap-0.5">
+                                {allWorkspaces.map(ws => (
+                                    <Button
+                                        key={ws.id}
+                                        variant={ws.id === currentWs.id ? "tertiary" : "ghost"}
+                                        size="sm"
+                                        fullWidth
+                                        onClick={() => handleSwitchWorkspace(ws.id)}
+                                        className="justify-start gap-2 px-2.5"
+                                    >
+                                        <Building2 size={12} className="shrink-0" />
+                                        <span className="flex-1 truncate font-medium text-start">{ws.name}</span>
+                                        <span className="text-muted-foreground capitalize shrink-0 text-xs">{ws.role}</span>
+                                        {ws.id === currentWs.id && <Check size={12} className="text-primary shrink-0" />}
+                                    </Button>
+                                ))}
+                            </div>
+                            <div className="border-t border-border p-1.5">
+                                <Link
+                                    href={`/${slug}/team?action=new-workspace`}
+                                    onClick={() => setWsOpen(false)}
+                                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-default transition-colors cursor-pointer"
+                                >
+                                    <Plus size={12} />
+                                    {tSidebar('createWorkspace')}
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Client Portal Link */}
             {!collapsed && portalLink && (
