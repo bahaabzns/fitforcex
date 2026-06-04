@@ -25,7 +25,7 @@ export function ThemeToggle() {
     }
 
     return (
-        <div className="flex items-center gap-0.5 rounded-full bg-sidebar-accent p-0.5">
+        <div className="flex items-center gap-0.5 rounded-full bg-gray-200 dark:bg-gray-700 p-0.5">
             {OPTIONS.map(({ value, icon: Icon, label }) => (
                 <button
                     key={value}

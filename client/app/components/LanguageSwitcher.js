@@ -41,7 +41,7 @@ export default function LanguageSwitcher() {
 
     return (
         <div className="relative" ref={ref}>
-            <div className="flex items-center rounded-full bg-sidebar-accent p-0.5">
+            <div className="flex items-center rounded-full bg-gray-200 dark:bg-gray-700 p-0.5">
                 <button
                     onClick={() => setOpen(o => !o)}
                     disabled={switching}
@@ -61,7 +61,7 @@ export default function LanguageSwitcher() {
                         <button
                             key={lang.code}
                             onClick={() => switchTo(lang.code)}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-sidebar-accent transition-colors text-start"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-gray-200 dark:bg-gray-700 transition-colors text-start"
                         >
                             <span className="w-4 shrink-0 flex items-center justify-center">
                                 {locale === lang.code && <Check size={13} className="text-primary" />}
