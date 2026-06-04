@@ -29,7 +29,7 @@ import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { Disclosure } from "@heroui/react/disclosure";
 import { Separator } from "@heroui/react/separator";
-
+import { Modal } from "@heroui/react/modal";
 import { useTranslations } from "next-intl";
 
 const navLink = (active) =>
@@ -60,6 +60,7 @@ export default function Sidebar({ collapsed }) {
     const [switching, setSwitching] = useState(false);
     const [portalLink, setPortalLink] = useState('');
     const [linkCopied, setLinkCopied] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const wsRef = useRef(null);
 
     useEffect(() => {
@@ -136,6 +137,7 @@ export default function Sidebar({ collapsed }) {
     const pendingCount = user?.pendingInvitationsCount ?? 0;
 
     return (
+        <>
         <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
             {/* Brand */}
             <div className={`flex items-center px-4 h-16 shrink-0 ${collapsed ? 'justify-center' : 'gap-2'}`}>
@@ -492,7 +494,7 @@ export default function Sidebar({ collapsed }) {
                             isIconOnly
                             size="sm"
                             variant="ghost"
-                            onClick={handleLogout}
+                            onClick={() => setShowLogoutConfirm(true)}
                             title={tSidebar('logout')}
                             className="shrink-0 text-muted-foreground hover:text-danger"
                         >
@@ -502,5 +504,30 @@ export default function Sidebar({ collapsed }) {
                 )}
             </div>
         </aside>
+
+        <Modal isOpen={showLogoutConfirm} onOpenChange={(o) => !o && setShowLogoutConfirm(false)}>
+            <Modal.Backdrop>
+                <Modal.Container className="max-w-sm">
+                    <Modal.Dialog>
+                        <Modal.Header>
+                            <Modal.Heading>{tSidebar('logoutConfirmTitle')}</Modal.Heading>
+                            <Modal.CloseTrigger />
+                        </Modal.Header>
+                        <Modal.Body>
+                            <p className="text-sm text-muted-foreground">{tSidebar('logoutConfirmMessage')}</p>
+                        </Modal.Body>
+                        <Modal.Footer className="flex justify-end gap-2 pt-2">
+                            <Button size="sm" variant="ghost" onClick={() => setShowLogoutConfirm(false)}>
+                                {tSidebar('cancel')}
+                            </Button>
+                            <Button size="sm" variant="danger" onClick={handleLogout}>
+                                {tSidebar('logout')}
+                            </Button>
+                        </Modal.Footer>
+                    </Modal.Dialog>
+                </Modal.Container>
+            </Modal.Backdrop>
+        </Modal>
+        </>
     );
 }

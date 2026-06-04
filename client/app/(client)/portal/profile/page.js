@@ -10,11 +10,13 @@ import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import { Avatar } from "@heroui/react/avatar";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Modal } from "@heroui/react/modal";
 
 export default function ClientProfilePage() {
     const t = useTranslations('portal.profile');
     const [client, setClient] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -88,12 +90,37 @@ export default function ClientProfilePage() {
                 variant="danger-soft"
                 size="md"
                 fullWidth
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="mt-2"
             >
                 <LogOut size={16} className="shrink-0" />
                 {t('logout')}
             </Button>
+
+            {/* Logout confirmation */}
+            <Modal isOpen={showLogoutConfirm} onOpenChange={(o) => !o && setShowLogoutConfirm(false)}>
+                <Modal.Backdrop>
+                    <Modal.Container className="max-w-sm">
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>{t('logoutConfirmTitle')}</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body>
+                                <p className="text-sm text-muted-foreground">{t('logoutConfirmMessage')}</p>
+                            </Modal.Body>
+                            <Modal.Footer className="flex justify-end gap-2 pt-2">
+                                <Button size="sm" variant="ghost" onClick={() => setShowLogoutConfirm(false)}>
+                                    {t('cancel')}
+                                </Button>
+                                <Button size="sm" variant="danger" onClick={handleLogout}>
+                                    {t('logout')}
+                                </Button>
+                            </Modal.Footer>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
         </div>
     );
 }
