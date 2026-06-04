@@ -2,45 +2,44 @@
 
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { Button } from '@heroui/react/button';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Monitor } from 'lucide-react';
+
+const OPTIONS = [
+    { value: 'light',  icon: Sun,     label: 'Light'  },
+    { value: 'dark',   icon: Moon,    label: 'Dark'   },
+    { value: 'system', icon: Monitor, label: 'System' },
+];
 
 export function ThemeToggle() {
-    const { resolvedTheme, setTheme } = useTheme();
+    const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => setMounted(true), []);
-    if (!mounted) return <div className="w-16 h-8 shrink-0" />;
+    if (!mounted) return <div className="h-8 w-24 rounded-xl shrink-0" />;
 
-    function select(t) {
-        setTheme(t);
-        document.cookie = `theme=${t}; path=/; max-age=31536000; SameSite=Lax`;
+    const current = theme ?? 'system';
+
+    function select(value) {
+        setTheme(value);
+        document.cookie = `theme=${value}; path=/; max-age=31536000; SameSite=Lax`;
     }
 
-    const isDark = resolvedTheme === 'dark';
-
     return (
-        <div className="flex items-center">
-            <Button
-                isIconOnly
-                variant="ghost"
-                size="sm"
-                aria-label="Light mode"
-                onPress={() => select('light')}
-                className={`shrink-0 ${!isDark ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-                <Sun size={16} />
-            </Button>
-            <Button
-                isIconOnly
-                variant="ghost"
-                size="sm"
-                aria-label="Dark mode"
-                onPress={() => select('dark')}
-                className={`shrink-0 ${isDark ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-                <Moon size={16} />
-            </Button>
+        <div className="flex items-center gap-0.5 rounded-xl bg-sidebar-accent p-0.5">
+            {OPTIONS.map(({ value, icon: Icon, label }) => (
+                <button
+                    key={value}
+                    onClick={() => select(value)}
+                    aria-label={label}
+                    className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors shrink-0 ${
+                        current === value
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <Icon size={14} />
+                </button>
+            ))}
         </div>
     );
 }
