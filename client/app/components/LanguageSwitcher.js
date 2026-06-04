@@ -41,12 +41,15 @@ export default function LanguageSwitcher() {
 
     return (
         <div className="relative" ref={ref}>
-            <div className="flex items-center rounded-full bg-gray-200 dark:bg-gray-700 p-0.5">
+            <div className="flex items-center rounded-full p-0.5" style={{ backgroundColor: 'lab(15.7305% .613764 -2.16959)' }}>
                 <button
                     onClick={() => setOpen(o => !o)}
                     disabled={switching}
                     aria-label="Choose a language"
-                    className="flex items-center justify-center w-7 h-7 rounded-full bg-background text-foreground shadow-sm shrink-0"
+                    style={{ backgroundColor: '#2c2c2c' }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#383838'; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#2c2c2c'; }}
+                    className="flex items-center justify-center w-7 h-7 rounded-full text-white shrink-0 cursor-pointer transition-colors"
                 >
                     <Languages size={14} />
                 </button>
