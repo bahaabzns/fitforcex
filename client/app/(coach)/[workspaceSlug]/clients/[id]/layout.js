@@ -1,7 +1,7 @@
 "use client";
 import { usePathname, useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
 import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard } from "lucide-react";
 import NutritionPage from "./nutrition/page";
@@ -63,6 +63,8 @@ export default function ClientLayout({ children }) {
     const router = useRouter();
     const tClients = useTranslations('clients');
     const tNav = useTranslations('nav');
+    const locale = useLocale();
+    const isRtl = locale === 'ar';
 
     const isNutrition = pathname === `/${workspaceSlug}/clients/${id}/nutrition`;
     const isTraining  = pathname === `/${workspaceSlug}/clients/${id}/training`;
@@ -124,8 +126,8 @@ export default function ClientLayout({ children }) {
                         <SlidingIndicator selectedKey={selectedKey} />
                         <TabList>
                             {tabs.map(({ id: tabId, name, icon: Icon }, i) => (
-                                <Tab key={tabId} id={tabId} className="flex items-center gap-1.5">
-                                    {i > 0 && <TabSeparator />}
+                                <Tab key={tabId} id={tabId} className="flex items-center gap-1.5 whitespace-nowrap">
+                                    {i > 0 && <TabSeparator style={isRtl ? { left: 'auto', right: 0 } : undefined} />}
                                     <Icon size={14} />
                                     {name}
                                 </Tab>

@@ -35,7 +35,8 @@ export default function ClientDashboardPage() {
                     setPlan(planRes.data);
                 }
             } catch (err) {
-                router.push("/client/login");
+                const slug = localStorage.getItem('portal_slug');
+                router.push(slug ? `/portal/${slug}` : '/portal');
             } finally {
                 setLoading(false);
             }

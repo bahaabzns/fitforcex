@@ -32,7 +32,10 @@ export default function ClientTrainingPage() {
             .then((res) => setTrainingPlan(res.data))
             .catch((e) => {
                 if (e.response?.status === 404) setNoPlan(true);
-                else router.push("/client/login");
+                else {
+                    const slug = localStorage.getItem('portal_slug');
+                    router.push(slug ? `/portal/${slug}` : '/portal');
+                }
             })
             .finally(() => setLoading(false));
     }, [router]);

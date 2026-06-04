@@ -17,7 +17,10 @@ export default function ClientLayout({ children }) {
         if (isLoginPage) { setLoading(false); return; }
         api.get("/api/client-portal/me")
             .then(() => setLoading(false))
-            .catch(() => router.push("/portal/login"));
+            .catch(() => {
+            const slug = localStorage.getItem('portal_slug');
+            router.push(slug ? `/portal/${slug}` : '/portal');
+        });
     }, [pathname, router, isLoginPage]);
 
     if (loading) {
