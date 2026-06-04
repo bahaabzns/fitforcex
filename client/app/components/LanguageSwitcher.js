@@ -41,17 +41,16 @@ export default function LanguageSwitcher() {
 
     return (
         <div className="relative" ref={ref}>
-            <Button
-                isIconOnly
-                variant="ghost"
-                size="sm"
-                aria-label="Choose a language"
-                onPress={() => setOpen(o => !o)}
-                isDisabled={switching}
-                className="shrink-0"
-            >
-                <Languages size={16} />
-            </Button>
+            <div className="flex items-center rounded-full bg-sidebar-accent p-0.5">
+                <button
+                    onClick={() => setOpen(o => !o)}
+                    disabled={switching}
+                    aria-label="Choose a language"
+                    className="flex items-center justify-center w-7 h-7 rounded-full bg-background text-foreground shadow-sm shrink-0"
+                >
+                    <Languages size={14} />
+                </button>
+            </div>
 
             {open && (
                 <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden">

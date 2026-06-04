@@ -25,13 +25,13 @@ export function ThemeToggle() {
     }
 
     return (
-        <div className="flex items-center gap-0.5 rounded-xl bg-sidebar-accent p-0.5">
+        <div className="flex items-center gap-0.5 rounded-full bg-sidebar-accent p-0.5">
             {OPTIONS.map(({ value, icon: Icon, label }) => (
                 <button
                     key={value}
                     onClick={() => select(value)}
                     aria-label={label}
-                    className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors shrink-0 ${
+                    className={`flex items-center justify-center w-7 h-7 rounded-full transition-colors shrink-0 ${
                         current === value
                             ? 'bg-background text-foreground shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
