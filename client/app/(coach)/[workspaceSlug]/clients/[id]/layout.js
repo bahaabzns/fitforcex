@@ -3,7 +3,7 @@ import { usePathname, useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
-import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard } from "lucide-react";
+import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard } from 'lucide-react';
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
 
@@ -51,8 +51,8 @@ function SlidingIndicator({ selectedKey }) {
         <div
             ref={ref}
             aria-hidden="true"
-            className="absolute left-0 rounded-3xl shadow-sm pointer-events-none"
-            style={{ zIndex: 0, backgroundColor: '#2c2c2c' }}
+            className="absolute left-0 bg-background rounded-3xl shadow-sm pointer-events-none"
+            style={{ zIndex: 0 }}
         />
     );
 }
@@ -122,15 +122,11 @@ export default function ClientLayout({ children }) {
                         if (tab) router.push(tab.href);
                     }}
                 >
-                    <TabListContainer style={{ backgroundColor: 'lab(15.7305% .613764 -2.16959)' }}>
+                    <TabListContainer>
                         <SlidingIndicator selectedKey={selectedKey} />
                         <TabList>
                             {tabs.map(({ id: tabId, name, icon: Icon }, i) => (
-                                <Tab
-                                    key={tabId}
-                                    id={tabId}
-                                    className="relative z-10 flex items-center gap-1.5 whitespace-nowrap cursor-pointer text-white/50 data-[selected=true]:text-white transition-colors"
-                                >
+                                <Tab key={tabId} id={tabId} className="flex items-center gap-1.5 whitespace-nowrap">
                                     {i > 0 && <TabSeparator style={isRtl ? { left: 'auto', right: 0 } : undefined} />}
                                     <Icon size={14} />
                                     {name}
