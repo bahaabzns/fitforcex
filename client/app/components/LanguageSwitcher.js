@@ -3,7 +3,6 @@
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { useTheme } from 'next-themes';
 import { Languages, Check } from 'lucide-react';
 import api from '@/lib/axios';
 
@@ -15,13 +14,9 @@ const LANGS = [
 export default function LanguageSwitcher() {
     const locale   = useLocale();
     const router   = useRouter();
-    const { resolvedTheme } = useTheme();
     const [switching, setSwitching] = useState(false);
     const [open, setOpen]           = useState(false);
-    const [mounted, setMounted]     = useState(false);
     const ref = useRef(null);
-
-    useEffect(() => setMounted(true), []);
 
     useEffect(() => {
         function handler(e) {
@@ -43,23 +38,15 @@ export default function LanguageSwitcher() {
         setSwitching(false);
     }
 
-    const isDark    = mounted && resolvedTheme === 'dark';
-    const pillBg    = isDark ? 'lab(15.7305% .613764 -2.16959)' : '#e5e7eb';
-    const btnBg     = isDark ? '#2c2c2c' : '#ffffff';
-    const btnHover  = isDark ? '#383838' : '#f3f4f6';
-    const btnText   = isDark ? 'text-white' : 'text-foreground';
-
     return (
         <div className="relative" ref={ref}>
-            <div className="flex items-center rounded-full p-0.5" style={{ backgroundColor: pillBg }}>
+            <div className="flex items-center rounded-full p-0.5" style={{ backgroundColor: 'var(--color-default)' }}>
                 <button
                     onClick={() => setOpen(o => !o)}
                     disabled={switching}
                     aria-label="Choose a language"
-                    style={{ backgroundColor: btnBg }}
-                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = btnHover; }}
-                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = btnBg; }}
-                    className={`flex items-center justify-center w-7 h-7 rounded-full shrink-0 cursor-pointer transition-colors ${btnText}`}
+                    style={{ backgroundColor: 'var(--color-background)' }}
+                    className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 cursor-pointer transition-opacity text-foreground hover:opacity-90"
                 >
                     <Languages size={14} />
                 </button>
