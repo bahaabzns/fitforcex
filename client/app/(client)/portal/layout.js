@@ -36,7 +36,7 @@ export default function ClientLayout({ children }) {
     return (
         <div className="min-h-screen bg-background text-foreground">
             <ClientPortalNav />
-            <main className="pt-14 pb-16">
+            <main className="pb-16">
                 {children}
             </main>
         </div>
