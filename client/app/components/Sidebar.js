@@ -23,7 +23,7 @@ import {
     Plus,
     Copy,
     ExternalLink,
-} from "lucide-react";
+} from 'lucide-react';
 import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
@@ -51,8 +51,8 @@ export default function Sidebar({ collapsed }) {
     const tSidebar = useTranslations('sidebar');
     const pathname = usePathname();
     const router = useRouter();
-    const [nutritionOpen, setNutritionOpen] = useState(pathname.includes('/nutrition'));
-    const [trainingOpen, setTrainingOpen] = useState(pathname.includes('/training'));
+    const [nutritionOpen, setNutritionOpen] = useState(pathname.includes('/nutrition') && !pathname.includes('/clients/'));
+    const [trainingOpen, setTrainingOpen] = useState(pathname.includes('/training') && !pathname.includes('/clients/'));
     const [financeOpen, setFinanceOpen] = useState(pathname.includes('/finance'));
     const [settingsOpen, setSettingsOpen] = useState(pathname.includes('/settings'));
     const [user, setUser] = useState(null);
@@ -231,7 +231,7 @@ export default function Sidebar({ collapsed }) {
                         <Link
                             href={`/${slug}/forms`}
                             title={collapsed ? tNav('forms') : undefined}
-                            className={navLink(pathname.includes('/forms'))}
+                            className={navLink(pathname.includes('/forms') && !pathname.includes('/clients/'))}
                         >
                             <ClipboardList size={17} className="shrink-0" />
                             {!collapsed && <span className="flex-1">{tNav('forms')}</span>}
@@ -242,7 +242,7 @@ export default function Sidebar({ collapsed }) {
                     <li>
                         <Disclosure isExpanded={nutritionOpen} onExpandedChange={setNutritionOpen}>
                             <Disclosure.Heading>
-                                <Disclosure.Trigger className={`${navLink(pathname.includes('/nutrition'))} w-full cursor-pointer`} disabled={collapsed}>
+                                <Disclosure.Trigger className={`${navLink(pathname.includes('/nutrition') && !pathname.includes('/clients/'))} w-full cursor-pointer`} disabled={collapsed}>
                                     <Salad size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
@@ -275,7 +275,7 @@ export default function Sidebar({ collapsed }) {
                     <li>
                         <Disclosure isExpanded={trainingOpen} onExpandedChange={setTrainingOpen}>
                             <Disclosure.Heading>
-                                <Disclosure.Trigger className={`${navLink(pathname.includes('/training'))} w-full cursor-pointer`} disabled={collapsed}>
+                                <Disclosure.Trigger className={`${navLink(pathname.includes('/training') && !pathname.includes('/clients/'))} w-full cursor-pointer`} disabled={collapsed}>
                                     <Dumbbell size={17} className="shrink-0" />
                                     {!collapsed && (
                                         <>
