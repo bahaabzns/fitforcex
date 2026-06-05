@@ -6,8 +6,6 @@ import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 const INPUT_CLASS = "h-8 w-full rounded-md border border-border px-2 text-xs focus:outline-none focus:border-primary/40";
-const SERVER = "http://localhost:4000";
-
 function getYoutubeEmbedUrl(url) {
     if (!url) return null;
     const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?]+)/);
@@ -144,19 +142,19 @@ export default function RightPanel({
                                             {/* Exercise header */}
                                             <div className="flex items-start gap-2 mb-2">
                                                 {/* Thumbnail */}
-                                                {exercise.thumbnail_path ? (
-                                                    <img
-                                                        src={`${SERVER}${exercise.thumbnail_path}`}
-                                                        alt={exercise.name}
-                                                        className="w-10 h-10 rounded-lg object-cover shrink-0"
-                                                    />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 text-muted-foreground">
-                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
-                                                        </svg>
-                                                    </div>
-                                                )}
+                                                <div className="relative w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+                                                    </svg>
+                                                    {exercise.thumbnail_path && (
+                                                        <img
+                                                            src={exercise.thumbnail_path}
+                                                            alt={exercise.name}
+                                                            className="absolute inset-0 w-full h-full object-cover"
+                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                        />
+                                                    )}
+                                                </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         {/* Drag grip */}

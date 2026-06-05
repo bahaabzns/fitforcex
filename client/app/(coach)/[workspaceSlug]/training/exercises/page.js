@@ -126,12 +126,19 @@ export default function ExerciseLibraryPage() {
         {
             key: "thumbnail_path",
             label: t("columnThumbnail"),
-            render: (row) =>
-                row.thumbnail_path ? (
-                    <img src={`http://localhost:4000${row.thumbnail_path}`} alt={row.name_en} className="w-12 h-12 object-cover rounded" />
-                ) : (
-                    <div className="w-12 h-12 bg-secondary rounded flex items-center justify-center text-muted-foreground text-xs">—</div>
-                ),
+            render: (row) => (
+                <div className="relative w-12 h-12 rounded bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
+                    <span className="text-xs">—</span>
+                    {row.thumbnail_path && (
+                        <img
+                            src={row.thumbnail_path}
+                            alt={row.name_en}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                    )}
+                </div>
+            ),
         },
         { key: "name_en", label: t("columnNameEn"), filterType: "text", sortable: true },
         { key: "name_ar", label: t("columnNameAr"), render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },

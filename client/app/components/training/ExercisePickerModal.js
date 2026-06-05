@@ -188,19 +188,19 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                                         </td>
                                         <td className="p-2">
                                             <div className="flex items-center gap-2">
-                                                {item.thumbnail_path ? (
-                                                    <img
-                                                        src={`http://localhost:4000${item.thumbnail_path}`}
-                                                        alt={item.name_en}
-                                                        className="w-8 h-8 object-cover rounded-md shrink-0"
-                                                    />
-                                                ) : (
-                                                    <div className="w-8 h-8 rounded-md bg-secondary flex items-center justify-center shrink-0 text-muted-foreground">
-                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                                                        </svg>
-                                                    </div>
-                                                )}
+                                                <div className="relative w-8 h-8 rounded-md bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                                                    </svg>
+                                                    {item.thumbnail_path && (
+                                                        <img
+                                                            src={item.thumbnail_path}
+                                                            alt={item.name_en}
+                                                            className="absolute inset-0 w-full h-full object-cover"
+                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                        />
+                                                    )}
+                                                </div>
                                                 <span className="font-medium text-foreground">{item.name_en}</span>
                                             </div>
                                         </td>
