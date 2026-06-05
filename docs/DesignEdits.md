@@ -115,6 +115,11 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 # 
 
 # on clicking client in the clients table it it selects it (don't select until the user clicks on the check box only)
+# feedback form from clients and coaches
+
+# notifications system for clients and coach
+# google sign in and up
+# make the path (bread cramp) clickable
 
 # add the default nutrition and training databases on new accounts
 
@@ -122,14 +127,14 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 - add language switcher
 
 # enhance client portal
-- change the route name of dashboard into nutrition
-- convert side bar into bottom navigation bar similar to mobile apps
-- add language switcher
+- [done] change the route name of dashboard into nutrition
+- [done] convert side bar into bottom navigation bar similar to mobile apps
+- [done] add language switcher
 - add training mode to save client weight progress
 - fix exercise thumbnail
 - add diet diary log
 - add streak progress tracking for diet and workout
-
+- add weekly list of items
 
 
 
