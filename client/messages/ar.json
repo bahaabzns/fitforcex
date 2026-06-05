@@ -974,8 +974,8 @@
   "portal": {
     "sidebar": {
       "home": "الرئيسية",
-      "nutritionPlan": "خطة التغذية",
-      "trainingPlan": "خطة التدريب",
+      "nutritionPlan": "التغذية",
+      "trainingPlan": "التدريب",
       "forms": "الاستمارات"
     },
     "forms": {
@@ -1009,8 +1009,29 @@
       "activePlan": "الخطة النشطة",
       "active": "نشط",
       "dailyGoals": "الأهداف اليومية — {name}",
+      "cycleNutritionFacts": "حقائق تغذية الدورة — {name}",
+      "noNutritionData": "لا توجد بيانات تغذية لهذه الدورة",
+      "noMeals": "لم يتم إضافة وجبات لهذه الدورة بعد",
+      "meals": "الوجبات",
+      "item": "عنصر",
+      "items": "عناصر",
+      "kcal": "سعرة",
+      "macroCarbs": "كربوهيدرات",
+      "macroFat": "دهون",
+      "macroProtein": "بروتين",
+      "carbsAbbr": "ك",
+      "fatAbbr": "د",
+      "proteinAbbr": "ب",
       "coachNote": "ملاحظة المدرب",
       "alternatives": "البدائل:"
+    },
+    "shoppingList": {
+      "title": "قائمة التسوق",
+      "button": "قائمة التسوق",
+      "cyclesTitle": "الأيام لكل دورة",
+      "itemsTitle": "المواد المطلوبة",
+      "days": "أيام",
+      "empty": "حدد الأيام أعلاه لبناء القائمة."
     },
     "training": {
       "title": "خطة التدريب",
@@ -1028,7 +1049,8 @@
       "rir": "RIR",
       "alternatives": "البدائل:",
       "hideVideo": "إخفاء",
-      "watchVideo": "مشاهدة"
+      "watchVideo": "مشاهدة",
+      "exercises": "التمارين"
     },
     "home": {
       "title": "الرئيسية",

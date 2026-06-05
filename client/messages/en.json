@@ -974,8 +974,8 @@
   "portal": {
     "sidebar": {
       "home": "Home",
-      "nutritionPlan": "Nutrition Plan",
-      "trainingPlan": "Training Plan",
+      "nutritionPlan": "Nutrition",
+      "trainingPlan": "Training",
       "forms": "Forms"
     },
     "forms": {
@@ -1009,8 +1009,29 @@
       "activePlan": "Active Plan",
       "active": "Active",
       "dailyGoals": "Daily Goals — {name}",
+      "cycleNutritionFacts": "Cycle Nutrition Facts — {name}",
+      "noNutritionData": "No nutrition data for this cycle",
+      "noMeals": "No meals added to this cycle yet",
+      "meals": "Meals",
+      "item": "item",
+      "items": "items",
+      "kcal": "kcal",
+      "macroCarbs": "Carbs",
+      "macroFat": "Fat",
+      "macroProtein": "Protein",
+      "carbsAbbr": "C",
+      "fatAbbr": "F",
+      "proteinAbbr": "P",
       "coachNote": "Coach Note",
       "alternatives": "Alternatives:"
+    },
+    "shoppingList": {
+      "title": "Shopping List",
+      "button": "Shopping List",
+      "cyclesTitle": "Days per Cycle",
+      "itemsTitle": "Items to Buy",
+      "days": "days",
+      "empty": "Set days above to build your list."
     },
     "training": {
       "title": "Training Plan",
@@ -1028,7 +1049,8 @@
       "rir": "RIR",
       "alternatives": "Alternatives:",
       "hideVideo": "Hide",
-      "watchVideo": "Watch"
+      "watchVideo": "Watch",
+      "exercises": "Exercises"
     },
     "home": {
       "title": "Home",
