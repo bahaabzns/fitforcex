@@ -6,7 +6,7 @@ import api from "@/lib/axios";
 import { Tabs } from "@heroui/react";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
-import { Download } from "lucide-react";
+import { Download } from 'lucide-react';
 import LandingPricing from "@/app/components/LandingPricing";
 import DataTable from "@/app/components/DataTable";
 

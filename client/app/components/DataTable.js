@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter } from 'lucide-react';
 import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
 import { Pagination } from "@heroui/react/pagination";

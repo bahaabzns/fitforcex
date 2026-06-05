@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
-import { Eye, EyeOff, RefreshCw, Copy, Check } from "lucide-react";
+import { Eye, EyeOff, RefreshCw, Copy, Check } from 'lucide-react';
 import Modal from "@/app/components/Modal";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";

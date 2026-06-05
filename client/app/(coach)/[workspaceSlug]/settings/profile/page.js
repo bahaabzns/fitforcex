@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { useTranslations } from "next-intl";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from 'lucide-react';
 import { Button } from "@heroui/react/button";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";

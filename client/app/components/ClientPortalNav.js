@@ -5,7 +5,7 @@ import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
-import { Home, Salad, Dumbbell, ClipboardList, Bell } from "lucide-react";
+import { Home, Salad, Dumbbell, ClipboardList, Bell } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from 'lucide-react';
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";

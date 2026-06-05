@@ -5,7 +5,7 @@ import api from "@/lib/axios";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
-import { Users, ClipboardList, TrendingUp, AlertCircle } from "lucide-react";
+import { Users, ClipboardList, TrendingUp, AlertCircle } from 'lucide-react';
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";

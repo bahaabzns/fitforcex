@@ -1,6 +1,6 @@
 "use client";
 
-import { Home } from "lucide-react";
+import { Home } from 'lucide-react';
 import { useTranslations } from "next-intl";
 
 export default function ClientHomePage() {

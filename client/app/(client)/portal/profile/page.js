@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { LogOut } from "lucide-react";
+import { LogOut } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";

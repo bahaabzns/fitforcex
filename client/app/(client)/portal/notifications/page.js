@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell } from 'lucide-react';
 import { useTranslations } from "next-intl";
 
 export default function ClientNotificationsPage() {

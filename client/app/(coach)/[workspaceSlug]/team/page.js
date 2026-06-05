@@ -12,7 +12,7 @@ import { Avatar } from "@heroui/react/avatar";
 import {
     Users2, UserPlus, Mail,
     Trash2, Clock, CheckCircle2, XCircle, Building2, Plus, SlidersHorizontal,
-} from "lucide-react";
+} from 'lucide-react';
 
 const ROLES = ["manager", "trainer", "assistant"];
 

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle } from 'lucide-react';
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";

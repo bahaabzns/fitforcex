@@ -17,7 +17,7 @@ import {
     Users2,
     Settings,
     ChevronRight,
-} from "lucide-react";
+} from 'lucide-react';
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 
