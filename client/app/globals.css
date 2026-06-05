@@ -140,6 +140,15 @@
   .sidebar.collapsed { width: 4rem; }
 }
 
+/* ── Scrollbar hide utility ── */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* ── RTL overrides ── */
 
 /* Prevent tab text from wrapping to multiple lines (affects both LTR and RTL) */
