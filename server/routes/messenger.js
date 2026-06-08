@@ -18,7 +18,6 @@ router.get('/threads', async (req, res, next) => {
                 t.updated_at,
                 c.fname,
                 c.lname,
-                c.profile_image,
                 (
                     SELECT body FROM messages m
                     WHERE m.thread_id = t.id
