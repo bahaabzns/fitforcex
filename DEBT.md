@@ -146,3 +146,39 @@ Format:
 **Why it matters:** Exposes implementation details in production; violates the pre-commit checklist rule on sensitive console output.
 **Effort:** Small (remove the console.error call)
 **Priority:** Low
+
+---
+
+## 2026-06-08 — messenger/page.js + portal/messages/page.js
+**Type:** Shortcut
+**What:** handleSend and handleToggleStatus swallow errors silently — user gets no feedback when a send or status toggle request fails.
+**Why it matters:** A network failure looks identical to success; user thinks message sent but it didn't.
+**Effort:** Small (add inline error state or toast on catch blocks)
+**Priority:** Medium
+
+---
+
+## 2026-06-08 — messenger/page.js (566 lines)
+**Type:** Knowledge
+**What:** Coach messenger page exceeds the 200-line file limit (566 lines). Helper functions and three panel sections are all in one file.
+**Why it matters:** Increasingly hard to navigate and review as more features are added.
+**Effort:** Medium (extract helpers to messengerHelpers.js; extract ThreadListPanel, ChatPanel, ClientProfilePanel components)
+**Priority:** Low
+
+---
+
+## 2026-06-08 — messenger/page.js + portal/messages/page.js
+**Type:** Shortcut
+**What:** buildSegments, bubbleRadius, getDateLabel, and formatGroupTime are duplicated identically in both files.
+**Why it matters:** A change to message grouping logic must be applied in two places — will drift over time.
+**Effort:** Small (extract to src/utils/messengerHelpers.js and import in both)
+**Priority:** Medium
+
+---
+
+## 2026-06-08 — messenger/page.js line 61 + portal/messages/page.js line 39
+**Type:** Shortcut
+**What:** Magic number 5 * 60 * 1000 (5-minute grouping window) is inline with no name.
+**Why it matters:** A product decision about grouping threshold is invisible and hard to change.
+**Effort:** Small (extract to MESSAGE_GROUP_WINDOW_MS constant at top of file or in messengerHelpers.js)
+**Priority:** Low
