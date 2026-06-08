@@ -126,13 +126,8 @@ router.post('/food-categories', async (req, res, next) => {
     const { name_en, name_ar } = req.body;
     try {
         const result = await pool.query(
-<<<<<<< HEAD
-            'INSERT INTO food_categories (name, workspace_id, id) VALUES ($1, $2, $3) RETURNING *',
-            [name, req.user.workspaceId, createId()]
-=======
             'INSERT INTO food_categories (name_en, name_ar, workspace_id) VALUES ($1, $2, $3) RETURNING *',
             [name_en, name_ar || null, req.user.workspaceId]
->>>>>>> feature/arabic-language
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
