@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const jwt = require('jsonwebtoken');
 const { loginLimiter } = require('../middleware/rateLimit');
@@ -152,18 +153,19 @@ router.post('/register', async (req, res, next) => {
         );
         const slug = slugRows.length > 0 ? `${normalizedSlug}-${Date.now()}` : normalizedSlug;
 
+        const userId = createId();
         const userResult = await pool.query(
-            'INSERT INTO users (fname, lname, email, password, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id, fname, lname, email',
-            [fname, lname, email, hashed, phone?.trim() || null]
+            'INSERT INTO users (id, fname, lname, email, password, phone) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, fname, lname, email',
+            [userId, fname, lname, email, hashed, phone?.trim() || null]
         );
         const user = userResult.rows[0];
 
-        const wsResult = await pool.query(
-            `INSERT INTO workspaces (slug, name, owner_id, slug_customized, created_at)
-             VALUES ($1, $2, $3, FALSE, NOW()) RETURNING id`,
-            [slug, `${fname}'s Workspace`, user.id]
+        const workspaceId = createId();
+        await pool.query(
+            `INSERT INTO workspaces (id, slug, name, owner_id, slug_customized, created_at)
+             VALUES ($1, $2, $3, $4, FALSE, NOW())`,
+            [workspaceId, slug, `${fname}'s Workspace`, user.id]
         );
-        const workspaceId = wsResult.rows[0].id;
 
         await pool.query(
             'UPDATE users SET default_workspace_id = $1 WHERE id = $2',
@@ -171,11 +173,11 @@ router.post('/register', async (req, res, next) => {
         );
 
         await pool.query(
-            `INSERT INTO workspace_subscriptions (workspace_id, plan_id, expires_at)
-             SELECT $1, p.id,
+            `INSERT INTO workspace_subscriptions (id, workspace_id, plan_id, expires_at)
+             SELECT $1, $2, p.id,
                     CASE WHEN p.trial_days IS NOT NULL THEN NOW() + (p.trial_days || ' days')::interval ELSE NULL END
              FROM plans p WHERE p.is_default = TRUE LIMIT 1`,
-            [workspaceId]
+            [createId(), workspaceId]
         );
 
         res.status(201).json({
@@ -289,7 +291,7 @@ router.post('/switch-workspace', authMiddleware, async (req, res, next) => {
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     try {
-        const wsContext = await buildTokenForWorkspace(req.user.userId, parseInt(workspaceId));
+        const wsContext = await buildTokenForWorkspace(req.user.userId, workspaceId);
 
         const token = issueToken({
             userId: req.user.userId,
@@ -321,7 +323,7 @@ router.put('/default-workspace', authMiddleware, async (req, res, next) => {
 
     try {
         // Verify user has access to this workspace
-        await buildTokenForWorkspace(req.user.userId, parseInt(workspaceId));
+        await buildTokenForWorkspace(req.user.userId, workspaceId);
 
         await pool.query(
             'UPDATE users SET default_workspace_id = $1 WHERE id = $2',

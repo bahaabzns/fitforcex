@@ -1,7 +1,7 @@
 exports.up = (pgm) => {
     pgm.addColumns('training_plans', {
         created_by: {
-            type: 'integer',
+            type: 'text',
             notNull: false,
             default: null,
             references: '"users"(id)',
@@ -11,7 +11,7 @@ exports.up = (pgm) => {
 
     pgm.addColumns('nutrition_plans', {
         created_by: {
-            type: 'integer',
+            type: 'text',
             notNull: false,
             default: null,
             references: '"users"(id)',

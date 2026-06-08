@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const bcrypt = require('bcrypt');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
@@ -21,7 +22,7 @@ function normalizeSlug(raw) {
 
 // Ensures the :id param matches the user's current workspace context from their JWT.
 function sameWorkspace(req, res, next) {
-    if (parseInt(req.params.id) !== req.user.workspaceId) {
+    if (req.params.id !== req.user.workspaceId) {
         return res.status(403).json({ message: 'You do not have access to this workspace' });
     }
     next();
@@ -45,17 +46,18 @@ router.post('/', async (req, res, next) => {
         );
         if (conflict.length) normalizedSlug = `${normalizedSlug}-${Date.now()}`;
 
+        const newWorkspaceId = createId();
         const { rows } = await pool.query(
-            `INSERT INTO workspaces (slug, name, owner_id, slug_customized, created_at)
-             VALUES ($1, $2, $3, $4, NOW()) RETURNING id, slug, name, owner_id, created_at`,
-            [normalizedSlug, name.trim(), req.user.userId, !!slug?.trim()]
+            `INSERT INTO workspaces (id, slug, name, owner_id, slug_customized, created_at)
+             VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id, slug, name, owner_id, created_at`,
+            [newWorkspaceId, normalizedSlug, name.trim(), req.user.userId, !!slug?.trim()]
         );
         const workspace = rows[0];
 
         await pool.query(
-            `INSERT INTO workspace_subscriptions (workspace_id, plan_id)
-             VALUES ($1, (SELECT id FROM plans WHERE name = 'free'))`,
-            [workspace.id]
+            `INSERT INTO workspace_subscriptions (id, workspace_id, plan_id)
+             VALUES ($1, $2, (SELECT id FROM plans WHERE name = 'free'))`,
+            [createId(), workspace.id]
         );
 
         res.status(201).json(workspace);
@@ -105,9 +107,9 @@ router.patch('/:id/name', sameWorkspace, requireOwner, async (req, res, next) =>
         if (!rows.length) return res.status(404).json({ message: 'Workspace not found' });
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-             VALUES ($1, $2, 'workspace_renamed', 'workspace', $1)`,
-            [req.user.workspaceId, req.user.userId]
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+             VALUES ($1, $2, 'workspace_renamed', 'workspace', $1, $3)`,
+            [req.user.workspaceId, req.user.userId, createId()]
         );
 
         res.json(rows[0]);
@@ -165,9 +167,9 @@ router.delete('/:id', sameWorkspace, requireOwner, async (req, res, next) => {
         if (!rows.length) return res.status(404).json({ message: 'Workspace not found or already archived' });
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-             VALUES ($1, $2, 'workspace_archived', 'workspace', $1)`,
-            [req.user.workspaceId, req.user.userId]
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+             VALUES ($1, $2, 'workspace_archived', 'workspace', $1, $3)`,
+            [req.user.workspaceId, req.user.userId, createId()]
         );
 
         res.json({ message: 'Workspace archived' });
@@ -227,16 +229,16 @@ router.post('/:id/members', sameWorkspace, requireOwner, async (req, res, next) 
         if (existing.length) return res.status(409).json({ message: 'This person is already in your workspace' });
 
         const { rows } = await pool.query(
-            `INSERT INTO workspace_members (workspace_id, user_id, role, permissions)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO workspace_members (workspace_id, user_id, role, permissions, id)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING id, workspace_id, user_id, role, permissions, is_active, joined_at`,
-            [req.user.workspaceId, targetUserId, role, JSON.stringify(DEFAULT_PERMISSIONS[role])]
+            [req.user.workspaceId, targetUserId, role, JSON.stringify(DEFAULT_PERMISSIONS[role]), createId()]
         );
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-             VALUES ($1, $2, 'member_added', 'workspace_member', $3)`,
-            [req.user.workspaceId, req.user.userId, rows[0].id]
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+             VALUES ($1, $2, 'member_added', 'workspace_member', $3, $4)`,
+            [req.user.workspaceId, req.user.userId, rows[0].id, createId()]
         );
 
         res.status(201).json(rows[0]);
@@ -254,7 +256,7 @@ router.put('/:id/members/:memberId', sameWorkspace, async (req, res, next) => {
         return res.status(400).json({ message: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
     }
 
-    const memberId = parseInt(req.params.memberId);
+    const memberId = req.params.memberId;
 
     try {
         const { rows: memberRows } = await pool.query(
@@ -284,10 +286,10 @@ router.put('/:id/members/:memberId', sameWorkspace, async (req, res, next) => {
         );
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, metadata)
-             VALUES ($1, $2, 'role_changed', 'workspace_member', $3, $4)`,
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, metadata, id)
+             VALUES ($1, $2, 'role_changed', 'workspace_member', $3, $4, $5)`,
             [req.user.workspaceId, req.user.userId, memberId,
-             JSON.stringify({ old_role: member.role, new_role: role })]
+             JSON.stringify({ old_role: member.role, new_role: role }), createId()]
         );
 
         res.json(rows[0]);
@@ -303,7 +305,7 @@ router.put('/:id/members/:memberId/permissions', sameWorkspace, requireOwner, as
         return res.status(400).json({ message: 'Permissions object is required' });
     }
 
-    const memberId = parseInt(req.params.memberId);
+    const memberId = req.params.memberId;
 
     try {
         const { rows: memberRows } = await pool.query(
@@ -318,9 +320,9 @@ router.put('/:id/members/:memberId/permissions', sameWorkspace, requireOwner, as
         );
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-             VALUES ($1, $2, 'permissions_updated', 'workspace_member', $3)`,
-            [req.user.workspaceId, req.user.userId, memberId]
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+             VALUES ($1, $2, 'permissions_updated', 'workspace_member', $3, $4)`,
+            [req.user.workspaceId, req.user.userId, memberId, createId()]
         );
 
         res.json(rows[0]);
@@ -331,7 +333,7 @@ router.put('/:id/members/:memberId/permissions', sameWorkspace, requireOwner, as
 
 // Remove member (owner: any; manager: can't remove managers)
 router.delete('/:id/members/:memberId', sameWorkspace, async (req, res, next) => {
-    const memberId = parseInt(req.params.memberId);
+    const memberId = req.params.memberId;
 
     try {
         const { rows: memberRows } = await pool.query(
@@ -357,9 +359,9 @@ router.delete('/:id/members/:memberId', sameWorkspace, async (req, res, next) =>
         await pool.query('DELETE FROM workspace_members WHERE id = $1', [memberId]);
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-             VALUES ($1, $2, 'member_removed', 'workspace_member', $3)`,
-            [req.user.workspaceId, req.user.userId, memberId]
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+             VALUES ($1, $2, 'member_removed', 'workspace_member', $3, $4)`,
+            [req.user.workspaceId, req.user.userId, memberId, createId()]
         );
 
         res.json({ message: 'Member removed' });
@@ -430,16 +432,16 @@ router.post('/:id/invitations', sameWorkspace, async (req, res, next) => {
         if (existingInvite.length) return res.status(409).json({ message: 'A pending invitation already exists for this user' });
 
         const { rows } = await pool.query(
-            `INSERT INTO workspace_invitations (workspace_id, invited_by_user_id, invited_user_id, role, message)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO workspace_invitations (workspace_id, invited_by_user_id, invited_user_id, role, message, id)
+             VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id, workspace_id, invited_user_id, role, message, status, created_at`,
-            [req.user.workspaceId, req.user.userId, targetUserId, role, message || null]
+            [req.user.workspaceId, req.user.userId, targetUserId, role, message || null, createId()]
         );
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-             VALUES ($1, $2, 'invite_sent', 'invitation', $3)`,
-            [req.user.workspaceId, req.user.userId, rows[0].id]
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+             VALUES ($1, $2, 'invite_sent', 'invitation', $3, $4)`,
+            [req.user.workspaceId, req.user.userId, rows[0].id, createId()]
         );
 
         res.status(201).json(rows[0]);
@@ -455,7 +457,7 @@ router.delete('/:id/invitations/:invitationId', sameWorkspace, async (req, res, 
         return res.status(403).json({ message: 'Insufficient permissions' });
     }
 
-    const invitationId = parseInt(req.params.invitationId);
+    const invitationId = req.params.invitationId;
 
     try {
         const { rows: invRows } = await pool.query(
@@ -470,9 +472,9 @@ router.delete('/:id/invitations/:invitationId', sameWorkspace, async (req, res, 
         await pool.query('DELETE FROM workspace_invitations WHERE id = $1', [invitationId]);
 
         await pool.query(
-            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-             VALUES ($1, $2, 'invite_cancelled', 'invitation', $3)`,
-            [req.user.workspaceId, req.user.userId, invitationId]
+            `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+             VALUES ($1, $2, 'invite_cancelled', 'invitation', $3, $4)`,
+            [req.user.workspaceId, req.user.userId, invitationId, createId()]
         );
 
         res.json({ message: 'Invitation cancelled' });
@@ -519,16 +521,16 @@ router.post('/:id/transfer-ownership', sameWorkspace, requireOwner, async (req, 
             );
 
             await client.query(
-                `INSERT INTO workspace_members (workspace_id, user_id, role, permissions)
-                 VALUES ($1, $2, 'manager', $3)`,
-                [req.user.workspaceId, req.user.userId, JSON.stringify(DEFAULT_PERMISSIONS.manager)]
+                `INSERT INTO workspace_members (workspace_id, user_id, role, permissions, id)
+                 VALUES ($1, $2, 'manager', $3, $4)`,
+                [req.user.workspaceId, req.user.userId, JSON.stringify(DEFAULT_PERMISSIONS.manager), createId()]
             );
 
             await client.query(
-                `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, metadata)
-                 VALUES ($1, $2, 'ownership_transferred', 'workspace', $1, $3)`,
+                `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, metadata, id)
+                 VALUES ($1, $2, 'ownership_transferred', 'workspace', $1, $3, $4)`,
                 [req.user.workspaceId, req.user.userId,
-                 JSON.stringify({ old_owner: req.user.userId, new_owner: targetUserId })]
+                 JSON.stringify({ old_owner: req.user.userId, new_owner: targetUserId }), createId()]
             );
 
             await client.query('COMMIT');

@@ -1,6 +1,6 @@
 exports.up = (pgm) => {
     pgm.createTable('billing_discounts', {
-        id:               { type: 'serial',  primaryKey: true },
+        id:               { type: 'text',    primaryKey: true },
         period_key:       { type: 'text',    notNull: true, unique: true },
         label:            { type: 'text',    notNull: true },
         save_label:       { type: 'text',    notNull: false, default: null },

@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const crypto  = require('crypto');
+const { createId } = require('@paralleldrive/cuid2');
 const pool    = require('../db');
 const authMiddleware    = require('../middleware/auth');
 const { getInvoiceStatus } = require('../lib/fawaterak');
@@ -156,10 +157,10 @@ router.post('/create-invoice', async (req, res, next) => {
         // 2. Create pending payment record
         const { rows: pmtRows } = await pool.query(`
             INSERT INTO workspace_payments
-                (workspace_id, plan_id, amount, currency, duration_days, fawaterak_status)
-            VALUES ($1, $2, $3, 'EGP', $4, 'pending')
+                (workspace_id, plan_id, amount, currency, duration_days, fawaterak_status, id)
+            VALUES ($1, $2, $3, 'EGP', $4, 'pending', $5)
             RETURNING id
-        `, [req.user.workspaceId, plan.id, Number(plan.price_monthly) || 0, plan.duration_days]);
+        `, [req.user.workspaceId, plan.id, Number(plan.price_monthly) || 0, plan.duration_days, createId()]);
         const paymentId = pmtRows[0].id;
 
         // 3. Build payment URL with customerRef and a signed success callback so Fawaterak

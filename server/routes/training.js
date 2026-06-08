@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
@@ -63,8 +63,8 @@ router.post('/muscle-groups', async (req, res, next) => {
     try {
         const { name } = req.body;
         const result = await pool.query(
-            'INSERT INTO exercise_muscle_groups (workspace_id, name) VALUES ($1, $2) RETURNING *',
-            [req.user.workspaceId, name]
+            'INSERT INTO exercise_muscle_groups (workspace_id, name, id) VALUES ($1, $2, $3) RETURNING *',
+            [req.user.workspaceId, name, createId()]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -123,8 +123,8 @@ router.post('/equipments', async (req, res, next) => {
     try {
         const { name } = req.body;
         const result = await pool.query(
-            'INSERT INTO exercise_equipments (workspace_id, name) VALUES ($1, $2) RETURNING *',
-            [req.user.workspaceId, name]
+            'INSERT INTO exercise_equipments (workspace_id, name, id) VALUES ($1, $2, $3) RETURNING *',
+            [req.user.workspaceId, name, createId()]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -204,10 +204,10 @@ router.post('/exercise-library', uploadLimiter, upload.fields([{ name: 'video', 
         const thumbnailPath = req.files?.thumbnail?.[0]?.key ?? null;
 
         const result = await pool.query(
-            `INSERT INTO exercise_library (workspace_id, name, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+            `INSERT INTO exercise_library (workspace_id, name, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions, created_at, updated_at, id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)
              RETURNING *`,
-            [req.user.workspaceId, name.trim(), muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions || null]
+            [req.user.workspaceId, name.trim(), muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions || null, createId()]
         );
 
         res.status(201).json(result.rows[0]);
@@ -412,8 +412,8 @@ router.post('/plans/save-draft', async (req, res, next) => {
                     const updatedAt = new Date().toISOString();
 
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at, created_by)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at, created_by, id)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                          RETURNING *`,
                         [
                             plan.name || `Training Plan ${planIndex + 1}`,
@@ -424,6 +424,7 @@ router.post('/plans/save-draft', async (req, res, next) => {
                             createdAt,
                             updatedAt,
                             plan.created_by ?? req.user.id,
+                            createId(),
                         ]
                     );
 
@@ -432,16 +433,16 @@ router.post('/plans/save-draft', async (req, res, next) => {
 
                     for (const day of normalizeOrderedList(plan.days, 'day_order')) {
                         const insertedDay = await dbClient.query(
-                            `INSERT INTO training_days (plan_id, name, day_order, notes)
-                             VALUES ($1, $2, $3, $4)
+                            `INSERT INTO training_days (plan_id, name, day_order, notes, id)
+                             VALUES ($1, $2, $3, $4, $5)
                              RETURNING *`,
-                            [dbPlan.id, day.name || `Day ${day.day_order}`, day.day_order, day.notes ?? null]
+                            [dbPlan.id, day.name || `Day ${day.day_order}`, day.day_order, day.notes ?? null, createId()]
                         );
 
                         for (const exercise of normalizeOrderedList(day.exercises, 'exercise_order')) {
                             const insertedExercise = await dbClient.query(
-                                `INSERT INTO training_exercises (day_id, name, exercise_order, exercise_library_id, equipment, notes)
-                                 VALUES ($1, $2, $3, $4, $5, $6)
+                                `INSERT INTO training_exercises (day_id, name, exercise_order, exercise_library_id, equipment, notes, id)
+                                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                                  RETURNING *`,
                                 [
                                     insertedDay.rows[0].id,
@@ -450,13 +451,14 @@ router.post('/plans/save-draft', async (req, res, next) => {
                                     exercise.exercise_library_id || null,
                                     exercise.equipment ?? null,
                                     exercise.notes ?? null,
+                                    createId(),
                                 ]
                             );
 
                             for (const set of normalizeOrderedList(exercise.sets, 'set_order')) {
                                 await dbClient.query(
-                                    `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir)
-                                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                                    `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, id)
+                                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                                     [
                                         insertedExercise.rows[0].id,
                                         set.set_order,
@@ -464,6 +466,7 @@ router.post('/plans/save-draft', async (req, res, next) => {
                                         Number.isFinite(Number(set.rest_seconds)) ? Number(set.rest_seconds) : null,
                                         set.tempo ?? null,
                                         Number.isFinite(Number(set.rir)) ? Number(set.rir) : null,
+                                        createId(),
                                     ]
                                 );
                             }
@@ -471,9 +474,9 @@ router.post('/plans/save-draft', async (req, res, next) => {
                             for (const alt of normalizeOrderedList(exercise.alternatives, 'alt_order')) {
                                 if (!alt.exercise_library_id) continue;
                                 await dbClient.query(
-                                    `INSERT INTO training_exercise_alternatives (exercise_id, exercise_library_id, alt_order)
-                                     VALUES ($1, $2, $3)`,
-                                    [insertedExercise.rows[0].id, alt.exercise_library_id, alt.alt_order]
+                                    `INSERT INTO training_exercise_alternatives (exercise_id, exercise_library_id, alt_order, id)
+                                     VALUES ($1, $2, $3, $4)`,
+                                    [insertedExercise.rows[0].id, alt.exercise_library_id, alt.alt_order, createId()]
                                 );
                             }
                         }
@@ -538,8 +541,8 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }) => {
                 const createdBy = existingCreatedBy ?? req.user.id;
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at, created_by)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    `INSERT INTO training_plans (name, client_id, workspace_id, status, notes, created_at, updated_at, created_by, id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                      RETURNING *`,
                     [
                         incomingPlan.name || 'Untitled Training Plan',
@@ -550,6 +553,7 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                         createdAt,
                         updatedAt,
                         createdBy,
+                        createId(),
                     ]
                 );
 
@@ -560,10 +564,10 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                     orderKey: 'day_order',
                     insert: async (day) => {
                         const insertedDay = await dbClient.query(
-                            `INSERT INTO training_days (plan_id, name, day_order, notes)
-                             VALUES ($1, $2, $3, $4)
+                            `INSERT INTO training_days (plan_id, name, day_order, notes, id)
+                             VALUES ($1, $2, $3, $4, $5)
                              RETURNING *`,
-                            [newPlan.id, day.name || `Day ${day.day_order}`, day.day_order, day.notes ?? null]
+                            [newPlan.id, day.name || `Day ${day.day_order}`, day.day_order, day.notes ?? null, createId()]
                         );
 
                         await insertOrderedChildren({
@@ -571,8 +575,8 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                             orderKey: 'exercise_order',
                             insert: async (exercise) => {
                                 const insertedExercise = await dbClient.query(
-                                    `INSERT INTO training_exercises (day_id, name, exercise_order, exercise_library_id, equipment, notes)
-                                     VALUES ($1, $2, $3, $4, $5, $6)
+                                    `INSERT INTO training_exercises (day_id, name, exercise_order, exercise_library_id, equipment, notes, id)
+                                     VALUES ($1, $2, $3, $4, $5, $6, $7)
                                      RETURNING *`,
                                     [
                                         insertedDay.rows[0].id,
@@ -581,6 +585,7 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                         exercise.exercise_library_id || null,
                                         exercise.equipment ?? null,
                                         exercise.notes ?? null,
+                                        createId(),
                                     ]
                                 );
 
@@ -589,8 +594,8 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                     orderKey: 'set_order',
                                     insert: async (set) => {
                                         await dbClient.query(
-                                            `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir)
-                                             VALUES ($1, $2, $3, $4, $5, $6)`,
+                                            `INSERT INTO training_sets (exercise_id, set_order, reps, rest_seconds, tempo, rir, id)
+                                             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                                             [
                                                 insertedExercise.rows[0].id,
                                                 set.set_order,
@@ -598,6 +603,7 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                                 Number.isFinite(Number(set.rest_seconds)) ? Number(set.rest_seconds) : null,
                                                 set.tempo ?? null,
                                                 Number.isFinite(Number(set.rir)) ? Number(set.rir) : null,
+                                                createId(),
                                             ]
                                         );
                                         return set;
@@ -610,9 +616,9 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                     insert: async (alt) => {
                                         if (!alt.exercise_library_id) return alt;
                                         await dbClient.query(
-                                            `INSERT INTO training_exercise_alternatives (exercise_id, exercise_library_id, alt_order)
-                                             VALUES ($1, $2, $3)`,
-                                            [insertedExercise.rows[0].id, alt.exercise_library_id, alt.alt_order]
+                                            `INSERT INTO training_exercise_alternatives (exercise_id, exercise_library_id, alt_order, id)
+                                             VALUES ($1, $2, $3, $4)`,
+                                            [insertedExercise.rows[0].id, alt.exercise_library_id, alt.alt_order, createId()]
                                         );
                                         return alt;
                                     },

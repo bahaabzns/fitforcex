@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
@@ -465,8 +466,8 @@ router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (re
 
         for (const { question_id, answer } of answers) {
             await pool.query(
-                'INSERT INTO form_responses (request_id, question_id, answer) VALUES ($1, $2, $3)',
-                [req.params.request_id, question_id, answer ?? '']
+                'INSERT INTO form_responses (request_id, question_id, answer, id) VALUES ($1, $2, $3, $4)',
+                [req.params.request_id, question_id, answer ?? '', createId()]
             );
         }
 

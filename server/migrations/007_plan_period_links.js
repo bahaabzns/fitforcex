@@ -1,14 +1,14 @@
 exports.up = (pgm) => {
     pgm.createTable('plan_period_links', {
-        id: { type: 'serial', primaryKey: true },
+        id: { type: 'text', primaryKey: true },
         plan_id: {
-            type: 'integer',
+            type: 'text',
             notNull: true,
             references: 'plans(id)',
             onDelete: 'CASCADE',
         },
         billing_discount_id: {
-            type: 'integer',
+            type: 'text',
             notNull: true,
             references: 'billing_discounts(id)',
             onDelete: 'CASCADE',

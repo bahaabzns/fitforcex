@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
@@ -84,10 +85,10 @@ router.post('/', async (req, res, next) => {
     const safeFormType = normalizeFormType(formType);
     try {
         const result = await pool.query(
-            `INSERT INTO forms (workspace_id, title, description, post_action, form_type)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO forms (workspace_id, title, description, post_action, form_type, id)
+             VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING *, 0 AS question_count`,
-            [req.user.workspaceId, title || 'Untitled Form', description || null, safePostAction, safeFormType]
+            [req.user.workspaceId, title || 'Untitled Form', description || null, safePostAction, safeFormType, createId()]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -171,12 +172,12 @@ router.post('/:id/questions', async (req, res, next) => {
         };
 
         const result = await pool.query(
-            `INSERT INTO form_questions (form_id, label, type, order_index, min_value, max_value, options)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO form_questions (form_id, label, type, order_index, min_value, max_value, options, id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
             [req.params.id, label || 'Question', type || 'text', orderIndex,
              defaults.min_value, defaults.max_value,
-             defaults.options !== null ? JSON.stringify(defaults.options) : null]
+             defaults.options !== null ? JSON.stringify(defaults.options) : null, createId()]
         );
 
         // Update form updated_at
@@ -293,9 +294,9 @@ router.post('/requests', async (req, res, next) => {
             const initialStatus = requestMode === 'schedule' ? 'scheduled' : 'pending';
 
             const result = await pool.query(
-                `INSERT INTO form_requests (form_id, client_id, workspace_id, status, scheduled_at, post_action)
-                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                [form_id, client_id, req.user.workspaceId, initialStatus, scheduledAt, formPostAction]
+                `INSERT INTO form_requests (form_id, client_id, workspace_id, status, scheduled_at, post_action, id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [form_id, client_id, req.user.workspaceId, initialStatus, scheduledAt, formPostAction, createId()]
             );
             inserted.push(result.rows[0]);
         }

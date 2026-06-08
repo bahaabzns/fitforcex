@@ -16,6 +16,7 @@
 
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const pool = require('../db');
+const { createId } = require('@paralleldrive/cuid2');
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,14 +62,12 @@ async function step1_createWorkspacesTable(client) {
         console.log('  → already exists, skipped');
         return;
     }
-    // Create with plain INTEGER id so we can insert rows with specific ids.
-    // The sequence and SERIAL default are added in step 4.
     await client.query(`
         CREATE TABLE workspaces (
-            id              INTEGER PRIMARY KEY,
+            id              TEXT    PRIMARY KEY,
             slug            TEXT    NOT NULL UNIQUE,
             name            TEXT    NOT NULL,
-            owner_id        INTEGER NOT NULL,
+            owner_id        TEXT    NOT NULL,
             slug_customized BOOLEAN NOT NULL DEFAULT FALSE,
             archived_at     TIMESTAMPTZ,
             created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -112,27 +111,6 @@ async function step3_addWorkspaceForeignKey(client) {
     console.log('  → added');
 }
 
-async function step4_convertToSerial(client) {
-    console.log('Step 4: Convert workspaces.id to SERIAL…');
-    const { rows } = await client.query(`SELECT MAX(id) AS max_id FROM workspaces`);
-    const maxId = parseInt(rows[0].max_id) || 0;
-    const startVal = maxId + 1;
-
-    // Check if sequence already exists
-    const { rows: seqRows } = await client.query(
-        `SELECT 1 FROM pg_sequences WHERE sequencename = 'workspaces_id_seq'`
-    );
-    if (seqRows.length > 0) {
-        console.log('  → sequence already exists, skipped');
-        return;
-    }
-
-    await client.query(`CREATE SEQUENCE workspaces_id_seq START WITH ${startVal}`);
-    await client.query(`ALTER TABLE workspaces ALTER COLUMN id SET DEFAULT nextval('workspaces_id_seq')`);
-    await client.query(`ALTER SEQUENCE workspaces_id_seq OWNED BY workspaces.id`);
-    console.log(`  → sequence created starting at ${startVal}`);
-}
-
 async function step4b_addWorkspaceIndexes(client) {
     console.log('Step 4b: Add indexes on workspaces…');
     if (!await indexExists(client, 'idx_workspaces_owner')) {
@@ -152,7 +130,7 @@ async function step5_addUsersColumns(client) {
     if (!await columnExists(client, 'users', 'default_workspace_id')) {
         await client.query(`
             ALTER TABLE users
-                ADD COLUMN default_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL
+                ADD COLUMN default_workspace_id TEXT REFERENCES workspaces(id) ON DELETE SET NULL
         `);
         console.log('  → default_workspace_id added');
     } else {
@@ -323,10 +301,10 @@ async function step9_createNewTables(client) {
 
     await client.query(`
         CREATE TABLE IF NOT EXISTS workspace_members (
-            id           SERIAL PRIMARY KEY,
-            workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-            user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            role         TEXT    NOT NULL CHECK (role IN ('manager','trainer','nutritionist','receptionist','viewer')),
+            id           TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+            user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            role         TEXT NOT NULL CHECK (role IN ('manager','trainer','nutritionist','receptionist','viewer')),
             permissions  JSONB   NOT NULL DEFAULT '{}',
             is_active    BOOLEAN NOT NULL DEFAULT TRUE,
             joined_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -342,12 +320,12 @@ async function step9_createNewTables(client) {
 
     await client.query(`
         CREATE TABLE IF NOT EXISTS workspace_invitations (
-            id                 SERIAL PRIMARY KEY,
-            workspace_id       INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-            invited_by_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            invited_user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            role               TEXT    NOT NULL CHECK (role IN ('manager','trainer','nutritionist','receptionist','viewer')),
-            status             TEXT    NOT NULL DEFAULT 'pending'
+            id                 TEXT PRIMARY KEY,
+            workspace_id       TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+            invited_by_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            invited_user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            role               TEXT NOT NULL CHECK (role IN ('manager','trainer','nutritionist','receptionist','viewer')),
+            status             TEXT NOT NULL DEFAULT 'pending'
                                        CHECK (status IN ('pending','accepted','declined')),
             message            TEXT,
             created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -364,12 +342,12 @@ async function step9_createNewTables(client) {
 
     await client.query(`
         CREATE TABLE IF NOT EXISTS workspace_audit_log (
-            id            SERIAL PRIMARY KEY,
-            workspace_id  INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-            actor_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            action        TEXT    NOT NULL,
+            id            TEXT PRIMARY KEY,
+            workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+            actor_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            action        TEXT NOT NULL,
             target_type   TEXT,
-            target_id     INTEGER,
+            target_id     TEXT,
             metadata      JSONB,
             created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
@@ -380,7 +358,7 @@ async function step9_createNewTables(client) {
 
     await client.query(`
         CREATE TABLE IF NOT EXISTS admins (
-            id         SERIAL PRIMARY KEY,
+            id         TEXT PRIMARY KEY,
             email      TEXT NOT NULL UNIQUE,
             password   TEXT NOT NULL,
             fname      TEXT,
@@ -397,7 +375,7 @@ async function step10_createAndSeedPlans(client) {
 
     await client.query(`
         CREATE TABLE IF NOT EXISTS plans (
-            id               SERIAL PRIMARY KEY,
+            id               TEXT    PRIMARY KEY,
             name             TEXT    NOT NULL UNIQUE,
             display_name     TEXT    NOT NULL,
             max_team_seats   INTEGER,
@@ -409,15 +387,19 @@ async function step10_createAndSeedPlans(client) {
         )
     `);
 
-    await client.query(`
-        INSERT INTO plans (name, display_name, max_team_seats, max_workspaces, price_monthly)
-        VALUES
-            ('free',     'Free',     0,    1,    0),
-            ('starter',  'Starter',  2,    1,    NULL),
-            ('pro',      'Pro',      5,    3,    NULL),
-            ('business', 'Business', NULL, NULL, NULL)
-        ON CONFLICT (name) DO NOTHING
-    `);
+    const planSeeds = [
+        { name: 'free',     display_name: 'Free',     max_team_seats: 0,    max_workspaces: 1,    price_monthly: 0 },
+        { name: 'starter',  display_name: 'Starter',  max_team_seats: 2,    max_workspaces: 1,    price_monthly: null },
+        { name: 'pro',      display_name: 'Pro',      max_team_seats: 5,    max_workspaces: 3,    price_monthly: null },
+        { name: 'business', display_name: 'Business', max_team_seats: null, max_workspaces: null, price_monthly: null },
+    ];
+    for (const plan of planSeeds) {
+        await client.query(`
+            INSERT INTO plans (id, name, display_name, max_team_seats, max_workspaces, price_monthly)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (name) DO NOTHING
+        `, [createId(), plan.name, plan.display_name, plan.max_team_seats, plan.max_workspaces, plan.price_monthly]);
+    }
 
     console.log('  → done');
 }
@@ -427,10 +409,10 @@ async function step11_seedWorkspaceSubscriptions(client) {
 
     await client.query(`
         CREATE TABLE IF NOT EXISTS workspace_subscriptions (
-            id           SERIAL PRIMARY KEY,
-            workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-            plan_id      INTEGER NOT NULL REFERENCES plans(id),
-            status       TEXT    NOT NULL DEFAULT 'active' CHECK (status IN ('active','expired','cancelled')),
+            id           TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+            plan_id      TEXT NOT NULL REFERENCES plans(id),
+            status       TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','expired','cancelled')),
             starts_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             expires_at   TIMESTAMPTZ,
             notes        TEXT,
@@ -439,15 +421,20 @@ async function step11_seedWorkspaceSubscriptions(client) {
         )
     `);
 
-    const { rowCount } = await client.query(`
-        INSERT INTO workspace_subscriptions (workspace_id, plan_id)
-        SELECT w.id, (SELECT id FROM plans WHERE name = 'free')
+    const { rows: unseeded } = await client.query(`
+        SELECT w.id AS workspace_id, (SELECT id FROM plans WHERE name = 'free') AS plan_id
         FROM workspaces w
         WHERE NOT EXISTS (
             SELECT 1 FROM workspace_subscriptions ws WHERE ws.workspace_id = w.id
         )
     `);
-    console.log(`  → subscriptions seeded for ${rowCount} workspace(s)`);
+    for (const row of unseeded) {
+        await client.query(
+            `INSERT INTO workspace_subscriptions (id, workspace_id, plan_id) VALUES ($1, $2, $3)`,
+            [createId(), row.workspace_id, row.plan_id]
+        );
+    }
+    console.log(`  → subscriptions seeded for ${unseeded.length} workspace(s)`);
 }
 
 async function step13_addIsDefaultToPlan(client) {
@@ -544,7 +531,6 @@ async function run() {
         await step1_createWorkspacesTable(client);
         await step2_backfillWorkspaces(client);
         await step3_addWorkspaceForeignKey(client);
-        await step4_convertToSerial(client);
         await step4b_addWorkspaceIndexes(client);
         await step5_addUsersColumns(client);
         await step6_setDefaultWorkspace(client);
