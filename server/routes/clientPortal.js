@@ -518,7 +518,12 @@ router.get('/messages', clientAuthMiddleware, async (req, res, next) => {
             ORDER BY created_at ASC
         `, [thread.id]);
 
-        res.json({ thread, messages });
+        const { rows: wsRows } = await pool.query(
+            'SELECT name FROM workspaces WHERE id = $1',
+            [req.client.workspaceId]
+        );
+
+        res.json({ thread, messages, coachName: wsRows[0]?.name ?? null });
     } catch (err) {
         next(err);
     }

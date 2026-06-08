@@ -4,22 +4,26 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Avatar } from "@heroui/react/avatar";
+import { Send } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const POLL_INTERVAL_MS = 5000;
 
-function formatTime(ts) {
+function formatTimestamp(ts) {
     if (!ts) return '';
-    const d = new Date(ts);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDate(ts) {
-    if (!ts) return '';
-    return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const date = new Date(ts);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+        ' · ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function ClientMessagesPage() {
+    const t = useTranslations('portal.sidebar');
     const [messages, setMessages] = useState([]);
+    const [coachName, setCoachName] = useState('');
     const [draft, setDraft] = useState('');
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
@@ -30,10 +34,11 @@ export default function ClientMessagesPage() {
         try {
             const res = await api.get('/api/client-portal/messages');
             setMessages(res.data.messages);
+            if (res.data.coachName && !coachName) setCoachName(res.data.coachName);
         } catch {
             // silent
         }
-    }, []);
+    }, [coachName]);
 
     useEffect(() => {
         fetchMessages().finally(() => setLoading(false));
@@ -64,38 +69,53 @@ export default function ClientMessagesPage() {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-                <h1 style={{ fontWeight: 600, fontSize: 18, margin: 0 }}>Messages</h1>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted-foreground)' }}>
-                    Chat with your coach
-                </p>
+        <div className="flex flex-col h-[calc(100dvh-120px)]">
+
+            {/* Header — mail-style sender card */}
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border bg-background">
+                <Avatar size="sm" color="primary" className="shrink-0">
+                    <Avatar.Fallback>
+                        {coachName ? coachName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'C'}
+                    </Avatar.Fallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">
+                        {coachName || 'Your Coach'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Chat with your coach</p>
+                </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
                 {loading ? (
                     Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-10 w-56" style={{ alignSelf: i % 2 === 0 ? 'flex-start' : 'flex-end' }} />
+                        <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                            <Skeleton className="h-10 w-52 rounded-2xl" />
+                        </div>
                     ))
                 ) : messages.length === 0 ? (
-                    <p style={{ color: 'var(--muted-foreground)', fontSize: 14, textAlign: 'center', marginTop: 32 }}>
-                        No messages yet. Send a message to your coach below.
-                    </p>
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2 mt-12 text-center px-6">
+                        <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mb-1">
+                            <Send size={18} className="text-muted-foreground" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">No messages yet</p>
+                        <p className="text-xs text-muted-foreground">Send a message to your coach below.</p>
+                    </div>
                 ) : (
                     messages.map(msg => {
                         const isClient = msg.sender_type === 'client';
                         return (
-                            <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isClient ? 'flex-end' : 'flex-start' }}>
-                                <div style={{
-                                    maxWidth: '75%', padding: '8px 12px', borderRadius: 12,
-                                    background: isClient ? 'var(--primary)' : 'var(--muted)',
-                                    color: isClient ? 'var(--primary-foreground)' : 'var(--foreground)',
-                                    fontSize: 14, lineHeight: 1.5, wordBreak: 'break-word',
-                                }}>
+                            <div key={msg.id} className={`flex flex-col ${isClient ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-[78%] px-4 py-2.5 text-sm leading-relaxed wrap-break-word ${
+                                    isClient
+                                        ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm'
+                                        : 'bg-muted text-foreground rounded-2xl rounded-bl-sm'
+                                }`}>
                                     {msg.body}
                                 </div>
-                                <span style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2 }}>
-                                    {formatDate(msg.created_at)} {formatTime(msg.created_at)}
+                                <span className="text-[11px] text-muted-foreground mt-1 px-1">
+                                    {formatTimestamp(msg.created_at)}
                                 </span>
                             </div>
                         );
@@ -104,25 +124,42 @@ export default function ClientMessagesPage() {
                 <div ref={messagesEndRef} />
             </div>
 
-            <form onSubmit={handleSend} style={{
-                padding: '12px 20px', borderTop: '1px solid var(--border)',
-                display: 'flex', gap: 8, background: 'var(--background)',
-            }}>
-                <input
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    placeholder="Type a message…"
-                    style={{
-                        flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 14,
-                        border: '1px solid var(--border)', background: 'var(--background)',
-                        color: 'var(--foreground)', outline: 'none',
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
-                />
-                <Button type="submit" color="primary" isDisabled={sending || !draft.trim()} size="sm">
-                    {sending ? '…' : 'Send'}
-                </Button>
-            </form>
+            {/* Reply input — mail-style card */}
+            <div className="px-4 py-3 border-t border-border bg-background">
+                <div className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+                    <form onSubmit={handleSend}>
+                        <div className="px-1 pt-1">
+                            <input
+                                value={draft}
+                                onChange={e => setDraft(e.target.value)}
+                                placeholder="Reply…"
+                                className={
+                                    "w-full px-3 py-2 bg-transparent text-foreground " +
+                                    "placeholder:text-muted-foreground text-sm focus-visible:outline-none"
+                                }
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSend(e);
+                                    }
+                                }}
+                            />
+                        </div>
+                        <div className="flex items-center justify-end px-3 py-2 border-t border-border/50">
+                            <Button
+                                type="submit"
+                                color="primary"
+                                isDisabled={sending || !draft.trim()}
+                                size="sm"
+                                className="gap-1.5"
+                            >
+                                <Send size={13} />
+                                {sending ? 'Sending…' : 'Send'}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     );
 }
