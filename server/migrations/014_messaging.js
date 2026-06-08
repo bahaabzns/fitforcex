@@ -2,13 +2,13 @@ exports.up = (pgm) => {
     pgm.createTable('threads', {
         id: { type: 'text', primaryKey: true },
         workspace_id: {
-            type: 'text',
+            type: 'integer',
             notNull: true,
             references: '"workspaces"(id)',
             onDelete: 'CASCADE',
         },
         client_id: {
-            type: 'text',
+            type: 'integer',
             notNull: true,
             references: '"clients"(id)',
             onDelete: 'CASCADE',

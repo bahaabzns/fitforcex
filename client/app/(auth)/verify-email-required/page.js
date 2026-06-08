@@ -66,9 +66,27 @@ export default function VerifyEmailRequiredPage() {
                     </TextField>
                     {error && <p className="text-sm text-destructive">{error}</p>}
                     {resendMessage && <p className="text-sm text-green-600">{resendMessage}</p>}
-                    <Button type="submit" color="primary" fullWidth isDisabled={verifyLoading} className="mt-2">
-                        {verifyLoading ? 'Verifying…' : 'Verify Email'}
-                    </Button>
+                    <div className="flex gap-2 mt-2">
+                        <Button type="submit" color="primary" fullWidth isDisabled={verifyLoading}>
+                            {verifyLoading ? 'Verifying…' : 'Verify Email'}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="bordered"
+                            fullWidth
+                            onPress={async () => {
+                                try {
+                                    const me = await api.get('/api/auth/me');
+                                    const slug = me.data?.currentWorkspace?.slug;
+                                    router.push(slug ? `/${slug}/dashboard` : '/login');
+                                } catch {
+                                    router.push('/login');
+                                }
+                            }}
+                        >
+                            Verify later
+                        </Button>
+                    </div>
                 </form>
                 <p className="auth-link mt-2">
                     Didn&apos;t receive a code?{' '}

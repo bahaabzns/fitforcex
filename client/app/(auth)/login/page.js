@@ -45,12 +45,13 @@ function LoginContent() {
         try {
             await api.post('/api/auth/login', formData);
             const me = await api.get('/api/auth/me');
+            const slug = me.data?.currentWorkspace?.slug;
+            if (!slug) { router.push('/login'); return; }
             if (me.data?.emailVerified === false) {
                 router.push('/verify-email-required');
                 return;
             }
-            const slug = me.data?.currentWorkspace?.slug;
-            router.push(slug ? `/${slug}/dashboard` : '/login');
+            router.push(`/${slug}/dashboard`);
         } catch (err) {
             setError(err.response?.data?.message || 'Invalid email or password.');
         } finally {
