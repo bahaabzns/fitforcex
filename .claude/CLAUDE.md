@@ -1557,20 +1557,16 @@ Every 10 sessions, summarize into a progress report.
 
 ## PART 7 — PROMPTS TO USE
 
-**Start any session:**
-Read CLAUDE.md and run the Session Opening Routine.
-
 **Start a new project:**
 Run the New Project Routine from CLAUDE.md from Phase 1 Step 1. Do not write any feature code until the routine is fully complete.
 
-**Add a new feature:**
-I want to add [feature]. Run the Feature Routine from CLAUDE.md.
-
-**Review code:**
-Feature is working. Run the full Code Review Routine on [file] before we commit.
-
 **Clean up a messy project:**
 Run the Reorganization Routine from CLAUDE.md. Read everything, change nothing, and give me the audit report first.
+
+
+
+**Start any session:**
+Read CLAUDE.md and run the Session Opening Routine.
 
 **End any session:**
 Run the Session Closing Routine from CLAUDE.md before I close.
@@ -1578,8 +1574,20 @@ Run the Session Closing Routine from CLAUDE.md before I close.
 **Pay down debt:**
 We have completed 5 features. Run a Debt Payment Session from CLAUDE.md. No new features today.
 
+
+
+
 **Fix a bug:**
 I found a bug. Run the Bug Fix Protocol from CLAUDE.md. Do not touch any code until Phase 1 triage is complete.
+
+**Add a new feature:**
+I want to add [feature]. Run the Feature Routine from CLAUDE.md.
+
+**Review code:**
+Feature is working. Run the full Code Review Routine on [file] before we commit.
+
+
+
 
 **Deploy to staging or production:**
 I am ready to deploy. Run the Pre-Deploy Routine from CLAUDE.md. Do not touch the deploy command until all gate checks pass.

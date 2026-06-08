@@ -136,9 +136,12 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 - add streak progress tracking for diet and workout
 - add weekly list of items
 
+- onboarding messages for clients
 
 
+# unify all empty states in system
 
+# unify all pages paddings
 
 
 
