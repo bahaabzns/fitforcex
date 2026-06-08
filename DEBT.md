@@ -119,3 +119,30 @@ Format:
 **Effort:** Small (audit middleware redirect paths for /portal and /portal/login)
 **Priority:** Medium
 ✅ RESOLVED 2026-06-04 — Audited: login now lives at `/portal/[coachSlug]`. Old `/portal` fallback in layout.js pointed to deleted page — fixed to redirect to `/` instead.
+
+---
+
+## 2026-06-08 — client/app/(auth)/verify-email-required/page.js
+**Type:** Shortcut
+**What:** The "Verify later" `onPress` handler is inlined inside the JSX instead of being extracted to a named function above the return.
+**Why it matters:** Inline handlers cause the function to be re-created on every render and make the component harder to read and test.
+**Effort:** Small (extract to `const handleVerifyLater = () => ...` above the return statement)
+**Priority:** Low
+
+---
+
+## 2026-06-08 — client/app/(auth)/login/page.js
+**Type:** Documentation
+**What:** `<a href="/forgot-password">Forgot password?</a>` uses a hardcoded string instead of `t('forgotPassword')` like all other text in that file.
+**Why it matters:** This string won't be translated when Arabic locale is active — a broken experience for Arabic users.
+**Effort:** Small (add `forgotPassword` key to auth translation files and use `t('forgotPassword')`)
+**Priority:** Medium
+
+---
+
+## 2026-06-08 — client/app/(coach)/[workspaceSlug]/nutrition/page.js (line 952)
+**Type:** Shortcut
+**What:** `console.error` left in the nutrition page (line 952) — logs internal error details to the browser console.
+**Why it matters:** Exposes implementation details in production; violates the pre-commit checklist rule on sensitive console output.
+**Effort:** Small (remove the console.error call)
+**Priority:** Low
