@@ -23,14 +23,12 @@ export default function ClientMessagesPage() {
     const [draft, setDraft] = useState('');
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    const threadIdRef = useRef(null);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
 
     const fetchMessages = useCallback(async () => {
         try {
             const res = await api.get('/api/client-portal/messages');
-            threadIdRef.current = res.data.thread?.id;
             setMessages(res.data.messages);
         } catch {
             // silent

@@ -108,6 +108,7 @@ router.get('/threads/:threadId/messages', async (req, res, next) => {
 router.post('/threads/:threadId/messages', async (req, res, next) => {
     const { body } = req.body;
     if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required' });
+    if (body.trim().length > 5000) return res.status(400).json({ error: 'Message exceeds 5000 character limit' });
 
     try {
         const threadCheck = await pool.query(
