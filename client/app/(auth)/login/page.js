@@ -20,6 +20,10 @@ function LoginContent() {
     useEffect(() => {
         api.get('/api/auth/me')
             .then(res => {
+                if (res.data?.emailVerified === false) {
+                    router.push('/verify-email-required');
+                    return;
+                }
                 const slug = res.data?.currentWorkspace?.slug;
                 if (slug) {
                     router.push(`/${slug}/dashboard`);
