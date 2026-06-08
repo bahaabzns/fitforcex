@@ -346,6 +346,22 @@ CREATE TABLE public.password_reset_tokens (
 
 
 --
+-- Name: messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.messages (
+    id text NOT NULL,
+    thread_id text NOT NULL,
+    sender_type text NOT NULL,
+    sender_id text NOT NULL,
+    body text NOT NULL,
+    read_by_team_at timestamp with time zone,
+    read_by_client_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: payment_methods; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -529,6 +545,20 @@ CREATE TABLE public.training_sets (
     rest_seconds integer,
     tempo text,
     rir integer
+);
+
+
+--
+-- Name: transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.threads (
+    id text NOT NULL,
+    workspace_id text NOT NULL,
+    client_id text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 

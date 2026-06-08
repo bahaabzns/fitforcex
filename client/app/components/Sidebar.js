@@ -21,6 +21,7 @@ import {
     Building2,
     Check,
     Plus,
+    MessageSquare,
 } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
@@ -53,12 +54,27 @@ export default function Sidebar({ collapsed }) {
     const [user, setUser] = useState(null);
     const [wsOpen, setWsOpen] = useState(false);
     const [switching, setSwitching] = useState(false);
+    const [totalUnread, setTotalUnread] = useState(0);
     const wsRef = useRef(null);
 
     useEffect(() => {
         api.get('/api/auth/me')
             .then(res => setUser(res.data))
             .catch(() => setUser(null));
+    }, []);
+
+    useEffect(() => {
+        function fetchUnread() {
+            api.get('/api/messenger/threads')
+                .then(res => {
+                    const count = res.data.reduce((sum, t) => sum + (t.unread_count || 0), 0);
+                    setTotalUnread(count);
+                })
+                .catch(() => {});
+        }
+        fetchUnread();
+        const interval = setInterval(fetchUnread, 5000);
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -211,6 +227,30 @@ export default function Sidebar({ collapsed }) {
                         >
                             <Users size={17} className="shrink-0" />
                             {!collapsed && <span className="flex-1">Clients</span>}
+                        </Link>
+                    </li>
+
+                    <li>
+                        <Link
+                            href={`/${slug}/messenger`}
+                            title={collapsed ? 'Messenger' : undefined}
+                            className={navLink(pathname.includes('/messenger'))}
+                        >
+                            <MessageSquare size={17} className="shrink-0" />
+                            {!collapsed && (
+                                <>
+                                    <span className="flex-1">Messenger</span>
+                                    {totalUnread > 0 && (
+                                        <span style={{
+                                            background: 'var(--primary)', color: 'var(--primary-foreground)',
+                                            borderRadius: '50%', width: 18, height: 18, fontSize: 11,
+                                            fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            {totalUnread > 99 ? '99+' : totalUnread}
+                                        </span>
+                                    )}
+                                </>
+                            )}
                         </Link>
                     </li>
 

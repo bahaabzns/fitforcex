@@ -62,6 +62,7 @@ server.use(cookieParser());
 // Routes
 server.use('/api/auth', authRouter);
 server.use('/api/dashboard', dashboardRouter);
+server.use('/api/messenger',      mutationLimiter, require('./routes/messenger'));
 server.use('/api/clients',        mutationLimiter, require('./routes/clients'));
 server.use('/api/nutrition',      mutationLimiter, require('./routes/nutrition'));
 server.use('/api/training',       mutationLimiter, require('./routes/training'));

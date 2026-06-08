@@ -482,4 +482,66 @@ router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (re
     }
 });
 
+// ── GET /api/client-portal/messages ──────────────────────────────────────────
+// Get (or auto-create) the client's thread and all its messages.
+// Marks any team messages as read by the client.
+router.get('/messages', clientAuthMiddleware, async (req, res, next) => {
+    try {
+        const { rows: threadRows } = await pool.query(`
+            INSERT INTO threads (id, workspace_id, client_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (workspace_id, client_id) DO UPDATE SET updated_at = threads.updated_at
+            RETURNING *
+        `, [createId(), req.client.workspaceId, req.client.id]);
+        const thread = threadRows[0];
+
+        await pool.query(`
+            UPDATE messages
+            SET read_by_client_at = NOW()
+            WHERE thread_id = $1 AND sender_type = 'team' AND read_by_client_at IS NULL
+        `, [thread.id]);
+
+        const { rows: messages } = await pool.query(`
+            SELECT id, sender_type, body, read_by_team_at, read_by_client_at, created_at
+            FROM messages
+            WHERE thread_id = $1
+            ORDER BY created_at ASC
+        `, [thread.id]);
+
+        res.json({ thread, messages });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ── POST /api/client-portal/messages ─────────────────────────────────────────
+// Send a message as the client.
+router.post('/messages', clientAuthMiddleware, async (req, res, next) => {
+    const { body } = req.body;
+    if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required' });
+
+    try {
+        const { rows: threadRows } = await pool.query(
+            'SELECT id FROM threads WHERE workspace_id = $1 AND client_id = $2',
+            [req.client.workspaceId, req.client.id]
+        );
+        if (!threadRows.length) return res.status(404).json({ error: 'No thread found — open the messages page first' });
+
+        const { rows } = await pool.query(`
+            INSERT INTO messages (id, thread_id, sender_type, sender_id, body, read_by_client_at)
+            VALUES ($1, $2, 'client', $3, $4, NOW())
+            RETURNING *
+        `, [createId(), threadRows[0].id, req.client.id, body.trim()]);
+
+        await pool.query(
+            'UPDATE threads SET updated_at = NOW() WHERE id = $1',
+            [threadRows[0].id]
+        );
+
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;

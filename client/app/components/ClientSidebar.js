@@ -5,7 +5,7 @@ import NextImage from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
-import { Salad, Dumbbell, ClipboardList, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Salad, Dumbbell, ClipboardList, LogOut, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
@@ -45,6 +45,7 @@ export default function ClientSidebar() {
         { href: "/portal/dashboard", label: "Nutrition Plan", icon: Salad },
         { href: "/portal/training", label: "Training Plan", icon: Dumbbell },
         { href: "/portal/forms", label: "Forms", icon: ClipboardList },
+        { href: "/portal/messages", label: "Messages", icon: MessageSquare },
     ];
 
     return (
