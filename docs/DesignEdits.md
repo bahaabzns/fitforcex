@@ -88,7 +88,7 @@ https://heroui.com/docs/react/components/tabs#custom-styles
 
 # on clicking client in the clients table it it selects it (don't select until the user clicks on the check box only)
 
-
+> use auth provider (google account sign in and register and reset password)
 
 
 

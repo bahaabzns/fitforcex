@@ -66,6 +66,7 @@ New client: No forgot-password or reset-password pages exist.
 
 ---
 
+
 ### P1-2 — Email Verification Flow
 
 **Status: Missing in new client and server**
