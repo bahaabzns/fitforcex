@@ -3,12 +3,15 @@
 import { useState, useEffect, Suspense } from "react";
 import api from "@/lib/axios";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
 
 function LoginContent() {
+    const t = useTranslations('auth');
+    const tCommon = useTranslations('common');
     const router = useRouter();
     const searchParams = useSearchParams();
     const [formData, setFormData] = useState({ email: '', password: '' });
@@ -60,7 +63,7 @@ function LoginContent() {
             <div className="auth-wrapper">
                 <div className="auth-card flex flex-col items-center justify-center gap-4">
                     <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                    <p className="text-center text-muted-foreground">Loading...</p>
+                    <p className="text-center text-muted-foreground">{tCommon('loading')}</p>
                 </div>
             </div>
         );
@@ -69,7 +72,7 @@ function LoginContent() {
     return (
         <div className="auth-wrapper">
             <div className="auth-card">
-                <h1 className="auth-title">Coach Login</h1>
+                <h1 className="auth-title">{t('coachLogin')}</h1>
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <TextField
                         fullWidth
@@ -77,7 +80,7 @@ function LoginContent() {
                         value={formData.email}
                         onChange={(val) => setFormData(prev => ({ ...prev, email: val }))}
                     >
-                        <Label>Email</Label>
+                        <Label>{t('email')}</Label>
                         <Input type="email" placeholder="you@example.com" />
                     </TextField>
                     <TextField
@@ -86,20 +89,20 @@ function LoginContent() {
                         value={formData.password}
                         onChange={(val) => setFormData(prev => ({ ...prev, password: val }))}
                     >
-                        <Label>Password</Label>
+                        <Label>{t('password')}</Label>
                         <Input type="password" placeholder="••••••••" />
                     </TextField>
                     {error && <p className="text-sm text-destructive">{error}</p>}
                     {success && <p className="text-sm text-green-600">{success}</p>}
                     <Button type="submit" color="primary" fullWidth isDisabled={loading} className="mt-2">
-                        {loading ? 'Logging in…' : 'Login'}
+                        {loading ? t('loggingIn') : t('login')}
                     </Button>
                     <p className="auth-link">
                         <a href="/forgot-password">Forgot password?</a>
                     </p>
                     <p className="auth-link">
-                        Don&apos;t have an account?{" "}
-                        <a href="/register">Register here</a>
+                        {t('noAccount')}{" "}
+                        <a href="/register">{t('registerHere')}</a>
                     </p>
                 </form>
             </div>

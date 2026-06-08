@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import MacrosBadges from "../MacrosBadges";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
@@ -40,6 +41,8 @@ export default function MiddlePanel({
     submissionId,
 }) {
     const router = useRouter();
+    const t = useTranslations('nutrition');
+    const tModal = useTranslations('modal');
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [cycleDragIndex, setCycleDragIndex] = useState(null);
@@ -114,7 +117,7 @@ export default function MiddlePanel({
                     type="text"
                     defaultValue={selectedPlan.name}
                     onBlur={(e) => {
-                        const trimmed = e.target.value.trim() || "Untitled Plan";
+                        const trimmed = e.target.value.trim() || t('untitledPlan');
                         e.target.value = trimmed;
                         if (trimmed !== selectedPlan.name) {
                             handleRenamePlan(selectedPlan.id, trimmed);
@@ -137,7 +140,7 @@ export default function MiddlePanel({
                         onClick={() => handleSaveSelectedPlan(selectedPlan.id)}
                         className="shrink-0"
                     >
-                        {isSaving || saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save Plan"}
+                        {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('savePlan')}
                     </Button>
                 )}
                 {selectedPlan?.status !== "active" && (
@@ -153,21 +156,21 @@ export default function MiddlePanel({
                         }}
                         className="bg-emerald-500 hover:bg-emerald-600 text-white shrink-0"
                     >
-                        {activating ? "Activating..." : "Activate"}
+                        {activating ? t('activating') : t('activate')}
                     </Button>
                 )}
                 {isSelectedPlanDirty && (
                     <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
-                        Unsaved
+                        {t('unsaved')}
                     </Chip>
                 )}
                 {!isSelectedPlanDirty && saveStatus === "saved" && (
                     <Chip size="sm" className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 shrink-0">
-                        Saved
+                        {t('saved')}
                     </Chip>
                 )}
                 <button
-                    title="Close plan"
+                    title={t('closePanel')}
                     className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedPlan(null)}
                 >
@@ -188,7 +191,7 @@ export default function MiddlePanel({
                                 type="text"
                                 defaultValue={cycle.name}
                                 onBlur={(e) => {
-                                    const trimmed = e.target.value.trim() || "Untitled Cycle";
+                                    const trimmed = e.target.value.trim() || t('untitledCycle');
                                     e.target.value = trimmed;
                                     if (trimmed !== cycle.name) handleRenameCycle(cycle.id, trimmed);
                                 }}
@@ -261,7 +264,7 @@ export default function MiddlePanel({
                         >
                             <Disclosure.Indicator />
                             <h3 className="text-base font-semibold text-foreground">
-                                Cycles
+                                {t('cyclesSection')}
                                 <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedPlan.cycles.length}</span>
                                 {!expandedKeys.has("cycles") && selectedPlan.cycles.length > 0 && (
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">· {selectedPlan.cycles[selectedCycleIndex]?.name}</span>
@@ -270,7 +273,7 @@ export default function MiddlePanel({
                         </Button>
                         {expandedKeys.has("cycles") && (
                             <Button variant="primary" onClick={handleCreateCycle} className="shrink-0">
-                                + Cycle
+                                {t('addCycle')}
                             </Button>
                         )}
                     </div>
@@ -313,14 +316,14 @@ export default function MiddlePanel({
                                             </span>
                                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
                                                 <button
-                                                    title="Duplicate cycle"
+                                                    title={t('duplicateCycle')}
                                                     className={`cursor-pointer p-1 rounded-full transition-colors ${isActive ? "hover:bg-primary/70" : "hover:bg-secondary"}`}
                                                     onClick={(e) => { e.stopPropagation(); handleDuplicateCycle(planCycle.id); }}
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                                                 </button>
                                                 <button
-                                                    title="Delete cycle"
+                                                    title={t('deleteCycle')}
                                                     disabled={!canDelete}
                                                     className={`p-1 rounded-full transition-colors ${!canDelete ? "opacity-30 cursor-not-allowed" : `cursor-pointer ${isActive ? "hover:bg-primary/70" : "hover:bg-destructive/10 hover:text-destructive"}`}`}
                                                     onClick={(e) => { e.stopPropagation(); if (canDelete) handleDeleteCycle(originalIndex); }}
@@ -354,13 +357,13 @@ export default function MiddlePanel({
                                 >
                                     <Disclosure.Indicator />
                                     <h3 className="text-base font-semibold text-foreground">
-                                        Meals
+                                        {t('mealsSection')}
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedPlan.cycles[selectedCycleIndex].meals.length}</span>
                                     </h3>
                                 </Button>
                                 {expandedKeys.has("meals") && (
                                     <Button variant="primary" onClick={handleCreateMeal} className="shrink-0">
-                                        + Meal
+                                        {t('addMeal')}
                                     </Button>
                                 )}
                             </div>
@@ -370,7 +373,7 @@ export default function MiddlePanel({
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 {selectedPlan.cycles.length === 0 ? (
                                     <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
-                                        <p className="text-sm text-muted-foreground">No meals added yet.</p>
+                                        <p className="text-sm text-muted-foreground">{t('noMealsYet')}</p>
                                     </Surface>
                                 ) : (
                                     previewMeals.map((meal) => {
@@ -411,7 +414,7 @@ export default function MiddlePanel({
                                                     </p>
                                                     <p className="text-xs text-muted-foreground mt-0.5">
                                                         C {mealTotals.carbs}g · P {mealTotals.protein}g · F {mealTotals.fats}g
-                                                        <span className="ml-2">{meal.items.length} items</span>
+                                                        <span className="ml-2">{meal.items.length} {t('items')}</span>
                                                     </p>
                                                 </div>
                                                 <div className="flex items-baseline gap-0.5 shrink-0">
@@ -420,14 +423,14 @@ export default function MiddlePanel({
                                                 </div>
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                     <button
-                                                        title="Duplicate meal"
+                                                        title={t('duplicateMeal')}
                                                         className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
                                                         onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
                                                     >
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                                                     </button>
                                                     <button
-                                                        title="Delete meal"
+                                                        title={t('deleteMeal')}
                                                         className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteMeal(meal.id); }}
                                                     >
@@ -453,7 +456,7 @@ export default function MiddlePanel({
                             className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                         >
                             <Disclosure.Indicator />
-                            <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
+                            <h3 className="text-base font-semibold text-foreground flex-1 text-left">{t('notes')}</h3>
                         </Button>
                     </Disclosure.Heading>
                     <Disclosure.Content>
@@ -464,7 +467,7 @@ export default function MiddlePanel({
                                     <textarea
                                         key={cycle.id + '-note'}
                                         defaultValue={cycle.note ?? ""}
-                                        placeholder="Add a cycle note..."
+                                        placeholder={t('cycleNoteHint')}
                                         rows={3}
                                         onBlur={(e) => {
                                             const val = e.target.value;
@@ -485,25 +488,25 @@ export default function MiddlePanel({
                 <Modal.Container>
                     <Modal.Dialog>
                         <Modal.Header>
-                            <Modal.Heading>Activate & Mark as Done</Modal.Heading>
+                            <Modal.Heading>{t('activateModalTitle')}</Modal.Heading>
                             <Modal.CloseTrigger />
                         </Modal.Header>
                         <Modal.Body>
                             <p className="text-sm text-muted-foreground">
-                                You will activate this nutrition plan for this client and mark the submission as <span className="font-medium text-emerald-600">Action Done</span>. Continue?
+                                {t('activateModalBody')}
                             </p>
                         </Modal.Body>
                         <Modal.Footer>
                             <Button variant="ghost" isDisabled={activating} onClick={() => setActivateModal(false)}>
-                                Cancel
+                                {tModal('cancel')}
                             </Button>
                             <Button isDisabled={activating} onClick={() => handleActivateAndMark(false)}
                                 className="border border-green-500/30 text-green-600 hover:bg-green-500/10">
-                                {activating ? "Activating..." : "Activate & Stay Here"}
+                                {activating ? t('activating') : t('activateAndStay')}
                             </Button>
                             <Button isDisabled={activating} onClick={() => handleActivateAndMark(true)}
                                 className="bg-green-600 text-white hover:bg-green-700">
-                                {activating ? "Activating..." : "Activate & Go to Queue"}
+                                {activating ? t('activating') : t('activateAndGoToQueue')}
                             </Button>
                         </Modal.Footer>
                     </Modal.Dialog>

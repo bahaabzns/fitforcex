@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, ListFilter } from 'lucide-react';
 import { Table } from "@heroui/react/table";
 import { Checkbox } from "@heroui/react/checkbox";
 import { Pagination } from "@heroui/react/pagination";
@@ -15,6 +15,7 @@ import { SearchField } from "@heroui/react/search-field";
 import { Kbd } from "@heroui/react/kbd";
 import { Description } from "@heroui/react/description";
 import { parseDate } from "@internationalized/date";
+import { useTranslations, useLocale } from "next-intl";
 
 // ============================================================
 // DataTable — Reusable filterable/sortable table using HeroUI
@@ -49,6 +50,12 @@ export default function DataTable({
     quickSearch,
     toolbarEnd,
 }) {
+    const t = useTranslations('filter');
+    const locale = useLocale();
+    const isRtl = locale === 'ar';
+    // RTL mode swaps which corners are rounded; this must match HeroUI's own table radius or the border visually misaligns
+    const CORNER_RADIUS = 'var(--radius-2xl)';
+
     // ── Quick search ──────────────────────────────────────────
     const [quickSearchValue, setQuickSearchValue] = useState("");
     const [searchFocused, setSearchFocused] = useState(false);
@@ -308,7 +315,7 @@ export default function DataTable({
                             onClick={() => setAddFilterOpen(v => !v)}
                         >
                             <ListFilter size={14} />
-                            Filter
+                            {t('filterButton')}
                         </Button>
                         {addFilterOpen && (
                             <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
@@ -450,7 +457,7 @@ export default function DataTable({
                         );
                     })}
                     <Button size="sm" variant="ghost" onClick={() => setFilterRules([])}>
-                        Clear all
+                        {t('clearAll')}
                     </Button>
                 </div>
             )}
@@ -503,35 +510,62 @@ export default function DataTable({
                             </Table.Header>
 
                             <Table.Body>
-                                {paginatedData.map(row => (
-                                    <React.Fragment key={row[rowKey]}>
-                                        <Table.Row id={row[rowKey]}>
-                                            {selectable && (
-                                                <Table.Cell className="pr-0">
-                                                    <Checkbox
-                                                        aria-label={`Select row ${row[rowKey]}`}
-                                                        slot="selection"
-                                                        variant="secondary"
-                                                    >
-                                                        <Checkbox.Control>
-                                                            <Checkbox.Indicator />
-                                                        </Checkbox.Control>
-                                                    </Checkbox>
-                                                </Table.Cell>
-                                            )}
-                                            {columns.map(col => (
-                                                <Table.Cell
-                                                    key={col.key}
-                                                    style={col.width ? { width: col.width, minWidth: col.width } : undefined}
-                                                    className={col.key === "_actions" ? "text-end" : ""}
-                                                >
-                                                    {col.render ? col.render(row) : row[col.key]}
-                                                </Table.Cell>
-                                            ))}
-                                        </Table.Row>
-                                        {renderExpandedRow && renderExpandedRow(row)}
-                                    </React.Fragment>
-                                ))}
+                                {paginatedData.map((row, rowIdx) => {
+                                    const isFirstRow = rowIdx === 0;
+                                    const isLastRow  = rowIdx === paginatedData.length - 1;
+                                    return (
+                                        <React.Fragment key={row[rowKey]}>
+                                            <Table.Row id={row[rowKey]}>
+                                                {selectable && (() => {
+                                                    const s = {};
+                                                    if (isRtl) {
+                                                        if (isFirstRow) { s.borderTopLeftRadius = 0; s.borderTopRightRadius = CORNER_RADIUS; }
+                                                        if (isLastRow)  { s.borderBottomLeftRadius = 0; s.borderBottomRightRadius = CORNER_RADIUS; }
+                                                    }
+                                                    return (
+                                                        <Table.Cell className="pr-0" style={Object.keys(s).length ? s : undefined}>
+                                                            <Checkbox
+                                                                aria-label={`Select row ${row[rowKey]}`}
+                                                                slot="selection"
+                                                                variant="secondary"
+                                                            >
+                                                                <Checkbox.Control>
+                                                                    <Checkbox.Indicator />
+                                                                </Checkbox.Control>
+                                                            </Checkbox>
+                                                        </Table.Cell>
+                                                    );
+                                                })()}
+                                                {columns.map((col, colIdx) => {
+                                                    const isFirstCol = !selectable && colIdx === 0;
+                                                    const isLastCol  = colIdx === columns.length - 1;
+                                                    const baseStyle  = col.width ? { width: col.width, minWidth: col.width } : {};
+                                                    const extra = {};
+                                                    if (isRtl) {
+                                                        if (isFirstRow && isFirstCol) { extra.borderTopLeftRadius = 0; extra.borderTopRightRadius = CORNER_RADIUS; }
+                                                        if (isFirstRow && isLastCol)  { extra.borderTopRightRadius = 0; extra.borderTopLeftRadius = CORNER_RADIUS; }
+                                                        if (isLastRow  && isFirstCol) { extra.borderBottomLeftRadius = 0; extra.borderBottomRightRadius = CORNER_RADIUS; }
+                                                        if (isLastRow  && isLastCol)  { extra.borderBottomRightRadius = 0; extra.borderBottomLeftRadius = CORNER_RADIUS; }
+                                                    }
+                                                    const cellStyle = Object.keys(extra).length
+                                                        ? { ...baseStyle, ...extra }
+                                                        : (Object.keys(baseStyle).length ? baseStyle : undefined);
+                                                    return (
+                                                        <Table.Cell
+                                                            key={col.key}
+                                                            style={cellStyle}
+                                                            className={col.key === "_actions" ? "text-end" : ""}
+                                                            onPointerDown={(e) => e.stopPropagation()}
+                                                        >
+                                                            {col.render ? col.render(row) : row[col.key]}
+                                                        </Table.Cell>
+                                                    );
+                                                })}
+                                            </Table.Row>
+                                            {renderExpandedRow && renderExpandedRow(row)}
+                                        </React.Fragment>
+                                    );
+                                })}
                             </Table.Body>
                         </Table.Content>
                     </Table.ScrollContainer>
@@ -587,7 +621,7 @@ export default function DataTable({
                             size="sm"
                         >
                             <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-3! gap-2 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                                <span className="text-sm leading-none">Rows per page</span>
+                                <span className="text-sm leading-none">{t('rowsPerPage')}</span>
                                 <Select.Value className="text-sm font-medium leading-none" />
                                 <ChevronsUpDown size={13} className="shrink-0" />
                             </Select.Trigger>
@@ -608,7 +642,7 @@ export default function DataTable({
                     <div className="flex items-center gap-3 px-3">
                         {selectable && (
                             <span className="text-sm text-muted-foreground">
-                                {selectedKeys?.size ?? 0} of {sortedData.length} selected
+                                {t('selectedCount', { n: selectedKeys?.size ?? 0, total: sortedData.length })}
                             </span>
                         )}
                         <Button
@@ -617,7 +651,7 @@ export default function DataTable({
                             isDisabled={safePage === 1}
                             onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                         >
-                            Previous
+                            {t('previous')}
                         </Button>
                         <Button
                             size="sm"
@@ -625,7 +659,7 @@ export default function DataTable({
                             isDisabled={safePage === totalPages}
                             onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         >
-                            Next
+                            {t('next')}
                         </Button>
                     </div>
                 </div>
@@ -696,7 +730,7 @@ export default function DataTable({
                                     <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path d="M19 9l-7 7-7-7" />
                                     </svg>
-                                    {isExpanded ? "Show less" : `+${secondaryCols.length} more`}
+                                    {isExpanded ? t('showLess') : t('showMore', { count: secondaryCols.length })}
                                 </Button>
                             )}
 
@@ -707,7 +741,7 @@ export default function DataTable({
             </div>
 
             {sortedData.length === 0 && (
-                <p className="text-muted-foreground mt-6 text-sm">No results match the current filters.</p>
+                <p className="text-muted-foreground mt-6 text-sm">{t('noResults')}</p>
             )}
         </div>
     );

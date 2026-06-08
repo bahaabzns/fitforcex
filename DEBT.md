@@ -18,6 +18,7 @@ Format:
 **Why it matters:** History becomes unreadable. Can't grep for `feat:` / `fix:` to understand what changed and when.
 **Effort:** Small (adopt format going forward — no retroactive rewrite needed)
 **Priority:** High
+✅ RESOLVED 2026-06-04 — Adopted correct format in all subsequent commits. No retroactive rewrite needed.
 
 ---
 
@@ -47,6 +48,7 @@ Format:
 **Why it matters:** Could cause silent data staleness bugs if `loadBilling` ever needs to read component state or props.
 **Effort:** Small (wrap in `useCallback` with correct deps array)
 **Priority:** Medium
+✅ RESOLVED 2026-06-04 — Wrapped in `useCallback([t])`, mount effect deps updated to `[loadBilling]`.
 
 ---
 
@@ -56,6 +58,7 @@ Format:
 **Why it matters:** Logic is harder to reason about and could produce unexpected `true` values. Not currently a bug but fragile.
 **Effort:** Small (add explicit parentheses or rewrite as a single clear condition)
 **Priority:** Low
+✅ RESOLVED 2026-06-04 — Added explicit outer parens; simplified `=== null || === undefined` to `== null`.
 
 ---
 
@@ -85,6 +88,7 @@ Format:
 **Why it matters:** Could cause 429s on the training/nutrition pages for workspaces with large plan counts — the same root cause that caused the `uploadLimiter` 429 on `workspace-library`.
 **Effort:** Medium (split into `readLimiter` with higher cap and `mutationLimiter` applied only to POST/PUT/DELETE, or migrate plan fetching to a single bulk endpoint)
 **Priority:** Medium
+✅ RESOLVED 2026-06-04 — Added `readLimiter` (500/min). Added `apiLimiter` middleware that routes GETs to `readLimiter` and mutations to `mutationLimiter`. All API routes now use `apiLimiter`.
 
 ---
 
@@ -94,3 +98,24 @@ Format:
 **Why it matters:** Benign in React 18 (no crash), but produces a stale state update. Clean pattern is to abort on cleanup.
 **Effort:** Small (add AbortController, pass `signal` to axios)
 **Priority:** Low
+✅ RESOLVED 2026-06-04 — Added AbortController; signal passed to axios; cleanup returns `controller.abort()`.
+
+---
+
+## 2026-06-04 — server/lib/planEngine.js
+**Type:** Knowledge
+**What:** planEngine.js was refactored (~426 line diff) with no automated test coverage in place.
+**Why it matters:** Any regression in plan creation, insertion, or serialization will only surface at runtime when a coach reports broken plan behaviour. No safety net exists.
+**Effort:** Medium (write integration tests covering insertPlanTree, serializePlanRow, and the main CRUD paths)
+**Priority:** High
+⚠️ BLOCKED 2026-06-04 — No test runner configured (package.json has no `test` script). Requires Jest setup before tests can be written. Remains High priority.
+
+---
+
+## 2026-06-04 — client/app/(client)/portal/login/*
+**Type:** Knowledge
+**What:** portal/login/error.js, portal/login/loading.js, portal/login/page.js, and portal/page.js were deleted. The assumption is that root-level auth covers these routes, but no redirect audit was done.
+**Why it matters:** A broken or missing redirect leaves clients hitting a dead-end URL with no visible error.
+**Effort:** Small (audit middleware redirect paths for /portal and /portal/login)
+**Priority:** Medium
+✅ RESOLVED 2026-06-04 — Audited: login now lives at `/portal/[coachSlug]`. Old `/portal` fallback in layout.js pointed to deleted page — fixed to redirect to `/` instead.

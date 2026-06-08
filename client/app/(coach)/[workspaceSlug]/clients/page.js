@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from 'lucide-react';
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
+import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -73,6 +74,7 @@ const COUNTRY_CODES = [
 
 // --- SEARCHABLE COUNTRY CODE DROPDOWN ---
 function CountryCodeSelect({ value, onChange }) {
+    const t = useTranslations('clients');
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
     const ref = useRef(null);
@@ -102,7 +104,7 @@ function CountryCodeSelect({ value, onChange }) {
                 <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-card border border-border rounded-lg shadow-lg overflow-hidden animate-[fadeIn_150ms_ease-out]">
                     <input
                         type="text"
-                        placeholder="Search country or code..."
+                        placeholder={t('searchCountry')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full px-3 py-2 bg-background border-b border-border text-foreground text-xs placeholder:text-muted-foreground focus-visible:outline-none"
@@ -124,7 +126,7 @@ function CountryCodeSelect({ value, onChange }) {
                                 <span className="text-muted-foreground">{c.code}</span>
                             </button>
                         ))}
-                        {filtered.length === 0 && <p className="px-3 py-2 text-muted-foreground text-xs">No results</p>}
+                        {filtered.length === 0 && <p className="px-3 py-2 text-muted-foreground text-xs">{t('noResults')}</p>}
                     </div>
                 </div>
             )}
@@ -134,6 +136,7 @@ function CountryCodeSelect({ value, onChange }) {
 
 // --- MULTI-SELECT DROPDOWN (for forms) ---
 function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
+    const t = useTranslations('clients');
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
 
@@ -159,7 +162,7 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                 }`}
             >
                 <span className="truncate">
-                    {selected.length === 0 ? placeholder : `${selected.length} form${selected.length > 1 ? "s" : ""} selected`}
+                    {selected.length === 0 ? placeholder : t('formsSelected', { count: selected.length })}
                 </span>
                 <svg className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path d="M19 9l-7 7-7-7" />
@@ -184,7 +187,7 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                 <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg overflow-hidden animate-[fadeIn_150ms_ease-out]">
                     <div className="max-h-48 overflow-y-auto">
                         {options.length === 0 ? (
-                            <p className="px-3 py-2 text-muted-foreground text-xs">No options available</p>
+                            <p className="px-3 py-2 text-muted-foreground text-xs">{t('noOptionsAvailable')}</p>
                         ) : (
                             options.map(opt => (
                                 <button
@@ -213,7 +216,7 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
                                         <span className={`ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                             opt.type === "assessment" ? "bg-accent/15 text-accent" : "bg-purple-500/15 text-purple-600"
                                         }`}>
-                                            {opt.type === "assessment" ? "Assessment" : "Check-in"}
+                                            {opt.type === "assessment" ? t('assessment') : t('checkin')}
                                         </span>
                                     )}
                                 </button>
@@ -228,6 +231,8 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder }) {
 
 // --- PAGE ---
 export default function ClientsPage() {
+    const t = useTranslations('clients');
+    const tCommon = useTranslations('common');
     const { workspaceSlug } = useParams();
     const [clients, setClients]           = useState([]);
     const [packages, setPackages]         = useState([]);
@@ -276,6 +281,7 @@ export default function ClientsPage() {
     const [assigning, setAssigning]             = useState(false);
     const [sendMode, setSendMode]               = useState("now");
     const [scheduledDate, setScheduledDate]     = useState("");
+    const [minBulkScheduleDate, setMinBulkScheduleDate] = useState("");
 
     useEffect(() => {
         Promise.all([
@@ -324,16 +330,16 @@ export default function ClientsPage() {
 
     function validateForm() {
         const errors = [];
-        if (!newFirstName.trim()) errors.push("First name is required");
-        if (!newEmail.trim() || !EMAIL_REGEX.test(newEmail)) errors.push("Valid email is required");
-        if (!newPhones[0].number.trim() || !PHONE_REGEX.test(newPhones[0].number)) errors.push("Primary phone must be 7–15 digits");
+        if (!newFirstName.trim()) errors.push(t('validationFirstName'));
+        if (!newEmail.trim() || !EMAIL_REGEX.test(newEmail)) errors.push(t('validationEmail'));
+        if (!newPhones[0].number.trim() || !PHONE_REGEX.test(newPhones[0].number)) errors.push(t('validationPrimaryPhone'));
         for (let i = 1; i < phoneCount; i++) {
             if (newPhones[i].number.trim() && !PHONE_REGEX.test(newPhones[i].number))
-                errors.push(`Phone ${i + 1} must be 7–15 digits`);
+                errors.push(t('validationPhoneN', { n: i + 1 }));
         }
-        if (!newPackage) errors.push("Package variation is required");
-        if (!newPaymentMethod) errors.push("Payment method is required");
-        if (subDurationMode === "custom" && !subscriptionStartDate) errors.push("Subscription start date is required");
+        if (!newPackage) errors.push(t('validationPackage'));
+        if (!newPaymentMethod) errors.push(t('validationPaymentMethod'));
+        if (subDurationMode === "custom" && !subscriptionStartDate) errors.push(t('validationSubscriptionDate'));
         return errors;
     }
 
@@ -427,7 +433,7 @@ export default function ClientsPage() {
                 const limit = parseInt(msg.split(':')[1]);
                 setClientLimitModal({ limit });
             } else {
-                setFormErrors([msg || "Failed to create client"]);
+                setFormErrors([msg || t('failedToCreate')]);
             }
         }
     }
@@ -444,7 +450,7 @@ export default function ClientsPage() {
     async function handleFreeze(e) {
         e.preventDefault();
         if (!freezeStartDate || !freezeDays || Number(freezeDays) <= 0) {
-            setFreezeError("Start date and duration (days) are required.");
+            setFreezeError(t('validationSubscriptionDate'));
             return;
         }
         setFreezeSaving(true);
@@ -516,10 +522,10 @@ export default function ClientsPage() {
     const uniquePackages = [...new Set(clients.map(c => c.current_package).filter(Boolean))];
 
     const columns = [
-        { key: "code", label: "Code", filterType: "text", sortable: true },
+        { key: "code", label: t('colCode'), filterType: "text", sortable: true },
         {
             key: "name",
-            label: "Name",
+            label: t('colName'),
             filterType: "text",
             sortable: true,
             render: (row) => (
@@ -530,14 +536,14 @@ export default function ClientsPage() {
         },
         {
             key: "email",
-            label: "Email",
+            label: t('colEmail'),
             filterType: "text",
             sortable: true,
             render: (row) => <span className="text-muted-foreground">{row.email}</span>,
         },
         {
             key: "phoneSearch",
-            label: "Phone",
+            label: t('colPhone'),
             filterType: "text",
             render: (row) => (
                 <div className="flex flex-col gap-0.5">
@@ -551,14 +557,14 @@ export default function ClientsPage() {
         },
         {
             key: "currentPackage",
-            label: "Package",
+            label: t('colPackage'),
             filterType: "multi",
             options: uniquePackages,
             sortable: true,
         },
         {
             key: "currentSubscriptionStatus",
-            label: "Status",
+            label: t('status'),
             filterType: "multi",
             options: ["Active", "Expired", "Frozen", "Pre-start", "Cancelled", "Refunded"],
             sortable: true,
@@ -570,7 +576,7 @@ export default function ClientsPage() {
         },
         {
             key: "dateCreated",
-            label: "Date Added",
+            label: t('colDateAdded'),
             filterType: "dateRange",
             sortable: true,
             render: (row) => row.dateCreated
@@ -587,9 +593,9 @@ export default function ClientsPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => openFreeze(row)}
-                        title="Freeze subscription"
+                        title={t('freeze')}
                     >
-                        Freeze
+                        {t('freeze')}
                     </Button>
                 </div>
             ),
@@ -599,7 +605,7 @@ export default function ClientsPage() {
     if (loading) {
         return (
             <div className="p-8">
-                <h1 className="text-3xl font-bold text-foreground mb-6">Clients</h1>
+                <h1 className="text-3xl font-bold text-foreground mb-6">{t('pageTitle')}</h1>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
@@ -611,12 +617,12 @@ export default function ClientsPage() {
         <div className="p-8 flex flex-col gap-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Clients</h1>
-                <p className="text-sm text-muted-foreground mt-1">Manage your client roster and track their progress.</p>
+                <h1 className="text-3xl font-bold text-foreground">{t('pageTitle')}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t('pageDescription')}</p>
             </div>
 
             {/* Add Client Modal */}
-            <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title="Add Client">
+            <Modal open={showForm} onClose={() => { setShowForm(false); resetForm(); }} title={t('addClientTitle')}>
                 <form onSubmit={handleAddClient} className="flex flex-col gap-3">
                     {/* Validation errors */}
                     {formErrors.length > 0 && (
@@ -629,7 +635,7 @@ export default function ClientsPage() {
                     <div className="flex gap-2">
                         <input
                             type="text"
-                            placeholder="First name *"
+                            placeholder={`${t('firstName')} *`}
                             value={newFirstName}
                             onChange={(e) => setNewFirstName(e.target.value)}
                             className={`${inputCls} flex-1`}
@@ -637,7 +643,7 @@ export default function ClientsPage() {
                         />
                         <input
                             type="text"
-                            placeholder="Last name"
+                            placeholder={t('lastName')}
                             value={newLastName}
                             onChange={(e) => setNewLastName(e.target.value)}
                             className={`${inputCls} flex-1`}
@@ -647,14 +653,14 @@ export default function ClientsPage() {
                     {/* Email */}
                     <input
                         type="email"
-                        placeholder="Email address *"
+                        placeholder={`${t('emailAddress')} *`}
                         value={newEmail}
                         onChange={(e) => setNewEmail(e.target.value)}
                         className={inputCls}
                     />
 
                     {/* Password */}
-                    <label className="text-muted-foreground text-xs font-medium">Portal Password *</label>
+                    <label className="text-muted-foreground text-xs font-medium">{t('portalPassword')} *</label>
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <input
@@ -685,40 +691,40 @@ export default function ClientsPage() {
                             onClick={() => { setNewPassword(generatePassword()); setShowPassword(true); }}
                             className="px-3 py-2 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground text-xs font-medium transition-colors whitespace-nowrap cursor-pointer"
                         >
-                            Generate
+                            {t('generate')}
                         </button>
                     </div>
 
                     {/* Phone numbers */}
-                    <label className="text-muted-foreground text-xs font-medium">Phone Numbers</label>
+                    <label className="text-muted-foreground text-xs font-medium">{t('phoneNumbers')}</label>
                     <div className="flex flex-col gap-2">
                         <div className="flex gap-2 items-center">
                             <CountryCodeSelect value={newPhones[0].countryCode} onChange={(code) => updatePhone(0, "countryCode", code)} />
-                            <input type="text" placeholder="Primary phone * (required)" value={newPhones[0].number} onChange={(e) => updatePhone(0, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                            <input type="text" placeholder={t('primaryPhone')} value={newPhones[0].number} onChange={(e) => updatePhone(0, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
                         </div>
                         {phoneCount >= 2 && (
                             <div className="flex gap-2 items-center">
                                 <CountryCodeSelect value={newPhones[1].countryCode} onChange={(code) => updatePhone(1, "countryCode", code)} />
-                                <input type="text" placeholder="Phone 2 (optional)" value={newPhones[1].number} onChange={(e) => updatePhone(1, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                                <input type="text" placeholder={t('phone2')} value={newPhones[1].number} onChange={(e) => updatePhone(1, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
                             </div>
                         )}
                         {phoneCount >= 3 && (
                             <div className="flex gap-2 items-center">
                                 <CountryCodeSelect value={newPhones[2].countryCode} onChange={(code) => updatePhone(2, "countryCode", code)} />
-                                <input type="text" placeholder="Phone 3 (optional)" value={newPhones[2].number} onChange={(e) => updatePhone(2, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                                <input type="text" placeholder={t('phone3')} value={newPhones[2].number} onChange={(e) => updatePhone(2, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
                             </div>
                         )}
                         {phoneCount < 3 && (
                             <button type="button" onClick={() => setPhoneCount(prev => prev + 1)} className="text-xs text-primary hover:text-primary/80 self-start transition-colors cursor-pointer">
-                                + Add another phone
+                                {t('addAnotherPhone')}
                             </button>
                         )}
                     </div>
 
                     {/* Package Variation */}
-                    <label className="text-muted-foreground text-xs font-medium">Package Variation *</label>
+                    <label className="text-muted-foreground text-xs font-medium">{t('packageVariationLabel')} *</label>
                     <select value={newPackage} onChange={(e) => setNewPackage(e.target.value)} className={`${inputCls} ${!newPackage ? "text-muted-foreground" : ""}`}>
-                        <option value="">Select a package variation...</option>
+                        <option value="">{t('selectPackagePlaceholder')}</option>
                         {packageOptions.map(pv => (
                             <option key={pv.value} value={pv.value}>
                                 {pv.label} — {pv.duration} days, {pv.price.toLocaleString()} {pv.currency}
@@ -727,14 +733,14 @@ export default function ClientsPage() {
                     </select>
 
                     {/* Payment Method */}
-                    <label className="text-muted-foreground text-xs font-medium">Payment Method *</label>
+                    <label className="text-muted-foreground text-xs font-medium">{t('paymentMethodLabel')} *</label>
                     <select value={newPaymentMethod} onChange={(e) => setNewPaymentMethod(e.target.value)} className={`${inputCls} ${!newPaymentMethod ? "text-muted-foreground" : ""}`}>
-                        <option value="">Select a payment method...</option>
+                        <option value="">{t('selectPaymentMethodPlaceholder')}</option>
                         {paymentMethodOptions.map(pm => <option key={pm.value} value={pm.value}>{pm.label}</option>)}
                     </select>
 
                     {/* Transaction Date */}
-                    <label className="text-muted-foreground text-xs font-medium">Transaction Date</label>
+                    <label className="text-muted-foreground text-xs font-medium">{t('transactionDate')}</label>
                     <input
                         type="date"
                         value={txTransactionDate}
@@ -743,7 +749,7 @@ export default function ClientsPage() {
                     />
 
                     {/* Proof of Payment */}
-                    <label className="text-muted-foreground text-xs font-medium">Proof of Payment <span className="font-normal opacity-60">(optional)</span></label>
+                    <label className="text-muted-foreground text-xs font-medium">{t('proofOfPayment')} <span className="font-normal opacity-60">{t('proofOptional')}</span></label>
                     <input
                         type="file"
                         accept="image/*,.pdf"
@@ -753,7 +759,7 @@ export default function ClientsPage() {
                     {txProofFile && <p className="text-xs text-muted-foreground -mt-1">{txProofFile.name}</p>}
 
                     {/* Subscription Start */}
-                    <label className="text-muted-foreground text-xs font-medium">Subscription Starts</label>
+                    <label className="text-muted-foreground text-xs font-medium">{t('subscriptionStarts')}</label>
                     <div className="flex gap-2">
                         <button
                             type="button"
@@ -764,7 +770,7 @@ export default function ClientsPage() {
                                     : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
                             }`}
                         >
-                            On First Plan
+                            {t('onFirstPlan')}
                         </button>
                         <button
                             type="button"
@@ -775,7 +781,7 @@ export default function ClientsPage() {
                                     : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
                             }`}
                         >
-                            Custom Date
+                            {t('customDate')}
                         </button>
                     </div>
                     {subDurationMode === "custom" && (
@@ -788,27 +794,27 @@ export default function ClientsPage() {
                     )}
 
                     {/* Assign Forms */}
-                    <label className="text-muted-foreground text-xs font-medium">Assign Forms (optional)</label>
-                    <MultiSelectDropdown options={formOptions} selected={selectedForms} onChange={setSelectedForms} placeholder="Select forms..." />
+                    <label className="text-muted-foreground text-xs font-medium">{t('assignFormsLabel')}</label>
+                    <MultiSelectDropdown options={formOptions} selected={selectedForms} onChange={setSelectedForms} placeholder={t('selectFormsPlaceholder')} />
 
                     <Button type="submit" variant="primary" fullWidth className="mt-1">
-                        Add Client
+                        {t('addClient')}
                     </Button>
                 </form>
             </Modal>
 
             {/* One-time credentials reveal modal */}
-            <Modal open={!!credsModal} onClose={() => setCredsModal(null)} title="Client Created">
+            <Modal open={!!credsModal} onClose={() => setCredsModal(null)} title={t('clientCreatedTitle')}>
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-                        Save this password — it won&apos;t be shown again after you close this window.
+                        {t('savePasswordWarning')}
                     </p>
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs text-muted-foreground font-medium">Email</span>
+                        <span className="text-xs text-muted-foreground font-medium">{t('emailFieldLabel')}</span>
                         <span className="text-sm font-mono text-foreground">{credsModal?.email}</span>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <span className="text-xs text-muted-foreground font-medium">Password</span>
+                        <span className="text-xs text-muted-foreground font-medium">{t('passwordFieldLabel')}</span>
                         <span className="text-sm font-mono text-foreground">{credsModal?.password}</span>
                     </div>
                     <button
@@ -816,7 +822,7 @@ export default function ClientsPage() {
                         className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors cursor-pointer self-start"
                     >
                         {credsCopied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                        {credsCopied ? "Copied!" : "Copy Credentials"}
+                        {credsCopied ? t('copied') : t('copyCredentials')}
                     </button>
                 </div>
             </Modal>
@@ -834,11 +840,11 @@ export default function ClientsPage() {
                 defaultSortDirection="desc"
                 quickSearch={{
                     fields: ["code", "name", "email", "phoneSearch"],
-                    placeholder: "Search by code, name, email or phone",
+                    placeholder: t('searchClients'),
                 }}
                 toolbarEnd={
                     <Button variant="primary" onClick={openAddClientForm}>
-                        + Add Client
+                        + {t('addClient')}
                     </Button>
                 }
             />
@@ -847,7 +853,7 @@ export default function ClientsPage() {
             {selectedIds.size > 0 && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-card border border-border rounded-lg shadow-2xl px-5 py-3 flex items-center gap-4 z-50 animate-[fadeIn_150ms_ease-out]">
                     <span className="text-sm text-foreground font-medium">
-                        {selectedIds.size} client{selectedIds.size > 1 ? "s" : ""} selected
+                        {t('clientsSelectedBar', { count: selectedIds.size })}
                     </span>
                     <Button
                         variant="primary"
@@ -857,15 +863,16 @@ export default function ClientsPage() {
                             setPickerForms([]);
                             setSendMode("now");
                             setScheduledDate("");
+                            setMinBulkScheduleDate(new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16));
                         }}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Request Form
+                        {t('requestFormBulk')}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                        Cancel
+                        {tCommon('cancel')}
                     </Button>
                 </div>
             )}
@@ -874,7 +881,7 @@ export default function ClientsPage() {
             <Modal
                 open={showFreezeModal}
                 onClose={() => setShowFreezeModal(false)}
-                title={`Freeze Subscription — ${freezingClient?.name ?? ""}`}
+                title={`${t('freezeSubscriptionTitle')} — ${freezingClient?.name ?? ""}`}
             >
                 <form onSubmit={handleFreeze} className="flex flex-col gap-3">
                     {freezeError && (
@@ -883,7 +890,7 @@ export default function ClientsPage() {
                         </div>
                     )}
                     <div>
-                        <label className="text-muted-foreground text-xs font-medium">Freeze Start Date *</label>
+                        <label className="text-muted-foreground text-xs font-medium">{t('freezeStartDate')} *</label>
                         <input
                             type="date"
                             value={freezeStartDate}
@@ -892,7 +899,7 @@ export default function ClientsPage() {
                         />
                     </div>
                     <div>
-                        <label className="text-muted-foreground text-xs font-medium">Freeze Duration (days) *</label>
+                        <label className="text-muted-foreground text-xs font-medium">{t('freezeDurationLabel')} *</label>
                         <input
                             type="number"
                             min="1"
@@ -903,12 +910,12 @@ export default function ClientsPage() {
                         />
                     </div>
                     <div>
-                        <label className="text-muted-foreground text-xs font-medium">Notes <span className="font-normal opacity-60">(optional)</span></label>
+                        <label className="text-muted-foreground text-xs font-medium">{t('freezeNotesLabel')} <span className="font-normal opacity-60">{t('proofOptional')}</span></label>
                         <textarea
                             rows={2}
                             value={freezeNotes}
                             onChange={e => setFreezeNotes(e.target.value)}
-                            placeholder="Reason for freeze..."
+                            placeholder={t('freezeReason')}
                             className={`${inputCls} resize-none mt-1`}
                         />
                     </div>
@@ -918,7 +925,7 @@ export default function ClientsPage() {
                         fullWidth
                         isDisabled={freezeSaving}
                     >
-                        {freezeSaving ? "Saving…" : "Add Freeze"}
+                        {freezeSaving ? t('saving') : t('addFreeze')}
                     </Button>
                 </form>
             </Modal>
@@ -927,46 +934,46 @@ export default function ClientsPage() {
             <Modal
                 open={!!clientLimitModal}
                 onClose={() => setClientLimitModal(null)}
-                title="Client Limit Reached"
+                title={t('clientLimitTitle')}
             >
                 <div className="flex flex-col gap-5">
                     <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
                         <span className="text-amber-500 mt-0.5 text-base leading-none">⚠</span>
                         <div>
                             <p className="text-sm font-medium text-amber-600">
-                                You&apos;ve reached your plan&apos;s limit of {clientLimitModal?.limit} active client{clientLimitModal?.limit !== 1 ? 's' : ''}.
+                                {t('clientLimitMessage', { limit: clientLimitModal?.limit ?? 0 })}
                             </p>
                             <p className="text-xs text-amber-600/70 mt-0.5">
-                                Upgrade your plan to add more clients and unlock additional capacity.
+                                {t('clientLimitUpgrade')}
                             </p>
                         </div>
                     </div>
                     <div className="flex flex-col gap-2">
                         <p className="text-sm text-muted-foreground">
-                            To upgrade, contact us and we&apos;ll get you set up on a higher plan right away.
+                            {t('clientLimitContact')}
                         </p>
                     </div>
                     <div className="flex gap-2 justify-end">
                         <Button variant="ghost" onClick={() => setClientLimitModal(null)}>
-                            Dismiss
+                            {t('dismiss')}
                         </Button>
                         <Button variant="primary" onClick={() => { setClientLimitModal(null); window.location.href = `/${workspaceSlug}/settings?tab=billing`; }}>
-                            Upgrade Plan
+                            {t('upgradePlan')}
                         </Button>
                     </div>
                 </div>
             </Modal>
 
             {/* Bulk form picker modal */}
-            <Modal open={showFormPicker} onClose={() => setShowFormPicker(false)} title="Request Forms">
+            <Modal open={showFormPicker} onClose={() => setShowFormPicker(false)} title={t('requestFormsTitle')}>
                 <div className="flex flex-col gap-4">
                     <p className="text-muted-foreground text-sm">
-                        Choose forms to assign to {selectedIds.size} selected client{selectedIds.size > 1 ? "s" : ""}.
+                        {t('chooseFormsFor', { count: selectedIds.size })}
                     </p>
 
                     <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
                         {availableForms.length === 0 ? (
-                            <p className="text-muted-foreground text-sm">No active forms available.</p>
+                            <p className="text-muted-foreground text-sm">{t('noActiveFormsAvailable')}</p>
                         ) : (
                             availableForms.map(form => {
                                 const isChecked = pickerForms.includes(form.id);
@@ -995,7 +1002,7 @@ export default function ClientsPage() {
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                                 form.type === "assessment" ? "bg-accent/15 text-accent" : "bg-purple-500/15 text-purple-600"
                                             }`}>
-                                                {form.type === "assessment" ? "Assessment" : "Check-in"}
+                                                {form.type === "assessment" ? t('assessment') : t('checkin')}
                                             </span>
                                         )}
                                     </button>
@@ -1006,7 +1013,7 @@ export default function ClientsPage() {
 
                     {/* Send mode */}
                     <div className="flex flex-col gap-3 border-t border-border pt-4">
-                        <span className="text-muted-foreground text-xs font-medium">When to send</span>
+                        <span className="text-muted-foreground text-xs font-medium">{t('whenToSend')}</span>
                         <div className="flex gap-2">
                             <button
                                 type="button"
@@ -1017,7 +1024,7 @@ export default function ClientsPage() {
                                         : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
                                 }`}
                             >
-                                Send Now
+                                {t('sendNow')}
                             </button>
                             <button
                                 type="button"
@@ -1028,7 +1035,7 @@ export default function ClientsPage() {
                                         : "bg-background text-muted-foreground hover:text-foreground border border-transparent"
                                 }`}
                             >
-                                Schedule
+                                {t('scheduleForms')}
                             </button>
                         </div>
                         {sendMode === "scheduled" && (
@@ -1036,7 +1043,7 @@ export default function ClientsPage() {
                                 type="datetime-local"
                                 value={scheduledDate}
                                 onChange={(e) => setScheduledDate(e.target.value)}
-                                min={new Date().toISOString().slice(0, 16)}
+                                min={minBulkScheduleDate}
                                 className="w-full px-3 py-2 rounded-lg bg-background border border-input text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                             />
                         )}
@@ -1044,7 +1051,7 @@ export default function ClientsPage() {
 
                     <div className="flex items-center justify-end gap-2">
                         <Button variant="ghost" size="sm" onClick={() => setShowFormPicker(false)}>
-                            Cancel
+                            {tCommon('cancel')}
                         </Button>
                         <Button
                             variant="primary"
@@ -1052,9 +1059,11 @@ export default function ClientsPage() {
                             onClick={handleBulkAssign}
                             isDisabled={pickerForms.length === 0 || assigning || (sendMode === "scheduled" && !scheduledDate)}
                         >
-                            {assigning ? "Assigning..." : sendMode === "scheduled"
-                                ? `Schedule${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
-                                : `Assign${pickerForms.length > 0 ? ` (${pickerForms.length})` : ""}`
+                            {assigning
+                                ? t('assigningForms')
+                                : sendMode === "scheduled"
+                                    ? (pickerForms.length > 0 ? t('scheduleCount', { count: pickerForms.length }) : t('scheduleForms'))
+                                    : (pickerForms.length > 0 ? t('assignCount', { count: pickerForms.length }) : t('assignCount', { count: 0 }))
                             }
                         </Button>
                     </div>

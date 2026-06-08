@@ -20,6 +20,7 @@ Every routine has a trigger. When the trigger happens, run the routine. No excep
 | Every 4–5 features completed | → DEBT PAYMENT SESSION |
 | Ending any coding session | → SESSION CLOSING ROUTINE |
 | A bug is found | → BUG FIX PROTOCOL |
+| Before deploying to any environment | → PRE-DEPLOY ROUTINE |
 
 ---
 
@@ -64,6 +65,11 @@ SESSION CLOSES
      ↓
 SESSION CLOSING ROUTINE
 (boy scout improvement, update logs, confirm all committed)
+     ↓
+READY TO DEPLOY?
+     ↓
+PRE-DEPLOY ROUTINE
+(gate checks → env prep → build → staging → production → verify → report)
 ```
 
 ---
@@ -1139,6 +1145,284 @@ Say: *"Session closed cleanly. No loose ends."*
 
 ---
 
+### ROUTINE 12 — PRE-DEPLOY ROUTINE
+**TRIGGER: Before deploying to any environment — staging or production**
+
+*Never deploy from a dirty branch. Never deploy without a rollback plan. Never skip staging.*
+
+---
+
+#### PHASE 1 — GATE CHECKS
+*All gates must be green before any deploy proceeds. One red = stop.*
+
+```
+[ ] On the correct branch (dev → staging, main → production)
+[ ] git status is clean — no uncommitted changes
+[ ] Full test suite passes: npm test
+[ ] No skipped tests (test.skip) without a DEBT.md entry
+[ ] Code review passed for all changes in this deploy
+[ ] All 🔴 blockers from the last review resolved
+[ ] No .env files, secrets, or API keys in staged files
+[ ] DEBT.md checked — any HIGH priority items that must be resolved first?
+```
+
+If any gate fails: stop. Fix it. Re-run from the top.
+
+Say: *"Gate checks complete. [n] passed. Proceeding to environment prep."*
+Or: *"Gate failed at: [item]. Deploy is blocked until this is resolved."*
+
+---
+
+#### PHASE 2 — ENVIRONMENT PREP
+*Confirm the target environment is ready to receive the deploy.*
+
+**Step 1 — Identify the target**
+
+Ask me:
+1. Are we deploying to **staging** or **production**?
+2. What is the deploy URL / server?
+3. Is this a first deploy or an update to existing?
+
+**Step 2 — Environment variables audit**
+
+```
+[ ] All required .env variables are documented in .env.example
+[ ] Target environment has all variables set (confirm with platform dashboard)
+[ ] No variable added in code but missing from the environment
+[ ] No variable removed from .env.example but still expected in code
+[ ] API keys and secrets are production-grade (not test/dev keys in prod)
+```
+
+Flag immediately if dev keys appear in a production deploy config. 🔴 BLOCKER
+
+**Step 3 — Database and migrations** *(if applicable)*
+
+```
+[ ] All pending migrations identified: list them by name
+[ ] Migrations tested on staging before running on production
+[ ] Rollback SQL written and confirmed before any destructive migration
+[ ] No migration drops a column or table without a confirmed data backup
+[ ] Migration does not lock a table for longer than an acceptable window
+```
+
+If a migration is destructive (drops data, renames a column, changes a type):
+Say: *"This migration is destructive. I need explicit confirmation before running it."*
+Wait for confirmation. Do not proceed silently.
+
+---
+
+#### PHASE 3 — BUILD VERIFICATION
+*Confirm the build is clean before it touches any server.*
+
+```bash
+# Run a clean production build locally
+npm run build         # or the project's build command
+
+# Check for:
+[ ] Build completes with zero errors
+[ ] Build completes with zero warnings (or all warnings are known and logged)
+[ ] Bundle size has not increased by more than 20% unexpectedly
+[ ] No source maps included in the production build
+[ ] No debug flags or development-only code paths active in prod build
+```
+
+If the build fails locally: do not deploy. Fix the build, then re-run Phase 1.
+
+---
+
+#### PHASE 4 — STAGING DEPLOY AND SMOKE TEST
+**TRIGGER: Every production deploy must pass staging first. No exceptions.**
+
+**Step 1 — Deploy to staging**
+
+```bash
+# Deploy to staging environment
+# [project-specific deploy command]
+
+# Confirm deploy completed:
+[ ] Deploy command exited with no errors
+[ ] Staging URL is reachable
+[ ] No 500 errors in the staging error log immediately after deploy
+```
+
+**Step 2 — Smoke test on staging**
+
+Run the critical path checklist — the minimum set of actions that proves the app is alive:
+
+```
+[ ] App loads — homepage or main screen renders without errors
+[ ] Authentication works — can log in with a test account
+[ ] Core feature works — [most important user action for this project]
+[ ] Data reads correctly — key data appears as expected
+[ ] Data writes correctly — a test save/submit completes without error
+[ ] No JavaScript console errors on the critical path
+[ ] No broken images or missing assets
+[ ] Environment-specific config is active (correct API URLs, correct keys)
+```
+
+If any smoke test fails: rollback staging, investigate, and do not proceed to production.
+
+Staging must be green for at least 10 minutes of manual use before a production deploy.
+
+---
+
+#### PHASE 5 — PRODUCTION DEPLOY
+*Only reached after Phase 4 passes completely.*
+
+**Step 1 — Final confirmation**
+
+Before running the production deploy command, state clearly:
+
+*"Staging passed all smoke tests. I am about to deploy [commit hash or version] to production. The changes in this deploy are: [list]. Do you want to proceed?"*
+
+Wait for explicit confirmation. Do not auto-proceed.
+
+**Step 2 — Deploy**
+
+```bash
+# Deploy to production
+# [project-specific deploy command]
+
+# Immediately after:
+[ ] Deploy command exited with no errors
+[ ] Production URL is reachable
+[ ] Check error monitoring dashboard for spike in errors
+```
+
+**Step 3 — Tag the release**
+
+```bash
+git tag v[version] -m "release: [one sentence summary of what this deploy contains]"
+git push origin v[version]
+```
+
+Log the version and deploy date in PROJECT.md under Releases.
+
+---
+
+#### PHASE 6 — POST-DEPLOY VERIFICATION
+*Run immediately after every production deploy. Do not skip.*
+
+```
+[ ] Homepage / main screen loads without errors
+[ ] Core feature works end-to-end with a real test action
+[ ] Authentication flow works — login and logout
+[ ] Any feature changed in this deploy is manually tested in production
+[ ] Error monitoring shows no new error spikes (check 5 minutes post-deploy)
+[ ] Response times are normal — no visible slowdown
+[ ] Any scheduled jobs or background workers are still running
+```
+
+If anything fails: move immediately to the Rollback Protocol below.
+
+**Observation window:** Stay present for 15 minutes after a production deploy. Watch for:
+- Error rate spikes
+- Performance degradation
+- User reports of broken features
+
+---
+
+#### ROLLBACK PROTOCOL
+*Run immediately if post-deploy verification fails or a critical issue is found in production.*
+
+**Step 1 — Assess severity in under 2 minutes**
+
+```
+Is the issue causing:
+  → Data loss or corruption?        → CRITICAL — rollback immediately
+  → Login or payment failure?       → CRITICAL — rollback immediately
+  → Core feature broken for all?    → HIGH — rollback unless fix < 5 min
+  → One feature broken for some?    → MEDIUM — hotfix may be faster
+  → Visual glitch, minor breakage?  → LOW — schedule fix, no rollback needed
+```
+
+**Step 2 — Rollback (CRITICAL or HIGH)**
+
+```bash
+# Option A — Redeploy the last known-good version
+git checkout [last-good-tag]
+# [deploy command]
+
+# Option B — Platform rollback (Vercel, Railway, Render, etc.)
+# Use the platform dashboard to roll back to the previous deployment
+
+# Confirm:
+[ ] Production is back to the previous working version
+[ ] Smoke test passes on the rolled-back version
+[ ] Error rate has returned to baseline
+```
+
+**Step 3 — Document immediately**
+
+```markdown
+## [date] — Rollback: [short description]
+**Deploy version:** [tag or commit]
+**Rolled back to:** [previous tag or commit]
+**Reason:** [what broke and why]
+**Detection:** [how it was caught — monitoring / user report / smoke test]
+**Time to rollback:** [minutes]
+**Next steps:** [what needs to be fixed before re-deploying]
+```
+
+Add this to DEBT.md under a `## Rollback Log` section.
+
+---
+
+#### DEPLOY REPORT FORMAT
+*(Produce this at the end of every deploy — pass or rollback)*
+
+```
+─────────────────────────────────────
+DEPLOY REPORT
+Date: [date]    Version: [tag]    Target: [staging / production]
+─────────────────────────────────────
+GATE CHECKS
+All passed: ✅ / ❌ (list any failures)
+─────────────────────────────────────
+CHANGES DEPLOYED
+[bullet list of features, fixes, or changes in this deploy]
+─────────────────────────────────────
+ENVIRONMENT
+Env vars verified:     ✅ / ❌
+Migrations run:        ✅ / ❌ / N/A
+Build clean:           ✅ / ❌
+─────────────────────────────────────
+STAGING
+Deployed:              ✅ / ❌
+Smoke test passed:     ✅ / ❌
+Observation window:    [n] minutes
+─────────────────────────────────────
+PRODUCTION
+Deployed:              ✅ / ❌ / N/A
+Post-deploy check:     ✅ / ❌
+Errors after deploy:   None / [description]
+Rollback required:     No / Yes → [reason]
+─────────────────────────────────────
+RELEASE TAGGED
+Tag: v[version]
+Notes: [one sentence]
+─────────────────────────────────────
+```
+
+---
+
+#### GOLDEN RULES FOR DEPLOY
+
+```
+🔴 Never deploy directly to production without passing staging first
+🔴 Never deploy with a failing test suite
+🔴 Never deploy on a Friday or before a long weekend
+🔴 Never run a destructive migration without a written rollback plan
+🔴 Never deploy without knowing how to roll back in under 5 minutes
+🟡 Always tag every production release — version history is a safety net
+🟡 Always stay present for 15 minutes after a production deploy
+🟡 Always deploy to one environment at a time — staging, then production
+🔵 A deploy with no smoke test is a guess, not a release
+🔵 The deploy is not done until the report is written
+```
+
+---
+
 ## PART 4 — LEARNING MODE
 *Active every session. I am a beginner learning while building.*
 
@@ -1296,3 +1580,6 @@ We have completed 5 features. Run a Debt Payment Session from CLAUDE.md. No new 
 
 **Fix a bug:**
 I found a bug. Run the Bug Fix Protocol from CLAUDE.md. Do not touch any code until Phase 1 triage is complete.
+
+**Deploy to staging or production:**
+I am ready to deploy. Run the Pre-Deploy Routine from CLAUDE.md. Do not touch the deploy command until all gate checks pass.

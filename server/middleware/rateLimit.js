@@ -11,6 +11,14 @@ const loginLimiter = rateLimit({
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
+const readLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 500,
+    message: { error: 'Too many requests from this IP, please try again after a minute.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 const mutationLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 100, // Limit each IP to 100 requests per windowMs
@@ -31,4 +39,4 @@ const uploadLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-module.exports = { loginLimiter, mutationLimiter, uploadLimiter };
+module.exports = { loginLimiter, readLimiter, mutationLimiter, uploadLimiter };

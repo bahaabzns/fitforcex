@@ -43,3 +43,4 @@ ok "Apps restarted"
 
 echo ""
 pm2 status
+

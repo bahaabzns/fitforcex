@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -10,11 +11,16 @@ export const metadata = {
 export default async function RootLayout({ children }) {
     const cookieStore = await cookies();
     const theme = cookieStore.get("theme")?.value ?? "system";
+    const locale = await getLocale();
+    const messages = await getMessages();
+    const dir = locale === "ar" ? "rtl" : "ltr";
 
     return (
-        <html lang="en" suppressHydrationWarning>
-            <body>
-                <Providers defaultTheme={theme}>{children}</Providers>
+        <html lang={locale} dir={dir} suppressHydrationWarning>
+            <body suppressHydrationWarning>
+                <Providers defaultTheme={theme} locale={locale} messages={messages}>
+                    {children}
+                </Providers>
             </body>
         </html>
     );

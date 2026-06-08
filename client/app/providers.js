@@ -2,17 +2,20 @@
 
 import { RouterProvider } from '@heroui/react';
 import { ThemeProvider } from 'next-themes';
+import { NextIntlClientProvider } from 'next-intl';
 
-export function Providers({ children, defaultTheme = 'system' }) {
+export function Providers({ children, defaultTheme = 'system', locale = 'en', messages = {} }) {
     return (
-        <ThemeProvider
-            attribute="class"
-            defaultTheme={defaultTheme}
-            enableSystem
-        >
-            <RouterProvider>
-                {children}
-            </RouterProvider>
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+            <ThemeProvider
+                attribute="class"
+                defaultTheme={defaultTheme}
+                enableSystem
+            >
+                <RouterProvider>
+                    {children}
+                </RouterProvider>
+            </ThemeProvider>
+        </NextIntlClientProvider>
     );
 }

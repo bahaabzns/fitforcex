@@ -15,6 +15,7 @@ export default function VerifyEmailRequiredPage() {
     const [resendLoading, setResendLoading] = useState(false);
     const [error, setError] = useState('');
     const [resendMessage, setResendMessage] = useState('');
+    
 
     const handleVerify = async (e) => {
         e.preventDefault();

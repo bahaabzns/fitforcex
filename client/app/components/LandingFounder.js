@@ -1,5 +1,5 @@
 import { Chip } from "@heroui/react/chip";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from 'lucide-react';
 
 const guaranteeBullets = [
     "No credit card required for your 7-day trial — start risk-free today",

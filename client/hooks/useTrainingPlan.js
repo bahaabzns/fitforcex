@@ -563,7 +563,8 @@ export function useTrainingPlan(clientId) {
 
         const target = plans.find((p) => String(p.id) === String(planId));
         if (!target) return { success: false };
-        if (!dirtyPlanIds.has(String(planId))) return { success: true, newPlanId: planId, unchanged: true };
+        const isTempId = String(planId).startsWith("tmp-");
+        if (!isTempId && !dirtyPlanIds.has(String(planId))) return { success: true, newPlanId: planId, unchanged: true };
 
         try {
             setIsSaving(true);

@@ -143,6 +143,7 @@ function buildNutritionPlanHierarchy(plan, flatRows) {
                 amount: row.item_amount,
                 meal_item_order: row.meal_item_order,
                 name: row.food_name,
+                name_ar: row.food_name_ar,
                 serving_unit: row.serving_unit,
                 calories_per_serving: row.calories_per_serving,
                 protein_per_serving: row.protein_per_serving,
@@ -166,6 +167,7 @@ function buildNutritionPlanHierarchy(plan, flatRows) {
                     amount: row.alt_amount,
                     alt_order: row.alt_order,
                     name: row.alt_food_name,
+                    name_ar: row.alt_food_name_ar,
                     serving_unit: row.alt_serving_unit,
                     calories_per_serving: row.alt_calories_per_serving,
                     protein_per_serving: row.alt_protein_per_serving,
@@ -218,11 +220,11 @@ router.get('/active-plan', clientAuthMiddleware, async (req, res, next) => {
                     nc.goal_calories, nc.goal_protein, nc.goal_carbs, nc.goal_fats, nc.note AS cycle_note,
                 nm.id AS meal_id, nm.cycle_id, nm.name AS meal_name, nm.meal_order, nm.note AS meal_note,
                 nmi.id AS item_id, nmi.meal_id, nmi.food_item_id, nmi.amount AS item_amount, nmi.meal_item_order,
-                fi.name AS food_name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, 
+                fi.name_en AS food_name, fi.name_ar AS food_name_ar, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving,
                     fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category,
-                nmia.id AS alt_id, nmia.meal_item_id, nmia.food_item_id AS alt_food_item_id, 
+                nmia.id AS alt_id, nmia.meal_item_id, nmia.food_item_id AS alt_food_item_id,
                     nmia.amount AS alt_amount, nmia.alt_order,
-                fi2.name AS alt_food_name, fi2.serving_unit AS alt_serving_unit, 
+                fi2.name_en AS alt_food_name, fi2.name_ar AS alt_food_name_ar, fi2.serving_unit AS alt_serving_unit,
                     fi2.calories_per_serving AS alt_calories_per_serving, 
                     fi2.protein_per_serving AS alt_protein_per_serving,
                     fi2.carbs_per_serving AS alt_carbs_per_serving, fi2.fats_per_serving AS alt_fats_per_serving, 
@@ -279,7 +281,8 @@ function buildTrainingPlanHierarchy(plan, flatRows) {
                 video_path:     toPublicUrl(row.video_path),
                 youtube_url: row.youtube_url,
                 muscle_group: row.muscle_group,
-                instructions: row.instructions,
+                instructions_en: row.instructions_en,
+                instructions_ar: row.instructions_ar,
                 sets: [],
                 alternatives: []
             });
@@ -311,7 +314,8 @@ function buildTrainingPlanHierarchy(plan, flatRows) {
                     exercise_id: row.exercise_id,
                     exercise_library_id: row.alt_exercise_library_id,
                     alt_order: row.alt_order,
-                    name: row.alt_name,
+                    name_en: row.alt_name_en,
+                    name_ar: row.alt_name_ar,
                     muscle_group: row.alt_muscle_group,
                     equipment: row.alt_equipment,
                     thumbnail_path: toPublicUrl(row.alt_thumbnail_path),
@@ -360,10 +364,12 @@ router.get('/active-training-plan', clientAuthMiddleware, async (req, res, next)
                 td.id AS day_id, td.plan_id, td.name AS day_name, td.day_order, td.notes AS day_notes,
                 te.id AS exercise_id, te.day_id, te.name AS exercise_name, te.exercise_order, 
                     te.equipment, te.notes AS exercise_notes, te.exercise_library_id,
-                el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group, el.instructions,
-                ts.id AS set_id, ts.exercise_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir,
-                tea.id AS alt_id, tea.exercise_id, tea.exercise_library_id AS alt_exercise_library_id, tea.alt_order,
-                el2.name AS alt_name, el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment, 
+                el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
+                    el.instructions_en, el.instructions_ar,
+                ts.id AS set_id, ts.set_order, ts.reps, ts.rest_seconds, ts.tempo, ts.rir,
+                tea.id AS alt_id, tea.exercise_library_id AS alt_exercise_library_id, tea.alt_order,
+                el2.name_en AS alt_name_en, el2.name_ar AS alt_name_ar,
+                    el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment,
                     el2.thumbnail_path AS alt_thumbnail_path, el2.youtube_url AS alt_youtube_url, el2.video_path AS alt_video_path
              FROM training_plans tp
              LEFT JOIN training_days td ON td.plan_id = tp.id
@@ -394,7 +400,9 @@ router.get('/form-requests', clientAuthMiddleware, async (req, res, next) => {
 
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+                    f.id AS form_id,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.description_en AS form_description_en, f.description_ar AS form_description_ar
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
              WHERE fr.client_id = $1
@@ -414,7 +422,9 @@ router.get('/form-requests/:request_id', clientAuthMiddleware, async (req, res, 
 
         const reqResult = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id, f.title AS form_title, f.description AS form_description
+                    f.id AS form_id,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.description_en AS form_description_en, f.description_ar AS form_description_ar
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
              WHERE fr.id = $1 AND fr.client_id = $2`,

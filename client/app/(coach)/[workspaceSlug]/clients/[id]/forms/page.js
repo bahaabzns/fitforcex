@@ -3,12 +3,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/axios";
+import { useLocale, useTranslations } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
 import Modal from "@/app/components/Modal";
-import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send } from "lucide-react";
+import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send } from 'lucide-react';
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
 export default function ClientFormsPage() {
+    const t = useTranslations('forms');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
     const { id } = useParams();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -22,6 +27,7 @@ export default function ClientFormsPage() {
     const [requestError, setRequestError] = useState('');
     const [requestMode, setRequestMode] = useState('now');
     const [scheduledAt, setScheduledAt] = useState('');
+    const [minScheduledAt, setMinScheduledAt] = useState('');
 
     // Draggable divider
     const [widths, setWidths] = useState([38, 62]);
@@ -54,6 +60,8 @@ export default function ClientFormsPage() {
         setRequestError('');
         setRequestMode('now');
         setScheduledAt('');
+        const minDt = new Date(Date.now() + 5 * 60 * 1000);
+        setMinScheduledAt(minDt.toISOString().slice(0, 16));
         try {
             const res = await api.get('/api/forms');
             setActiveForms(res.data.filter(f => f.status === 'active'));
@@ -71,8 +79,8 @@ export default function ClientFormsPage() {
         if (selectedFormIds.length === 0) { setRequestError('Select at least one form'); return; }
         if (requestMode === 'schedule' && !scheduledAt) { setRequestError('Choose a schedule date and time'); return; }
         if (requestMode === 'schedule') {
-            const t = new Date(scheduledAt);
-            if (Number.isNaN(t.getTime()) || t.getTime() <= Date.now()) {
+            const scheduledDate = new Date(scheduledAt);
+            if (Number.isNaN(scheduledDate.getTime()) || scheduledAt < minScheduledAt) {
                 setRequestError('Schedule time must be in the future');
                 return;
             }
@@ -141,11 +149,11 @@ export default function ClientFormsPage() {
                 <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col overflow-hidden h-full">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4 shrink-0">
-                        <h2 className="text-base font-semibold text-foreground">Form Requests</h2>
+                        <h2 className="text-base font-semibold text-foreground">{t('formRequests')}</h2>
                         <div className="flex items-center gap-2">
                             {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length > 0 && (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 font-medium">
-                                    {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length} open
+                                    {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length} {t('open')}
                                 </span>
                             )}
                             <button
@@ -153,7 +161,7 @@ export default function ClientFormsPage() {
                                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-purple-500 hover:border-purple-300 transition-colors cursor-pointer"
                             >
                                 <Send size={12} />
-                                Request Form
+                                {t('requestForm')}
                             </button>
                         </div>
                     </div>
@@ -161,8 +169,8 @@ export default function ClientFormsPage() {
                     {requests.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-8">
                             <ClipboardList size={36} className="text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-muted-foreground">No form requests yet</p>
-                            <p className="text-xs text-muted-foreground/70">Use the &quot;Request Form&quot; button on the Clients page.</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t('noFormRequests')}</p>
+                            <p className="text-xs text-muted-foreground/70">{t('noFormRequestsHint')}</p>
                         </div>
                     ) : (
                         <div className="flex-1 overflow-y-auto flex flex-col gap-1.5">
@@ -177,29 +185,29 @@ export default function ClientFormsPage() {
                                     }`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
-                                        <p className="text-sm font-medium text-foreground truncate flex-1">{req.form_title}</p>
+                                        <p className="text-sm font-medium text-foreground truncate flex-1">{getLocalizedField(req, 'form_title', locale)}</p>
                                         {req.status === 'pending' ? (
                                             <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 font-medium shrink-0">
-                                                <Clock size={10} /> Pending
+                                                <Clock size={10} /> {t('pending')}
                                             </span>
                                         ) : req.status === 'scheduled' ? (
                                             <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent font-medium shrink-0">
-                                                <CalendarClock size={10} /> Scheduled
+                                                <CalendarClock size={10} /> {tCommon('scheduled')}
                                             </span>
                                         ) : (
                                             <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 font-medium shrink-0">
-                                                <CheckCircle size={10} /> Submitted
+                                                <CheckCircle size={10} /> {t('submitted')}
                                             </span>
                                         )}
                                     </div>
-                                    {req.form_description && (
-                                        <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{req.form_description}</p>
+                                    {getLocalizedField(req, 'form_description', locale) && (
+                                        <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{getLocalizedField(req, 'form_description', locale)}</p>
                                     )}
                                     <p className="text-xs text-muted-foreground/70 mt-1">
                                         {req.status === 'scheduled' && req.scheduled_at
-                                            ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
+                                            ? `${tCommon('scheduled')} ${new Date(req.scheduled_at).toLocaleString()}`
                                             : new Date(req.requested_at).toLocaleDateString()}
-                                        {req.submitted_at && ` · submitted ${new Date(req.submitted_at).toLocaleDateString()}`}
+                                        {req.submitted_at && ` · ${t('submitted')} ${new Date(req.submitted_at).toLocaleDateString()}`}
                                     </p>
                                 </button>
                             ))}
@@ -225,22 +233,22 @@ export default function ClientFormsPage() {
                     {!selected ? (
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
                             <ClipboardList size={40} className="text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-muted-foreground">Select a form request</p>
-                            <p className="text-xs text-muted-foreground/70">Click on a request from the left to view details.</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t('selectRequest')}</p>
+                            <p className="text-xs text-muted-foreground/70">{t('selectRequestHint')}</p>
                         </div>
                     ) : (
                         <>
                             {/* Detail Header */}
                             <div className="flex items-start justify-between gap-4 mb-5 shrink-0">
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg font-bold text-foreground">{selected.form_title}</h3>
-                                    {selected.form_description && (
-                                        <p className="text-sm text-muted-foreground mt-0.5">{selected.form_description}</p>
+                                    <h3 className="text-lg font-bold text-foreground">{getLocalizedField(selected, 'form_title', locale)}</h3>
+                                    {getLocalizedField(selected, 'form_description', locale) && (
+                                        <p className="text-sm text-muted-foreground mt-0.5">{getLocalizedField(selected, 'form_description', locale)}</p>
                                     )}
                                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                        <span>Requested {new Date(selected.requested_at).toLocaleDateString()}</span>
+                                        <span>{t('requested')} {new Date(selected.requested_at).toLocaleDateString()}</span>
                                         {selected.submitted_at && (
-                                            <span>· Submitted {new Date(selected.submitted_at).toLocaleDateString()}</span>
+                                            <span>· {t('submitted')} {new Date(selected.submitted_at).toLocaleDateString()}</span>
                                         )}
                                     </div>
                                 </div>
@@ -249,23 +257,23 @@ export default function ClientFormsPage() {
                                         <>
                                             {selected.status === 'scheduled' ? (
                                                 <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-accent/15 text-accent font-medium">
-                                                    <CalendarClock size={11} /> Scheduled
+                                                    <CalendarClock size={11} /> {tCommon('scheduled')}
                                                 </span>
                                             ) : (
                                                 <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-500/15 text-yellow-600 font-medium">
-                                                    <Clock size={11} /> Pending
+                                                    <Clock size={11} /> {t('pending')}
                                                 </span>
                                             )}
                                             <button
                                                 onClick={() => handleCancel(selected.id)}
                                                 className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors cursor-pointer"
                                             >
-                                                <Trash2 size={12} /> Cancel Request
+                                                <Trash2 size={12} /> {t('cancelRequest')}
                                             </button>
                                         </>
                                     ) : (
                                         <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-500/15 text-green-700 font-medium">
-                                            <CheckCircle size={11} /> Submitted
+                                            <CheckCircle size={11} /> {t('submitted')}
                                         </span>
                                     )}
                                 </div>
@@ -278,25 +286,25 @@ export default function ClientFormsPage() {
                                         {selected.status === 'scheduled' ? (
                                             <>
                                                 <CalendarClock size={36} className="text-accent" />
-                                                <p className="text-sm font-medium text-muted-foreground">Form is scheduled</p>
-                                                <p className="text-xs text-muted-foreground/70">Client will receive it at {selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : 'the selected time'}.</p>
+                                                <p className="text-sm font-medium text-muted-foreground">{t('formScheduled')}</p>
+                                                <p className="text-xs text-muted-foreground/70">{t('formScheduledHint', { time: selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : '—' })}</p>
                                             </>
                                         ) : (
                                             <>
                                                 <Clock size={36} className="text-yellow-500" />
-                                                <p className="text-sm font-medium text-muted-foreground">Waiting for client to respond</p>
-                                                <p className="text-xs text-muted-foreground/70">The client will see this form when they log in.</p>
+                                                <p className="text-sm font-medium text-muted-foreground">{t('waitingForClient')}</p>
+                                                <p className="text-xs text-muted-foreground/70">{t('waitingHint')}</p>
                                             </>
                                         )}
                                     </div>
                                 ) : selected.responses?.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground text-center py-8">No responses recorded.</p>
+                                    <p className="text-sm text-muted-foreground text-center py-8">{t('noResponses')}</p>
                                 ) : (
                                     <div className="flex flex-col gap-4">
                                         {selected.responses.map((r, i) => (
                                             <div key={i} className="flex flex-col gap-1.5">
                                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                                    {i + 1}. {r.label}
+                                                    {i + 1}. {getLocalizedField(r, 'label', locale)}
                                                 </p>
                                                 <div className="bg-secondary rounded-lg px-4 py-3 border border-border">
                                                     <p className="text-sm text-foreground whitespace-pre-wrap">
@@ -315,10 +323,10 @@ export default function ClientFormsPage() {
         </div>
 
         {/* Request Form Modal */}
-        <Modal open={requestModal} onClose={() => setRequestModal(false)} title="Request Form from Client">
+        <Modal open={requestModal} onClose={() => setRequestModal(false)} title={t('requestFormFromClient')}>
             <div className="flex flex-col gap-3">
                 <div className="rounded-lg border border-border p-3">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Request Timing</p>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">{t('requestTiming')}</p>
                     <div className="flex gap-2 mb-2">
                         <button
                             onClick={() => setRequestMode('now')}
@@ -328,7 +336,7 @@ export default function ClientFormsPage() {
                                     : 'border-border text-muted-foreground hover:bg-default'
                             }`}
                         >
-                            Request Now
+                            {t('requestNow')}
                         </button>
                         <button
                             onClick={() => setRequestMode('schedule')}
@@ -338,7 +346,7 @@ export default function ClientFormsPage() {
                                     : 'border-border text-muted-foreground hover:bg-default'
                             }`}
                         >
-                            Schedule
+                            {t('schedule')}
                         </button>
                     </div>
                     {requestMode === 'schedule' && (
@@ -346,14 +354,14 @@ export default function ClientFormsPage() {
                             type="datetime-local"
                             value={scheduledAt}
                             onChange={(e) => setScheduledAt(e.target.value)}
-                            min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
+                            min={minScheduledAt}
                             className={inputCls}
                         />
                     )}
                 </div>
 
                 {activeForms.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4 text-center">No active forms available. Activate a form first.</p>
+                    <p className="text-sm text-muted-foreground py-4 text-center">{t('noActiveForms')}</p>
                 ) : (
                     <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
                         {activeForms.map(form => (
@@ -365,8 +373,8 @@ export default function ClientFormsPage() {
                                     className="mt-0.5 cursor-pointer accent-primary"
                                 />
                                 <div>
-                                    <p className="text-sm font-medium text-foreground">{form.title}</p>
-                                    {form.description && <p className="text-xs text-muted-foreground mt-0.5">{form.description}</p>}
+                                    <p className="text-sm font-medium text-foreground">{getLocalizedField(form, 'title', locale)}</p>
+                                    {getLocalizedField(form, 'description', locale) && <p className="text-xs text-muted-foreground mt-0.5">{getLocalizedField(form, 'description', locale)}</p>}
                                     <p className="text-xs text-muted-foreground">{form.question_count} question{form.question_count !== 1 ? 's' : ''}</p>
                                 </div>
                             </label>
@@ -383,7 +391,7 @@ export default function ClientFormsPage() {
                         disabled={requestSending || activeForms.length === 0}
                         className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer text-sm"
                     >
-                        {requestSending ? 'Sending...' : 'Send Request'}
+                        {requestSending ? t('sending') : t('sendRequest')}
                     </button>
                     <button
                         onClick={() => setRequestModal(false)}

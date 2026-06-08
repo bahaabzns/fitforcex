@@ -47,10 +47,10 @@ router.use((req, res, next) => {
 router.get('/muscle-groups', async (req, res, next) => {
     try {
         const result = await pool.query(
-            `SELECT emg.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = emg.workspace_id AND el.muscle_group = emg.name) AS exercise_count
+            `SELECT emg.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = emg.workspace_id AND el.muscle_group = emg.name_en) AS exercise_count
              FROM exercise_muscle_groups emg
              WHERE emg.workspace_id = $1
-             ORDER BY emg.name ASC`,
+             ORDER BY emg.name_en ASC`,
             [req.user.workspaceId]
         );
         res.json(result.rows);
@@ -61,10 +61,10 @@ router.get('/muscle-groups', async (req, res, next) => {
 
 router.post('/muscle-groups', async (req, res, next) => {
     try {
-        const { name } = req.body;
+        const { name_en, name_ar } = req.body;
         const result = await pool.query(
-            'INSERT INTO exercise_muscle_groups (workspace_id, name, id) VALUES ($1, $2, $3) RETURNING *',
-            [req.user.workspaceId, name, createId()]
+            'INSERT INTO exercise_muscle_groups (workspace_id, name_en, name_ar) VALUES ($1, $2, $3) RETURNING *',
+            [req.user.workspaceId, name_en, name_ar || null]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -76,16 +76,18 @@ router.put('/muscle-groups/:id', async (req, res, next) => {
     try {
         const oldRow = await pool.query('SELECT * FROM exercise_muscle_groups WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (oldRow.rows.length === 0) return res.status(404).json({ error: 'Muscle group not found' });
-        const oldName = oldRow.rows[0].name;
+        const oldNameEn = oldRow.rows[0].name_en;
 
+        const { name_en, name_ar } = req.body;
         const result = await pool.query(
-            'UPDATE exercise_muscle_groups SET name = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *',
-            [req.body.name, req.params.id, req.user.workspaceId]
+            'UPDATE exercise_muscle_groups SET name_en = $1, name_ar = $2 WHERE id = $3 AND workspace_id = $4 RETURNING *',
+            [name_en, name_ar || null, req.params.id, req.user.workspaceId]
         );
 
+        // keep exercise_library.muscle_group in sync with the English name
         await pool.query(
             'UPDATE exercise_library SET muscle_group = $1 WHERE workspace_id = $2 AND muscle_group = $3',
-            [req.body.name, req.user.workspaceId, oldName]
+            [name_en, req.user.workspaceId, oldNameEn]
         );
 
         res.json(result.rows[0]);
@@ -107,10 +109,10 @@ router.delete('/muscle-groups/:id', async (req, res, next) => {
 router.get('/equipments', async (req, res, next) => {
     try {
         const result = await pool.query(
-            `SELECT ee.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = ee.workspace_id AND el.equipment = ee.name) AS exercise_count
+            `SELECT ee.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = ee.workspace_id AND el.equipment = ee.name_en) AS exercise_count
              FROM exercise_equipments ee
              WHERE ee.workspace_id = $1
-             ORDER BY ee.name ASC`,
+             ORDER BY ee.name_en ASC`,
             [req.user.workspaceId]
         );
         res.json(result.rows);
@@ -121,10 +123,10 @@ router.get('/equipments', async (req, res, next) => {
 
 router.post('/equipments', async (req, res, next) => {
     try {
-        const { name } = req.body;
+        const { name_en, name_ar } = req.body;
         const result = await pool.query(
-            'INSERT INTO exercise_equipments (workspace_id, name, id) VALUES ($1, $2, $3) RETURNING *',
-            [req.user.workspaceId, name, createId()]
+            'INSERT INTO exercise_equipments (workspace_id, name_en, name_ar) VALUES ($1, $2, $3) RETURNING *',
+            [req.user.workspaceId, name_en, name_ar || null]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -136,16 +138,18 @@ router.put('/equipments/:id', async (req, res, next) => {
     try {
         const oldRow = await pool.query('SELECT * FROM exercise_equipments WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user.workspaceId]);
         if (oldRow.rows.length === 0) return res.status(404).json({ error: 'Equipment not found' });
-        const oldName = oldRow.rows[0].name;
+        const oldNameEn = oldRow.rows[0].name_en;
 
+        const { name_en, name_ar } = req.body;
         const result = await pool.query(
-            'UPDATE exercise_equipments SET name = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *',
-            [req.body.name, req.params.id, req.user.workspaceId]
+            'UPDATE exercise_equipments SET name_en = $1, name_ar = $2 WHERE id = $3 AND workspace_id = $4 RETURNING *',
+            [name_en, name_ar || null, req.params.id, req.user.workspaceId]
         );
 
+        // keep exercise_library.equipment in sync with the English name
         await pool.query(
             'UPDATE exercise_library SET equipment = $1 WHERE workspace_id = $2 AND equipment = $3',
-            [req.body.name, req.user.workspaceId, oldName]
+            [name_en, req.user.workspaceId, oldNameEn]
         );
 
         res.json(result.rows[0]);
@@ -189,25 +193,27 @@ router.get('/exercise-library', async (req, res, next) => {
 router.post('/exercise-library', uploadLimiter, upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req, res, next) => {
     try {
         const {
-            name,
+            name_en,
+            name_ar,
             muscle_group,
             equipment,
             youtube_url,
-            instructions,
+            instructions_en,
+            instructions_ar,
         } = req.body;
 
-        if (!name || !name.trim()) {
-            return res.status(400).json({ error: 'Exercise name is required' });
+        if (!name_en || !name_en.trim()) {
+            return res.status(400).json({ error: 'Exercise name (English) is required' });
         }
 
         const videoPath     = req.files?.video?.[0]?.key     ?? null;
         const thumbnailPath = req.files?.thumbnail?.[0]?.key ?? null;
 
         const result = await pool.query(
-            `INSERT INTO exercise_library (workspace_id, name, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions, created_at, updated_at, id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)
+            `INSERT INTO exercise_library (workspace_id, name_en, name_ar, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions_en, instructions_ar, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
              RETURNING *`,
-            [req.user.workspaceId, name.trim(), muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions || null, createId()]
+            [req.user.workspaceId, name_en.trim(), name_ar || null, muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbnailPath, instructions_en || null, instructions_ar || null]
         );
 
         res.status(201).json(result.rows[0]);
@@ -222,8 +228,8 @@ router.put('/exercise-library/:id', uploadLimiter, upload.fields([{ name: 'video
         if (existing.rows.length === 0) return res.status(404).json({ error: 'Exercise not found' });
         const current = existing.rows[0];
 
-        if (!req.body.name || !req.body.name.trim()) {
-            return res.status(400).json({ error: 'Exercise name is required' });
+        if (!req.body.name_en || !req.body.name_en.trim()) {
+            return res.status(400).json({ error: 'Exercise name (English) is required' });
         }
 
         const newVideoFile  = req.files?.video?.[0];
@@ -233,24 +239,28 @@ router.put('/exercise-library/:id', uploadLimiter, upload.fields([{ name: 'video
 
         const result = await pool.query(
             `UPDATE exercise_library
-             SET name = $1,
-                 muscle_group = $2,
-                 equipment = $3,
-                 youtube_url = $4,
-                 video_path = $5,
-                 thumbnail_path = $6,
-                 instructions = $7,
+             SET name_en = $1,
+                 name_ar = $2,
+                 muscle_group = $3,
+                 equipment = $4,
+                 youtube_url = $5,
+                 video_path = $6,
+                 thumbnail_path = $7,
+                 instructions_en = $8,
+                 instructions_ar = $9,
                  updated_at = NOW()
-             WHERE id = $8 AND workspace_id = $9
+             WHERE id = $10 AND workspace_id = $11
              RETURNING *`,
             [
-                req.body.name.trim(),
+                req.body.name_en.trim(),
+                req.body.name_ar || null,
                 req.body.muscle_group || null,
                 req.body.equipment || null,
                 req.body.youtube_url || null,
                 videoPath,
                 thumbnailPath,
-                req.body.instructions || null,
+                req.body.instructions_en || null,
+                req.body.instructions_ar || null,
                 req.params.id,
                 req.user.workspaceId,
             ]
@@ -346,7 +356,9 @@ router.get('/plans/:id', async (req, res, next) => {
         const days = await Promise.all(daysResult.rows.map(async (day) => {
             const exercisesResult = await pool.query(
                 `SELECT te.*,
-                        el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group, el.instructions
+                        el.thumbnail_path, el.video_path, el.youtube_url, el.muscle_group,
+                        el.instructions_en AS instructions, el.instructions_ar,
+                        el.name_en AS library_name_en, el.name_ar AS library_name_ar
                  FROM training_exercises te
                  LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
                  WHERE te.day_id = $1 ORDER BY te.exercise_order ASC`,
@@ -359,7 +371,7 @@ router.get('/plans/:id', async (req, res, next) => {
                     [exercise.id]
                 );
                 const alternativesResult = await pool.query(
-                    `SELECT tea.*, el.name, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
+                    `SELECT tea.*, el.name_en AS name, el.name_ar, el.muscle_group, el.equipment, el.thumbnail_path, el.youtube_url, el.video_path
                      FROM training_exercise_alternatives tea
                      JOIN exercise_library el ON el.id = tea.exercise_library_id
                      WHERE tea.exercise_id = $1
@@ -663,11 +675,15 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
 });
 
 router.post('/plans/:id/activate', async (req, res, next) => {
+    const planId = Number(req.params.id);
+    if (!Number.isInteger(planId) || planId <= 0) {
+        return res.status(400).json({ error: 'Plan must be saved before it can be activated' });
+    }
     try {
         const updatedPlan = await activateSinglePlan({
             pool,
             tableName: 'training_plans',
-            planId: req.params.id,
+            planId,
             coachId: req.user.workspaceId,
             clientIdColumn: 'client_id',
         });

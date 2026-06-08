@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/axios";
+import { useTranslations } from "next-intl";
 import PlansQueueTable from "@/app/components/plansQueue/PlansQueueTable";
 
 export default function PlansQueuePage() {
+    const t = useTranslations('plansQueue');
     const [queueItems, setQueueItems] = useState([]);
     const [forms, setForms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function PlansQueuePage() {
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">Loading plans queue...</p>
+                <p className="text-sm text-muted-foreground">{t('loadingQueue')}</p>
             </div>
         );
     }

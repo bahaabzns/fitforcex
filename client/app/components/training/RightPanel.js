@@ -1,12 +1,11 @@
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 import { Button } from "@heroui/react/button";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 const INPUT_CLASS = "h-8 w-full rounded-md border border-border px-2 text-xs focus:outline-none focus:border-primary/40";
-const SERVER = "http://localhost:4000";
-
 function getYoutubeEmbedUrl(url) {
     if (!url) return null;
     const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?]+)/);
@@ -37,6 +36,7 @@ export default function RightPanel({
     handleUpdateDayNotes,
     onClose,
 }) {
+    const t = useTranslations('training');
     const [showPicker, setShowPicker] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises"]));
     const [dragIndex, setDragIndex] = useState(null);
@@ -46,7 +46,7 @@ export default function RightPanel({
     if (!selectedDay) {
         return (
             <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
-                <p className="text-muted-foreground text-sm text-center flex items-center justify-center h-full">Select a day to edit exercises</p>
+                <p className="text-muted-foreground text-sm text-center flex items-center justify-center h-full">{t('selectDay')}</p>
             </Surface>
         );
     }
@@ -60,7 +60,7 @@ export default function RightPanel({
                     type="text"
                     defaultValue={selectedDay.name}
                     onBlur={(e) => {
-                        const trimmed = e.target.value.trim() || "Untitled Day";
+                        const trimmed = e.target.value.trim() || t('untitledDay');
                         e.target.value = trimmed;
                         if (trimmed !== selectedDay.name) handleRenameDay(selectedDay.id, trimmed);
                     }}
@@ -72,7 +72,7 @@ export default function RightPanel({
                 />
                 {onClose && (
                     <button
-                        title="Close panel"
+                        title={t('closePanel')}
                         onClick={onClose}
                         className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     >
@@ -101,13 +101,13 @@ export default function RightPanel({
                                 >
                                     <Disclosure.Indicator />
                                     <h3 className="text-base font-semibold text-foreground">
-                                        Exercises
+                                        {t('exercises')}
                                         <span className="ml-2 text-xs font-normal text-muted-foreground">{selectedDay.exercises?.length ?? 0}</span>
                                     </h3>
                                 </Button>
                                 {expandedKeys.has("exercises") && (
                                     <Button variant="primary" onClick={() => setShowPicker(true)} className="shrink-0">
-                                        + Add Exercise
+                                        {t('addExercise')}
                                     </Button>
                                 )}
                             </div>
@@ -142,19 +142,19 @@ export default function RightPanel({
                                             {/* Exercise header */}
                                             <div className="flex items-start gap-2 mb-2">
                                                 {/* Thumbnail */}
-                                                {exercise.thumbnail_path ? (
-                                                    <img
-                                                        src={`${SERVER}${exercise.thumbnail_path}`}
-                                                        alt={exercise.name}
-                                                        className="w-10 h-10 rounded-lg object-cover shrink-0"
-                                                    />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 text-muted-foreground">
-                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
-                                                        </svg>
-                                                    </div>
-                                                )}
+                                                <div className="relative w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+                                                    </svg>
+                                                    {exercise.thumbnail_path && (
+                                                        <img
+                                                            src={exercise.thumbnail_path}
+                                                            alt={exercise.name}
+                                                            className="absolute inset-0 w-full h-full object-cover"
+                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                        />
+                                                    )}
+                                                </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         {/* Drag grip */}
@@ -178,7 +178,7 @@ export default function RightPanel({
                                                             <button
                                                                 onClick={() => setVideoOpenId(videoOpenId === exercise.id ? null : exercise.id)}
                                                                 className={`shrink-0 p-1 rounded transition-colors cursor-pointer ${videoOpenId === exercise.id ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
-                                                                title={videoOpenId === exercise.id ? "Hide video" : "Watch video"}
+                                                                title={videoOpenId === exercise.id ? t('hideVideo') : t('watchVideo')}
                                                             >
                                                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
@@ -188,7 +188,7 @@ export default function RightPanel({
                                                         <button
                                                             onClick={() => handleDeleteExercise(selectedDay.id, exercise.id)}
                                                             className="shrink-0 p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
-                                                            title="Delete exercise"
+                                                            title={t('deleteExercise')}
                                                         >
                                                             <TrashIcon />
                                                         </button>
@@ -219,17 +219,17 @@ export default function RightPanel({
                                             <input
                                                 value={exercise.notes ?? ""}
                                                 onChange={(e) => handleUpdateExerciseNotes(selectedDay.id, exercise.id, e.target.value)}
-                                                placeholder="Exercise notes (optional)..."
+                                                placeholder={t('exerciseNotes')}
                                                 className="w-full mb-2 bg-transparent text-xs text-muted-foreground focus:outline-none placeholder:text-muted-foreground/40 border-b border-transparent focus:border-border"
                                             />
 
                                             {/* Sets header */}
                                             <div className="grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
                                                 <span>#</span>
-                                                <span>Reps</span>
-                                                <span>Rest</span>
-                                                <span>Tempo</span>
-                                                <span>RIR</span>
+                                                <span>{t('reps')}</span>
+                                                <span>{t('rest')}</span>
+                                                <span>{t('tempo')}</span>
+                                                <span>{t('rir')}</span>
                                                 <span/><span/>
                                             </div>
 
@@ -244,7 +244,7 @@ export default function RightPanel({
                                                         <button
                                                             onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
                                                             className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
-                                                            title="Duplicate set"
+                                                            title={t('duplicateSet')}
                                                         >
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
@@ -253,7 +253,7 @@ export default function RightPanel({
                                                         <button
                                                             onClick={() => handleDeleteSet(selectedDay.id, exercise.id, set.id)}
                                                             className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
-                                                            title="Delete set"
+                                                            title={t('deleteSet')}
                                                         >
                                                             <TrashIcon size={12} />
                                                         </button>
@@ -263,12 +263,11 @@ export default function RightPanel({
 
                                             <div className="mt-2 flex items-center gap-2">
                                                 <Button size="sm" variant="primary" onClick={() => handleAddSet(selectedDay.id, exercise.id)}>
-                                                    + Add Set
+                                                    {t('addSet')}
                                                 </Button>
                                                 {(exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 && (
-                                                    <Button size="sm" variant="outline" onClick={() => handleApplySetsToAll(selectedDay.id, exercise.id)}
-                                                        title="Copy this exercise's sets to all other exercises in the day">
-                                                        Apply to all
+                                                    <Button size="sm" variant="outline" onClick={() => handleApplySetsToAll(selectedDay.id, exercise.id)}>
+                                                        {t('applyToAll')}
                                                     </Button>
                                                 )}
                                             </div>
@@ -279,7 +278,7 @@ export default function RightPanel({
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
                                         <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
-                                            <p className="text-sm text-muted-foreground">No exercises in this day yet</p>
+                                            <p className="text-sm text-muted-foreground">{t('noExercises')}</p>
                                         </Surface>
                                     )}
                                 </div>
@@ -299,7 +298,7 @@ export default function RightPanel({
                                 className="w-full justify-start gap-2 px-3 mb-2 data-hover:bg-transparent"
                             >
                                 <Disclosure.Indicator />
-                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">Notes</h3>
+                                <h3 className="text-base font-semibold text-foreground flex-1 text-left">{t('notes')}</h3>
                             </Button>
                         </Disclosure.Heading>
                         <Disclosure.Content>
@@ -307,7 +306,7 @@ export default function RightPanel({
                                 <textarea
                                     key={selectedDay.id + "-note"}
                                     defaultValue={selectedDay.notes ?? ""}
-                                    placeholder="Add notes for this day..."
+                                    placeholder={t('dayNotes')}
                                     rows={3}
                                     onBlur={(e) => {
                                         const val = e.target.value;

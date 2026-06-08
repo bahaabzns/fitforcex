@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
@@ -15,12 +16,6 @@ const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
 function todayStr() { return new Date().toISOString().split("T")[0]; }
-
-function fmtDate(d) {
-    return d
-        ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
-        : "—";
-}
 
 function StatusBadge({ status }) {
     const cls = status === "completed"
@@ -106,6 +101,10 @@ function computeTimeline(transactions, freezes, firstPlanActivatedAt) {
 
 export default function ClientTransactionsPage() {
     const { id } = useParams();
+    const t = useTranslations('clientTransactions');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
+
     const [transactions, setTransactions]     = useState([]);
     const [packages, setPackages]             = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -165,6 +164,12 @@ export default function ClientTransactionsPage() {
         }).catch(console.error).finally(() => setLoading(false));
     }, [id]);
 
+    function fmtDate(d) {
+        return d
+            ? new Date(d).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" })
+            : "—";
+    }
+
     const packageVariationOptions = packages.flatMap(p =>
         p.variations.map(v => ({
             key: `${p.name} — ${v.name}`,
@@ -179,7 +184,7 @@ export default function ClientTransactionsPage() {
     const transactionColumns = [
         {
             key: "date",
-            label: "Tx Date",
+            label: t('colTxDate'),
             sortable: true,
             filterType: "dateRange",
             cardPriority: "primary",
@@ -189,7 +194,7 @@ export default function ClientTransactionsPage() {
         },
         {
             key: "packageVariation",
-            label: "Package",
+            label: t('colPackage'),
             sortable: true,
             filterType: "multi",
             options: packageVariationOptions.map(p => p.label),
@@ -200,29 +205,34 @@ export default function ClientTransactionsPage() {
         },
         {
             key: "subscriptionStartDate",
-            label: "Sub Start",
+            label: t('colSubStart'),
             render: (tx) =>
                 tx.startMode === "custom" && tx.subscriptionStartDate ? (
                     <span className="text-foreground whitespace-nowrap">{fmtDate(tx.subscriptionStartDate)}</span>
                 ) : tx.startMode === "queued" ? (
-                    <span className="text-muted-foreground italic text-xs whitespace-nowrap">Queued</span>
+                    <span className="text-muted-foreground italic text-xs whitespace-nowrap">{t('queued')}</span>
                 ) : (
-                    <span className="text-muted-foreground italic text-xs whitespace-nowrap">On First Plan</span>
+                    <span className="text-muted-foreground italic text-xs whitespace-nowrap">{t('onFirstPlan')}</span>
                 ),
         },
         {
             key: "subStatus",
-            label: "Sub Status",
+            label: t('colSubStatus'),
             render: (tx) => {
                 const s = getPerTxStatus(tx, timeline, freezes, today);
+                const SUB_STATUS_LABELS = {
+                    Active: t('statusActive'), Expired: t('statusExpired'),
+                    Frozen: t('statusFrozen'), "Pre-start": t('statusPreStart'),
+                    Refunded: t('statusRefunded'),
+                };
                 return s
-                    ? <Chip size="sm" className={subStatusColor(s)}>{s}</Chip>
+                    ? <Chip size="sm" className={subStatusColor(s)}>{SUB_STATUS_LABELS[s] ?? s}</Chip>
                     : <span className="text-muted-foreground text-xs">—</span>;
             },
         },
         {
             key: "amount",
-            label: "Amount",
+            label: t('colAmount'),
             sortable: true,
             cardPriority: "primary",
             render: (tx) => (
@@ -233,17 +243,17 @@ export default function ClientTransactionsPage() {
         },
         {
             key: "duration",
-            label: "Duration",
+            label: t('colDuration'),
             sortable: true,
             render: (tx) => (
                 <span className="text-muted-foreground whitespace-nowrap">
-                    {tx.duration ? `${tx.duration} days` : "—"}
+                    {tx.duration ? t('durationDays', { count: tx.duration }) : "—"}
                 </span>
             ),
         },
         {
             key: "paymentMethod",
-            label: "Method",
+            label: t('colMethod'),
             sortable: true,
             filterType: "multi",
             options: paymentMethodOptions,
@@ -253,21 +263,21 @@ export default function ClientTransactionsPage() {
         },
         {
             key: "type",
-            label: "Type",
+            label: t('colType'),
             render: (tx) => (
                 <span className="text-muted-foreground capitalize">{tx.type}</span>
             ),
         },
         {
             key: "status",
-            label: "Pay Status",
+            label: t('colPayStatus'),
             filterType: "multi",
             options: ["completed", "refunded"],
             render: (tx) => <StatusBadge status={tx.status} />,
         },
         {
             key: "proofImage",
-            label: "Proof",
+            label: t('colProof'),
             cardPriority: "hidden",
             render: (tx) =>
                 tx.proofImage ? (
@@ -277,7 +287,7 @@ export default function ClientTransactionsPage() {
                         rel="noreferrer"
                         className="text-xs text-primary hover:underline"
                     >
-                        View
+                        {t('view')}
                     </a>
                 ) : (
                     <span className="text-muted-foreground text-xs">—</span>
@@ -293,21 +303,21 @@ export default function ClientTransactionsPage() {
                         onClick={() => openEdit(tx)}
                         className="text-xs text-primary hover:text-primary/80 transition-colors cursor-pointer"
                     >
-                        Edit
+                        {tCommon('edit')}
                     </button>
                     {tx.status === "completed" && (
                         <button
                             onClick={() => handleRefund(tx)}
                             className="text-xs text-orange-500 hover:text-orange-700 transition-colors cursor-pointer"
                         >
-                            Refund
+                            {t('refundAction')}
                         </button>
                     )}
                     <button
                         onClick={() => handleDelete(tx)}
                         className="text-xs text-destructive hover:text-red-700 transition-colors cursor-pointer"
                     >
-                        Delete
+                        {tCommon('delete')}
                     </button>
                 </div>
             ),
@@ -344,8 +354,8 @@ export default function ClientTransactionsPage() {
 
     async function handleAdd(e) {
         e.preventDefault();
-        if (!addPkgKey || !addPkg) { setAddError("Package is required"); return; }
-        if (!addMethod) { setAddError("Payment method is required"); return; }
+        if (!addPkgKey || !addPkg) { setAddError(t('errorPackageRequired')); return; }
+        if (!addMethod) { setAddError(t('errorMethodRequired')); return; }
         setAddSaving(true);
         setAddError("");
         try {
@@ -374,7 +384,7 @@ export default function ClientTransactionsPage() {
             setTransactions(prev => [res.data, ...prev]);
             setShowAddModal(false);
         } catch (err) {
-            setAddError(err.response?.data?.error || "Failed to add transaction");
+            setAddError(err.response?.data?.error || t('errorAddFailed'));
         } finally {
             setAddSaving(false);
         }
@@ -382,7 +392,7 @@ export default function ClientTransactionsPage() {
 
     async function handleEdit(e) {
         e.preventDefault();
-        if (!editPkgKey) { setEditError("Package is required"); return; }
+        if (!editPkgKey) { setEditError(t('errorPackageRequired')); return; }
         setSaving(true);
         setEditError("");
         try {
@@ -407,20 +417,20 @@ export default function ClientTransactionsPage() {
                 type: editingTx.type,
                 status: editingTx.status,
             });
-            setTransactions(prev => prev.map(t => t.id === editingTx.id ? res.data : t));
+            setTransactions(prev => prev.map(tx => tx.id === editingTx.id ? res.data : tx));
             closeEdit();
         } catch (err) {
-            setEditError(err.response?.data?.error || "Failed to save changes");
+            setEditError(err.response?.data?.error || t('errorSaveFailed'));
         } finally {
             setSaving(false);
         }
     }
 
     async function handleDelete(tx) {
-        if (!confirm("Delete this transaction? This cannot be undone.")) return;
+        if (!confirm(t('deleteConfirm'))) return;
         try {
             await api.delete(`/api/transactions/${tx.id}`);
-            setTransactions(prev => prev.filter(t => t.id !== tx.id));
+            setTransactions(prev => prev.filter(item => item.id !== tx.id));
         } catch (err) {
             console.error(err);
         }
@@ -429,7 +439,7 @@ export default function ClientTransactionsPage() {
     async function handleRefund(tx) {
         try {
             const res = await api.put(`/api/transactions/${tx.id}`, { status: "refunded" });
-            setTransactions(prev => prev.map(t => t.id === tx.id ? res.data : t));
+            setTransactions(prev => prev.map(item => item.id === tx.id ? res.data : item));
         } catch (err) {
             console.error(err);
         }
@@ -438,7 +448,7 @@ export default function ClientTransactionsPage() {
     async function handleAddFreeze(e) {
         e.preventDefault();
         if (!freezeStartDate || !freezeDays || Number(freezeDays) <= 0) {
-            setFreezeError("Start date and duration are required.");
+            setFreezeError(t('freezeValidationError'));
             return;
         }
         setFreezeSaving(true);
@@ -455,14 +465,14 @@ export default function ClientTransactionsPage() {
             setFreezeNotes("");
             setFreezeError("");
         } catch (err) {
-            setFreezeError(err.response?.data?.error || "Failed to add freeze.");
+            setFreezeError(err.response?.data?.error || t('freezeError'));
         } finally {
             setFreezeSaving(false);
         }
     }
 
     async function handleDeleteFreeze(freeze) {
-        if (!confirm("Remove this freeze? This will affect the subscription expiry date.")) return;
+        if (!confirm(t('deleteFreezeConfirm'))) return;
         try {
             await api.delete(`/api/clients/${id}/freezes/${freeze.id}`);
             setFreezes(prev => prev.filter(f => f.id !== freeze.id));
@@ -471,17 +481,17 @@ export default function ClientTransactionsPage() {
         }
     }
 
-    const completedTx = transactions.filter(t => t.status === "completed");
-    const refundedTx  = transactions.filter(t => t.status === "refunded");
+    const completedTx = transactions.filter(tx => tx.status === "completed");
+    const refundedTx  = transactions.filter(tx => tx.status === "refunded");
 
-    const byCurrency = completedTx.reduce((acc, t) => {
-        acc[t.currency] = (acc[t.currency] || 0) + t.amount;
+    const byCurrency = completedTx.reduce((acc, tx) => {
+        acc[tx.currency] = (acc[tx.currency] || 0) + tx.amount;
         return acc;
     }, {});
 
-    const totalEGP = completedTx.reduce((sum, t) => {
-        const rate = EXCHANGE_RATES[t.currency] ?? 1;
-        return sum + t.amount * rate;
+    const totalEGP = completedTx.reduce((sum, tx) => {
+        const rate = EXCHANGE_RATES[tx.currency] ?? 1;
+        return sum + tx.amount * rate;
     }, 0);
 
     const timeline = computeTimeline(transactions, freezes, firstPlanActivatedAt);
@@ -515,26 +525,26 @@ export default function ClientTransactionsPage() {
     return (
         <div className="p-8 flex flex-col gap-6">
             {/* Header */}
-            <h2 className="text-base font-semibold text-foreground">Transactions</h2>
+            <h2 className="text-base font-semibold text-foreground">{t('title')}</h2>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">Total</p>
+                    <p className="text-xs text-muted-foreground font-medium">{t('total')}</p>
                     <p className="text-2xl font-bold text-foreground mt-1">{transactions.length}</p>
                 </Card.Content></Card>
                 <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">Completed</p>
+                    <p className="text-xs text-muted-foreground font-medium">{t('completed')}</p>
                     <p className="text-2xl font-bold text-green-600 mt-1">{completedTx.length}</p>
                 </Card.Content></Card>
                 <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">Refunded</p>
+                    <p className="text-xs text-muted-foreground font-medium">{t('refunded')}</p>
                     <p className="text-2xl font-bold text-destructive mt-1">{refundedTx.length}</p>
                 </Card.Content></Card>
                 <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">Revenue (EGP equiv.)</p>
+                    <p className="text-xs text-muted-foreground font-medium">{t('revenue')}</p>
                     <p className="text-2xl font-bold text-primary mt-1">
-                        {totalEGP.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                        {totalEGP.toLocaleString(locale, { maximumFractionDigits: 0 })}
                     </p>
                     {Object.keys(byCurrency).length > 0 && (
                         <div className="flex flex-col gap-0.5 mt-1">
@@ -558,11 +568,11 @@ export default function ClientTransactionsPage() {
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                             <p className="text-xs text-muted-foreground font-medium">
-                                {hasNoSubscriptions ? "No Subscriptions" :
-                                 isExpired ? "Subscription Expired" :
-                                 isFrozen  ? "Subscription Frozen" :
-                                 isPreStart ? "Subscription Pre-start" :
-                                              "Subscription Active"}
+                                {hasNoSubscriptions ? t('subStatusNone') :
+                                 isExpired ? t('subStatusExpired') :
+                                 isFrozen  ? t('subStatusFrozen') :
+                                 isPreStart ? t('subStatusPreStart') :
+                                              t('subStatusActive')}
                             </p>
                             {displayPeriod && (
                                 <>
@@ -575,21 +585,21 @@ export default function ClientTransactionsPage() {
                                         {fmtDate(displayPeriod.start)} — {fmtDate(displayPeriod.end)}
                                     </p>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        {displayPeriod.tx.packageVariation} · {displayPeriod.tx.duration} days
-                                        {freezes.length > 0 && ` (incl. ${freezes.reduce((s, f) => s + f.freezeDurationDays, 0)} freeze days)`}
+                                        {displayPeriod.tx.packageVariation} · {t('durationDays', { count: displayPeriod.tx.duration })}
+                                        {freezes.length > 0 && ` ${t('freezeDaysIncluded', { count: freezes.reduce((s, f) => s + f.freezeDurationDays, 0) })}`}
                                     </p>
                                 </>
                             )}
                             {hasNoSubscriptions && (
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    No subscription transactions recorded yet.
+                                    {t('subNoRecorded')}
                                 </p>
                             )}
                             {isPreStart && !displayPeriod && (
                                 <p className="text-sm text-yellow-600 mt-1">
                                     {firstPlanActivatedAt
-                                        ? `Starts on first plan activation: ${fmtDate(firstPlanActivatedAt)}`
-                                        : "Waiting for first plan activation"}
+                                        ? t('subStartsOn', { date: fmtDate(firstPlanActivatedAt) })
+                                        : t('subWaitingActivation')}
                                 </p>
                             )}
                             {/* Queue */}
@@ -597,8 +607,12 @@ export default function ClientTransactionsPage() {
                                 <div className="mt-2 flex flex-col gap-0.5">
                                     {timeline.map((p, i) => (
                                         <p key={i} className="text-xs text-muted-foreground">
-                                            {i === 0 ? "1st" : i === 1 ? "2nd" : `${i + 1}th`}: {fmtDate(p.start)} — {fmtDate(p.end)}
-                                            {today >= p.start && today < p.end ? " ← current" : today < p.start ? " ← queued" : " ← expired"}
+                                            {i + 1}. {fmtDate(p.start)} — {fmtDate(p.end)}
+                                            {today >= p.start && today < p.end
+                                                ? ` ${t('timelineCurrent')}`
+                                                : today < p.start
+                                                    ? ` ${t('timelineQueued')}`
+                                                    : ` ${t('timelineExpired')}`}
                                         </p>
                                     ))}
                                 </div>
@@ -614,25 +628,25 @@ export default function ClientTransactionsPage() {
                             }}
                             className="text-xs px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors cursor-pointer whitespace-nowrap"
                         >
-                            + Freeze
+                            {t('freezeButton')}
                         </button>
                     </div>
 
                     {/* Active freezes list */}
                     {freezes.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-border flex flex-col gap-1.5">
-                            <p className="text-xs font-medium text-muted-foreground">Freezes</p>
+                            <p className="text-xs font-medium text-muted-foreground">{t('freezesLabel')}</p>
                             {freezes.map(f => (
                                 <div key={f.id} className="flex items-center gap-2 text-xs text-foreground">
                                     <span className="flex-1">
-                                        {fmtDate(f.freezeStartDate)} · {f.freezeDurationDays} days
+                                        {fmtDate(f.freezeStartDate)} · {t('durationDays', { count: f.freezeDurationDays })}
                                         {f.notes && <span className="text-muted-foreground"> — {f.notes}</span>}
                                     </span>
                                     <button
                                         onClick={() => handleDeleteFreeze(f)}
                                         className="text-destructive hover:text-red-700 transition-colors cursor-pointer"
                                     >
-                                        Remove
+                                        {t('removeFreeze')}
                                     </button>
                                 </div>
                             ))}
@@ -650,15 +664,15 @@ export default function ClientTransactionsPage() {
                 defaultSort="date"
                 defaultSortDirection="desc"
                 dateParser={(d) => new Date(d)}
-                quickSearch={{ fields: ["packageVariation", "paymentMethod", "status"], placeholder: "Search transactions..." }}
-                toolbarEnd={<Button size="sm" variant="primary" onClick={openAdd}>+ Add Transaction</Button>}
+                quickSearch={{ fields: ["packageVariation", "paymentMethod", "status"], placeholder: t('searchPlaceholder') }}
+                toolbarEnd={<Button size="sm" variant="primary" onClick={openAdd}>{t('addTransactionButton')}</Button>}
             />
 
             {/* Add Transaction Modal */}
-            <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Transaction">
+            <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title={t('addTransactionTitle')}>
                 <form onSubmit={handleAdd} className="flex flex-col gap-4">
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Package *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('packageLabel')} *</label>
                         <select
                             value={addPkgKey}
                             onChange={e => {
@@ -667,35 +681,35 @@ export default function ClientTransactionsPage() {
                             }}
                             className={inputCls}
                         >
-                            <option value="">— Select package —</option>
+                            <option value="">{t('selectPackage')}</option>
                             {packageVariationOptions.map(p => (
                                 <option key={p.key} value={p.key}>{p.label}</option>
                             ))}
                         </select>
                         {addPkg && (
                             <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                                <span>Duration: <span className="text-foreground font-medium">{addPkg.duration} days</span></span>
-                                <span>Price: <span className="text-foreground font-medium">{addPkg.price.toLocaleString()} {addPkg.currency}</span></span>
+                                <span>{t('durationInfo')} <span className="text-foreground font-medium">{t('durationDays', { count: addPkg.duration })}</span></span>
+                                <span>{t('priceInfo')} <span className="text-foreground font-medium">{addPkg.price.toLocaleString()} {addPkg.currency}</span></span>
                             </div>
                         )}
                     </div>
 
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Payment Method *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('paymentMethodLabel')} *</label>
                         <select value={addMethod} onChange={e => setAddMethod(e.target.value)} className={inputCls}>
-                            <option value="">— Select method —</option>
+                            <option value="">{t('selectMethod')}</option>
                             {paymentMethodOptions.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
 
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Transaction Date</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('txDateLabel')}</label>
                         <input type="date" value={addDate} onChange={e => setAddDate(e.target.value)} className={inputCls} />
                     </div>
 
                     <div>
                         <label className="block text-sm text-muted-foreground mb-1">
-                            Subscription Start Date <span className="text-muted-foreground/60">(empty = on first plan activation)</span>
+                            {t('subStartDateLabel')} <span className="text-muted-foreground/60">{t('subStartDateHint')}</span>
                         </label>
                         <input
                             type="date"
@@ -709,24 +723,24 @@ export default function ClientTransactionsPage() {
                                 onClick={() => setAddSubStartDate("")}
                                 className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
                             >
-                                Clear (on first plan)
+                                {t('clearOnFirstPlan')}
                             </button>
                         )}
                     </div>
 
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Notes</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')}</label>
                         <textarea
                             rows={2}
                             value={addNotes}
                             onChange={e => setAddNotes(e.target.value)}
-                            placeholder="Optional notes..."
+                            placeholder={t('notesPlaceholder')}
                             className={`${inputCls} resize-none`}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Proof of Payment</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('proofLabel')}</label>
                         <input
                             type="file"
                             accept="image/*,.pdf"
@@ -740,21 +754,21 @@ export default function ClientTransactionsPage() {
 
                     <div className="flex gap-2">
                         <Button type="submit" isDisabled={addSaving} variant="primary" fullWidth>
-                            {addSaving ? "Saving…" : "Add Transaction"}
+                            {addSaving ? t('saving') : t('addTransaction')}
                         </Button>
                         <Button type="button" onClick={() => setShowAddModal(false)} variant="ghost" fullWidth>
-                            Cancel
+                            {tCommon('cancel')}
                         </Button>
                     </div>
                 </form>
             </Modal>
 
             {/* Edit Transaction Modal */}
-            <Modal open={showEditModal} onClose={closeEdit} title="Edit Transaction">
+            <Modal open={showEditModal} onClose={closeEdit} title={t('editTransactionTitle')}>
                 <form onSubmit={handleEdit} className="flex flex-col gap-4">
                     {/* Package */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Package *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('packageLabel')} *</label>
                         <select
                             value={editPkgKey}
                             onChange={e => {
@@ -763,43 +777,43 @@ export default function ClientTransactionsPage() {
                             }}
                             className={inputCls}
                         >
-                            <option value="">— Select package —</option>
+                            <option value="">{t('selectPackage')}</option>
                             {packageVariationOptions.map(p => (
                                 <option key={p.key} value={p.key}>{p.label}</option>
                             ))}
                         </select>
                         {editPkg && (
                             <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                                <span>Duration: <span className="text-foreground font-medium">{editPkg.duration} days</span></span>
-                                <span>Price: <span className="text-foreground font-medium">{editPkg.price.toLocaleString()} {editPkg.currency}</span></span>
+                                <span>{t('durationInfo')} <span className="text-foreground font-medium">{t('durationDays', { count: editPkg.duration })}</span></span>
+                                <span>{t('priceInfo')} <span className="text-foreground font-medium">{editPkg.price.toLocaleString()} {editPkg.currency}</span></span>
                             </div>
                         )}
                         {!editPkg && editPkgKey && (
                             <p className="text-xs text-muted-foreground mt-1">
-                                Stored: {editPkgKey} · {editingTx?.amount} {editingTx?.currency} · {editingTx?.duration ? `${editingTx.duration} days` : "no duration"}
+                                {t('storedPackage', { pkg: editPkgKey })} · {editingTx?.amount} {editingTx?.currency} · {editingTx?.duration ? t('durationDays', { count: editingTx.duration }) : t('noDuration')}
                             </p>
                         )}
                     </div>
 
                     {/* Payment Method */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Payment Method</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('paymentMethodLabel')}</label>
                         <select value={editMethod} onChange={e => setEditMethod(e.target.value)} className={inputCls}>
-                            <option value="">— Select method —</option>
+                            <option value="">{t('selectMethod')}</option>
                             {paymentMethodOptions.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
 
                     {/* Transaction Date */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Transaction Date</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('txDateLabel')}</label>
                         <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className={inputCls} />
                     </div>
 
                     {/* Subscription Start Date */}
                     <div>
                         <label className="block text-sm text-muted-foreground mb-1">
-                            Subscription Start Date <span className="text-muted-foreground/60">(empty = queued after previous subscription)</span>
+                            {t('subStartDateLabel')} <span className="text-muted-foreground/60">{t('subStartDateEditHint')}</span>
                         </label>
                         <input
                             type="date"
@@ -813,33 +827,33 @@ export default function ClientTransactionsPage() {
                                 onClick={() => setEditSubStartDate("")}
                                 className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
                             >
-                                Clear (use queue)
+                                {t('clearUseQueue')}
                             </button>
                         )}
                     </div>
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Notes</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')}</label>
                         <textarea
                             rows={2}
                             value={editNotes}
                             onChange={e => setEditNotes(e.target.value)}
-                            placeholder="Optional notes..."
+                            placeholder={t('notesPlaceholder')}
                             className={`${inputCls} resize-none`}
                         />
                     </div>
 
                     {/* Proof image */}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Proof of Transaction</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('proofEditLabel')}</label>
                         {editProofUrl && !editProofFile && (
                             <div className="flex items-center gap-2 mb-2">
                                 <a href={`${process.env.NEXT_PUBLIC_API_URL}${editProofUrl}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
-                                    View current proof
+                                    {t('viewCurrentProof')}
                                 </a>
                                 <button type="button" onClick={() => setEditProofUrl(null)} className="text-xs text-destructive hover:underline cursor-pointer">
-                                    Remove
+                                    {t('removeProof')}
                                 </button>
                             </div>
                         )}
@@ -856,17 +870,17 @@ export default function ClientTransactionsPage() {
 
                     <div className="flex gap-2">
                         <Button type="submit" isDisabled={saving} variant="primary" fullWidth>
-                            {saving ? "Saving…" : "Save Changes"}
+                            {saving ? t('saving') : t('saveChanges')}
                         </Button>
                         <Button type="button" onClick={closeEdit} variant="ghost" fullWidth>
-                            Cancel
+                            {tCommon('cancel')}
                         </Button>
                     </div>
                 </form>
             </Modal>
 
             {/* Freeze Modal */}
-            <Modal open={showFreezeModal} onClose={() => setShowFreezeModal(false)} title="Add Subscription Freeze">
+            <Modal open={showFreezeModal} onClose={() => setShowFreezeModal(false)} title={t('addFreezeTitle')}>
                 <form onSubmit={handleAddFreeze} className="flex flex-col gap-3">
                     {freezeError && (
                         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -874,7 +888,7 @@ export default function ClientTransactionsPage() {
                         </div>
                     )}
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Freeze Start Date *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('freezeStartDateLabel')} *</label>
                         <input
                             type="date"
                             value={freezeStartDate}
@@ -883,31 +897,31 @@ export default function ClientTransactionsPage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Freeze Duration (days) *</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('freezeDurationLabel')} *</label>
                         <input
                             type="number"
                             min="1"
-                            placeholder="e.g. 14"
+                            placeholder={t('freezeDurationPlaceholder')}
                             value={freezeDays}
                             onChange={e => setFreezeDays(e.target.value)}
                             className={inputCls}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Notes <span className="text-muted-foreground/60">(optional)</span></label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')} <span className="text-muted-foreground/60">({tCommon('optional')})</span></label>
                         <textarea
                             rows={2}
                             value={freezeNotes}
                             onChange={e => setFreezeNotes(e.target.value)}
-                            placeholder="Reason for freeze..."
+                            placeholder={t('freezeReasonPlaceholder')}
                             className={`${inputCls} resize-none`}
                         />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        The freeze extends the subscription expiry date by the specified number of days.
+                        {t('freezeDescription')}
                     </p>
                     <Button type="submit" isDisabled={freezeSaving} variant="primary" fullWidth>
-                        {freezeSaving ? "Saving…" : "Add Freeze"}
+                        {freezeSaving ? t('saving') : t('addFreeze')}
                     </Button>
                 </form>
             </Modal>

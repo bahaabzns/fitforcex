@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Chip } from "@heroui/react/chip";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from 'lucide-react';
 
 function FeatureSection({ chip, heading, bullets, reversed, dimBg }) {
     return (

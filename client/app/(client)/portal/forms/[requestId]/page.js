@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { CheckCircle } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
+import { CheckCircle } from 'lucide-react';
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
@@ -11,6 +13,8 @@ import { Button } from "@heroui/react/button";
 import { Alert } from "@heroui/react/alert";
 
 export default function ClientFillFormPage() {
+    const t = useTranslations('portal.forms');
+    const locale = useLocale();
     const { requestId } = useParams();
     const router = useRouter();
     const [data, setData] = useState(null);
@@ -43,7 +47,7 @@ export default function ClientFillFormPage() {
 
         const missing = data.questions.filter(q => q.required && !answers[q.id]?.toString().trim());
         if (missing.length > 0) {
-            setError(`Please answer all required questions (${missing.length} missing).`);
+            setError(t('requiredError', { count: missing.length }));
             return;
         }
 
@@ -56,7 +60,7 @@ export default function ClientFillFormPage() {
             await api.post(`/api/client-portal/form-requests/${requestId}/submit`, { answers: answersPayload });
             router.push("/client/forms");
         } catch (e) {
-            setError(e.response?.data?.error || 'Failed to submit. Please try again.');
+            setError(e.response?.data?.error || t('submitFailed'));
         } finally {
             setSubmitting(false);
         }
@@ -87,14 +91,14 @@ export default function ClientFillFormPage() {
                     onClick={() => router.push("/client/forms")}
                     className="mt-1 text-muted-foreground"
                 >
-                    ← Back
+                    {t('back')}
                 </Button>
                 <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-foreground">{data.form_title}</h1>
-                    {data.form_description && <p className="text-sm text-muted-foreground mt-0.5">{data.form_description}</p>}
+                    <h1 className="text-2xl font-bold text-foreground">{getLocalizedField(data, 'form_title', locale)}</h1>
+                    {getLocalizedField(data, 'form_description', locale) && <p className="text-sm text-muted-foreground mt-0.5">{getLocalizedField(data, 'form_description', locale)}</p>}
                 </div>
                 {isSubmitted && (
-                    <Chip size="sm" className="bg-green-500/15 text-green-700 mt-1">Submitted</Chip>
+                    <Chip size="sm" className="bg-green-500/15 text-green-700 mt-1">{t('filterSubmitted')}</Chip>
                 )}
             </div>
 
@@ -106,7 +110,7 @@ export default function ClientFillFormPage() {
                         </Alert.Indicator>
                         <Alert.Content>
                             <Alert.Description>
-                                You have already submitted this form. Your answers are shown below.
+                                {t('alreadySubmitted')}
                             </Alert.Description>
                         </Alert.Content>
                     </Alert>
@@ -118,23 +122,23 @@ export default function ClientFillFormPage() {
                     <Card key={q.id}>
                         <Card.Content className="p-6 flex flex-col gap-2">
                             <label className="text-sm font-semibold text-foreground">
-                                {index + 1}. {q.label}
+                                {index + 1}. {getLocalizedField(q, 'label', locale)}
                                 {q.required && <span className="text-destructive ml-1">*</span>}
                             </label>
 
                             {q.type === 'text' && (
                                 <input type="text" value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
-                                    placeholder={q.placeholder || ''} disabled={isSubmitted} className={inputCls} />
+                                    placeholder={getLocalizedField(q, 'placeholder', locale)} disabled={isSubmitted} className={inputCls} />
                             )}
 
                             {q.type === 'textarea' && (
                                 <textarea value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
-                                    placeholder={q.placeholder || ''} disabled={isSubmitted} rows={4} className={`${inputCls} resize-none`} />
+                                    placeholder={getLocalizedField(q, 'placeholder', locale)} disabled={isSubmitted} rows={4} className={`${inputCls} resize-none`} />
                             )}
 
                             {q.type === 'number' && (
                                 <input type="number" value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
-                                    placeholder={q.placeholder || ''} disabled={isSubmitted} className={inputCls} />
+                                    placeholder={getLocalizedField(q, 'placeholder', locale)} disabled={isSubmitted} className={inputCls} />
                             )}
 
                             {q.type === 'scale' && (
@@ -156,8 +160,8 @@ export default function ClientFillFormPage() {
                             {q.type === 'select' && (
                                 <select value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
                                     disabled={isSubmitted} className={inputCls}>
-                                    <option value="">Select an option…</option>
-                                    {(q.options ?? []).map(opt => (
+                                    <option value="">{t('selectOption')}</option>
+                                    {(locale === 'ar' && q.options_ar?.length ? q.options_ar : (q.options ?? [])).map(opt => (
                                         <option key={opt} value={opt}>{opt}</option>
                                     ))}
                                 </select>
@@ -165,7 +169,7 @@ export default function ClientFillFormPage() {
 
                             {q.type === 'multiselect' && (
                                 <div className="flex flex-col gap-1.5">
-                                    {(q.options ?? []).map(opt => {
+                                    {(locale === 'ar' && q.options_ar?.length ? q.options_ar : (q.options ?? [])).map(opt => {
                                         const selected = (answers[q.id] ?? '').split(',').filter(Boolean);
                                         const checked = selected.includes(opt);
                                         return (
@@ -200,7 +204,7 @@ export default function ClientFillFormPage() {
 
                 {!isSubmitted && (
                     <Button type="submit" variant="primary" fullWidth isDisabled={submitting}>
-                        {submitting ? 'Submitting…' : 'Submit Form'}
+                        {submitting ? t('submitting') : t('submit')}
                     </Button>
                 )}
             </form>

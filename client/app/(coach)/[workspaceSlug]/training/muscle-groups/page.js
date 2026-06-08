@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
@@ -7,12 +8,15 @@ import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+const labelCls = "text-xs text-muted-foreground mb-1 block";
 
 export default function MuscleGroupsPage() {
+    const t = useTranslations("muscleGroups");
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [newName, setNewName] = useState("");
+    const [newNameEn, setNewNameEn] = useState("");
+    const [newNameAr, setNewNameAr] = useState("");
     const [editing, setEditing] = useState(null);
 
     async function load() {
@@ -30,11 +34,12 @@ export default function MuscleGroupsPage() {
 
     async function handleAdd(e) {
         e.preventDefault();
-        if (!newName.trim()) return;
+        if (!newNameEn.trim()) return;
         try {
-            const res = await api.post("/api/training/muscle-groups", { name: newName.trim() });
+            const res = await api.post("/api/training/muscle-groups", { name_en: newNameEn.trim(), name_ar: newNameAr.trim() || null });
             setGroups((prev) => [...prev, res.data]);
-            setNewName("");
+            setNewNameEn("");
+            setNewNameAr("");
             setShowForm(false);
         } catch (err) {
             console.error("Failed to add muscle group:", err);
@@ -45,7 +50,7 @@ export default function MuscleGroupsPage() {
         e.preventDefault();
         if (!editing) return;
         try {
-            const res = await api.put(`/api/training/muscle-groups/${editing.id}`, { name: editing.name });
+            const res = await api.put(`/api/training/muscle-groups/${editing.id}`, { name_en: editing.name_en, name_ar: editing.name_ar || null });
             setGroups((prev) => prev.map((g) => (g.id === editing.id ? res.data : g)));
             setEditing(null);
         } catch (err) {
@@ -72,16 +77,17 @@ export default function MuscleGroupsPage() {
     }
 
     const columns = [
-        { key: "name", label: "Name", filterType: "text", sortable: true },
-        { key: "exercise_count", label: "Exercises", sortable: true },
+        { key: "name_en", label: t("columnNameEn"), filterType: "text", sortable: true },
+        { key: "name_ar", label: t("columnNameAr"), render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
+        { key: "exercise_count", label: t("columnExercises"), sortable: true },
         {
             key: "actions",
-            label: "Actions",
+            label: t("columnActions"),
             cardPriority: "hidden",
             render: (row) => (
                 <div className="flex gap-2">
-                    <button onClick={() => setEditing(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">Edit</button>
-                    <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">Delete</button>
+                    <button onClick={() => setEditing(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">{t("editButton")}</button>
+                    <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">{t("deleteButton")}</button>
                 </div>
             ),
         },
@@ -90,34 +96,39 @@ export default function MuscleGroupsPage() {
     return (
         <div className="p-8 flex flex-col gap-6">
             <div>
-                <h1 className="text-3xl font-bold">Muscle Groups</h1>
-                <p className="text-sm text-muted-foreground mt-1">Manage muscle group categories for your exercise library.</p>
+                <h1 className="text-3xl font-bold">{t("pageTitle")}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t("pageSubtitle")}</p>
             </div>
 
-            <Modal open={showForm} onClose={() => { setShowForm(false); setNewName(""); }} title="Add Muscle Group">
+            <Modal open={showForm} onClose={() => { setShowForm(false); setNewNameEn(""); setNewNameAr(""); }} title={t("addTitle")}>
                 <form onSubmit={handleAdd} className="flex flex-col gap-4">
-                    <input
-                        className={inputCls}
-                        placeholder="Muscle group name"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        required
-                        autoFocus
-                    />
-                    <Button type="submit" variant="primary" fullWidth>Add Muscle Group</Button>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>{t("labelNameEn")}</label>
+                            <input className={inputCls} placeholder={t("placeholderNameEn")} value={newNameEn} onChange={(e) => setNewNameEn(e.target.value)} required autoFocus />
+                        </div>
+                        <div>
+                            <label className={labelCls}>{t("labelNameAr")}</label>
+                            <input className={inputCls} placeholder={t("placeholderNameAr")} value={newNameAr} onChange={(e) => setNewNameAr(e.target.value)} dir="rtl" />
+                        </div>
+                    </div>
+                    <Button type="submit" variant="primary" fullWidth>{t("submitAdd")}</Button>
                 </form>
             </Modal>
 
-            <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Muscle Group">
+            <Modal open={!!editing} onClose={() => setEditing(null)} title={t("editTitle")}>
                 <form onSubmit={handleUpdate} className="flex flex-col gap-4">
-                    <input
-                        className={inputCls}
-                        value={editing?.name ?? ""}
-                        onChange={(e) => setEditing((prev) => ({ ...prev, name: e.target.value }))}
-                        required
-                        autoFocus
-                    />
-                    <Button type="submit" variant="primary" fullWidth>Save Changes</Button>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className={labelCls}>{t("labelNameEn")}</label>
+                            <input className={inputCls} value={editing?.name_en ?? ""} onChange={(e) => setEditing((prev) => ({ ...prev, name_en: e.target.value }))} required autoFocus />
+                        </div>
+                        <div>
+                            <label className={labelCls}>{t("labelNameAr")}</label>
+                            <input className={inputCls} value={editing?.name_ar ?? ""} onChange={(e) => setEditing((prev) => ({ ...prev, name_ar: e.target.value }))} dir="rtl" />
+                        </div>
+                    </div>
+                    <Button type="submit" variant="primary" fullWidth>{t("submitEdit")}</Button>
                 </form>
             </Modal>
 
@@ -125,8 +136,8 @@ export default function MuscleGroupsPage() {
                 columns={columns}
                 data={groups}
                 rowKey="id"
-                quickSearch={{ fields: ["name"], placeholder: "Search muscle groups..." }}
-                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>+ Add Muscle Group</Button>}
+                quickSearch={{ fields: ["name_en", "name_ar"], placeholder: t("searchPlaceholder") }}
+                toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>{t("addButton")}</Button>}
             />
         </div>
     );
