@@ -976,7 +976,8 @@
       "home": "الرئيسية",
       "nutritionPlan": "التغذية",
       "trainingPlan": "التدريب",
-      "forms": "الاستمارات"
+      "forms": "الاستمارات",
+      "messages": "الرسائل"
     },
     "forms": {
       "title": "الاستمارات",

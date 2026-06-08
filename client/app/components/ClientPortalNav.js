@@ -5,7 +5,7 @@ import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
-import { Home, Salad, Dumbbell, ClipboardList, Bell } from 'lucide-react';
+import { Home, Salad, Dumbbell, ClipboardList, Bell, MessageSquare } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 
@@ -33,6 +33,7 @@ export default function ClientPortalNav() {
         { href: "/portal/nutrition", label: tPortal('nutritionPlan'), icon: Salad },
         { href: "/portal/training",  label: tPortal('trainingPlan'),  icon: Dumbbell },
         { href: "/portal/forms",     label: tPortal('forms'),         icon: ClipboardList },
+        { href: "/portal/messages",  label: tPortal('messages'),      icon: MessageSquare },
     ];
 
     const isProfileActive       = pathname.startsWith('/portal/profile');

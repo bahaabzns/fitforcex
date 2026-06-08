@@ -976,7 +976,8 @@
       "home": "Home",
       "nutritionPlan": "Nutrition",
       "trainingPlan": "Training",
-      "forms": "Forms"
+      "forms": "Forms",
+      "messages": "Messages"
     },
     "forms": {
       "title": "Forms",
