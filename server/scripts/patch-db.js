@@ -32,6 +32,10 @@ async function indexExists(client, name) {
     const { rows } = await client.query(`SELECT 1 FROM pg_indexes WHERE indexname=$1`, [name]);
     return rows.length > 0;
 }
+async function constraintExists(client, name) {
+    const { rows } = await client.query(`SELECT 1 FROM pg_constraint WHERE conname=$1`, [name]);
+    return rows.length > 0;
+}
 
 async function patch(client) {
 
@@ -184,8 +188,97 @@ async function patch(client) {
         await client.query(`ALTER TABLE nutrition_plans ADD COLUMN created_by text REFERENCES users(id) ON DELETE SET NULL`);
     }
 
-    // ── migrations 011-012: stubs (no-op) ─────────────────────────────────────
-    console.log('011-012: stubs — nothing to apply.');
+    // ── migration 011: users.preferred_language ───────────────────────────────
+    console.log('011: users.preferred_language...');
+    if (!await columnExists(client, 'users', 'preferred_language')) {
+        await client.query(`ALTER TABLE users ADD COLUMN preferred_language VARCHAR(10) NOT NULL DEFAULT 'en'`);
+    }
+
+    // ── migration 012: bilingual content columns ──────────────────────────────
+    console.log('012: bilingual content columns...');
+
+    // exercise_library: name → name_en, instructions → instructions_en
+    if (await columnExists(client, 'exercise_library', 'name')) {
+        await client.query(`ALTER TABLE exercise_library RENAME COLUMN name TO name_en`);
+    }
+    if (!await columnExists(client, 'exercise_library', 'name_ar')) {
+        await client.query(`ALTER TABLE exercise_library ADD COLUMN name_ar text`);
+    }
+    if (await columnExists(client, 'exercise_library', 'instructions')) {
+        await client.query(`ALTER TABLE exercise_library RENAME COLUMN instructions TO instructions_en`);
+    }
+    if (!await columnExists(client, 'exercise_library', 'instructions_ar')) {
+        await client.query(`ALTER TABLE exercise_library ADD COLUMN instructions_ar text`);
+    }
+
+    // exercise_muscle_groups: name → name_en
+    if (await columnExists(client, 'exercise_muscle_groups', 'name')) {
+        await client.query(`ALTER TABLE exercise_muscle_groups RENAME COLUMN name TO name_en`);
+    }
+    if (!await columnExists(client, 'exercise_muscle_groups', 'name_ar')) {
+        await client.query(`ALTER TABLE exercise_muscle_groups ADD COLUMN name_ar text`);
+    }
+
+    // exercise_equipments: name → name_en
+    if (await columnExists(client, 'exercise_equipments', 'name')) {
+        await client.query(`ALTER TABLE exercise_equipments RENAME COLUMN name TO name_en`);
+    }
+    if (!await columnExists(client, 'exercise_equipments', 'name_ar')) {
+        await client.query(`ALTER TABLE exercise_equipments ADD COLUMN name_ar text`);
+    }
+
+    // food_categories: name → name_en
+    if (await columnExists(client, 'food_categories', 'name')) {
+        await client.query(`ALTER TABLE food_categories RENAME COLUMN name TO name_en`);
+    }
+    if (!await columnExists(client, 'food_categories', 'name_ar')) {
+        await client.query(`ALTER TABLE food_categories ADD COLUMN name_ar varchar(100)`);
+    }
+
+    // food_items: name → name_en
+    if (await columnExists(client, 'food_items', 'name')) {
+        await client.query(`ALTER TABLE food_items RENAME COLUMN name TO name_en`);
+    }
+    if (!await columnExists(client, 'food_items', 'name_ar')) {
+        await client.query(`ALTER TABLE food_items ADD COLUMN name_ar varchar(255)`);
+    }
+
+    // forms: title → title_en, description → description_en
+    if (await columnExists(client, 'forms', 'title')) {
+        await client.query(`ALTER TABLE forms RENAME COLUMN title TO title_en`);
+    }
+    if (!await columnExists(client, 'forms', 'title_ar')) {
+        await client.query(`ALTER TABLE forms ADD COLUMN title_ar varchar(255)`);
+    }
+    if (await columnExists(client, 'forms', 'description')) {
+        await client.query(`ALTER TABLE forms RENAME COLUMN description TO description_en`);
+    }
+    if (!await columnExists(client, 'forms', 'description_ar')) {
+        await client.query(`ALTER TABLE forms ADD COLUMN description_ar text`);
+    }
+
+    // form_questions: label → label_en, placeholder → placeholder_en
+    if (await columnExists(client, 'form_questions', 'label')) {
+        await client.query(`ALTER TABLE form_questions RENAME COLUMN label TO label_en`);
+    }
+    if (!await columnExists(client, 'form_questions', 'label_ar')) {
+        await client.query(`ALTER TABLE form_questions ADD COLUMN label_ar text`);
+    }
+    if (await columnExists(client, 'form_questions', 'placeholder')) {
+        await client.query(`ALTER TABLE form_questions RENAME COLUMN placeholder TO placeholder_en`);
+    }
+    if (!await columnExists(client, 'form_questions', 'placeholder_ar')) {
+        await client.query(`ALTER TABLE form_questions ADD COLUMN placeholder_ar text`);
+    }
+    if (!await columnExists(client, 'form_questions', 'options_ar')) {
+        await client.query(`ALTER TABLE form_questions ADD COLUMN options_ar jsonb`);
+    }
+
+    // ── migration 014: threads unique constraint (schema.sql missing it) ───────
+    console.log('014: threads UNIQUE(workspace_id, client_id)...');
+    if (!await constraintExists(client, 'threads_workspace_client_unique')) {
+        await client.query(`ALTER TABLE threads ADD CONSTRAINT threads_workspace_client_unique UNIQUE (workspace_id, client_id)`);
+    }
 
     // ── re-mark 002-012 as done ───────────────────────────────────────────────
     console.log('Marking 002-012 as done in pgmigrations...');
