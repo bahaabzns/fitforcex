@@ -38,6 +38,10 @@ function LoginContent() {
         try {
             await api.post('/api/auth/login', formData);
             const me = await api.get('/api/auth/me');
+            if (me.data?.emailVerified === false) {
+                router.push('/verify-email-required');
+                return;
+            }
             const slug = me.data?.currentWorkspace?.slug;
             router.push(slug ? `/${slug}/dashboard` : '/login');
         } catch (err) {

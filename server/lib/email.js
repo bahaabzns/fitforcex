@@ -32,4 +32,23 @@ async function sendPasswordResetEmail(toEmail, code) {
     });
 }
 
-module.exports = { sendPasswordResetEmail };
+async function sendVerificationEmail(toEmail, code) {
+    const transport = createTransport();
+    await transport.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: toEmail,
+        subject: 'Verify your FitForce X email',
+        text: `Your email verification code is: ${code}\n\nThis code expires in 15 minutes.`,
+        html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+                <h2 style="margin-bottom:8px">Verify your email</h2>
+                <p style="color:#555;margin-bottom:24px">Enter this code to confirm your email address. It expires in 15 minutes.</p>
+                <div style="background:#f4f4f5;border-radius:8px;padding:24px;text-align:center;font-size:32px;font-weight:700;letter-spacing:8px">
+                    ${code}
+                </div>
+            </div>
+        `,
+    });
+}
+
+module.exports = { sendPasswordResetEmail, sendVerificationEmail };

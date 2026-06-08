@@ -5,7 +5,7 @@ const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const jwt = require('jsonwebtoken');
 const { loginLimiter } = require('../middleware/rateLimit');
-const { sendPasswordResetEmail } = require('../lib/email');
+const { sendPasswordResetEmail, sendVerificationEmail } = require('../lib/email');
 const authMiddleware = require('../middleware/auth');
 const requireOwner = require('../middleware/requireOwner');
 
@@ -123,6 +123,24 @@ function issueToken(payload) {
     return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
+function generateVerificationCode() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function storeAndSendVerificationCode(userId, email) {
+    const code = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await pool.query(
+        `UPDATE users
+         SET email_verification_code = $1, verification_code_expires_at = $2
+         WHERE id = $3`,
+        [code, expiresAt, userId]
+    );
+    sendVerificationEmail(email, code).catch((err) => {
+        console.error('[email-verification] send failed:', err.message);
+    });
+}
+
 // ── routes ────────────────────────────────────────────────────────────────────
 
 router.post('/register', async (req, res, next) => {
@@ -180,6 +198,8 @@ router.post('/register', async (req, res, next) => {
              FROM plans p WHERE p.is_default = TRUE LIMIT 1`,
             [createId(), workspaceId]
         );
+
+        await storeAndSendVerificationCode(user.id, user.email);
 
         res.status(201).json({
             id: user.id,
@@ -252,7 +272,7 @@ router.get('/me', async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const { rows } = await pool.query(
-            'SELECT id, fname, lname, email, default_workspace_id FROM users WHERE id = $1',
+            'SELECT id, fname, lname, email, default_workspace_id, email_verified FROM users WHERE id = $1',
             [decoded.userId]
         );
         if (!rows.length) return res.status(404).json({ message: 'User not found' });
@@ -269,6 +289,7 @@ router.get('/me', async (req, res, next) => {
             fname: user.fname,
             lname: user.lname,
             email: user.email,
+            emailVerified: user.email_verified,
             currentWorkspace: {
                 id: wsContext.workspaceId,
                 slug: wsContext.slug,
@@ -368,6 +389,66 @@ router.put('/workspace-slug', authMiddleware, requireOwner, async (req, res, nex
         );
         res.status(200).json(result.rows[0]);
 
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/send-verification', authMiddleware, loginLimiter, async (req, res, next) => {
+    try {
+        const { rows } = await pool.query(
+            'SELECT id, email, email_verified FROM users WHERE id = $1',
+            [req.user.userId]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'User not found' });
+        const user = rows[0];
+
+        if (user.email_verified) {
+            return res.status(400).json({ message: 'Email is already verified' });
+        }
+
+        await storeAndSendVerificationCode(user.id, user.email);
+        res.json({ message: 'Verification code sent. Check your email.' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/verify-email', authMiddleware, async (req, res, next) => {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string' || !code.trim()) {
+        return res.status(400).json({ message: 'Verification code is required' });
+    }
+
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, email_verified, email_verification_code, verification_code_expires_at
+             FROM users WHERE id = $1`,
+            [req.user.userId]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'User not found' });
+        const user = rows[0];
+
+        if (user.email_verified) {
+            return res.status(400).json({ message: 'Email is already verified' });
+        }
+        if (!user.email_verification_code || user.email_verification_code !== code.trim()) {
+            return res.status(400).json({ message: 'Invalid verification code' });
+        }
+        if (!user.verification_code_expires_at || new Date(user.verification_code_expires_at) < new Date()) {
+            return res.status(400).json({ message: 'Verification code has expired — request a new one' });
+        }
+
+        await pool.query(
+            `UPDATE users
+             SET email_verified = TRUE,
+                 email_verification_code = NULL,
+                 verification_code_expires_at = NULL
+             WHERE id = $1`,
+            [req.user.userId]
+        );
+
+        res.json({ message: 'Email verified successfully' });
     } catch (err) {
         next(err);
     }

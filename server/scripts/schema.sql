@@ -569,7 +569,10 @@ CREATE TABLE public.users (
     password character varying(255) NOT NULL,
     created_at timestamp without time zone DEFAULT now(),
     default_workspace_id text,
-    is_admin boolean DEFAULT false NOT NULL
+    is_admin boolean DEFAULT false NOT NULL,
+    email_verified boolean DEFAULT false NOT NULL,
+    email_verification_code text,
+    verification_code_expires_at timestamp with time zone
 );
 
 
