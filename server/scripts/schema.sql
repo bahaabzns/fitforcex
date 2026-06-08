@@ -332,6 +332,20 @@ CREATE TABLE public.packages (
 
 
 --
+-- Name: password_reset_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.password_reset_tokens (
+    id text NOT NULL,
+    user_id text NOT NULL,
+    code text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: payment_methods; Type: TABLE; Schema: public; Owner: -
 --
 

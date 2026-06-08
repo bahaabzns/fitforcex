@@ -15,9 +15,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@paralleldrive/cuid2": "^2.2.2",
     "@aws-sdk/client-s3": "^3.1044.0",
     "@aws-sdk/s3-request-presigner": "^3.1044.0",
+    "@paralleldrive/cuid2": "^2.2.2",
     "@sentry/node": "^10.51.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -30,6 +30,7 @@
     "multer": "^2.1.1",
     "multer-s3": "^3.0.1",
     "node-pg-migrate": "^8.0.4",
+    "nodemailer": "^8.0.10",
     "pg": "^8.20.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0"

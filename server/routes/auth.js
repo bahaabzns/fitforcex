@@ -5,6 +5,7 @@ const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const jwt = require('jsonwebtoken');
 const { loginLimiter } = require('../middleware/rateLimit');
+const { sendPasswordResetEmail } = require('../lib/email');
 const authMiddleware = require('../middleware/auth');
 const requireOwner = require('../middleware/requireOwner');
 
@@ -367,6 +368,96 @@ router.put('/workspace-slug', authMiddleware, requireOwner, async (req, res, nex
         );
         res.status(200).json(result.rows[0]);
 
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/forgot-password', loginLimiter, async (req, res, next) => {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.trim()) {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    try {
+        const { rows } = await pool.query(
+            'SELECT id FROM users WHERE email = $1',
+            [email.trim().toLowerCase()]
+        );
+
+        // Always respond the same way — never reveal whether the email exists
+        if (rows.length) {
+            const userId = rows[0].id;
+            const code = String(Math.floor(100000 + Math.random() * 900000));
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+            // Invalidate any previous unused codes for this user
+            await pool.query(
+                `UPDATE password_reset_tokens
+                 SET used_at = NOW()
+                 WHERE user_id = $1 AND used_at IS NULL`,
+                [userId]
+            );
+
+            await pool.query(
+                `INSERT INTO password_reset_tokens (id, user_id, code, expires_at)
+                 VALUES ($1, $2, $3, $4)`,
+                [createId(), userId, code, expiresAt]
+            );
+
+            sendPasswordResetEmail(email.trim(), code).catch((err) => {
+                console.error('[forgot-password] email send failed:', err.message);
+            });
+        }
+
+        res.json({ message: 'If that email is registered, a reset code has been sent.' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/reset-password', loginLimiter, async (req, res, next) => {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+        return res.status(400).json({ message: 'Email, code, and new password are required' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+        return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    try {
+        const { rows: userRows } = await pool.query(
+            'SELECT id FROM users WHERE email = $1',
+            [email.trim().toLowerCase()]
+        );
+        if (!userRows.length) {
+            return res.status(400).json({ message: 'Invalid or expired reset code' });
+        }
+        const userId = userRows[0].id;
+
+        const { rows: tokenRows } = await pool.query(
+            `SELECT id FROM password_reset_tokens
+             WHERE user_id = $1
+               AND code = $2
+               AND used_at IS NULL
+               AND expires_at > NOW()
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [userId, code.trim()]
+        );
+        if (!tokenRows.length) {
+            return res.status(400).json({ message: 'Invalid or expired reset code' });
+        }
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+
+        await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, userId]);
+        await pool.query(
+            'UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1',
+            [tokenRows[0].id]
+        );
+
+        res.json({ message: 'Password reset successfully. You can now log in.' });
     } catch (err) {
         next(err);
     }

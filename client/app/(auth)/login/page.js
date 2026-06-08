@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import api from "@/lib/axios";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
 import { Input } from "@heroui/react/input";
 import { Button } from "@heroui/react/button";
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(searchParams.get('reset') === 'success' ? 'Password reset successfully. You can now log in.' : '');
     const [loading, setLoading] = useState(false);
     const [checking, setChecking] = useState(true);
 
@@ -32,6 +34,7 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setSuccess('');
         try {
             await api.post('/api/auth/login', formData);
             const me = await api.get('/api/auth/me');
@@ -78,12 +81,14 @@ export default function LoginPage() {
                         <Label>Password</Label>
                         <Input type="password" placeholder="••••••••" />
                     </TextField>
-                    {error && (
-                        <p className="text-sm text-destructive">{error}</p>
-                    )}
+                    {error && <p className="text-sm text-destructive">{error}</p>}
+                    {success && <p className="text-sm text-green-600">{success}</p>}
                     <Button type="submit" color="primary" fullWidth isDisabled={loading} className="mt-2">
                         {loading ? 'Logging in…' : 'Login'}
                     </Button>
+                    <p className="auth-link">
+                        <a href="/forgot-password">Forgot password?</a>
+                    </p>
                     <p className="auth-link">
                         Don&apos;t have an account?{" "}
                         <a href="/register">Register here</a>
@@ -91,5 +96,13 @@ export default function LoginPage() {
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense>
+            <LoginContent />
+        </Suspense>
     );
 }
