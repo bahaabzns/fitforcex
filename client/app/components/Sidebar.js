@@ -25,7 +25,6 @@ import {
     Copy,
     ExternalLink,
 } from "lucide-react";
->>>>>>> feature/arabic-language
 import { Button } from "@heroui/react/button";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
