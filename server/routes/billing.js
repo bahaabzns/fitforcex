@@ -23,10 +23,10 @@ router.get('/callback', async (req, res) => {
     try {
         const { rows } = await pool.query(
             'SELECT workspace_id FROM workspace_payments WHERE id = $1',
-            [Number(paymentId)]
+            [paymentId]
         );
         if (rows.length) {
-            await applyPayment(Number(paymentId), rows[0].workspace_id);
+            await applyPayment(paymentId, rows[0].workspace_id);
             console.log('[Callback] Payment', paymentId, '→ activated via success redirect');
         }
     } catch (err) {
