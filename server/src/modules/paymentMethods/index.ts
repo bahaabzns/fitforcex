@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import authMiddleware from '../../middleware/auth';
 import requirePermission from '../../middleware/requirePermission';
-import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
@@ -16,11 +16,11 @@ router.use((req, res, next) => {
 
 router.get('/', async (req, res, next) => {
     try {
-        const result = await pool.query(
-            'SELECT * FROM payment_methods WHERE workspace_id = $1 ORDER BY created_at ASC',
-            [req.user!.workspaceId]
-        );
-        res.json(result.rows);
+        const methods = await prisma.payment_methods.findMany({
+            where: { workspace_id: req.user!.workspaceId },
+            orderBy: { created_at: 'asc' },
+        });
+        res.json(methods);
     } catch (err) { next(err); }
 });
 
@@ -30,11 +30,10 @@ router.post('/', async (req, res, next) => {
     if (!VALID_TYPES.includes(type!)) return res.status(400).json({ error: 'Invalid type' });
 
     try {
-        const result = await pool.query(
-            'INSERT INTO payment_methods (workspace_id, name, type, id) VALUES ($1, $2, $3, $4) RETURNING *',
-            [req.user!.workspaceId, name.trim(), type, createId()]
-        );
-        res.status(201).json(result.rows[0]);
+        const method = await prisma.payment_methods.create({
+            data: { id: createId(), workspace_id: req.user!.workspaceId, name: name.trim(), type: type! },
+        });
+        res.status(201).json(method);
     } catch (err) { next(err); }
 });
 
@@ -44,24 +43,20 @@ router.put('/', async (req, res, next) => {
     if (type !== undefined && !VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid type' });
 
     try {
-        const existing = await pool.query(
-            'SELECT * FROM payment_methods WHERE id = $1 AND workspace_id = $2',
-            [id, req.user!.workspaceId]
-        );
-        if (!existing.rows.length) return res.status(404).json({ error: 'Payment method not found' });
+        const existing = await prisma.payment_methods.findFirst({
+            where: { id, workspace_id: req.user!.workspaceId },
+        });
+        if (!existing) return res.status(404).json({ error: 'Payment method not found' });
 
-        const cur = existing.rows[0] as Record<string, unknown>;
-        const result = await pool.query(
-            `UPDATE payment_methods SET name = $1, type = $2, active = $3
-             WHERE id = $4 AND workspace_id = $5 RETURNING *`,
-            [
-                name   !== undefined ? name.trim() : cur.name,
-                type   !== undefined ? type         : cur.type,
-                active !== undefined ? active       : cur.active,
-                id, req.user!.workspaceId,
-            ]
-        );
-        res.json(result.rows[0]);
+        const updated = await prisma.payment_methods.update({
+            where: { id },
+            data: {
+                name:   name   !== undefined ? name.trim() : existing.name,
+                type:   type   !== undefined ? type        : existing.type,
+                active: active !== undefined ? active      : existing.active,
+            },
+        });
+        res.json(updated);
     } catch (err) { next(err); }
 });
 
@@ -70,12 +65,11 @@ router.delete('/', async (req, res, next) => {
     if (!id) return res.status(400).json({ error: 'id is required' });
 
     try {
-        const result = await pool.query(
-            'DELETE FROM payment_methods WHERE id = $1 AND workspace_id = $2 RETURNING id',
-            [id, req.user!.workspaceId]
-        );
-        if (!result.rows.length) return res.status(404).json({ error: 'Payment method not found' });
-        res.json({ deleted: result.rows[0].id });
+        const deleted = await prisma.payment_methods.deleteMany({
+            where: { id, workspace_id: req.user!.workspaceId },
+        });
+        if (deleted.count === 0) return res.status(404).json({ error: 'Payment method not found' });
+        res.json({ deleted: id });
     } catch (err) { next(err); }
 });
 

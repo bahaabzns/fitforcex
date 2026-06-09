@@ -1,40 +1,44 @@
 import { Router } from 'express';
-import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
-router.get('/', async (req, res, next) => {
+router.get('/', async (_req, res, next) => {
     try {
-        const { rows: plans } = await pool.query(`
-            SELECT
-                id, name, display_name, subtitle,
-                price_monthly, price_per_seat, min_seat_count, max_seat_count,
-                currency, is_popular, cta_text, cta_variant, payment_link,
-                features_header, features_subheader, has_team_counter, features
-            FROM plans
-            WHERE is_active = true AND show_on_landing = true
-            ORDER BY sort_order ASC, id ASC
-        `);
+        const plans = await prisma.plans.findMany({
+            where: { is_active: true, show_on_landing: true },
+            select: {
+                id: true, name: true, display_name: true, subtitle: true,
+                price_monthly: true, price_per_seat: true,
+                min_seat_count: true, max_seat_count: true,
+                currency: true, is_popular: true,
+                cta_text: true, cta_variant: true, payment_link: true,
+                features_header: true, features_subheader: true,
+                has_team_counter: true, features: true,
+            },
+            orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
+        });
 
         if (plans.length === 0) return res.json([]);
 
-        const planIds = plans.map((p: Record<string, unknown>) => p.id);
-        const { rows: links } = await pool.query(`
-            SELECT ppl.plan_id, bd.period_key, ppl.payment_link
-            FROM plan_period_links ppl
-            JOIN billing_discounts bd ON bd.id = ppl.billing_discount_id
-            WHERE ppl.plan_id = ANY($1) AND ppl.payment_link IS NOT NULL
-        `, [planIds]);
+        const planIds = plans.map(p => p.id);
+        const links = await prisma.plan_period_links.findMany({
+            where: { plan_id: { in: planIds }, payment_link: { not: null } },
+            select: {
+                plan_id: true,
+                payment_link: true,
+                billing_discounts: { select: { period_key: true } },
+            },
+        });
 
         const linkMap: Record<string, Record<string, string>> = {};
-        (links as Array<{ plan_id: string; period_key: string; payment_link: string }>)
-            .forEach(({ plan_id, period_key, payment_link }) => {
-                if (!linkMap[plan_id]) linkMap[plan_id] = {};
-                linkMap[plan_id][period_key] = payment_link;
-            });
+        for (const link of links) {
+            const { plan_id, payment_link, billing_discounts: bd } = link;
+            if (!linkMap[plan_id]) linkMap[plan_id] = {};
+            linkMap[plan_id][bd.period_key] = payment_link!;
+        }
 
-        const result = plans.map((p: Record<string, unknown>) => ({ ...p, period_links: linkMap[p.id as string] ?? {} }));
-        res.json(result);
+        res.json(plans.map(p => ({ ...p, period_links: linkMap[p.id] ?? {} })));
     } catch (err) {
         next(err);
     }
@@ -42,13 +46,15 @@ router.get('/', async (req, res, next) => {
 
 router.get('/billing-discounts', async (_req, res, next) => {
     try {
-        const { rows } = await pool.query(`
-            SELECT id, period_key, label, save_label, discount_percent, months
-            FROM billing_discounts
-            WHERE is_active = true
-            ORDER BY sort_order ASC
-        `);
-        res.json(rows);
+        const discounts = await prisma.billing_discounts.findMany({
+            where: { is_active: true },
+            select: {
+                id: true, period_key: true, label: true,
+                save_label: true, discount_percent: true, months: true,
+            },
+            orderBy: { sort_order: 'asc' },
+        });
+        res.json(discounts);
     } catch (err) {
         next(err);
     }

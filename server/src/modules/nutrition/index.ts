@@ -14,6 +14,7 @@ import {
     saveSinglePlanDraft,
 } from '../../lib/planEngine';
 import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
@@ -35,45 +36,69 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 
 router.get('/food-items', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            'SELECT * FROM food_items WHERE workspace_id = $1 ORDER BY name_en ASC',
-            [req.user!.workspaceId]
-        );
-        res.json(result.rows);
+        const items = await prisma.food_items.findMany({
+            where: { workspace_id: req.user!.workspaceId },
+            orderBy: { name_en: 'asc' }
+        });
+        res.json(items);
     } catch (err) { next(err); }
 });
 
 router.post('/food-items', async (req: Request, res: Response, next: NextFunction) => {
     const { name_en, name_ar, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving } = req.body as Record<string, unknown>;
     try {
-        const result = await pool.query(
-            'INSERT INTO food_items (name_en, name_ar, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, workspace_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-            [name_en, name_ar || null, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.user!.workspaceId]
-        );
-        res.status(201).json(result.rows[0]);
+        const created = await prisma.food_items.create({
+            data: {
+                id:                   createId(),
+                workspace_id:         req.user!.workspaceId,
+                name_en:              name_en as string,
+                name_ar:              (name_ar as string | null) || null,
+                food_category:        food_category as string | null,
+                serving_size:         serving_size != null ? Number(serving_size) : null,
+                serving_unit:         serving_unit as string | null,
+                calories_per_serving: Number(calories_per_serving),
+                carbs_per_serving:    Number(carbs_per_serving),
+                protein_per_serving:  Number(protein_per_serving),
+                fats_per_serving:     Number(fats_per_serving),
+            }
+        });
+        res.status(201).json(created);
     } catch (err) { next(err); }
 });
 
 router.put('/food-items/:id', async (req: Request, res: Response, next: NextFunction) => {
     const { name_en, name_ar, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving } = req.body as Record<string, unknown>;
     try {
-        const result = await pool.query(
-            'UPDATE food_items SET name_en = $1, name_ar = $2, food_category = $3, serving_size = $4, serving_unit = $5, calories_per_serving = $6, carbs_per_serving = $7, protein_per_serving = $8, fats_per_serving = $9 WHERE id = $10 AND workspace_id = $11 RETURNING *',
-            [name_en, name_ar || null, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.params.id, req.user!.workspaceId]
-        );
-        if (!result.rows.length) return res.status(404).json({ error: 'Food item not found' });
-        res.json(result.rows[0]);
+        const existing = await prisma.food_items.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!existing) return res.status(404).json({ error: 'Food item not found' });
+        const updated = await prisma.food_items.update({
+            where: { id: req.params.id as string },
+            data: {
+                name_en:              name_en as string,
+                name_ar:              (name_ar as string | null) || null,
+                food_category:        food_category as string | null,
+                serving_size:         serving_size != null ? Number(serving_size) : null,
+                serving_unit:         serving_unit as string | null,
+                calories_per_serving: Number(calories_per_serving),
+                carbs_per_serving:    Number(carbs_per_serving),
+                protein_per_serving:  Number(protein_per_serving),
+                fats_per_serving:     Number(fats_per_serving),
+            }
+        });
+        res.json(updated);
     } catch (err) { next(err); }
 });
 
 router.delete('/food-items/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            'DELETE FROM food_items WHERE id = $1 AND workspace_id = $2 RETURNING *',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (!result.rows.length) return res.status(404).json({ error: 'Food item not found' });
-        res.json(result.rows[0]);
+        const toDelete = await prisma.food_items.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!toDelete) return res.status(404).json({ error: 'Food item not found' });
+        await prisma.food_items.delete({ where: { id: req.params.id as string } });
+        res.json(toDelete);
     } catch (err) { next(err); }
 });
 
@@ -81,62 +106,59 @@ router.delete('/food-items/:id', async (req: Request, res: Response, next: NextF
 
 router.get('/food-categories', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            `SELECT fc.*, COUNT(fi.id)::int AS food_item_count
-             FROM food_categories fc
-             LEFT JOIN food_items fi ON fi.food_category = fc.name_en AND fi.workspace_id = fc.workspace_id
-             WHERE fc.workspace_id = $1
-             GROUP BY fc.id
-             ORDER BY fc.name_en ASC`,
-            [req.user!.workspaceId]
-        );
-        res.json(result.rows);
+        const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
+            SELECT fc.*, COUNT(fi.id)::int AS food_item_count
+            FROM food_categories fc
+            LEFT JOIN food_items fi ON fi.food_category = fc.name_en AND fi.workspace_id = fc.workspace_id
+            WHERE fc.workspace_id = ${req.user!.workspaceId}
+            GROUP BY fc.id
+            ORDER BY fc.name_en ASC
+        `;
+        res.json(rows);
     } catch (err) { next(err); }
 });
 
 router.post('/food-categories', async (req: Request, res: Response, next: NextFunction) => {
     const { name_en, name_ar } = req.body as { name_en?: string; name_ar?: string };
     try {
-        const result = await pool.query(
-            'INSERT INTO food_categories (name_en, name_ar, workspace_id) VALUES ($1, $2, $3) RETURNING *',
-            [name_en, name_ar || null, req.user!.workspaceId]
-        );
-        res.status(201).json(result.rows[0]);
+        const created = await prisma.food_categories.create({
+            data: { id: createId(), workspace_id: req.user!.workspaceId, name_en: name_en!, name_ar: name_ar || null }
+        });
+        res.status(201).json(created);
     } catch (err) { next(err); }
 });
 
 router.put('/food-categories/:id', async (req: Request, res: Response, next: NextFunction) => {
     const { name_en, name_ar } = req.body as { name_en?: string; name_ar?: string };
     try {
-        const oldResult = await pool.query(
-            'SELECT name_en FROM food_categories WHERE id = $1 AND workspace_id = $2',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (!oldResult.rows.length) return res.status(404).json({ error: 'Food category not found' });
-        const oldNameEn = (oldResult.rows[0] as Row).name_en as string;
+        const existing = await prisma.food_categories.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!existing) return res.status(404).json({ error: 'Food category not found' });
+        const oldNameEn = existing.name_en;
 
-        const result = await pool.query(
-            'UPDATE food_categories SET name_en = $1, name_ar = $2 WHERE id = $3 AND workspace_id = $4 RETURNING *',
-            [name_en, name_ar || null, req.params.id, req.user!.workspaceId]
-        );
+        const updated = await prisma.food_categories.update({
+            where: { id: req.params.id as string },
+            data: { name_en: name_en!, name_ar: name_ar || null }
+        });
 
-        await pool.query(
-            'UPDATE food_items SET food_category = $1 WHERE food_category = $2 AND workspace_id = $3',
-            [name_en, oldNameEn, req.user!.workspaceId]
-        );
+        await prisma.food_items.updateMany({
+            where: { food_category: oldNameEn, workspace_id: req.user!.workspaceId },
+            data: { food_category: name_en }
+        });
 
-        res.json(result.rows[0]);
+        res.json(updated);
     } catch (err) { next(err); }
 });
 
 router.delete('/food-categories/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            'DELETE FROM food_categories WHERE id = $1 AND workspace_id = $2 RETURNING *',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (!result.rows.length) return res.status(404).json({ error: 'Food category not found' });
-        res.json(result.rows[0]);
+        const toDelete = await prisma.food_categories.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!toDelete) return res.status(404).json({ error: 'Food category not found' });
+        await prisma.food_categories.delete({ where: { id: req.params.id as string } });
+        res.json(toDelete);
     } catch (err) { next(err); }
 });
 

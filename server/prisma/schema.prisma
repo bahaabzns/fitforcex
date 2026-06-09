@@ -1,0 +1,727 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model admins {
+  id         String   @id
+  email      String   @unique
+  password   String
+  fname      String?
+  lname      String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model billing_discounts {
+  id                String              @id
+  period_key        String              @unique
+  label             String
+  save_label        String?
+  discount_percent  Int                 @default(0)
+  months            Int                 @default(1)
+  sort_order        Int                 @default(0)
+  is_active         Boolean             @default(true)
+  plan_period_links plan_period_links[]
+}
+
+model client_measurements {
+  id             String    @id
+  client_id      String?   @unique
+  gender         String?   @db.VarChar(20)
+  activity_level String?   @db.VarChar(50)
+  date_of_birth  DateTime? @db.Date
+  weight         Decimal?  @db.Decimal(6, 2)
+  height         Decimal?  @db.Decimal(6, 2)
+  neck           Decimal?  @db.Decimal(6, 2)
+  waist          Decimal?  @db.Decimal(6, 2)
+  hip            Decimal?  @db.Decimal(6, 2)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+  clients        clients?  @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model client_observations {
+  id           String     @id
+  client_id    String
+  workspace_id String
+  author_id    String?
+  content      String
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  users        users?     @relation(fields: [author_id], references: [id], onUpdate: NoAction)
+  clients      clients    @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([client_id], map: "client_observations_client_id_index")
+  @@index([workspace_id], map: "client_observations_workspace_id_index")
+}
+
+model client_photos {
+  id          String    @id
+  client_id   String?
+  photo_type  String    @db.VarChar(20)
+  file_path   String    @db.VarChar(500)
+  uploaded_at DateTime? @default(now()) @db.Timestamptz(6)
+  clients     clients?  @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model clients {
+  id                   String                 @id
+  client_code          Int
+  fname                String                 @db.VarChar(100)
+  lname                String                 @db.VarChar(100)
+  email                String                 @db.VarChar(150)
+  phone                String?                @db.VarChar(20)
+  workspace_id         String?
+  created_at           DateTime?              @default(now()) @db.Timestamp(6)
+  password             String?                @db.VarChar(255)
+  phones               Json?                  @default("[]")
+  current_package      String?
+  subscription_status  String                 @default("Active")
+  client_measurements  client_measurements?
+  client_observations  client_observations[]
+  client_photos        client_photos[]
+  workspaces           workspaces?            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_clients_workspace")
+  form_requests        form_requests[]
+  nutrition_plans      nutrition_plans[]
+  subscription_freezes subscription_freezes[]
+  transactions         transactions[]
+  workout_logs         workout_logs[]
+
+  @@unique([workspace_id, client_code], map: "clients_coach_id_client_code_key")
+  @@unique([workspace_id, email])
+}
+
+model exercise_equipments {
+  id           String     @id
+  workspace_id String
+  name_en      String
+  name_ar      String?
+  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_equipments_workspace")
+
+  @@unique([workspace_id, name_en], map: "exercise_equipments_coach_id_name_key")
+  @@index([workspace_id], map: "idx_exercise_equipments_coach")
+}
+
+model exercise_library {
+  id                             String                           @id
+  workspace_id                   String
+  name_en                        String
+  muscle_group                   String?
+  equipment                      String?
+  youtube_url                    String?
+  video_path                     String?
+  thumbnail_path                 String?
+  instructions_en                String?
+  created_at                     DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                         @default(now()) @db.Timestamptz(6)
+  name_ar                        String?
+  instructions_ar                String?
+  workspaces                     workspaces                       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_library_workspace")
+  training_exercise_alternatives training_exercise_alternatives[]
+  training_exercises             training_exercises[]
+
+  @@index([workspace_id], map: "idx_exercise_library_coach")
+}
+
+model exercise_muscle_groups {
+  id           String     @id
+  workspace_id String
+  name_en      String
+  name_ar      String?
+  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_muscle_groups_workspace")
+
+  @@unique([workspace_id, name_en], map: "exercise_muscle_groups_coach_id_name_key")
+  @@index([workspace_id], map: "idx_exercise_muscle_groups_coach")
+}
+
+model food_categories {
+  id           String      @id
+  name_en      String      @db.VarChar(100)
+  workspace_id String?
+  name_ar      String?     @db.VarChar(100)
+  workspaces   workspaces? @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_categories_workspace")
+}
+
+model food_items {
+  id                               String                             @id
+  name_en                          String                             @db.VarChar(255)
+  calories_per_serving             Decimal                            @db.Decimal
+  protein_per_serving              Decimal                            @db.Decimal
+  carbs_per_serving                Decimal                            @db.Decimal
+  fats_per_serving                 Decimal                            @db.Decimal
+  workspace_id                     String?
+  food_category                    String?
+  serving_size                     Decimal?                           @db.Decimal
+  serving_unit                     String?
+  name_ar                          String?                            @db.VarChar(255)
+  workspaces                       workspaces?                        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_items_workspace")
+  nutrition_meal_item_alternatives nutrition_meal_item_alternatives[]
+  nutrition_meal_items             nutrition_meal_items[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model form_questions {
+  id             String           @id
+  form_id        String
+  label_en       String           @default("Question")
+  type           String           @default("text") @db.VarChar(30)
+  required       Boolean          @default(false)
+  order_index    Int              @default(0)
+  options        Json?
+  placeholder_en String?
+  min_value      Int?
+  max_value      Int?
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  label_ar       String?
+  placeholder_ar String?
+  options_ar     Json?
+  forms          forms            @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_responses form_responses[]
+}
+
+model form_requests {
+  id              String           @id
+  form_id         String?
+  client_id       String?
+  workspace_id    String
+  status          String?          @default("pending") @db.VarChar(20)
+  requested_at    DateTime?        @default(now()) @db.Timestamp(6)
+  submitted_at    DateTime?        @db.Timestamp(6)
+  post_action     String           @default("nothing")
+  scheduled_at    DateTime?        @db.Timestamptz(6)
+  action_taken_at DateTime?        @db.Timestamptz(6)
+  workspaces      workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
+  clients         clients?         @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forms           forms?           @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_responses  form_responses[]
+}
+
+model form_responses {
+  id             String          @id
+  request_id     String?
+  question_id    String?
+  answer         String?
+  created_at     DateTime?       @default(now()) @db.Timestamp(6)
+  form_questions form_questions? @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_requests  form_requests?  @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model forms {
+  id             String           @id
+  workspace_id   String
+  title_en       String           @default("Untitled Form") @db.VarChar(255)
+  description_en String?
+  status         String           @default("draft") @db.VarChar(20)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @db.Timestamptz(6)
+  post_action    String           @default("nothing")
+  form_type      String           @default("check-in")
+  title_ar       String?          @db.VarChar(255)
+  description_ar String?
+  form_questions form_questions[]
+  form_requests  form_requests[]
+  workspaces     workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_forms_workspace")
+}
+
+model messages {
+  id                String    @id
+  thread_id         String
+  sender_type       String
+  sender_id         String
+  body              String
+  read_by_team_at   DateTime? @db.Timestamptz(6)
+  read_by_client_at DateTime? @db.Timestamptz(6)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([thread_id])
+}
+
+model nutrition_cycles {
+  id              String            @id
+  plan_id         String?
+  name            String            @default("Cycle 1")
+  cycle_order     Int               @default(1)
+  goal_calories   Int?
+  goal_protein    Int?
+  goal_carbs      Int?
+  goal_fats       Int?
+  note            String?
+  nutrition_plans nutrition_plans?  @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nutrition_meals nutrition_meals[]
+}
+
+model nutrition_meal_item_alternatives {
+  id                   String                @id
+  meal_item_id         String?
+  food_item_id         String?
+  amount               Decimal               @db.Decimal
+  alt_order            Int                   @default(1)
+  food_items           food_items?           @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nutrition_meal_items nutrition_meal_items? @relation(fields: [meal_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model nutrition_meal_items {
+  id                               String                             @id
+  meal_id                          String?
+  food_item_id                     String?
+  amount                           Decimal                            @default(100) @db.Decimal
+  meal_item_order                  Int
+  nutrition_meal_item_alternatives nutrition_meal_item_alternatives[]
+  food_items                       food_items?                        @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nutrition_meals                  nutrition_meals?                   @relation(fields: [meal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model nutrition_meals {
+  id                   String                 @id
+  cycle_id             String?
+  name                 String
+  meal_order           Int                    @default(1)
+  note                 String?
+  nutrition_meal_items nutrition_meal_items[]
+  nutrition_cycles     nutrition_cycles?      @relation(fields: [cycle_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model nutrition_plans {
+  id               String             @id
+  name             String
+  client_id        String?
+  workspace_id     String?
+  status           String?            @default("draft")
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
+  activated_at     DateTime?          @db.Timestamptz(6)
+  created_by       String?
+  nutrition_cycles nutrition_cycles[]
+  workspaces       workspaces?        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_nutrition_plans_workspace")
+  clients          clients?           @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?             @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+}
+
+model package_variations {
+  id          String   @id
+  package_id  String
+  name        String
+  description String?
+  duration    Int
+  price       Decimal  @db.Decimal(12, 2)
+  currency    String   @default("USD")
+  active      Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  packages    packages @relation(fields: [package_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model packages {
+  id                 String               @id
+  workspace_id       String
+  name               String
+  active             Boolean              @default(true)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  package_variations package_variations[]
+  workspaces         workspaces           @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_packages_workspace")
+}
+
+model password_reset_tokens {
+  id         String    @id
+  user_id    String
+  code       String
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+model payment_methods {
+  id           String     @id
+  workspace_id String
+  name         String
+  type         String
+  active       Boolean    @default(true)
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_payment_methods_workspace")
+}
+
+model pdf_settings {
+  id                          String    @id
+  coach_id                    String?   @unique
+  coach_name                  String    @default("FitForce")
+  footer_text                 String    @default("Generated by FitForce")
+  primary_color               String    @default("#007AFF")
+  show_notes                  Boolean   @default(true)
+  show_alternatives           Boolean   @default(true)
+  show_macros_summary         Boolean   @default(true)
+  show_cycle_totals           Boolean   @default(true)
+  show_meal_totals            Boolean   @default(true)
+  updated_at                  DateTime? @default(now()) @db.Timestamp(6)
+  logo_url                    String?
+  header_text_color           String    @default("#FFFFFF")
+  show_food_calories          Boolean   @default(true)
+  table_header_bg_color       String    @default("#E8E8ED")
+  table_alt_bg_color          String    @default("#F9F9FB")
+  show_food_macros            Boolean   @default(true)
+  show_cover_page             Boolean   @default(true)
+  show_plan_summary_page      Boolean   @default(true)
+  show_meal_summary_page      Boolean   @default(true)
+  show_cycle_summary_page     Boolean   @default(true)
+  page_bg_image_url           String?
+  cover_image_url             String?
+  cover_title                 String    @default("Nutrition Plan")
+  cover_subtitle              String?   @default("")
+  summary_bg_image_url        String?
+  page_width                  Float     @default(595.28) @db.Real
+  page_height                 Float     @default(841.89) @db.Real
+  plan_summary_bg_image_url   String?
+  meal_summary_bg_image_url   String?
+  cycle_summary_bg_image_url  String?
+  back_cover_bg_image_url     String?
+  show_back_cover_page        Boolean   @default(false)
+  max_meals_per_page          Int       @default(0)
+  meals_content_primary_color String?
+  plan_summary_primary_color  String?
+  cycle_summary_primary_color String?
+  users                       users?    @relation(fields: [coach_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model pgmigrations {
+  id     Int      @id @default(autoincrement())
+  name   String   @db.VarChar(255)
+  run_on DateTime @db.Timestamp(6)
+}
+
+model plan_period_links {
+  id                  String            @id
+  plan_id             String
+  billing_discount_id String
+  payment_link        String?
+  billing_discounts   billing_discounts @relation(fields: [billing_discount_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plans               plans             @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([plan_id, billing_discount_id])
+}
+
+model plans {
+  id                      String                    @id
+  name                    String                    @unique
+  display_name            String
+  max_team_seats          Int?
+  max_workspaces          Int?
+  features                Json                      @default("{}")
+  price_monthly           Decimal?                  @db.Decimal(10, 2)
+  is_active               Boolean                   @default(true)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  is_default              Boolean                   @default(false)
+  trial_days              Int?
+  duration_days           Int                       @default(30)
+  payment_link            String?
+  subtitle                String?
+  is_popular              Boolean                   @default(false)
+  cta_text                String                    @default("Get Started")
+  cta_variant             String                    @default("outline")
+  features_header         String                    @default("What's included:")
+  features_subheader      String?
+  has_team_counter        Boolean                   @default(false)
+  sort_order              Int                       @default(0)
+  currency                String                    @default("LE")
+  show_on_landing         Boolean                   @default(true)
+  price_per_seat          Decimal?                  @db.Decimal(10, 2)
+  min_seat_count          Int                       @default(1)
+  max_seat_count          Int                       @default(20)
+  max_clients             Int?
+  plan_period_links       plan_period_links[]
+  workspace_payments      workspace_payments[]
+  workspace_subscriptions workspace_subscriptions[]
+}
+
+model subscription_freezes {
+  id                   String   @id
+  client_id            String
+  freeze_start_date    DateTime @db.Date
+  freeze_duration_days Int
+  notes                String?
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  clients              clients  @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model threads {
+  id           String   @id
+  workspace_id String
+  client_id    String
+  status       String   @default("open")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([workspace_id, client_id], map: "threads_workspace_client_unique")
+  @@index([workspace_id])
+}
+
+model training_days {
+  id                 String               @id
+  plan_id            String
+  name               String
+  day_order          Int
+  notes              String?
+  training_plans     training_plans       @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  training_exercises training_exercises[]
+  workout_logs       workout_logs[]
+
+  @@index([plan_id], map: "idx_training_days_plan")
+}
+
+model training_exercise_alternatives {
+  id                  String             @id
+  exercise_id         String
+  exercise_library_id String
+  alt_order           Int
+  training_exercises  training_exercises @relation(fields: [exercise_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  exercise_library    exercise_library   @relation(fields: [exercise_library_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([exercise_id], map: "idx_training_alternatives_exercise")
+}
+
+model training_exercises {
+  id                             String                           @id
+  day_id                         String
+  name                           String
+  exercise_order                 Int
+  equipment                      String?
+  notes                          String?
+  exercise_library_id            String?
+  training_exercise_alternatives training_exercise_alternatives[]
+  training_days                  training_days                    @relation(fields: [day_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  exercise_library               exercise_library?                @relation(fields: [exercise_library_id], references: [id], onUpdate: NoAction)
+  training_sets                  training_sets[]
+
+  @@index([day_id], map: "idx_training_exercises_day")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model training_plans {
+  id            String          @id
+  name          String
+  client_id     String
+  workspace_id  String
+  status        String          @default("inactive")
+  notes         String?
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
+  activated_at  DateTime?       @db.Timestamptz(6)
+  created_by    String?
+  training_days training_days[]
+  workspaces    workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_training_plans_workspace")
+  users         users?          @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  workout_logs  workout_logs[]
+
+  @@index([client_id], map: "idx_training_plans_client")
+  @@index([workspace_id, client_id], map: "idx_training_plans_coach_client")
+}
+
+model training_sets {
+  id                 String             @id
+  exercise_id        String
+  set_order          Int
+  reps               String?
+  rest_seconds       Int?
+  tempo              String?
+  rir                Int?
+  training_exercises training_exercises @relation(fields: [exercise_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([exercise_id], map: "idx_training_sets_exercise")
+}
+
+model transactions {
+  id                      String     @id
+  workspace_id            String
+  client_name             String
+  package_variation       String?
+  payment_method          String
+  amount                  Decimal    @db.Decimal(12, 2)
+  currency                String     @default("EGP")
+  type                    String     @default("subscription")
+  status                  String     @default("completed")
+  notes                   String?
+  transaction_date        DateTime   @default(now()) @db.Timestamptz(6)
+  created_at              DateTime   @default(now()) @db.Timestamptz(6)
+  client_id               String?
+  duration                Int?
+  proof_image             String?
+  subscription_start_date DateTime?  @db.Date
+  start_mode              String     @default("on_first_plan")
+  workspaces              workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_transactions_workspace")
+  clients                 clients?   @relation(fields: [client_id], references: [id], onUpdate: NoAction)
+}
+
+model users {
+  id                                                                    String                  @id
+  fname                                                                 String                  @db.VarChar(100)
+  lname                                                                 String                  @db.VarChar(100)
+  email                                                                 String                  @unique @db.VarChar(150)
+  password                                                              String                  @db.VarChar(255)
+  created_at                                                            DateTime?               @default(now()) @db.Timestamp(6)
+  default_workspace_id                                                  String?
+  is_admin                                                              Boolean                 @default(false)
+  email_verified                                                        Boolean                 @default(false)
+  email_verification_code                                               String?
+  verification_code_expires_at                                          DateTime?               @db.Timestamptz(6)
+  phone                                                                 String?
+  preferred_language                                                    String                  @default("en") @db.VarChar(10)
+  client_observations                                                   client_observations[]
+  nutrition_plans                                                       nutrition_plans[]
+  pdf_settings                                                          pdf_settings?
+  training_plans                                                        training_plans[]
+  workspaces_users_default_workspace_idToworkspaces                     workspaces?             @relation("users_default_workspace_idToworkspaces", fields: [default_workspace_id], references: [id], onUpdate: NoAction)
+  workspace_audit_log                                                   workspace_audit_log[]
+  workspace_invitations_workspace_invitations_invited_by_user_idTousers workspace_invitations[] @relation("workspace_invitations_invited_by_user_idTousers")
+  workspace_invitations_workspace_invitations_invited_user_idTousers    workspace_invitations[] @relation("workspace_invitations_invited_user_idTousers")
+  workspace_members                                                     workspace_members[]
+  workspaces_workspaces_owner_idTousers                                 workspaces[]            @relation("workspaces_owner_idTousers")
+}
+
+model workout_logs {
+  id             String          @id
+  client_id      String
+  workspace_id   String
+  plan_id        String?
+  day_id         String?
+  day_index      Int?
+  date           DateTime        @db.Date
+  start_time     String?
+  end_time       String?
+  exercises      Json            @default("[]")
+  notes          String?
+  completed      Boolean         @default(true)
+  created_at     DateTime        @default(now()) @db.Timestamptz(6)
+  clients        clients         @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  training_days  training_days?  @relation(fields: [day_id], references: [id], onUpdate: NoAction)
+  training_plans training_plans? @relation(fields: [plan_id], references: [id], onUpdate: NoAction)
+  workspaces     workspaces      @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([client_id, date], map: "workout_logs_client_id_date_index")
+  @@index([client_id], map: "workout_logs_client_id_index")
+  @@index([plan_id], map: "workout_logs_plan_id_index")
+  @@index([workspace_id], map: "workout_logs_workspace_id_index")
+}
+
+model workspace_audit_log {
+  id            String     @id
+  workspace_id  String
+  actor_user_id String
+  action        String
+  target_type   String?
+  target_id     String?
+  metadata      Json?
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  users         users      @relation(fields: [actor_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces    workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([workspace_id, created_at(sort: Desc)], map: "idx_audit_workspace")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model workspace_invitations {
+  id                                                    String     @id
+  workspace_id                                          String
+  invited_by_user_id                                    String
+  invited_user_id                                       String
+  role                                                  String
+  status                                                String     @default("pending")
+  message                                               String?
+  created_at                                            DateTime   @default(now()) @db.Timestamptz(6)
+  responded_at                                          DateTime?  @db.Timestamptz(6)
+  users_workspace_invitations_invited_by_user_idTousers users      @relation("workspace_invitations_invited_by_user_idTousers", fields: [invited_by_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_workspace_invitations_invited_user_idTousers    users      @relation("workspace_invitations_invited_user_idTousers", fields: [invited_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces                                            workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([workspace_id, invited_user_id])
+  @@index([invited_user_id, status], map: "idx_invitations_invited_user")
+  @@index([workspace_id], map: "idx_invitations_workspace")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model workspace_members {
+  id           String     @id
+  workspace_id String
+  user_id      String
+  role         String
+  permissions  Json       @default("{}")
+  is_active    Boolean    @default(true)
+  joined_at    DateTime   @default(now()) @db.Timestamptz(6)
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([workspace_id, user_id])
+  @@index([user_id], map: "idx_workspace_members_user")
+  @@index([workspace_id], map: "idx_workspace_members_workspace")
+}
+
+model workspace_payments {
+  id                    String     @id
+  workspace_id          String
+  plan_id               String
+  amount                Decimal    @db.Decimal(10, 2)
+  currency              String     @default("EGP")
+  duration_days         Int
+  fawaterak_invoice_id  String?
+  fawaterak_payment_url String?
+  fawaterak_status      String     @default("pending")
+  fawaterak_raw_webhook Json?
+  notes                 String?
+  paid_at               DateTime?  @db.Timestamptz(6)
+  created_at            DateTime   @default(now()) @db.Timestamptz(6)
+  plans                 plans      @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workspaces            workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([fawaterak_invoice_id])
+  @@index([workspace_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model workspace_subscriptions {
+  id           String     @id
+  workspace_id String     @unique
+  plan_id      String
+  status       String     @default("active")
+  starts_at    DateTime   @default(now()) @db.Timestamptz(6)
+  expires_at   DateTime?  @db.Timestamptz(6)
+  notes        String?
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  plans        plans      @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model workspaces {
+  id                                           String                   @id
+  slug                                         String                   @unique
+  name                                         String
+  owner_id                                     String
+  slug_customized                              Boolean                  @default(false)
+  archived_at                                  DateTime?                @db.Timestamptz(6)
+  created_at                                   DateTime                 @default(now()) @db.Timestamptz(6)
+  client_observations                          client_observations[]
+  clients                                      clients[]
+  exercise_equipments                          exercise_equipments[]
+  exercise_library                             exercise_library[]
+  exercise_muscle_groups                       exercise_muscle_groups[]
+  food_categories                              food_categories[]
+  food_items                                   food_items[]
+  form_requests                                form_requests[]
+  forms                                        forms[]
+  nutrition_plans                              nutrition_plans[]
+  packages                                     packages[]
+  payment_methods                              payment_methods[]
+  training_plans                               training_plans[]
+  transactions                                 transactions[]
+  users_users_default_workspace_idToworkspaces users[]                  @relation("users_default_workspace_idToworkspaces")
+  workout_logs                                 workout_logs[]
+  workspace_audit_log                          workspace_audit_log[]
+  workspace_invitations                        workspace_invitations[]
+  workspace_members                            workspace_members[]
+  workspace_payments                           workspace_payments[]
+  workspace_subscriptions                      workspace_subscriptions?
+  users_workspaces_owner_idTousers             users                    @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
+
+  @@index([owner_id], map: "idx_workspaces_owner")
+  @@index([slug], map: "idx_workspaces_slug")
+}

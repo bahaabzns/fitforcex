@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import express from 'express';
-import pool from '../../db';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../../lib/prisma';
 import { env } from '../../config/env';
 import { applyPayment } from '../billing/index';
 
@@ -56,43 +57,47 @@ router.post('/', express.raw({ type: '*/*' }), async (req, res) => {
             meta?.customerRef  || meta?.reference_id  || ''
         );
 
-        let rows: Record<string, unknown>[] | undefined;
+        let payment: { id: string; workspace_id: string; fawaterak_invoice_id: string | null; fawaterak_status: string } | null = null;
 
         if (invoiceId) {
-            ({ rows } = await pool.query(
-                `SELECT id, workspace_id, fawaterak_status FROM workspace_payments WHERE fawaterak_invoice_id = $1`,
-                [invoiceId]
-            ));
+            payment = await prisma.workspace_payments.findFirst({
+                where: { fawaterak_invoice_id: invoiceId },
+                select: { id: true, workspace_id: true, fawaterak_invoice_id: true, fawaterak_status: true },
+            });
         }
 
-        if ((!rows || !rows.length) && customerRef) {
-            ({ rows } = await pool.query(
-                `SELECT id, workspace_id, fawaterak_status FROM workspace_payments WHERE id = $1`,
-                [customerRef]
-            ));
+        if (!payment && customerRef) {
+            payment = await prisma.workspace_payments.findFirst({
+                where: { id: customerRef },
+                select: { id: true, workspace_id: true, fawaterak_invoice_id: true, fawaterak_status: true },
+            });
         }
 
-        if (!rows || !rows.length) {
+        if (!payment) {
             console.warn('[Webhook] No workspace_payment found', { invoiceId, customerRef });
             return res.status(200).send('OK');
         }
 
-        const payment = rows[0];
-
         if (invoiceId && !payment.fawaterak_invoice_id) {
-            await pool.query(`UPDATE workspace_payments SET fawaterak_invoice_id = $1 WHERE id = $2`, [invoiceId, payment.id]);
+            await prisma.workspace_payments.update({
+                where: { id: payment.id },
+                data:  { fawaterak_invoice_id: invoiceId },
+            });
         }
 
-        await pool.query(`UPDATE workspace_payments SET fawaterak_raw_webhook = $1 WHERE id = $2`, [payload, payment.id]);
+        await prisma.workspace_payments.update({
+            where: { id: payment.id },
+            data:  { fawaterak_raw_webhook: payload as Prisma.InputJsonValue },
+        });
 
         if (isPaid) {
-            await applyPayment(payment.id as string, payment.workspace_id as string);
+            await applyPayment(payment.id, payment.workspace_id);
             console.log('[Webhook] Payment', payment.id, '→ paid, subscription extended');
         } else if (['failed', 'expired', 'cancelled'].includes(fawStatus)) {
-            await pool.query(`UPDATE workspace_payments SET fawaterak_status = 'failed' WHERE id = $1`, [payment.id]);
+            await prisma.workspace_payments.update({ where: { id: payment.id }, data: { fawaterak_status: 'failed' } });
             console.log('[Webhook] Payment', payment.id, '→ failed');
         } else if (fawStatus === 'refunded') {
-            await pool.query(`UPDATE workspace_payments SET fawaterak_status = 'refunded' WHERE id = $1`, [payment.id]);
+            await prisma.workspace_payments.update({ where: { id: payment.id }, data: { fawaterak_status: 'refunded' } });
             console.log('[Webhook] Payment', payment.id, '→ refunded');
         } else {
             console.log('[Webhook] Unhandled status:', fawStatus, '— no action taken');

@@ -1,15 +1,22 @@
 import { Router } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import authMiddleware from '../../middleware/auth';
-import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
 router.use(authMiddleware);
 
+type ThreadRow = {
+    id: string; client_id: string; status: string; updated_at: Date;
+    fname: string; lname: string;
+    latest_message: string | null; latest_message_at: Date | null;
+    unread_count: number;
+};
+
 router.get('/threads', async (req, res, next) => {
     try {
-        const { rows } = await pool.query(`
+        const rows = await prisma.$queryRaw<ThreadRow[]>`
             SELECT
                 t.id, t.client_id, t.status, t.updated_at,
                 c.fname, c.lname,
@@ -18,13 +25,12 @@ router.get('/threads', async (req, res, next) => {
                 (SELECT COUNT(*) FROM messages m WHERE m.thread_id = t.id AND m.sender_type = 'client' AND m.read_by_team_at IS NULL)::int AS unread_count
             FROM threads t
             JOIN clients c ON c.id = t.client_id
-            WHERE t.workspace_id = $1
+            WHERE t.workspace_id = ${req.user!.workspaceId}
             ORDER BY COALESCE(
                 (SELECT created_at FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1),
                 t.created_at
             ) DESC
-        `, [req.user!.workspaceId]);
-
+        `;
         res.json(rows);
     } catch (err) { next(err); }
 });
@@ -34,42 +40,46 @@ router.post('/threads', async (req, res, next) => {
     if (!clientId) return res.status(400).json({ error: 'clientId is required' });
 
     try {
-        const clientCheck = await pool.query(
-            'SELECT id FROM clients WHERE id = $1 AND workspace_id = $2',
-            [clientId, req.user!.workspaceId]
-        );
-        if (!clientCheck.rows.length) return res.status(404).json({ error: 'Client not found' });
+        const clientExists = await prisma.clients.findFirst({
+            where: { id: clientId, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!clientExists) return res.status(404).json({ error: 'Client not found' });
 
-        const { rows } = await pool.query(`
-            INSERT INTO threads (id, workspace_id, client_id)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (workspace_id, client_id) DO UPDATE SET updated_at = threads.updated_at
-            RETURNING *
-        `, [createId(), req.user!.workspaceId, clientId]);
+        const thread = await prisma.threads.upsert({
+            where: { workspace_id_client_id: { workspace_id: req.user!.workspaceId, client_id: clientId } },
+            create: { id: createId(), workspace_id: req.user!.workspaceId, client_id: clientId },
+            update: {},
+        });
 
-        res.status(201).json(rows[0]);
+        res.status(201).json(thread);
     } catch (err) { next(err); }
 });
 
 router.get('/threads/:threadId/messages', async (req, res, next) => {
+    const threadId = req.params.threadId as string;
     try {
-        const threadCheck = await pool.query(
-            'SELECT id FROM threads WHERE id = $1 AND workspace_id = $2',
-            [req.params.threadId, req.user!.workspaceId]
-        );
-        if (!threadCheck.rows.length) return res.status(404).json({ error: 'Thread not found' });
+        const thread = await prisma.threads.findFirst({
+            where: { id: threadId, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!thread) return res.status(404).json({ error: 'Thread not found' });
 
-        await pool.query(`
-            UPDATE messages SET read_by_team_at = NOW()
-            WHERE thread_id = $1 AND sender_type = 'client' AND read_by_team_at IS NULL
-        `, [req.params.threadId]);
+        await prisma.messages.updateMany({
+            where: { thread_id: threadId, sender_type: 'client', read_by_team_at: null },
+            data:  { read_by_team_at: new Date() },
+        });
 
-        const { rows } = await pool.query(`
-            SELECT id, sender_type, sender_id, body, read_by_team_at, read_by_client_at, created_at
-            FROM messages WHERE thread_id = $1 ORDER BY created_at ASC
-        `, [req.params.threadId]);
+        const messages = await prisma.messages.findMany({
+            where: { thread_id: threadId },
+            select: {
+                id: true, sender_type: true, sender_id: true, body: true,
+                read_by_team_at: true, read_by_client_at: true, created_at: true,
+            },
+            orderBy: { created_at: 'asc' },
+        });
 
-        res.json(rows);
+        res.json(messages);
     } catch (err) { next(err); }
 });
 
@@ -78,22 +88,31 @@ router.post('/threads/:threadId/messages', async (req, res, next) => {
     if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required' });
     if (body.trim().length > 5000) return res.status(400).json({ error: 'Message exceeds 5000 character limit' });
 
+    const threadId = req.params.threadId as string;
     try {
-        const threadCheck = await pool.query(
-            'SELECT id FROM threads WHERE id = $1 AND workspace_id = $2',
-            [req.params.threadId, req.user!.workspaceId]
-        );
-        if (!threadCheck.rows.length) return res.status(404).json({ error: 'Thread not found' });
+        const thread = await prisma.threads.findFirst({
+            where: { id: threadId, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!thread) return res.status(404).json({ error: 'Thread not found' });
 
-        const { rows } = await pool.query(`
-            INSERT INTO messages (id, thread_id, sender_type, sender_id, body, read_by_team_at)
-            VALUES ($1, $2, 'team', $3, $4, NOW())
-            RETURNING *
-        `, [createId(), req.params.threadId, req.user!.userId, body.trim()]);
+        const message = await prisma.messages.create({
+            data: {
+                id:             createId(),
+                thread_id:      threadId,
+                sender_type:    'team',
+                sender_id:      req.user!.userId,
+                body:           body.trim(),
+                read_by_team_at: new Date(),
+            },
+        });
 
-        await pool.query('UPDATE threads SET updated_at = NOW() WHERE id = $1', [req.params.threadId]);
+        await prisma.threads.update({
+            where: { id: threadId },
+            data:  { updated_at: new Date() },
+        });
 
-        res.status(201).json(rows[0]);
+        res.status(201).json(message);
     } catch (err) { next(err); }
 });
 
@@ -102,16 +121,16 @@ router.patch('/threads/:threadId/status', async (req, res, next) => {
     if (!['open', 'closed'].includes(status!)) {
         return res.status(400).json({ error: 'status must be open or closed' });
     }
-
+    const threadId = req.params.threadId as string;
     try {
-        const { rows } = await pool.query(`
-            UPDATE threads SET status = $1, updated_at = NOW()
-            WHERE id = $2 AND workspace_id = $3
-            RETURNING *
-        `, [status, req.params.threadId, req.user!.workspaceId]);
+        const updated = await prisma.threads.updateMany({
+            where: { id: threadId, workspace_id: req.user!.workspaceId },
+            data:  { status: status!, updated_at: new Date() },
+        });
+        if (updated.count === 0) return res.status(404).json({ error: 'Thread not found' });
 
-        if (!rows.length) return res.status(404).json({ error: 'Thread not found' });
-        res.json(rows[0]);
+        const thread = await prisma.threads.findUnique({ where: { id: threadId } });
+        res.json(thread);
     } catch (err) { next(err); }
 });
 

@@ -2,25 +2,25 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { Prisma } from '@prisma/client';
 import clientAuthMiddleware from '../../middleware/clientAuth';
 import { loginLimiter } from '../../middleware/rateLimit';
 import { toPublicUrl } from '../../lib/storage';
 import { env } from '../../config/env';
-import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
 async function activateDueClientScheduledRequests(clientId: string): Promise<void> {
-    await pool.query(
-        `UPDATE form_requests
-         SET status = 'pending',
-             requested_at = COALESCE(requested_at, NOW())
-         WHERE client_id = $1
-           AND status = 'scheduled'
-           AND scheduled_at IS NOT NULL
-           AND scheduled_at <= NOW()`,
-        [clientId]
-    );
+    await prisma.$executeRaw`
+        UPDATE form_requests
+        SET status = 'pending',
+            requested_at = COALESCE(requested_at, NOW())
+        WHERE client_id = ${clientId}
+          AND status = 'scheduled'
+          AND scheduled_at IS NOT NULL
+          AND scheduled_at <= NOW()
+    `;
 }
 
 // POST /api/client-portal/login
@@ -36,18 +36,18 @@ router.post('/login', loginLimiter, async (req: Request, res: Response, next: Ne
     }
 
     try {
-        const result = await pool.query(
-            `SELECT c.* FROM clients c
+        type ClientLoginRow = Record<string, unknown>;
+        const rows = await prisma.$queryRaw<ClientLoginRow[]>`
+            SELECT c.* FROM clients c
             JOIN workspaces w ON w.id = c.workspace_id
-            WHERE c.email = $1 AND w.slug = $2 AND w.archived_at IS NULL`,
-            [email, slug.trim()]
-        );
+            WHERE c.email = ${email} AND w.slug = ${slug.trim()} AND w.archived_at IS NULL
+        `;
 
-        if (result.rows.length === 0) {
+        if (rows.length === 0) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
-        const client = result.rows[0] as Record<string, unknown>;
+        const client = rows[0];
 
         if (!client.password) {
             return res.status(401).json({ message: 'Account not activated. Contact your coach.' });
@@ -84,23 +84,21 @@ router.post('/logout', (_req: Request, res: Response) => {
 // GET /api/client-portal/me
 router.get('/me', clientAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            'SELECT id, fname, lname, email, phone, client_code, workspace_id FROM clients WHERE id = $1',
-            [req.client!.clientId]
-        );
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Client not found' });
-        }
-        res.json(result.rows[0]);
+        const client = await prisma.clients.findFirst({
+            where:  { id: req.client!.clientId },
+            select: { id: true, fname: true, lname: true, email: true, phone: true, client_code: true, workspace_id: true },
+        });
+        if (!client) return res.status(404).json({ message: 'Client not found' });
+        res.json(client);
     } catch (err) {
         next(err);
     }
 });
 
 function buildNutritionPlanHierarchy(plan: Record<string, unknown>, flatRows: Record<string, unknown>[]) {
-    const cyclesMap   = new Map<string, Record<string, unknown>>();
-    const mealsMap    = new Map<string, Record<string, unknown>>();
-    const itemsMap    = new Map<string, Record<string, unknown>>();
+    const cyclesMap = new Map<string, Record<string, unknown>>();
+    const mealsMap  = new Map<string, Record<string, unknown>>();
+    const itemsMap  = new Map<string, Record<string, unknown>>();
 
     for (const row of flatRows) {
         if (row.cycle_id && !cyclesMap.has(row.cycle_id as string)) {
@@ -131,8 +129,7 @@ function buildNutritionPlanHierarchy(plan: Record<string, unknown>, flatRows: Re
         }
         if (row.alt_id) {
             const alts = itemsMap.get(row.item_id as string)?.alternatives as Array<Record<string, unknown>> | undefined;
-            const altExists = alts?.some(a => a.id === row.alt_id);
-            if (!altExists) {
+            if (!alts?.some(a => a.id === row.alt_id)) {
                 alts?.push({
                     id: row.alt_id, meal_item_id: row.meal_item_id, food_item_id: row.alt_food_item_id,
                     amount: row.alt_amount, alt_order: row.alt_order, name: row.alt_food_name,
@@ -155,26 +152,20 @@ function buildNutritionPlanHierarchy(plan: Record<string, unknown>, flatRows: Re
             });
         });
     });
-
     return { ...plan, cycles };
 }
 
 // GET /api/client-portal/active-plan
 router.get('/active-plan', clientAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const planResult = await pool.query(
-            `SELECT * FROM nutrition_plans
-             WHERE client_id = $1 AND status = 'active'
-             ORDER BY updated_at DESC LIMIT 1`,
-            [req.client!.clientId]
-        );
-        if (planResult.rows.length === 0) {
-            return res.status(404).json({ message: 'No active plan found' });
-        }
+        const plan = await prisma.nutrition_plans.findFirst({
+            where:   { client_id: req.client!.clientId, status: 'active' },
+            orderBy: { updated_at: 'desc' },
+        });
+        if (!plan) return res.status(404).json({ message: 'No active plan found' });
 
-        const plan = planResult.rows[0] as Record<string, unknown>;
-        const hierarchyResult = await pool.query(
-            `SELECT
+        const hierarchyRows = await prisma.$queryRaw<Record<string, unknown>[]>`
+            SELECT
                 np.id, np.name, np.client_id, np.workspace_id, np.status, np.created_at, np.updated_at, np.activated_at,
                 nc.id AS cycle_id, nc.plan_id, nc.name AS cycle_name, nc.cycle_order,
                     nc.goal_calories, nc.goal_protein, nc.goal_carbs, nc.goal_fats, nc.note AS cycle_note,
@@ -189,19 +180,18 @@ router.get('/active-plan', clientAuthMiddleware, async (req: Request, res: Respo
                     fi2.protein_per_serving AS alt_protein_per_serving,
                     fi2.carbs_per_serving AS alt_carbs_per_serving, fi2.fats_per_serving AS alt_fats_per_serving,
                     fi2.serving_size AS alt_serving_size, fi2.food_category AS alt_food_category
-             FROM nutrition_plans np
-             LEFT JOIN nutrition_cycles nc ON nc.plan_id = np.id
-             LEFT JOIN nutrition_meals nm ON nm.cycle_id = nc.id
-             LEFT JOIN nutrition_meal_items nmi ON nmi.meal_id = nm.id
-             LEFT JOIN food_items fi ON fi.id = nmi.food_item_id
-             LEFT JOIN nutrition_meal_item_alternatives nmia ON nmia.meal_item_id = nmi.id
-             LEFT JOIN food_items fi2 ON fi2.id = nmia.food_item_id
-             WHERE np.id = $1
-             ORDER BY nc.cycle_order, nm.meal_order, nmi.meal_item_order, nmia.alt_order`,
-            [plan.id]
-        );
+            FROM nutrition_plans np
+            LEFT JOIN nutrition_cycles nc ON nc.plan_id = np.id
+            LEFT JOIN nutrition_meals nm ON nm.cycle_id = nc.id
+            LEFT JOIN nutrition_meal_items nmi ON nmi.meal_id = nm.id
+            LEFT JOIN food_items fi ON fi.id = nmi.food_item_id
+            LEFT JOIN nutrition_meal_item_alternatives nmia ON nmia.meal_item_id = nmi.id
+            LEFT JOIN food_items fi2 ON fi2.id = nmia.food_item_id
+            WHERE np.id = ${plan.id}
+            ORDER BY nc.cycle_order, nm.meal_order, nmi.meal_item_order, nmia.alt_order
+        `;
 
-        res.json(buildNutritionPlanHierarchy(plan, hierarchyResult.rows));
+        res.json(buildNutritionPlanHierarchy(plan as unknown as Record<string, unknown>, hierarchyRows));
     } catch (err) {
         next(err);
     }
@@ -233,8 +223,7 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
         }
         if (row.set_id) {
             const sets = exercisesMap.get(row.exercise_id as string)?.sets as Array<Record<string, unknown>> | undefined;
-            const setExists = sets?.some(s => s.id === row.set_id);
-            if (!setExists) {
+            if (!sets?.some(s => s.id === row.set_id)) {
                 sets?.push({
                     id: row.set_id, exercise_id: row.exercise_id, set_order: row.set_order,
                     reps: row.reps, rest_seconds: row.rest_seconds, tempo: row.tempo, rir: row.rir,
@@ -243,8 +232,7 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
         }
         if (row.alt_id) {
             const alts = exercisesMap.get(row.exercise_id as string)?.alternatives as Array<Record<string, unknown>> | undefined;
-            const altExists = alts?.some(a => a.id === row.alt_id);
-            if (!altExists) {
+            if (!alts?.some(a => a.id === row.alt_id)) {
                 alts?.push({
                     id: row.alt_id, exercise_id: row.exercise_id,
                     exercise_library_id: row.alt_exercise_library_id, alt_order: row.alt_order,
@@ -266,26 +254,20 @@ function buildTrainingPlanHierarchy(plan: Record<string, unknown>, flatRows: Rec
             (exercise.alternatives as Record<string, unknown>[]).sort((a, b) => (a.alt_order as number) - (b.alt_order as number));
         });
     });
-
     return { ...plan, days };
 }
 
 // GET /api/client-portal/active-training-plan
 router.get('/active-training-plan', clientAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const planResult = await pool.query(
-            `SELECT * FROM training_plans
-             WHERE client_id = $1 AND status = 'active'
-             ORDER BY updated_at DESC LIMIT 1`,
-            [req.client!.clientId]
-        );
-        if (planResult.rows.length === 0) {
-            return res.status(404).json({ message: 'No active training plan found' });
-        }
+        const plan = await prisma.training_plans.findFirst({
+            where:   { client_id: req.client!.clientId, status: 'active' },
+            orderBy: { updated_at: 'desc' },
+        });
+        if (!plan) return res.status(404).json({ message: 'No active training plan found' });
 
-        const plan = planResult.rows[0] as Record<string, unknown>;
-        const hierarchyResult = await pool.query(
-            `SELECT
+        const hierarchyRows = await prisma.$queryRaw<Record<string, unknown>[]>`
+            SELECT
                 tp.id, tp.name, tp.client_id, tp.workspace_id, tp.status, tp.notes,
                     tp.created_at, tp.updated_at, tp.activated_at,
                 td.id AS day_id, td.plan_id, td.name AS day_name, td.day_order, td.notes AS day_notes,
@@ -298,19 +280,18 @@ router.get('/active-training-plan', clientAuthMiddleware, async (req: Request, r
                 el2.name_en AS alt_name_en, el2.name_ar AS alt_name_ar,
                     el2.muscle_group AS alt_muscle_group, el2.equipment AS alt_equipment,
                     el2.thumbnail_path AS alt_thumbnail_path, el2.youtube_url AS alt_youtube_url, el2.video_path AS alt_video_path
-             FROM training_plans tp
-             LEFT JOIN training_days td ON td.plan_id = tp.id
-             LEFT JOIN training_exercises te ON te.day_id = td.id
-             LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
-             LEFT JOIN training_sets ts ON ts.exercise_id = te.id
-             LEFT JOIN training_exercise_alternatives tea ON tea.exercise_id = te.id
-             LEFT JOIN exercise_library el2 ON el2.id = tea.exercise_library_id
-             WHERE tp.id = $1
-             ORDER BY td.day_order, te.exercise_order, ts.set_order, tea.alt_order`,
-            [plan.id]
-        );
+            FROM training_plans tp
+            LEFT JOIN training_days td ON td.plan_id = tp.id
+            LEFT JOIN training_exercises te ON te.day_id = td.id
+            LEFT JOIN exercise_library el ON el.id = te.exercise_library_id
+            LEFT JOIN training_sets ts ON ts.exercise_id = te.id
+            LEFT JOIN training_exercise_alternatives tea ON tea.exercise_id = te.id
+            LEFT JOIN exercise_library el2 ON el2.id = tea.exercise_library_id
+            WHERE tp.id = ${plan.id}
+            ORDER BY td.day_order, te.exercise_order, ts.set_order, tea.alt_order
+        `;
 
-        res.json(buildTrainingPlanHierarchy(plan, hierarchyResult.rows));
+        res.json(buildTrainingPlanHierarchy(plan as unknown as Record<string, unknown>, hierarchyRows));
     } catch (err) {
         next(err);
     }
@@ -321,18 +302,17 @@ router.get('/form-requests', clientAuthMiddleware, async (req: Request, res: Res
     try {
         await activateDueClientScheduledRequests(req.client!.clientId);
 
-        const result = await pool.query(
-            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id,
-                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
-                    f.description_en AS form_description_en, f.description_ar AS form_description_ar
-             FROM form_requests fr
-             JOIN forms f ON f.id = fr.form_id
-             WHERE fr.client_id = $1
-             ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC`,
-            [req.client!.clientId]
-        );
-        res.json(result.rows);
+        const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
+            SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
+                   f.id AS form_id,
+                   f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                   f.description_en AS form_description_en, f.description_ar AS form_description_ar
+            FROM form_requests fr
+            JOIN forms f ON f.id = fr.form_id
+            WHERE fr.client_id = ${req.client!.clientId}
+            ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC
+        `;
+        res.json(rows);
     } catch (err) {
         next(err);
     }
@@ -343,39 +323,37 @@ router.get('/form-requests/:request_id', clientAuthMiddleware, async (req: Reque
     try {
         await activateDueClientScheduledRequests(req.client!.clientId);
 
-        const reqResult = await pool.query(
-            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id,
-                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
-                    f.description_en AS form_description_en, f.description_ar AS form_description_ar
-             FROM form_requests fr
-             JOIN forms f ON f.id = fr.form_id
-             WHERE fr.id = $1 AND fr.client_id = $2`,
-            [req.params.request_id, req.client!.clientId]
-        );
-        if (reqResult.rows.length === 0) return res.status(404).json({ error: 'Request not found' });
+        const rows = await prisma.$queryRaw<Record<string, unknown>[]>`
+            SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
+                   f.id AS form_id,
+                   f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                   f.description_en AS form_description_en, f.description_ar AS form_description_ar
+            FROM form_requests fr
+            JOIN forms f ON f.id = fr.form_id
+            WHERE fr.id = ${req.params.request_id} AND fr.client_id = ${req.client!.clientId}
+        `;
+        if (rows.length === 0) return res.status(404).json({ error: 'Request not found' });
 
-        const request = reqResult.rows[0] as Record<string, unknown>;
+        const request = rows[0];
 
         if (request.status === 'scheduled' && request.scheduled_at && new Date(request.scheduled_at as string).getTime() > Date.now()) {
             return res.status(403).json({ error: 'This form is not available yet' });
         }
 
-        const questions = await pool.query(
-            'SELECT * FROM form_questions WHERE form_id = $1 ORDER BY order_index ASC, id ASC',
-            [request.form_id]
-        );
+        const [questions, responses] = await Promise.all([
+            prisma.form_questions.findMany({
+                where:   { form_id: request.form_id as string },
+                orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
+            }),
+            request.status !== 'pending' && request.status !== 'scheduled'
+                ? prisma.form_responses.findMany({
+                    where:  { request_id: request.id as string },
+                    select: { question_id: true, answer: true },
+                  })
+                : Promise.resolve([]),
+        ]);
 
-        let responses: unknown[] = [];
-        if (request.status !== 'pending' && request.status !== 'scheduled') {
-            const respResult = await pool.query(
-                'SELECT question_id, answer FROM form_responses WHERE request_id = $1',
-                [request.id]
-            );
-            responses = respResult.rows;
-        }
-
-        res.json({ ...request, questions: questions.rows, responses });
+        res.json({ ...request, questions, responses });
     } catch (err) {
         next(err);
     }
@@ -388,26 +366,26 @@ router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (re
         return res.status(400).json({ error: 'answers array is required' });
     }
     try {
-        const reqResult = await pool.query(
-            `SELECT fr.id, fr.form_id FROM form_requests fr
-             WHERE fr.id = $1 AND fr.client_id = $2 AND fr.status = 'pending'`,
-            [req.params.request_id, req.client!.clientId]
-        );
-        if (reqResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Request not found or already submitted' });
-        }
+        const request = await prisma.form_requests.findFirst({
+            where:  { id: req.params.request_id as string, client_id: req.client!.clientId, status: 'pending' },
+            select: { id: true, form_id: true },
+        });
+        if (!request) return res.status(404).json({ error: 'Request not found or already submitted' });
 
-        for (const { question_id, answer } of answers) {
-            await pool.query(
-                'INSERT INTO form_responses (request_id, question_id, answer, id) VALUES ($1, $2, $3, $4)',
-                [req.params.request_id, question_id, answer ?? '', createId()]
-            );
-        }
-
-        await pool.query(
-            `UPDATE form_requests SET status = 'submitted', submitted_at = NOW() WHERE id = $1`,
-            [req.params.request_id]
-        );
+        await prisma.$transaction([
+            prisma.form_responses.createMany({
+                data: answers.map(({ question_id, answer }) => ({
+                    id:         createId(),
+                    request_id: req.params.request_id as string,
+                    question_id,
+                    answer:     answer != null ? String(answer) : '',
+                })),
+            }),
+            prisma.form_requests.update({
+                where: { id: req.params.request_id as string },
+                data:  { status: 'submitted', submitted_at: new Date() },
+            }),
+        ]);
 
         res.json({ success: true });
     } catch (err) {
@@ -418,33 +396,30 @@ router.post('/form-requests/:request_id/submit', clientAuthMiddleware, async (re
 // GET /api/client-portal/messages
 router.get('/messages', clientAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { rows: threadRows } = await pool.query(`
-            INSERT INTO threads (id, workspace_id, client_id)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (workspace_id, client_id) DO UPDATE SET updated_at = threads.updated_at
-            RETURNING *
-        `, [createId(), req.client!.workspaceId, req.client!.clientId]);
-        const thread = threadRows[0];
+        const thread = await prisma.threads.upsert({
+            where:  { workspace_id_client_id: { workspace_id: req.client!.workspaceId, client_id: req.client!.clientId } },
+            create: { id: createId(), workspace_id: req.client!.workspaceId, client_id: req.client!.clientId },
+            update: {},
+        });
 
-        await pool.query(`
-            UPDATE messages
-            SET read_by_client_at = NOW()
-            WHERE thread_id = $1 AND sender_type = 'team' AND read_by_client_at IS NULL
-        `, [(thread as Record<string, string>).id]);
+        await prisma.messages.updateMany({
+            where: { thread_id: thread.id, sender_type: 'team', read_by_client_at: null },
+            data:  { read_by_client_at: new Date() },
+        });
 
-        const { rows: messages } = await pool.query(`
-            SELECT id, sender_type, body, read_by_team_at, read_by_client_at, created_at
-            FROM messages
-            WHERE thread_id = $1
-            ORDER BY created_at ASC
-        `, [(thread as Record<string, string>).id]);
+        const [messages, workspace] = await Promise.all([
+            prisma.messages.findMany({
+                where:   { thread_id: thread.id },
+                select:  { id: true, sender_type: true, body: true, read_by_team_at: true, read_by_client_at: true, created_at: true },
+                orderBy: { created_at: 'asc' },
+            }),
+            prisma.workspaces.findFirst({
+                where:  { id: req.client!.workspaceId },
+                select: { name: true },
+            }),
+        ]);
 
-        const { rows: wsRows } = await pool.query(
-            'SELECT name FROM workspaces WHERE id = $1',
-            [req.client!.workspaceId]
-        );
-
-        res.json({ thread, messages, coachName: (wsRows[0] as Record<string, string> | undefined)?.name ?? null });
+        res.json({ thread, messages, coachName: workspace?.name ?? null });
     } catch (err) {
         next(err);
     }
@@ -457,24 +432,29 @@ router.post('/messages', clientAuthMiddleware, async (req: Request, res: Respons
     if (body.trim().length > 5000) return res.status(400).json({ error: 'Message exceeds 5000 character limit' });
 
     try {
-        const { rows: threadRows } = await pool.query(
-            'SELECT id FROM threads WHERE workspace_id = $1 AND client_id = $2',
-            [req.client!.workspaceId, req.client!.clientId]
-        );
-        if (!threadRows.length) return res.status(404).json({ error: 'No thread found — open the messages page first' });
+        const thread = await prisma.threads.findFirst({
+            where:  { workspace_id: req.client!.workspaceId, client_id: req.client!.clientId },
+            select: { id: true },
+        });
+        if (!thread) return res.status(404).json({ error: 'No thread found — open the messages page first' });
 
-        const { rows } = await pool.query(`
-            INSERT INTO messages (id, thread_id, sender_type, sender_id, body, read_by_client_at)
-            VALUES ($1, $2, 'client', $3, $4, NOW())
-            RETURNING *
-        `, [createId(), (threadRows[0] as Record<string, string>).id, req.client!.clientId, body.trim()]);
+        const message = await prisma.messages.create({
+            data: {
+                id:               createId(),
+                thread_id:        thread.id,
+                sender_type:      'client',
+                sender_id:        req.client!.clientId,
+                body:             body.trim(),
+                read_by_client_at: new Date(),
+            },
+        });
 
-        await pool.query(
-            'UPDATE threads SET updated_at = NOW() WHERE id = $1',
-            [(threadRows[0] as Record<string, string>).id]
-        );
+        await prisma.threads.update({
+            where: { id: thread.id },
+            data:  { updated_at: new Date() },
+        });
 
-        res.status(201).json(rows[0]);
+        res.status(201).json(message);
     } catch (err) {
         next(err);
     }

@@ -7,6 +7,10 @@ import * as Sentry from '@sentry/node';
 
 import { env } from './config/env';
 import { readLimiter, mutationLimiter } from './middleware/rateLimit';
+import { prisma } from './lib/prisma';
+
+process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
+process.on('SIGTERM', async () => { await prisma.$disconnect(); process.exit(0); });
 
 import authRouter        from './modules/auth/index';
 import dashboardRouter   from './modules/dashboard/index';

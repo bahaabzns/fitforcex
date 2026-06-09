@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import path from 'path';
+import { Prisma } from '@prisma/client';
 import { createId } from '@paralleldrive/cuid2';
 import authMiddleware from '../../middleware/auth';
 import requirePermission from '../../middleware/requirePermission';
 import { makeUploader, createSignedUrl } from '../../lib/storage';
 import { uploadLimiter } from '../../middleware/rateLimit';
 import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
-import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
@@ -105,31 +106,31 @@ function computePerTxStatuses(
     return result;
 }
 
+type ActivationRow = { client_id: string; first_activation: Date | null };
+
 async function getFirstPlanActivation(clientId: string): Promise<string | null> {
-    const result = await pool.query(
-        `SELECT MIN(activated_at) AS first_activation FROM (
-            SELECT activated_at FROM training_plans  WHERE client_id = $1 AND activated_at IS NOT NULL
+    const rows = await prisma.$queryRaw<ActivationRow[]>`
+        SELECT MIN(activated_at) AS first_activation FROM (
+            SELECT activated_at FROM training_plans  WHERE client_id = ${clientId} AND activated_at IS NOT NULL
             UNION ALL
-            SELECT activated_at FROM nutrition_plans WHERE client_id = $1 AND activated_at IS NOT NULL
-        ) x`,
-        [clientId]
-    );
-    return (result.rows[0] as Record<string, string | null>)?.first_activation ?? null;
+            SELECT activated_at FROM nutrition_plans WHERE client_id = ${clientId} AND activated_at IS NOT NULL
+        ) x
+    `;
+    return rows[0]?.first_activation ? rows[0].first_activation.toISOString() : null;
 }
 
 async function syncClientPackage(clientId: string | null, workspaceId: string): Promise<void> {
     if (!clientId) return;
-    const latest = await pool.query(
-        `SELECT package_variation FROM transactions
-         WHERE client_id = $1 AND workspace_id = $2
-         ORDER BY transaction_date DESC, created_at DESC LIMIT 1`,
-        [clientId, workspaceId]
-    );
-    if (latest.rows.length) {
-        await pool.query(
-            'UPDATE clients SET current_package = $1 WHERE id = $2 AND workspace_id = $3',
-            [(latest.rows[0] as TxDbRow).package_variation, clientId, workspaceId]
-        );
+    const latest = await prisma.transactions.findFirst({
+        where: { client_id: clientId, workspace_id: workspaceId },
+        select: { package_variation: true },
+        orderBy: [{ transaction_date: 'desc' }, { created_at: 'desc' }],
+    });
+    if (latest) {
+        await prisma.clients.updateMany({
+            where: { id: clientId, workspace_id: workspaceId },
+            data:  { current_package: latest.package_variation },
+        });
     }
 }
 
@@ -140,15 +141,15 @@ router.use((req, res, next) => {
 });
 
 router.get('/proof/:filename', async (req, res, next) => {
-    const filename = path.basename(req.params.filename);
+    const filename = path.basename(req.params.filename as string);
     const dbPath   = `/api/transactions/proof/${filename}`;
     const s3Key    = `transactions/${filename}`;
     try {
-        const result = await pool.query(
-            'SELECT id FROM transactions WHERE proof_image = $1 AND workspace_id = $2',
-            [dbPath, req.user!.workspaceId]
-        );
-        if (!result.rows.length) return res.status(403).json({ error: 'Forbidden' });
+        const tx = await prisma.transactions.findFirst({
+            where: { proof_image: dbPath, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!tx) return res.status(403).json({ error: 'Forbidden' });
         const url = await createSignedUrl(s3Key);
         res.redirect(url);
     } catch (err) { next(err); }
@@ -162,16 +163,18 @@ router.post('/upload-proof', uploadLimiter, upload.single('proof'), (req, res) =
 });
 
 router.get('/by-client/:clientId', async (req, res, next) => {
+    const clientId = req.params.clientId as string;
     try {
-        const result = await pool.query(
-            `SELECT * FROM transactions
-             WHERE workspace_id = $1 AND (client_id = $2 OR (client_id IS NULL AND client_name ILIKE (
-                 SELECT CONCAT(fname, ' ', lname) FROM clients WHERE id = $2 AND workspace_id = $1 LIMIT 1
-             )))
-             ORDER BY transaction_date DESC`,
-            [req.user!.workspaceId, req.params.clientId]
-        );
-        res.json(result.rows.map(mapRow));
+        // Complex subquery: match by client_id OR by client name matching the client record
+        const rows = await prisma.$queryRaw<TxDbRow[]>`
+            SELECT * FROM transactions
+            WHERE workspace_id = ${req.user!.workspaceId}
+              AND (client_id = ${clientId} OR (client_id IS NULL AND client_name ILIKE (
+                  SELECT CONCAT(fname, ' ', lname) FROM clients WHERE id = ${clientId} AND workspace_id = ${req.user!.workspaceId} LIMIT 1
+              )))
+            ORDER BY transaction_date DESC
+        `;
+        res.json(rows.map(mapRow));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -182,64 +185,66 @@ router.get('/', async (req, res, next) => {
     const page   = Math.max(1, parseInt(req.query.page  as string) || 1);
     const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
+    const wsId   = req.user!.workspaceId;
 
     try {
-        const [txResult, countResult] = await Promise.all([
-            pool.query(`SELECT * FROM transactions WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
-                [req.user!.workspaceId, limit, offset]),
-            pool.query('SELECT COUNT(*) FROM transactions WHERE workspace_id = $1', [req.user!.workspaceId]),
+        const [txRows, total] = await Promise.all([
+            prisma.transactions.findMany({
+                where: { workspace_id: wsId },
+                orderBy: { created_at: 'desc' },
+                take: limit,
+                skip: offset,
+            }),
+            prisma.transactions.count({ where: { workspace_id: wsId } }),
         ]);
 
-        const clientIds = [...new Set((txResult.rows as TxDbRow[]).map(r => r.client_id).filter(Boolean))] as string[];
+        const clientIds = [...new Set(txRows.map(r => r.client_id).filter(Boolean))] as string[];
         let txStatuses: Record<string, string> = {};
 
         if (clientIds.length > 0) {
-            const placeholders       = clientIds.map((_, i) => `$${i + 2}`).join(', ');
-            const freezePlaceholders = clientIds.map((_, i) => `$${i + 1}`).join(', ');
+            type FreezeRow = { client_id: string; freeze_start_date: Date; freeze_duration_days: number };
+            type PlanActRow = { client_id: string; first_activation: Date | null };
 
-            const [allClientTxResult, freezeResult, planActivationResult] = await Promise.all([
-                pool.query(
-                    `SELECT client_id, status, duration, subscription_start_date, start_mode, created_at
-                     FROM transactions WHERE workspace_id = $1 AND client_id IN (${placeholders})`,
-                    [req.user!.workspaceId, ...clientIds]
-                ),
-                pool.query(`SELECT sf.* FROM subscription_freezes sf WHERE sf.client_id IN (${freezePlaceholders})`, clientIds),
-                pool.query(
-                    `SELECT client_id, MIN(activated_at) AS first_activation FROM (
-                         SELECT client_id, activated_at FROM training_plans
-                         WHERE workspace_id = $1 AND client_id IN (${placeholders}) AND activated_at IS NOT NULL
-                         UNION ALL
-                         SELECT client_id, activated_at FROM nutrition_plans
-                         WHERE workspace_id = $1 AND client_id IN (${placeholders}) AND activated_at IS NOT NULL
-                     ) combined GROUP BY client_id`,
-                    [req.user!.workspaceId, ...clientIds]
-                ),
+            const [allClientTxs, freezeRows, planActRows] = await Promise.all([
+                prisma.transactions.findMany({
+                    where: { workspace_id: wsId, client_id: { in: clientIds } },
+                    select: { id: true, client_id: true, status: true, duration: true, subscription_start_date: true, start_mode: true, created_at: true },
+                }),
+                prisma.subscription_freezes.findMany({
+                    where: { client_id: { in: clientIds } },
+                }),
+                prisma.$queryRaw<PlanActRow[]>`
+                    SELECT client_id, MIN(activated_at) AS first_activation FROM (
+                        SELECT client_id, activated_at FROM training_plans
+                        WHERE workspace_id = ${wsId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
+                        UNION ALL
+                        SELECT client_id, activated_at FROM nutrition_plans
+                        WHERE workspace_id = ${wsId} AND client_id = ANY(${Prisma.raw(`ARRAY[${clientIds.map(id => `'${id}'`).join(',')}]`)}) AND activated_at IS NOT NULL
+                    ) combined GROUP BY client_id
+                `,
             ]);
 
             const freezesByClient: Record<string, TxDbRow[]> = {};
-            for (const f of freezeResult.rows as TxDbRow[]) {
-                const cid = f.client_id as string;
-                if (!freezesByClient[cid]) freezesByClient[cid] = [];
-                freezesByClient[cid].push(f);
+            for (const f of freezeRows as FreezeRow[]) {
+                if (!freezesByClient[f.client_id]) freezesByClient[f.client_id] = [];
+                freezesByClient[f.client_id].push(f as unknown as TxDbRow);
             }
             const planActivationByClient: Record<string, string | null> = {};
-            for (const row of planActivationResult.rows as TxDbRow[]) {
-                planActivationByClient[row.client_id as string] = row.first_activation as string | null;
+            for (const row of planActRows) {
+                planActivationByClient[row.client_id] = row.first_activation ? new Date(row.first_activation).toISOString() : null;
             }
             const txByClient: Record<string, TxDbRow[]> = {};
-            for (const tx of allClientTxResult.rows as TxDbRow[]) {
-                if (tx.client_id == null) continue;
-                const cid = tx.client_id as string;
-                if (!txByClient[cid]) txByClient[cid] = [];
-                txByClient[cid].push(tx);
+            for (const tx of allClientTxs) {
+                if (!tx.client_id) continue;
+                if (!txByClient[tx.client_id]) txByClient[tx.client_id] = [];
+                txByClient[tx.client_id].push(tx as unknown as TxDbRow);
             }
 
             txStatuses = computePerTxStatuses(txByClient, freezesByClient, planActivationByClient);
         }
 
-        const total = parseInt((countResult.rows[0] as Record<string, string>).count);
         res.json({
-            data: (txResult.rows as TxDbRow[]).map(row => ({ ...mapRow(row), subscriptionStatus: txStatuses[row.id as string] ?? null })),
+            data: txRows.map(row => ({ ...mapRow(row as unknown as TxDbRow), subscriptionStatus: txStatuses[row.id] ?? null })),
             total, page, limit, totalPages: Math.ceil(total / limit),
         });
     } catch (err) { next(err); }
@@ -265,59 +270,67 @@ router.post('/', async (req, res, next) => {
             startMode = 'custom';
             finalSubStartDate = new Date(subscriptionStartDate);
         } else if (clientId) {
-            const [existingTxResult, existingFreezesResult, planActivation] = await Promise.all([
-                pool.query(
-                    `SELECT client_id, status, duration, subscription_start_date, start_mode, created_at
-                     FROM transactions WHERE client_id = $1 AND workspace_id = $2`,
-                    [clientId, req.user!.workspaceId]
-                ),
-                pool.query('SELECT * FROM subscription_freezes WHERE client_id = $1', [clientId]),
+            const [existingTxs, freezeRows, planActivation] = await Promise.all([
+                prisma.transactions.findMany({
+                    where: { client_id: clientId, workspace_id: req.user!.workspaceId },
+                }),
+                prisma.subscription_freezes.findMany({ where: { client_id: clientId } }),
                 getFirstPlanActivation(clientId),
             ]);
 
             const currentStatus = computeSubscriptionStatus(
-                existingTxResult.rows, existingFreezesResult.rows, planActivation
+                existingTxs as unknown as Parameters<typeof computeSubscriptionStatus>[0],
+                freezeRows as unknown as Parameters<typeof computeSubscriptionStatus>[1],
+                planActivation
             );
             if (currentStatus === 'Active') startMode = 'queued';
         }
 
-        const result = await pool.query(
-            `INSERT INTO transactions
-                (workspace_id, client_id, client_name, package_variation, payment_method, amount, currency,
-                 duration, type, status, notes, proof_image, transaction_date, subscription_start_date, start_mode, id)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
-            [
-                req.user!.workspaceId, clientId || null, clientName.trim(),
-                packageVariation?.trim() || null, paymentMethod.trim(), amt, currency.trim(),
-                duration ? Number(duration) : null, type || 'subscription', status || 'completed',
-                notes?.trim() || null, proofImage || null, date ? new Date(date) : new Date(),
-                finalSubStartDate, startMode, createId(),
-            ]
-        );
-        await syncClientPackage((result.rows[0] as TxDbRow).client_id as string | null, req.user!.workspaceId);
-        res.status(201).json(mapRow(result.rows[0] as TxDbRow));
+        const tx = await prisma.transactions.create({
+            data: {
+                id:                     createId(),
+                workspace_id:           req.user!.workspaceId,
+                client_id:              clientId || null,
+                client_name:            clientName.trim(),
+                package_variation:      packageVariation?.trim() || null,
+                payment_method:         paymentMethod.trim(),
+                amount:                 amt,
+                currency:               currency.trim(),
+                duration:               duration ? Number(duration) : null,
+                type:                   type || 'subscription',
+                status:                 status || 'completed',
+                notes:                  notes?.trim() || null,
+                proof_image:            proofImage || null,
+                transaction_date:       date ? new Date(date) : new Date(),
+                subscription_start_date: finalSubStartDate,
+                start_mode:             startMode,
+            },
+        });
+
+        await syncClientPackage(tx.client_id, req.user!.workspaceId);
+        res.status(201).json(mapRow(tx as unknown as TxDbRow));
     } catch (err) { next(err); }
 });
 
 router.put('/:id', async (req, res, next) => {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const { clientName, clientId, packageVariation, paymentMethod, amount, currency,
             duration, type, status, notes, date, proofImage, subscriptionStartDate } = req.body as Record<string, string | undefined>;
 
-    if (!id) return res.status(400).json({ error: 'id is required' });
     if (type   !== undefined && !VALID_TYPES.includes(type!))     return res.status(400).json({ error: 'Invalid type' });
     if (status !== undefined && !VALID_STATUSES.includes(status!)) return res.status(400).json({ error: 'Invalid status' });
 
     try {
-        const existing = await pool.query('SELECT * FROM transactions WHERE id = $1 AND workspace_id = $2', [id, req.user!.workspaceId]);
-        if (!existing.rows.length) return res.status(404).json({ error: 'Transaction not found' });
+        const cur = await prisma.transactions.findFirst({
+            where: { id, workspace_id: req.user!.workspaceId },
+        });
+        if (!cur) return res.status(404).json({ error: 'Transaction not found' });
 
-        const cur = existing.rows[0] as TxDbRow;
         const amt = amount !== undefined ? Number(amount) : Number(cur.amount);
         if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: 'Amount must be a positive number' });
 
-        let newStartMode    = (cur.start_mode as string) || 'on_first_plan';
-        let newSubStartDate = subscriptionStartDate !== undefined
+        let newStartMode    = cur.start_mode || 'on_first_plan';
+        let newSubStartDate: Date | null | undefined = subscriptionStartDate !== undefined
             ? (subscriptionStartDate ? new Date(subscriptionStartDate) : null)
             : cur.subscription_start_date;
 
@@ -325,41 +338,39 @@ router.put('/:id', async (req, res, next) => {
             newStartMode = subscriptionStartDate ? 'custom' : cur.start_mode === 'queued' ? 'queued' : 'on_first_plan';
         }
 
-        const result = await pool.query(
-            `UPDATE transactions
-                SET client_id = $1, client_name = $2, package_variation = $3, payment_method = $4,
-                    amount = $5, currency = $6, duration = $7, type = $8, status = $9,
-                    notes = $10, proof_image = $11, transaction_date = $12,
-                    subscription_start_date = $13, start_mode = $14
-                WHERE id = $15 AND workspace_id = $16 RETURNING *`,
-            [
-                clientId         !== undefined ? (clientId || null)                           : cur.client_id,
-                clientName       !== undefined ? clientName.trim()                            : cur.client_name,
-                packageVariation !== undefined ? (packageVariation?.trim() || null)           : cur.package_variation,
-                paymentMethod    !== undefined ? paymentMethod.trim()                         : cur.payment_method,
-                amt,
-                currency   !== undefined ? currency.trim()                              : cur.currency,
-                duration   !== undefined ? (duration ? Number(duration) : null)         : cur.duration,
-                type       !== undefined ? type                                          : cur.type,
-                status     !== undefined ? status                                        : cur.status,
-                notes      !== undefined ? (notes?.trim() || null)                      : cur.notes,
-                proofImage !== undefined ? (proofImage || null)                         : cur.proof_image,
-                date       !== undefined ? new Date(date!)                              : cur.transaction_date,
-                newSubStartDate, newStartMode, id, req.user!.workspaceId,
-            ]
-        );
-        await syncClientPackage((result.rows[0] as TxDbRow).client_id as string | null, req.user!.workspaceId);
-        res.json(mapRow(result.rows[0] as TxDbRow));
+        const updated = await prisma.transactions.update({
+            where: { id },
+            data: {
+                client_id:               clientId         !== undefined ? (clientId || null)                 : cur.client_id,
+                client_name:             clientName       !== undefined ? clientName.trim()                  : cur.client_name,
+                package_variation:       packageVariation !== undefined ? (packageVariation?.trim() || null) : cur.package_variation,
+                payment_method:          paymentMethod    !== undefined ? paymentMethod.trim()               : cur.payment_method,
+                amount:                  amt,
+                currency:                currency   !== undefined ? currency.trim()                          : cur.currency,
+                duration:                duration   !== undefined ? (duration ? Number(duration) : null)     : cur.duration,
+                type:                    type       !== undefined ? type                                     : cur.type,
+                status:                  status     !== undefined ? status                                   : cur.status,
+                notes:                   notes      !== undefined ? (notes?.trim() || null)                  : cur.notes,
+                proof_image:             proofImage !== undefined ? (proofImage || null)                     : cur.proof_image,
+                transaction_date:        date       !== undefined ? new Date(date!)                          : cur.transaction_date,
+                subscription_start_date: newSubStartDate,
+                start_mode:              newStartMode,
+            },
+        });
+
+        await syncClientPackage(updated.client_id, req.user!.workspaceId);
+        res.json(mapRow(updated as unknown as TxDbRow));
     } catch (err) { next(err); }
 });
 
 router.delete('/:id', async (req, res, next) => {
-    const id = req.params.id;
-    if (!id) return res.status(400).json({ error: 'id is required' });
+    const id = req.params.id as string;
     try {
-        const result = await pool.query('DELETE FROM transactions WHERE id = $1 AND workspace_id = $2 RETURNING id', [id, req.user!.workspaceId]);
-        if (!result.rows.length) return res.status(404).json({ error: 'Transaction not found' });
-        res.json({ deleted: (result.rows[0] as TxDbRow).id });
+        const deleted = await prisma.transactions.deleteMany({
+            where: { id, workspace_id: req.user!.workspaceId },
+        });
+        if (deleted.count === 0) return res.status(404).json({ error: 'Transaction not found' });
+        res.json({ deleted: id });
     } catch (err) { next(err); }
 });
 

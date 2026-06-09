@@ -1,8 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
+import { Prisma } from '@prisma/client';
 import authMiddleware from '../../middleware/auth';
 import requirePermission from '../../middleware/requirePermission';
 import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
@@ -24,6 +26,7 @@ function normalizeFormType(value: unknown): string {
     return allowed.includes(value as string) ? (value as string) : 'check-in';
 }
 
+// DDL — kept as raw pool (ALTER TABLE cannot run inside Prisma)
 async function ensureFormsQueueSchema(): Promise<void> {
     if (!schemaReadyPromise) {
         schemaReadyPromise = (async () => {
@@ -38,16 +41,15 @@ async function ensureFormsQueueSchema(): Promise<void> {
 }
 
 async function activateDueScheduledRequests(workspaceId: string): Promise<void> {
-    await pool.query(
-        `UPDATE form_requests
-         SET status = 'pending',
-             requested_at = COALESCE(requested_at, NOW())
-         WHERE workspace_id = $1
-           AND status = 'scheduled'
-           AND scheduled_at IS NOT NULL
-           AND scheduled_at <= NOW()`,
-        [workspaceId]
-    );
+    await prisma.$executeRaw`
+        UPDATE form_requests
+        SET status = 'pending',
+            requested_at = COALESCE(requested_at, NOW())
+        WHERE workspace_id = ${workspaceId}
+          AND status = 'scheduled'
+          AND scheduled_at IS NOT NULL
+          AND scheduled_at <= NOW()
+    `;
 }
 
 router.use(async (_req: Request, _res: Response, next: NextFunction) => {
@@ -61,18 +63,19 @@ router.use(async (_req: Request, _res: Response, next: NextFunction) => {
 
 // ── Forms ──────────────────────────────────────────────────────────────────────
 
+type FormRow = Record<string, unknown>;
+
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            `SELECT f.*, COUNT(fq.id)::int AS question_count
-             FROM forms f
-             LEFT JOIN form_questions fq ON fq.form_id = f.id
-             WHERE f.workspace_id = $1
-             GROUP BY f.id
-             ORDER BY f.created_at DESC`,
-            [req.user!.workspaceId]
-        );
-        res.json(result.rows);
+        const rows = await prisma.$queryRaw<FormRow[]>`
+            SELECT f.*, COUNT(fq.id)::int AS question_count
+            FROM forms f
+            LEFT JOIN form_questions fq ON fq.form_id = f.id
+            WHERE f.workspace_id = ${req.user!.workspaceId}
+            GROUP BY f.id
+            ORDER BY f.created_at DESC
+        `;
+        res.json(rows);
     } catch (err) {
         next(err);
     }
@@ -83,13 +86,19 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const safePostAction = normalizePostAction(postAction);
     const safeFormType   = normalizeFormType(formType);
     try {
-        const result = await pool.query(
-            `INSERT INTO forms (workspace_id, title_en, title_ar, description_en, description_ar, post_action, form_type)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING *, 0 AS question_count`,
-            [req.user!.workspaceId, title_en || 'Untitled Form', title_ar || null, description_en || null, description_ar || null, safePostAction, safeFormType]
-        );
-        res.status(201).json(result.rows[0]);
+        const form = await prisma.forms.create({
+            data: {
+                id:             createId(),
+                workspace_id:   req.user!.workspaceId as string,
+                title_en:       (title_en as string | undefined) || 'Untitled Form',
+                title_ar:       (title_ar as string | undefined) || null,
+                description_en: (description_en as string | undefined) || null,
+                description_ar: (description_ar as string | undefined) || null,
+                post_action:    safePostAction,
+                form_type:      safeFormType,
+            },
+        });
+        res.status(201).json({ ...form, question_count: 0 });
     } catch (err) {
         next(err);
     }
@@ -100,22 +109,22 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     const safePostAction = postAction !== undefined ? normalizePostAction(postAction) : undefined;
     const safeFormType   = formType   !== undefined ? normalizeFormType(formType)    : undefined;
     try {
-        const result = await pool.query(
-            `UPDATE forms
-             SET title_en       = COALESCE($1, title_en),
-                 title_ar       = COALESCE($2, title_ar),
-                 description_en = COALESCE($3, description_en),
-                 description_ar = COALESCE($4, description_ar),
-                 status         = COALESCE($5, status),
-                 post_action    = COALESCE($6, post_action),
-                 form_type      = COALESCE($7, form_type),
-                 updated_at     = NOW()
-             WHERE id = $8 AND workspace_id = $9
-             RETURNING *`,
-            [title_en, title_ar, description_en, description_ar, status, safePostAction, safeFormType, req.params.id, req.user!.workspaceId]
-        );
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
-        res.json(result.rows[0]);
+        const updated = await prisma.forms.updateMany({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            data: {
+                title_en:       (title_en       as string | undefined) ?? undefined,
+                title_ar:       (title_ar       as string | undefined) ?? undefined,
+                description_en: (description_en as string | undefined) ?? undefined,
+                description_ar: (description_ar as string | undefined) ?? undefined,
+                status:         (status         as string | undefined) ?? undefined,
+                post_action:    safePostAction,
+                form_type:      safeFormType,
+                updated_at:     new Date(),
+            },
+        });
+        if (updated.count === 0) return res.status(404).json({ error: 'Form not found' });
+        const form = await prisma.forms.findFirst({ where: { id: req.params.id as string } });
+        res.json(form);
     } catch (err) {
         next(err);
     }
@@ -123,12 +132,11 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            'DELETE FROM forms WHERE id = $1 AND workspace_id = $2 RETURNING *',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
-        res.json(result.rows[0]);
+        const deleted = await prisma.forms.deleteMany({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+        });
+        if (deleted.count === 0) return res.status(404).json({ error: 'Form not found' });
+        res.json({ deleted: req.params.id });
     } catch (err) {
         next(err);
     }
@@ -138,17 +146,17 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 
 router.get('/:id/questions', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const form = await pool.query(
-            'SELECT id FROM forms WHERE id = $1 AND workspace_id = $2',
-            [req.params.id, req.user!.workspaceId]
-        );
-        if (form.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
+        const form = await prisma.forms.findFirst({
+            where:  { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!form) return res.status(404).json({ error: 'Form not found' });
 
-        const result = await pool.query(
-            'SELECT * FROM form_questions WHERE form_id = $1 ORDER BY order_index ASC, id ASC',
-            [req.params.id]
-        );
-        res.json(result.rows);
+        const questions = await prisma.form_questions.findMany({
+            where:   { form_id: req.params.id as string },
+            orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
+        });
+        res.json(questions);
     } catch (err) {
         next(err);
     }
@@ -157,29 +165,37 @@ router.get('/:id/questions', async (req: Request, res: Response, next: NextFunct
 router.post('/:id/questions', async (req: Request, res: Response, next: NextFunction) => {
     const { label_en, label_ar, type } = req.body as Record<string, unknown>;
     try {
-        const countResult = await pool.query(
-            'SELECT COALESCE(MAX(order_index), -1) + 1 AS next_index FROM form_questions WHERE form_id = $1',
-            [req.params.id]
-        );
-        const orderIndex = (countResult.rows[0] as Record<string, number>).next_index;
+        const agg = await prisma.form_questions.aggregate({
+            where:   { form_id: req.params.id as string },
+            _max:    { order_index: true },
+        });
+        const orderIndex = (agg._max.order_index ?? -1) + 1;
 
         const defaults = {
             min_value: type === 'scale' ? 1 : null,
             max_value: type === 'scale' ? 10 : null,
-            options:   ['select', 'multiselect'].includes(type as string) ? [] : null,
+            options:   ['select', 'multiselect'].includes(type as string) ? ([] as Prisma.InputJsonValue) : null,
         };
 
-        const result = await pool.query(
-            `INSERT INTO form_questions (form_id, label_en, label_ar, type, order_index, min_value, max_value, options)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING *`,
-            [req.params.id, label_en || 'Question', label_ar || null, type || 'text', orderIndex,
-             defaults.min_value, defaults.max_value,
-             defaults.options !== null ? JSON.stringify(defaults.options) : null]
-        );
+        const question = await prisma.form_questions.create({
+            data: {
+                id:          createId(),
+                form_id:     req.params.id as string,
+                label_en:    (label_en as string | undefined) || 'Question',
+                label_ar:    (label_ar as string | undefined) || null,
+                type:        (type as string | undefined) || 'text',
+                order_index: orderIndex,
+                min_value:   defaults.min_value,
+                max_value:   defaults.max_value,
+                options:     defaults.options ?? Prisma.DbNull,
+            },
+        });
 
-        await pool.query('UPDATE forms SET updated_at = NOW() WHERE id = $1', [req.params.id]);
-        res.status(201).json(result.rows[0]);
+        await prisma.forms.updateMany({
+            where: { id: req.params.id as string },
+            data:  { updated_at: new Date() },
+        });
+        res.status(201).json(question);
     } catch (err) {
         next(err);
     }
@@ -188,32 +204,32 @@ router.post('/:id/questions', async (req: Request, res: Response, next: NextFunc
 router.put('/:id/questions/:qid', async (req: Request, res: Response, next: NextFunction) => {
     const { label_en, label_ar, type, required, placeholder_en, placeholder_ar, options, options_ar, min_value, max_value } = req.body as Record<string, unknown>;
     try {
-        const result = await pool.query(
-            `UPDATE form_questions
-             SET label_en       = COALESCE($1, label_en),
-                 label_ar       = COALESCE($2, label_ar),
-                 type           = COALESCE($3, type),
-                 required       = COALESCE($4, required),
-                 placeholder_en = COALESCE($5, placeholder_en),
-                 placeholder_ar = COALESCE($6, placeholder_ar),
-                 options        = COALESCE($7, options),
-                 options_ar     = COALESCE($8, options_ar),
-                 min_value      = COALESCE($9, min_value),
-                 max_value      = COALESCE($10, max_value)
-             WHERE id = $11 AND form_id = $12
-             RETURNING *`,
-            [label_en, label_ar,
-             type, required,
-             placeholder_en, placeholder_ar,
-             options !== undefined ? JSON.stringify(options) : undefined,
-             options_ar !== undefined ? JSON.stringify(options_ar) : undefined,
-             min_value, max_value,
-             req.params.qid, req.params.id]
-        );
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Question not found' });
+        const existing = await prisma.form_questions.findFirst({
+            where: { id: req.params.qid as string, form_id: req.params.id as string },
+        });
+        if (!existing) return res.status(404).json({ error: 'Question not found' });
 
-        await pool.query('UPDATE forms SET updated_at = NOW() WHERE id = $1', [req.params.id]);
-        res.json(result.rows[0]);
+        const updated = await prisma.form_questions.update({
+            where: { id: req.params.qid as string },
+            data: {
+                label_en:       label_en       !== undefined ? (label_en       as string) : existing.label_en,
+                label_ar:       label_ar       !== undefined ? (label_ar       as string | null) : existing.label_ar,
+                type:           type           !== undefined ? (type           as string) : existing.type,
+                required:       required       !== undefined ? (required       as boolean) : existing.required,
+                placeholder_en: placeholder_en !== undefined ? (placeholder_en as string | null) : existing.placeholder_en,
+                placeholder_ar: placeholder_ar !== undefined ? (placeholder_ar as string | null) : existing.placeholder_ar,
+                options:        options    !== undefined ? (options    != null ? options    as Prisma.InputJsonValue : Prisma.DbNull) : (existing.options    ?? Prisma.DbNull),
+                options_ar:     options_ar !== undefined ? (options_ar != null ? options_ar as Prisma.InputJsonValue : Prisma.DbNull) : (existing.options_ar ?? Prisma.DbNull),
+                min_value:      min_value  !== undefined ? (min_value  as number | null) : existing.min_value,
+                max_value:      max_value  !== undefined ? (max_value  as number | null) : existing.max_value,
+            },
+        });
+
+        await prisma.forms.updateMany({
+            where: { id: req.params.id as string },
+            data:  { updated_at: new Date() },
+        });
+        res.json(updated);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -222,14 +238,16 @@ router.put('/:id/questions/:qid', async (req: Request, res: Response, next: Next
 
 router.delete('/:id/questions/:qid', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            'DELETE FROM form_questions WHERE id = $1 AND form_id = $2 RETURNING *',
-            [req.params.qid, req.params.id]
-        );
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Question not found' });
+        const deleted = await prisma.form_questions.deleteMany({
+            where: { id: req.params.qid as string, form_id: req.params.id as string },
+        });
+        if (deleted.count === 0) return res.status(404).json({ error: 'Question not found' });
 
-        await pool.query('UPDATE forms SET updated_at = NOW() WHERE id = $1', [req.params.id]);
-        res.json(result.rows[0]);
+        await prisma.forms.updateMany({
+            where: { id: req.params.id as string },
+            data:  { updated_at: new Date() },
+        });
+        res.json({ deleted: req.params.qid });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -239,13 +257,18 @@ router.delete('/:id/questions/:qid', async (req: Request, res: Response, next: N
 router.put('/:id/questions/reorder', async (req: Request, res: Response, next: NextFunction) => {
     const { order } = req.body as { order?: Array<{ id: string; order_index: number }> };
     try {
-        await Promise.all(
+        await prisma.$transaction(
             (order || []).map(({ id, order_index }) =>
-                pool.query('UPDATE form_questions SET order_index = $1 WHERE id = $2 AND form_id = $3',
-                    [order_index, id, req.params.id])
+                prisma.form_questions.updateMany({
+                    where: { id, form_id: req.params.id as string },
+                    data:  { order_index },
+                })
             )
         );
-        await pool.query('UPDATE forms SET updated_at = NOW() WHERE id = $1', [req.params.id]);
+        await prisma.forms.updateMany({
+            where: { id: req.params.id as string },
+            data:  { updated_at: new Date() },
+        });
         res.json({ success: true });
     } catch (err) {
         next(err);
@@ -272,29 +295,35 @@ router.post('/requests', async (req: Request, res: Response, next: NextFunction)
     }
 
     try {
-        const clientCheck = await pool.query(
-            'SELECT id FROM clients WHERE id = $1 AND workspace_id = $2',
-            [client_id, req.user!.workspaceId]
-        );
-        if (clientCheck.rows.length === 0) return res.status(403).json({ error: 'Client not found' });
+        const clientCheck = await prisma.clients.findFirst({
+            where:  { id: client_id as string, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!clientCheck) return res.status(403).json({ error: 'Client not found' });
 
         const inserted = [];
         for (const form_id of form_ids) {
-            const formCheck = await pool.query(
-                'SELECT id, post_action FROM forms WHERE id = $1 AND workspace_id = $2',
-                [form_id, req.user!.workspaceId]
-            );
-            if (formCheck.rows.length === 0) continue;
+            const formCheck = await prisma.forms.findFirst({
+                where:  { id: form_id as string, workspace_id: req.user!.workspaceId },
+                select: { id: true, post_action: true },
+            });
+            if (!formCheck) continue;
 
-            const formPostAction = normalizePostAction((formCheck.rows[0] as Record<string, unknown>).post_action);
+            const formPostAction = normalizePostAction(formCheck.post_action);
             const initialStatus  = requestMode === 'schedule' ? 'scheduled' : 'pending';
 
-            const result = await pool.query(
-                `INSERT INTO form_requests (form_id, client_id, workspace_id, status, scheduled_at, post_action, id)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-                [form_id, client_id, req.user!.workspaceId, initialStatus, scheduledAt, formPostAction, createId()]
-            );
-            inserted.push(result.rows[0]);
+            const request = await prisma.form_requests.create({
+                data: {
+                    id:            createId(),
+                    form_id:       form_id as string,
+                    client_id:     client_id as string,
+                    workspace_id:  req.user!.workspaceId,
+                    status:        initialStatus,
+                    scheduled_at:  scheduledAt,
+                    post_action:   formPostAction,
+                },
+            });
+            inserted.push(request);
         }
         res.status(201).json(inserted);
     } catch (err) {
@@ -302,49 +331,48 @@ router.post('/requests', async (req: Request, res: Response, next: NextFunction)
     }
 });
 
+type RequestRow = Record<string, unknown>;
+
 router.get('/requests/client/:client_id', async (req: Request, res: Response, next: NextFunction) => {
     try {
         await activateDueScheduledRequests(req.user!.workspaceId);
 
-        const clientCheck = await pool.query(
-            'SELECT id FROM clients WHERE id = $1 AND workspace_id = $2',
-            [req.params.client_id, req.user!.workspaceId]
-        );
-        if (clientCheck.rows.length === 0) return res.status(403).json({ error: 'Client not found' });
+        const clientCheck = await prisma.clients.findFirst({
+            where:  { id: req.params.client_id as string, workspace_id: req.user!.workspaceId },
+            select: { id: true },
+        });
+        if (!clientCheck) return res.status(403).json({ error: 'Client not found' });
 
-        const result = await pool.query(
-            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id,
-                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
-                    f.description_en AS form_description_en, f.description_ar AS form_description_ar,
-                    f.post_action AS form_post_action, f.form_type
-             FROM form_requests fr
-             JOIN forms f ON f.id = fr.form_id
-             WHERE fr.client_id = $1 AND fr.workspace_id = $2
-             ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC`,
-            [req.params.client_id, req.user!.workspaceId]
-        );
+        const rows = await prisma.$queryRaw<RequestRow[]>`
+            SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
+                   f.id AS form_id,
+                   f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                   f.description_en AS form_description_en, f.description_ar AS form_description_ar,
+                   f.post_action AS form_post_action, f.form_type
+            FROM form_requests fr
+            JOIN forms f ON f.id = fr.form_id
+            WHERE fr.client_id = ${req.params.client_id} AND fr.workspace_id = ${req.user!.workspaceId}
+            ORDER BY COALESCE(fr.scheduled_at, fr.requested_at) DESC
+        `;
 
-        const requests = await Promise.all(result.rows.map(async (req_row: Record<string, unknown>) => {
-            if (req_row.status === 'pending' || req_row.status === 'scheduled') {
-                return {
-                    ...req_row,
-                    post_action: req_row.post_action || req_row.form_post_action || 'nothing',
-                    responses: [],
-                };
+        const requests = await Promise.all(rows.map(async (row) => {
+            if (row.status === 'pending' || row.status === 'scheduled') {
+                return { ...row, post_action: row.post_action || row.form_post_action || 'nothing', responses: [] };
             }
-            const responses = await pool.query(
-                `SELECT fr.answer, fq.label_en, fq.label_ar, fq.type, fq.order_index
-                 FROM form_responses fr
-                 JOIN form_questions fq ON fq.id = fr.question_id
-                 WHERE fr.request_id = $1
-                 ORDER BY fq.order_index ASC, fq.id ASC`,
-                [req_row.id]
-            );
+            const responses = await prisma.form_responses.findMany({
+                where:   { request_id: row.id as string },
+                select:  { answer: true, question_id: true },
+            });
+            const questionsForResponse = await prisma.form_questions.findMany({
+                where:   { id: { in: responses.map(r => r.question_id).filter((id): id is string => id !== null) } },
+                select:  { id: true, label_en: true, label_ar: true, type: true, order_index: true },
+            });
+            const questionMap = new Map(questionsForResponse.map(q => [q.id, q]));
             return {
-                ...req_row,
-                post_action: req_row.post_action || req_row.form_post_action || 'nothing',
-                responses: responses.rows,
+                ...row,
+                post_action: row.post_action || row.form_post_action || 'nothing',
+                responses: responses.map(r => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
+                    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
             };
         }));
 
@@ -358,81 +386,62 @@ router.get('/queue', async (req: Request, res: Response, next: NextFunction) => 
     try {
         await activateDueScheduledRequests(req.user!.workspaceId);
 
-        const result = await pool.query(
-            `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
-                    fr.scheduled_at, fr.post_action, fr.action_taken_at,
-                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
-                    f.form_type, f.post_action AS form_post_action,
-                    c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
-                    NULL::text AS client_package,
-                    NULL::text AS subscription_status
-             FROM form_requests fr
-             JOIN forms f ON f.id = fr.form_id
-             JOIN clients c ON c.id = fr.client_id
-             WHERE fr.workspace_id = $1
-             ORDER BY fr.requested_at DESC`,
-            [req.user!.workspaceId]
-        );
+        const rows = await prisma.$queryRaw<RequestRow[]>`
+            SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
+                   fr.scheduled_at, fr.post_action, fr.action_taken_at,
+                   f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                   f.form_type, f.post_action AS form_post_action,
+                   c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
+                   NULL::text AS client_package,
+                   NULL::text AS subscription_status
+            FROM form_requests fr
+            JOIN forms f ON f.id = fr.form_id
+            JOIN clients c ON c.id = fr.client_id
+            WHERE fr.workspace_id = ${req.user!.workspaceId}
+            ORDER BY fr.requested_at DESC
+        `;
 
-        const queueItems = await Promise.all(result.rows.map(async (row: Record<string, unknown>) => {
+        const queueItems = await Promise.all(rows.map(async (row) => {
             if (row.status === 'pending' || row.status === 'scheduled') {
                 return {
-                    id:                 row.id,
-                    clientId:           row.client_id,
-                    clientCode:         row.client_code,
-                    clientName:         `${row.fname} ${row.lname}`.trim(),
-                    clientEmail:        row.email,
-                    clientPackage:      row.client_package,
-                    subscriptionStatus: row.subscription_status,
-                    formId:             row.form_id,
-                    formTitle_en:       row.form_title_en,
-                    formTitle_ar:       row.form_title_ar,
-                    formType:           row.form_type || 'check-in',
-                    postAction:         normalizePostAction(row.post_action || row.form_post_action),
-                    requestedAt:        row.requested_at,
-                    scheduledAt:        row.scheduled_at,
-                    submittedAt:        null,
-                    actionTakenAt:      null,
-                    status:             row.status === 'scheduled' ? 'scheduled' : 'awaiting',
-                    answers:            {},
-                    responses:          [],
+                    id: row.id, clientId: row.client_id, clientCode: row.client_code,
+                    clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email,
+                    clientPackage: row.client_package, subscriptionStatus: row.subscription_status,
+                    formId: row.form_id, formTitle_en: row.form_title_en, formTitle_ar: row.form_title_ar,
+                    formType: row.form_type || 'check-in',
+                    postAction: normalizePostAction(row.post_action || row.form_post_action),
+                    requestedAt: row.requested_at, scheduledAt: row.scheduled_at, submittedAt: null, actionTakenAt: null,
+                    status: row.status === 'scheduled' ? 'scheduled' : 'awaiting',
+                    answers: {}, responses: [],
                 };
             }
 
-            const responsesResult = await pool.query(
-                `SELECT fr.question_id, fr.answer, fq.label_en, fq.label_ar, fq.type, fq.order_index
-                 FROM form_responses fr
-                 JOIN form_questions fq ON fq.id = fr.question_id
-                 WHERE fr.request_id = $1
-                 ORDER BY fq.order_index ASC, fq.id ASC`,
-                [row.id]
-            );
+            const responses = await prisma.form_responses.findMany({
+                where:  { request_id: row.id as string },
+                select: { question_id: true, answer: true },
+            });
+            const questions = await prisma.form_questions.findMany({
+                where:   { id: { in: responses.map(r => r.question_id).filter((id): id is string => id !== null) } },
+                select:  { id: true, label_en: true, label_ar: true, type: true, order_index: true },
+            });
+            const questionMap = new Map(questions.map(q => [q.id, q]));
 
             const answers: Record<string, unknown> = {};
-            for (const response of responsesResult.rows) {
-                answers[(response as Record<string, string>).question_id] = (response as Record<string, unknown>).answer;
-            }
+            for (const r of responses) { if (r.question_id) answers[r.question_id] = r.answer; }
 
             return {
-                id:                 row.id,
-                clientId:           row.client_id,
-                clientCode:         row.client_code,
-                clientName:         `${row.fname} ${row.lname}`.trim(),
-                clientEmail:        row.email,
-                clientPackage:      row.client_package,
-                subscriptionStatus: row.subscription_status,
-                formId:             row.form_id,
-                formTitle_en:       row.form_title_en,
-                formTitle_ar:       row.form_title_ar,
-                formType:           row.form_type || 'check-in',
-                postAction:         normalizePostAction(row.post_action || row.form_post_action),
-                requestedAt:        row.requested_at,
-                scheduledAt:        row.scheduled_at,
-                submittedAt:        row.submitted_at,
-                actionTakenAt:      row.action_taken_at,
-                status:             row.status === 'reviewed' ? 'action-done' : 'need-action',
+                id: row.id, clientId: row.client_id, clientCode: row.client_code,
+                clientName: `${row.fname} ${row.lname}`.trim(), clientEmail: row.email,
+                clientPackage: row.client_package, subscriptionStatus: row.subscription_status,
+                formId: row.form_id, formTitle_en: row.form_title_en, formTitle_ar: row.form_title_ar,
+                formType: row.form_type || 'check-in',
+                postAction: normalizePostAction(row.post_action || row.form_post_action),
+                requestedAt: row.requested_at, scheduledAt: row.scheduled_at,
+                submittedAt: row.submitted_at, actionTakenAt: row.action_taken_at,
+                status: row.status === 'reviewed' ? 'action-done' : 'need-action',
                 answers,
-                responses:          responsesResult.rows,
+                responses: responses.map(r => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
+                    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
             };
         }));
 
@@ -451,32 +460,23 @@ router.patch('/queue/review', async (req: Request, res: Response, next: NextFunc
     const actionType = action === 'undo' ? 'undo' : 'review';
 
     try {
-        let result;
         if (actionType === 'undo') {
-            result = await pool.query(
-                `UPDATE form_requests
-                 SET status = 'submitted',
-                     action_taken_at = NULL
-                 WHERE workspace_id = $1
-                   AND id::text = ANY($2::text[])
-                   AND status = 'reviewed'
-                 RETURNING id`,
-                [req.user!.workspaceId, ids.map(String)]
-            );
+            await prisma.form_requests.updateMany({
+                where: { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) }, status: 'reviewed' },
+                data:  { status: 'submitted', action_taken_at: null },
+            });
         } else {
-            result = await pool.query(
-                `UPDATE form_requests
-                 SET status = 'reviewed',
-                     action_taken_at = NOW()
-                 WHERE workspace_id = $1
-                   AND id::text = ANY($2::text[])
-                   AND status = 'submitted'
-                 RETURNING id`,
-                [req.user!.workspaceId, ids.map(String)]
-            );
+            await prisma.form_requests.updateMany({
+                where: { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) }, status: 'submitted' },
+                data:  { status: 'reviewed', action_taken_at: new Date() },
+            });
         }
 
-        res.json({ updatedIds: result.rows.map((r: Record<string, unknown>) => r.id) });
+        const updated = await prisma.form_requests.findMany({
+            where:  { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) } },
+            select: { id: true },
+        });
+        res.json({ updatedIds: updated.map(r => r.id) });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -485,14 +485,15 @@ router.patch('/queue/review', async (req: Request, res: Response, next: NextFunc
 
 router.delete('/requests/:request_id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            `DELETE FROM form_requests
-             WHERE id = $1 AND workspace_id = $2 AND status IN ('pending', 'scheduled')
-             RETURNING *`,
-            [req.params.request_id, req.user!.workspaceId]
-        );
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found or already submitted/reviewed' });
-        res.json(result.rows[0]);
+        const deleted = await prisma.form_requests.deleteMany({
+            where: {
+                id:           req.params.request_id as string,
+                workspace_id: req.user!.workspaceId,
+                status:       { in: ['pending', 'scheduled'] },
+            },
+        });
+        if (deleted.count === 0) return res.status(404).json({ error: 'Request not found or already submitted/reviewed' });
+        res.json({ deleted: req.params.request_id });
     } catch (err) {
         next(err);
     }

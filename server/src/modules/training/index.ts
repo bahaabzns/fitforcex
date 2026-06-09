@@ -16,6 +16,7 @@ import {
     saveSinglePlanDraft,
 } from '../../lib/planEngine';
 import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
@@ -51,54 +52,57 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 
 router.get('/muscle-groups', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            `SELECT emg.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = emg.workspace_id AND el.muscle_group = emg.name_en) AS exercise_count
-             FROM exercise_muscle_groups emg
-             WHERE emg.workspace_id = $1
-             ORDER BY emg.name_en ASC`,
-            [req.user!.workspaceId]
-        );
-        res.json(result.rows);
+        const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
+            SELECT emg.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = emg.workspace_id AND el.muscle_group = emg.name_en) AS exercise_count
+            FROM exercise_muscle_groups emg
+            WHERE emg.workspace_id = ${req.user!.workspaceId}
+            ORDER BY emg.name_en ASC
+        `;
+        res.json(rows);
     } catch (err) { next(err); }
 });
 
 router.post('/muscle-groups', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { name_en, name_ar } = req.body as { name_en?: string; name_ar?: string };
-        const result = await pool.query(
-            'INSERT INTO exercise_muscle_groups (workspace_id, name_en, name_ar) VALUES ($1, $2, $3) RETURNING *',
-            [req.user!.workspaceId, name_en, name_ar || null]
-        );
-        res.status(201).json(result.rows[0]);
+        const created = await prisma.exercise_muscle_groups.create({
+            data: { id: createId(), workspace_id: req.user!.workspaceId, name_en: name_en!, name_ar: name_ar || null }
+        });
+        res.status(201).json(created);
     } catch (err) { next(err); }
 });
 
 router.put('/muscle-groups/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const oldRow = await pool.query('SELECT * FROM exercise_muscle_groups WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user!.workspaceId]);
-        if (!oldRow.rows.length) return res.status(404).json({ error: 'Muscle group not found' });
-        const oldNameEn = (oldRow.rows[0] as Row).name_en as string;
+        const existing = await prisma.exercise_muscle_groups.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!existing) return res.status(404).json({ error: 'Muscle group not found' });
+        const oldNameEn = existing.name_en;
 
         const { name_en, name_ar } = req.body as { name_en?: string; name_ar?: string };
-        const result = await pool.query(
-            'UPDATE exercise_muscle_groups SET name_en = $1, name_ar = $2 WHERE id = $3 AND workspace_id = $4 RETURNING *',
-            [name_en, name_ar || null, req.params.id, req.user!.workspaceId]
-        );
+        const updated = await prisma.exercise_muscle_groups.update({
+            where: { id: req.params.id as string },
+            data: { name_en: name_en!, name_ar: name_ar || null }
+        });
 
-        await pool.query(
-            'UPDATE exercise_library SET muscle_group = $1 WHERE workspace_id = $2 AND muscle_group = $3',
-            [name_en, req.user!.workspaceId, oldNameEn]
-        );
+        await prisma.exercise_library.updateMany({
+            where: { workspace_id: req.user!.workspaceId, muscle_group: oldNameEn },
+            data: { muscle_group: name_en }
+        });
 
-        res.json(result.rows[0]);
+        res.json(updated);
     } catch (err) { next(err); }
 });
 
 router.delete('/muscle-groups/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query('DELETE FROM exercise_muscle_groups WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user!.workspaceId]);
-        if (!result.rows.length) return res.status(404).json({ error: 'Muscle group not found' });
-        res.json(result.rows[0]);
+        const toDelete = await prisma.exercise_muscle_groups.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!toDelete) return res.status(404).json({ error: 'Muscle group not found' });
+        await prisma.exercise_muscle_groups.delete({ where: { id: req.params.id as string } });
+        res.json(toDelete);
     } catch (err) { next(err); }
 });
 
@@ -106,54 +110,57 @@ router.delete('/muscle-groups/:id', async (req: Request, res: Response, next: Ne
 
 router.get('/equipments', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            `SELECT ee.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = ee.workspace_id AND el.equipment = ee.name_en) AS exercise_count
-             FROM exercise_equipments ee
-             WHERE ee.workspace_id = $1
-             ORDER BY ee.name_en ASC`,
-            [req.user!.workspaceId]
-        );
-        res.json(result.rows);
+        const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
+            SELECT ee.*, (SELECT COUNT(*)::int FROM exercise_library el WHERE el.workspace_id = ee.workspace_id AND el.equipment = ee.name_en) AS exercise_count
+            FROM exercise_equipments ee
+            WHERE ee.workspace_id = ${req.user!.workspaceId}
+            ORDER BY ee.name_en ASC
+        `;
+        res.json(rows);
     } catch (err) { next(err); }
 });
 
 router.post('/equipments', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { name_en, name_ar } = req.body as { name_en?: string; name_ar?: string };
-        const result = await pool.query(
-            'INSERT INTO exercise_equipments (workspace_id, name_en, name_ar) VALUES ($1, $2, $3) RETURNING *',
-            [req.user!.workspaceId, name_en, name_ar || null]
-        );
-        res.status(201).json(result.rows[0]);
+        const created = await prisma.exercise_equipments.create({
+            data: { id: createId(), workspace_id: req.user!.workspaceId, name_en: name_en!, name_ar: name_ar || null }
+        });
+        res.status(201).json(created);
     } catch (err) { next(err); }
 });
 
 router.put('/equipments/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const oldRow = await pool.query('SELECT * FROM exercise_equipments WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user!.workspaceId]);
-        if (!oldRow.rows.length) return res.status(404).json({ error: 'Equipment not found' });
-        const oldNameEn = (oldRow.rows[0] as Row).name_en as string;
+        const existing = await prisma.exercise_equipments.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!existing) return res.status(404).json({ error: 'Equipment not found' });
+        const oldNameEn = existing.name_en;
 
         const { name_en, name_ar } = req.body as { name_en?: string; name_ar?: string };
-        const result = await pool.query(
-            'UPDATE exercise_equipments SET name_en = $1, name_ar = $2 WHERE id = $3 AND workspace_id = $4 RETURNING *',
-            [name_en, name_ar || null, req.params.id, req.user!.workspaceId]
-        );
+        const updated = await prisma.exercise_equipments.update({
+            where: { id: req.params.id as string },
+            data: { name_en: name_en!, name_ar: name_ar || null }
+        });
 
-        await pool.query(
-            'UPDATE exercise_library SET equipment = $1 WHERE workspace_id = $2 AND equipment = $3',
-            [name_en, req.user!.workspaceId, oldNameEn]
-        );
+        await prisma.exercise_library.updateMany({
+            where: { workspace_id: req.user!.workspaceId, equipment: oldNameEn },
+            data: { equipment: name_en }
+        });
 
-        res.json(result.rows[0]);
+        res.json(updated);
     } catch (err) { next(err); }
 });
 
 router.delete('/equipments/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query('DELETE FROM exercise_equipments WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user!.workspaceId]);
-        if (!result.rows.length) return res.status(404).json({ error: 'Equipment not found' });
-        res.json(result.rows[0]);
+        const toDelete = await prisma.exercise_equipments.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!toDelete) return res.status(404).json({ error: 'Equipment not found' });
+        await prisma.exercise_equipments.delete({ where: { id: req.params.id as string } });
+        res.json(toDelete);
     } catch (err) { next(err); }
 });
 
@@ -161,16 +168,16 @@ router.delete('/equipments/:id', async (req: Request, res: Response, next: NextF
 
 router.get('/exercise-library', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query(
-            `SELECT * FROM exercise_library WHERE workspace_id = $1 ORDER BY created_at DESC`,
-            [req.user!.workspaceId]
-        );
-        res.json(result.rows.map((r: Row) => ({
+        const exercises = await prisma.exercise_library.findMany({
+            where: { workspace_id: req.user!.workspaceId },
+            orderBy: { created_at: 'desc' }
+        });
+        res.json(exercises.map((r) => ({
             ...r,
-            video_path:     toPublicUrl(r.video_path as string | null),
-            thumbnail_path: toPublicUrl(r.thumbnail_path as string | null),
-            created_at:     toIsoDateOrNull(r.created_at as Date | string | null),
-            updated_at:     toIsoDateOrNull(r.updated_at as Date | string | null),
+            video_path:     toPublicUrl(r.video_path),
+            thumbnail_path: toPublicUrl(r.thumbnail_path),
+            created_at:     toIsoDateOrNull(r.created_at),
+            updated_at:     toIsoDateOrNull(r.updated_at),
         })));
     } catch (err) { next(err); }
 });
@@ -187,22 +194,32 @@ router.post('/exercise-library', uploadLimiter, upload.fields([{ name: 'video', 
         const videoPath    = files?.video?.[0]?.key     ?? null;
         const thumbPath    = files?.thumbnail?.[0]?.key ?? null;
 
-        const result = await pool.query(
-            `INSERT INTO exercise_library (workspace_id, name_en, name_ar, muscle_group, equipment, youtube_url, video_path, thumbnail_path, instructions_en, instructions_ar, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-             RETURNING *`,
-            [req.user!.workspaceId, name_en.trim(), name_ar || null, muscle_group || null, equipment || null, youtube_url || null, videoPath, thumbPath, instructions_en || null, instructions_ar || null]
-        );
+        const created = await prisma.exercise_library.create({
+            data: {
+                id:              createId(),
+                workspace_id:    req.user!.workspaceId,
+                name_en:         name_en.trim(),
+                name_ar:         name_ar || null,
+                muscle_group:    muscle_group || null,
+                equipment:       equipment || null,
+                youtube_url:     youtube_url || null,
+                video_path:      videoPath,
+                thumbnail_path:  thumbPath,
+                instructions_en: instructions_en || null,
+                instructions_ar: instructions_ar || null,
+            }
+        });
 
-        res.status(201).json(result.rows[0]);
+        res.status(201).json(created);
     } catch (err) { next(err); }
 });
 
 router.put('/exercise-library/:id', uploadLimiter, upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const existing = await pool.query('SELECT * FROM exercise_library WHERE id = $1 AND workspace_id = $2', [req.params.id, req.user!.workspaceId]);
-        if (!existing.rows.length) return res.status(404).json({ error: 'Exercise not found' });
-        const current = existing.rows[0] as Row;
+        const current = await prisma.exercise_library.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!current) return res.status(404).json({ error: 'Exercise not found' });
 
         const body = req.body as Record<string, string | undefined>;
         if (!body.name_en || !body.name_en.trim()) {
@@ -212,39 +229,42 @@ router.put('/exercise-library/:id', uploadLimiter, upload.fields([{ name: 'video
         const files         = req.files as FileBag | undefined;
         const newVideoFile  = files?.video?.[0];
         const newThumbFile  = files?.thumbnail?.[0];
-        const videoPath     = newVideoFile ? newVideoFile.key  : (current.video_path     as string | null);
-        const thumbnailPath = newThumbFile ? newThumbFile.key  : (current.thumbnail_path as string | null);
+        const videoPath     = newVideoFile ? newVideoFile.key : current.video_path;
+        const thumbnailPath = newThumbFile ? newThumbFile.key : current.thumbnail_path;
 
-        const result = await pool.query(
-            `UPDATE exercise_library
-             SET name_en = $1, name_ar = $2, muscle_group = $3, equipment = $4, youtube_url = $5,
-                 video_path = $6, thumbnail_path = $7, instructions_en = $8, instructions_ar = $9,
-                 updated_at = NOW()
-             WHERE id = $10 AND workspace_id = $11
-             RETURNING *`,
-            [
-                body.name_en.trim(), body.name_ar || null, body.muscle_group || null, body.equipment || null,
-                body.youtube_url || null, videoPath, thumbnailPath,
-                body.instructions_en || null, body.instructions_ar || null,
-                req.params.id, req.user!.workspaceId,
-            ]
-        );
+        const updated = await prisma.exercise_library.update({
+            where: { id: req.params.id as string },
+            data: {
+                name_en:         body.name_en.trim(),
+                name_ar:         body.name_ar || null,
+                muscle_group:    body.muscle_group || null,
+                equipment:       body.equipment || null,
+                youtube_url:     body.youtube_url || null,
+                video_path:      videoPath,
+                thumbnail_path:  thumbnailPath,
+                instructions_en: body.instructions_en || null,
+                instructions_ar: body.instructions_ar || null,
+                updated_at:      new Date(),
+            }
+        });
 
-        if (newVideoFile  && current.video_path)     deleteFile(current.video_path as string).catch(() => {});
-        if (newThumbFile  && current.thumbnail_path) deleteFile(current.thumbnail_path as string).catch(() => {});
+        if (newVideoFile  && current.video_path)     deleteFile(current.video_path).catch(() => {});
+        if (newThumbFile  && current.thumbnail_path) deleteFile(current.thumbnail_path).catch(() => {});
 
-        res.json(result.rows[0]);
+        res.json(updated);
     } catch (err) { next(err); }
 });
 
 router.delete('/exercise-library/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await pool.query('DELETE FROM exercise_library WHERE id = $1 AND workspace_id = $2 RETURNING *', [req.params.id, req.user!.workspaceId]);
-        if (!result.rows.length) return res.status(404).json({ error: 'Exercise not found' });
-        const deleted = result.rows[0] as Row;
-        deleteFile(deleted.video_path as string).catch(() => {});
-        deleteFile(deleted.thumbnail_path as string).catch(() => {});
-        res.json(deleted);
+        const toDelete = await prisma.exercise_library.findFirst({
+            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId as string }
+        });
+        if (!toDelete) return res.status(404).json({ error: 'Exercise not found' });
+        await prisma.exercise_library.delete({ where: { id: req.params.id as string } });
+        if (toDelete.video_path)     deleteFile(toDelete.video_path).catch(() => {});
+        if (toDelete.thumbnail_path) deleteFile(toDelete.thumbnail_path).catch(() => {});
+        res.json(toDelete);
     } catch (err) { next(err); }
 });
 

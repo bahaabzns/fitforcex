@@ -1,58 +1,41 @@
 import { Router } from 'express';
 import authMiddleware from '../../middleware/auth';
-import pool from '../../db';
+import { prisma } from '../../lib/prisma';
 
 const router = Router();
 
 router.get('/', authMiddleware, async (req, res, next) => {
     const wsId = req.user!.workspaceId;
+    const userId = req.user!.userId;
     try {
-        const [userRes, statsRes, recentRes, pendingFormsRes] = await Promise.all([
-            pool.query(
-                'SELECT id, fname, lname, email FROM users WHERE id = $1',
-                [req.user!.userId]
-            ),
-            pool.query(
-                `SELECT
-                    COUNT(*) FILTER (WHERE subscription_status = 'Active')  AS active_clients,
-                    COUNT(*) FILTER (WHERE subscription_status = 'Expired') AS expired_clients,
-                    COUNT(*)                                                  AS total_clients
-                 FROM clients
-                 WHERE workspace_id = $1`,
-                [wsId]
-            ),
-            pool.query(
-                `SELECT id, fname, lname, email, subscription_status, created_at
-                 FROM clients
-                 WHERE workspace_id = $1
-                 ORDER BY created_at DESC
-                 LIMIT 5`,
-                [wsId]
-            ),
-            pool.query(
-                `SELECT COUNT(*) AS count
-                 FROM form_requests fr
-                 JOIN clients c ON c.id = fr.client_id
-                 WHERE c.workspace_id = $1 AND fr.status = 'pending'`,
-                [wsId]
-            ),
+        const [user, totalClients, activeClients, expiredClients, pendingForms, recentClients] = await Promise.all([
+            prisma.users.findUnique({
+                where: { id: userId },
+                select: { fname: true, lname: true, email: true },
+            }),
+            prisma.clients.count({ where: { workspace_id: wsId } }),
+            prisma.clients.count({ where: { workspace_id: wsId, subscription_status: 'Active' } }),
+            prisma.clients.count({ where: { workspace_id: wsId, subscription_status: 'Expired' } }),
+            prisma.form_requests.count({ where: { workspace_id: wsId, status: 'pending' } }),
+            prisma.clients.findMany({
+                where: { workspace_id: wsId },
+                select: { id: true, fname: true, lname: true, email: true, subscription_status: true, created_at: true },
+                orderBy: { created_at: 'desc' },
+                take: 5,
+            }),
         ]);
 
-        const user    = userRes.rows[0]    as Record<string, unknown>;
-        const stats   = statsRes.rows[0]   as Record<string, string>;
-        const pending = pendingFormsRes.rows[0] as Record<string, string>;
-
         res.json({
-            fname: user.fname,
-            lname: user.lname,
-            email: user.email,
+            fname: user?.fname,
+            lname: user?.lname,
+            email: user?.email,
             stats: {
-                totalClients:   parseInt(stats.total_clients),
-                activeClients:  parseInt(stats.active_clients),
-                expiredClients: parseInt(stats.expired_clients),
-                pendingForms:   parseInt(pending.count),
+                totalClients,
+                activeClients,
+                expiredClients,
+                pendingForms,
             },
-            recentClients: recentRes.rows,
+            recentClients,
         });
     } catch (err) {
         next(err);
