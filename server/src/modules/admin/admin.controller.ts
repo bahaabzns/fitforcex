@@ -82,10 +82,10 @@ export async function getStats(_req: Request, res: Response, next: NextFunction)
         const [totalUsers, wsResult, planBreakdown, recent] = await Promise.all([
             prisma.users.count(),
             prisma.$queryRaw<Row[]>`
-                SELECT COUNT(*) AS total_workspaces, COUNT(*) FILTER (WHERE archived_at IS NOT NULL) AS archived FROM workspaces
+                SELECT COUNT(*)::int AS total_workspaces, COUNT(*) FILTER (WHERE archived_at IS NOT NULL)::int AS archived FROM workspaces
             `,
             prisma.$queryRaw<Row[]>`
-                SELECT p.name AS plan, p.display_name, COUNT(ws.id) AS count
+                SELECT p.name AS plan, p.display_name, COUNT(ws.id)::int AS count
                 FROM plans p
                 LEFT JOIN workspace_subscriptions ws ON ws.plan_id = p.id
                 GROUP BY p.id, p.name, p.display_name ORDER BY p.id
@@ -122,8 +122,8 @@ export async function getUsers(req: Request, res: Response, next: NextFunction) 
         const [rows, countRows] = await Promise.all([
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT u.id, u.fname, u.lname, u.email, u.created_at, u.is_admin,
-                       COUNT(DISTINCT w.id) FILTER (WHERE w.archived_at IS NULL) AS workspace_count,
-                       COUNT(DISTINCT wm.workspace_id) AS member_count
+                       COUNT(DISTINCT w.id) FILTER (WHERE w.archived_at IS NULL)::int AS workspace_count,
+                       COUNT(DISTINCT wm.workspace_id)::int AS member_count
                 FROM users u
                 LEFT JOIN workspaces w ON w.owner_id = u.id
                 LEFT JOIN workspace_members wm ON wm.user_id = u.id
@@ -198,7 +198,7 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
                 SELECT w.id, w.slug, w.name, w.archived_at, w.created_at,
                        u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
                        p.name AS plan, p.display_name AS plan_display,
-                       COUNT(DISTINCT wm.id) AS member_count, COUNT(DISTINCT c.id) AS client_count
+                       COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count
                 FROM workspaces w
                 JOIN users u ON u.id = w.owner_id
                 JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
@@ -236,7 +236,7 @@ export async function getWorkspaceById(req: Request, res: Response, next: NextFu
                        u.id AS owner_id, u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
                        p.id AS plan_id, p.name AS plan, p.display_name AS plan_display,
                        ws.status AS subscription_status, ws.starts_at, ws.expires_at,
-                       COUNT(DISTINCT wm.id) AS member_count, COUNT(DISTINCT c.id) AS client_count
+                       COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count
                 FROM workspaces w
                 JOIN users u ON u.id = w.owner_id
                 JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
@@ -313,7 +313,7 @@ export async function archiveWorkspace(req: Request, res: Response, next: NextFu
 export async function getPlans(_req: Request, res: Response, next: NextFunction) {
     try {
         const plans = await prisma.$queryRaw<Row[]>`
-            SELECT p.*, COUNT(ws.id) AS workspace_count
+            SELECT p.*, COUNT(ws.id)::int AS workspace_count
             FROM plans p
             LEFT JOIN workspace_subscriptions ws ON ws.plan_id = p.id
             GROUP BY p.id ORDER BY p.id
@@ -514,9 +514,9 @@ export async function getPaymentStats(_req: Request, res: Response, next: NextFu
     try {
         const rows = await prisma.$queryRaw<Row[]>`
             SELECT
-                COUNT(*) FILTER (WHERE fawaterak_status = 'paid')    AS total_paid,
-                COUNT(*) FILTER (WHERE fawaterak_status = 'pending') AS total_pending,
-                COUNT(*) FILTER (WHERE fawaterak_status = 'failed')  AS total_failed,
+                COUNT(*) FILTER (WHERE fawaterak_status = 'paid')::int    AS total_paid,
+                COUNT(*) FILTER (WHERE fawaterak_status = 'pending')::int AS total_pending,
+                COUNT(*) FILTER (WHERE fawaterak_status = 'failed')::int  AS total_failed,
                 COALESCE(SUM(amount) FILTER (WHERE fawaterak_status = 'paid'), 0) AS total_revenue
             FROM workspace_payments
         `;
