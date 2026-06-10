@@ -1,5 +1,5 @@
-exports.up = async (pool) => {
-    await pool.query(`
+exports.up = async (pgm) => {
+    await pgm.db.query(`
         CREATE TABLE IF NOT EXISTS user_sessions (
             id          TEXT PRIMARY KEY,
             user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -13,6 +13,6 @@ exports.up = async (pool) => {
     `);
 };
 
-exports.down = async (pool) => {
-    await pool.query('DROP TABLE IF EXISTS user_sessions');
+exports.down = async (pgm) => {
+    await pgm.db.query('DROP TABLE IF EXISTS user_sessions');
 };
