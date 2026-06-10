@@ -67,6 +67,16 @@ Format per session:
 
 ---
 
+## 2026-06-10 — Phase 10: Observability Completion
+**What we built:** Upgraded `/api/health` to probe the DB and return memory/uptime/latency JSON (returns 503 if DB is unreachable). Added `/api/metrics` endpoint (owner-only) with in-process request counter, heap memory, and uptime. Created `src/logger.ts` with pino — `silent` in test, `debug` + pino-pretty in development, `warn` in production. Updated Sentry.init to include `release` (from `npm_package_version`) and `tracesSampleRate` (0.1 in prod, 1.0 otherwise).
+**New concepts learned:** Why the plan's `Sentry.Integrations.Http/Express` and `Sentry.Handlers` API was removed in Sentry v8+ — the v7 manual integration pattern was replaced by automatic instrumentation. In v10, you only need `Sentry.init()` for automatic HTTP/Express tracing. Why pino logger level `silent` in tests stops all pino-http output from polluting the Jest console — pino-http shares the same logger instance, so silencing the logger silences all HTTP request logs during testing.
+**Concepts I understood immediately:** Why `process.uptime()` is different from `Date.now() - serverStartTime` — `process.uptime()` is Node's internal uptime from when the process started, while `serverStartTime` tracks when the app module was initialised (could differ if app.ts is loaded after a delay). Both used for different purposes.
+**Concepts I am still fuzzy on:** Whether `tracesSampleRate: 1.0` in development will cause performance issues when running integration tests with Sentry enabled. Since `enabled: !!env.SENTRY_DSN` and the test SENTRY_DSN is empty, it's effectively disabled in tests.
+**Question I want to explore next:** Should the health check endpoint bypass rate limiting so monitoring services don't deplete the rate limit quota?
+**Confidence today (1–10):** 9
+
+---
+
 ## 2026-06-10 — Phase 9: Testing Foundation
 **What we built:** Jest + ts-jest testing framework for the TypeScript server. Created a fresh Prisma-compatible test DB (`fitforce_x_test`) using `prisma db push`. Wrote 30 tests across 4 suites: `normalizeOrderedList`/`serializePlanRow`/`withTransaction` unit tests in planEngine, `normalizeSlug`/`cookieOptions` unit tests in auth.service, and P1 integration tests for forgot/reset-password and the messenger thread+message flow.
 **New concepts learned:** Why `prisma db push` is the right tool for test databases (applies schema directly without migration history — test DBs are ephemeral and don't need a rollback story). The difference between `setupFilesAfterEnv` (runs once after Jest initialises, before each test file) vs `setupFiles` (runs before the test framework). Why `makeAuthCookie` must be async and create a `user_sessions` row — the auth middleware validates every token against the DB, so a JWT alone is insufficient for integration tests.

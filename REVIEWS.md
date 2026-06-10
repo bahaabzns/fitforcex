@@ -14,6 +14,20 @@ Summary: [one sentence]
 
 ---
 
+### 2026-06-10 — Phase 10 Observability Completion — PASS WITH WARNINGS
+Files: src/logger.ts, src/app.ts
+Blockers: 0  Warnings: 1  Suggestions: 1
+Summary: Warning logged — totalRequests counter resets on server restart, so /api/metrics will undercount traffic after deploys. Low priority; acceptable for first-pass observability.
+
+---
+
+### 2026-06-10 — Phase 10 Test Health Log
+Total tests: 30  Passing: 30  Failing: 0  Skipped: 0
+Coverage: not yet measured
+Notes: Phase 10 is additive-only (no new test files added). All 30 existing tests still green after changes to app.ts and creation of logger.ts.
+
+---
+
 ### 2026-06-10 — Phase 9 Testing Foundation — PASS WITH WARNINGS
 Files: jest.config.ts, tsconfig.test.json, .env.test, tests/helpers/testDb.ts, tests/helpers/setup.ts, tests/helpers/testServer.ts, tests/unit/planEngine.test.ts, tests/unit/auth.service.test.ts, tests/integration/auth.test.ts, tests/integration/messenger.test.ts, package.json
 Blockers: 0  Warnings: 2  Suggestions: 1

@@ -257,3 +257,12 @@ Format:
 **Why it matters:** Tests pass today but future Jest 30-only APIs could hit the compatibility shim and produce unexpected failures.
 **Effort:** Small (upgrade ts-jest to v30 once stable, or pin jest to ^29 until ts-jest v30 ships)
 **Priority:** Medium
+
+---
+
+## 2026-06-10 — server/src/app.ts
+**Type:** Knowledge
+**What:** `totalRequests` counter in `/api/metrics` lives in-process memory and resets to zero on every server restart or deploy.
+**Why it matters:** Metrics will silently undercount traffic after any redeploy — misleading in production where restarts are frequent.
+**Effort:** Medium (replace with Redis counter or prometheus-client for persistent counters)
+**Priority:** Low
