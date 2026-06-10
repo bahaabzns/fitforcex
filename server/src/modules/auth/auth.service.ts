@@ -85,13 +85,12 @@ export async function fetchUserWorkspaces(userId: string): Promise<WorkspaceList
         SELECT w.id, w.slug, w.name, 'owner' AS role, NULL::jsonb AS permissions
         FROM workspaces w
         WHERE w.owner_id = ${userId} AND w.archived_at IS NULL
-        ORDER BY w.created_at
         UNION ALL
         SELECT w.id, w.slug, w.name, wm.role, wm.permissions
         FROM workspace_members wm
         JOIN workspaces w ON w.id = wm.workspace_id
         WHERE wm.user_id = ${userId} AND wm.is_active = TRUE AND w.archived_at IS NULL
-        ORDER BY 1
+        ORDER BY name
     `;
 }
 
