@@ -67,6 +67,16 @@ Format per session:
 
 ---
 
+## 2026-06-10 — Phase 9: Testing Foundation
+**What we built:** Jest + ts-jest testing framework for the TypeScript server. Created a fresh Prisma-compatible test DB (`fitforce_x_test`) using `prisma db push`. Wrote 30 tests across 4 suites: `normalizeOrderedList`/`serializePlanRow`/`withTransaction` unit tests in planEngine, `normalizeSlug`/`cookieOptions` unit tests in auth.service, and P1 integration tests for forgot/reset-password and the messenger thread+message flow.
+**New concepts learned:** Why `prisma db push` is the right tool for test databases (applies schema directly without migration history — test DBs are ephemeral and don't need a rollback story). The difference between `setupFilesAfterEnv` (runs once after Jest initialises, before each test file) vs `setupFiles` (runs before the test framework). Why `makeAuthCookie` must be async and create a `user_sessions` row — the auth middleware validates every token against the DB, so a JWT alone is insufficient for integration tests.
+**Concepts I understood immediately:** Why `ts-jest` is needed to let Jest read TypeScript test files — Jest is a JS runner by default. Why `tsconfig.test.json` with `rootDir: '.'` is needed separately from `tsconfig.json` (which sets `rootDir: ./src`) — ts-jest would error if test files are outside the declared rootDir.
+**Concepts I am still fuzzy on:** Whether ts-jest v29 will remain stable against jest v30 long-term, or whether a silent compatibility shim is papering over a real incompatibility that will surface later.
+**Question I want to explore next:** Should we split the global `beforeEach` DB reset (currently applies to ALL suites) so unit tests don't pay the DB round-trip cost?
+**Confidence today (1–10):** 9
+
+---
+
 ## 2026-06-10 — Phase 8: API Documentation — Swagger
 **What we built:** Full Swagger/OpenAPI 3.0 documentation for all 19 route files. `swagger-jsdoc` scans `@openapi` JSDoc blocks in route files at startup and builds a spec object. `swagger-ui-express` serves an interactive UI at `/api-docs`. Five shared component schemas defined (`Client`, `Thread`, `Message`, `NutritionPlan`, `WorkoutPlan`) and referenced by `$ref` in route annotations.
 **New concepts learned:** How `swagger-jsdoc` works — it reads JSDoc comments at runtime using the glob path as a file discovery pattern; the spec is generated in-memory, not from a file. The difference between `security: []` (public route, overrides global security) vs `security: [{ cookieAuth: [] }]` (explicit auth required) vs omitting security (inherits global default). Why the glob must match `.ts` source files in dev but `.js` compiled files in production — a build-time concern logged in DEBT.md.

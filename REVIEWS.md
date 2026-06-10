@@ -14,6 +14,20 @@ Summary: [one sentence]
 
 ---
 
+### 2026-06-10 — Phase 9 Testing Foundation — PASS WITH WARNINGS
+Files: jest.config.ts, tsconfig.test.json, .env.test, tests/helpers/testDb.ts, tests/helpers/setup.ts, tests/helpers/testServer.ts, tests/unit/planEngine.test.ts, tests/unit/auth.service.test.ts, tests/integration/auth.test.ts, tests/integration/messenger.test.ts, package.json
+Blockers: 0  Warnings: 2  Suggestions: 1
+Summary: 30/30 tests pass; warnings logged — global DB reset runs for unit tests unnecessarily, and ts-jest v29 is installed against jest v30 (peer dep mismatch).
+
+---
+
+### 2026-06-10 — Phase 9 Test Health Log
+Total tests: 30  Passing: 30  Failing: 0  Skipped: 0
+Coverage: not yet measured
+Notes: planEngine (12 tests), auth.service (9 tests), auth integration (5 tests), messenger integration (4 tests). All 30 green on first full-suite run.
+
+---
+
 ### 2026-06-10 — Phase 8 Swagger API Documentation — PASS WITH WARNINGS
 Files: src/config/swagger.ts, src/app.ts, all 19 *.routes.ts files
 Blockers: 0  Warnings: 1  Suggestions: 1

@@ -239,3 +239,21 @@ Format:
 **Why it matters:** /api-docs will render empty in production unless the glob is updated to point at .js files or the spec is pre-generated at build time.
 **Effort:** Small (either switch glob to dist/src/modules/**/*.routes.js or add a build step that runs swagger-jsdoc CLI to output swagger.json)
 **Priority:** Low
+
+---
+
+## 2026-06-10 — server/tests/helpers/setup.ts
+**Type:** Knowledge
+**What:** Global `beforeEach` in setup.ts calls `resetTestDb()` for every test in every suite, including pure unit tests that have no DB dependencies.
+**Why it matters:** Unit tests are slower than necessary; if the test DB is unavailable, unit tests fail even though they never query the DB.
+**Effort:** Small (move DB reset into integration test files directly, remove it from the global setup file)
+**Priority:** Low
+
+---
+
+## 2026-06-10 — server/package.json
+**Type:** Dependency
+**What:** `ts-jest@^29.4.11` installed alongside `jest@^30.3.0` — peer dep mismatch (ts-jest v29 declares jest v29 as peer).
+**Why it matters:** Tests pass today but future Jest 30-only APIs could hit the compatibility shim and produce unexpected failures.
+**Effort:** Small (upgrade ts-jest to v30 once stable, or pin jest to ^29 until ts-jest v30 ships)
+**Priority:** Medium
