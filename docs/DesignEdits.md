@@ -138,6 +138,15 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 
 - onboarding messages for clients
 
+# onboarding coaches
+
+# Delete Client
+
+
+- feedback of followup team or service
+
+- recipies
+
 
 # unify all empty states in system
 
