@@ -67,6 +67,16 @@ Format per session:
 
 ---
 
+## 2026-06-10 — Phase 8: API Documentation — Swagger
+**What we built:** Full Swagger/OpenAPI 3.0 documentation for all 19 route files. `swagger-jsdoc` scans `@openapi` JSDoc blocks in route files at startup and builds a spec object. `swagger-ui-express` serves an interactive UI at `/api-docs`. Five shared component schemas defined (`Client`, `Thread`, `Message`, `NutritionPlan`, `WorkoutPlan`) and referenced by `$ref` in route annotations.
+**New concepts learned:** How `swagger-jsdoc` works — it reads JSDoc comments at runtime using the glob path as a file discovery pattern; the spec is generated in-memory, not from a file. The difference between `security: []` (public route, overrides global security) vs `security: [{ cookieAuth: [] }]` (explicit auth required) vs omitting security (inherits global default). Why the glob must match `.ts` source files in dev but `.js` compiled files in production — a build-time concern logged in DEBT.md.
+**Concepts I understood immediately:** `$ref: '#/components/schemas/Client'` as a pointer to a shared schema defined in `swagger.ts`. Why `tags` group routes into collapsible sections in the Swagger UI — makes large APIs navigable.
+**Concepts I am still fuzzy on:** How to handle the production build issue cleanly — whether pre-generating swagger.json at build time is better than switching the glob to .js files. The tradeoff: pre-generated JSON is stable and fast; runtime glob keeps docs in sync automatically.
+**Question I want to explore next:** Should the swagger.json be committed to the repo so it can be used by contract tests without starting the server?
+**Confidence today (1–10):** 9
+
+---
+
 ## 2026-06-10 — Phase 6: Real-Time — Socket.io
 **What we built:** Socket.io layer on top of the existing Express server. `initSocket(httpServer)` creates a SocketServer attached to the Node http.Server, authenticates connections via the httpOnly JWT cookie, and places each socket in workspace/client/user rooms. After a coach sends a message, `new_message` is broadcast to the whole workspace room. After a client sends a message, the same event goes to the coach workspace. After plan activation (nutrition or training), `plan_assigned` fires into the client's private room so the portal can refresh without polling.
 **New concepts learned:** Why Socket.io must attach to a `http.Server` rather than the Express `app` directly — WebSocket upgrades are handled at the HTTP layer, not by Express middleware. Why the auth handshake reads the cookie from the raw `socket.handshake.headers.cookie` string — Socket.io doesn't parse cookies automatically like `cookie-parser` does for HTTP requests.

@@ -14,6 +14,13 @@ Summary: [one sentence]
 
 ---
 
+### 2026-06-10 — Phase 8 Swagger API Documentation — PASS WITH WARNINGS
+Files: src/config/swagger.ts, src/app.ts, all 19 *.routes.ts files
+Blockers: 0  Warnings: 1  Suggestions: 1
+Summary: Warning logged — swagger spec uses .ts file glob that resolves to nothing in a production compiled build; dev-only usage fine, fix needed before production.
+
+---
+
 ### 2026-06-10 — Phase 7 Background Schedulers — PASS WITH WARNINGS
 Files: src/middleware/scheduler.ts, src/app.ts
 Blockers: 0  Warnings: 1  Suggestions: 0

@@ -230,3 +230,12 @@ Format:
 **Why it matters:** Any integration test covering these endpoints will crash with "Socket.io not initialised" until a test helper is wired up.
 **Effort:** Small (add initSocket call in testServer.ts helpers during Phase 9)
 **Priority:** Medium
+
+---
+
+## 2026-06-10 — server/src/config/swagger.ts
+**Type:** Knowledge
+**What:** The Swagger spec uses a .ts file glob (`./src/modules/**/*.routes.ts`) that works in development but resolves to nothing in a compiled production build (dist/) where only .js files exist.
+**Why it matters:** /api-docs will render empty in production unless the glob is updated to point at .js files or the spec is pre-generated at build time.
+**Effort:** Small (either switch glob to dist/src/modules/**/*.routes.js or add a build step that runs swagger-jsdoc CLI to output swagger.json)
+**Priority:** Low
