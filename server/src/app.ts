@@ -3,13 +3,16 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import compression from 'compression';
+import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 import * as Sentry from '@sentry/node';
 
 import { env } from './config/env';
+import logger from './logger';
 import { swaggerSpec } from './config/swagger';
 import { readLimiter, mutationLimiter } from './middleware/rateLimit';
 import { requireAdminSubdomain } from './middleware/adminAuth';
+import { authMiddleware } from './middleware/auth';
 import { prisma } from './lib/prisma';
 import {
     scheduleFormDispatcher,
@@ -39,9 +42,11 @@ import billingRouter     from './modules/billing/index';
 import paymentsWebhookRouter from './modules/paymentsWebhook/index';
 
 Sentry.init({
-    dsn:         env.SENTRY_DSN,
-    environment: env.NODE_ENV,
-    enabled:     !!env.SENTRY_DSN,
+    dsn:              env.SENTRY_DSN,
+    environment:      env.NODE_ENV,
+    release:          process.env.npm_package_version,
+    enabled:          !!env.SENTRY_DSN,
+    tracesSampleRate: env.NODE_ENV === 'production' ? 0.1 : 1.0,
 });
 
 if (env.NODE_ENV !== 'test') {
@@ -49,6 +54,9 @@ if (env.NODE_ENV !== 'test') {
     scheduleSubscriptionExpiry();
     scheduleSessionCleanup();
 }
+
+const serverStartTime = Date.now();
+let totalRequests     = 0;
 
 const app = express();
 
@@ -90,6 +98,8 @@ app.use('/api/payments/webhook', paymentsWebhookRouter);
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(pinoHttp({ logger }));
+app.use((_req, _res, next) => { totalRequests++; next(); });
 
 // GETs get a generous cap; mutations get the tighter limit
 const apiLimiter = (req: Request, res: Response, next: NextFunction) => {
@@ -116,8 +126,51 @@ app.use('/api/billing',        apiLimiter, billingRouter);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.get('/api/health', (_req: Request, res: Response) => {
-    res.status(200).json({ message: 'All is good!' });
+app.get('/api/health', async (_req: Request, res: Response) => {
+    const start = Date.now();
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        const dbResponseTime = Date.now() - start;
+        const mem = process.memoryUsage();
+
+        res.status(200).json({
+            status:    'healthy',
+            timestamp: new Date().toISOString(),
+            uptime:    Math.round(process.uptime()),
+            database: {
+                status:         'connected',
+                responseTimeMs: dbResponseTime,
+            },
+            memory: {
+                heapUsedMB:  Math.round(mem.heapUsed  / 1024 / 1024),
+                heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+            },
+            version: process.env.npm_package_version ?? '1.0.0',
+        });
+    } catch {
+        res.status(503).json({
+            status:    'unhealthy',
+            timestamp: new Date().toISOString(),
+            database:  { status: 'disconnected' },
+        });
+    }
+});
+
+app.get('/api/metrics', authMiddleware, (req: Request, res: Response) => {
+    if (!req.user?.isOwner) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+    }
+    const mem = process.memoryUsage();
+    res.json({
+        uptimeSeconds:  Math.round((Date.now() - serverStartTime) / 1000),
+        requestsTotal:  totalRequests,
+        memory: {
+            heapUsedMB:  Math.round(mem.heapUsed  / 1024 / 1024),
+            heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+        },
+        timestamp: new Date().toISOString(),
+    });
 });
 
 // Global error handler
