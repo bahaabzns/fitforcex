@@ -57,6 +57,16 @@ Format per session:
 
 ---
 
+## 2026-06-10 — Phase 7: Background Schedulers
+**What we built:** Three cron jobs using `node-cron`: hourly form dispatcher (marks `scheduled_at` forms as sent), daily subscription expiry checker, and daily session cleanup (deletes revoked/expired `user_sessions` rows older than 30 days). All three skip in test environment. Resolves the DEBT.md item about `user_sessions` growing unboundedly.
+**New concepts learned:** Cron syntax — `'0 * * * *'` means "at minute 0 of every hour" (hourly). `'0 0 * * *'` means midnight daily. `'0 2 * * *'` means 2 AM daily. The five fields are: minute, hour, day-of-month, month, day-of-week. Why cron jobs must be guarded by `NODE_ENV !== 'test'` — a cron that fires during tests can corrupt test DB state or cause random test failures due to concurrent writes.
+**Concepts I understood immediately:** Why session cleanup uses a 30-day cutoff rather than deleting immediately on expiry — gives a safety window to audit or investigate recent sessions.
+**Concepts I am still fuzzy on:** What happens if the server restarts mid-cron-window. Does `node-cron` pick up missed runs after a restart or silently skip them? Answer: it skips — each run only fires if the process is alive when the cron ticks.
+**Question I want to explore next:** Should we add a startup check that runs session cleanup immediately on boot (rather than waiting up to 24h for the first 2 AM tick)?
+**Confidence today (1–10):** 9
+
+---
+
 ## 2026-06-10 — Phase 6: Real-Time — Socket.io
 **What we built:** Socket.io layer on top of the existing Express server. `initSocket(httpServer)` creates a SocketServer attached to the Node http.Server, authenticates connections via the httpOnly JWT cookie, and places each socket in workspace/client/user rooms. After a coach sends a message, `new_message` is broadcast to the whole workspace room. After a client sends a message, the same event goes to the coach workspace. After plan activation (nutrition or training), `plan_assigned` fires into the client's private room so the portal can refresh without polling.
 **New concepts learned:** Why Socket.io must attach to a `http.Server` rather than the Express `app` directly — WebSocket upgrades are handled at the HTTP layer, not by Express middleware. Why the auth handshake reads the cookie from the raw `socket.handshake.headers.cookie` string — Socket.io doesn't parse cookies automatically like `cookie-parser` does for HTTP requests.

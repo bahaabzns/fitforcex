@@ -14,6 +14,20 @@ Summary: [one sentence]
 
 ---
 
+### 2026-06-10 — Phase 7 Background Schedulers — PASS WITH WARNINGS
+Files: src/middleware/scheduler.ts, src/app.ts
+Blockers: 0  Warnings: 1  Suggestions: 0
+Summary: Warning logged — scheduleFormDispatcher loops with one DB call per form; acceptable now, replace with bulk updateMany if form volume grows.
+
+---
+
+### 2026-06-10 — Phase 6 Socket.io — PASS WITH WARNINGS
+Files: src/lib/socket.ts, src/server.ts, messenger.controller.ts, clientPortal.controller.ts, nutrition.controller.ts, training.controller.ts
+Blockers: 0  Warnings: 1  Suggestions: 0
+Summary: Warning logged — getIo() throws before initSocket; Phase 9 testServer.ts must call initSocket with a mock http server before testing sendMessage/activatePlan endpoints.
+
+---
+
 ### 2026-05-25 — load-plan feature — PASS WITH WARNINGS
 Files: LoadPlanModal.js, useTrainingPlan.js, useNutritionPlan.js, training/LeftPanel.js, nutrition/LeftPanel.js, training/page.js, nutrition/page.js, server/routes/training.js, server/routes/nutrition.js, server/migrations/010, server/server.js, server/routes/transactions.js
 Blockers: 0  Warnings: 2  Suggestions: 2

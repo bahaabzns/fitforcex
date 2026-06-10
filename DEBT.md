@@ -211,6 +211,16 @@ Format:
 **Why it matters:** Table will grow unboundedly in production. Phase 7 (schedulers) adds scheduleSessionCleanup() — must run Phase 7 before production deploy.
 **Effort:** Small (resolved when Phase 7 is implemented)
 **Priority:** Medium
+✅ RESOLVED 2026-06-10 — scheduleSessionCleanup() deletes sessions with revoked_at or expires_at older than 30 days, runs daily at 2 AM.
+
+---
+
+## 2026-06-10 — server/src/middleware/scheduler.ts
+**Type:** Shortcut
+**What:** scheduleFormDispatcher() updates pending forms one at a time in a loop — one DB round-trip per form.
+**Why it matters:** Degrades under a large backlog of pending forms; each update is a separate query.
+**Effort:** Small (replace loop with a single updateMany call when needed)
+**Priority:** Low
 
 ---
 
