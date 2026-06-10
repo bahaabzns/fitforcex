@@ -1,8 +1,14 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
+import { prisma } from '../lib/prisma';
 import { env } from '../config/env';
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+function hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
     const token = req.cookies.token;
     if (!token) {
         res.status(401).json({ message: 'Not authenticated' });
@@ -11,6 +17,15 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
     try {
         const decoded = jwt.verify(token, env.JWT_SECRET) as jwt.JwtPayload;
+
+        const session = await prisma.user_sessions.findUnique({
+            where: { token_hash: hashToken(token) },
+        });
+        if (!session || session.revoked_at || session.expires_at < new Date()) {
+            res.status(401).json({ message: 'Session expired or revoked' });
+            return;
+        }
+
         req.user = {
             userId:      decoded.userId,
             workspaceId: decoded.workspaceId,

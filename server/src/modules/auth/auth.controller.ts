@@ -9,7 +9,7 @@ import { prisma } from '../../lib/prisma';
 import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
     fetchUserWorkspaces, fetchPendingInvitationsCount, issueToken,
-    storeAndSendVerificationCode,
+    storeAndSendVerificationCode, createSession, revokeSession,
 } from './auth.service';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
@@ -124,6 +124,8 @@ export async function login(req: Request, res: Response, next: NextFunction) {
             permissions: wsContext.permissions,
         });
 
+        await createSession(user.id, token);
+
         res.cookie('token', token, cookieOptions())
            .status(200)
            .json({
@@ -184,13 +186,17 @@ export async function switchWorkspace(req: Request, res: Response, next: NextFun
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     try {
-        const wsContext = await buildTokenForWorkspace(req.user!.userId, workspaceId);
-        const token     = issueToken({
+        const wsContext  = await buildTokenForWorkspace(req.user!.userId, workspaceId);
+        const oldToken   = req.cookies.token as string | undefined;
+        const token      = issueToken({
             userId:      req.user!.userId,
             workspaceId: wsContext.workspaceId,
             role:        wsContext.role,
             permissions: wsContext.permissions,
         });
+
+        if (oldToken) await revokeSession(oldToken);
+        await createSession(req.user!.userId, token);
 
         res.cookie('token', token, cookieOptions())
            .status(200)
@@ -375,8 +381,14 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
     }
 }
 
-export function logout(_req: Request, res: Response) {
-    res.clearCookie('token').status(200).json({ message: 'Logged out successfully' });
+export async function logout(req: Request, res: Response, next: NextFunction) {
+    try {
+        const token = req.cookies.token as string | undefined;
+        if (token) await revokeSession(token);
+        res.clearCookie('token').status(200).json({ message: 'Logged out successfully' });
+    } catch (err) {
+        next(err);
+    }
 }
 
 export async function updateProfile(req: Request, res: Response, next: NextFunction) {

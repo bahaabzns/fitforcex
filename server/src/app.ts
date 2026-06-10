@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/node';
 
 import { env } from './config/env';
 import { readLimiter, mutationLimiter } from './middleware/rateLimit';
+import { requireAdminSubdomain } from './middleware/adminAuth';
 import { prisma } from './lib/prisma';
 
 process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
@@ -40,7 +41,28 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(helmet());
+app.use(helmet({
+    frameguard: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc:     ["'self'"],
+            scriptSrc:      ["'self'", "'unsafe-inline'"],
+            styleSrc:       ["'self'", "'unsafe-inline'"],
+            imgSrc:         ["'self'", "data:", "https:"],
+            connectSrc:     ["'self'", "https://api.fitforce.io", "https://*.fitforce.io"],
+            fontSrc:        ["'self'", "https:", "data:"],
+            objectSrc:      ["'none'"],
+            mediaSrc:       ["'self'"],
+            frameSrc:       ["'self'"],
+            frameAncestors: ["'self'", "https://fitforceapp.com", "https://*.fitforceapp.com"],
+        },
+    },
+    hsts: {
+        maxAge:            31536000,
+        includeSubDomains: true,
+        preload:           true,
+    },
+}));
 app.use(compression());
 app.use(cors({
     origin: (origin, cb) => {
@@ -74,7 +96,7 @@ app.use('/api/packages',       apiLimiter, packagesRouter);
 app.use('/api/payment-methods',apiLimiter, paymentMethodsRouter);
 app.use('/api/transactions',   apiLimiter, transactionsRouter);
 app.use('/api/plans',          plansRouter);
-app.use('/api/admin',          apiLimiter, adminRouter);
+app.use('/api/admin',          requireAdminSubdomain, apiLimiter, adminRouter);
 app.use('/api/workspaces',     apiLimiter, workspacesRouter);
 app.use('/api/invitations',    apiLimiter, invitationsRouter);
 app.use('/api/billing',        apiLimiter, billingRouter);

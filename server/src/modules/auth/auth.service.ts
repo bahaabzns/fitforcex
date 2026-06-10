@@ -1,4 +1,6 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { createId } from '@paralleldrive/cuid2';
 import { sendVerificationEmail } from '../../lib/email';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
@@ -105,6 +107,28 @@ export function issueToken(payload: Record<string, unknown>): string {
 
 export function generateVerificationCode(): string {
     return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+export function hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export async function createSession(userId: string, token: string): Promise<void> {
+    await prisma.user_sessions.create({
+        data: {
+            id:         createId(),
+            user_id:    userId,
+            token_hash: hashToken(token),
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+    });
+}
+
+export async function revokeSession(token: string): Promise<void> {
+    await prisma.user_sessions.updateMany({
+        where: { token_hash: hashToken(token) },
+        data:  { revoked_at: new Date() },
+    });
 }
 
 export async function storeAndSendVerificationCode(userId: string, email: string): Promise<void> {

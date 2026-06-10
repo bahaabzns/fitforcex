@@ -21,4 +21,16 @@ export function adminAuthMiddleware(req: Request, res: Response, next: NextFunct
     }
 }
 
+export function requireAdminSubdomain(req: Request, res: Response, next: NextFunction): void {
+    if (env.NODE_ENV !== 'production') {
+        return next();
+    }
+    const subdomain = req.hostname?.split('.')[0] ?? '';
+    if (!['admin', 'management'].includes(subdomain)) {
+        res.status(403).json({ error: 'Admin access not permitted from this domain' });
+        return;
+    }
+    next();
+}
+
 export default adminAuthMiddleware;
