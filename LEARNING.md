@@ -54,3 +54,13 @@ Format per session:
 **Concepts I am still fuzzy on:** How to handle mixed-direction content within a single cell (e.g., Arabic label + English number) — does HeroUI's Table handle this automatically or does each cell need a `dir` attr?
 **Question I want to explore next:** Are there remaining hardcoded `text-left` or `justify-start` patterns in other components that will break under RTL?
 **Confidence today (1–10):** 8
+
+---
+
+## 2026-06-10 — Phase 4: Security Hardening (JWT session revocation, CSP, admin subdomain) + Phase 5: File Storage (AWS S3)
+**What we built:** DB-backed JWT session revocation — every issued token is stored as a SHA-256 hash in `user_sessions` and validated on every request. Logout and workspace-switch revoke the old token. Full Helmet CSP with HSTS. `requireAdminSubdomain` middleware. S3 upload library (`storage.ts`) with signed URL generation and disk fallback for dev. One-time upload migration script.
+**New concepts learned:** Why token revocation requires a DB — pure JWT validation is stateless and cannot be un-done before expiry. The SHA-256 hash trick: we never store the raw token, only its hash, so the table is safe even if leaked. Why `getMe` needed `authMiddleware` even though it already called `jwt.verify()` directly — `jwt.verify` checks the signature but not whether the session was revoked. The two failure modes are different: one catches forgeries, the other catches revocation.
+**Concepts I understood immediately:** CSP directive names and what each controls. Why HSTS `preload: true` requires `includeSubDomains: true`. Why `hashToken` should live in one place (auth.service.ts) rather than being duplicated in middleware.
+**Concepts I am still fuzzy on:** S3 pre-signed URLs vs public-read ACL — when to use each. Pre-signed URLs expire and require backend involvement for each view; public-read is simpler but exposes the bucket.
+**Question I want to explore next:** Should exercise videos use signed URLs (access control) or public-read (performance)? What is the right expiry window?
+**Confidence today (1–10):** 8

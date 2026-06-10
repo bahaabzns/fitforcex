@@ -182,3 +182,41 @@ Format:
 **Why it matters:** A product decision about grouping threshold is invisible and hard to change.
 **Effort:** Small (extract to MESSAGE_GROUP_WINDOW_MS constant at top of file or in messengerHelpers.js)
 **Priority:** Low
+
+---
+
+## 2026-06-10 — server/src/middleware/auth.ts + server/src/modules/auth/auth.service.ts
+**Type:** Shortcut
+**What:** hashToken was duplicated — identical SHA-256 function defined privately in auth.ts and exported from auth.service.ts.
+**Why it matters:** Algorithm divergence would silently break all session lookups.
+**Effort:** Small
+**Priority:** Medium
+✅ RESOLVED 2026-06-10 — Removed private copy in auth.ts; now imports hashToken from auth.service.
+
+---
+
+## 2026-06-10 — server/src/modules/auth/auth.routes.ts
+**Type:** Shortcut
+**What:** GET /me had no authMiddleware — it called jwt.verify() directly without checking the user_sessions table. A revoked token could still read user profile data.
+**Why it matters:** Phase 4 security guarantee was broken for the /me endpoint.
+**Effort:** Small
+**Priority:** High
+✅ RESOLVED 2026-06-10 — Added authMiddleware to /me route; getMe now uses req.user from validated session.
+
+---
+
+## 2026-06-10 — server/src/modules/training/training.routes.ts Line: 35
+**Type:** Shortcut
+**What:** PUT route path is '\exercise-library:id' (backslash, no colon before id) — should be '/exercise-library/:id'. The backslash is silently dropped by JS string parsing, and the missing colon means `:id` is treated as a literal string rather than a route param.
+**Why it matters:** PUT /exercise-library/:id is currently unreachable — updateExercise never fires.
+**Effort:** Small (fix the path string)
+**Priority:** High
+
+---
+
+## 2026-06-10 — server/user_sessions table
+**Type:** Knowledge
+**What:** The user_sessions table has no automatic cleanup. Revoked and expired rows accumulate forever without a scheduled job.
+**Why it matters:** Table will grow unboundedly in production. Phase 7 (schedulers) adds scheduleSessionCleanup() — must run Phase 7 before production deploy.
+**Effort:** Small (resolved when Phase 7 is implemented)
+**Priority:** Medium

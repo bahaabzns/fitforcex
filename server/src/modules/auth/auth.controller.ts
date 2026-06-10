@@ -1,10 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
 import { sendPasswordResetEmail } from '../../lib/email';
-import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
@@ -140,20 +138,15 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
-    const token = req.cookies?.token as string | undefined;
-    if (!token) return res.status(401).json({ message: 'Not authenticated' });
-
     try {
-        const decoded = jwt.verify(token, env.JWT_SECRET) as { userId: string; workspaceId: string };
-
         const user = await prisma.users.findFirst({
-            where:  { id: decoded.userId },
+            where:  { id: req.user!.userId },
             select: { id: true, fname: true, lname: true, email: true, default_workspace_id: true, email_verified: true, preferred_language: true },
         });
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const [wsContext, workspaces, pendingInvitationsCount] = await Promise.all([
-            buildTokenForWorkspace(user.id, decoded.workspaceId),
+            buildTokenForWorkspace(user.id, req.user!.workspaceId),
             fetchUserWorkspaces(user.id),
             fetchPendingInvitationsCount(user.id),
         ]);

@@ -8,7 +8,7 @@ const router = Router();
 
 router.post('/register',          authController.register);
 router.post('/login',             loginLimiter, authController.login);
-router.get('/me',                 authController.getMe);
+router.get('/me',                 authMiddleware, authController.getMe);
 router.post('/logout',            authController.logout);
 
 router.post('/switch-workspace',  authMiddleware, authController.switchWorkspace);

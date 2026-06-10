@@ -1,12 +1,8 @@
-import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { env } from '../config/env';
-
-function hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
-}
+import { hashToken } from '../modules/auth/auth.service';
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
     const token = req.cookies.token;
