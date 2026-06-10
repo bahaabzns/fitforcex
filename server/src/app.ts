@@ -9,6 +9,11 @@ import { env } from './config/env';
 import { readLimiter, mutationLimiter } from './middleware/rateLimit';
 import { requireAdminSubdomain } from './middleware/adminAuth';
 import { prisma } from './lib/prisma';
+import {
+    scheduleFormDispatcher,
+    scheduleSubscriptionExpiry,
+    scheduleSessionCleanup,
+} from './middleware/scheduler';
 
 process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
 process.on('SIGTERM', async () => { await prisma.$disconnect(); process.exit(0); });
@@ -36,6 +41,12 @@ Sentry.init({
     environment: env.NODE_ENV,
     enabled:     !!env.SENTRY_DSN,
 });
+
+if (env.NODE_ENV !== 'test') {
+    scheduleFormDispatcher();
+    scheduleSubscriptionExpiry();
+    scheduleSessionCleanup();
+}
 
 const app = express();
 
