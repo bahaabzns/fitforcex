@@ -211,3 +211,12 @@ Format:
 **Why it matters:** Table will grow unboundedly in production. Phase 7 (schedulers) adds scheduleSessionCleanup() — must run Phase 7 before production deploy.
 **Effort:** Small (resolved when Phase 7 is implemented)
 **Priority:** Medium
+
+---
+
+## 2026-06-10 — messenger, clientPortal, nutrition, training controllers
+**Type:** Knowledge
+**What:** getIo() throws if called before initSocket(). Phase 9 integration tests that hit sendMessage or activatePlan will fail unless testServer.ts calls initSocket() with a mock http server, or getIo is mocked via jest.mock.
+**Why it matters:** Any integration test covering these endpoints will crash with "Socket.io not initialised" until a test helper is wired up.
+**Effort:** Small (add initSocket call in testServer.ts helpers during Phase 9)
+**Priority:** Medium

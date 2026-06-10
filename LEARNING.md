@@ -57,6 +57,16 @@ Format per session:
 
 ---
 
+## 2026-06-10 — Phase 6: Real-Time — Socket.io
+**What we built:** Socket.io layer on top of the existing Express server. `initSocket(httpServer)` creates a SocketServer attached to the Node http.Server, authenticates connections via the httpOnly JWT cookie, and places each socket in workspace/client/user rooms. After a coach sends a message, `new_message` is broadcast to the whole workspace room. After a client sends a message, the same event goes to the coach workspace. After plan activation (nutrition or training), `plan_assigned` fires into the client's private room so the portal can refresh without polling.
+**New concepts learned:** Why Socket.io must attach to a `http.Server` rather than the Express `app` directly — WebSocket upgrades are handled at the HTTP layer, not by Express middleware. Why the auth handshake reads the cookie from the raw `socket.handshake.headers.cookie` string — Socket.io doesn't parse cookies automatically like `cookie-parser` does for HTTP requests.
+**Concepts I understood immediately:** Room-based targeting: workspace room lets all coach team members see new messages; client room lets a specific client portal react to events without broadcasting to others.
+**Concepts I am still fuzzy on:** Whether `getIo()` emits should be fire-and-forget (as implemented) or awaited. Socket.io emit is synchronous/non-blocking, so there's nothing to await — but if delivery guarantees matter, does the app need acknowledgements?
+**Question I want to explore next:** How does the client-side (Next.js) subscribe to these rooms? What happens if a client portal user is not connected when plan_assigned fires — does the event get queued?
+**Confidence today (1–10):** 8
+
+---
+
 ## 2026-06-10 — Phase 4: Security Hardening (JWT session revocation, CSP, admin subdomain) + Phase 5: File Storage (AWS S3)
 **What we built:** DB-backed JWT session revocation — every issued token is stored as a SHA-256 hash in `user_sessions` and validated on every request. Logout and workspace-switch revoke the old token. Full Helmet CSP with HSTS. `requireAdminSubdomain` middleware. S3 upload library (`storage.ts`) with signed URL generation and disk fallback for dev. One-time upload migration script.
 **New concepts learned:** Why token revocation requires a DB — pure JWT validation is stateless and cannot be un-done before expiry. The SHA-256 hash trick: we never store the raw token, only its hash, so the table is safe even if leaked. Why `getMe` needed `authMiddleware` even though it already called `jwt.verify()` directly — `jwt.verify` checks the signature but not whether the session was revoked. The two failure modes are different: one catches forgeries, the other catches revocation.
