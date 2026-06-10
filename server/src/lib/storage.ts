@@ -3,7 +3,10 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multerS3 from 'multer-s3';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { env } from '../config/env';
+
+const s3Configured = !!(env.S3_BUCKET && env.S3_ACCESS_KEY && env.S3_SECRET_KEY);
 
 const s3 = new S3Client({
     region:   env.S3_REGION,
@@ -21,8 +24,8 @@ export function makeUploader(
     allowedExts: string[] | null,
     options: { maxSize?: number; fileFilter?: multer.Options['fileFilter'] } = {}
 ) {
-    return multer({
-        storage: multerS3({
+    const storage: multer.StorageEngine = s3Configured
+        ? multerS3({
             s3,
             bucket: env.S3_BUCKET,
             key: (req, file, cb) => {
@@ -33,7 +36,22 @@ export function makeUploader(
                 const folder = typeof folderOrFn === 'function' ? folderOrFn(file) : folderOrFn;
                 cb(null, `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
             },
-        }),
+        })
+        : multer.diskStorage({
+            destination: (req, file, cb) => {
+                const folder = typeof folderOrFn === 'function' ? folderOrFn(file) : folderOrFn;
+                const dest = path.join('uploads', folder);
+                fs.mkdirSync(dest, { recursive: true });
+                cb(null, dest);
+            },
+            filename: (_req, file, cb) => {
+                const ext = path.extname(file.originalname || '').toLowerCase();
+                cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+            },
+        });
+
+    return multer({
+        storage,
         limits: { fileSize: options.maxSize ?? 50 * 1024 * 1024 },
         ...(options.fileFilter && { fileFilter: options.fileFilter }),
     });
@@ -41,6 +59,10 @@ export function makeUploader(
 
 export async function deleteFile(key: string | null | undefined): Promise<void> {
     if (!key) return;
+    if (!s3Configured) {
+        fs.unlink(key, () => {});
+        return;
+    }
     await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
 }
 
@@ -49,9 +71,10 @@ export async function createSignedUrl(key: string, expiresIn = 3600): Promise<st
     return getSignedUrl(s3, command, { expiresIn });
 }
 
-// Converts an S3 key to a public URL. Requires S3_PUBLIC_URL or S3_ENDPOINT + S3_BUCKET in env.
+// Converts an S3 key to a public URL. In dev (no S3), returns a local /uploads path.
 export function toPublicUrl(key: string | null | undefined): string | null {
     if (!key) return null;
+    if (!s3Configured) return `/uploads/${key}`;
     const base = (env.S3_PUBLIC_URL || `${env.S3_ENDPOINT}/${env.S3_BUCKET}`).replace(/\/$/, '');
     return `${base}/${key}`;
 }

@@ -205,15 +205,6 @@ Format:
 
 ---
 
-## 2026-06-10 — server/src/modules/training/training.routes.ts Line: 35
-**Type:** Shortcut
-**What:** PUT route path is '\exercise-library:id' (backslash, no colon before id) — should be '/exercise-library/:id'. The backslash is silently dropped by JS string parsing, and the missing colon means `:id` is treated as a literal string rather than a route param.
-**Why it matters:** PUT /exercise-library/:id is currently unreachable — updateExercise never fires.
-**Effort:** Small (fix the path string)
-**Priority:** High
-
----
-
 ## 2026-06-10 — server/user_sessions table
 **Type:** Knowledge
 **What:** The user_sessions table has no automatic cleanup. Revoked and expired rows accumulate forever without a scheduled job.
