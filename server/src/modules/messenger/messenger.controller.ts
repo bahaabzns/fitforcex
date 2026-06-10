@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../../lib/prisma';
+import { getIo } from '../../lib/socket';
 
 type ThreadRow = {
     id: string; client_id: string; status: string; updated_at: Date;
@@ -106,6 +107,10 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             where: { id: threadId },
             data:  { updated_at: new Date() },
         });
+
+        getIo()
+            .to(`workspace:${req.user!.workspaceId}`)
+            .emit('new_message', { threadId, message });
 
         res.status(201).json(message);
     } catch (err) { next(err); }

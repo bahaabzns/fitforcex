@@ -15,6 +15,7 @@ import {
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
 import { FileBag } from './training.service';
+import { getIo } from '../../lib/socket';
 
 type Row = Record<string, unknown>;
 
@@ -564,6 +565,11 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
         });
 
         if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
+
+        getIo()
+            .to(`client:${updatedPlan.client_id as string}`)
+            .emit('plan_assigned', { type: 'training', planId: updatedPlan.id });
+
         res.json(updatedPlan);
     } catch (err) { next(err); }
 }

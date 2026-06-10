@@ -1,7 +1,9 @@
+import http from 'http';
 import { execSync } from 'child_process';
 import path from 'path';
 import { env } from './config/env';
 import app from './app';
+import { initSocket } from './lib/socket';
 
 // Run DB migrations on startup (skip in test environment)
 if (env.NODE_ENV !== 'test') {
@@ -13,8 +15,11 @@ if (env.NODE_ENV !== 'test') {
     }
 }
 
-const server = app.listen(env.PORT, '127.0.0.1', () => {
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
+httpServer.listen(env.PORT, '127.0.0.1', () => {
     console.log(`Server running on http://127.0.0.1:${env.PORT}`);
 });
 
-export default server;
+export default httpServer;

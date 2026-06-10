@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { toPublicUrl } from '../../lib/storage';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
+import { getIo } from '../../lib/socket';
 
 async function activateDueClientScheduledRequests(clientId: string): Promise<void> {
     await prisma.$executeRaw`
@@ -429,6 +430,10 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             where: { id: thread.id },
             data:  { updated_at: new Date() },
         });
+
+        getIo()
+            .to(`workspace:${req.client!.workspaceId}`)
+            .emit('new_message', { threadId: thread.id, message, fromClient: true });
 
         res.status(201).json(message);
     } catch (err) {
