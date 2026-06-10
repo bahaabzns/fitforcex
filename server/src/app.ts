@@ -177,7 +177,7 @@ app.get('/api/metrics', authMiddleware, (req: Request, res: Response) => {
 app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, _next: NextFunction) => {
     const status = (err as { status?: number }).status ?? (err as { statusCode?: number }).statusCode ?? 500;
     if (status >= 500) {
-        console.error({ err }, 'Unhandled server error');
+        logger.error({ err }, 'Unhandled server error');
         Sentry.captureException(err);
     }
     res.status(status).json({ error: err.message ?? 'Internal server error' });
