@@ -3,9 +3,11 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import compression from 'compression';
+import swaggerUi from 'swagger-ui-express';
 import * as Sentry from '@sentry/node';
 
 import { env } from './config/env';
+import { swaggerSpec } from './config/swagger';
 import { readLimiter, mutationLimiter } from './middleware/rateLimit';
 import { requireAdminSubdomain } from './middleware/adminAuth';
 import { prisma } from './lib/prisma';
@@ -111,6 +113,8 @@ app.use('/api/admin',          requireAdminSubdomain, apiLimiter, adminRouter);
 app.use('/api/workspaces',     apiLimiter, workspacesRouter);
 app.use('/api/invitations',    apiLimiter, invitationsRouter);
 app.use('/api/billing',        apiLimiter, billingRouter);
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get('/api/health', (_req: Request, res: Response) => {
     res.status(200).json({ message: 'All is good!' });

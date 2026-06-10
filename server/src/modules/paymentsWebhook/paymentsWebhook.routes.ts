@@ -4,6 +4,28 @@ import { handleWebhook } from './paymentsWebhook.controller';
 
 const router = Router();
 
+/**
+ * @openapi
+ * /payments/webhook:
+ *   post:
+ *     summary: Fawaterak payment webhook receiver
+ *     tags: [Payments Webhook]
+ *     security: []
+ *     description: >
+ *       Called by Fawaterak after a payment event. Registered before express.json()
+ *       so the raw body is preserved for HMAC signature verification.
+ *       Not callable by end users — Fawaterak is the caller.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook processed
+ *       400:
+ *         description: Invalid signature or malformed payload
+ */
 // Registered BEFORE express.json() in app.ts so the raw body is preserved for HMAC verification.
 // No authMiddleware — Fawaterak is the caller, not a logged-in user.
 router.post('/', express.raw({ type: '*/*' }), handleWebhook);
