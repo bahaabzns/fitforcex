@@ -77,3 +77,10 @@ Format:
 **Plain English:** An accessible expand/collapse component — like an accordion section.
 **In our project:** Used in `Sidebar.js` for the Finance, Nutrition, Training, and Settings collapsible nav menus.
 **Example:** Clicking "Settings" in the sidebar opens a `Disclosure` that reveals Profile, Workspace, and Billing sub-links.
+
+---
+
+## lvh.me
+**Plain English:** A real public domain whose DNS always points to 127.0.0.1 (your own machine) — including every subdomain like `pola.lvh.me`. It behaves like a real domain with subdomains, but resolves to localhost.
+**In our project:** Used for local subdomain testing of the client portal. Because `pola.lvh.me` and the API (`lvh.me:4000`) share the registrable domain `lvh.me`, the browser treats them as the same site, so the `sameSite: strict` login cookie flows across subdomains exactly like production (`pola.fitforce.io` + `api.fitforce.io` share `fitforce.io`). Plain `localhost` can't do this: `pola.localhost` and `localhost` are different sites, so the cookie is dropped.
+**Example:** Visiting `http://pola.lvh.me:3000/portal` loads the portal for workspace `pola`, and login persists — whereas `http://pola.localhost:3000/portal` would appear logged out.
