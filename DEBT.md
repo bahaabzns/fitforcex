@@ -266,3 +266,12 @@ Format:
 **Why it matters:** Metrics will silently undercount traffic after any redeploy — misleading in production where restarts are frequent.
 **Effort:** Medium (replace with Redis counter or prometheus-client for persistent counters)
 **Priority:** Low
+
+---
+
+## 2026-06-11 — server/tests (jest harness)
+**Type:** Knowledge
+**What:** Running multiple test suites in one `npm test` run crashes with "Jest worker ran out of memory"; suites only pass when run one at a time. Root cause is the global `resetTestDb()` setup (see setup.ts entry above) plus per-worker Prisma clients not being torn down.
+**Why it matters:** `npm test` cannot produce a green full-suite run locally, so the Pre-Commit / Pre-Merge "all tests pass" gate can't be satisfied as written — reviewers fall back to running suites individually.
+**Effort:** Medium (tear down Prisma per worker, or set `--workerIdleMemoryLimit`, and move DB reset out of global setup)
+**Priority:** Medium
