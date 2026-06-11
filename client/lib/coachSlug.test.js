@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { getCoachSlugFromHost } from './coachSlug';
+import { getCoachSlugFromHost, buildPortalUrlFromParts } from './coachSlug';
 
 describe('getCoachSlugFromHost', () => {
     test('returns the subdomain label as the slug', () => {
@@ -37,5 +37,24 @@ describe('getCoachSlugFromHost', () => {
     test('returns null for empty or missing input', () => {
         expect(getCoachSlugFromHost('', 'fitforce.io')).toBeNull();
         expect(getCoachSlugFromHost('acme.fitforce.io', '')).toBeNull();
+    });
+});
+
+describe('buildPortalUrlFromParts', () => {
+    test('builds the production URL (https, no port)', () => {
+        expect(buildPortalUrlFromParts('pola', 'fitforce.io', 'https:', '')).toBe(
+            'https://pola.fitforce.io/portal'
+        );
+    });
+
+    test('builds the dev URL (http, with port)', () => {
+        expect(buildPortalUrlFromParts('pola', 'lvh.me', 'http:', '3000')).toBe(
+            'http://pola.lvh.me:3000/portal'
+        );
+    });
+
+    test('returns empty string when slug or root domain is missing', () => {
+        expect(buildPortalUrlFromParts('', 'fitforce.io', 'https:', '')).toBe('');
+        expect(buildPortalUrlFromParts('pola', '', 'https:', '')).toBe('');
     });
 });

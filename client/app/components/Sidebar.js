@@ -4,6 +4,7 @@ import Link from "next/link";
 import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import api from "@/lib/axios";
+import { buildPortalUrl } from "@/lib/coachSlug";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -95,7 +96,7 @@ export default function Sidebar({ collapsed }) {
 
     useEffect(() => {
         const currentSlug = user?.currentWorkspace?.slug;
-        if (currentSlug) setPortalLink(`${window.location.origin}/portal/${currentSlug}`);
+        if (currentSlug) setPortalLink(buildPortalUrl(currentSlug));
     }, [user]);
 
     const handleCopyPortalLink = async () => {

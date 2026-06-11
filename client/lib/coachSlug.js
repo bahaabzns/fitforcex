@@ -42,3 +42,33 @@ export function getCoachSlug() {
     if (typeof window === 'undefined') return null;
     return getCoachSlugFromHost(window.location.hostname, ROOT_DOMAIN);
 }
+
+/**
+ * Builds the client portal URL for a workspace slug on its subdomain.
+ * Pure function (no browser access) so it can be unit-tested.
+ *
+ * The protocol and port come from the current page, so this adapts to each
+ * environment automatically: http + :3000 in dev, https + no port in prod.
+ *
+ * @param {string} slug       e.g. "pola"
+ * @param {string} rootDomain e.g. "fitforce.io" or "lvh.me"
+ * @param {string} protocol   e.g. "https:" (window.location.protocol)
+ * @param {string} port       e.g. "3000" or "" (window.location.port)
+ * @returns {string} e.g. "https://pola.fitforce.io/portal"
+ */
+export function buildPortalUrlFromParts(slug, rootDomain, protocol, port) {
+    if (!slug || !rootDomain) return '';
+    const root = rootDomain.split(':')[0].toLowerCase();
+    const host = port ? `${slug}.${root}:${port}` : `${slug}.${root}`;
+    return `${protocol}//${host}/portal`;
+}
+
+/**
+ * Builds the client portal URL for a slug using the current page's protocol/port
+ * and the configured root domain. Returns '' on the server or without a slug.
+ */
+export function buildPortalUrl(slug) {
+    if (typeof window === 'undefined' || !slug) return '';
+    const { protocol, port } = window.location;
+    return buildPortalUrlFromParts(slug, ROOT_DOMAIN, protocol, port);
+}
