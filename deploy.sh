@@ -49,7 +49,9 @@ ok "Migrations complete"
 
 step "Installing client dependencies..."
 cd "$APP_DIR/client"
-npm ci
+# Unset NODE_ENV so npm ci installs devDependencies needed for the build
+# (tailwindcss, @tailwindcss/postcss, etc. are devDeps but required at build time)
+NODE_ENV=development npm ci
 ok "Client deps installed"
 
 step "Building Next.js..."
