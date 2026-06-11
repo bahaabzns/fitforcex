@@ -311,3 +311,16 @@ Format:
 **Why it matters:** frame-ancestors allowing fitforceapp.com (an unused domain) weakens clickjacking protection — it permits an unintended host to embed API responses. Hardcoding also drifts from the real domain over time.
 **Effort:** Small (build CSP arrays from env.ROOT_DOMAIN; replace fitforceapp.com with fitforce.io)
 **Priority:** Medium
+
+---
+
+## 2026-06-11 — Bug: packages page crashes on create (package_variations vs variations)
+**Severity:** High
+**Root Cause:** The packages API returned the Prisma relation as `package_variations`, but request bodies and the entire client use `variations`. The packages page iterates `pkg.variations`, so the first time a workspace had any package the response shape mismatch threw "pkg.variations is not iterable".
+**How It Was Found:** Manual testing — creating the first package while smoke-testing the subdomain feature.
+**Fix Applied:** Added `serializePackage`/`serializePackages` (packages.serializer.ts) and applied them at all four `packages.controller` response sites, so the relation is exposed as `variations`. API is now symmetric (variations in both request and response).
+**Why It Was Not Caught Earlier:** Workspaces had zero packages, so the empty list never iterated; no integration test covered the create→list response shape.
+**Prevention:**
+  → New test added: yes (tests/unit/packages.serializer.test.ts)
+  → New validation added: no
+  → DEBT.md item added: this entry

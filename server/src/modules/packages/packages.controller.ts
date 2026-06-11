@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../../lib/prisma';
+import { serializePackage, serializePackages } from './packages.serializer';
 
 function getPackageWithVariations(id: string, workspaceId: string) {
     return prisma.packages.findFirst({
@@ -16,7 +17,7 @@ export async function getPackages(req: Request, res: Response, next: NextFunctio
             include: { package_variations: { orderBy: { id: 'asc' } } },
             orderBy: { name: 'asc' },
         });
-        res.json(pkgs);
+        res.json(serializePackages(pkgs));
     } catch (err) { next(err); }
 }
 
@@ -57,7 +58,7 @@ export async function createPackage(req: Request, res: Response, next: NextFunct
             });
         });
 
-        res.status(201).json(pkg);
+        res.status(201).json(serializePackage(pkg));
     } catch (err) { next(err); }
 }
 
@@ -107,7 +108,7 @@ export async function updatePackage(req: Request, res: Response, next: NextFunct
             }
         });
 
-        res.json(await getPackageWithVariations(id, req.user!.workspaceId));
+        res.json(serializePackage(await getPackageWithVariations(id, req.user!.workspaceId)));
     } catch (err) { next(err); }
 }
 
@@ -127,6 +128,6 @@ export async function deletePackage(req: Request, res: Response, next: NextFunct
             return res.json({ deleted: 'package', id: packageId });
         }
 
-        res.json(await getPackageWithVariations(packageId, req.user!.workspaceId));
+        res.json(serializePackage(await getPackageWithVariations(packageId, req.user!.workspaceId)));
     } catch (err) { next(err); }
 }
