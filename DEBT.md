@@ -293,3 +293,12 @@ Format:
 **Why it matters:** React 19 flags this as an error (cascading renders); will surface if/when ESLint is wired into CI or the build.
 **Effort:** Small (derive initial loading from isLoginPage, or guard the set)
 **Priority:** Low
+
+---
+
+## 2026-06-11 — client (deferred: subdomain root redirect)
+**Type:** Knowledge
+**What:** Bare workspace subdomain root (slug.fitforce.io/) shows the landing page instead of the portal. Planned fix is a `proxy.ts` rewrite to /portal, deferred until next@16.2.9 (see next security debt above).
+**Why it matters:** Minor UX — clients who omit /portal see the marketing page. Blocked on the Next upgrade so we don't add a proxy on a proxy-bypass-vulnerable Next.
+**Effort:** Small (add proxy.ts after upgrade; keep it cosmetic, never an auth gate)
+**Priority:** Low
