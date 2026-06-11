@@ -4,6 +4,7 @@ const config: Config = {
     testEnvironment: 'node',
     rootDir:         '.',
     testMatch:       ['**/tests/**/*.test.ts'],
+    maxWorkers: 1,
     setupFilesAfterEnv: ['<rootDir>/tests/helpers/setup.ts'],
     transform: {
         '^.+\\.tsx?$': ['ts-jest', {

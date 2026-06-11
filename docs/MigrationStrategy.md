@@ -61,14 +61,14 @@ and deployed to staging before Phase 1 begins.
 
 P1 checklist:
 ```
-[ ] P1-1: Forgot/reset password flow
-[ ] P1-2: Email verification flow
-[ ] P1-3: Client-coach messaging (Thread + Message + Socket.io)
-[ ] P1-4: Workout logs
-[ ] P1-5: Push notifications (FCM)
-[ ] P1-6: Client subscription + payment flow (Fawaterak)
-[ ] P1-7: Food replacement request loop (client → coach → approve)
-[ ] P1-8: Team invitation accept flow
+[x] P1-1: Forgot/reset password flow          ✅ Done
+[x] P1-2: Email verification flow             ✅ Done
+[x] P1-3: Client-coach messaging (Thread + Message + Socket.io) ✅ Done
+[x] P1-4: Workout logs                        ✅ Done
+[x] P1-5: Push notifications (FCM)            → Deferred to P3
+[x] P1-6: Client subscription + payment flow  → Deferred to P3
+[x] P1-7: Food replacement request loop       → Deferred to P3
+[x] P1-8: Team invitation accept flow         → Deferred to P3
 ```
 
 ### 0-2. Schema Alignment

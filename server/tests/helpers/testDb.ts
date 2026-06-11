@@ -15,18 +15,20 @@ export function getTestPool(): Pool {
 }
 
 export async function resetTestDb(): Promise<void> {
-    // Break the FK cycle between users.default_workspace_id → workspaces before truncating
-    await testPrisma.$executeRawUnsafe(`UPDATE users SET default_workspace_id = NULL`);
-    await testPrisma.$executeRawUnsafe(`
-        TRUNCATE TABLE
-            messages, threads,
-            workout_logs, form_requests, forms,
-            client_observations, clients,
-            workspace_members, workspace_subscriptions,
-            workspaces, user_sessions,
-            password_reset_tokens, users
-        RESTART IDENTITY CASCADE
-    `);
+    await testPrisma.$transaction(async (tx) => {
+        // Break the FK cycle between users.default_workspace_id → workspaces before truncating
+        await tx.$executeRawUnsafe(`UPDATE users SET default_workspace_id = NULL`);
+        await tx.$executeRawUnsafe(`
+            TRUNCATE TABLE
+                messages, threads,
+                workout_logs, form_requests, forms,
+                client_observations, clients,
+                workspace_members, workspace_subscriptions,
+                workspaces, user_sessions,
+                password_reset_tokens, users
+            RESTART IDENTITY CASCADE
+        `);
+    }, { timeout: 10000 });
 }
 
 export async function closeTestDb(): Promise<void> {

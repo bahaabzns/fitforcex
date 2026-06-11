@@ -103,10 +103,17 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     const { email, password } = req.body as { email?: string; password?: string };
 
     try {
-        const user = await prisma.users.findFirst({ where: { email: email! } });
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+        if (!password || typeof password !== 'string') {
+            return res.status(400).json({ message: 'Password is required' });
+        }
+
+        const user = await prisma.users.findFirst({ where: { email: email.trim() } });
         if (!user) return res.status(401).json({ message: 'Invalid email or password' });
 
-        const match = await bcrypt.compare(password!, user.password!);
+        const match = await bcrypt.compare(password, user.password!);
         if (!match) return res.status(401).json({ message: 'Invalid email or password' });
 
         const wsContext = await buildToken(user.id);
