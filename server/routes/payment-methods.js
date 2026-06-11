@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
@@ -33,8 +34,8 @@ router.post('/', async (req, res, next) => {
 
     try {
         const result = await pool.query(
-            'INSERT INTO payment_methods (workspace_id, name, type) VALUES ($1, $2, $3) RETURNING *',
-            [req.user.workspaceId, name.trim(), type]
+            'INSERT INTO payment_methods (workspace_id, name, type, id) VALUES ($1, $2, $3, $4) RETURNING *',
+            [req.user.workspaceId, name.trim(), type, createId()]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {

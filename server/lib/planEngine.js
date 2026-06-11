@@ -72,12 +72,14 @@ async function activateSinglePlan({
     planId,
     coachId,
     clientIdColumn = 'client_id',
+    workspaceColumn = 'workspace_id',
 }) {
     assertSafeIdentifier(tableName, 'table');
     assertSafeIdentifier(clientIdColumn, 'client id column');
+    assertSafeIdentifier(workspaceColumn, 'workspace column');
 
     const planResult = await pool.query(
-        `SELECT * FROM ${tableName} WHERE id = $1 AND coach_id = $2`,
+        `SELECT * FROM ${tableName} WHERE id = $1 AND ${workspaceColumn} = $2`,
         [planId, coachId]
     );
 
@@ -90,7 +92,7 @@ async function activateSinglePlan({
     await pool.query(
         `UPDATE ${tableName}
          SET status = 'inactive'
-         WHERE ${clientIdColumn} = $1 AND coach_id = $2 AND id != $3`,
+         WHERE ${clientIdColumn} = $1 AND ${workspaceColumn} = $2 AND id != $3`,
         [plan[clientIdColumn], coachId, plan.id]
     );
 

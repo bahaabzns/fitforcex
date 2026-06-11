@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
@@ -320,8 +321,8 @@ router.post('/', async (req, res, next) => {
         const result = await pool.query(
             `INSERT INTO transactions
                 (workspace_id, client_id, client_name, package_variation, payment_method, amount, currency,
-                 duration, type, status, notes, proof_image, transaction_date, subscription_start_date, start_mode)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+                 duration, type, status, notes, proof_image, transaction_date, subscription_start_date, start_mode, id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
             [
                 req.user.workspaceId,
                 clientId || null,
@@ -338,6 +339,7 @@ router.post('/', async (req, res, next) => {
                 date ? new Date(date) : new Date(),
                 finalSubStartDate,
                 startMode,
+                createId(),
             ]
         );
         await syncClientPackage(result.rows[0].client_id, req.user.workspaceId);
@@ -349,7 +351,7 @@ router.post('/', async (req, res, next) => {
 
 // PUT /api/transactions
 router.put('/:id', async (req, res, next) => {
-    const id = parseInt(req.params.id);
+    const id = req.params.id;
     const {
         clientName, clientId, packageVariation, paymentMethod, amount, currency,
         duration, type, status, notes, date, proofImage, subscriptionStartDate,
@@ -416,8 +418,8 @@ router.put('/:id', async (req, res, next) => {
 
 // DELETE /api/transactions?id=X
 router.delete('/:id', async (req, res, next) => {
-    const id = parseInt(req.params.id);
-    
+    const id = req.params.id;
+
     if (!id) return res.status(400).json({ error: 'id is required' });
 
     try {

@@ -4,19 +4,13 @@ import { useState, useEffect } from "react";
 import DataTable from "@/app/components/DataTable";
 import Modal from "@/app/components/Modal";
 import api from "@/lib/axios";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 
 const TYPES = ["cash", "card", "wallet", "bank_transfer"];
-
-const TYPE_LABELS = {
-    cash:          "Cash",
-    card:          "Card",
-    wallet:        "Wallet",
-    bank_transfer: "Bank Transfer",
-};
 
 const TYPE_COLORS = {
     cash:          "bg-emerald-500/15 text-emerald-600",
@@ -30,6 +24,17 @@ const activeBadge   = "bg-green-500/15 text-green-600 hover:bg-green-500/25";
 const inactiveBadge = "bg-secondary text-muted-foreground hover:bg-secondary/80";
 
 export default function PaymentMethodsPage() {
+    const t = useTranslations('paymentMethods');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
+
+    const TYPE_LABELS_I18N = {
+        cash:          t('typeCash'),
+        card:          t('typeCard'),
+        wallet:        t('typeWallet'),
+        bank_transfer: t('typeBankTransfer'),
+    };
+
     const [methods, setMethods] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -49,7 +54,7 @@ export default function PaymentMethodsPage() {
     const columns = [
         {
             key: "name",
-            label: "Name",
+            label: t('nameLabel'),
             filterType: "text",
             sortable: true,
             render: (row) => {
@@ -68,9 +73,9 @@ export default function PaymentMethodsPage() {
         },
         {
             key: "type",
-            label: "Type",
+            label: t('typeLabel'),
             filterType: "multi",
-            options: TYPES.map(t => TYPE_LABELS[t]),
+            options: TYPES.map(type => TYPE_LABELS_I18N[type]),
             sortable: true,
             render: (row) => {
                 if (editingId === row.id) {
@@ -80,8 +85,8 @@ export default function PaymentMethodsPage() {
                             onChange={(e) => setEditData({ ...editData, type: e.target.value })}
                             className="px-2 py-1 rounded-lg border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         >
-                            {TYPES.map(t => (
-                                <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                            {TYPES.map(typeKey => (
+                                <option key={typeKey} value={typeKey}>{TYPE_LABELS_I18N[typeKey]}</option>
                             ))}
                         </select>
                     );
@@ -95,9 +100,9 @@ export default function PaymentMethodsPage() {
         },
         {
             key: "active",
-            label: "Status",
+            label: t('statusLabel'),
             filterType: "multi",
-            options: ["Active", "Inactive"],
+            options: [t('active'), t('inactive')],
             render: (row) => {
                 if (editingId === row.id) {
                     return (
@@ -108,7 +113,7 @@ export default function PaymentMethodsPage() {
                                 editData.active ? activeBadge : inactiveBadge
                             }`}
                         >
-                            {editData.active ? "Active" : "Inactive"}
+                            {editData.active ? t('active') : t('inactive')}
                         </button>
                     );
                 }
@@ -116,7 +121,7 @@ export default function PaymentMethodsPage() {
                     <button
                         onClick={() => handleToggleActive(row.id, row._activeRaw)}
                         className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                            row.active === "Active" ? activeBadge : inactiveBadge
+                            row._activeRaw ? activeBadge : inactiveBadge
                         }`}
                     >
                         {row.active}
@@ -126,10 +131,10 @@ export default function PaymentMethodsPage() {
         },
         {
             key: "created_at",
-            label: "Created",
+            label: t('createdLabel'),
             filterType: "dateRange",
             sortable: true,
-            render: (row) => new Date(row.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
+            render: (row) => new Date(row.created_at).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }),
         },
         {
             key: "_actions",
@@ -138,15 +143,15 @@ export default function PaymentMethodsPage() {
                 if (editingId === row.id) {
                     return (
                         <div className="flex gap-2 justify-end">
-                            <button onClick={() => handleSaveEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">Save</button>
-                            <button onClick={() => { setEditingId(null); setError(""); }} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">Cancel</button>
+                            <button onClick={() => handleSaveEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">{t('save')}</button>
+                            <button onClick={() => { setEditingId(null); setError(""); }} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">{tCommon('cancel')}</button>
                         </div>
                     );
                 }
                 return (
                     <div className="flex gap-2 justify-end">
-                        <button onClick={() => startEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">Edit</button>
-                        <button onClick={() => handleDelete(row.id)} className="text-xs text-destructive hover:text-red-700 cursor-pointer">Delete</button>
+                        <button onClick={() => startEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">{tCommon('edit')}</button>
+                        <button onClick={() => handleDelete(row.id)} className="text-xs text-destructive hover:text-red-700 cursor-pointer">{tCommon('delete')}</button>
                     </div>
                 );
             },
@@ -157,13 +162,13 @@ export default function PaymentMethodsPage() {
         ...m,
         _typeRaw: m.type,
         _activeRaw: m.active,
-        type: TYPE_LABELS[m.type] ?? m.type,
-        active: m.active ? "Active" : "Inactive",
+        type: TYPE_LABELS_I18N[m.type] ?? m.type,
+        active: m.active ? t('active') : t('inactive'),
     }));
 
     const activeCount = methods.filter(m => m.active).length;
-    const typeCounts = TYPES.reduce((acc, t) => {
-        acc[t] = methods.filter(m => m.type === t).length;
+    const typeCounts = TYPES.reduce((acc, typeKey) => {
+        acc[typeKey] = methods.filter(m => m.type === typeKey).length;
         return acc;
     }, {});
 
@@ -172,7 +177,7 @@ export default function PaymentMethodsPage() {
             const res = await api.put("/api/payment-methods", { id, active: !currentActive });
             setMethods(prev => prev.map(m => m.id === id ? res.data : m));
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to update");
+            setError(err.response?.data?.error || t('errorUpdate'));
         }
     }
 
@@ -183,7 +188,7 @@ export default function PaymentMethodsPage() {
     }
 
     async function handleSaveEdit(row) {
-        if (!editData.name?.trim()) { setError("Name is required"); return; }
+        if (!editData.name?.trim()) { setError(t('errorNameRequired')); return; }
         try {
             const res = await api.put("/api/payment-methods", {
                 id: row.id,
@@ -195,7 +200,7 @@ export default function PaymentMethodsPage() {
             setEditingId(null);
             setError("");
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to save changes");
+            setError(err.response?.data?.error || t('errorSave'));
         }
     }
 
@@ -204,14 +209,14 @@ export default function PaymentMethodsPage() {
             await api.delete(`/api/payment-methods?id=${id}`);
             setMethods(prev => prev.filter(m => m.id !== id));
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to delete");
+            setError(err.response?.data?.error || t('errorDelete'));
         }
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
         setError("");
-        if (!formName.trim()) { setError("Name is required."); return; }
+        if (!formName.trim()) { setError(t('errorNameRequired')); return; }
         try {
             const res = await api.post("/api/payment-methods", { name: formName.trim(), type: formType });
             setMethods(prev => [...prev, res.data]);
@@ -219,14 +224,14 @@ export default function PaymentMethodsPage() {
             setFormType("cash");
             setShowForm(false);
         } catch (err) {
-            setError(err.response?.data?.error || "Failed to create payment method.");
+            setError(err.response?.data?.error || t('errorCreate'));
         }
     }
 
     if (loading) {
         return (
             <div className="p-8 flex flex-col gap-6">
-                <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
+                <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
                 <div className="flex flex-col gap-2">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
                 </div>
@@ -238,25 +243,25 @@ export default function PaymentMethodsPage() {
         <div className="p-8 flex flex-col gap-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Payment Methods</h1>
-                <p className="text-sm text-muted-foreground mt-1">Configure the payment methods you accept from clients.</p>
+                <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <Card>
                     <Card.Content className="p-6">
-                        <p className="text-sm text-muted-foreground font-medium">Total</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('total')}</p>
                         <p className="text-2xl font-bold text-foreground mt-1">{methods.length}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{activeCount} active</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('activeCount', { count: activeCount })}</p>
                     </Card.Content>
                 </Card>
-                {TYPES.map(t => (
-                    <Card key={t}>
+                {TYPES.map(typeKey => (
+                    <Card key={typeKey}>
                         <Card.Content className="p-6">
-                            <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS[t]}</p>
-                            <p className="text-2xl font-bold text-foreground mt-1">{typeCounts[t]}</p>
-                            <Chip size="sm" className={`text-xs mt-1 ${TYPE_COLORS[t]}`}>{t}</Chip>
+                            <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS_I18N[typeKey]}</p>
+                            <p className="text-2xl font-bold text-foreground mt-1">{typeCounts[typeKey]}</p>
+                            <Chip size="sm" className={`text-xs mt-1 ${TYPE_COLORS[typeKey]}`}>{TYPE_LABELS_I18N[typeKey]}</Chip>
                         </Card.Content>
                     </Card>
                 ))}
@@ -266,13 +271,13 @@ export default function PaymentMethodsPage() {
             {!showForm && error && <p className="text-destructive text-sm">{error}</p>}
 
             {/* Creation Modal */}
-            <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title="New Payment Method">
+            <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newMethodTitle')}>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Name</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('nameLabel')}</label>
                         <input
                             type="text"
-                            placeholder="e.g. Vodafone Cash, Visa Card..."
+                            placeholder={t('namePlaceholder')}
                             value={formName}
                             onChange={(e) => setFormName(e.target.value)}
                             className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
@@ -280,27 +285,27 @@ export default function PaymentMethodsPage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm text-muted-foreground mb-1">Type</label>
+                        <label className="block text-sm text-muted-foreground mb-1">{t('typeLabel')}</label>
                         <div className="flex gap-2 flex-wrap">
-                            {TYPES.map(t => (
+                            {TYPES.map(typeKey => (
                                 <Button
-                                    key={t}
+                                    key={typeKey}
                                     type="button"
-                                    onClick={() => setFormType(t)}
+                                    onClick={() => setFormType(typeKey)}
                                     className={`px-3 py-1.5 text-sm font-medium border ${
-                                        formType === t
+                                        formType === typeKey
                                             ? "border-primary bg-primary/10 text-primary"
                                             : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
                                     }`}
                                 >
-                                    {TYPE_LABELS[t]}
+                                    {TYPE_LABELS_I18N[typeKey]}
                                 </Button>
                             ))}
                         </div>
                     </div>
                     {error && <p className="text-destructive text-sm">{error}</p>}
                     <Button type="submit" variant="primary" fullWidth>
-                        Create Method
+                        {t('createMethod')}
                     </Button>
                 </form>
             </Modal>
@@ -310,8 +315,8 @@ export default function PaymentMethodsPage() {
                 columns={columns}
                 data={displayRows}
                 rowKey="id"
-                quickSearch={{ fields: ["name", "type"], placeholder: "Search payment methods..." }}
-                toolbarEnd={<Button variant="primary" onClick={() => { setShowForm(true); setError(""); setFormName(""); setFormType("cash"); }}>+ New Method</Button>}
+                quickSearch={{ fields: ["name", "type"], placeholder: t('searchPlaceholder') }}
+                toolbarEnd={<Button variant="primary" onClick={() => { setShowForm(true); setError(""); setFormName(""); setFormType("cash"); }}>{t('newMethod')}</Button>}
             />
         </div>
     );

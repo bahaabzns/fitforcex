@@ -3,21 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import api from "@/lib/axios";
-import ClientSidebar from "@/app/components/ClientSidebar";
+import ClientPortalNav from "@/app/components/ClientPortalNav";
 import { Skeleton } from "@heroui/react/skeleton";
 
 export default function ClientLayout({ children }) {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const pathname = usePathname();
-    const PROTECTED = ['/portal/dashboard', '/portal/training', '/portal/forms', '/portal/measurements'];
+    const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages'];
     const isLoginPage = !PROTECTED.some(p => pathname.startsWith(p));
 
     useEffect(() => {
         if (isLoginPage) { setLoading(false); return; }
         api.get("/api/client-portal/me")
             .then(() => setLoading(false))
-            .catch(() => router.push("/portal/login"));
+            .catch(() => {
+            // The subdomain identifies the coach, so the login page is just /portal.
+            router.push('/portal');
+        });
     }, [pathname, router, isLoginPage]);
 
     if (loading) {
@@ -31,9 +34,9 @@ export default function ClientLayout({ children }) {
     if (isLoginPage) return <>{children}</>;
 
     return (
-        <div className="flex h-screen overflow-hidden">
-            <ClientSidebar />
-            <main className="flex-1 overflow-y-auto bg-background text-foreground">
+        <div className="min-h-screen bg-background text-foreground">
+            <ClientPortalNav />
+            <main className="pb-16">
                 {children}
             </main>
         </div>

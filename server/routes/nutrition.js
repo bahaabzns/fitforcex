@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
@@ -30,7 +30,7 @@ router.use((req, res, next) => {
 router.get('/food-items', async (req, res, next) => {
     try {
         const result = await pool.query(
-            'SELECT * FROM food_items WHERE workspace_id = $1 ORDER BY name ASC',
+            'SELECT * FROM food_items WHERE workspace_id = $1 ORDER BY name_en ASC',
             [req.user.workspaceId]
         );
         res.json(result.rows);
@@ -40,21 +40,21 @@ router.get('/food-items', async (req, res, next) => {
 });
 
 router.post('/food-items', async (req, res, next) => {
-    const { 
-        name, 
-        food_category, 
-        serving_size, 
+    const {
+        name_en,
+        name_ar,
+        food_category,
+        serving_size,
         serving_unit,
-        calories_per_serving, 
-        carbs_per_serving, 
-        protein_per_serving, 
+        calories_per_serving,
+        carbs_per_serving,
+        protein_per_serving,
         fats_per_serving,
-
     } = req.body;
     try {
         const result = await pool.query(
-            'INSERT INTO food_items (name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, workspace_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.user.workspaceId]
+            'INSERT INTO food_items (name_en, name_ar, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, workspace_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+            [name_en, name_ar || null, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.user.workspaceId]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -63,19 +63,21 @@ router.post('/food-items', async (req, res, next) => {
 });
 
 router.put('/food-items/:id', async (req, res, next) => {
-    const { 
-        name, 
-        food_category, 
-        serving_size, 
+    const {
+        name_en,
+        name_ar,
+        food_category,
+        serving_size,
         serving_unit,
-        calories_per_serving, 
-        carbs_per_serving, 
-        protein_per_serving, 
-        fats_per_serving  } = req.body;
+        calories_per_serving,
+        carbs_per_serving,
+        protein_per_serving,
+        fats_per_serving,
+    } = req.body;
     try {
         const result = await pool.query(
-            'UPDATE food_items SET name = $1, food_category = $2, serving_size = $3, serving_unit = $4, calories_per_serving = $5, carbs_per_serving = $6, protein_per_serving = $7, fats_per_serving = $8 WHERE id = $9 AND workspace_id = $10 RETURNING *',
-            [name, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.params.id, req.user.workspaceId]
+            'UPDATE food_items SET name_en = $1, name_ar = $2, food_category = $3, serving_size = $4, serving_unit = $5, calories_per_serving = $6, carbs_per_serving = $7, protein_per_serving = $8, fats_per_serving = $9 WHERE id = $10 AND workspace_id = $11 RETURNING *',
+            [name_en, name_ar || null, food_category, serving_size, serving_unit, calories_per_serving, carbs_per_serving, protein_per_serving, fats_per_serving, req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Food item not found' });
@@ -108,10 +110,10 @@ router.get('/food-categories', async (req, res, next) => {
         const result = await pool.query(
             `SELECT fc.*, COUNT(fi.id)::int AS food_item_count
              FROM food_categories fc
-             LEFT JOIN food_items fi ON fi.food_category = fc.name AND fi.workspace_id = fc.workspace_id
+             LEFT JOIN food_items fi ON fi.food_category = fc.name_en AND fi.workspace_id = fc.workspace_id
              WHERE fc.workspace_id = $1
              GROUP BY fc.id
-             ORDER BY fc.name ASC`,
+             ORDER BY fc.name_en ASC`,
             [req.user.workspaceId]
         );
         res.json(result.rows);
@@ -121,11 +123,11 @@ router.get('/food-categories', async (req, res, next) => {
 });
 
 router.post('/food-categories', async (req, res, next) => {
-    const { name } = req.body;
+    const { name_en, name_ar } = req.body;
     try {
         const result = await pool.query(
-            'INSERT INTO food_categories (name, workspace_id) VALUES ($1, $2) RETURNING *',
-            [name, req.user.workspaceId]
+            'INSERT INTO food_categories (name_en, name_ar, workspace_id) VALUES ($1, $2, $3) RETURNING *',
+            [name_en, name_ar || null, req.user.workspaceId]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -134,25 +136,26 @@ router.post('/food-categories', async (req, res, next) => {
 });
 
 router.put('/food-categories/:id', async (req, res, next) => {
-    const { name } = req.body;
+    const { name_en, name_ar } = req.body;
     try {
         const oldResult = await pool.query(
-            'SELECT name FROM food_categories WHERE id = $1 AND workspace_id = $2',
+            'SELECT name_en FROM food_categories WHERE id = $1 AND workspace_id = $2',
             [req.params.id, req.user.workspaceId]
         );
         if (oldResult.rows.length === 0) {
             return res.status(404).json({ error: 'Food category not found' });
         }
-        const oldName = oldResult.rows[0].name;
+        const oldNameEn = oldResult.rows[0].name_en;
 
         const result = await pool.query(
-            'UPDATE food_categories SET name = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *',
-            [name, req.params.id, req.user.workspaceId]
+            'UPDATE food_categories SET name_en = $1, name_ar = $2 WHERE id = $3 AND workspace_id = $4 RETURNING *',
+            [name_en, name_ar || null, req.params.id, req.user.workspaceId]
         );
 
+        // keep food_items.food_category in sync with the English name
         await pool.query(
             'UPDATE food_items SET food_category = $1 WHERE food_category = $2 AND workspace_id = $3',
-            [name, oldName, req.user.workspaceId]
+            [name_en, oldNameEn, req.user.workspaceId]
         );
 
         res.json(result.rows[0]);
@@ -262,14 +265,14 @@ router.get('/plans/:id', async (req, res, next) => {
                 const mealsWithItems = await Promise.all(
                     meals.map(async meal => {
                         const itemsResult = await pool.query(
-                            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
+                            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
                             [meal.id]
                         );
                         const itemsWithAlts = await Promise.all(
                             itemsResult.rows.map(async item => {
                                 const altsResult = await pool.query(
                                     `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
-                                            fi.name, fi.serving_unit, fi.calories_per_serving,
+                                            fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
                                             fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
                                      FROM nutrition_meal_item_alternatives nmia
                                      JOIN food_items fi ON fi.id = nmia.food_item_id
@@ -317,13 +320,13 @@ router.post('/plans', async (req, res, next) => {
 
     try {
         const planResult = await pool.query(
-            'INSERT INTO nutrition_plans (name, client_id, workspace_id) VALUES ($1, $2, $3) RETURNING *',
-            [name, client_id, req.user.workspaceId]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id, id) VALUES ($1, $2, $3, $4) RETURNING *',
+            [name, client_id, req.user.workspaceId, createId()]
         );
 
         await pool.query(
-            'INSERT INTO nutrition_cycles (plan_id, name) VALUES ($1, $2) RETURNING *',
-            [planResult.rows[0].id, 'Cycle 1']
+            'INSERT INTO nutrition_cycles (plan_id, name, id) VALUES ($1, $2, $3) RETURNING *',
+            [planResult.rows[0].id, 'Cycle 1', createId()]
         );
 
         res.status(201).json(planResult.rows[0]);
@@ -393,8 +396,8 @@ router.post('/plans/save-draft', async (req, res, next) => {
                     const createdAt = toIsoDateOrNull(plan.created_at) || new Date().toISOString();
                     const updatedAt = new Date().toISOString();
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                          RETURNING *`,
                         [
                             plan.name || `Plan ${pIndex + 1}`,
@@ -404,6 +407,7 @@ router.post('/plans/save-draft', async (req, res, next) => {
                             createdAt,
                             updatedAt,
                             plan.created_by ?? req.user.id,
+                            createId(),
                         ]
                     );
 
@@ -421,9 +425,10 @@ router.post('/plans/save-draft', async (req, res, next) => {
                                 goal_calories,
                                 goal_protein,
                                 goal_carbs,
-                                goal_fats
+                                goal_fats,
+                                id
                             )
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                             RETURNING *`,
                             [
                                 dbPlan.id,
@@ -434,6 +439,7 @@ router.post('/plans/save-draft', async (req, res, next) => {
                                 cycle.goal_protein ?? null,
                                 cycle.goal_carbs ?? null,
                                 cycle.goal_fats ?? null,
+                                createId(),
                             ]
                         );
 
@@ -442,14 +448,15 @@ router.post('/plans/save-draft', async (req, res, next) => {
 
                         for (const meal of meals) {
                             const insertedMeal = await dbClient.query(
-                                `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note)
-                                 VALUES ($1, $2, $3, $4)
+                                `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note, id)
+                                 VALUES ($1, $2, $3, $4, $5)
                                  RETURNING *`,
                                 [
                                     dbCycle.id,
                                     meal.name || `Meal ${meal.meal_order}`,
                                     meal.meal_order,
                                     meal.note ?? null,
+                                    createId(),
                                 ]
                             );
 
@@ -458,14 +465,15 @@ router.post('/plans/save-draft', async (req, res, next) => {
 
                             for (const item of items) {
                                 const insertedItem = await dbClient.query(
-                                    `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order)
-                                     VALUES ($1, $2, $3, $4)
+                                    `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id)
+                                     VALUES ($1, $2, $3, $4, $5)
                                      RETURNING *`,
                                     [
                                         dbMeal.id,
                                         item.food_item_id,
                                         toNumberOrNull(item.amount) ?? 0,
                                         item.meal_item_order,
+                                        createId(),
                                     ]
                                 );
 
@@ -473,13 +481,14 @@ router.post('/plans/save-draft', async (req, res, next) => {
 
                                 for (const alt of alternatives) {
                                     await dbClient.query(
-                                        `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order)
-                                         VALUES ($1, $2, $3, $4)`,
+                                        `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order, id)
+                                         VALUES ($1, $2, $3, $4, $5)`,
                                         [
                                             insertedItem.rows[0].id,
                                             alt.food_item_id,
                                             toNumberOrNull(alt.amount) ?? 0,
                                             alt.alt_order,
+                                            createId(),
                                         ]
                                     );
                                 }
@@ -573,8 +582,8 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }) => {
                 const createdBy = existingCreatedBy ?? req.user.id;
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                      RETURNING *`,
                     [
                         incomingPlan.name || 'Untitled Plan',
@@ -584,6 +593,7 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                         createdAt,
                         updatedAt,
                         createdBy,
+                        createId(),
                     ]
                 );
 
@@ -602,8 +612,9 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                 goal_calories,
                                 goal_protein,
                                 goal_carbs,
-                                goal_fats
-                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                                goal_fats,
+                                id
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                             RETURNING *`,
                             [
                                 newPlan.id,
@@ -614,6 +625,7 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                 cycle.goal_protein ?? null,
                                 cycle.goal_carbs ?? null,
                                 cycle.goal_fats ?? null,
+                                createId(),
                             ]
                         );
 
@@ -624,14 +636,15 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                             orderKey: 'meal_order',
                             insert: async (meal) => {
                                 const insertedMeal = await dbClient.query(
-                                    `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note)
-                                     VALUES ($1, $2, $3, $4)
+                                    `INSERT INTO nutrition_meals (cycle_id, name, meal_order, note, id)
+                                     VALUES ($1, $2, $3, $4, $5)
                                      RETURNING *`,
                                     [
                                         dbCycle.id,
                                         meal.name || `Meal ${meal.meal_order}`,
                                         meal.meal_order,
                                         meal.note ?? null,
+                                        createId(),
                                     ]
                                 );
 
@@ -642,14 +655,15 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                     orderKey: 'meal_item_order',
                                     insert: async (item) => {
                                         const insertedItem = await dbClient.query(
-                                            `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order)
-                                             VALUES ($1, $2, $3, $4)
+                                            `INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id)
+                                             VALUES ($1, $2, $3, $4, $5)
                                              RETURNING *`,
                                             [
                                                 dbMeal.id,
                                                 item.food_item_id,
                                                 toNumberOrNull(item.amount) ?? 0,
                                                 item.meal_item_order,
+                                                createId(),
                                             ]
                                         );
 
@@ -658,13 +672,14 @@ router.post('/plans/save-plan-draft', async (req, res, next) => {
                                             orderKey: 'alt_order',
                                             insert: async (alt) => {
                                                 await dbClient.query(
-                                                    `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order)
-                                                     VALUES ($1, $2, $3, $4)`,
+                                                    `INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order, id)
+                                                     VALUES ($1, $2, $3, $4, $5)`,
                                                     [
                                                         insertedItem.rows[0].id,
                                                         alt.food_item_id,
                                                         toNumberOrNull(alt.amount) ?? 0,
                                                         alt.alt_order,
+                                                        createId(),
                                                     ]
                                                 );
                                                 return alt;
@@ -761,8 +776,8 @@ router.post('/plans/:id/duplicate', async (req, res, next) => {
 
         // 2. Insert new plan
         const newPlan = await client.query(
-            'INSERT INTO nutrition_plans (name, client_id, workspace_id, status) VALUES ($1, $2, $3, $4) RETURNING *',
-            [`Copy of ${plan.name}`, plan.client_id, req.user.workspaceId, plan.status]
+            'INSERT INTO nutrition_plans (name, client_id, workspace_id, status, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [`Copy of ${plan.name}`, plan.client_id, req.user.workspaceId, plan.status, createId()]
         );
         const newPlanId = newPlan.rows[0].id;
 
@@ -775,8 +790,8 @@ router.post('/plans/:id/duplicate', async (req, res, next) => {
         for (const cycle of cycles.rows) {
             // 4. Insert new cycle
             const newCycle = await client.query(
-                'INSERT INTO nutrition_cycles (plan_id, name, cycle_order) VALUES ($1, $2, $3) RETURNING *',
-                [newPlanId, cycle.name, cycle.cycle_order]
+                'INSERT INTO nutrition_cycles (plan_id, name, cycle_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
+                [newPlanId, cycle.name, cycle.cycle_order, createId()]
             );
             const newCycleId = newCycle.rows[0].id;
 
@@ -789,8 +804,8 @@ router.post('/plans/:id/duplicate', async (req, res, next) => {
             for (const meal of meals.rows) {
                 // 6. Insert new meal
                 const newMeal = await client.query(
-                    'INSERT INTO nutrition_meals (cycle_id, name, meal_order) VALUES ($1, $2, $3) RETURNING *',
-                    [newCycleId, meal.name, meal.meal_order]
+                    'INSERT INTO nutrition_meals (cycle_id, name, meal_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
+                    [newCycleId, meal.name, meal.meal_order, createId()]
                 );
                 const newMealId = newMeal.rows[0].id;
 
@@ -802,8 +817,8 @@ router.post('/plans/:id/duplicate', async (req, res, next) => {
 
                 for (const item of items.rows) {
                     await client.query(
-                        'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4)',
-                        [newMealId, item.food_item_id, item.amount, item.meal_item_order]
+                        'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id) VALUES ($1, $2, $3, $4, $5)',
+                        [newMealId, item.food_item_id, item.amount, item.meal_item_order, createId()]
                     );
                 }
             }
@@ -856,8 +871,8 @@ router.post('/cycles/:id/duplicate', async (req, res, next) => {
             [cycle.plan_id]
         );
         const newCycle = await client.query(
-            'INSERT INTO nutrition_cycles (plan_id, name, cycle_order, note, goal_calories, goal_protein, goal_carbs, goal_fats) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-            [cycle.plan_id, `Copy of ${cycle.name}`, nextOrderResult.rows[0].next_order, cycle.note, cycle.goal_calories, cycle.goal_protein, cycle.goal_carbs, cycle.goal_fats]
+            'INSERT INTO nutrition_cycles (plan_id, name, cycle_order, note, goal_calories, goal_protein, goal_carbs, goal_fats, id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [cycle.plan_id, `Copy of ${cycle.name}`, nextOrderResult.rows[0].next_order, cycle.note, cycle.goal_calories, cycle.goal_protein, cycle.goal_carbs, cycle.goal_fats, createId()]
         );
         const newCycleId = newCycle.rows[0].id;
 
@@ -867,8 +882,8 @@ router.post('/cycles/:id/duplicate', async (req, res, next) => {
         );
         for (const meal of meals.rows) {
             const newMeal = await client.query(
-                'INSERT INTO nutrition_meals (cycle_id, name, meal_order, note) VALUES ($1, $2, $3, $4) RETURNING *',
-                [newCycleId, meal.name, meal.meal_order, meal.note]
+                'INSERT INTO nutrition_meals (cycle_id, name, meal_order, note, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                [newCycleId, meal.name, meal.meal_order, meal.note, createId()]
             );
             const newMealId = newMeal.rows[0].id;
 
@@ -878,8 +893,8 @@ router.post('/cycles/:id/duplicate', async (req, res, next) => {
             );
             for (const item of items.rows) {
                 const newItem = await client.query(
-                    'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4) RETURNING *',
-                    [newMealId, item.food_item_id, item.amount, item.meal_item_order]
+                    'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                    [newMealId, item.food_item_id, item.amount, item.meal_item_order, createId()]
                 );
                 const newItemId = newItem.rows[0].id;
 
@@ -889,8 +904,8 @@ router.post('/cycles/:id/duplicate', async (req, res, next) => {
                 );
                 for (const alt of alts.rows) {
                     await client.query(
-                        'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order) VALUES ($1, $2, $3, $4)',
-                        [newItemId, alt.food_item_id, alt.amount, alt.alt_order]
+                        'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order, id) VALUES ($1, $2, $3, $4, $5)',
+                        [newItemId, alt.food_item_id, alt.amount, alt.alt_order, createId()]
                     );
                 }
             }
@@ -909,7 +924,7 @@ router.post('/cycles/:id/duplicate', async (req, res, next) => {
         const mealsWithItems = await Promise.all(fullMeals.rows.map(async (m) => {
             const itemsRes = await pool.query(
                 `SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order,
-                        fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving,
+                        fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving,
                         fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
                  FROM nutrition_meal_items nmi
                  JOIN food_items fi ON fi.id = nmi.food_item_id
@@ -919,7 +934,7 @@ router.post('/cycles/:id/duplicate', async (req, res, next) => {
             const itemsWithAlts = await Promise.all(itemsRes.rows.map(async (item) => {
                 const altsRes = await pool.query(
                     `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
-                            fi.name, fi.serving_unit, fi.calories_per_serving,
+                            fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
                             fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving,
                             fi.serving_size, fi.food_category
                      FROM nutrition_meal_item_alternatives nmia
@@ -952,8 +967,8 @@ router.post('/cycles', async (req, res, next) => {
         const nextOrder = nextOrderResult.rows[0].next_order;
 
         const cycleResult = await pool.query(
-            'INSERT INTO nutrition_cycles (plan_id, name, cycle_order) VALUES ($1, $2, $3) RETURNING * ',
-            [planId, name, nextOrder]
+            'INSERT INTO nutrition_cycles (plan_id, name, cycle_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
+            [planId, name, nextOrder, createId()]
         );
         await pool.query(
             'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = $1',
@@ -1030,8 +1045,8 @@ router.post('/meals/:id/duplicate', async (req, res, next) => {
             [meal.cycle_id]
         );
         const newMeal = await client.query(
-            'INSERT INTO nutrition_meals (cycle_id, name, meal_order) VALUES ($1, $2, $3) RETURNING *',
-            [meal.cycle_id, `Copy of ${meal.name}`, nextOrderResult.rows[0].next_order]
+            'INSERT INTO nutrition_meals (cycle_id, name, meal_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
+            [meal.cycle_id, `Copy of ${meal.name}`, nextOrderResult.rows[0].next_order, createId()]
         );
         const newMealId = newMeal.rows[0].id;
 
@@ -1041,8 +1056,8 @@ router.post('/meals/:id/duplicate', async (req, res, next) => {
         );
         for (const item of items.rows) {
             const newItem = await client.query(
-                'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4) RETURNING *',
-                [newMealId, item.food_item_id, item.amount, item.meal_item_order]
+                'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                [newMealId, item.food_item_id, item.amount, item.meal_item_order, createId()]
             );
             const alts = await client.query(
                 'SELECT * FROM nutrition_meal_item_alternatives WHERE meal_item_id = $1 ORDER BY alt_order ASC',
@@ -1050,8 +1065,8 @@ router.post('/meals/:id/duplicate', async (req, res, next) => {
             );
             for (const alt of alts.rows) {
                 await client.query(
-                    'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order) VALUES ($1, $2, $3, $4)',
-                    [newItem.rows[0].id, alt.food_item_id, alt.amount, alt.alt_order]
+                    'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order, id) VALUES ($1, $2, $3, $4, $5)',
+                    [newItem.rows[0].id, alt.food_item_id, alt.amount, alt.alt_order, createId()]
                 );
             }
         }
@@ -1063,14 +1078,14 @@ router.post('/meals/:id/duplicate', async (req, res, next) => {
         await client.query('COMMIT');
 
         const itemsRes = await pool.query(
-            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
+            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.meal_id = $1 ORDER BY nmi.meal_item_order ASC',
             [newMealId]
         );
         const itemsWithAlts = await Promise.all(
             itemsRes.rows.map(async item => {
                 const altsRes = await pool.query(
                     `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
-                            fi.name, fi.serving_unit, fi.calories_per_serving,
+                            fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
                             fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
                      FROM nutrition_meal_item_alternatives nmia
                      JOIN food_items fi ON fi.id = nmia.food_item_id
@@ -1100,8 +1115,8 @@ router.post('/meals', async (req, res, next) => {
         const nextOrder = nextOrderResult.rows[0].next_order;
 
         const mealResult = await pool.query(
-            'INSERT INTO nutrition_meals (cycle_id, name, meal_order) VALUES ($1, $2, $3) RETURNING *',
-            [cycleId, name, nextOrder]
+            'INSERT INTO nutrition_meals (cycle_id, name, meal_order, id) VALUES ($1, $2, $3, $4) RETURNING *',
+            [cycleId, name, nextOrder, createId()]
         );
         await pool.query(
             'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT plan_id FROM nutrition_cycles WHERE id = $1)',
@@ -1171,15 +1186,15 @@ router.post('/meal-items', async (req, res, next) => {
         const nextOrder = nextOrderResult.rows[0].next_order;
 
         const itemResult = await pool.query(
-            'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order) VALUES ($1, $2, $3, $4) RETURNING *',
-            [mealId, foodItemId, amount, nextOrder]
+            'INSERT INTO nutrition_meal_items (meal_id, food_item_id, amount, meal_item_order, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [mealId, foodItemId, amount, nextOrder, createId()]
         );
         await pool.query(
             'UPDATE nutrition_plans SET updated_at = NOW() WHERE id = (SELECT nc.plan_id FROM nutrition_cycles nc JOIN nutrition_meals nm ON nm.cycle_id = nc.id WHERE nm.id = $1)',
             [mealId]
         );
         const itemDetailsResult = await pool.query(
-            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
+            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name_en AS name, fi.name_ar, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
             [itemResult.rows[0].id]
         );
         res.status(201).json(itemDetailsResult.rows[0]);
@@ -1220,7 +1235,7 @@ router.put('/meal-items/:id', async (req, res, next) => {
             return res.status(404).json({ error: 'Meal item not found' });
         }
         const itemDetailsResult = await pool.query(
-            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
+            'SELECT nmi.id, nmi.food_item_id, nmi.amount, nmi.meal_item_order, fi.serving_unit, fi.name_en AS name, fi.name_ar, fi.calories_per_serving, fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category FROM nutrition_meal_items nmi JOIN food_items fi ON fi.id = nmi.food_item_id WHERE nmi.id = $1',
             [result.rows[0].id]
         );
         await pool.query(
@@ -1266,7 +1281,7 @@ router.post('/meal-items/:id/alternatives', async (req, res, next) => {
             [mealItemId]
         );
         if (mainItem.rows.length === 0) return res.status(404).json({ error: 'Meal item not found' });
-        if (mainItem.rows[0].food_item_id === parseInt(foodItemId)) {
+        if (mainItem.rows[0].food_item_id === foodItemId) {
             return res.status(409).json({ error: 'Cannot add the main item as its own alternative' });
         }
 
@@ -1286,13 +1301,13 @@ router.post('/meal-items/:id/alternatives', async (req, res, next) => {
         const nextOrder = nextOrderResult.rows[0].next_order;
 
         const result = await pool.query(
-            'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order) VALUES ($1, $2, $3, $4) RETURNING *',
-            [mealItemId, foodItemId, amount, nextOrder]
+            'INSERT INTO nutrition_meal_item_alternatives (meal_item_id, food_item_id, amount, alt_order, id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [mealItemId, foodItemId, amount, nextOrder, createId()]
         );
 
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
-                    fi.name, fi.serving_unit, fi.calories_per_serving,
+                    fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
                     fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
              FROM nutrition_meal_item_alternatives nmia
              JOIN food_items fi ON fi.id = nmia.food_item_id
@@ -1318,7 +1333,7 @@ router.put('/meal-item-alternatives/:id', async (req, res, next) => {
         }
         const details = await pool.query(
             `SELECT nmia.id, nmia.meal_item_id, nmia.food_item_id, nmia.amount, nmia.alt_order,
-                    fi.name, fi.serving_unit, fi.calories_per_serving,
+                    fi.name_en AS name, fi.name_ar, fi.serving_unit, fi.calories_per_serving,
                     fi.protein_per_serving, fi.carbs_per_serving, fi.fats_per_serving, fi.serving_size, fi.food_category
              FROM nutrition_meal_item_alternatives nmia
              JOIN food_items fi ON fi.id = nmia.food_item_id

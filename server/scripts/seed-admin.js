@@ -7,6 +7,7 @@
  */
 
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const { randomUUID } = require('crypto');
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 
@@ -19,7 +20,7 @@ async function run() {
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS admins (
-                id         SERIAL PRIMARY KEY,
+                id         TEXT PRIMARY KEY,
                 email      TEXT NOT NULL UNIQUE,
                 password   TEXT NOT NULL,
                 fname      TEXT,
@@ -32,11 +33,11 @@ async function run() {
         const hashed = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
         const result = await pool.query(
-            `INSERT INTO admins (email, password, fname, lname)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO admins (id, email, password, fname, lname)
+             VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (email) DO NOTHING
              RETURNING id, email`,
-            [ADMIN_EMAIL, hashed, ADMIN_FNAME, ADMIN_LNAME]
+            [randomUUID(), ADMIN_EMAIL, hashed, ADMIN_FNAME, ADMIN_LNAME]
         );
 
         if (result.rows.length === 0) {

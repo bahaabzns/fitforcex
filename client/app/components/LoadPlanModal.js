@@ -1,28 +1,30 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import api from '@/lib/axios';
 import { Modal } from '@heroui/react/modal';
 import { Button } from '@heroui/react/button';
 import { Skeleton } from '@heroui/react/skeleton';
 import { ScrollShadow } from '@heroui/react/scroll-shadow';
 
-function formatRelativeTime(dateStr) {
+function formatRelativeTime(dateStr, t) {
     if (!dateStr) return '';
     const diffMs = Date.now() - new Date(dateStr).getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
-    return `${Math.floor(diffDays / 365)}y ago`;
+    if (diffMins < 1) return t('justNow');
+    if (diffMins < 60) return t('minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('hoursAgo', { count: diffHours });
+    if (diffDays === 1) return t('yesterday');
+    if (diffDays < 7) return t('daysAgo', { count: diffDays });
+    if (diffDays < 30) return t('weeksAgo', { count: Math.floor(diffDays / 7) });
+    if (diffDays < 365) return t('monthsAgo', { count: Math.floor(diffDays / 30) });
+    return t('yearsAgo', { count: Math.floor(diffDays / 365) });
 }
 
 function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit = '' }) {
+    const tCommon = useTranslations('common');
     return (
         <div className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
@@ -30,7 +32,7 @@ function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit 
                 <input
                     type="number"
                     min="0"
-                    placeholder="Min"
+                    placeholder={tCommon('min')}
                     value={minValue}
                     onChange={(e) => onMinChange(e.target.value)}
                     className="w-16 text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
@@ -39,7 +41,7 @@ function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit 
                 <input
                     type="number"
                     min="0"
-                    placeholder="Max"
+                    placeholder={tCommon('max')}
                     value={maxValue}
                     onChange={(e) => onMaxChange(e.target.value)}
                     className="w-16 text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
@@ -51,6 +53,11 @@ function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit 
 }
 
 export default function LoadPlanModal({ open, onClose, type, onLoad }) {
+    const tFilter = useTranslations('filter');
+    const tTraining = useTranslations('training');
+    const tNutrition = useTranslations('nutrition');
+    const tModal = useTranslations('modal');
+    const tCommon = useTranslations('common');
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState(false);
@@ -85,11 +92,13 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
         setMinCarbs(''); setMaxCarbs('');
         setMinFats(''); setMaxFats('');
 
+        const controller = new AbortController();
         const route = type === 'training' ? '/api/training/plans/workspace-library' : '/api/nutrition/plans/workspace-library';
-        api.get(route)
+        api.get(route, { signal: controller.signal })
             .then((res) => setPlans(res.data ?? []))
-            .catch(() => setPlans([]))
+            .catch((err) => { if (!api.isCancel?.(err) && err.name !== 'CanceledError') setPlans([]); })
             .finally(() => setLoading(false));
+        return () => controller.abort();
     }, [open, type]);
 
     const creators = useMemo(() => {
@@ -138,7 +147,7 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
         onClose();
     }
 
-    const title = type === 'training' ? 'Load Training Plan' : 'Load Nutrition Plan';
+    const title = type === 'training' ? tModal('loadTrainingPlan') : tModal('loadNutritionPlan');
 
     return (
         <Modal isOpen={open} onOpenChange={(o) => !o && onClose()}>
@@ -154,7 +163,7 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                             {/* Search */}
                             <input
                                 type="text"
-                                placeholder="Search by plan name..."
+                                placeholder={tFilter('searchPlanName')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
@@ -164,27 +173,27 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                             <div className="flex flex-wrap gap-x-5 gap-y-3 p-3 rounded-xl bg-default border border-border">
                                 {type === 'training' ? (
                                     <>
-                                        <RangeInput label="Days" minValue={minDays} maxValue={maxDays} onMinChange={setMinDays} onMaxChange={setMaxDays} />
-                                        <RangeInput label="Exercises" minValue={minExercises} maxValue={maxExercises} onMinChange={setMinExercises} onMaxChange={setMaxExercises} />
+                                        <RangeInput label={tTraining('daysSection')} minValue={minDays} maxValue={maxDays} onMinChange={setMinDays} onMaxChange={setMaxDays} />
+                                        <RangeInput label={tTraining('exercises')} minValue={minExercises} maxValue={maxExercises} onMinChange={setMinExercises} onMaxChange={setMaxExercises} />
                                     </>
                                 ) : (
                                     <>
-                                        <RangeInput label="Calories" minValue={minCalories} maxValue={maxCalories} onMinChange={setMinCalories} onMaxChange={setMaxCalories} unit="kcal" />
-                                        <RangeInput label="Protein" minValue={minProtein} maxValue={maxProtein} onMinChange={setMinProtein} onMaxChange={setMaxProtein} unit="g" />
-                                        <RangeInput label="Carbs" minValue={minCarbs} maxValue={maxCarbs} onMinChange={setMinCarbs} onMaxChange={setMaxCarbs} unit="g" />
-                                        <RangeInput label="Fat" minValue={minFats} maxValue={maxFats} onMinChange={setMinFats} onMaxChange={setMaxFats} unit="g" />
+                                        <RangeInput label={tNutrition('caloriesLabel')} minValue={minCalories} maxValue={maxCalories} onMinChange={setMinCalories} onMaxChange={setMaxCalories} unit="kcal" />
+                                        <RangeInput label={tNutrition('protein')} minValue={minProtein} maxValue={maxProtein} onMinChange={setMinProtein} onMaxChange={setMaxProtein} unit="g" />
+                                        <RangeInput label={tNutrition('carbs')} minValue={minCarbs} maxValue={maxCarbs} onMinChange={setMinCarbs} onMaxChange={setMaxCarbs} unit="g" />
+                                        <RangeInput label={tNutrition('fat')} minValue={minFats} maxValue={maxFats} onMinChange={setMinFats} onMaxChange={setMaxFats} unit="g" />
                                     </>
                                 )}
 
                                 {creators.length > 0 && (
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Created by</span>
+                                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{tFilter('createdBy')}</span>
                                         <select
                                             value={creatorFilter}
                                             onChange={(e) => setCreatorFilter(e.target.value)}
                                             className="text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:border-primary"
                                         >
-                                            <option value="">All members</option>
+                                            <option value="">{tFilter('allMembers')}</option>
                                             {creators.map((name) => (
                                                 <option key={name} value={name}>{name}</option>
                                             ))}
@@ -207,7 +216,7 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                         <p className="text-sm text-muted-foreground">
-                                            {plans.length === 0 ? 'No plans in this workspace yet.' : 'No plans match the current filters.'}
+                                            {plans.length === 0 ? tFilter('noPlansYet') : tFilter('noPlansMatch')}
                                         </p>
                                     </div>
                                 ) : (
@@ -230,28 +239,28 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                                                                 {plan.name}
                                                             </p>
                                                             <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                                                {plan.client_name ?? 'Unknown client'}
-                                                                {plan.creator_name ? ` · by ${plan.creator_name}` : ''}
+                                                                {plan.client_name ?? tCommon('unknownClient')}
+                                                                {plan.creator_name ? ` ${tCommon('byCreator', { name: plan.creator_name })}` : ''}
                                                             </p>
                                                         </div>
                                                         <p className="text-[11px] text-muted-foreground shrink-0 mt-0.5">
-                                                            {formatRelativeTime(plan.updated_at)}
+                                                            {formatRelativeTime(plan.updated_at, tCommon)}
                                                         </p>
                                                     </div>
                                                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
                                                         {type === 'training' ? (
                                                             <>
                                                                 <span className="text-[11px] text-muted-foreground">
-                                                                    {plan.day_count ?? 0} {plan.day_count === 1 ? 'day' : 'days'}
+                                                                    {tTraining('dayCount', { count: plan.day_count ?? 0 })}
                                                                 </span>
                                                                 <span className="text-[11px] text-muted-foreground">
-                                                                    {plan.exercise_count ?? 0} {plan.exercise_count === 1 ? 'exercise' : 'exercises'}
+                                                                    {tTraining('exerciseCount', { count: plan.exercise_count ?? 0 })}
                                                                 </span>
                                                             </>
                                                         ) : (
                                                             <>
                                                                 <span className="text-[11px] text-muted-foreground">
-                                                                    {plan.cycle_count ?? 0} {plan.cycle_count === 1 ? 'cycle' : 'cycles'}
+                                                                    {tNutrition('cycleCount', { count: plan.cycle_count ?? 0 })}
                                                                 </span>
                                                                 {plan.avg_calories != null && (
                                                                     <span className="text-[11px] text-muted-foreground">{plan.avg_calories} kcal</span>
@@ -279,17 +288,17 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
                         <div className="flex items-center justify-between px-6 py-4 border-t border-border">
                             <p className={`text-xs ${loadError ? 'text-destructive' : 'text-muted-foreground'}`}>
                                 {loadError
-                                    ? 'Could not load this plan — please try again.'
-                                    : !loading && `${filteredPlans.length} of ${plans.length} plans`}
+                                    ? tModal('loadFailed')
+                                    : !loading && tFilter('plansCount', { filtered: filteredPlans.length, total: plans.length })}
                             </p>
                             <div className="flex gap-2">
-                                <Button variant="outline" onClick={onClose}>Cancel</Button>
+                                <Button variant="outline" onClick={onClose}>{tModal('cancel')}</Button>
                                 <Button
                                     variant="primary"
                                     isDisabled={!selectedPlanId}
                                     onClick={handleLoad}
                                 >
-                                    Load Selected Plan
+                                    {tModal('loadSelectedPlan')}
                                 </Button>
                             </div>
                         </div>

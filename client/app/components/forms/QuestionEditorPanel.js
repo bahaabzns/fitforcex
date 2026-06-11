@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Switch } from "@heroui/react/switch";
 
-const QUESTION_TYPES = [
-    { value: "text",        label: "Short Text",    icon: "T" },
-    { value: "long_text",   label: "Long Text",     icon: "¶" },
-    { value: "number",      label: "Number",        icon: "#" },
-    { value: "scale",       label: "Scale",         icon: "↔" },
-    { value: "select",      label: "Single Choice", icon: "◉" },
-    { value: "multiselect", label: "Multi Choice",  icon: "☑" },
-    { value: "date",        label: "Date",          icon: "📅" },
+const QUESTION_TYPE_VALUES = [
+    { value: "text",        labelKey: "typeShortText",   icon: "T" },
+    { value: "long_text",   labelKey: "typeLongText",    icon: "¶" },
+    { value: "number",      labelKey: "typeNumber",      icon: "#" },
+    { value: "scale",       labelKey: "typeScale",       icon: "↔" },
+    { value: "select",      labelKey: "typeSingleChoice",icon: "◉" },
+    { value: "multiselect", labelKey: "typeMultiChoice", icon: "☑" },
+    { value: "date",        labelKey: "typeDate",        icon: "📅" },
 ];
 
 const TrashIcon = () => (
@@ -24,6 +25,9 @@ export default function QuestionEditorPanel({
     pendingFocusQuestionId, setPendingFocusQuestionId,
     handleUpdateQuestion,
 }) {
+    const t = useTranslations('forms');
+    const tCommon = useTranslations('common');
+    const QUESTION_TYPES = QUESTION_TYPE_VALUES.map(q => ({ ...q, label: t(q.labelKey) }));
     const labelRef = useRef(null);
     const [newOption, setNewOption] = useState("");
 
@@ -42,8 +46,8 @@ export default function QuestionEditorPanel({
                 <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                <p className="text-sm font-medium text-muted-foreground">No question selected</p>
-                <p className="text-xs text-muted-foreground">Click a question to edit its details</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('noQuestionSelected')}</p>
+                <p className="text-xs text-muted-foreground">{t('noQuestionHint')}</p>
             </div>
         );
     }
@@ -79,20 +83,20 @@ export default function QuestionEditorPanel({
                     ref={labelRef}
                     key={`label-${q.id}`}
                     type="text"
-                    defaultValue={q.label}
+                    defaultValue={q.label_en}
                     onBlur={(e) => {
                         const trimmed = e.target.value.trim() || "Question";
                         e.target.value = trimmed;
-                        if (trimmed !== q.label) save({ label: trimmed });
+                        if (trimmed !== q.label_en) save({ label_en: trimmed });
                     }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') e.target.blur();
-                        if (e.key === 'Escape') { e.target.value = q.label; e.target.blur(); }
+                        if (e.key === 'Escape') { e.target.value = q.label_en; e.target.blur(); }
                     }}
                     className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
                 />
                 <button
-                    title="Close"
+                    title={tCommon('close')}
                     className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedQuestion(null)}
                 >
@@ -107,7 +111,7 @@ export default function QuestionEditorPanel({
             <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-5 pb-4">
 
             {/* Type */}
-            <Field label="Question Type">
+            <Field label={t('questionType')}>
                 <select
                     key={`type-${q.id}`}
                     defaultValue={q.type}
@@ -123,8 +127,8 @@ export default function QuestionEditorPanel({
             {/* Required */}
             <div className="flex items-center justify-between gap-3 shrink-0">
                 <div>
-                    <p className="text-sm font-medium text-foreground">Required</p>
-                    <p className="text-xs text-muted-foreground">Client must answer this question</p>
+                    <p className="text-sm font-medium text-foreground">{t('required')}</p>
+                    <p className="text-xs text-muted-foreground">{t('requiredHint')}</p>
                 </div>
                 <Switch checked={q.required} onCheckedChange={(checked) => save({ required: checked })}>
                     <Switch.Control>
@@ -135,17 +139,17 @@ export default function QuestionEditorPanel({
 
             {/* Placeholder — text / long_text / number */}
             {hasPlaceholder && (
-                <Field label="Placeholder Text">
+                <Field label={t('placeholderText')}>
                     <input
                         key={`ph-${q.id}`}
                         type="text"
-                        defaultValue={q.placeholder || ''}
+                        defaultValue={q.placeholder_en || ''}
                         onBlur={(e) => {
                             const val = e.target.value.trim() || null;
-                            if (val !== (q.placeholder || null)) save({ placeholder: val });
+                            if (val !== (q.placeholder_en || null)) save({ placeholder_en: val });
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                        placeholder="e.g. Your answer here…"
+                        placeholder={t('placeholderHint')}
                         className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                     />
                 </Field>
@@ -153,10 +157,10 @@ export default function QuestionEditorPanel({
 
             {/* Scale min/max */}
             {hasScale && (
-                <Field label="Scale Range">
+                <Field label={t('scaleRange')}>
                     <div className="flex items-center gap-3">
                         <div className="flex-1">
-                            <label className="text-xs text-muted-foreground mb-1 block">Min</label>
+                            <label className="text-xs text-muted-foreground mb-1 block">{t('scaleMin')}</label>
                             <input
                                 key={`min-${q.id}`}
                                 type="number"
@@ -168,7 +172,7 @@ export default function QuestionEditorPanel({
                         </div>
                         <span className="text-muted-foreground/40 mt-5 text-lg">—</span>
                         <div className="flex-1">
-                            <label className="text-xs text-muted-foreground mb-1 block">Max</label>
+                            <label className="text-xs text-muted-foreground mb-1 block">{t('scaleMax')}</label>
                             <input
                                 key={`max-${q.id}`}
                                 type="number"
@@ -196,11 +200,11 @@ export default function QuestionEditorPanel({
 
             {/* Options — select / multiselect */}
             {hasOptions && (
-                <Field label={`Options (${(q.options || []).length})`}>
+                <Field label={`${t('options')} (${(q.options || []).length})`}>
                     {/* Existing options */}
                     <div className="flex flex-col gap-1.5 mb-3">
                         {(q.options || []).length === 0 ? (
-                            <p className="text-xs text-muted-foreground py-2 text-center">No options yet — add one below</p>
+                            <p className="text-xs text-muted-foreground py-2 text-center">{t('noOptions')}</p>
                         ) : (
                             (q.options || []).map((opt, idx) => (
                                 <div key={idx} className="flex items-center gap-2 group">
@@ -223,11 +227,11 @@ export default function QuestionEditorPanel({
                             value={newOption}
                             onChange={(e) => setNewOption(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption(); } }}
-                            placeholder="Add option…"
+                            placeholder={t('addOptionHint')}
                             className="flex-1 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                         />
                         <Button variant="primary" onClick={addOption} className="shrink-0">
-                            Add
+                            {tCommon('add')}
                         </Button>
                     </div>
                 </Field>
@@ -235,7 +239,7 @@ export default function QuestionEditorPanel({
 
             {/* Preview */}
             <div className="rounded-lg bg-secondary border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Preview</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('preview')}</p>
                 <QuestionPreview question={q} />
             </div>
 
@@ -257,7 +261,7 @@ function Field({ label, required, children }) {
 }
 
 function QuestionPreview({ question: q }) {
-    const ph = q.placeholder || "Your answer…";
+    const ph = q.placeholder_en || "Your answer…";
     switch (q.type) {
         case 'text':
             return <input type="text" placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;

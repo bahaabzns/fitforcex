@@ -44,3 +44,73 @@ Format per session:
 **Concepts I am still fuzzy on:** (nothing new this session — pure housekeeping)
 **Question I want to explore next:** Should we create a `dev` branch before continuing Phase 9 billing work?
 **Confidence today (1–10):** 8
+
+---
+
+## 2026-06-04 — Arabic i18n Phase 1: RTL layout, DataTable, Sidebar, portal wiring
+**What we built:** Wired Arabic i18n into DataTable (RTL detection via `useLocale`), Sidebar (`text-left` → `text-start` for bidirectional correctness), FoodItemsModal, portal pages, and client layout tab navigation. Added RTL-aware CSS in globals.css. Deleted legacy portal login pages consolidated into root auth. Large planEngine.js refactor and server route updates.
+**New concepts learned:** `text-start` vs `text-left` — `text-left` is always left regardless of direction; `text-start` respects the document's writing direction (`dir="rtl"` or `dir="ltr"`). This is the correct choice for any bilingual layout.
+**Concepts I understood immediately:** Why `isRtl = locale === 'ar'` is needed alongside CSS — some layout decisions (icon flipping, scroll direction) require JS-side awareness, not just CSS.
+**Concepts I am still fuzzy on:** How to handle mixed-direction content within a single cell (e.g., Arabic label + English number) — does HeroUI's Table handle this automatically or does each cell need a `dir` attr?
+**Question I want to explore next:** Are there remaining hardcoded `text-left` or `justify-start` patterns in other components that will break under RTL?
+**Confidence today (1–10):** 8
+
+---
+
+## 2026-06-10 — Phase 7: Background Schedulers
+**What we built:** Three cron jobs using `node-cron`: hourly form dispatcher (marks `scheduled_at` forms as sent), daily subscription expiry checker, and daily session cleanup (deletes revoked/expired `user_sessions` rows older than 30 days). All three skip in test environment. Resolves the DEBT.md item about `user_sessions` growing unboundedly.
+**New concepts learned:** Cron syntax — `'0 * * * *'` means "at minute 0 of every hour" (hourly). `'0 0 * * *'` means midnight daily. `'0 2 * * *'` means 2 AM daily. The five fields are: minute, hour, day-of-month, month, day-of-week. Why cron jobs must be guarded by `NODE_ENV !== 'test'` — a cron that fires during tests can corrupt test DB state or cause random test failures due to concurrent writes.
+**Concepts I understood immediately:** Why session cleanup uses a 30-day cutoff rather than deleting immediately on expiry — gives a safety window to audit or investigate recent sessions.
+**Concepts I am still fuzzy on:** What happens if the server restarts mid-cron-window. Does `node-cron` pick up missed runs after a restart or silently skip them? Answer: it skips — each run only fires if the process is alive when the cron ticks.
+**Question I want to explore next:** Should we add a startup check that runs session cleanup immediately on boot (rather than waiting up to 24h for the first 2 AM tick)?
+**Confidence today (1–10):** 9
+
+---
+
+## 2026-06-10 — Phase 10: Observability Completion
+**What we built:** Upgraded `/api/health` to probe the DB and return memory/uptime/latency JSON (returns 503 if DB is unreachable). Added `/api/metrics` endpoint (owner-only) with in-process request counter, heap memory, and uptime. Created `src/logger.ts` with pino — `silent` in test, `debug` + pino-pretty in development, `warn` in production. Updated Sentry.init to include `release` (from `npm_package_version`) and `tracesSampleRate` (0.1 in prod, 1.0 otherwise).
+**New concepts learned:** Why the plan's `Sentry.Integrations.Http/Express` and `Sentry.Handlers` API was removed in Sentry v8+ — the v7 manual integration pattern was replaced by automatic instrumentation. In v10, you only need `Sentry.init()` for automatic HTTP/Express tracing. Why pino logger level `silent` in tests stops all pino-http output from polluting the Jest console — pino-http shares the same logger instance, so silencing the logger silences all HTTP request logs during testing.
+**Concepts I understood immediately:** Why `process.uptime()` is different from `Date.now() - serverStartTime` — `process.uptime()` is Node's internal uptime from when the process started, while `serverStartTime` tracks when the app module was initialised (could differ if app.ts is loaded after a delay). Both used for different purposes.
+**Concepts I am still fuzzy on:** Whether `tracesSampleRate: 1.0` in development will cause performance issues when running integration tests with Sentry enabled. Since `enabled: !!env.SENTRY_DSN` and the test SENTRY_DSN is empty, it's effectively disabled in tests.
+**Question I want to explore next:** Should the health check endpoint bypass rate limiting so monitoring services don't deplete the rate limit quota?
+**Confidence today (1–10):** 9
+
+---
+
+## 2026-06-10 — Phase 9: Testing Foundation
+**What we built:** Jest + ts-jest testing framework for the TypeScript server. Created a fresh Prisma-compatible test DB (`fitforce_x_test`) using `prisma db push`. Wrote 30 tests across 4 suites: `normalizeOrderedList`/`serializePlanRow`/`withTransaction` unit tests in planEngine, `normalizeSlug`/`cookieOptions` unit tests in auth.service, and P1 integration tests for forgot/reset-password and the messenger thread+message flow.
+**New concepts learned:** Why `prisma db push` is the right tool for test databases (applies schema directly without migration history — test DBs are ephemeral and don't need a rollback story). The difference between `setupFilesAfterEnv` (runs once after Jest initialises, before each test file) vs `setupFiles` (runs before the test framework). Why `makeAuthCookie` must be async and create a `user_sessions` row — the auth middleware validates every token against the DB, so a JWT alone is insufficient for integration tests.
+**Concepts I understood immediately:** Why `ts-jest` is needed to let Jest read TypeScript test files — Jest is a JS runner by default. Why `tsconfig.test.json` with `rootDir: '.'` is needed separately from `tsconfig.json` (which sets `rootDir: ./src`) — ts-jest would error if test files are outside the declared rootDir.
+**Concepts I am still fuzzy on:** Whether ts-jest v29 will remain stable against jest v30 long-term, or whether a silent compatibility shim is papering over a real incompatibility that will surface later.
+**Question I want to explore next:** Should we split the global `beforeEach` DB reset (currently applies to ALL suites) so unit tests don't pay the DB round-trip cost?
+**Confidence today (1–10):** 9
+
+---
+
+## 2026-06-10 — Phase 8: API Documentation — Swagger
+**What we built:** Full Swagger/OpenAPI 3.0 documentation for all 19 route files. `swagger-jsdoc` scans `@openapi` JSDoc blocks in route files at startup and builds a spec object. `swagger-ui-express` serves an interactive UI at `/api-docs`. Five shared component schemas defined (`Client`, `Thread`, `Message`, `NutritionPlan`, `WorkoutPlan`) and referenced by `$ref` in route annotations.
+**New concepts learned:** How `swagger-jsdoc` works — it reads JSDoc comments at runtime using the glob path as a file discovery pattern; the spec is generated in-memory, not from a file. The difference between `security: []` (public route, overrides global security) vs `security: [{ cookieAuth: [] }]` (explicit auth required) vs omitting security (inherits global default). Why the glob must match `.ts` source files in dev but `.js` compiled files in production — a build-time concern logged in DEBT.md.
+**Concepts I understood immediately:** `$ref: '#/components/schemas/Client'` as a pointer to a shared schema defined in `swagger.ts`. Why `tags` group routes into collapsible sections in the Swagger UI — makes large APIs navigable.
+**Concepts I am still fuzzy on:** How to handle the production build issue cleanly — whether pre-generating swagger.json at build time is better than switching the glob to .js files. The tradeoff: pre-generated JSON is stable and fast; runtime glob keeps docs in sync automatically.
+**Question I want to explore next:** Should the swagger.json be committed to the repo so it can be used by contract tests without starting the server?
+**Confidence today (1–10):** 9
+
+---
+
+## 2026-06-10 — Phase 6: Real-Time — Socket.io
+**What we built:** Socket.io layer on top of the existing Express server. `initSocket(httpServer)` creates a SocketServer attached to the Node http.Server, authenticates connections via the httpOnly JWT cookie, and places each socket in workspace/client/user rooms. After a coach sends a message, `new_message` is broadcast to the whole workspace room. After a client sends a message, the same event goes to the coach workspace. After plan activation (nutrition or training), `plan_assigned` fires into the client's private room so the portal can refresh without polling.
+**New concepts learned:** Why Socket.io must attach to a `http.Server` rather than the Express `app` directly — WebSocket upgrades are handled at the HTTP layer, not by Express middleware. Why the auth handshake reads the cookie from the raw `socket.handshake.headers.cookie` string — Socket.io doesn't parse cookies automatically like `cookie-parser` does for HTTP requests.
+**Concepts I understood immediately:** Room-based targeting: workspace room lets all coach team members see new messages; client room lets a specific client portal react to events without broadcasting to others.
+**Concepts I am still fuzzy on:** Whether `getIo()` emits should be fire-and-forget (as implemented) or awaited. Socket.io emit is synchronous/non-blocking, so there's nothing to await — but if delivery guarantees matter, does the app need acknowledgements?
+**Question I want to explore next:** How does the client-side (Next.js) subscribe to these rooms? What happens if a client portal user is not connected when plan_assigned fires — does the event get queued?
+**Confidence today (1–10):** 8
+
+---
+
+## 2026-06-10 — Phase 4: Security Hardening (JWT session revocation, CSP, admin subdomain) + Phase 5: File Storage (AWS S3)
+**What we built:** DB-backed JWT session revocation — every issued token is stored as a SHA-256 hash in `user_sessions` and validated on every request. Logout and workspace-switch revoke the old token. Full Helmet CSP with HSTS. `requireAdminSubdomain` middleware. S3 upload library (`storage.ts`) with signed URL generation and disk fallback for dev. One-time upload migration script.
+**New concepts learned:** Why token revocation requires a DB — pure JWT validation is stateless and cannot be un-done before expiry. The SHA-256 hash trick: we never store the raw token, only its hash, so the table is safe even if leaked. Why `getMe` needed `authMiddleware` even though it already called `jwt.verify()` directly — `jwt.verify` checks the signature but not whether the session was revoked. The two failure modes are different: one catches forgeries, the other catches revocation.
+**Concepts I understood immediately:** CSP directive names and what each controls. Why HSTS `preload: true` requires `includeSubDomains: true`. Why `hashToken` should live in one place (auth.service.ts) rather than being duplicated in middleware.
+**Concepts I am still fuzzy on:** S3 pre-signed URLs vs public-read ACL — when to use each. Pre-signed URLs expire and require backend involvement for each view; public-read is simpler but exposes the bucket.
+**Question I want to explore next:** Should exercise videos use signed URLs (access control) or public-read (performance)? What is the right expiry window?
+**Confidence today (1–10):** 8

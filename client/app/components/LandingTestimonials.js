@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card } from "@heroui/react/card";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
-import { Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const testimonials = [
     {

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
@@ -79,15 +80,15 @@ router.get('/', async (req, res, next) => {
 });
 
 router.post('/', async (req, res, next) => {
-    const { title, description, postAction, formType } = req.body;
+    const { title_en, title_ar, description_en, description_ar, postAction, formType } = req.body;
     const safePostAction = normalizePostAction(postAction);
     const safeFormType = normalizeFormType(formType);
     try {
         const result = await pool.query(
-            `INSERT INTO forms (workspace_id, title, description, post_action, form_type)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO forms (workspace_id, title_en, title_ar, description_en, description_ar, post_action, form_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *, 0 AS question_count`,
-            [req.user.workspaceId, title || 'Untitled Form', description || null, safePostAction, safeFormType]
+            [req.user.workspaceId, title_en || 'Untitled Form', title_ar || null, description_en || null, description_ar || null, safePostAction, safeFormType]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -96,21 +97,23 @@ router.post('/', async (req, res, next) => {
 });
 
 router.put('/:id', async (req, res, next) => {
-    const { title, description, status, postAction, formType } = req.body;
+    const { title_en, title_ar, description_en, description_ar, status, postAction, formType } = req.body;
     const safePostAction = postAction !== undefined ? normalizePostAction(postAction) : undefined;
     const safeFormType = formType !== undefined ? normalizeFormType(formType) : undefined;
     try {
         const result = await pool.query(
             `UPDATE forms
-             SET title = COALESCE($1, title),
-                 description = COALESCE($2, description),
-                 status = COALESCE($3, status),
-                 post_action = COALESCE($4, post_action),
-                 form_type = COALESCE($5, form_type),
-                 updated_at = NOW()
-             WHERE id = $6 AND workspace_id = $7
+             SET title_en       = COALESCE($1, title_en),
+                 title_ar       = COALESCE($2, title_ar),
+                 description_en = COALESCE($3, description_en),
+                 description_ar = COALESCE($4, description_ar),
+                 status         = COALESCE($5, status),
+                 post_action    = COALESCE($6, post_action),
+                 form_type      = COALESCE($7, form_type),
+                 updated_at     = NOW()
+             WHERE id = $8 AND workspace_id = $9
              RETURNING *`,
-            [title, description, status, safePostAction, safeFormType, req.params.id, req.user.workspaceId]
+            [title_en, title_ar, description_en, description_ar, status, safePostAction, safeFormType, req.params.id, req.user.workspaceId]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Form not found' });
         res.json(result.rows[0]);
@@ -154,7 +157,7 @@ router.get('/:id/questions', async (req, res, next) => {
 });
 
 router.post('/:id/questions', async (req, res, next) => {
-    const { label, type } = req.body;
+    const { label_en, label_ar, type } = req.body;
     try {
         // Get next order_index
         const countResult = await pool.query(
@@ -171,10 +174,10 @@ router.post('/:id/questions', async (req, res, next) => {
         };
 
         const result = await pool.query(
-            `INSERT INTO form_questions (form_id, label, type, order_index, min_value, max_value, options)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO form_questions (form_id, label_en, label_ar, type, order_index, min_value, max_value, options)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
-            [req.params.id, label || 'Question', type || 'text', orderIndex,
+            [req.params.id, label_en || 'Question', label_ar || null, type || 'text', orderIndex,
              defaults.min_value, defaults.max_value,
              defaults.options !== null ? JSON.stringify(defaults.options) : null]
         );
@@ -189,21 +192,27 @@ router.post('/:id/questions', async (req, res, next) => {
 });
 
 router.put('/:id/questions/:qid', async (req, res, next) => {
-    const { label, type, required, placeholder, options, min_value, max_value } = req.body;
+    const { label_en, label_ar, type, required, placeholder_en, placeholder_ar, options, options_ar, min_value, max_value } = req.body;
     try {
         const result = await pool.query(
             `UPDATE form_questions
-             SET label       = COALESCE($1, label),
-                 type        = COALESCE($2, type),
-                 required    = COALESCE($3, required),
-                 placeholder = COALESCE($4, placeholder),
-                 options     = COALESCE($5, options),
-                 min_value   = COALESCE($6, min_value),
-                 max_value   = COALESCE($7, max_value)
-             WHERE id = $8 AND form_id = $9
+             SET label_en       = COALESCE($1, label_en),
+                 label_ar       = COALESCE($2, label_ar),
+                 type           = COALESCE($3, type),
+                 required       = COALESCE($4, required),
+                 placeholder_en = COALESCE($5, placeholder_en),
+                 placeholder_ar = COALESCE($6, placeholder_ar),
+                 options        = COALESCE($7, options),
+                 options_ar     = COALESCE($8, options_ar),
+                 min_value      = COALESCE($9, min_value),
+                 max_value      = COALESCE($10, max_value)
+             WHERE id = $11 AND form_id = $12
              RETURNING *`,
-            [label, type, required, placeholder,
+            [label_en, label_ar,
+             type, required,
+             placeholder_en, placeholder_ar,
              options !== undefined ? JSON.stringify(options) : undefined,
+             options_ar !== undefined ? JSON.stringify(options_ar) : undefined,
              min_value, max_value,
              req.params.qid, req.params.id]
         );
@@ -293,9 +302,9 @@ router.post('/requests', async (req, res, next) => {
             const initialStatus = requestMode === 'schedule' ? 'scheduled' : 'pending';
 
             const result = await pool.query(
-                `INSERT INTO form_requests (form_id, client_id, workspace_id, status, scheduled_at, post_action)
-                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                [form_id, client_id, req.user.workspaceId, initialStatus, scheduledAt, formPostAction]
+                `INSERT INTO form_requests (form_id, client_id, workspace_id, status, scheduled_at, post_action, id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [form_id, client_id, req.user.workspaceId, initialStatus, scheduledAt, formPostAction, createId()]
             );
             inserted.push(result.rows[0]);
         }
@@ -318,7 +327,9 @@ router.get('/requests/client/:client_id', async (req, res, next) => {
 
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.scheduled_at, fr.post_action,
-                    f.id AS form_id, f.title AS form_title, f.description AS form_description,
+                    f.id AS form_id,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.description_en AS form_description_en, f.description_ar AS form_description_ar,
                     f.post_action AS form_post_action, f.form_type
              FROM form_requests fr
              JOIN forms f ON f.id = fr.form_id
@@ -337,7 +348,7 @@ router.get('/requests/client/:client_id', async (req, res, next) => {
                 };
             }
             const responses = await pool.query(
-                `SELECT fr.answer, fq.label, fq.type, fq.order_index
+                `SELECT fr.answer, fq.label_en, fq.label_ar, fq.type, fq.order_index
                  FROM form_responses fr
                  JOIN form_questions fq ON fq.id = fr.question_id
                  WHERE fr.request_id = $1
@@ -365,7 +376,8 @@ router.get('/queue', async (req, res, next) => {
         const result = await pool.query(
             `SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
                     fr.scheduled_at, fr.post_action, fr.action_taken_at,
-                    f.title AS form_title, f.form_type, f.post_action AS form_post_action,
+                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
+                    f.form_type, f.post_action AS form_post_action,
                     c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
                     NULL::text AS client_package,
                     NULL::text AS subscription_status
@@ -388,7 +400,8 @@ router.get('/queue', async (req, res, next) => {
                     clientPackage: row.client_package,
                     subscriptionStatus: row.subscription_status,
                     formId: row.form_id,
-                    formTitle: row.form_title,
+                    formTitle_en: row.form_title_en,
+                    formTitle_ar: row.form_title_ar,
                     formType: row.form_type || 'check-in',
                     postAction: normalizePostAction(row.post_action || row.form_post_action),
                     requestedAt: row.requested_at,
@@ -402,7 +415,7 @@ router.get('/queue', async (req, res, next) => {
             }
 
             const responsesResult = await pool.query(
-                `SELECT fr.question_id, fr.answer, fq.label, fq.type, fq.order_index
+                `SELECT fr.question_id, fr.answer, fq.label_en, fq.label_ar, fq.type, fq.order_index
                  FROM form_responses fr
                  JOIN form_questions fq ON fq.id = fr.question_id
                  WHERE fr.request_id = $1
@@ -424,7 +437,8 @@ router.get('/queue', async (req, res, next) => {
                 clientPackage: row.client_package,
                 subscriptionStatus: row.subscription_status,
                 formId: row.form_id,
-                formTitle: row.form_title,
+                formTitle_en: row.form_title_en,
+                formTitle_ar: row.form_title_ar,
                 formType: row.form_type || 'check-in',
                 postAction: normalizePostAction(row.post_action || row.form_post_action),
                 requestedAt: row.requested_at,

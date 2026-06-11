@@ -28,7 +28,7 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE public.admins (
-    id integer NOT NULL,
+    id text NOT NULL,
     email text NOT NULL,
     password text NOT NULL,
     fname text,
@@ -38,32 +38,12 @@ CREATE TABLE public.admins (
 
 
 --
--- Name: admins_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.admins_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: admins_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.admins_id_seq OWNED BY public.admins.id;
-
-
---
 -- Name: client_measurements; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.client_measurements (
-    id integer NOT NULL,
-    client_id integer,
+    id text NOT NULL,
+    client_id text,
     gender character varying(20),
     activity_level character varying(50),
     date_of_birth date,
@@ -77,32 +57,12 @@ CREATE TABLE public.client_measurements (
 
 
 --
--- Name: client_measurements_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.client_measurements_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: client_measurements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.client_measurements_id_seq OWNED BY public.client_measurements.id;
-
-
---
 -- Name: client_photos; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.client_photos (
-    id integer NOT NULL,
-    client_id integer,
+    id text NOT NULL,
+    client_id text,
     photo_type character varying(20) NOT NULL,
     file_path character varying(500) NOT NULL,
     uploaded_at timestamp with time zone DEFAULT now()
@@ -110,37 +70,17 @@ CREATE TABLE public.client_photos (
 
 
 --
--- Name: client_photos_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.client_photos_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: client_photos_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.client_photos_id_seq OWNED BY public.client_photos.id;
-
-
---
 -- Name: clients; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.clients (
-    id integer NOT NULL,
+    id text NOT NULL,
     client_code integer NOT NULL,
     fname character varying(100) NOT NULL,
     lname character varying(100) NOT NULL,
     email character varying(150) NOT NULL,
     phone character varying(20),
-    workspace_id integer,
+    workspace_id text,
     created_at timestamp without time zone DEFAULT now(),
     password character varying(255),
     phones jsonb DEFAULT '[]'::jsonb,
@@ -150,54 +90,14 @@ CREATE TABLE public.clients (
 
 
 --
--- Name: clients_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.clients_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: clients_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.clients_id_seq OWNED BY public.clients.id;
-
-
---
 -- Name: exercise_equipments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.exercise_equipments (
-    id integer NOT NULL,
-    workspace_id integer CONSTRAINT exercise_equipments_coach_id_not_null NOT NULL,
+    id text NOT NULL,
+    workspace_id text CONSTRAINT exercise_equipments_coach_id_not_null NOT NULL,
     name text NOT NULL
 );
-
-
---
--- Name: exercise_equipments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.exercise_equipments_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: exercise_equipments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.exercise_equipments_id_seq OWNED BY public.exercise_equipments.id;
 
 
 --
@@ -205,8 +105,8 @@ ALTER SEQUENCE public.exercise_equipments_id_seq OWNED BY public.exercise_equipm
 --
 
 CREATE TABLE public.exercise_library (
-    id integer NOT NULL,
-    workspace_id integer CONSTRAINT exercise_library_coach_id_not_null NOT NULL,
+    id text NOT NULL,
+    workspace_id text CONSTRAINT exercise_library_coach_id_not_null NOT NULL,
     name text NOT NULL,
     muscle_group text,
     equipment text,
@@ -220,54 +120,14 @@ CREATE TABLE public.exercise_library (
 
 
 --
--- Name: exercise_library_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.exercise_library_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: exercise_library_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.exercise_library_id_seq OWNED BY public.exercise_library.id;
-
-
---
 -- Name: exercise_muscle_groups; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.exercise_muscle_groups (
-    id integer NOT NULL,
-    workspace_id integer CONSTRAINT exercise_muscle_groups_coach_id_not_null NOT NULL,
+    id text NOT NULL,
+    workspace_id text CONSTRAINT exercise_muscle_groups_coach_id_not_null NOT NULL,
     name text NOT NULL
 );
-
-
---
--- Name: exercise_muscle_groups_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.exercise_muscle_groups_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: exercise_muscle_groups_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.exercise_muscle_groups_id_seq OWNED BY public.exercise_muscle_groups.id;
 
 
 --
@@ -275,30 +135,10 @@ ALTER SEQUENCE public.exercise_muscle_groups_id_seq OWNED BY public.exercise_mus
 --
 
 CREATE TABLE public.food_categories (
-    id integer NOT NULL,
+    id text NOT NULL,
     name character varying(100) NOT NULL,
-    workspace_id integer
+    workspace_id text
 );
-
-
---
--- Name: food_categories_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.food_categories_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: food_categories_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.food_categories_id_seq OWNED BY public.food_categories.id;
 
 
 --
@@ -306,13 +146,13 @@ ALTER SEQUENCE public.food_categories_id_seq OWNED BY public.food_categories.id;
 --
 
 CREATE TABLE public.food_items (
-    id integer NOT NULL,
+    id text NOT NULL,
     name character varying(255) NOT NULL,
     calories_per_serving numeric CONSTRAINT food_items_calories_not_null NOT NULL,
     protein_per_serving numeric CONSTRAINT food_items_protein_not_null NOT NULL,
     carbs_per_serving numeric CONSTRAINT food_items_carbs_not_null NOT NULL,
     fats_per_serving numeric CONSTRAINT food_items_fat_not_null NOT NULL,
-    workspace_id integer,
+    workspace_id text,
     food_category text,
     serving_size numeric,
     serving_unit text
@@ -320,32 +160,12 @@ CREATE TABLE public.food_items (
 
 
 --
--- Name: food_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.food_items_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: food_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.food_items_id_seq OWNED BY public.food_items.id;
-
-
---
 -- Name: form_questions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.form_questions (
-    id integer NOT NULL,
-    form_id integer NOT NULL,
+    id text NOT NULL,
+    form_id text NOT NULL,
     label text DEFAULT 'Question'::text NOT NULL,
     type character varying(30) DEFAULT 'text'::character varying NOT NULL,
     required boolean DEFAULT false NOT NULL,
@@ -360,34 +180,14 @@ CREATE TABLE public.form_questions (
 
 
 --
--- Name: form_questions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.form_questions_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: form_questions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.form_questions_id_seq OWNED BY public.form_questions.id;
-
-
---
 -- Name: form_requests; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.form_requests (
-    id integer NOT NULL,
-    form_id integer,
-    client_id integer,
-    workspace_id integer NOT NULL,
+    id text NOT NULL,
+    form_id text,
+    client_id text,
+    workspace_id text NOT NULL,
     status character varying(20) DEFAULT 'pending'::character varying,
     requested_at timestamp without time zone DEFAULT now(),
     submitted_at timestamp without time zone,
@@ -398,56 +198,16 @@ CREATE TABLE public.form_requests (
 
 
 --
--- Name: form_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.form_requests_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: form_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.form_requests_id_seq OWNED BY public.form_requests.id;
-
-
---
 -- Name: form_responses; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.form_responses (
-    id integer NOT NULL,
-    request_id integer,
-    question_id integer,
+    id text NOT NULL,
+    request_id text,
+    question_id text,
     answer text,
     created_at timestamp without time zone DEFAULT now()
 );
-
-
---
--- Name: form_responses_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.form_responses_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: form_responses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.form_responses_id_seq OWNED BY public.form_responses.id;
 
 
 --
@@ -455,8 +215,8 @@ ALTER SEQUENCE public.form_responses_id_seq OWNED BY public.form_responses.id;
 --
 
 CREATE TABLE public.forms (
-    id integer NOT NULL,
-    workspace_id integer NOT NULL,
+    id text NOT NULL,
+    workspace_id text NOT NULL,
     title character varying(255) DEFAULT 'Untitled Form'::character varying NOT NULL,
     description text,
     status character varying(20) DEFAULT 'draft'::character varying NOT NULL,
@@ -469,32 +229,12 @@ CREATE TABLE public.forms (
 
 
 --
--- Name: forms_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.forms_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: forms_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.forms_id_seq OWNED BY public.forms.id;
-
-
---
 -- Name: nutrition_cycles; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.nutrition_cycles (
-    id integer NOT NULL,
-    plan_id integer,
+    id text NOT NULL,
+    plan_id text,
     name text DEFAULT 'Cycle 1'::text NOT NULL,
     cycle_order integer DEFAULT 1 NOT NULL,
     goal_calories integer,
@@ -506,56 +246,16 @@ CREATE TABLE public.nutrition_cycles (
 
 
 --
--- Name: nutrition_cycles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.nutrition_cycles_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: nutrition_cycles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.nutrition_cycles_id_seq OWNED BY public.nutrition_cycles.id;
-
-
---
 -- Name: nutrition_meal_item_alternatives; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.nutrition_meal_item_alternatives (
-    id integer NOT NULL,
-    meal_item_id integer,
-    food_item_id integer,
+    id text NOT NULL,
+    meal_item_id text,
+    food_item_id text,
     amount numeric NOT NULL,
     alt_order integer DEFAULT 1 NOT NULL
 );
-
-
---
--- Name: nutrition_meal_item_alternatives_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.nutrition_meal_item_alternatives_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: nutrition_meal_item_alternatives_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.nutrition_meal_item_alternatives_id_seq OWNED BY public.nutrition_meal_item_alternatives.id;
 
 
 --
@@ -563,32 +263,12 @@ ALTER SEQUENCE public.nutrition_meal_item_alternatives_id_seq OWNED BY public.nu
 --
 
 CREATE TABLE public.nutrition_meal_items (
-    id integer NOT NULL,
-    meal_id integer,
-    food_item_id integer,
+    id text NOT NULL,
+    meal_id text,
+    food_item_id text,
     amount numeric DEFAULT 100 NOT NULL,
     meal_item_order integer NOT NULL
 );
-
-
---
--- Name: nutrition_meal_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.nutrition_meal_items_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: nutrition_meal_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.nutrition_meal_items_id_seq OWNED BY public.nutrition_meal_items.id;
 
 
 --
@@ -596,8 +276,8 @@ ALTER SEQUENCE public.nutrition_meal_items_id_seq OWNED BY public.nutrition_meal
 --
 
 CREATE TABLE public.nutrition_meals (
-    id integer NOT NULL,
-    cycle_id integer,
+    id text NOT NULL,
+    cycle_id text,
     name text NOT NULL,
     meal_order integer DEFAULT 1 NOT NULL,
     note text
@@ -605,34 +285,14 @@ CREATE TABLE public.nutrition_meals (
 
 
 --
--- Name: nutrition_meals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.nutrition_meals_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: nutrition_meals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.nutrition_meals_id_seq OWNED BY public.nutrition_meals.id;
-
-
---
 -- Name: nutrition_plans; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.nutrition_plans (
-    id integer NOT NULL,
+    id text NOT NULL,
     name text NOT NULL,
-    client_id integer,
-    workspace_id integer,
+    client_id text,
+    workspace_id text,
     status text DEFAULT 'draft'::text,
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
@@ -641,32 +301,12 @@ CREATE TABLE public.nutrition_plans (
 
 
 --
--- Name: nutrition_plans_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.nutrition_plans_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: nutrition_plans_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.nutrition_plans_id_seq OWNED BY public.nutrition_plans.id;
-
-
---
 -- Name: package_variations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.package_variations (
-    id integer NOT NULL,
-    package_id integer NOT NULL,
+    id text NOT NULL,
+    package_id text NOT NULL,
     name text NOT NULL,
     description text,
     duration integer NOT NULL,
@@ -678,32 +318,12 @@ CREATE TABLE public.package_variations (
 
 
 --
--- Name: package_variations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.package_variations_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: package_variations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.package_variations_id_seq OWNED BY public.package_variations.id;
-
-
---
 -- Name: packages; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.packages (
-    id integer NOT NULL,
-    workspace_id integer CONSTRAINT packages_coach_id_not_null NOT NULL,
+    id text NOT NULL,
+    workspace_id text CONSTRAINT packages_coach_id_not_null NOT NULL,
     name text NOT NULL,
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -712,23 +332,33 @@ CREATE TABLE public.packages (
 
 
 --
--- Name: packages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: password_reset_tokens; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.packages_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
+CREATE TABLE public.password_reset_tokens (
+    id text NOT NULL,
+    user_id text NOT NULL,
+    code text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
--- Name: packages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: messages; Type: TABLE; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE public.packages_id_seq OWNED BY public.packages.id;
+CREATE TABLE public.messages (
+    id text NOT NULL,
+    thread_id text NOT NULL,
+    sender_type text NOT NULL,
+    sender_id text NOT NULL,
+    body text NOT NULL,
+    read_by_team_at timestamp with time zone,
+    read_by_client_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -736,8 +366,8 @@ ALTER SEQUENCE public.packages_id_seq OWNED BY public.packages.id;
 --
 
 CREATE TABLE public.payment_methods (
-    id integer NOT NULL,
-    workspace_id integer CONSTRAINT payment_methods_coach_id_not_null NOT NULL,
+    id text NOT NULL,
+    workspace_id text CONSTRAINT payment_methods_coach_id_not_null NOT NULL,
     name text NOT NULL,
     type text NOT NULL,
     active boolean DEFAULT true NOT NULL,
@@ -746,32 +376,12 @@ CREATE TABLE public.payment_methods (
 
 
 --
--- Name: payment_methods_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.payment_methods_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: payment_methods_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.payment_methods_id_seq OWNED BY public.payment_methods.id;
-
-
---
 -- Name: pdf_settings; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.pdf_settings (
-    id integer NOT NULL,
-    coach_id integer,
+    id text NOT NULL,
+    coach_id text,
     coach_name text DEFAULT 'FitForce'::text NOT NULL,
     footer_text text DEFAULT 'Generated by FitForce'::text NOT NULL,
     primary_color text DEFAULT '#007AFF'::text NOT NULL,
@@ -811,27 +421,8 @@ CREATE TABLE public.pdf_settings (
 
 
 --
--- Name: pdf_settings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.pdf_settings_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: pdf_settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.pdf_settings_id_seq OWNED BY public.pdf_settings.id;
-
-
---
 -- Name: pgmigrations; Type: TABLE; Schema: public; Owner: -
+-- NOTE: Managed internally by node-pg-migrate — keep integer id
 --
 
 CREATE TABLE public.pgmigrations (
@@ -839,11 +430,6 @@ CREATE TABLE public.pgmigrations (
     name character varying(255) NOT NULL,
     run_on timestamp without time zone NOT NULL
 );
-
-
---
--- Name: pgmigrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
 
 CREATE SEQUENCE public.pgmigrations_id_seq
     AS integer
@@ -853,12 +439,9 @@ CREATE SEQUENCE public.pgmigrations_id_seq
     NO MAXVALUE
     CACHE 1;
 
-
---
--- Name: pgmigrations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
 ALTER SEQUENCE public.pgmigrations_id_seq OWNED BY public.pgmigrations.id;
+
+ALTER TABLE ONLY public.pgmigrations ALTER COLUMN id SET DEFAULT nextval('public.pgmigrations_id_seq'::regclass);
 
 
 --
@@ -866,7 +449,7 @@ ALTER SEQUENCE public.pgmigrations_id_seq OWNED BY public.pgmigrations.id;
 --
 
 CREATE TABLE public.plans (
-    id integer NOT NULL,
+    id text NOT NULL,
     name text NOT NULL,
     display_name text NOT NULL,
     max_team_seats integer,
@@ -879,32 +462,12 @@ CREATE TABLE public.plans (
 
 
 --
--- Name: plans_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.plans_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: plans_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.plans_id_seq OWNED BY public.plans.id;
-
-
---
 -- Name: subscription_freezes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.subscription_freezes (
-    id integer NOT NULL,
-    client_id integer NOT NULL,
+    id text NOT NULL,
+    client_id text NOT NULL,
     freeze_start_date date NOT NULL,
     freeze_duration_days integer NOT NULL,
     notes text,
@@ -913,32 +476,12 @@ CREATE TABLE public.subscription_freezes (
 
 
 --
--- Name: subscription_freezes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.subscription_freezes_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: subscription_freezes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.subscription_freezes_id_seq OWNED BY public.subscription_freezes.id;
-
-
---
 -- Name: training_days; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.training_days (
-    id integer NOT NULL,
-    plan_id integer NOT NULL,
+    id text NOT NULL,
+    plan_id text NOT NULL,
     name text NOT NULL,
     day_order integer NOT NULL,
     notes text
@@ -946,55 +489,15 @@ CREATE TABLE public.training_days (
 
 
 --
--- Name: training_days_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.training_days_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: training_days_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.training_days_id_seq OWNED BY public.training_days.id;
-
-
---
 -- Name: training_exercise_alternatives; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.training_exercise_alternatives (
-    id integer NOT NULL,
-    exercise_id integer NOT NULL,
-    exercise_library_id integer NOT NULL,
+    id text NOT NULL,
+    exercise_id text NOT NULL,
+    exercise_library_id text NOT NULL,
     alt_order integer NOT NULL
 );
-
-
---
--- Name: training_exercise_alternatives_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.training_exercise_alternatives_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: training_exercise_alternatives_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.training_exercise_alternatives_id_seq OWNED BY public.training_exercise_alternatives.id;
 
 
 --
@@ -1002,34 +505,14 @@ ALTER SEQUENCE public.training_exercise_alternatives_id_seq OWNED BY public.trai
 --
 
 CREATE TABLE public.training_exercises (
-    id integer NOT NULL,
-    day_id integer NOT NULL,
+    id text NOT NULL,
+    day_id text NOT NULL,
     name text NOT NULL,
     exercise_order integer NOT NULL,
     equipment text,
     notes text,
-    exercise_library_id integer
+    exercise_library_id text
 );
-
-
---
--- Name: training_exercises_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.training_exercises_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: training_exercises_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.training_exercises_id_seq OWNED BY public.training_exercises.id;
 
 
 --
@@ -1037,10 +520,10 @@ ALTER SEQUENCE public.training_exercises_id_seq OWNED BY public.training_exercis
 --
 
 CREATE TABLE public.training_plans (
-    id integer NOT NULL,
+    id text NOT NULL,
     name text NOT NULL,
-    client_id integer NOT NULL,
-    workspace_id integer CONSTRAINT training_plans_coach_id_not_null NOT NULL,
+    client_id text NOT NULL,
+    workspace_id text CONSTRAINT training_plans_coach_id_not_null NOT NULL,
     status text DEFAULT 'inactive'::text NOT NULL,
     notes text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -1051,32 +534,12 @@ CREATE TABLE public.training_plans (
 
 
 --
--- Name: training_plans_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.training_plans_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: training_plans_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.training_plans_id_seq OWNED BY public.training_plans.id;
-
-
---
 -- Name: training_sets; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.training_sets (
-    id integer NOT NULL,
-    exercise_id integer NOT NULL,
+    id text NOT NULL,
+    exercise_id text NOT NULL,
     set_order integer NOT NULL,
     reps text,
     rest_seconds integer,
@@ -1086,23 +549,17 @@ CREATE TABLE public.training_sets (
 
 
 --
--- Name: training_sets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: transactions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.training_sets_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: training_sets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.training_sets_id_seq OWNED BY public.training_sets.id;
+CREATE TABLE public.threads (
+    id text NOT NULL,
+    workspace_id text NOT NULL,
+    client_id text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -1110,8 +567,8 @@ ALTER SEQUENCE public.training_sets_id_seq OWNED BY public.training_sets.id;
 --
 
 CREATE TABLE public.transactions (
-    id integer NOT NULL,
-    workspace_id integer CONSTRAINT transactions_coach_id_not_null NOT NULL,
+    id text NOT NULL,
+    workspace_id text CONSTRAINT transactions_coach_id_not_null NOT NULL,
     client_name text NOT NULL,
     package_variation text,
     payment_method text NOT NULL,
@@ -1122,7 +579,7 @@ CREATE TABLE public.transactions (
     notes text,
     transaction_date timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id integer,
+    client_id text,
     duration integer,
     proof_image text,
     subscription_start_date date,
@@ -1131,59 +588,22 @@ CREATE TABLE public.transactions (
 
 
 --
--- Name: transactions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.transactions_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: transactions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.transactions_id_seq OWNED BY public.transactions.id;
-
-
---
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users (
-    id integer NOT NULL,
+    id text NOT NULL,
     fname character varying(100) NOT NULL,
     lname character varying(100) NOT NULL,
     email character varying(150) NOT NULL,
     password character varying(255) NOT NULL,
     created_at timestamp without time zone DEFAULT now(),
-    default_workspace_id integer,
-    is_admin boolean DEFAULT false NOT NULL
+    default_workspace_id text,
+    is_admin boolean DEFAULT false NOT NULL,
+    email_verified boolean DEFAULT false NOT NULL,
+    email_verification_code text,
+    verification_code_expires_at timestamp with time zone
 );
-
-
---
--- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.users_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
@@ -1191,35 +611,15 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 --
 
 CREATE TABLE public.workspace_audit_log (
-    id integer NOT NULL,
-    workspace_id integer NOT NULL,
-    actor_user_id integer NOT NULL,
+    id text NOT NULL,
+    workspace_id text NOT NULL,
+    actor_user_id text NOT NULL,
     action text NOT NULL,
     target_type text,
-    target_id integer,
+    target_id text,
     metadata jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
---
--- Name: workspace_audit_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.workspace_audit_log_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: workspace_audit_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.workspace_audit_log_id_seq OWNED BY public.workspace_audit_log.id;
 
 
 --
@@ -1227,10 +627,10 @@ ALTER SEQUENCE public.workspace_audit_log_id_seq OWNED BY public.workspace_audit
 --
 
 CREATE TABLE public.workspace_invitations (
-    id integer NOT NULL,
-    workspace_id integer NOT NULL,
-    invited_by_user_id integer NOT NULL,
-    invited_user_id integer NOT NULL,
+    id text NOT NULL,
+    workspace_id text NOT NULL,
+    invited_by_user_id text NOT NULL,
+    invited_user_id text NOT NULL,
     role text NOT NULL,
     status text DEFAULT 'pending'::text NOT NULL,
     message text,
@@ -1242,33 +642,13 @@ CREATE TABLE public.workspace_invitations (
 
 
 --
--- Name: workspace_invitations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.workspace_invitations_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: workspace_invitations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.workspace_invitations_id_seq OWNED BY public.workspace_invitations.id;
-
-
---
 -- Name: workspace_members; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.workspace_members (
-    id integer NOT NULL,
-    workspace_id integer NOT NULL,
-    user_id integer NOT NULL,
+    id text NOT NULL,
+    workspace_id text NOT NULL,
+    user_id text NOT NULL,
     role text NOT NULL,
     permissions jsonb DEFAULT '{}'::jsonb NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
@@ -1278,33 +658,13 @@ CREATE TABLE public.workspace_members (
 
 
 --
--- Name: workspace_members_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.workspace_members_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: workspace_members_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.workspace_members_id_seq OWNED BY public.workspace_members.id;
-
-
---
 -- Name: workspace_subscriptions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.workspace_subscriptions (
-    id integer NOT NULL,
-    workspace_id integer NOT NULL,
-    plan_id integer NOT NULL,
+    id text NOT NULL,
+    workspace_id text NOT NULL,
+    plan_id text NOT NULL,
     status text DEFAULT 'active'::text NOT NULL,
     starts_at timestamp with time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone,
@@ -1315,34 +675,14 @@ CREATE TABLE public.workspace_subscriptions (
 
 
 --
--- Name: workspace_subscriptions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.workspace_subscriptions_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: workspace_subscriptions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.workspace_subscriptions_id_seq OWNED BY public.workspace_subscriptions.id;
-
-
---
 -- Name: workspaces; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.workspaces (
-    id integer NOT NULL,
+    id text NOT NULL,
     slug text NOT NULL,
     name text NOT NULL,
-    owner_id integer NOT NULL,
+    owner_id text NOT NULL,
     slug_customized boolean DEFAULT false NOT NULL,
     archived_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL
@@ -1350,281 +690,11 @@ CREATE TABLE public.workspaces (
 
 
 --
--- Name: workspaces_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: pgmigrations pgmigrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.workspaces_id_seq
-    START WITH 6
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: workspaces_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.workspaces_id_seq OWNED BY public.workspaces.id;
-
-
---
--- Name: admins id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.admins ALTER COLUMN id SET DEFAULT nextval('public.admins_id_seq'::regclass);
-
-
---
--- Name: client_measurements id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_measurements ALTER COLUMN id SET DEFAULT nextval('public.client_measurements_id_seq'::regclass);
-
-
---
--- Name: client_photos id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_photos ALTER COLUMN id SET DEFAULT nextval('public.client_photos_id_seq'::regclass);
-
-
---
--- Name: clients id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clients ALTER COLUMN id SET DEFAULT nextval('public.clients_id_seq'::regclass);
-
-
---
--- Name: exercise_equipments id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.exercise_equipments ALTER COLUMN id SET DEFAULT nextval('public.exercise_equipments_id_seq'::regclass);
-
-
---
--- Name: exercise_library id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.exercise_library ALTER COLUMN id SET DEFAULT nextval('public.exercise_library_id_seq'::regclass);
-
-
---
--- Name: exercise_muscle_groups id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.exercise_muscle_groups ALTER COLUMN id SET DEFAULT nextval('public.exercise_muscle_groups_id_seq'::regclass);
-
-
---
--- Name: food_categories id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.food_categories ALTER COLUMN id SET DEFAULT nextval('public.food_categories_id_seq'::regclass);
-
-
---
--- Name: food_items id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.food_items ALTER COLUMN id SET DEFAULT nextval('public.food_items_id_seq'::regclass);
-
-
---
--- Name: form_questions id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.form_questions ALTER COLUMN id SET DEFAULT nextval('public.form_questions_id_seq'::regclass);
-
-
---
--- Name: form_requests id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.form_requests ALTER COLUMN id SET DEFAULT nextval('public.form_requests_id_seq'::regclass);
-
-
---
--- Name: form_responses id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.form_responses ALTER COLUMN id SET DEFAULT nextval('public.form_responses_id_seq'::regclass);
-
-
---
--- Name: forms id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.forms ALTER COLUMN id SET DEFAULT nextval('public.forms_id_seq'::regclass);
-
-
---
--- Name: nutrition_cycles id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nutrition_cycles ALTER COLUMN id SET DEFAULT nextval('public.nutrition_cycles_id_seq'::regclass);
-
-
---
--- Name: nutrition_meal_item_alternatives id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nutrition_meal_item_alternatives ALTER COLUMN id SET DEFAULT nextval('public.nutrition_meal_item_alternatives_id_seq'::regclass);
-
-
---
--- Name: nutrition_meal_items id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nutrition_meal_items ALTER COLUMN id SET DEFAULT nextval('public.nutrition_meal_items_id_seq'::regclass);
-
-
---
--- Name: nutrition_meals id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nutrition_meals ALTER COLUMN id SET DEFAULT nextval('public.nutrition_meals_id_seq'::regclass);
-
-
---
--- Name: nutrition_plans id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nutrition_plans ALTER COLUMN id SET DEFAULT nextval('public.nutrition_plans_id_seq'::regclass);
-
-
---
--- Name: package_variations id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.package_variations ALTER COLUMN id SET DEFAULT nextval('public.package_variations_id_seq'::regclass);
-
-
---
--- Name: packages id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.packages ALTER COLUMN id SET DEFAULT nextval('public.packages_id_seq'::regclass);
-
-
---
--- Name: payment_methods id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payment_methods ALTER COLUMN id SET DEFAULT nextval('public.payment_methods_id_seq'::regclass);
-
-
---
--- Name: pdf_settings id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.pdf_settings ALTER COLUMN id SET DEFAULT nextval('public.pdf_settings_id_seq'::regclass);
-
-
---
--- Name: pgmigrations id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.pgmigrations ALTER COLUMN id SET DEFAULT nextval('public.pgmigrations_id_seq'::regclass);
-
-
---
--- Name: plans id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.plans ALTER COLUMN id SET DEFAULT nextval('public.plans_id_seq'::regclass);
-
-
---
--- Name: subscription_freezes id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscription_freezes ALTER COLUMN id SET DEFAULT nextval('public.subscription_freezes_id_seq'::regclass);
-
-
---
--- Name: training_days id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.training_days ALTER COLUMN id SET DEFAULT nextval('public.training_days_id_seq'::regclass);
-
-
---
--- Name: training_exercise_alternatives id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.training_exercise_alternatives ALTER COLUMN id SET DEFAULT nextval('public.training_exercise_alternatives_id_seq'::regclass);
-
-
---
--- Name: training_exercises id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.training_exercises ALTER COLUMN id SET DEFAULT nextval('public.training_exercises_id_seq'::regclass);
-
-
---
--- Name: training_plans id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.training_plans ALTER COLUMN id SET DEFAULT nextval('public.training_plans_id_seq'::regclass);
-
-
---
--- Name: training_sets id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.training_sets ALTER COLUMN id SET DEFAULT nextval('public.training_sets_id_seq'::regclass);
-
-
---
--- Name: transactions id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transactions ALTER COLUMN id SET DEFAULT nextval('public.transactions_id_seq'::regclass);
-
-
---
--- Name: users id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
-
-
---
--- Name: workspace_audit_log id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.workspace_audit_log ALTER COLUMN id SET DEFAULT nextval('public.workspace_audit_log_id_seq'::regclass);
-
-
---
--- Name: workspace_invitations id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.workspace_invitations ALTER COLUMN id SET DEFAULT nextval('public.workspace_invitations_id_seq'::regclass);
-
-
---
--- Name: workspace_members id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.workspace_members ALTER COLUMN id SET DEFAULT nextval('public.workspace_members_id_seq'::regclass);
-
-
---
--- Name: workspace_subscriptions id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.workspace_subscriptions ALTER COLUMN id SET DEFAULT nextval('public.workspace_subscriptions_id_seq'::regclass);
-
-
---
--- Name: workspaces id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.workspaces ALTER COLUMN id SET DEFAULT nextval('public.workspaces_id_seq'::regclass);
+ALTER TABLE ONLY public.pgmigrations
+    ADD CONSTRAINT pgmigrations_pkey PRIMARY KEY (id);
 
 
 --
@@ -1857,14 +927,6 @@ ALTER TABLE ONLY public.pdf_settings
 
 ALTER TABLE ONLY public.pdf_settings
     ADD CONSTRAINT pdf_settings_pkey PRIMARY KEY (id);
-
-
---
--- Name: pgmigrations pgmigrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.pgmigrations
-    ADD CONSTRAINT pgmigrations_pkey PRIMARY KEY (id);
 
 
 --
@@ -2274,8 +1336,6 @@ ALTER TABLE ONLY public.workspaces
     ADD CONSTRAINT fk_workspaces_owner FOREIGN KEY (owner_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
 
-
-
 --
 -- Name: form_questions form_questions_form_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
@@ -2537,4 +1597,3 @@ ALTER TABLE ONLY public.workspace_subscriptions
 --
 
 \unrestrict wac7p0gmTVjyjB0me7R6SAdiwByfNTZ0rMxN9hRwu8cfN3QS2tQPFr36xsvWMXT
-

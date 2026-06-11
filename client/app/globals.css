@@ -139,3 +139,61 @@
   }
   .sidebar.collapsed { width: 4rem; }
 }
+
+/* ── Scrollbar hide utility ── */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── RTL overrides ── */
+
+/* Prevent tab text from wrapping to multiple lines (affects both LTR and RTL) */
+.tabs__tab {
+  white-space: nowrap;
+}
+
+/* Bug 3 — Table corner rounding: swap first/last-child radii for RTL.
+   HeroUI applies left-side radius to :first-child and right-side to :last-child.
+   In RTL the first DOM column is physically rightmost, so radii land on the inner side. */
+[dir="rtl"] .table__body tr:first-child td:first-child {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: min(32px, var(--radius-2xl)) !important;
+}
+[dir="rtl"] .table__body tr:first-child td:last-child {
+  border-top-right-radius: 0 !important;
+  border-top-left-radius: min(32px, var(--radius-2xl)) !important;
+}
+[dir="rtl"] .table__body tr:last-child td:first-child {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: min(32px, var(--radius-2xl)) !important;
+}
+[dir="rtl"] .table__body tr:last-child td:last-child {
+  border-bottom-right-radius: 0 !important;
+  border-bottom-left-radius: min(32px, var(--radius-2xl)) !important;
+}
+
+/* Also fix the secondary-variant header column rounding */
+[dir="rtl"] .table-root--secondary .table__column:first-child {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-top-right-radius: min(32px, var(--radius-2xl)) !important;
+  border-bottom-right-radius: min(32px, var(--radius-2xl)) !important;
+}
+[dir="rtl"] .table-root--secondary .table__column:last-child {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-top-left-radius: min(32px, var(--radius-2xl)) !important;
+  border-bottom-left-radius: min(32px, var(--radius-2xl)) !important;
+}
+
+/* Bug 4 — Tab separator: HeroUI anchors it at physical left:0 of each tab.
+   In RTL the last DOM tab is physically leftmost, so its separator floats
+   at the far edge with nothing beside it. Moving to right:0 fixes positioning. */
+[dir="rtl"] .tabs__list[data-orientation="horizontal"] .tabs__separator {
+  left: auto;
+  right: 0;
+}

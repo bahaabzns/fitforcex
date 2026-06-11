@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const authMiddleware = require('../middleware/auth');
@@ -192,11 +193,11 @@ router.post('/', async (req, res, next) => {
 
         const result = await pool.query(
             `INSERT INTO clients
-                (client_code, fname, lname, email, phone, phones, current_package,
+                (id, client_code, fname, lname, email, phone, phones, current_package,
                  subscription_status, workspace_id, password)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
             [
-                nextCode, firstName, lastName, email,
+                createId(), nextCode, firstName, lastName, email,
                 phoneText, JSON.stringify(phonesArray),
                 currentPackage || null, 'Pre-start',
                 req.user.workspaceId, hashedPassword,
@@ -331,9 +332,9 @@ router.post('/:id/freezes', async (req, res, next) => {
         if (!client.rows.length) return res.status(404).json({ error: 'Client not found' });
 
         const result = await pool.query(
-            `INSERT INTO subscription_freezes (client_id, freeze_start_date, freeze_duration_days, notes)
-             VALUES ($1, $2, $3, $4) RETURNING *`,
-            [req.params.id, new Date(freezeStartDate), days, notes?.trim() || null]
+            `INSERT INTO subscription_freezes (id, client_id, freeze_start_date, freeze_duration_days, notes)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [createId(), req.params.id, new Date(freezeStartDate), days, notes?.trim() || null]
         );
         res.status(201).json(mapFreeze(result.rows[0]));
     } catch (err) {

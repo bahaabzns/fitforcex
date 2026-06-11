@@ -10,17 +10,17 @@ exports.up = (pgm) => {
 
     // workspace_payments: one row per payment attempt a coach makes
     pgm.createTable('workspace_payments', {
-        id: { type: 'serial', primaryKey: true },
+        id: { type: 'text', primaryKey: true },
 
         workspace_id: {
-            type: 'integer',
+            type: 'text',
             notNull: true,
             references: 'workspaces(id)',
             onDelete: 'CASCADE',
         },
 
         plan_id: {
-            type: 'integer',
+            type: 'text',
             notNull: true,
             references: 'plans(id)',
         },

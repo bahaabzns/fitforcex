@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { DEFAULT_PERMISSIONS } = require('../lib/defaultPermissions');
@@ -42,7 +43,7 @@ router.get('/me', async (req, res, next) => {
 
 // Accept an invitation
 router.post('/:id/accept', async (req, res, next) => {
-    const invitationId = parseInt(req.params.id);
+    const invitationId = req.params.id;
 
     try {
         const { rows: invRows } = await pool.query(
@@ -61,11 +62,11 @@ router.post('/:id/accept', async (req, res, next) => {
             await client.query('BEGIN');
 
             const { rows: memberRows } = await client.query(
-                `INSERT INTO workspace_members (workspace_id, user_id, role, permissions)
-                 VALUES ($1, $2, $3, $4)
+                `INSERT INTO workspace_members (workspace_id, user_id, role, permissions, id)
+                 VALUES ($1, $2, $3, $4, $5)
                  RETURNING id, workspace_id, user_id, role, permissions, joined_at`,
                 [invitation.workspace_id, req.user.userId, invitation.role,
-                 JSON.stringify(DEFAULT_PERMISSIONS[invitation.role])]
+                 JSON.stringify(DEFAULT_PERMISSIONS[invitation.role]), createId()]
             );
 
             await client.query(
@@ -75,9 +76,9 @@ router.post('/:id/accept', async (req, res, next) => {
             );
 
             await client.query(
-                `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id)
-                 VALUES ($1, $2, 'member_added', 'workspace_member', $3)`,
-                [invitation.workspace_id, req.user.userId, memberRows[0].id]
+                `INSERT INTO workspace_audit_log (workspace_id, actor_user_id, action, target_type, target_id, id)
+                 VALUES ($1, $2, 'member_added', 'workspace_member', $3, $4)`,
+                [invitation.workspace_id, req.user.userId, memberRows[0].id, createId()]
             );
 
             await client.query('COMMIT');
@@ -103,7 +104,7 @@ router.post('/:id/accept', async (req, res, next) => {
 
 // Decline an invitation
 router.post('/:id/decline', async (req, res, next) => {
-    const invitationId = parseInt(req.params.id);
+    const invitationId = req.params.id;
 
     try {
         const { rows } = await pool.query(

@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const jwt = require('jsonwebtoken');
 const { loginLimiter } = require('../middleware/rateLimit');
+const { sendPasswordResetEmail, sendVerificationEmail } = require('../lib/email');
 const authMiddleware = require('../middleware/auth');
 const requireOwner = require('../middleware/requireOwner');
 
@@ -121,6 +123,24 @@ function issueToken(payload) {
     return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
+function generateVerificationCode() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function storeAndSendVerificationCode(userId, email) {
+    const code = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await pool.query(
+        `UPDATE users
+         SET email_verification_code = $1, verification_code_expires_at = $2
+         WHERE id = $3`,
+        [code, expiresAt, userId]
+    );
+    sendVerificationEmail(email, code).catch((err) => {
+        console.error('[email-verification] send failed:', err.message);
+    });
+}
+
 // ── routes ────────────────────────────────────────────────────────────────────
 
 router.post('/register', async (req, res, next) => {
@@ -152,18 +172,19 @@ router.post('/register', async (req, res, next) => {
         );
         const slug = slugRows.length > 0 ? `${normalizedSlug}-${Date.now()}` : normalizedSlug;
 
+        const userId = createId();
         const userResult = await pool.query(
-            'INSERT INTO users (fname, lname, email, password, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id, fname, lname, email',
-            [fname, lname, email, hashed, phone?.trim() || null]
+            'INSERT INTO users (id, fname, lname, email, password, phone) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, fname, lname, email',
+            [userId, fname, lname, email, hashed, phone?.trim() || null]
         );
         const user = userResult.rows[0];
 
-        const wsResult = await pool.query(
-            `INSERT INTO workspaces (slug, name, owner_id, slug_customized, created_at)
-             VALUES ($1, $2, $3, FALSE, NOW()) RETURNING id`,
-            [slug, `${fname}'s Workspace`, user.id]
+        const workspaceId = createId();
+        await pool.query(
+            `INSERT INTO workspaces (id, slug, name, owner_id, slug_customized, created_at)
+             VALUES ($1, $2, $3, $4, FALSE, NOW())`,
+            [workspaceId, slug, `${fname}'s Workspace`, user.id]
         );
-        const workspaceId = wsResult.rows[0].id;
 
         await pool.query(
             'UPDATE users SET default_workspace_id = $1 WHERE id = $2',
@@ -171,12 +192,14 @@ router.post('/register', async (req, res, next) => {
         );
 
         await pool.query(
-            `INSERT INTO workspace_subscriptions (workspace_id, plan_id, expires_at)
-             SELECT $1, p.id,
+            `INSERT INTO workspace_subscriptions (id, workspace_id, plan_id, expires_at)
+             SELECT $1, $2, p.id,
                     CASE WHEN p.trial_days IS NOT NULL THEN NOW() + (p.trial_days || ' days')::interval ELSE NULL END
              FROM plans p WHERE p.is_default = TRUE LIMIT 1`,
-            [workspaceId]
+            [createId(), workspaceId]
         );
+
+        await storeAndSendVerificationCode(user.id, user.email);
 
         res.status(201).json({
             id: user.id,
@@ -249,7 +272,7 @@ router.get('/me', async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const { rows } = await pool.query(
-            'SELECT id, fname, lname, email, default_workspace_id FROM users WHERE id = $1',
+            'SELECT id, fname, lname, email, default_workspace_id, email_verified, preferred_language FROM users WHERE id = $1',
             [decoded.userId]
         );
         if (!rows.length) return res.status(404).json({ message: 'User not found' });
@@ -266,6 +289,7 @@ router.get('/me', async (req, res, next) => {
             fname: user.fname,
             lname: user.lname,
             email: user.email,
+            emailVerified: user.email_verified,
             currentWorkspace: {
                 id: wsContext.workspaceId,
                 slug: wsContext.slug,
@@ -276,6 +300,7 @@ router.get('/me', async (req, res, next) => {
             workspaces,
             pendingInvitationsCount,
             defaultWorkspaceId: user.default_workspace_id,
+            preferredLanguage: user.preferred_language,
         });
 
     } catch (err) {
@@ -289,7 +314,7 @@ router.post('/switch-workspace', authMiddleware, async (req, res, next) => {
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     try {
-        const wsContext = await buildTokenForWorkspace(req.user.userId, parseInt(workspaceId));
+        const wsContext = await buildTokenForWorkspace(req.user.userId, workspaceId);
 
         const token = issueToken({
             userId: req.user.userId,
@@ -321,7 +346,7 @@ router.put('/default-workspace', authMiddleware, async (req, res, next) => {
 
     try {
         // Verify user has access to this workspace
-        await buildTokenForWorkspace(req.user.userId, parseInt(workspaceId));
+        await buildTokenForWorkspace(req.user.userId, workspaceId);
 
         await pool.query(
             'UPDATE users SET default_workspace_id = $1 WHERE id = $2',
@@ -370,15 +395,165 @@ router.put('/workspace-slug', authMiddleware, requireOwner, async (req, res, nex
     }
 });
 
+router.post('/send-verification', authMiddleware, loginLimiter, async (req, res, next) => {
+    try {
+        const { rows } = await pool.query(
+            'SELECT id, email, email_verified FROM users WHERE id = $1',
+            [req.user.userId]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'User not found' });
+        const user = rows[0];
+
+        if (user.email_verified) {
+            return res.status(400).json({ message: 'Email is already verified' });
+        }
+
+        await storeAndSendVerificationCode(user.id, user.email);
+        res.json({ message: 'Verification code sent. Check your email.' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/verify-email', authMiddleware, async (req, res, next) => {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string' || !code.trim()) {
+        return res.status(400).json({ message: 'Verification code is required' });
+    }
+
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, email_verified, email_verification_code, verification_code_expires_at
+             FROM users WHERE id = $1`,
+            [req.user.userId]
+        );
+        if (!rows.length) return res.status(404).json({ message: 'User not found' });
+        const user = rows[0];
+
+        if (user.email_verified) {
+            return res.status(400).json({ message: 'Email is already verified' });
+        }
+        if (!user.email_verification_code || user.email_verification_code !== code.trim()) {
+            return res.status(400).json({ message: 'Invalid verification code' });
+        }
+        if (!user.verification_code_expires_at || new Date(user.verification_code_expires_at) < new Date()) {
+            return res.status(400).json({ message: 'Verification code has expired — request a new one' });
+        }
+
+        await pool.query(
+            `UPDATE users
+             SET email_verified = TRUE,
+                 email_verification_code = NULL,
+                 verification_code_expires_at = NULL
+             WHERE id = $1`,
+            [req.user.userId]
+        );
+
+        res.json({ message: 'Email verified successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/forgot-password', loginLimiter, async (req, res, next) => {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.trim()) {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    try {
+        const { rows } = await pool.query(
+            'SELECT id FROM users WHERE email = $1',
+            [email.trim().toLowerCase()]
+        );
+
+        // Always respond the same way — never reveal whether the email exists
+        if (rows.length) {
+            const userId = rows[0].id;
+            const code = String(Math.floor(100000 + Math.random() * 900000));
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+            // Invalidate any previous unused codes for this user
+            await pool.query(
+                `UPDATE password_reset_tokens
+                 SET used_at = NOW()
+                 WHERE user_id = $1 AND used_at IS NULL`,
+                [userId]
+            );
+
+            await pool.query(
+                `INSERT INTO password_reset_tokens (id, user_id, code, expires_at)
+                 VALUES ($1, $2, $3, $4)`,
+                [createId(), userId, code, expiresAt]
+            );
+
+            sendPasswordResetEmail(email.trim(), code).catch((err) => {
+                console.error('[forgot-password] email send failed:', err.message);
+            });
+        }
+
+        res.json({ message: 'If that email is registered, a reset code has been sent.' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/reset-password', loginLimiter, async (req, res, next) => {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+        return res.status(400).json({ message: 'Email, code, and new password are required' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+        return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    try {
+        const { rows: userRows } = await pool.query(
+            'SELECT id FROM users WHERE email = $1',
+            [email.trim().toLowerCase()]
+        );
+        if (!userRows.length) {
+            return res.status(400).json({ message: 'Invalid or expired reset code' });
+        }
+        const userId = userRows[0].id;
+
+        const { rows: tokenRows } = await pool.query(
+            `SELECT id FROM password_reset_tokens
+             WHERE user_id = $1
+               AND code = $2
+               AND used_at IS NULL
+               AND expires_at > NOW()
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [userId, code.trim()]
+        );
+        if (!tokenRows.length) {
+            return res.status(400).json({ message: 'Invalid or expired reset code' });
+        }
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+
+        await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, userId]);
+        await pool.query(
+            'UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1',
+            [tokenRows[0].id]
+        );
+
+        res.json({ message: 'Password reset successfully. You can now log in.' });
+    } catch (err) {
+        next(err);
+    }
+});
+
 router.post('/logout', (req, res) => {
     res.clearCookie('token').status(200).json({ message: 'Logged out successfully' });
 });
 
 // Update personal profile (name and/or password)
 router.patch('/profile', authMiddleware, async (req, res, next) => {
-    const { fname, lname, currentPassword, newPassword } = req.body;
+    const { fname, lname, currentPassword, newPassword, preferred_language } = req.body;
 
-    if (!fname?.trim() && !lname?.trim() && !newPassword) {
+    if (!fname?.trim() && !lname?.trim() && !newPassword && !preferred_language) {
         return res.status(400).json({ message: 'Nothing to update' });
     }
 
@@ -395,6 +570,7 @@ router.patch('/profile', authMiddleware, async (req, res, next) => {
 
         if (fname?.trim()) updates.fname = fname.trim();
         if (lname?.trim() !== undefined) updates.lname = lname.trim();
+        if (preferred_language === 'en' || preferred_language === 'ar') updates.preferred_language = preferred_language;
 
         if (newPassword) {
             if (!currentPassword) {
@@ -412,7 +588,7 @@ router.patch('/profile', authMiddleware, async (req, res, next) => {
         const setClauses = Object.keys(updates).map((k, i) => { params.push(updates[k]); return `${k} = $${i + 1}`; });
         params.push(req.user.userId);
         const { rows: updated } = await pool.query(
-            `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING id, fname, lname, email`,
+            `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING id, fname, lname, email, preferred_language`,
             params
         );
 

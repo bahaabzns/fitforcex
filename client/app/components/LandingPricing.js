@@ -7,7 +7,7 @@ import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Separator } from "@heroui/react/separator";
 import { Skeleton } from "@heroui/react/skeleton";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from 'lucide-react';
 
 function BillingPeriodToggle({ discounts, selected, onSelect }) {
     return (

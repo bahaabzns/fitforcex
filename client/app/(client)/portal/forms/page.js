@@ -3,15 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
-import { Clock, CheckCircle, ClipboardList, CalendarClock } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
+import { Clock, CheckCircle, ClipboardList, CalendarClock } from 'lucide-react';
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 
 export default function ClientFormsListPage() {
+    const t = useTranslations('portal.forms');
+    const locale = useLocale();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("all"); // "all" | "pending" | "scheduled" | "submitted"
+    const [filter, setFilter] = useState("pending");
+    const [isPageScrolled, setIsPageScrolled] = useState(false);
 
     useEffect(() => {
         api.get("/api/client-portal/form-requests")
@@ -20,131 +25,140 @@ export default function ClientFormsListPage() {
             .finally(() => setLoading(false));
     }, []);
 
+    useEffect(() => {
+        function handleScroll() { setIsPageScrolled(window.scrollY > 4); }
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
     const filtered = requests.filter((r) => {
-        if (filter === "all") return true;
         if (filter === "pending") return r.status === "pending";
-        if (filter === "scheduled") return r.status === "scheduled";
         if (filter === "submitted") return r.status === "submitted" || r.status === "reviewed";
         return true;
     });
     const pendingCount = requests.filter(r => r.status === "pending").length;
 
+    const tabs = [
+        { key: "pending",   label: t('filterPending') },
+        { key: "submitted", label: t('filterSubmitted') },
+    ];
+
     if (loading) {
         return (
-            <div className="p-8 max-w-3xl mx-auto flex flex-col gap-3">
-                <Skeleton className="h-8 w-32 rounded-lg mb-2" />
-                {[1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
+            <div className="max-w-4xl mx-auto p-6 flex flex-col gap-6">
+                <Skeleton className="h-8 w-48 rounded-lg mx-auto" />
+                <Skeleton className="h-10 rounded-full w-72 mx-auto" />
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
             </div>
         );
     }
 
     return (
-        <div className="p-8 max-w-3xl mx-auto">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-6">
-                <h1 className="text-2xl font-bold text-foreground flex-1">Forms</h1>
-                {pendingCount > 0 && (
-                    <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">{pendingCount} pending</Chip>
-                )}
-            </div>
+        <div className="max-w-4xl mx-auto flex flex-col">
 
-            {/* Filter tabs */}
-            <div className="flex gap-1 mb-5 border-b border-border -mt-2">
-                {[
-                    { key: "all", label: "All" },
-                    { key: "pending", label: "Pending" },
-                    { key: "scheduled", label: "Scheduled" },
-                    { key: "submitted", label: "Submitted" },
-                ].map(tab => (
-                    <button
-                        key={tab.key}
-                        onClick={() => setFilter(tab.key)}
-                        className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer -mb-px border-b-2 ${
-                            filter === tab.key
-                                ? "text-primary border-primary"
-                                : "text-muted-foreground border-transparent hover:text-foreground"
-                        }`}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
+            {/* Sticky header */}
+            <div className={`sticky top-14 z-30 bg-background px-6 pt-5 pb-4 flex flex-col gap-4 border-b transition-colors duration-200 ${isPageScrolled ? 'border-border' : 'border-transparent'}`}>
+                <div className="flex items-center justify-center gap-3">
+                    <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+                    {pendingCount > 0 && (
+                        <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">
+                            {t('pendingChip', { count: pendingCount })}
+                        </Chip>
+                    )}
+                </div>
 
-            {filtered.length === 0 ? (
-                <Card>
-                    <Card.Content className="p-6 flex flex-col items-center justify-center py-16 gap-3 text-center">
-                        <ClipboardList size={40} className="text-muted-foreground/30" />
-                        <p className="text-base font-medium text-muted-foreground">
-                            {filter === "pending"
-                                ? "No pending forms"
-                                : filter === "scheduled"
-                                ? "No scheduled forms"
-                                : filter === "submitted"
-                                ? "No submitted forms yet"
-                                : "No forms yet"}
-                        </p>
-                        <p className="text-sm text-muted-foreground/70">Your coach will send forms for you to fill out.</p>
-                    </Card.Content>
-                </Card>
-            ) : (
-                <div className="flex flex-col gap-3">
-                    {filtered.map(req => (
-                        <Card key={req.id}>
-                            <Card.Content className="p-6 flex items-center gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-foreground">{req.form_title}</p>
-                                    {req.form_description && (
-                                        <p className="text-sm text-muted-foreground mt-0.5">{req.form_description}</p>
-                                    )}
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {req.status === "scheduled" && req.scheduled_at
-                                            ? `Scheduled ${new Date(req.scheduled_at).toLocaleString()}`
-                                            : `Requested ${new Date(req.requested_at).toLocaleDateString()}`}
-                                        {req.submitted_at && ` · Submitted ${new Date(req.submitted_at).toLocaleDateString()}`}
-                                    </p>
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                    {req.status === "pending" ? (
-                                        <>
-                                            <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">
-                                                <Clock size={11} className="mr-1" /> Pending
-                                            </Chip>
-                                            <Link
-                                                href={`/client/forms/${req.id}`}
-                                                className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer"
-                                            >
-                                                Fill Form
-                                            </Link>
-                                        </>
-                                    ) : req.status === "scheduled" ? (
-                                        <div className="flex items-center gap-2">
-                                            <Chip size="sm" className="bg-accent/15 text-accent">
-                                                <CalendarClock size={11} className="mr-1" /> Scheduled
-                                            </Chip>
-                                            <span className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">
-                                                Not Open Yet
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
-                                            <Chip size="sm" className="bg-green-500/15 text-green-700">
-                                                <CheckCircle size={11} className="mr-1" /> Submitted
-                                            </Chip>
-                                            <Link
-                                                href={`/client/forms/${req.id}`}
-                                                className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
-                                            >
-                                                View Answers
-                                            </Link>
-                                        </div>
-                                    )}
-                                </div>
-                            </Card.Content>
-                        </Card>
+                {/* Filter pills */}
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setFilter(tab.key)}
+                            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
+                                filter === tab.key
+                                    ? "bg-primary border-primary text-primary-foreground"
+                                    : "border-border text-muted-foreground hover:bg-default"
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
                     ))}
                 </div>
-            )}
+            </div>
+
+            {/* Scrollable content */}
+            <div className="px-6 pt-4 pb-6 flex flex-col gap-4">
+                {filtered.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 text-center">
+                        <ClipboardList size={52} className="text-muted-foreground/25" />
+                        <p className="text-xl font-semibold text-foreground">
+                            {filter === "submitted" ? t('emptySubmitted') : t('emptyPending')}
+                        </p>
+                        <p className="text-sm text-muted-foreground/60 text-center max-w-xs">{t('emptyHint')}</p>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-3">
+                        {filtered.map(req => (
+                            <Card key={req.id}>
+                                <Card.Content className="px-4 py-3 flex items-center gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-sm text-foreground">
+                                            {getLocalizedField(req, 'form_title', locale)}
+                                        </p>
+                                        {getLocalizedField(req, 'form_description', locale) && (
+                                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                                                {getLocalizedField(req, 'form_description', locale)}
+                                            </p>
+                                        )}
+                                        <p className="text-[11px] text-muted-foreground/60 mt-1">
+                                            {req.status === "scheduled" && req.scheduled_at
+                                                ? `${t('filterScheduled')} ${new Date(req.scheduled_at).toLocaleString()}`
+                                                : `${t('filterPending')} ${new Date(req.requested_at).toLocaleDateString()}`}
+                                            {req.submitted_at && ` · ${t('filterSubmitted')} ${new Date(req.submitted_at).toLocaleDateString()}`}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {req.status === "pending" ? (
+                                            <>
+                                                <Chip size="sm" className="bg-yellow-500/15 text-yellow-600">
+                                                    <Clock size={11} className="mr-1" />{t('filterPending')}
+                                                </Chip>
+                                                <Link
+                                                    href={`/client/forms/${req.id}`}
+                                                    className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer"
+                                                >
+                                                    {t('fillForm')}
+                                                </Link>
+                                            </>
+                                        ) : req.status === "scheduled" ? (
+                                            <>
+                                                <Chip size="sm" className="bg-accent/15 text-accent">
+                                                    <CalendarClock size={11} className="mr-1" />{t('filterScheduled')}
+                                                </Chip>
+                                                <span className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground">
+                                                    {t('notOpenYet')}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Chip size="sm" className="bg-green-500/15 text-green-700">
+                                                    <CheckCircle size={11} className="mr-1" />{t('filterSubmitted')}
+                                                </Chip>
+                                                <Link
+                                                    href={`/client/forms/${req.id}`}
+                                                    className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+                                                >
+                                                    {t('viewAnswers')}
+                                                </Link>
+                                            </>
+                                        )}
+                                    </div>
+                                </Card.Content>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

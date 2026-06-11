@@ -14,7 +14,13 @@ const authRouter = require('./routes/auth');
 const dashboardRouter = require('./routes/dashboard');
 const cookieParser = require('cookie-parser');
 const { execSync } = require('child_process');
-const { mutationLimiter } = require('./middleware/rateLimit');
+const { readLimiter, mutationLimiter } = require('./middleware/rateLimit');
+
+// GETs get a generous cap; POST/PUT/PATCH/DELETE get the tighter mutation cap
+const apiLimiter = (req, res, next) => {
+    const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+    return isMutation ? mutationLimiter(req, res, next) : readLimiter(req, res, next);
+};
 const helmet = require('helmet');
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
 
@@ -62,20 +68,21 @@ server.use(cookieParser());
 // Routes
 server.use('/api/auth', authRouter);
 server.use('/api/dashboard', dashboardRouter);
-server.use('/api/clients',        mutationLimiter, require('./routes/clients'));
-server.use('/api/nutrition',      mutationLimiter, require('./routes/nutrition'));
-server.use('/api/training',       mutationLimiter, require('./routes/training'));
-server.use('/api/client-portal',  mutationLimiter, require('./routes/clientPortal'));
-server.use('/api/forms',          mutationLimiter, require('./routes/forms'));
-server.use('/api/packages',       mutationLimiter, require('./routes/packages'));
-server.use('/api/payment-methods',mutationLimiter, require('./routes/payment-methods'));
-server.use('/api/transactions',   mutationLimiter, require('./routes/transactions'));
+server.use('/api/messenger',      mutationLimiter, require('./routes/messenger'));
+server.use('/api/clients',        apiLimiter, require('./routes/clients'));
+server.use('/api/nutrition',      apiLimiter, require('./routes/nutrition'));
+server.use('/api/training',       apiLimiter, require('./routes/training'));
+server.use('/api/client-portal',  apiLimiter, require('./routes/clientPortal'));
+server.use('/api/forms',          apiLimiter, require('./routes/forms'));
+server.use('/api/packages',       apiLimiter, require('./routes/packages'));
+server.use('/api/payment-methods',apiLimiter, require('./routes/payment-methods'));
+server.use('/api/transactions',   apiLimiter, require('./routes/transactions'));
 server.use('/api/plans',                         require('./routes/plans'));
-server.use('/api/admin',          mutationLimiter, require('./routes/admin'));
-server.use('/api/workspaces',     mutationLimiter, require('./routes/workspaces'));
-server.use('/api/invitations',    mutationLimiter, require('./routes/invitations'));
+server.use('/api/admin',          apiLimiter, require('./routes/admin'));
+server.use('/api/workspaces',     apiLimiter, require('./routes/workspaces'));
+server.use('/api/invitations',    apiLimiter, require('./routes/invitations'));
 const { router: billingRouter } = require('./routes/billing');
-server.use('/api/billing',        mutationLimiter, billingRouter);
+server.use('/api/billing',        apiLimiter, billingRouter);
 
 server.get('/api/health', (req, res) => {
     res.status(200).json({message: 'All is good!'})

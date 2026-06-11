@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
@@ -339,13 +340,13 @@ async function upsertPeriodLinks(client, planId, periodLinks) {
     for (const [periodKey, link] of Object.entries(periodLinks)) {
         const url = typeof link === 'string' ? link.trim() || null : null;
         await client.query(`
-            INSERT INTO plan_period_links (plan_id, billing_discount_id, payment_link)
-            SELECT $1, bd.id, $2
+            INSERT INTO plan_period_links (plan_id, billing_discount_id, payment_link, id)
+            SELECT $1, bd.id, $2, $4
             FROM billing_discounts bd
             WHERE bd.period_key = $3
             ON CONFLICT (plan_id, billing_discount_id)
             DO UPDATE SET payment_link = EXCLUDED.payment_link
-        `, [planId, url, periodKey]);
+        `, [planId, url, periodKey, createId()]);
     }
 }
 
@@ -367,9 +368,9 @@ router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
                 name, display_name, max_team_seats, max_workspaces, price_monthly, features, trial_days, payment_link,
                 subtitle, is_popular, cta_text, cta_variant, features_header, features_subheader,
                 has_team_counter, sort_order, currency, show_on_landing,
-                price_per_seat, min_seat_count, max_seat_count, max_clients
+                price_per_seat, min_seat_count, max_seat_count, max_clients, id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
             RETURNING *
         `, [
             name.trim(), display_name.trim(),
@@ -389,6 +390,7 @@ router.post('/plans', adminAuthMiddleware, async (req, res, next) => {
             min_seat_count ?? 1,
             max_seat_count ?? 20,
             max_clients ?? null,
+            createId(),
         ]);
         await upsertPeriodLinks(client, rows[0].id, period_links);
         await client.query('COMMIT');

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createId } = require('@paralleldrive/cuid2');
 const pool = require('../db');
 const authMiddleware = require('../middleware/auth');
 const requirePermission = require('../middleware/requirePermission');
@@ -57,8 +58,8 @@ router.post('/', async (req, res, next) => {
         await client.query('BEGIN');
 
         const pkgRes = await client.query(
-            'INSERT INTO packages (workspace_id, name) VALUES ($1, $2) RETURNING *',
-            [req.user.workspaceId, name.trim()]
+            'INSERT INTO packages (workspace_id, name, id) VALUES ($1, $2, $3) RETURNING *',
+            [req.user.workspaceId, name.trim(), createId()]
         );
         const pkg = pkgRes.rows[0];
 
@@ -72,9 +73,9 @@ router.post('/', async (req, res, next) => {
             if (!v.currency?.trim()) throw new Error('Currency is required');
 
             const vRes = await client.query(
-                `INSERT INTO package_variations (package_id, name, description, duration, price, currency)
-                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                [pkg.id, v.name.trim(), v.description?.trim() || null, dur, price, v.currency.trim()]
+                `INSERT INTO package_variations (package_id, name, description, duration, price, currency, id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [pkg.id, v.name.trim(), v.description?.trim() || null, dur, price, v.currency.trim(), createId()]
             );
             insertedVars.push(vRes.rows[0]);
         }
@@ -128,9 +129,9 @@ router.put('/', async (req, res, next) => {
                 if (!v.currency?.trim()) throw new Error('Currency is required');
 
                 await client.query(
-                    `INSERT INTO package_variations (package_id, name, description, duration, price, currency, active)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                    [id, v.name.trim(), v.description?.trim() || null, dur, price, v.currency.trim(), v.active ?? true]
+                    `INSERT INTO package_variations (package_id, name, description, duration, price, currency, active, id)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [id, v.name.trim(), v.description?.trim() || null, dur, price, v.currency.trim(), v.active ?? true, createId()]
                 );
             }
         }
