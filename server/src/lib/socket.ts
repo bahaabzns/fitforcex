@@ -2,12 +2,17 @@ import { Server as SocketServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
+import { isAllowedOrigin } from './cors';
 
 let io: SocketServer;
 
 export function initSocket(httpServer: HttpServer): SocketServer {
     io = new SocketServer(httpServer, {
-        cors: { origin: env.ALLOWED_ORIGINS, credentials: true },
+        cors: {
+            origin: (origin, cb) =>
+                isAllowedOrigin(origin) ? cb(null, true) : cb(new Error(`CORS: ${origin} not allowed`)),
+            credentials: true,
+        },
     });
 
     io.use((socket, next) => {
