@@ -284,6 +284,7 @@ Format:
 **Why it matters:** Proxy-bypass and cache-poisoning bugs could let requests skip tenant/auth handling once we rely on proxy for subdomain routing.
 **Effort:** Small (npm install next@16.2.9, then re-run build + smoke test against the modified-Next conventions)
 **Priority:** High
+✅ RESOLVED 2026-06-11 — Upgraded to next@16.2.9. Build clean. HIGH CVEs cleared; 3 moderate remain in postcss via next-intl (fix requires breaking downgrade — not viable).
 
 ---
 
