@@ -275,3 +275,21 @@ Format:
 **Why it matters:** `npm test` cannot produce a green full-suite run locally, so the Pre-Commit / Pre-Merge "all tests pass" gate can't be satisfied as written — reviewers fall back to running suites individually.
 **Effort:** Medium (tear down Prisma per worker, or set `--workerIdleMemoryLimit`, and move DB reset out of global setup)
 **Priority:** Medium
+
+---
+
+## 2026-06-11 — client/package.json (next 16.2.4)
+**Type:** Dependency
+**What:** `next@16.2.4` has known CVEs (high), fixed by a non-major bump to `next@16.2.9`. Several are "Middleware/Proxy bypass" issues — directly relevant since the subdomain feature will add a `proxy.ts`.
+**Why it matters:** Proxy-bypass and cache-poisoning bugs could let requests skip tenant/auth handling once we rely on proxy for subdomain routing.
+**Effort:** Small (npm install next@16.2.9, then re-run build + smoke test against the modified-Next conventions)
+**Priority:** High
+
+---
+
+## 2026-06-11 — client/app/(client)/portal/layout.js
+**Type:** Shortcut
+**What:** Pre-existing `react-hooks/set-state-in-effect` error: `setLoading(false)` is called synchronously in the effect body (line ~17). Left untouched during the subdomain feature to avoid unrelated refactoring.
+**Why it matters:** React 19 flags this as an error (cascading renders); will surface if/when ESLint is wired into CI or the build.
+**Effort:** Small (derive initial loading from isLoginPage, or guard the set)
+**Priority:** Low
