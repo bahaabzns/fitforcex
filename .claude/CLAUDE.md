@@ -1,1593 +1,660 @@
-# CLAUDE.md — Developer Framework
-> Read this file at the start of every session. Follow every rule. Never skip steps.
+# CLAUDE.md — Backend Engineering Framework
+
+> How I build TypeScript/Node backends. These are the defaults — match them unless the project has a documented reason not to. The goal is a codebase where every feature looks like it was written by the same person on the same day: predictable structure, one way to do each thing, no surprises.
+>
+> **Map:** **Part A** = architecture & patterns (the *what*). **Part B** = code craft standards (naming, git, testing, deps — the *how well*). **Part C** = routines (the *when & in what order*). **Part D** = report templates & working modes. Read Part A + B once; invoke Part C by name; reach for Part D when a routine asks for it.
 
 ---
 
-## QUICK REFERENCE — TRIGGER MAP
+## ⚠️ CURRENT REALITY GAP
 
-Every routine has a trigger. When the trigger happens, run the routine. No exceptions.
+> Read this before you trust anything below. This document is the **target**, not a description of the code as it stands today. The patterns in Part A are real and worth matching; the *standards* in Part B describe where we're going, not where we are. Don't cite the manifesto to win an argument the codebase would lose. New code meets the bar; legacy code mostly predates it. When you touch a file, leave it closer to the target — don't pretend it's already there.
 
-| Trigger | Routine to Run |
-|---|---|
-| Starting a brand new project | → NEW PROJECT ROUTINE |
-| Starting any coding session | → SESSION OPENING ROUTINE |
-| Adding any new feature | → FEATURE ROUTINE |
-| Feature is working and ready to commit | → CODE REVIEW ROUTINE |
-| After every function or feature | → TESTING ROUTINE |
-| Before every commit | → PRE-COMMIT CHECKLIST |
-| Before merging any branch | → PRE-MERGE CHECKLIST |
-| Project feels messy or hard to navigate | → REORGANIZATION ROUTINE |
-| Every 4–5 features completed | → DEBT PAYMENT SESSION |
-| Ending any coding session | → SESSION CLOSING ROUTINE |
-| A bug is found | → BUG FIX PROTOCOL |
-| Before deploying to any environment | → PRE-DEPLOY ROUTINE |
+| The doc says | The repo actually does | Severity |
+|---|---|---|
 
 ---
 
-## MASTER WORKFLOW
+## 0 — THE MINDSET
 
-This is how everything connects. One feature, start to finish:
+1. **One way to do each thing.** Pick a pattern, write it down here, repeat it everywhere. A reader should be able to predict where code lives and how it behaves before opening the file.
+2. **The pipeline decides behavior, not the handler.** Cross-cutting concerns (auth, tenancy, validation gates, error shaping) live in middleware/wrappers. Handlers stay thin and boring.
+3. **Make the dangerous thing the hard thing.** Multi-tenant data leaks, unhandled rejections, leaked secrets, and missing auth should require *going out of your way* — the default path should be safe.
+4. **Fail fast and loud at the edges, never in the middle.** Validate input at the boundary, validate config at startup. Once data is inside, trust it.
+5. **The schema is the source of truth.** The database shape drives the types, not the other way around.
+6. **Boring is a feature.** No clever abstractions until the same code appears three times. Prefer explicit and obvious over DRY-and-magic.
+
+---
+
+## 1 — DEFAULT STACK
+
+This is the starting stack. Swap a layer only with a reason, and record the reason.
+
+| Layer | Default | Why |
+|---|---|---|
+| Runtime | Node LTS, **native ESM** (`"type": "module"`) | Modern, standard. See the ESM rule in §9. |
+| Language | TypeScript, `strict: true`, `noEmitOnError: true` | Types are not optional; a build that doesn't typecheck doesn't ship. |
+| Web | Express | Small, explicit, well-understood middleware model. |
+| ORM / DB | Prisma + PostgreSQL | Typed queries, migrations as first-class, one schema file. |
+| AuthN | JWT (`jsonwebtoken`) + `bcrypt` | Token in httpOnly cookie *and* `Authorization: Bearer` fallback. |
+| Validation | One schema lib (Joi **or** Zod) — pick one per project | Validate at the controller boundary. |
+| Realtime | Socket.IO *(only if needed)* | Don't add until a feature requires push. |
+| API docs | OpenAPI via JSDoc on routes (swagger-jsdoc) | Docs live next to the route or they rot. |
+| Files | Multer → object storage (S3-compatible) | Local fallback in dev. |
+| Email / Push | Nodemailer / FCM behind a service module | Never call providers inline from controllers. |
+| Dev runner | `tsx watch` | Fast ESM reload, no separate compile step in dev. |
+| Lint / format | ESLint + Prettier | Non-negotiable, run in CI. |
+
+---
+
+## 2 — LAYERED ARCHITECTURE
+
+Strict layering. Dependencies point downward only. A controller never imports another module's controller; shared logic moves down into `lib/` or `utils/`.
 
 ```
-SESSION OPENS
-     ↓
-SESSION OPENING ROUTINE
-(git status, last 5 commits, top 3 debt items, fuzzy concepts from last session)
-     ↓
-NEW FEATURE NEEDED?
-     ↓
-FEATURE ROUTINE
-(backup → describe → plan → approve → build one file at a time)
-     ↓
-FUNCTION WRITTEN?
-     ↓
-TESTING ROUTINE
-(write tests → confirm red → write code → confirm green → refactor)
-     ↓
-FEATURE COMPLETE?
-     ↓
-CODE REVIEW ROUTINE
-(correctness → readability → security → scalability)
-     ↓
-REVIEW PASSED?
-  NO  → Fix blockers → Re-run review
-  YES → PRE-COMMIT CHECKLIST → commit → merge to dev
-     ↓
-EVERY 4–5 FEATURES
-     ↓
-DEBT PAYMENT SESSION
-(fix DEBT.md items, no new features)
-     ↓
-PROJECT HEALTH CHECK
-(review PROJECT.md, DEPENDENCIES.md, folder structure)
-     ↓
-SESSION CLOSES
-     ↓
-SESSION CLOSING ROUTINE
-(boy scout improvement, update logs, confirm all committed)
-     ↓
-READY TO DEPLOY?
-     ↓
-PRE-DEPLOY ROUTINE
-(gate checks → env prep → build → staging → production → verify → report)
+src/
+├── server.ts          ← process entry: validate env → create server → start listeners/jobs
+├── app.ts             ← framework wiring: middleware chain + route mounting + error handler
+├── config/            ← typed env accessor, env validation, api-docs spec. The ONLY place that reads process.env.
+├── lib/               ← shared singletons & integrations (db client, socket server, storage, mailer, push)
+├── middleware/        ← the request pipeline: auth, tenancy, authz, validation gates, monitoring
+├── modules/           ← ONE FOLDER PER FEATURE. routes.ts + controller.ts is the atomic unit.
+├── routes/index.ts    ← mounts every module router under a common prefix
+├── types/             ← ambient type augmentation (e.g. extending the request object)
+└── utils/             ← pure, dependency-light helpers (asyncHandler, encryption, domain helpers)
+prisma/ (or db/)
+├── schema.prisma      ← single source of truth for the data model
+├── migrations/        ← ordered, committed, never hand-edited after apply
+└── seed*.ts           ← seed scripts
 ```
+
+**Rules of the layout:**
+- `config/` is the *only* place `process.env` is touched. Everything else imports a typed `env` object.
+- `lib/` holds **singletons** — the database client, the realtime server, the storage client are instantiated **once** and imported. Never `new`-up a second DB client.
+- `modules/` is self-contained per feature. If two modules need the same thing, it goes down to `lib/` or `utils/`, not sideways.
+- `server.ts` vs `app.ts` split: `app.ts` is the testable, importable Express app; `server.ts` owns the process (env validation, HTTP server, sockets, background intervals).
 
 ---
 
-## PART 1 — CORE STANDARDS
-*These apply always. Every file. Every session. No exceptions.*
+## 3 — THE REQUEST PIPELINE (the heart of the design)
 
-### 1.1 — Naming Rules
+Define a single, global middleware chain in `app.ts` and **know it cold**. Most behavior is decided here, before any handler runs. A representative order:
 
-| Type | Rule | Good | Bad |
+```
+security headers (helmet, CSP)
+  → CORS (explicit allowlist, credentials as needed)
+  → body parsers (with a size limit from env)
+  → cookie parser → compression → request logging
+  → performance/observability hooks
+  → static assets (if any)
+  → identity parsers      ← NON-BLOCKING: populate req.userId / req.clientId if a valid token exists, else next()
+  → context resolvers     ← tenancy, locale, feature flags → attach to req
+  → global gates          ← e.g. subscription/quota checks with a path allowlist
+  → public routes (health, docs)
+  → strict-scoped routers (e.g. admin) behind their own guards
+  → main router
+  → error monitor → error handler   ← LAST. The single funnel for all errors.
+```
+
+**The identity vs. authorization split — internalize this:**
+- **Identity parsing is global and non-blocking.** "Who is this caller?" runs for everyone; if there's no valid token it just continues without setting the identity. It never throws.
+- **Authorization is per-route and blocking.** "Is this caller allowed to do *this*?" is a route guard (`requirePermission(...)`, `requireClientAuth`, etc.) that throws when denied.
+
+This separation is what lets the same endpoint serve multiple caller types cleanly and keeps controllers free of auth branching.
+
+**Path allowlists over per-route opt-outs.** Global gates (auth-required, subscription-required) keep an explicit regex allowlist of exceptions in one place, rather than scattering "skip this" flags across routes. One file tells you everything that's public.
+
+---
+
+## 4 — IDENTITY & AUTH
+
+Model auth as **distinct identity types**, each with its own token carrier, its own request field, and its own route guard. Never overload one identity to mean several things.
+
+A typical multi-audience setup:
+
+| Identity | Token carrier | Request field | Guard | Source of truth |
+|---|---|---|---|---|
+| Primary user | httpOnly cookie or Bearer | `req.userId` | permission/role guard | user + membership tables |
+| Scoped end-user | separate cookie / Bearer with scoped claims | `req.clientId` (+ scope) | dedicated guard | scoped-entity table |
+| Operator/admin | Bearer only (no cookies), restricted origin | `req.isAppAdmin` | strict guard + origin check | admin table |
+
+**Auth defaults:**
+- JWT signed with a secret from env; short, explicit expiry. Verify on every request.
+- **Server-side session validation for sensitive identities.** Don't trust the JWT alone — back it with a session row (revocable, expiring) and compare a `sha256` hash of the token. This enables "log out everywhere" and single-device enforcement (a new login revokes the prior session).
+- Token transport: prefer httpOnly cookies for browsers; accept `Authorization: Bearer` as a fallback for mobile/API clients.
+- Cookie domain derived from config so auth works across subdomains.
+- Augment the Express `Request` type in `types/` for every identity field — never use `(req as any)`.
+- Admin/operator surfaces get **stricter** rules than users: no persistent cookies, restricted origin/subdomain, separate permission stack.
+
+---
+
+## 5 — MULTI-TENANCY & DATA SCOPING
+
+If the product has tenants (workspaces, orgs, accounts), this is the **single most important correctness rule**:
+
+- A context resolver turns a header / subdomain / token claim into `req.tenantId` early in the pipeline.
+- **Every query against a tenant-scoped table MUST filter by the tenant id.** A missing tenant filter is a data-leak bug, not a style nit — treat it with the severity of a security vulnerability.
+- There is usually no framework guardrail enforcing this — it is the controller's discipline. Code review checks it explicitly.
+- Tenant-unique constraints are compound: `@@unique([tenantId, name])`, not just `name`.
+
+---
+
+## 6 — AUTHORIZATION (RBAC)
+
+- Model permissions as dotted `domain.action` string keys (`clients.read`, `billing.write`, `team.manage`). Granular and self-describing.
+- Chain: `Member → Role → RolePermission → Permission(key)`. Roles are per-tenant.
+- Guards are middleware factories: `requirePermission(key)`, `requireAnyPermission([...])`, `requireRole(name)`.
+- Pick the **narrowest** key that fits: read = `.read`, mutate = `.write`, full feature control = `.manage`. Only mint a new key when none fits, and seed it.
+- Operators/admins bypass tenant RBAC via an explicit short-circuit, and have their own separate permission stack.
+
+---
+
+## 7 — MODULE CONVENTION (how to add a feature)
+
+A module is `src/modules/<feature>/` with at minimum `routes.ts` + `controller.ts`. Larger modules split controllers by concern (`subscription.controller.ts`, `invitation.controller.ts`) and add a `service.ts` for reusable domain logic and an `emailService.ts` for notifications. The unit never changes: **routes wire HTTP + guards; controllers validate + orchestrate; services hold reusable logic.**
+
+**routes.ts**
+```ts
+import { Router } from "express";
+import { asyncHandler } from "../../utils/asyncHandler.js";      // note .js (§9)
+import { requirePermission } from "../../middleware/permissions.js";
+import { listThings, createThing } from "./controller.js";
+
+const router = Router();
+
+/**
+ * @openapi
+ * /api/things:
+ *   get: { tags: [Things], summary: List things in tenant }
+ */
+router.get("/",  requirePermission("things.read"),  asyncHandler(listThings));
+router.post("/", requirePermission("things.write"), asyncHandler(createThing));
+
+export default router;
+```
+
+**controller.ts**
+```ts
+import { Request, Response } from "express";
+import Joi from "joi";
+import { StatusCodes } from "http-status-codes";
+import { prisma } from "../../lib/prisma.js";
+import { ApiError } from "../../middleware/error.js";
+
+const createSchema = Joi.object({ name: Joi.string().min(2).required() });
+
+export async function createThing(req: Request, res: Response) {
+  const { error, value } = createSchema.validate(req.body);
+  if (error) throw new ApiError(StatusCodes.BAD_REQUEST, error.message);
+  if (!req.tenantId) throw new ApiError(StatusCodes.BAD_REQUEST, "Tenant context required");
+
+  const thing = await prisma.thing.create({
+    data: { ...value, tenantId: req.tenantId },     // ALWAYS scope to tenant
+  });
+  res.status(StatusCodes.CREATED).json(thing);
+}
+```
+
+Then mount once in `routes/index.ts`: `router.use("/things", thingsRoutes);`
+
+---
+
+## 8 — NON-NEGOTIABLE CODE RULES
+
+1. **Wrap every async handler** in `asyncHandler(...)` so rejections funnel to the error handler instead of crashing silently:
+   ```ts
+   export const asyncHandler = (fn) => (req, res, next) =>
+     Promise.resolve(fn(req, res, next)).catch(next);
+   ```
+2. **Errors are thrown, not returned.** Controllers `throw new ApiError(status, message)`. A single global error handler is the *only* place that writes an error response, and it always uses one shape (`{ error: message }`). No try/catch for control flow in handlers.
+3. **Validate input at the top of every controller** with the project's chosen schema lib. Never trust `req.body`/`req.query`/`req.params`.
+4. **Scope every tenant query** by `req.tenantId` (§5).
+5. **Respect soft deletes.** Filter `deletedAt: null` (and status exclusions) on every read of a soft-deletable model.
+6. **Declare specific routes before parameterized ones.** `/things/active` must come before `/things/:id`, or the param route shadows it. This is a real, recurring bug.
+7. **Document each route** with an `@openapi` JSDoc block. It's the only API documentation that stays current.
+8. **Import shared singletons** (`prisma`, `env`, `io`) — never instantiate your own.
+9. **No secrets, URLs, or magic numbers in code.** Config from `env`; constants named and grouped.
+10. **Keep handlers thin.** Reusable or cross-module logic goes to `services`/`utils`/`lib`, not copy-pasted.
+
+---
+
+## 9 — ESM DISCIPLINE (the recurring footgun)
+
+Native ESM means **every relative import includes the `.js` extension**, even though the source is `.ts`:
+```ts
+import { prisma } from "../../lib/prisma.js";   // ✅
+import { prisma } from "../../lib/prisma";      // ❌ runtime crash
+```
+This is the most common mistake when adding files. Both the dev runner and the compiled output require it. If you skip CommonJS, commit to this fully.
+
+---
+
+## 10 — DATABASE & MIGRATIONS
+
+- **Single schema file** is the source of truth. IDs default to collision-resistant strings (`cuid()`/`uuid`), not auto-increment ints.
+- **Standard columns** on most models: `createdAt`, `updatedAt`, and a nullable `deletedAt` for soft deletes (indexed).
+- **Index every foreign key and every column you filter or look up by.** Compound `@@unique` for tenant-scoped uniqueness.
+- **Migrations are immutable history.** Generate them, commit them, deploy with the non-interactive deploy command in CI/prod. Never hand-edit an applied migration; never run dev migrations against production. Keep a documented recovery path for migration drift.
+- **Seeds are scripts, not magic.** Idempotent where possible. Separate "reference data" seeds (permissions, default templates) from "demo data" seeds.
+- Regenerate the client after every schema change before relying on new types.
+
+---
+
+## 11 — BACKGROUND WORK & REALTIME
+
+- In-process schedulers (`setInterval`/recursive `setTimeout`) are fine for a single-instance app: dispatching scheduled items, expiring records, cleanup. **Always wrap each tick in try/catch** and reschedule in `finally` so one failure doesn't kill the loop. Document each job (cadence + effect) in this file.
+- Know the ceiling: in-process jobs don't survive horizontal scaling cleanly. When you scale out, move to a real queue/cron — flag it before that day, not after.
+- Realtime (Socket.IO): authenticate the handshake with the same token logic as HTTP, attach identity to the socket, mirror the HTTP CORS allowlist, and export the server instance from `lib/` so any module can emit.
+
+---
+
+## 12 — CONFIG & SECRETS
+
+- All env access through one typed accessor module with `getEnv` / `getEnvNumber` / `getEnvBoolean` helpers and sane fallbacks for dev only.
+- **Validate configuration at startup and exit on failure** — a misconfigured process should never accept traffic.
+- Secrets live in env (and a real secret manager in prod), never in the repo. Provide a committed `.env.example`.
+- Secrets stored in the DB (e.g. per-tenant API keys) are encrypted at rest with a key from env.
+
+---
+
+## 13 — STANDARD SCRIPTS
+
+```bash
+npm run dev               # tsx watch (hot reload, ESM)
+npm run build             # tsc → dist/  (must pass with noEmitOnError)
+npm start                 # run compiled output
+npm run lint / format     # eslint / prettier — run in CI
+
+npm run db:generate       # regenerate ORM client after schema change
+npm run db:migrate        # create + apply migration (dev)
+npm run db:deploy         # apply migrations (prod/CI, non-interactive)
+npm run db:studio         # DB GUI
+npm run seed              # reference/demo data
+```
+Containerize for parity (app + DB + DB-admin in compose). Keep the production deploy path documented and repeatable.
+
+---
+
+## 14 — CHECKLIST FOR ANY NEW ENDPOINT
+
+Before writing:
+- [ ] Which identity is this for — user (permission guard), scoped end-user, or operator (strict guard)?
+- [ ] Is it tenant-scoped? Then every query filters `tenantId` + `deletedAt: null`.
+- [ ] Does a global gate (auth/subscription/quota) apply, or does this path belong on an allowlist?
+- [ ] Reusing an existing permission key, or seeding a new one?
+
+While writing:
+- [ ] `routes.ts` + `controller.ts`, mounted once in `routes/index.ts`.
+- [ ] Every handler wrapped in `asyncHandler`; errors via `throw new ApiError(...)`.
+- [ ] Input validated at the top of the controller.
+- [ ] All local imports end in `.js`.
+- [ ] `@openapi` JSDoc on the route.
+- [ ] Specific routes before `/:id` param routes.
+
+After a schema change:
+- [ ] Named migration generated + committed; client regenerated.
+- [ ] Indexes + `deletedAt` on new models; compound `@@unique` where tenant-unique.
+
+Never:
+- [ ] Instantiate a second DB client, or read `process.env` outside `config/`.
+- [ ] Return ad-hoc error shapes — the global handler owns error responses.
+- [ ] Ship a tenant query without a tenant filter.
+- [ ] Leave an async route unwrapped.
+
+---
+
+## 15 — KEEPING THIS FILE HONEST
+
+This document is a contract, not decoration. When a pattern here stops matching reality, **fix the code or fix this file** — never let them drift. New cross-cutting decision → record it here with its rationale. The test of success: a new contributor reads this file, opens any module, and finds exactly what they expected.
+
+---
+
+# PART B — CODE CRAFT STANDARDS
+
+> Part A is *where code goes and how it's wired*. Part B is *how good the code itself is*. These apply to every file, every commit, every language — they're the quality bar the routines enforce.
+
+## B1 — NAMING
+
+| Thing | Rule | Good | Bad |
 |---|---|---|---|
-| Variables | Describe what the data IS | `userAge`, `productList` | `x`, `data`, `temp` |
-| Functions | Describe what they DO | `calculateTotal()`, `getUserById()` | `func1()`, `run()`, `handle()` |
-| Booleans | Phrase as a yes/no question | `isActive`, `hasPermission`, `canEdit` | `login`, `perm`, `check` |
-| Files | Match exactly what is inside | `userHelpers.js` | `utils2.js`, `stuff.js` |
-| Constants | ALL_CAPS with underscores | `MAX_RETRIES`, `TAX_RATE` | `maxR`, `tax` |
-| Branches | type/description | `feature/user-login`, `fix/checkout-bug` | `new-stuff`, `test` |
+| Variables | name what the data **is** | `userAge`, `pendingInvites` | `x`, `data`, `temp`, `obj` |
+| Functions | name what they **do** | `calculateTotal`, `getUserById` | `run`, `handle`, `func1` |
+| Booleans | a yes/no question | `isActive`, `hasPermission`, `canEdit` | `flag`, `status`, `check` |
+| Files | match what's inside | `userService.ts`, `pricing.ts` | `utils2.ts`, `stuff.ts` |
+| Constants | `ALL_CAPS_SNAKE` | `MAX_RETRIES`, `TOKEN_TTL_DAYS` | `maxR`, `t` |
+| Branches | `type/short-description` | `feature/client-invites`, `fix/login-loop` | `new`, `test`, `wip` |
 
-- No abbreviations unless universally known (`url`, `id`, `api` are fine)
-- No generic names ever: `data`, `info`, `stuff`, `temp`, `obj`, `result`, `val`
-- If a function name needs the word "and" — it is doing two jobs, split it
+- No abbreviations except universal ones (`id`, `url`, `api`, `db`).
+- Never the generic words: `data`, `info`, `stuff`, `temp`, `obj`, `result`, `val`, `item` (when something specific fits).
+- If a name needs "and", it's doing two jobs — split it.
 
-### 1.2 — Function Rules
+## B2 — FUNCTIONS
 
-- One function = one job, no exceptions
-- Maximum 3 parameters — if more are needed, pass an object instead
-- Maximum 20–30 lines — if longer, flag and suggest splitting
-- No side effects — a function named `getUser()` must never delete, send, or modify anything
-- Every function must always return what its name promises — never `undefined` with no explanation
-- Async functions must always have error handling — no silent promise failures
+- **One function, one job.** No "fetch and format and save."
+- **≤ 3 positional params.** More → pass a single typed object.
+- **≤ ~30 lines.** Longer → flag and split.
+- **No surprise side effects.** `getX` reads; it never writes, sends, or deletes.
+- **Return what the name promises**, always — never a silent `undefined`.
+- **Every async function handles its failure path** (or deliberately lets it bubble to `asyncHandler`). No swallowed rejections.
 
-### 1.3 — File and Structure Rules
+## B3 — CODE QUALITY
 
-- One file = one clear responsibility
-- Files over 200 lines → flag and suggest how to split
-- Related files live in the same folder — never scatter connected things
-- Standard project structure:
+- **No magic values.** `if (status === ORDER_SHIPPED)` not `if (status === 3)`. Name it, group it.
+- **Comments explain WHY, not WHAT.** `// retry ceiling hit — stop polling`, not `// add 1 to i`.
+- **Error messages say what happened AND what to do.** `"Could not save profile — check your connection and retry"`, not `"Error"`. (User-facing copy only; internal `ApiError` messages stay terse and never leak internals.)
+- **Flag on sight:** 🔴 duplicated logic (extract on the 3rd copy) · empty `catch` that swallows · commented-out code (git remembers) · nesting > 3 deep · dead code · mixed concerns · hardcoded secrets/URLs. 🟡 unused imports · debug logging of sensitive data.
+- **FSMR** — every change should be **F**ixed (simple & stable over clever), **S**calable (loops & config, not copy-paste & hardcode), **M**aintainable (understandable in < 60s), **R**eusable (parameterized, not one-off).
 
-```
-my-project/
-├── src/
-│   ├── components/       ← reusable UI pieces
-│   ├── pages/            ← one file per page or screen
-│   ├── features/         ← self-contained feature folders
-│   ├── utils/            ← shared helper functions
-│   ├── services/         ← API calls and external connections
-│   └── constants/        ← all hardcoded values and config
-├── public/               ← images, fonts, static files
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── e2e/
-│   └── helpers/
-├── .env                  ← secrets (never committed)
-├── .gitignore
-├── CLAUDE.md
-├── PROJECT.md
-├── DEBT.md
-├── DEPENDENCIES.md
-├── GLOSSARY.md
-├── WHY.md
-├── LEARNING.md
-└── REVIEWS.md
-```
+## B4 — GIT
 
-### 1.4 — Code Quality Rules
+**Branches:** `main` (always deployable, never direct commits) ← `dev`/integration ← `feature/*` · `fix/*` · `refactor/*` · `chore/*`.
 
-**No magic numbers or strings:**
-```
-Bad:  if (status === 3) ...
-Good: const ORDER_SHIPPED = 3
-      if (status === ORDER_SHIPPED) ...
-```
+**Commit format:** `type: imperative summary (≤ ~60 chars)`
 
-**Comments explain WHY, never WHAT:**
-```
-Bad:  // add 1 to counter
-      counter = counter + 1
-
-Good: // retry limit reached, stop polling
-      if (attempts >= MAX_RETRIES) stop()
-```
-
-**Error messages tell the user what happened AND what to do:**
-```
-Bad:  "Error occurred"
-Good: "Could not save profile — check your internet connection and try again"
-```
-
-**Always flag these violations immediately:**
-- 🔴 Duplicate logic appearing more than once → extract to shared function
-- 🔴 Empty catch blocks silently swallowing errors
-- 🔴 Commented-out old code → delete it, we have git
-- 🔴 Deeply nested if/else (more than 2–3 levels) → refactor
-- 🔴 Dead code (unused functions or variables) → delete them
-- 🔴 Functions mixing concerns (fetching data AND formatting UI)
-- 🔴 Hardcoded secrets, API keys, URLs → move to .env immediately
-- 🟡 Unused imports → remove them
-- 🟡 console.log exposing sensitive data → remove before commit to main
-
-### 1.5 — FSMR Philosophy
-*Every piece of code written must be: Fixed, Scalable, Maintainable, Reusable.*
-
-- **Fixed** — simple, stable solutions over clever ones. Warn before any risky change.
-- **Scalable** — use loops not copy-paste. Config files not hardcoded values. Max 2–3 levels of nesting.
-- **Maintainable** — if it takes more than 60 seconds to understand, simplify it.
-- **Reusable** — if the same logic appears twice, extract it. Build with parameters, not hardcoded specifics.
-
----
-
-## PART 2 — GIT STANDARDS
-*Applied at every commit, every branch, every session.*
-
-### Branch Strategy
-
-```
-main      → production only. Always working. Never commit here directly.
-dev       → active development. Merges into main when stable.
-feature/* → one branch per feature, branches off dev
-fix/*     → one branch per bug fix, branches off dev
-refactor/ → reorganization only, branches off dev
-```
-
-### Commit Format
-
-```
-type: short description in plain English (max 60 characters)
-```
-
-| Type | Use for |
+| type | for |
 |---|---|
-| `feat:` | a new feature |
-| `fix:` | a bug fix |
-| `refactor:` | restructuring without changing behavior |
-| `style:` | naming, formatting, clean code only |
-| `test:` | adding or updating tests |
-| `docs:` | comments, readme, documentation |
-| `chore:` | setup, config, dependencies |
-| `review:` | post-code-review commit |
-| `release:` | version release |
+| `feat:` | new feature | 
+| `fix:` | bug fix |
+| `refactor:` | behavior-preserving restructure |
+| `perf:` | performance |
+| `test:` | tests only |
+| `docs:` | docs/comments |
+| `chore:` | config, deps, scaffolding |
 
-**Good commits:**
-```
-feat: add login form with email and password fields
-fix: prevent crash when user submits empty search
-test: add unit tests for calculateTotal function
-refactor: extract price calculation into its own function
-```
+- One commit = one logical change. If the message needs "and", split it.
+- Never commit broken code; never force-push shared branches.
+- **Never commit:** `.env*`, `node_modules/`, `dist/`/`build/`, logs, key files, dumps. Warn loudly if any appear staged.
 
-**Bad commits (never):**
-```
-"update" / "fix stuff" / "changes" / "final" / "final2" / "asdfgh"
-```
+## B5 — TESTING
 
-**Commit rules:**
-- One commit = one logical change
-- If the message needs "and" → split into two commits
-- Never commit broken code
-- Never force push to main
+The original project leaned on manual verification + `console.log`; the *standard* is real tests. Add a runner on day one (`vitest` or node's built-in test runner; `supertest` for HTTP). A feature isn't done until its core paths are covered.
 
-### What to Never Commit
-```
-.env files / node_modules/ / dist/ / build/ / .DS_Store / *.log
-```
-Warn immediately if any of these appear in staged files.
+- **AAA per test** — Arrange, Act, Assert. One behavior per test; tests fully independent.
+- **Cover four buckets per unit:** happy path · edges (0, 1, max, empty) · sad path (null, wrong type, missing field) · weird (huge input, unicode, concurrent).
+- **For endpoints**, test the layers that matter here: auth-denied (wrong/no identity), authz-denied (missing permission), validation-fail (bad body → 400), **tenant isolation** (caller A cannot read caller B's rows), happy path.
+- **Names are sentences:** `"returns 403 when caller lacks clients.write"`, not `"test1"`.
+- **Red → Green → Refactor:** write the failing test, make it pass minimally, clean up with B1–B3 still green.
+- **Rough coverage targets:** pure utils 90% · domain/services 85% · endpoints 80% · skip config/glue.
+- **Bad tests to reject:** ones that can't fail, that assert implementation not behavior, that depend on each other or on test order, or `skip` with no logged reason.
 
----
+## B6 — DEPENDENCIES
 
-## PART 3 — ROUTINES
+Before adding a package, vet it (show the result): (1) needed, or trivial to write ourselves? (2) maintained — last release < ~1yr? (3) adoption — downloads/stars sane? (4) known CVEs? (5) install/footprint cost? Two or more red flags → find an alternative or build it. Log non-obvious additions in `DEPENDENCIES.md` (what, why, where used) so the next person doesn't have to guess.
 
----
+## B7 — COMPANION DOCS (lightweight tracking)
 
-### ROUTINE 1 — NEW PROJECT ROUTINE
-**TRIGGER: Starting a brand new project**
-*Run once. No feature code is written until this routine is 100% complete.*
+The routines reference a few living docs. Keep whichever earn their keep; don't ceremony-pad. At minimum:
 
-#### Phase 1 — Define Before You Build
+| File | Holds | Touched |
+|---|---|---|
+| `CLAUDE.md` | this contract | when a pattern changes |
+| `DEBT.md` | known shortcuts/risks: what, why it matters, effort, priority | as debt is taken or paid |
+| `DECISIONS.md` | significant choices: the question, what we picked, what we rejected, why | per significant decision |
+| `DEPENDENCIES.md` | non-obvious packages and the reason | per add |
+| `README.md` | run/setup/deploy + endpoint overview | when those change |
 
-**Step 1 — Project identity** *(log in PROJECT.md → Identity)*
-Ask me:
-1. What is the name of this project?
-2. In one sentence — what does it do? (If more than one sentence is needed, help simplify it)
-3. Who is it for?
-4. What is the ONE core thing it must do well?
-
-**Step 2 — Scope** *(log in PROJECT.md → Scope)*
-Ask me to list every feature idea. Then sort into:
-- `MUST HAVE` — maximum 5 items. Project fails without these.
-- `NICE TO HAVE` — useful but not v1
-- `FUTURE` — good idea, not now
-
-If I try to put more than 5 in MUST HAVE, push back:
-*"Which 3 of these would make the project useful without the others?"*
-
-**Step 3 — Definition of done** *(log in PROJECT.md → Definition of Done)*
-Ask me to write 3–5 sentences starting with "A user can..."
-Ask me to list 3+ things explicitly OUT of scope for v1.
-
-#### Phase 2 — Technology Decisions
-
-**Step 4 — Tech stack** *(log in PROJECT.md → Tech Stack)*
-Ask what stack I want to use and why. Suggest the simplest option that fits, not the trendiest.
-Run the dependency check (see Dependency Rules) on any major framework before confirming.
-Log: what we chose, why, what we rejected, known risks.
-
-**Step 5 — Environment check**
-Confirm installed and working:
-- [ ] Language/runtime installed (show version output)
-- [ ] Package manager available
-- [ ] Git installed: `git --version`
-- [ ] Code editor ready
-- [ ] Required accounts exist
-
-Stop and resolve anything missing before continuing.
-
-#### Phase 3 — Project Scaffold
-
-**Step 6 — Initialize** *(run in this exact order)*
-```bash
-mkdir my-project-name && cd my-project-name
-git init
-# Create .gitignore BEFORE first commit
-touch .gitignore   # add: node_modules/, .env, dist/, build/, *.log, .DS_Store
-# Then initialize framework
-# Then create .env
-touch .env         # add comment: # Environment variables — never commit this file
-```
-Confirm .env is in .gitignore before proceeding.
-
-**Step 7 — Create folder structure**
-Build the full structure from Section 1.3.
-Empty folders get a `.gitkeep` file.
-Show the full folder tree and confirm it matches.
-
-**Step 8 — Initialize all documentation files**
-Create with templates:
-- `PROJECT.md` — Identity, Scope, Definition of Done, Tech Stack, Decisions Log
-- `DEBT.md` — Technical Debt Register header
-- `DEPENDENCIES.md` — Dependencies Log header
-- `GLOSSARY.md` — Project Glossary header
-- `WHY.md` — Decision Journal header
-- `LEARNING.md` — Learning Log header
-- `REVIEWS.md` — Code Review History header + Test Health Log header
-
-#### Phase 4 — Install and Configure
-
-**Step 9 — Install core dependencies only**
-Run dependency check for every package before installing:
-1. Is it necessary or can we build this ourselves?
-2. Last updated — flag if over 1 year ago
-3. Weekly downloads — flag if under 10k
-4. Known security issues?
-5. Bundle size impact?
-
-Install one at a time. Log each in DEPENDENCIES.md immediately after.
-
-**Step 10 — Configure**
-Set up one at a time, test each before the next:
-- [ ] Linter (ESLint, Pylint)
-- [ ] Formatter (Prettier, Black)
-- [ ] Environment variables working
-- [ ] Testing framework installed and smoke test passing
-- [ ] App starts without errors (even if blank)
-
-#### Phase 5 — Git Foundation
-
-**Step 11 — Foundation commit**
-Review before committing:
-- [ ] .gitignore correct
-- [ ] .env NOT in staged files
-- [ ] node_modules NOT in staged files
-- [ ] All documentation files created
-- [ ] App starts without errors
-
-```bash
-git add .
-git commit -m "chore: project foundation — scaffold, structure, config, documentation"
-git checkout -b dev
-```
-
-**Step 12 — Remote repository**
-```bash
-git remote add origin [URL]
-git push -u origin main
-git push -u origin dev
-```
-Log repository URL in PROJECT.md.
-
-#### Phase 6 — First Feature Plan
-
-**Step 13 — Plan the first feature** *(log in PROJECT.md → First Feature Plan)*
-Look at MUST HAVE list. Identify the smallest possible first feature — the one everything else depends on. Do not start with login, auth, or styling. Start with the thing that proves the core idea works.
-
-Log: feature name, why first, what it needs, how to test it, files it will touch, complexity (Small/Medium/Large).
-
-**Step 14 — Final readiness check**
-All items in Steps 6–13 confirmed complete?
-
-Say: *"Project foundation is complete. Every step is committed and documented. Ready to build [feature name]. Run the Feature Routine to begin."*
+`DEBT.md` entry: `## [date] — [area]` then **Type / What / Why it matters / Effort (S·M·L) / Priority (H·M·L)`. When you take a deliberate shortcut, drop a `// DEBT: <what> — proper fix: <what>` at the line *and* log it. Mark paid items `✅ RESOLVED [date]`.
 
 ---
 
-### ROUTINE 2 — SESSION OPENING ROUTINE
-**TRIGGER: Start of every coding session**
+# PART C — ROUTINES
 
-Run automatically before touching any code:
+> Repeatable procedures. Invoke one by name ("run the New Feature routine") and follow it step by step. Each routine is built on the patterns in Part A and the standards in Part B — it tells you *when* to apply them and *in what order*. Don't skip steps; if a step doesn't apply, say so and move on.
 
-```bash
-git status          # any uncommitted changes?
-git log --oneline -5  # what were the last 5 commits?
-```
+## TRIGGER MAP
 
-Then:
-1. Show top 3 HIGH priority items from DEBT.md
-2. Show last entry from LEARNING.md — address any fuzzy concepts
-3. Show 3 random terms from GLOSSARY.md — quick vocabulary warm-up
-4. Ask: *"Do you want to fix any debt before we add new code?"*
-
-Wait for answer before writing a single line.
-
----
-
-### ROUTINE 3 — FEATURE ROUTINE
-**TRIGGER: Adding any new feature**
-
-```
-STEP 1 — BACKUP
-  Confirm everything is committed:
-  git status → must show clean
-  If not clean: commit or stash before proceeding
-
-  Create feature branch:
-  git checkout -b feature/feature-name
-
-STEP 2 — DESCRIBE
-  Ask me to describe the feature in ONE sentence.
-  If I need more than one sentence, help simplify it.
-  One feature at a time — never combine two features into one session.
-
-STEP 3 — PLAN (explain before writing)
-  Before any code:
-  → Which files will be changed and why
-  → What the approach is in plain English
-  → Any risks or things that could break
-  → Any part that could be simpler or more reusable
-  → Which existing functions could be reused
-
-  Wait for my approval before writing a single line.
-
-STEP 4 — BUILD (one file at a time)
-  Change ONE file → stop → tell me what to test → wait for confirmation → next file.
-  Never change multiple files before testing the first.
-  Never refactor or improve other code unless I explicitly ask.
-  Warn me before any change that feels risky.
-
-STEP 5 — TEST
-  After every function written → run Testing Routine.
-  No function is done without tests.
-
-STEP 6 — REVIEW
-  Feature working? → run Code Review Routine.
-  Review passed? → run Pre-Commit Checklist.
-
-STEP 7 — MERGE
-  git checkout dev
-  git merge feature/feature-name
-  git branch -d feature/feature-name
-  git push origin dev
-```
-
-**If something breaks:**
-1. Say clearly what broke and why
-2. Suggest restoring the backup as the first option
-3. Show what changed: `git diff`
-4. Fix one thing at a time — never chain multiple fixes
-
----
-
-### ROUTINE 4 — TESTING ROUTINE
-**TRIGGER: After writing any function or completing any feature**
-
-*No feature is complete until it has tests. No code gets merged without passing tests.*
-
-#### The Three Questions Before Writing Any Test
-1. WHAT could go wrong with this code?
-2. WHO is hurt when it breaks?
-3. WHEN would I know it broke without a test?
-
-#### Test Setup (run once per project in New Project Routine)
-
-Choose framework based on stack:
-- JavaScript/React → Jest + React Testing Library
-- Node.js backend → Jest or Mocha
-- Python → pytest
-- Vue → Vitest
-
-Configure, create folder structure mirroring `src/`, write smoke test, confirm it passes, commit:
-`chore: add testing framework and initial configuration`
-
-#### Writing Tests — The AAA Pattern
-
-Every test has exactly three parts:
-```javascript
-describe('functionName', () => {
-  test('returns correct total for a standard order', () => {
-
-    // ARRANGE — set up inputs
-    const price = 10
-    const quantity = 3
-
-    // ACT — call the function
-    const result = calculateTotal(price, quantity)
-
-    // ASSERT — confirm the result
-    expect(result).toBe(30)
-  })
-})
-```
-
-#### What to Test for Every Function
-
-| Scenario | What to cover |
+| When this happens | Run this routine |
 |---|---|
-| Happy path | Normal case with valid inputs |
-| Edge cases | Zero, one, maximum, minimum values |
-| Sad path | Empty input, null, wrong type, negative numbers |
-| Weird cases | Special characters, spaces, apostrophes, very long strings |
-
-#### Test Naming Rules
-
-- File: `pricing.test.js` (matches `src/utils/pricing.js`)
-- Describe: function or module name
-- Test name: full sentence describing behavior
-  - Good: `"returns zero when the cart is empty"`
-  - Good: `"throws an error when email is missing"`
-  - Bad: `"test 1"`, `"works"`, `"handles it"`
-
-#### Red-Green-Refactor Workflow
-
-```
-RED    → Write the test first. Run it. It fails. (Correct — proves test works)
-GREEN  → Write minimum code to make it pass. Run it. It passes.
-REFACTOR → Clean up using FSMR and Clean Code standards. Tests still green.
-COMMIT
-```
-
-Before writing any function, ask: *"Should we write the test first? It only takes 2 minutes."*
-
-#### Bad Tests — Flag These Immediately
-- Testing implementation not behavior (test WHAT it does, not HOW)
-- Tests that always pass (no way to fail = useless)
-- Multiple unrelated things in one test (one test = one assertion)
-- Tests that depend on each other (each must be fully independent)
-- Vague test names (`"test 1"`, `"works"`)
-- `test.skip()` without a DEBT.md entry
-
-#### Coverage Targets
-- Utility functions: 90%+
-- Business logic: 85%+
-- API endpoints: 80%+
-- UI components: 60%+
-- Config files: skip
-
-#### Debugging Using Tests
-
-When something is broken:
-1. Write a test that reproduces the bug (it fails → proves the bug is real)
-2. Run only that test
-3. Add `console.log` at key points to trace values
-4. Change one thing → run test → repeat until green
-5. Remove all `console.log` statements
-6. Run full suite to confirm nothing else broke
-
-Never change three things and hope. One change. One test. Repeat.
+| Starting a brand-new backend | **New Project** |
+| Opening any work session | **Session Opening** |
+| Adding a feature / endpoint(s) | **New Feature** |
+| Changing the data model | **Schema Change** |
+| A bug is reported or found | **Bug Fix** |
+| A feature is working, before commit | **Code Review** |
+| About to commit | **Pre-Commit** |
+| About to merge a branch | **Pre-Merge** |
+| Shipping to staging/production | **Pre-Deploy** |
+| Code feels messy / hard to navigate | **Refactor** |
+| Every few features | **Tech-Debt Sweep** |
+| Closing a work session | **Session Closing** |
 
 ---
 
-### ROUTINE 5 — CODE REVIEW ROUTINE
-**TRIGGER: Feature complete → before committing / before any merge**
+## ROUTINE — New Project
+**Trigger: greenfield backend.** Scaffold to Part A before any feature code.
 
-*Never skip by saying "it works." Working is the minimum bar, not the finish line.*
-
-#### Severity Labels
-- 🔴 BLOCKER — fix before committing
-- 🟡 WARNING — fix soon, log in DEBT.md
-- 🔵 SUGGESTION — good improvement, not urgent
-- 📚 LEARNING — add to GLOSSARY.md
-
-#### Level 1 — Correctness
-- [ ] Does the code match the feature description exactly?
-- [ ] What happens with empty, null, or undefined inputs?
-- [ ] What happens with unexpected types (number where text expected)?
-- [ ] Are all error cases handled with clear messages?
-- [ ] Any infinite loops or missing exit conditions?
-- [ ] Does every function return what its name promises?
-- [ ] Are all async operations wrapped in error handling?
-
-#### Level 2 — Readability
-- [ ] Every variable name describes exactly what it holds?
-- [ ] Every function name describes exactly what it does?
-- [ ] Every boolean reads like a yes/no question?
-- [ ] Functions doing only one job (under 20–30 lines)?
-- [ ] No commented-out old code?
-- [ ] Comments explain WHY not WHAT?
-- [ ] Any code that made you pause to understand? (Flag and simplify)
-- [ ] Related things grouped together?
-
-#### Level 3 — Security and Safety
-- [ ] Any hardcoded secrets, keys, or passwords? 🔴 BLOCKER
-- [ ] User input used directly without validation?
-- [ ] `console.log` exposing sensitive data?
-- [ ] Error messages revealing internal system details to users?
-- [ ] Destructive operations without a confirmation step?
-- [ ] Unused imports?
-
-#### Level 4 — Scalability and Maintainability
-- [ ] Any magic numbers or strings? → move to constants
-- [ ] Duplicate logic anywhere in the codebase?
-- [ ] Code tightly coupled to something that might change?
-- [ ] Logic that breaks if data grows 10x?
-- [ ] Changing one thing requires editing 3+ files?
-- [ ] Functions hardcoded for one use case instead of parameterized?
-
-#### Review Report Format
-
-```
-─────────────────────────────────────
-CODE REVIEW REPORT
-File(s): [list]    Date: [date]    Feature: [what this does]
-─────────────────────────────────────
-SUMMARY
-Blockers: [n]  Warnings: [n]  Suggestions: [n]  Learning: [n]
-Overall: PASS / PASS WITH WARNINGS / FAIL
-─────────────────────────────────────
-FINDINGS
-
-🔴 BLOCKER #1 — [title]
-File: [file]  Line: [n]
-Problem: [what is wrong]
-Why it matters: [consequence]
-Fix: [exact change]
-
-🟡 WARNING #1 — [title]
-File: [file]  Line: [n]
-Problem: [what is wrong]
-Why it matters: [risk]
-Fix: [what to do]
-
-🔵 SUGGESTION #1 — [title]
-Current: [code]
-Better: [improved version]
-Why: [reason]
-
-📚 LEARNING — [concept]
-What: [pattern or concept]
-Why it matters: [why developers care]
-Add to GLOSSARY.md: yes
-─────────────────────────────────────
-VERDICT
-
-PASS              → No blockers. Safe to commit.
-PASS WITH WARNINGS → No blockers. Commit. Fix warnings next session. Log in DEBT.md.
-FAIL              → Blockers found. Fix all 🔴 items. Re-run review.
-─────────────────────────────────────
-```
-
-#### After the Review
-- Fix all 🔴 blockers immediately
-- Log all 🟡 warnings in DEBT.md
-- Log all 📚 items in GLOSSARY.md
-- Commit: `review: [feature name] passed code review`
-
-#### Quick Review (changes under 20 lines only)
-- [ ] Does it do what it was supposed to do?
-- [ ] Any hardcoded values that should be constants?
-- [ ] Any unclear names?
-- [ ] Any exposed sensitive data?
-- [ ] Any unhandled error case?
-
-Report: `✅ QUICK REVIEW — PASS` or `❌ QUICK REVIEW — FAIL: [issue]`
-
-#### Self-Review (every 5 sessions)
-1. Show me the code with no review comments
-2. I go through the checklist myself first
-3. Then run the full review and compare
-4. Show what I caught, what I missed, and why
-5. Log gaps in LEARNING.md
+1. **Define it in one line.** What it does, who it's for, the one thing it must do well. Identify whether it's multi-tenant — that decision shapes everything (§5).
+2. **Lock the stack** (§1). Start from the defaults; record every deviation and its reason.
+3. **Scaffold the layout** (§2): `config/ lib/ middleware/ modules/ routes/ types/ utils/` + `prisma/`. Create `app.ts` / `server.ts` split.
+4. **Wire the spine first, no features:**
+   - Typed `env` accessor + startup validation that exits on failure (§12).
+   - One DB client singleton in `lib/` (§2).
+   - `asyncHandler` + global `ApiError` error handler (§8).
+   - The middleware chain skeleton in `app.ts` (§3), even if some stages are stubs.
+   - `requireAuth` identity parsing + `types/` request augmentation (§4).
+   - Tenant resolver if multi-tenant (§5).
+   - `/health` route, OpenAPI at `/api-docs`.
+5. **Init the schema** (§10): base models with `createdAt`/`updatedAt`/`deletedAt`, IDs as `cuid`/`uuid`, first migration committed.
+6. **Tooling:** ESLint + Prettier, `tsx watch` dev script, build with `noEmitOnError`, `.env.example`, container/compose for parity.
+7. **Confirm the spine runs** (server boots, `/health` green, a migration applies) before writing feature #1.
+8. **Pick the smallest first feature** that proves the core idea — not auth, not styling. Then run **New Feature**.
 
 ---
 
-### ROUTINE 6 — PRE-COMMIT CHECKLIST
-**TRIGGER: Before every single commit**
+## ROUTINE — Session Opening
+**Trigger: start of a work session.**
 
-```
-[ ] All tests pass: npm test
-[ ] No skipped tests (test.skip) — log any in DEBT.md with reason
-[ ] No new untested functions added — write tests now or log in DEBT.md
-[ ] .env not in staged files
-[ ] node_modules not in staged files
-[ ] No console.log exposing sensitive data
-[ ] No commented-out old code
-[ ] Commit message follows format: type: description (max 60 chars)
-```
-
-Only commit after all items are checked.
+1. `git status` and recent log — anything uncommitted or half-done?
+2. Skim this file's Part A so the patterns are fresh.
+3. State the one goal for the session in a sentence.
+4. Check the tech-debt notes / TODOs touching the files you're about to open — fix-now or log.
 
 ---
 
-### ROUTINE 7 — PRE-MERGE CHECKLIST
-**TRIGGER: Before merging any branch into dev or main**
+## ROUTINE — New Feature
+**Trigger: adding an endpoint or a feature module.** This is the workhorse; it drives §7 + §8 + §14.
+
+1. **Describe** the feature in one sentence. If it needs an "and," it's two features — split.
+2. **Plan before code:**
+   - Which **identity** is this for — user, scoped end-user, or operator (§4)?
+   - **Tenant-scoped?** Then every query filters `tenantId` + `deletedAt: null` (§5).
+   - Does a **global gate** (auth/subscription/quota) apply, or does the path need allowlisting (§3)?
+   - Which **permission key** — reuse the narrowest existing one, or seed a new one (§6)?
+   - Which files change? New `modules/<feature>/`? Schema touched (→ run **Schema Change** first)?
+3. **Branch:** `feature/<short-name>` off the integration branch, clean tree.
+4. **Build the module** (§7): `routes.ts` (HTTP + guards + `@openapi`) and `controller.ts` (validate at top → orchestrate → respond). Reusable logic to `service.ts`/`utils`/`lib`, never sideways into another module.
+5. **Mount once** in `routes/index.ts`. Specific routes before `/:id` (§8.6).
+6. **Self-check against §14** before declaring done: `asyncHandler` everywhere, errors thrown as `ApiError`, input validated, tenant-scoped, `.js` imports, docs present.
+7. **Test it** (B5): cover happy path + auth-denied + authz-denied + validation-fail + tenant-isolation. Write the test first where it's cheap (red → green → refactor). At minimum, manually exercise those paths and say which you covered which way.
+8. Run **Code Review**, then **Pre-Commit**.
+
+---
+
+## ROUTINE — Schema Change
+**Trigger: any data-model change.** Follow §10 precisely — migrations are immutable history.
+
+1. Edit the single schema file. New models get `createdAt`/`updatedAt`/`deletedAt`, `cuid`/`uuid` id, indexes on every FK + filtered column, compound `@@unique([tenantId, …])` where tenant-unique (§10).
+2. Generate a **named** migration (`db:migrate`) — never hand-edit after apply. Commit the migration with the code that needs it.
+3. Regenerate the ORM client before relying on new types.
+4. If reference data is involved (permissions, defaults), update the idempotent seed.
+5. Confirm a clean apply on a fresh DB. Document any drift-recovery step if the change is destructive.
+6. Return to whatever routine called this.
+
+---
+
+## ROUTINE — Bug Fix
+**Trigger: a bug is reported or found.** Understand → reproduce → fix small → prove.
+
+1. **Triage:** severity (data loss / security / core-broken / minor) and blast radius. Critical → stop other work.
+2. **Gather facts:** exact wrong behavior vs. expected, repro steps, when it started, scope. Don't touch code until you can state the bug in one sentence.
+3. **Branch:** `fix/<short-desc>`.
+4. **Reproduce first.** Write a failing test or a precise manual repro that *proves* the bug exists. If you can't reproduce it, you don't understand it yet.
+5. **Trace to the exact line** — don't guess. State: "receives X, produces Y, because Z."
+6. **Smallest possible fix.** Fix only the bug. No drive-by refactors or renames — log those separately.
+7. **Prove it:** the repro now passes, nothing else broke, manual path confirmed.
+8. **Root cause + prevention:** why it happened, why it wasn't caught, what stops the *class* of bug (a guard? a validation? an index? a tenant filter?). Check whether the same pattern exists elsewhere.
+9. Run **Pre-Commit**; commit `fix: …`.
+
+---
+
+## ROUTINE — Code Review
+**Trigger: feature works, before commit/merge.** "It works" is the floor, not the bar.
+
+Review in passes, flag 🔴 blocker / 🟡 fix-soon / 🔵 nice-to-have:
+
+- **Correctness:** matches the description; handles empty/null/wrong-type input; every async path has error handling; functions return what their name promises.
+- **Security & tenancy:** 🔴 every tenant query is scoped (§5); 🔴 no hardcoded secrets; input validated at the boundary; right guard for the identity (§4); error messages don't leak internals.
+- **Pattern fit:** module shape per §7; `asyncHandler` + thrown `ApiError` (§8); `.js` imports (§9); routes ordered (§8.6); `@openapi` present; narrowest permission key (§6).
+- **Clarity & reuse:** names say what they hold/do; no duplicated logic (extract on the third copy); no dead/commented code; functions do one job.
+
+Resolve all 🔴 before commit; log 🟡 to tech-debt.
+
+---
+
+## ROUTINE — Pre-Commit
+**Trigger: before every commit.**
+
+- [ ] Build typechecks (`noEmitOnError` clean); lint passes.
+- [ ] Tests for changed code pass (if a suite exists).
+- [ ] No secrets / `.env` / build artifacts staged.
+- [ ] No stray debug logging or commented-out code.
+- [ ] Tenant filters present on touched queries.
+- [ ] Message format `type: imperative summary` (`feat:` `fix:` `refactor:` `chore:` `docs:`). One logical change per commit.
+
+---
+
+## ROUTINE — Pre-Merge
+**Trigger: before merging a branch.**
+
+- [ ] Full build + lint + tests green on the branch.
+- [ ] **Code Review** passed; all 🔴 resolved.
+- [ ] New migrations apply cleanly on a fresh DB.
+- [ ] No tenant-scoping regressions.
+- [ ] Branch rebased/updated on the integration branch; conflicts resolved.
+
+---
+
+## ROUTINE — Pre-Deploy
+**Trigger: shipping to an environment.** Never deploy a dirty branch or without a rollback path.
+
+1. **Gates:** correct branch, clean tree, build + tests green, no secrets in config.
+2. **Env:** every required var set in the target (§12); prod-grade keys, not dev keys.
+3. **Migrations:** apply with the **non-interactive deploy** command; destructive changes need a written rollback and a backup first.
+4. **Staging first:** deploy, smoke-test the critical path (boot, auth, one core read, one core write, no error spike). Hold before promoting.
+5. **Production:** deploy, then immediately verify health + core path + error dashboard. Stay present through the observation window.
+6. **Rollback ready:** know the previous-good version and the one command to restore it before you start.
+7. Tag the release; record what shipped.
+
+---
+
+## ROUTINE — Refactor
+**Trigger: code is messy or hard to navigate.** Cleanup only — no features, no fixes, no behavior change.
+
+1. Snapshot: clean commit, branch `refactor/<scope>`.
+2. **Audit, change nothing first:** map the messy area, list problems (duplication, misplaced files, oversized handlers, mixed concerns, sideways imports, missing tenant scoping noted-but-not-touched).
+3. Move/rename in small steps — one concern at a time, imports fixed immediately (`.js`!), behavior identical.
+4. Verify after each step (build + smoke). Commit per coherent step.
+5. Anything that needs a real fix → log it, don't fix it here.
+
+---
+
+## ROUTINE — Tech-Debt Sweep
+**Trigger: every few features, or before it compounds.** No new features this pass.
+
+1. Collect: TODO/FIXME, duplicated logic, oversized handlers, missing indexes, untyped `any`, unscoped queries, missing validation/tests.
+2. Prioritize: **security & tenancy first**, then high-leverage duplication, then quick wins.
+3. Fix in small reviewed commits. Leave the code measurably better than you found it.
+
+---
+
+## ROUTINE — Session Closing
+**Trigger: end of a work session.**
+
+- [ ] Everything committed with proper messages, or deliberately stashed.
+- [ ] Build/lint/tests green.
+- [ ] New debt or follow-ups noted in `DEBT.md` where the next session will see them.
+- [ ] Boy-Scout rule: leave the touched code a little better than you found it.
+- [ ] One-line state: what's done, what's next.
+
+---
+
+## MASTER WORKFLOW (how the routines connect)
 
 ```
-[ ] Full test suite passes on the feature branch
-[ ] Coverage has not dropped since last merge
-[ ] All new code has tests
-[ ] Code review passed
-[ ] All 🔴 blockers resolved
-[ ] If merging into main: end-to-end tests on critical paths
-[ ] No merge without every item checked
+Session Opening
+   → New Feature ──(schema?)──► Schema Change ──┐
+        │                                        │
+        └──► build module ──► Test (B5) ──► Code Review ──► Pre-Commit ──► Pre-Merge
+                                   ▲                                          │
+                              Bug Fix (same path, repro-first)               │
+   every few features → Tech-Debt Sweep / Refactor                          │
+   ship it → Pre-Deploy ──► (staging → prod → verify → tag) ◄───────────────┘
+   → Session Closing
 ```
 
 ---
 
-### ROUTINE 8 — BUG FIX PROTOCOL
-**TRIGGER: A bug is found — reported, discovered during testing, or spotted in production**
+# PART D — REPORT TEMPLATES & MODES
 
-*Never jump straight to fixing. Understand first. Fix second. Prove it third.*
+> Routines say *produce a report* or *switch modes*. The formats live here so the routines stay short. Use them verbatim; they make output skimmable and comparable across sessions.
 
----
-
-#### PHASE 1 — TRIAGE
-*Before touching any code, answer these four questions.*
-
-**Step 1 — Safety check**
-Is the bug causing data loss, security exposure, or total system failure?
+## D1 — Code Review Report
+Emitted by the Code Review routine. Severity: 🔴 blocker (fix before commit) · 🟡 fix-soon (log to `DEBT.md`) · 🔵 nice-to-have · 📚 worth learning.
 
 ```
-YES → CRITICAL BUG
-  → Notify immediately
-  → Do NOT deploy anything new until this is resolved
-  → Skip to Phase 2 now
+CODE REVIEW — <file(s)>   <date>   feature: <what it does>
+Blockers: n  Warnings: n  Suggestions: n     Verdict: PASS / PASS-WITH-WARNINGS / FAIL
 
-NO → Continue triage normally
+🔴 <title>  (<file>:<line>)
+   Problem: …   Why it matters: …   Fix: …
+🟡 <title>  (<file>:<line>)
+   Problem: …   Risk: …   Fix: …
+🔵 <title> — current → better, because …
 ```
+Verdict rule: any 🔴 → **FAIL** (fix and re-review). No 🔴 → **PASS** (log 🟡 to `DEBT.md`).
 
-**Step 2 — Classify the bug**
-
-| Severity | Definition | Example |
-|---|---|---|
-| 🔴 CRITICAL | System down, data loss, security breach | Login broken for all users, payments failing |
-| 🟠 HIGH | Core feature broken, no workaround | User cannot save their work |
-| 🟡 MEDIUM | Feature broken but workaround exists | Export fails, user can copy-paste instead |
-| 🔵 LOW | Minor visual or non-blocking issue | Button misaligned, wrong placeholder text |
-
-Ask me: *"How would you rate the severity — Critical, High, Medium, or Low? And why?"*
-Log the severity in DEBT.md immediately.
-
-**Step 3 — Gather the facts**
-
-Ask me these questions before doing anything else:
-1. What exactly happened? (Describe the wrong behavior)
-2. What were you expecting to happen?
-3. What steps reproduce it? (Be specific: click X → type Y → see Z)
-4. Does it happen every time or only sometimes?
-5. When did it first appear? (After which commit or session?)
-6. Is it happening in one place or many?
-
-Do not proceed until all six are answered. Vague bug reports produce wasted fixes.
-
-**Step 4 — Assess the blast radius**
-
-Before touching anything, ask:
-- Which files are likely involved?
-- Which other features could be affected by a change here?
-- Is there any risk this bug is a symptom of a deeper problem?
-
-State clearly: *"The blast radius appears to be [small / medium / large] because [reason]."*
-
----
-
-#### PHASE 2 — ISOLATE
-*Find exactly where the bug lives before writing a single line of fix code.*
-
-**Step 5 — Create the fix branch**
-
-```bash
-git status          # confirm everything is committed and clean
-git checkout dev    # always branch from dev
-git pull            # make sure dev is up to date
-git checkout -b fix/short-bug-description
-```
-
-Branch name rules:
-- `fix/login-crash-empty-email`
-- `fix/cart-total-negative-discount`
-- Never: `fix/bug`, `fix/temp`, `fix/issue`
-
-**Step 6 — Write the failing test FIRST**
-
-Before writing a single line of fix code, write a test that:
-1. Reproduces the exact bug
-2. Fails right now (proves the bug is real and the test works)
-3. Will pass once the bug is correctly fixed
-
-```javascript
-// Example — bug: calculateTotal() returns NaN when discount is 0
-test('returns correct total when discount is zero', () => {
-  // ARRANGE
-  const price = 100
-  const discount = 0
-
-  // ACT
-  const result = calculateTotal(price, discount)
-
-  // ASSERT
-  expect(result).toBe(100)  // this must FAIL right now
-})
-```
-
-Run the test. Confirm it fails. If it passes — the bug is not where you thought. Go back to Step 3.
-
-**Step 7 — Trace, do not guess**
-
-Use this sequence to find the exact line:
-```
-1. Identify the entry point — where does the broken behavior start?
-2. Add a console.log at that entry point — confirm the inputs are what you expect
-3. Follow the data through each function — log at each step
-4. Find the exact line where the output stops matching the expectation
-5. Stop. You have found the bug.
-```
-
-State the finding clearly before moving on:
-*"The bug is on line [n] in [file]. The function receives [X] but produces [Y] because [Z]."*
-
-Never start fixing until this statement can be made with confidence.
-
----
-
-#### PHASE 3 — FIX
-*One change. One test. No chaining.*
-
-**Step 8 — Plan the fix before writing it**
-
-Before writing any fix code, explain:
-- What is the exact change being made?
-- Why does this fix the problem?
-- Could this change break anything else?
-- Is there a simpler fix than what I am about to do?
-
-Wait for my approval before writing the fix.
-
-**Step 9 — Write the smallest possible fix**
-
-Rules:
-- Fix ONLY the bug. Nothing else.
-- Do not refactor surrounding code at the same time
-- Do not improve unrelated things you notice
-- Do not rename variables "while you're in there"
-- If you spot other problems — add them to DEBT.md, touch nothing
-
-If the fix is tempting to make larger: *"I want to keep this fix minimal. I'll log [the other thing] in DEBT.md for a separate session."*
-
-**Step 10 — Confirm the fix works**
-
-Run steps in this exact order:
-```bash
-# 1. Run only the bug's test — must now PASS
-npm test -- --testNamePattern="[test name]"
-
-# 2. Run the full test suite — nothing else must break
-npm test
-
-# 3. Manually test the exact steps that reproduced the bug
-#    Confirm the wrong behavior is gone
-```
-
-If anything in the full suite broke: stop. The fix introduced a regression. Re-examine the change before continuing.
-
----
-
-#### PHASE 4 — DOCUMENT AND COMMIT
-
-**Step 11 — Root cause analysis**
-
-Before committing, answer these three questions and log them in DEBT.md:
-
-```markdown
-## [date] — Bug: [short description]
-**Severity:** [Critical / High / Medium / Low]
-**Root Cause:** Why did this bug happen in the first place?
-**How It Was Found:** Manual testing / user report / automated test / code review
-**Fix Applied:** What exact change was made?
-**Why It Was Not Caught Earlier:** What was missing — test, validation, review?
-**Prevention:** What should we add or change so this class of bug cannot happen again?
-  → New test added: yes / no
-  → New validation added: yes / no
-  → DEBT.md item added: yes / no
-```
-
-**Step 12 — Run Quick Review on the fix**
-
-Even a one-line fix gets reviewed:
-- [ ] Does this fix ONLY what it is supposed to fix?
-- [ ] Any hardcoded values introduced?
-- [ ] Any unclear naming?
-- [ ] Any unhandled edge case?
-- [ ] Any sensitive data exposed?
-
-**Step 13 — Commit**
-
-```bash
-git add [only the changed files — never git add .]
-git commit -m "fix: [plain English description of what was fixed]"
-```
-
-Good fix commits:
-```
-fix: prevent NaN when discount is zero in calculateTotal
-fix: stop login from crashing on empty email field
-fix: correct order status showing shipped before payment
-```
-
-Bad fix commits:
-```
-fix: bug
-fix: it works now
-fix: various issues
-```
-
-**Step 14 — Merge and clean up**
-
-```bash
-git checkout dev
-git merge fix/short-bug-description
-git branch -d fix/short-bug-description
-git push origin dev
-```
-
----
-
-#### PHASE 5 — VERIFY AND CLOSE
-
-**Step 15 — Post-fix verification checklist**
+## D2 — Bug Fix Report
+Emitted by the Bug Fix routine.
 
 ```
-[ ] The failing test now passes
-[ ] The full test suite is green
-[ ] The bug is manually reproduced and confirmed gone
-[ ] No regressions introduced
-[ ] Root cause logged in DEBT.md
-[ ] Prevention measure identified and either applied or logged
-[ ] Fix branch deleted
-[ ] Commit pushed to dev
+BUG FIX — fix/<name>   <date>   severity: <Critical/High/Medium/Low>
+Bug:      <wrong behavior>  →  expected: <right behavior>
+Repro:    <numbered steps>
+Cause:    <one sentence>   (found at <file>:<line>)
+Fix:      <what changed>   regression risk: <none/low/med + why>
+Proof:    repro test ✅  full suite ✅  manual ✅
+Prevent:  why-not-caught: <…>   new test: y/n   new guard/validation: y/n   same bug elsewhere: <where>/no
 ```
 
-**Step 16 — Pattern check**
-
-After every bug fix, ask:
-*"Could a similar bug exist elsewhere in the codebase?"*
-
-If yes: scan related files. Fix the pattern, not just this one instance.
-If unsure: log in DEBT.md as a low-priority audit item.
-
----
-
-#### BUG FIX REPORT FORMAT
-*(Produce this report at the end of every fix session)*
+## D3 — Deploy Report
+Emitted by the Pre-Deploy routine (pass *or* rollback).
 
 ```
-─────────────────────────────────────
-BUG FIX REPORT
-Date: [date]    Branch: fix/[name]    Severity: [level]
-─────────────────────────────────────
-THE BUG
-What happened:     [wrong behavior]
-What was expected: [correct behavior]
-Steps to reproduce: [numbered list]
-─────────────────────────────────────
-THE INVESTIGATION
-Files involved:   [list]
-Root cause:       [one clear sentence]
-Found on line:    [file:line]
-─────────────────────────────────────
-THE FIX
-What changed:     [exact description]
-Why it works:     [plain English]
-Risk of regression: [None / Low / Medium — and why]
-─────────────────────────────────────
-THE PROOF
-Failing test written:    ✅ / ❌
-Test now passes:         ✅ / ❌
-Full suite green:        ✅ / ❌
-Manually verified:       ✅ / ❌
-─────────────────────────────────────
-PREVENTION
-Why not caught earlier:  [honest answer]
-New test added:          ✅ / ❌
-New validation added:    ✅ / ❌
-Similar bugs possible:   Yes → [where] / No
-─────────────────────────────────────
-Commit: fix: [message]
-─────────────────────────────────────
+DEPLOY — <version/tag>   <date>   target: <staging/production>
+Gates:    all ✅ / failed at <gate>
+Shipped:  <bulleted changes>
+Env+DB:   vars ✅   migrations ✅/N-A   build ✅
+Staging:  deployed ✅   smoke ✅   observed <n>min
+Prod:     deployed ✅   post-check ✅   errors: none/<desc>   rollback: no / yes→<reason>
 ```
-
----
-
-#### GOLDEN RULES FOR BUG FIXES
-
-```
-🔴 Never fix a bug without first writing a test that proves it exists
-🔴 Never chain multiple fixes in one commit
-🔴 Never fix AND refactor in the same session — pick one
-🔴 Never guess at the root cause — trace it to the exact line first
-🟡 Always ask: could this bug exist somewhere else in the codebase?
-🟡 Always document what caused it and how to prevent the next one
-🟡 Always run the full test suite after fixing — never just the one test
-🔵 A bug with no test is a bug waiting to come back
-🔵 The fix is not done until the report is written
-```
-
----
-
-### ROUTINE 9 — REORGANIZATION ROUTINE
-**TRIGGER: Project feels messy, hard to navigate, or at 10-feature milestone**
-
-*This routine is CLEANUP ONLY. No new features. No bug fixes. No improvements. Only move and rename.*
-
-#### Phase 1 — Safety
-
-```bash
-git add .
-git commit -m "chore: snapshot before reorganization"
-git checkout -b refactor/project-reorganization
-```
-
-Duplicate project folder outside git as extra safety net.
-
-Declare: *"We are in reorganization mode. No features, no fixes, no logic changes this session."*
-
-#### Phase 2 — Audit (read everything, change nothing)
-
-Deliver a report with:
-1. **Project map** — every file, one sentence description, ⚠️ for uncertain files
-2. **Problems found** — categorized as:
-   - 🔴 DUPLICATE, 🟡 MISPLACED, 🟠 UNNAMED, ⚫ DEAD, 🔵 TOO LARGE, 🟣 MIXED
-3. **Broken import risk** — files that will need import path updates when moved
-4. **Reorganization plan** — where each file should move to
-5. **Recommended order** — safe sequence for moves
-
-Stop after the report. Wait for my approval before touching any file.
-
-#### Phase 3 — Reorganize
-
-Rules for every step:
-- One category at a time (assets → constants → utils → services → components → pages)
-- Fix broken imports immediately after every move — never leave broken imports
-- After every move: give specific test checklist, wait for my confirmation
-- Commit after every confirmed category: `refactor: move [category] to src/[folder]`
-- Never rename AND move in the same step (rename → commit → move → commit)
-- Never delete without showing me the file and asking: yes / no / move to `_archive/`
-- Never rewrite, fix, improve, or comment any logic — only move and rename
-- If you spot something to fix: add to NOTED ISSUES list, handle in a separate session
-
-#### Phase 4 — Finish
-
-```bash
-git checkout dev
-git merge refactor/project-reorganization
-git branch -d refactor/project-reorganization
-```
-
-Deliver:
-1. New complete folder tree
-2. Full git log of today's commits: `git log --oneline`
-3. NOTED ISSUES list — everything spotted but not touched
-4. Three next steps for the following session
-
----
-
-### ROUTINE 10 — TECHNICAL DEBT ROUTINE
-**TRIGGER: Runs inside every other routine automatically**
-
-#### Debt Detection — Flag These Before Writing Any New Code
-
-Scan files about to be touched and flag:
-- 🔴 TODO/FIXME comments older than one session
-- 🔴 Hardcoded values that should be constants
-- 🔴 Functions doing more than one job
-- 🔴 Duplicate logic
-- 🔴 Files over 200 lines
-- 🔴 Vague variable names
-- 🔴 Empty catch blocks
-- 🔴 Commented-out code that was never deleted
-- 🔴 Unused imports
-- 🔴 Copy-pasted logic from elsewhere in the project
-
-Report findings before writing new code. Do not proceed until I decide to fix now or log it.
-
-#### Logging Debt — DEBT.md Format
-
-```markdown
-## [date] — [file name]
-**Type:** Shortcut / Knowledge / Dependency / Documentation
-**What:** One sentence describing the problem
-**Why it matters:** What breaks or slows down if ignored
-**Effort:** Small (under 30 min) / Medium (half day) / Large (full day)
-**Priority:** High / Medium / Low
-```
-
-When I ask to take a shortcut:
-1. Write the shortcut code
-2. Add comment directly above it:
-   `// DEBT: [what this is] — proper fix: [what to do instead]`
-3. Add to DEBT.md immediately
-
-#### Dependency Rules — Before Installing Any Package
-
-Run this check and show results before any install:
-1. Is it necessary or can we build this ourselves?
-2. Last updated — flag if over 1 year
-3. Weekly downloads — flag if under 10k
-4. Known security vulnerabilities?
-5. Bundle size impact?
-
-If 2+ flags → suggest alternative or propose building it.
-
-Log every installed package in DEPENDENCIES.md:
-```markdown
-## [package] v[version]
-**Installed:** [date]
-**Why:** [one sentence]
-**Used in:** [files]
-**Review date:** [3 months from install]
-```
-
-#### Debt Payment Sessions
-**TRIGGER: Every 4–5 features completed**
-
-No new features. Only fixing DEBT.md items.
-
-Priority order:
-1. Security issues first
-2. High-effort-saved items (duplicate logic used everywhere)
-3. Items blocking future features
-4. Small quick wins (renames, deletes, extractions)
-5. Documentation and comments last
-
-Commit: `refactor: pay down technical debt — [list what was fixed]`
-Mark resolved items in DEBT.md: `✅ RESOLVED [date] — [what we did]`
-
-#### The Boy Scout Rule
-Every session must end with the code slightly better than when the session started.
-After finishing the main task, suggest one small improvement and ask if I want to apply it. Commit separately with a `style:` or `refactor:` commit.
-
----
-
-### ROUTINE 11 — SESSION CLOSING ROUTINE
-**TRIGGER: End of every coding session**
-
-```
-[ ] Suggest one Boy Scout improvement (under 10 minutes)
-[ ] Check for any new debt created this session not yet in DEBT.md
-[ ] Run full test suite: npm test — everything green?
-[ ] Confirm all changes are committed with correct message format
-[ ] Update DEBT.md if anything was fixed today (mark ✅ RESOLVED)
-[ ] Add entry to LEARNING.md (see format below)
-[ ] Show today's git log: git log --oneline --since="6am"
-[ ] Update REVIEWS.md test health log if tests were run
-```
-
-Say: *"Session closed cleanly. No loose ends."*
-
----
-
-### ROUTINE 12 — PRE-DEPLOY ROUTINE
-**TRIGGER: Before deploying to any environment — staging or production**
-
-*Never deploy from a dirty branch. Never deploy without a rollback plan. Never skip staging.*
-
----
-
-#### PHASE 1 — GATE CHECKS
-*All gates must be green before any deploy proceeds. One red = stop.*
-
-```
-[ ] On the correct branch (dev → staging, main → production)
-[ ] git status is clean — no uncommitted changes
-[ ] Full test suite passes: npm test
-[ ] No skipped tests (test.skip) without a DEBT.md entry
-[ ] Code review passed for all changes in this deploy
-[ ] All 🔴 blockers from the last review resolved
-[ ] No .env files, secrets, or API keys in staged files
-[ ] DEBT.md checked — any HIGH priority items that must be resolved first?
-```
-
-If any gate fails: stop. Fix it. Re-run from the top.
-
-Say: *"Gate checks complete. [n] passed. Proceeding to environment prep."*
-Or: *"Gate failed at: [item]. Deploy is blocked until this is resolved."*
-
----
-
-#### PHASE 2 — ENVIRONMENT PREP
-*Confirm the target environment is ready to receive the deploy.*
-
-**Step 1 — Identify the target**
-
-Ask me:
-1. Are we deploying to **staging** or **production**?
-2. What is the deploy URL / server?
-3. Is this a first deploy or an update to existing?
-
-**Step 2 — Environment variables audit**
-
-```
-[ ] All required .env variables are documented in .env.example
-[ ] Target environment has all variables set (confirm with platform dashboard)
-[ ] No variable added in code but missing from the environment
-[ ] No variable removed from .env.example but still expected in code
-[ ] API keys and secrets are production-grade (not test/dev keys in prod)
-```
-
-Flag immediately if dev keys appear in a production deploy config. 🔴 BLOCKER
-
-**Step 3 — Database and migrations** *(if applicable)*
-
-```
-[ ] All pending migrations identified: list them by name
-[ ] Migrations tested on staging before running on production
-[ ] Rollback SQL written and confirmed before any destructive migration
-[ ] No migration drops a column or table without a confirmed data backup
-[ ] Migration does not lock a table for longer than an acceptable window
-```
-
-If a migration is destructive (drops data, renames a column, changes a type):
-Say: *"This migration is destructive. I need explicit confirmation before running it."*
-Wait for confirmation. Do not proceed silently.
-
----
-
-#### PHASE 3 — BUILD VERIFICATION
-*Confirm the build is clean before it touches any server.*
-
-```bash
-# Run a clean production build locally
-npm run build         # or the project's build command
-
-# Check for:
-[ ] Build completes with zero errors
-[ ] Build completes with zero warnings (or all warnings are known and logged)
-[ ] Bundle size has not increased by more than 20% unexpectedly
-[ ] No source maps included in the production build
-[ ] No debug flags or development-only code paths active in prod build
-```
-
-If the build fails locally: do not deploy. Fix the build, then re-run Phase 1.
-
----
-
-#### PHASE 4 — STAGING DEPLOY AND SMOKE TEST
-**TRIGGER: Every production deploy must pass staging first. No exceptions.**
-
-**Step 1 — Deploy to staging**
-
-```bash
-# Deploy to staging environment
-# [project-specific deploy command]
-
-# Confirm deploy completed:
-[ ] Deploy command exited with no errors
-[ ] Staging URL is reachable
-[ ] No 500 errors in the staging error log immediately after deploy
-```
-
-**Step 2 — Smoke test on staging**
-
-Run the critical path checklist — the minimum set of actions that proves the app is alive:
-
-```
-[ ] App loads — homepage or main screen renders without errors
-[ ] Authentication works — can log in with a test account
-[ ] Core feature works — [most important user action for this project]
-[ ] Data reads correctly — key data appears as expected
-[ ] Data writes correctly — a test save/submit completes without error
-[ ] No JavaScript console errors on the critical path
-[ ] No broken images or missing assets
-[ ] Environment-specific config is active (correct API URLs, correct keys)
-```
-
-If any smoke test fails: rollback staging, investigate, and do not proceed to production.
-
-Staging must be green for at least 10 minutes of manual use before a production deploy.
-
----
-
-#### PHASE 5 — PRODUCTION DEPLOY
-*Only reached after Phase 4 passes completely.*
-
-**Step 1 — Final confirmation**
-
-Before running the production deploy command, state clearly:
-
-*"Staging passed all smoke tests. I am about to deploy [commit hash or version] to production. The changes in this deploy are: [list]. Do you want to proceed?"*
-
-Wait for explicit confirmation. Do not auto-proceed.
-
-**Step 2 — Deploy**
-
-```bash
-# Deploy to production
-# [project-specific deploy command]
-
-# Immediately after:
-[ ] Deploy command exited with no errors
-[ ] Production URL is reachable
-[ ] Check error monitoring dashboard for spike in errors
-```
-
-**Step 3 — Tag the release**
-
-```bash
-git tag v[version] -m "release: [one sentence summary of what this deploy contains]"
-git push origin v[version]
-```
-
-Log the version and deploy date in PROJECT.md under Releases.
-
----
-
-#### PHASE 6 — POST-DEPLOY VERIFICATION
-*Run immediately after every production deploy. Do not skip.*
-
-```
-[ ] Homepage / main screen loads without errors
-[ ] Core feature works end-to-end with a real test action
-[ ] Authentication flow works — login and logout
-[ ] Any feature changed in this deploy is manually tested in production
-[ ] Error monitoring shows no new error spikes (check 5 minutes post-deploy)
-[ ] Response times are normal — no visible slowdown
-[ ] Any scheduled jobs or background workers are still running
-```
-
-If anything fails: move immediately to the Rollback Protocol below.
-
-**Observation window:** Stay present for 15 minutes after a production deploy. Watch for:
-- Error rate spikes
-- Performance degradation
-- User reports of broken features
-
----
-
-#### ROLLBACK PROTOCOL
-*Run immediately if post-deploy verification fails or a critical issue is found in production.*
-
-**Step 1 — Assess severity in under 2 minutes**
-
-```
-Is the issue causing:
-  → Data loss or corruption?        → CRITICAL — rollback immediately
-  → Login or payment failure?       → CRITICAL — rollback immediately
-  → Core feature broken for all?    → HIGH — rollback unless fix < 5 min
-  → One feature broken for some?    → MEDIUM — hotfix may be faster
-  → Visual glitch, minor breakage?  → LOW — schedule fix, no rollback needed
-```
-
-**Step 2 — Rollback (CRITICAL or HIGH)**
-
-```bash
-# Option A — Redeploy the last known-good version
-git checkout [last-good-tag]
-# [deploy command]
-
-# Option B — Platform rollback (Vercel, Railway, Render, etc.)
-# Use the platform dashboard to roll back to the previous deployment
-
-# Confirm:
-[ ] Production is back to the previous working version
-[ ] Smoke test passes on the rolled-back version
-[ ] Error rate has returned to baseline
-```
-
-**Step 3 — Document immediately**
-
-```markdown
-## [date] — Rollback: [short description]
-**Deploy version:** [tag or commit]
-**Rolled back to:** [previous tag or commit]
-**Reason:** [what broke and why]
-**Detection:** [how it was caught — monitoring / user report / smoke test]
-**Time to rollback:** [minutes]
-**Next steps:** [what needs to be fixed before re-deploying]
-```
-
-Add this to DEBT.md under a `## Rollback Log` section.
-
----
-
-#### DEPLOY REPORT FORMAT
-*(Produce this at the end of every deploy — pass or rollback)*
-
-```
-─────────────────────────────────────
-DEPLOY REPORT
-Date: [date]    Version: [tag]    Target: [staging / production]
-─────────────────────────────────────
-GATE CHECKS
-All passed: ✅ / ❌ (list any failures)
-─────────────────────────────────────
-CHANGES DEPLOYED
-[bullet list of features, fixes, or changes in this deploy]
-─────────────────────────────────────
-ENVIRONMENT
-Env vars verified:     ✅ / ❌
-Migrations run:        ✅ / ❌ / N/A
-Build clean:           ✅ / ❌
-─────────────────────────────────────
-STAGING
-Deployed:              ✅ / ❌
-Smoke test passed:     ✅ / ❌
-Observation window:    [n] minutes
-─────────────────────────────────────
-PRODUCTION
-Deployed:              ✅ / ❌ / N/A
-Post-deploy check:     ✅ / ❌
-Errors after deploy:   None / [description]
-Rollback required:     No / Yes → [reason]
-─────────────────────────────────────
-RELEASE TAGGED
-Tag: v[version]
-Notes: [one sentence]
-─────────────────────────────────────
-```
-
----
-
-#### GOLDEN RULES FOR DEPLOY
-
-```
-🔴 Never deploy directly to production without passing staging first
-🔴 Never deploy with a failing test suite
-🔴 Never deploy on a Friday or before a long weekend
-🔴 Never run a destructive migration without a written rollback plan
-🔴 Never deploy without knowing how to roll back in under 5 minutes
-🟡 Always tag every production release — version history is a safety net
-🟡 Always stay present for 15 minutes after a production deploy
-🟡 Always deploy to one environment at a time — staging, then production
-🔵 A deploy with no smoke test is a guess, not a release
-🔵 The deploy is not done until the report is written
-```
-
----
-
-## PART 4 — LEARNING MODE
-*Active every session. I am a beginner learning while building.*
-
-### Core Rule
-Never jump straight to code. Always explain first.
-
-**Before every piece of code:**
-```
-WHAT:    What is this thing we are building?
-WHY:     Why are we doing it this way and not another?
-HOW:     How does it work at a basic level?
-ANALOGY: If this were a real-world object, what would it be?
-THEN:    Here is the code...
-```
-
-### Understanding Checks
-After every new concept, run one of these (rotate to keep it varied):
-
-- **Plain English test:** *"Can you explain in one sentence what this function does?"*
-- **Predict the output:** *"If I called this with [input], what would the output be and why?"*
-- **Spot the difference:** Show two versions — *"What is the difference and why did we choose this one?"*
-- **Find the bug:** Introduce a small mistake — *"Something is wrong — can you spot it?"*
-
-Never move to the next feature until the check is passed.
-If I get it wrong — explain differently, never repeat the same explanation.
-
-### Guided Discovery Rule
-When I ask something I could figure out with a hint — guide, don't answer directly.
-
-If I ask: *"How do I get the length of an array?"*
-Don't say: `array.length`
-Say: *"Arrays have built-in properties describing them. What English word would you use to describe how many items are in a list?"*
-
-Only give the full answer if:
-- I have genuinely tried and am stuck
-- The concept is too advanced to hint toward
-- I say "just tell me"
-
-### Code Comments for Learning
-Every code block gets a comment above each section explaining what it does and why, in plain English. After writing code, ask: *"Do you understand this? Want me to explain any part differently?"* Wait for my answer every time.
-
-### New Technical Terms
-Flag with 📚 and explain immediately. Add to GLOSSARY.md:
-```markdown
-## [term]
-**Plain English:** One sentence explanation
-**In our project:** Where and why we use it
-**Example:** Short code snippet
-```
-
-### Connect New to Known
-Every new concept connects to something already built:
-*"Remember when we did [X]? This is similar because [connection]. The difference is [difference]."*
-
-### Deliberate Mistake Sessions
-Every 3–4 sessions:
-1. Take working code we already wrote
-2. Introduce 2–3 small bugs
-3. I find and fix them without help
-4. Hints only after 5 minutes of genuine struggle
-5. After fixing: explain why each bug happened and how to prevent it
-
-### Learning Log — LEARNING.md Entry Format
-*(Add at end of every session)*
-```markdown
-## [date]
-**What we built:** [one sentence]
-**New concepts learned:**
-**Concepts I understood immediately:**
-**Concepts I am still fuzzy on:**
-**Question I want to explore next:**
-**Confidence today (1–10):**
-```
-
-Every 10 sessions, summarize into a progress report.
-
-### Decision Journal — WHY.md Entry Format
-*(Add after every significant technical decision)*
-```markdown
-## [date] — [what we decided]
-**The question we faced:**
-**Why we chose this:**
-**What we rejected and why:**
-**What I learned:**
-```
-
----
-
-## PART 5 — PROJECT HEALTH MILESTONES
-
-### After Every 5 Features
-- [ ] Review PROJECT.md — is scope still accurate?
-- [ ] Check DEBT.md — anything becoming urgent?
-- [ ] Check DEPENDENCIES.md — any packages unused?
-- [ ] Run a full code review on the most changed file
-- [ ] Run Debt Payment Session if high-priority items exist
-- [ ] Commit: `chore: project health check — 5 features done`
-
-### After Every 10 Features (or Monthly)
-- [ ] Full reorganization audit — does structure still fit?
-- [ ] Full DEBT.md review
-- [ ] Update LEARNING.md progress summary
-- [ ] Review GLOSSARY.md — terms to add or clarify?
-- [ ] Check all dependencies for updates and vulnerabilities
-- [ ] Review Definition of Done — on track for v1?
-
-### When v1 is Complete
-- [ ] Full code review on every file
-- [ ] Full reorganization check
-- [ ] Pay down all HIGH priority debt
-- [ ] Update PROJECT.md with v1 completion date
-- [ ] Merge dev into main: `release: v1.0 — [one sentence]`
-- [ ] Tag: `git tag v1.0`
-- [ ] Create v2 scope from NICE TO HAVE list
-
----
-
-## PART 6 — REFERENCE: PROJECT FILES
-
-| File | Purpose | Updated |
-|---|---|---|
-| `CLAUDE.md` | This file — all rules Claude follows | When rules change |
-| `PROJECT.md` | What, why, who, scope, decisions log | Every major decision |
-| `DEBT.md` | Technical debt tracker | Every session |
-| `DEPENDENCIES.md` | Every package, why it was installed | Every install |
-| `GLOSSARY.md` | Technical terms in plain English | Every new term |
-| `WHY.md` | Decision journal | Every significant decision |
-| `LEARNING.md` | Growth tracker — concepts, gaps, confidence | Every session close |
-| `REVIEWS.md` | Code review history + test health log | Every review, every merge |
-
----
-
-## PART 7 — PROMPTS TO USE
-
-**Start a new project:**
-Run the New Project Routine from CLAUDE.md from Phase 1 Step 1. Do not write any feature code until the routine is fully complete.
-
-**Clean up a messy project:**
-Run the Reorganization Routine from CLAUDE.md. Read everything, change nothing, and give me the audit report first.
-
-
-
-**Start any session:**
-Read CLAUDE.md and run the Session Opening Routine.
-
-**End any session:**
-Run the Session Closing Routine from CLAUDE.md before I close.
-
-**Pay down debt:**
-We have completed 5 features. Run a Debt Payment Session from CLAUDE.md. No new features today.
-
-
-
-
-**Fix a bug:**
-I found a bug. Run the Bug Fix Protocol from CLAUDE.md. Do not touch any code until Phase 1 triage is complete.
-
-**Add a new feature:**
-I want to add [feature]. Run the Feature Routine from CLAUDE.md.
-
-**Review code:**
-Feature is working. Run the full Code Review Routine on [file] before we commit.
-
-
-
-
-**Deploy to staging or production:**
-I am ready to deploy. Run the Pre-Deploy Routine from CLAUDE.md. Do not touch the deploy command until all gate checks pass.
+Rollback golden rules: know the previous-good version and the one command to restore it *before* deploying; destructive migration needs a written rollback + backup first; never deploy on a failing suite or right before you're unavailable.
+
+## D4 — Project Health Milestones
+Run a quick health pass periodically so debt doesn't compound silently.
+
+- **Every ~5 features:** scope still accurate? `DEBT.md` anything urgent? unused deps? full review of the most-churned file; pay down high-priority debt.
+- **Every ~10 features / monthly:** does the folder structure still fit (→ Refactor)? full `DEBT.md` review; dep updates + CVE check; indexes still match query patterns.
+- **At a version cut:** review every touched area, pay down high-priority debt, tag the release, merge to `main`, open the next version's scope.
+
+## D5 — Learning Mode *(optional — off by default; turn on by saying "learning mode on")*
+For when the goal is to *understand*, not just ship. When on:
+
+- **Explain before code:** WHAT we're building → WHY this way (and not the alternative) → HOW it works → a real-world ANALOGY → then the code.
+- **Comment for a learner:** a plain-English line above each block saying what it does and why.
+- **Understanding check** after each new concept (rotate): "explain it back in one sentence" · "predict the output of this input" · "spot the difference between these two versions" · "find the planted bug." Don't advance until it lands; if it misses, re-explain *differently*.
+- **Guided discovery:** when something is hint-able, hint instead of answering — unless they've genuinely tried, it's too advanced to hint, or they say "just tell me."
+- **Flag new terms** with 📚 and a one-line plain-English definition (optionally logged to a `GLOSSARY.md`).
+- **Connect new → known:** "this is like <X> we built earlier; the difference is <Y>."
+- Optional close-of-session log (`LEARNING.md`): what we built · concepts that clicked · concepts still fuzzy · what to explore next · confidence 1–10.
+
+When off, default to concise expert-to-expert output.
