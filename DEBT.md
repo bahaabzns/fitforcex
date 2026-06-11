@@ -302,3 +302,12 @@ Format:
 **Why it matters:** Minor UX — clients who omit /portal see the marketing page. Blocked on the Next upgrade so we don't add a proxy on a proxy-bypass-vulnerable Next.
 **Effort:** Small (add proxy.ts after upgrade; keep it cosmetic, never an auth gate)
 **Priority:** Low
+
+---
+
+## 2026-06-11 — server/src/app.ts (helmet CSP)
+**Type:** Shortcut
+**What:** CSP directives hardcode production domains: connectSrc uses fitforce.io/*.fitforce.io, but frameAncestors uses a different domain (fitforceapp.com/*.fitforceapp.com). Domains should derive from ROOT_DOMAIN, and the fitforce.io vs fitforceapp.com mismatch needs confirmation.
+**Why it matters:** Hardcoded/inconsistent domains break or silently misconfigure CSP when the real domain differs; a wrong frame-ancestors weakens clickjacking protection or blocks a legit embedder.
+**Effort:** Small (build CSP arrays from env.ROOT_DOMAIN; confirm the canonical app domain)
+**Priority:** Medium
