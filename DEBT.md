@@ -307,7 +307,7 @@ Format:
 
 ## 2026-06-11 — server/src/app.ts (helmet CSP)
 **Type:** Shortcut
-**What:** CSP directives hardcode production domains: connectSrc uses fitforce.io/*.fitforce.io, but frameAncestors uses a different domain (fitforceapp.com/*.fitforceapp.com). Domains should derive from ROOT_DOMAIN, and the fitforce.io vs fitforceapp.com mismatch needs confirmation.
-**Why it matters:** Hardcoded/inconsistent domains break or silently misconfigure CSP when the real domain differs; a wrong frame-ancestors weakens clickjacking protection or blocks a legit embedder.
-**Effort:** Small (build CSP arrays from env.ROOT_DOMAIN; confirm the canonical app domain)
+**What:** CSP directives hardcode production domains: connectSrc uses fitforce.io/*.fitforce.io, but frameAncestors uses fitforceapp.com/*.fitforceapp.com. Canonical domain CONFIRMED as fitforce.io, so frameAncestors is stale and should be fitforce.io/*.fitforce.io. Domains should derive from ROOT_DOMAIN.
+**Why it matters:** frame-ancestors allowing fitforceapp.com (an unused domain) weakens clickjacking protection — it permits an unintended host to embed API responses. Hardcoding also drifts from the real domain over time.
+**Effort:** Small (build CSP arrays from env.ROOT_DOMAIN; replace fitforceapp.com with fitforce.io)
 **Priority:** Medium
