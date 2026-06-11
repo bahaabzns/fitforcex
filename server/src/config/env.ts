@@ -26,6 +26,10 @@ export const env = {
     CLIENT_URL:           process.env.CLIENT_URL ?? 'http://localhost:3000',
     SERVER_URL:           process.env.SERVER_URL ?? 'http://localhost:4000',
 
+    // Root domain for workspace subdomains (e.g. acme.fitforce.io).
+    // Dev default is 'localhost' so *.localhost subdomains pass CORS; production sets fitforce.io.
+    ROOT_DOMAIN:          process.env.ROOT_DOMAIN ?? 'localhost',
+
     // Email (SMTP)
     SMTP_HOST:            process.env.SMTP_HOST ?? '',
     SMTP_PORT:            parseInt(process.env.SMTP_PORT ?? '587', 10),

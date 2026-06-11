@@ -8,6 +8,7 @@ import swaggerUi from 'swagger-ui-express';
 import * as Sentry from '@sentry/node';
 
 import { env } from './config/env';
+import { isAllowedOrigin } from './lib/cors';
 import logger from './logger';
 import { swaggerSpec } from './config/swagger';
 import { readLimiter, mutationLimiter } from './middleware/rateLimit';
@@ -87,7 +88,7 @@ app.use(helmet({
 app.use(compression());
 app.use(cors({
     origin: (origin, cb) => {
-        if (!origin || env.ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+        if (isAllowedOrigin(origin)) return cb(null, true);
         cb(new Error(`CORS: ${origin} not allowed`));
     },
     credentials: true,

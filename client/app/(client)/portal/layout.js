@@ -18,8 +18,8 @@ export default function ClientLayout({ children }) {
         api.get("/api/client-portal/me")
             .then(() => setLoading(false))
             .catch(() => {
-            const slug = localStorage.getItem('portal_slug');
-            router.push(slug ? `/portal/${slug}` : '/');
+            // The subdomain identifies the coach, so the login page is just /portal.
+            router.push('/portal');
         });
     }, [pathname, router, isLoginPage]);
 
