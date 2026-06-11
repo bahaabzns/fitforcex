@@ -84,3 +84,9 @@ Format per package:
 **Why:** Egyptian payment gateway. Supports creating invoices and checking payment status via polling.
 **Used in:** `server/routes/billing.js`, `client/app/(coach)/[workspaceSlug]/settings/billing/page.js`
 **Review date:** 2026-08-25
+
+## vitest v4.1.8
+**Installed:** 2026-06-11
+**Why:** Client had no test runner; needed to unit-test the portal subdomain-slug helper and future client code.
+**Used in:** client/lib/coachSlug.test.js (client test suite via `npm test`)
+**Review date:** 2026-09-11
