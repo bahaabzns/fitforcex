@@ -14,6 +14,14 @@ fail() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 
 cd "$APP_DIR" || fail "Could not cd to $APP_DIR"
 
+# Load server env vars (DATABASE_URL etc.) so deploy steps can use them
+if [ -f "$APP_DIR/server/.env" ]; then
+    set -a
+    # shellcheck source=server/.env
+    source "$APP_DIR/server/.env"
+    set +a
+fi
+
 step "Pulling latest code..."
 git pull origin main
 ok "Code updated"
