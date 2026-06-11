@@ -324,3 +324,13 @@ Format:
   → New test added: yes (tests/unit/packages.serializer.test.ts)
   → New validation added: no
   → DEBT.md item added: this entry
+
+---
+
+## 2026-06-11 — server/src/modules/auth/auth.controller.ts (switchWorkspace + JWT) + client/app/(coach)/layout.js
+**Type:** Knowledge
+**What:** Active workspace is a mutable claim baked into the JWT and stored in one shared `token` cookie; the URL slug is reconciled to match the token rather than the URL being the source of truth. Industry best practice for multi-tenant SaaS (Vercel/Linear/GitHub) is the inverse: the session authenticates the user + which workspaces they may access, and the active workspace is derived per request from the URL slug. Decision made 2026-06-11 to keep the current design for now.
+**Why it matters:** Multi-tab correctness bug — because the cookie holds a single "active" workspace shared across tabs, switching workspace in tab B silently changes the active workspace for in-flight requests in tab A, even though tab A's URL still shows the old slug. The reconciliation effect in layout.js (line ~93) only fixes this on navigation, not for API calls already in flight. Low impact while coaches use one workspace at a time; bites once they genuinely juggle multiple workspaces.
+**Effort:** Large (move active-workspace authority out of the JWT to per-request derivation from the URL slug; authorize membership of the slug's workspace on every protected endpoint; `switch-workspace` mostly disappears — switching becomes navigation)
+**Priority:** Medium
+**Mitigation in place:** `buildTokenForWorkspace` validates the user is a member before issuing a token for a workspace, so the current model is safe (no cross-tenant access) — just not multi-tab-correct.
