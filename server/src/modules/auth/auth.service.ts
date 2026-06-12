@@ -16,7 +16,8 @@ export function cookieOptions() {
     return {
         httpOnly: true,
         secure:   env.NODE_ENV === 'production',
-        sameSite: 'strict' as const,
+        sameSite: 'lax' as const,
+        ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {}),
         maxAge:   7 * 24 * 60 * 60 * 1000,
     };
 }

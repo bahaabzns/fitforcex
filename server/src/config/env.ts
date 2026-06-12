@@ -26,9 +26,13 @@ export const env = {
     CLIENT_URL:           process.env.CLIENT_URL ?? 'http://localhost:3000',
     SERVER_URL:           process.env.SERVER_URL ?? 'http://localhost:4000',
 
-    // Root domain for workspace subdomains (e.g. acme.fitforce.io).
-    // Dev default is 'localhost' so *.localhost subdomains pass CORS; production sets fitforce.io.
+    // Root domain for workspace subdomains (e.g. acme.fitforce.app).
+    // Dev default is 'localhost' so *.localhost subdomains pass CORS; production sets fitforce.app.
     ROOT_DOMAIN:          process.env.ROOT_DOMAIN ?? 'localhost',
+
+    // Cookie domain — set to '.fitforce.app' in production so the auth cookie is shared
+    // across my., admin., and all slug. subdomains. Empty string = host-only (dev default).
+    COOKIE_DOMAIN:        process.env.COOKIE_DOMAIN ?? '',
 
     // Email (SMTP)
     SMTP_HOST:            process.env.SMTP_HOST ?? '',
@@ -36,7 +40,7 @@ export const env = {
     SMTP_SECURE:          process.env.SMTP_SECURE === 'true',
     SMTP_USER:            process.env.SMTP_USER ?? '',
     SMTP_PASS:            process.env.SMTP_PASS ?? '',
-    SMTP_FROM:            process.env.SMTP_FROM ?? 'noreply@fitforce.io',
+    SMTP_FROM:            process.env.SMTP_FROM ?? 'noreply@fitforce.app',
 
     // Storage (S3 / Cloudflare R2)
     S3_REGION:            process.env.S3_REGION ?? 'auto',

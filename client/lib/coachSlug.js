@@ -1,5 +1,5 @@
 // Resolves which coach/workspace a client portal request belongs to, based on the
-// subdomain. e.g. on "acme.fitforce.io" the slug is "acme".
+// subdomain. e.g. on "acme.fitforce.app" the slug is "acme".
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost';
 
@@ -54,13 +54,13 @@ export function getCoachSlug() {
  * @param {string} rootDomain e.g. "fitforce.io" or "lvh.me"
  * @param {string} protocol   e.g. "https:" (window.location.protocol)
  * @param {string} port       e.g. "3000" or "" (window.location.port)
- * @returns {string} e.g. "https://pola.fitforce.io/portal"
+ * @returns {string} e.g. "https://pola.fitforce.app"
  */
 export function buildPortalUrlFromParts(slug, rootDomain, protocol, port) {
     if (!slug || !rootDomain) return '';
     const root = rootDomain.split(':')[0].toLowerCase();
     const host = port ? `${slug}.${root}:${port}` : `${slug}.${root}`;
-    return `${protocol}//${host}/portal`;
+    return `${protocol}//${host}`;
 }
 
 /**

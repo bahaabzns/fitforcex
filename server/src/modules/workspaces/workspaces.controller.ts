@@ -6,6 +6,12 @@ import { DEFAULT_PERMISSIONS, VALID_ROLES } from '../../lib/defaultPermissions';
 import { checkSeatLimit, checkWorkspaceLimit } from '../../lib/seatLimits';
 import { prisma } from '../../lib/prisma';
 
+// Must stay in sync with client/middleware.js RESERVED set
+const RESERVED_SLUGS = new Set([
+    'my', 'admin', 'www', 'api', 'mail', 'smtp',
+    'app', 'portal', 'management', 'static', 'assets', 'cdn',
+]);
+
 export function normalizeSlug(raw: string): string {
     return raw
         .toString()
@@ -24,6 +30,10 @@ export async function createWorkspace(req: Request, res: Response, next: NextFun
 
         const rawSlug      = slug?.trim() || name;
         let normalizedSlug = normalizeSlug(rawSlug) || `workspace-${Date.now()}`;
+
+        if (RESERVED_SLUGS.has(normalizedSlug)) {
+            return res.status(400).json({ message: `"${normalizedSlug}" is a reserved slug and cannot be used` });
+        }
 
         const conflict = await prisma.workspaces.findFirst({
             where: { slug: normalizedSlug },
@@ -123,6 +133,9 @@ export async function updateSlug(req: Request, res: Response, next: NextFunction
 
         const normalized = normalizeSlug(slug.trim());
         if (!normalized) return res.status(400).json({ message: 'Slug must contain alphanumeric characters' });
+        if (RESERVED_SLUGS.has(normalized)) {
+            return res.status(400).json({ message: `"${normalized}" is a reserved slug and cannot be used` });
+        }
 
         const conflict = await prisma.workspaces.findFirst({
             where: { slug: normalized, id: { not: req.user!.workspaceId } },
