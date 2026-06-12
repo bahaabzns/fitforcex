@@ -547,7 +547,11 @@ router.post('/reset-password', loginLimiter, async (req, res, next) => {
 });
 
 router.post('/logout', (req, res) => {
-    res.clearCookie('token').status(200).json({ message: 'Logged out successfully' });
+    const base = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Lax' };
+    // Clear both: cookie set with domain (new) and without domain (pre-COOKIE_DOMAIN deploy)
+    res.clearCookie('token', { ...base, domain: process.env.COOKIE_DOMAIN || undefined });
+    res.clearCookie('token', base);
+    res.status(200).json({ message: 'Logged out successfully' });
 });
 
 // Update personal profile (name and/or password)

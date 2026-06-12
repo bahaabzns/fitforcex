@@ -68,8 +68,9 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         res.cookie('client_token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            sameSite: 'Lax',
+            domain: process.env.COOKIE_DOMAIN || undefined,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
         }).status(200).json({ message: 'Login successful' });
 
     } catch (err) {
@@ -79,7 +80,10 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 
 // POST /api/client-portal/logout
 router.post('/logout', (req, res) => {
-    res.clearCookie('client_token').status(200).json({ message: 'Logged out' });
+    const base = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Lax' };
+    res.clearCookie('client_token', { ...base, domain: process.env.COOKIE_DOMAIN || undefined });
+    res.clearCookie('client_token', base);
+    res.status(200).json({ message: 'Logged out' });
 });
 
 // GET /api/client-portal/me  — protected

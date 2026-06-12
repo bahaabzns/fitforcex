@@ -30,8 +30,9 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         res.cookie('admin_token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict',
-            maxAge: 8 * 60 * 60 * 1000, // 8 hours
+            sameSite: 'Lax',
+            domain: process.env.COOKIE_DOMAIN || undefined,
+            maxAge: 8 * 60 * 60 * 1000,
         })
            .status(200)
            .json({ message: 'Admin login successful', admin: { id: admin.id, email: admin.email, fname: admin.fname, lname: admin.lname } });
@@ -54,7 +55,10 @@ router.get('/me', adminAuthMiddleware, async (req, res, next) => {
 });
 
 router.post('/logout', adminAuthMiddleware, (req, res) => {
-    res.clearCookie('admin_token').status(200).json({ message: 'Logged out' });
+    const base = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Lax' };
+    res.clearCookie('admin_token', { ...base, domain: process.env.COOKIE_DOMAIN || undefined });
+    res.clearCookie('admin_token', base);
+    res.status(200).json({ message: 'Logged out' });
 });
 
 // ── Stats ─────────────────────────────────────────────────────────────────────

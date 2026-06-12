@@ -110,9 +110,13 @@ export default function Sidebar({ collapsed }) {
     const handleLogout = async () => {
         try {
             await api.post('/api/auth/logout');
-            router.push('/login');
         } catch (err) {
             console.error(err);
+        } finally {
+            // Hard redirect so React state and any cached auth is fully reset.
+            // router.push would do a client-side nav and the login page's /me
+            // check can race against the cookie deletion.
+            window.location.href = '/login';
         }
     };
 
