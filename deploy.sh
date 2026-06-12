@@ -28,8 +28,12 @@ ok "Code updated"
 
 step "Installing server dependencies..."
 cd "$APP_DIR/server"
-npm ci --omit=dev
+npm ci
 ok "Server deps installed"
+
+step "Building server (TypeScript → dist/)..."
+npm run build
+ok "Server built"
 
 step "Initializing schema (first deploy only)..."
 # On a brand-new empty database, restore the full schema from schema.sql before
