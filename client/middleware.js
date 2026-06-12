@@ -46,10 +46,7 @@ export function middleware(request) {
     // admin subdomain: serve clean URLs without the /admin prefix
     if (subdomain === 'admin') {
         if (pathname.startsWith('/admin')) {
-            // Redirect /admin/login → /login, /admin/users → /users, etc.
-            const url = request.nextUrl.clone();
-            url.pathname = pathname.slice('/admin'.length) || '/';
-            return NextResponse.redirect(url);
+            return new NextResponse(null, { status: 404 });
         }
         if (!pathname.startsWith('/api')) {
             // Rewrite /login → /admin/login so Next.js serves the admin routes
