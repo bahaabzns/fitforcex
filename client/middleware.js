@@ -43,7 +43,17 @@ export function middleware(request) {
         return NextResponse.redirect(url);
     }
 
-    // Reserved subdomains (my, admin, api …) — pass through normally
+    // admin subdomain: redirect root to /admin
+    if (subdomain === 'admin') {
+        if (!pathname.startsWith('/admin')) {
+            const url = request.nextUrl.clone();
+            url.pathname = '/admin';
+            return NextResponse.redirect(url);
+        }
+        return NextResponse.next();
+    }
+
+    // Other reserved subdomains (my, api …) — pass through normally
     if (RESERVED.has(subdomain)) {
         return NextResponse.next();
     }

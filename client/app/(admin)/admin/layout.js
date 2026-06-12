@@ -34,7 +34,7 @@ export default function AdminLayout({ children }) {
 
     async function handleLogout() {
         await api.post('/api/admin/logout').catch(() => {});
-        router.push('/admin/login');
+        window.location.href = '/admin/login';
     }
 
     if (isLoginPage) return <>{children}</>;
