@@ -285,7 +285,7 @@ export default function ClientsPage() {
 
     useEffect(() => {
         Promise.all([
-            api.get("/api/clients?page=1&limit=20"), // Fetch first page of clients for initial display
+            api.get("/api/clients?page=1&limit=10000"),
             api.get("/api/packages"),
             api.get("/api/payment-methods"),
             api.get("/api/forms"),
@@ -461,7 +461,7 @@ export default function ClientsPage() {
                 notes: freezeNotes || null,
             });
             // Re-fetch to update computed statuses
-            const updated = await api.get("/api/clients?page=1&limit=20");
+            const updated = await api.get("/api/clients?page=1&limit=10000");
             setClients(updated.data.data ?? []);
             setShowFreezeModal(false);
         } catch (err) {
