@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import api from "@/lib/axios";
+import { redirectToDashboard } from "@/lib/coachSlug";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { TextField } from "@heroui/react/textfield";
@@ -29,7 +30,7 @@ function LoginContent() {
                 }
                 const slug = res.data?.currentWorkspace?.slug;
                 if (slug) {
-                    router.push(`/${slug}/dashboard`);
+                    redirectToDashboard(slug);
                     return;
                 }
                 setChecking(false);
@@ -51,7 +52,7 @@ function LoginContent() {
             }
             const slug = me.data?.currentWorkspace?.slug;
             if (!slug) { router.push('/login'); return; }
-            router.push(`/${slug}/dashboard`);
+            redirectToDashboard(slug);
         } catch (err) {
             setError(err.response?.data?.message || 'Invalid email or password.');
         } finally {

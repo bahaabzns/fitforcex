@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import api from "@/lib/axios";
+import { redirectToDashboard } from "@/lib/coachSlug";
 import { useRouter } from "next/navigation";
 import { TextField } from "@heroui/react/textfield";
 import { Label } from "@heroui/react/label";
@@ -25,7 +26,7 @@ export default function VerifyEmailRequiredPage() {
             await api.post('/api/auth/verify-email', { code });
             const me = await api.get('/api/auth/me');
             const slug = me.data?.currentWorkspace?.slug;
-            router.push(slug ? `/${slug}/dashboard` : '/login');
+            if (slug) { redirectToDashboard(slug); } else { router.push('/login'); }
         } catch (err) {
             setError(err.response?.data?.message || 'Something went wrong. Please try again.');
         } finally {
@@ -78,7 +79,7 @@ export default function VerifyEmailRequiredPage() {
                                 try {
                                     const me = await api.get('/api/auth/me');
                                     const slug = me.data?.currentWorkspace?.slug;
-                                    router.push(slug ? `/${slug}/dashboard` : '/login');
+                                    if (slug) { redirectToDashboard(slug); } else { router.push('/login'); }
                                 } catch {
                                     router.push('/login');
                                 }

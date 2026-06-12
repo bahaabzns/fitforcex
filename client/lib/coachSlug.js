@@ -72,3 +72,17 @@ export function buildPortalUrl(slug) {
     const { protocol, port } = window.location;
     return buildPortalUrlFromParts(slug, ROOT_DOMAIN, protocol, port);
 }
+
+/**
+ * Navigates to the coach dashboard on my.{ROOT_DOMAIN}/{slug}/dashboard.
+ * Uses window.location.href so it works cross-subdomain (e.g. fitforce.app → my.fitforce.app).
+ * In dev (localhost) stays on the same host to avoid subdomain complexity.
+ */
+export function redirectToDashboard(slug) {
+    if (!slug || typeof window === 'undefined') return;
+    const { protocol, hostname, port } = window.location;
+    const targetHost = hostname === 'localhost'
+        ? (port ? `localhost:${port}` : 'localhost')
+        : (port ? `my.${ROOT_DOMAIN}:${port}` : `my.${ROOT_DOMAIN}`);
+    window.location.href = `${protocol}//${targetHost}/${slug}/dashboard`;
+}
