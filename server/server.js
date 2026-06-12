@@ -23,6 +23,7 @@ const apiLimiter = (req, res, next) => {
 };
 const helmet = require('helmet');
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+const FITFORCE_DOMAIN_RE = /^https:\/\/([a-z0-9-]+\.)?fitforce\.app$/;
 
 const logger = require('./logger');
 const pinoHttp = require('pino-http');
@@ -53,7 +54,9 @@ server.use(helmet());
 
 server.use(cors({
     origin: (origin, cb) => {
-        if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+        if (!origin) return cb(null, true);
+        if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+        if (FITFORCE_DOMAIN_RE.test(origin)) return cb(null, true);
         cb(new Error(`CORS: ${origin} not allowed`));
     },
     credentials: true,

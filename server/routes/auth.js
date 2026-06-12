@@ -13,7 +13,8 @@ function cookieOptions() {
     return {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Strict',
+        sameSite: 'Lax',
+        domain: process.env.COOKIE_DOMAIN || undefined, // e.g. .fitforce.app
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     }
 }
