@@ -168,7 +168,7 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
             {/* Name + meta */}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate text-foreground flex-1">{form.title}</p>
+                    <p className="text-sm font-medium truncate text-foreground flex-1">{form.title_en}</p>
                     {form.status === 'active' && (
                         <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 text-xs font-semibold">
                             <CheckIcon /> {tForms('active')}

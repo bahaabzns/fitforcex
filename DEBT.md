@@ -328,6 +328,15 @@ Format:
 
 ---
 
+## 2026-06-11 — deploy.sh + server/package.json
+**Type:** Knowledge
+**What:** PM2 runs `server/server.js` (JavaScript). The TypeScript server (`src/`) is not deployed — `deploy.sh` has no `npm run build` step, and `typescript` is a devDependency so `npm ci --omit=dev` cannot compile it. The TS rewrite is effectively dev-only until the deploy path is updated.
+**Why it matters:** All new feature code in `src/` (auth refactor, session validation, RBAC, schedulers, Prisma controllers) is unreachable on staging and production. The old JavaScript server continues to serve all requests.
+**Effort:** Small (add `npm install --include=dev && npm run build && npm prune --omit=dev` to deploy.sh; update PM2 ecosystem to point at `dist/server.js`)
+**Priority:** High
+
+---
+
 ## 2026-06-11 — server/src/modules/auth/auth.controller.ts (switchWorkspace + JWT) + client/app/(coach)/layout.js
 **Type:** Knowledge
 **What:** Active workspace is a mutable claim baked into the JWT and stored in one shared `token` cookie; the URL slug is reconciled to match the token rather than the URL being the source of truth. Industry best practice for multi-tenant SaaS (Vercel/Linear/GitHub) is the inverse: the session authenticates the user + which workspaces they may access, and the active workspace is derived per request from the URL slug. Decision made 2026-06-11 to keep the current design for now.
