@@ -76,9 +76,9 @@ router.get('/:id', sameWorkspace, async (req, res, next) => {
                     p.name AS plan_name, p.display_name AS plan_display_name,
                     p.max_team_seats, p.max_workspaces,
                     u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
-                    (SELECT COUNT(*) FROM workspace_members wm
+                    (SELECT COUNT(*)::int FROM workspace_members wm
                      WHERE wm.workspace_id = w.id AND wm.is_active = TRUE) AS member_count,
-                    (SELECT COUNT(*) FROM clients c WHERE c.workspace_id = w.id) AS client_count
+                    (SELECT COUNT(*)::int FROM clients c WHERE c.workspace_id = w.id) AS client_count
              FROM workspaces w
              JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
              JOIN plans p ON p.id = ws.plan_id
