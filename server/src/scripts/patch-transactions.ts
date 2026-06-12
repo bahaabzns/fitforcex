@@ -42,7 +42,7 @@ async function main() {
       p."clientId",
       COALESCE(p.provider, 'manual')                                  AS payment_method,
       GREATEST(COALESCE(pkg."durationMonths", 0) * 30, 30)            AS duration,
-      COALESCE(NULLIF(TRIM(c.fname || ' ' || c.lname), ''), 'Unknown') AS client_name
+      COALESCE(NULLIF(TRIM(c."fullName"), ''), 'Unknown')               AS client_name
     FROM public."Payment" p
     LEFT JOIN public."ClientPackage" pkg ON pkg.id = p."packageId"
     LEFT JOIN public."Client"        c   ON c.id   = p."clientId"
