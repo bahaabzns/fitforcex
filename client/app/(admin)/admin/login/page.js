@@ -21,7 +21,7 @@ export default function AdminLoginPage() {
         setLoading(true);
         try {
             await api.post('/api/admin/login', { email, password });
-            router.push('/admin');
+            router.push('/');
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
         } finally {

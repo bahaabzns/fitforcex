@@ -10,11 +10,11 @@ import { Button } from '@heroui/react/button';
 import { Avatar } from '@heroui/react/avatar';
 
 const NAV = [
-    { href: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
-    { href: '/admin/users', label: 'Users', icon: Users },
-    { href: '/admin/workspaces', label: 'Workspaces', icon: Building2 },
-    { href: '/admin/plans',     label: 'Plans',     icon: Package },
-    { href: '/admin/payments',  label: 'Payments',  icon: CreditCard },
+    { href: '/', label: 'Overview', icon: LayoutDashboard, exact: true },
+    { href: '/users',      label: 'Users',       icon: Users },
+    { href: '/workspaces', label: 'Workspaces',  icon: Building2 },
+    { href: '/plans',      label: 'Plans',       icon: Package },
+    { href: '/payments',   label: 'Payments',    icon: CreditCard },
 ];
 
 export default function AdminLayout({ children }) {
@@ -23,18 +23,18 @@ export default function AdminLayout({ children }) {
     const [admin, setAdmin] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const isLoginPage = pathname === '/admin/login';
+    const isLoginPage = pathname === '/login';
 
     useEffect(() => {
         if (isLoginPage) { setLoading(false); return; }
         api.get('/api/admin/me')
             .then(res => { setAdmin(res.data); setLoading(false); })
-            .catch(() => router.push('/admin/login'));
-    }, [router, isLoginPage]);
+            .catch(() => { window.location.href = '/login'; });
+    }, [isLoginPage]);
 
     async function handleLogout() {
         await api.post('/api/admin/logout').catch(() => {});
-        window.location.href = '/admin/login';
+        window.location.href = '/login';
     }
 
     if (isLoginPage) return <>{children}</>;

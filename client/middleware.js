@@ -43,12 +43,19 @@ export function middleware(request) {
         return NextResponse.redirect(url);
     }
 
-    // admin subdomain: redirect root to /admin
+    // admin subdomain: serve clean URLs without the /admin prefix
     if (subdomain === 'admin') {
-        if (!pathname.startsWith('/admin')) {
+        if (pathname.startsWith('/admin')) {
+            // Redirect /admin/login → /login, /admin/users → /users, etc.
             const url = request.nextUrl.clone();
-            url.pathname = '/admin';
+            url.pathname = pathname.slice('/admin'.length) || '/';
             return NextResponse.redirect(url);
+        }
+        if (!pathname.startsWith('/api')) {
+            // Rewrite /login → /admin/login so Next.js serves the admin routes
+            const url = request.nextUrl.clone();
+            url.pathname = `/admin${pathname === '/' ? '' : pathname}`;
+            return NextResponse.rewrite(url);
         }
         return NextResponse.next();
     }

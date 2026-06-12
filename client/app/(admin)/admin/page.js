@@ -86,7 +86,7 @@ export default function AdminOverviewPage() {
             <div>
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-base font-semibold text-foreground">Recent Registrations</h2>
-                    <Link href="/admin/users" className="text-xs text-primary hover:text-primary/80 transition-colors">
+                    <Link href="/users" className="text-xs text-primary hover:text-primary/80 transition-colors">
                         View all →
                     </Link>
                 </div>
@@ -97,7 +97,7 @@ export default function AdminOverviewPage() {
                         data.recentRegistrations.map((u, idx) => (
                             <Link
                                 key={u.id}
-                                href={`/admin/users?highlight=${u.id}`}
+                                href={`/users?highlight=${u.id}`}
                                 className={`flex items-center gap-3 px-4 py-3 hover:bg-default/40 transition-colors ${idx < data.recentRegistrations.length - 1 ? 'border-b border-border' : ''}`}
                             >
                                 <Avatar color="primary" className="w-8 h-8 text-xs shrink-0">
