@@ -23,7 +23,8 @@ if [ -f "$APP_DIR/server/.env" ]; then
 fi
 
 step "Pulling latest code..."
-git pull origin main
+git fetch origin
+git reset --hard origin/main
 ok "Code updated"
 
 step "Installing server dependencies..."
