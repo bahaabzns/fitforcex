@@ -365,8 +365,8 @@ export default function TransactionsPage() {
 
     useEffect(() => {
         Promise.all([
-            api.get("/api/transactions"),
-            api.get("/api/clients"),
+            api.get("/api/transactions?limit=10000"),
+            api.get("/api/clients?limit=10000"),
             api.get("/api/packages"),
             api.get("/api/payment-methods"),
         ]).then(([txRes, clientRes, pkgRes, pmRes]) => {
