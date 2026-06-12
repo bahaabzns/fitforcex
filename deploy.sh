@@ -23,12 +23,14 @@ if [ -f "$APP_DIR/server/.env" ]; then
 fi
 
 step "Pulling latest code..."
-git pull origin main
+git fetch origin
+git reset --hard origin/main
 ok "Code updated"
 
 step "Installing server dependencies..."
 cd "$APP_DIR/server"
-npm ci
+# Unset NODE_ENV so devDependencies (typescript, tsx, etc.) are installed for the build
+NODE_ENV=development npm ci
 ok "Server deps installed"
 
 step "Building server (TypeScript → dist/)..."

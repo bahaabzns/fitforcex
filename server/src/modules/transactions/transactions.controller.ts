@@ -172,7 +172,7 @@ export async function getByClient(req: Request, res: Response, next: NextFunctio
 
 export async function getTransactions(req: Request, res: Response, next: NextFunction) {
     const page   = Math.max(1, parseInt(req.query.page  as string) || 1);
-    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const limit  = Math.min(10000, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
     const wsId   = req.user!.workspaceId;
 
