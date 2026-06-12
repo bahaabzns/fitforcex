@@ -18,12 +18,23 @@ export function middleware(request) {
         ? hostname.slice(0, -(ROOT_DOMAIN.length + 1))
         : '';
 
-    // Root domain — marketing site, pass through
+    const { pathname } = request.nextUrl;
+
+    // Root domain (fitforce.app) — marketing + auth paths stay here;
+    // workspace routes (/{slug}/...) redirect to my.ROOT_DOMAIN
     if (!subdomain) {
+        const firstSegment = pathname.split('/')[1] || '';
+        const PUBLIC_ROOT_SEGMENTS = new Set([
+            '', 'login', 'register', 'forgot-password', 'reset-password',
+            'check-mail', 'verify-email-required', 'portal', 'admin', 'api',
+        ]);
+        if (firstSegment && !PUBLIC_ROOT_SEGMENTS.has(firstSegment)) {
+            const url = request.nextUrl.clone();
+            url.host = `my.${ROOT_DOMAIN}`;
+            return NextResponse.redirect(url);
+        }
         return NextResponse.next();
     }
-
-    const { pathname } = request.nextUrl;
 
     // Block /admin on non-admin subdomains → redirect to admin.ROOT_DOMAIN
     if (pathname.startsWith('/admin') && subdomain !== 'admin') {
