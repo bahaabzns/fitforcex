@@ -49,8 +49,11 @@ export function middleware(request) {
             return new NextResponse(null, { status: 404 });
         }
         if (!pathname.startsWith('/api')) {
-            // Rewrite /login → /admin/login so Next.js serves the admin routes
+            // Rewrite /login → /admin/login so Next.js serves the admin routes.
+            // Force http: so the internal proxy hits http://localhost:3000
+            // instead of https://localhost:3000 (EPROTO — port 3000 is plain HTTP).
             const url = request.nextUrl.clone();
+            url.protocol = 'http:';
             url.pathname = `/admin${pathname === '/' ? '' : pathname}`;
             return NextResponse.rewrite(url);
         }
@@ -68,8 +71,10 @@ export function middleware(request) {
         return NextResponse.next();
     }
 
-    // Rewrite root and any other path to /portal/[coachSlug][path]
+    // Rewrite root and any other path to /portal/[coachSlug][path].
+    // Force http: so the internal proxy hits http://localhost:3000 (not https).
     const url = request.nextUrl.clone();
+    url.protocol = 'http:';
     url.pathname = `/portal/${subdomain}${pathname === '/' ? '' : pathname}`;
     return NextResponse.rewrite(url);
 }
