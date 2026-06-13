@@ -89,8 +89,9 @@ export default function LandingPricing({ onCtaClick, currentPlanId, isInline = f
     const [seatCounts, setSeatCounts] = useState({});
 
     useEffect(() => {
+        const plansUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/plans${isInline ? '?billing=true' : ''}`;
         Promise.all([
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/plans`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+            fetch(plansUrl).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
             fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/plans/billing-discounts`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
         ])
         .then(([plansData, discountsData]) => {

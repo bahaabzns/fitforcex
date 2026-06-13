@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 
 router.get('/', async (req, res, next) => {
+    const billingContext = req.query.billing === 'true';
     try {
         const { rows: plans } = await pool.query(`
             SELECT
@@ -11,9 +12,9 @@ router.get('/', async (req, res, next) => {
                 currency, is_popular, cta_text, cta_variant, payment_link,
                 features_header, features_subheader, has_team_counter, features
             FROM plans
-            WHERE is_active = true AND show_on_landing = true
+            WHERE is_active = true AND (show_on_landing = true OR $1 = true)
             ORDER BY sort_order ASC, id ASC
-        `);
+        `, [billingContext]);
 
         if (plans.length === 0) return res.json([]);
 
