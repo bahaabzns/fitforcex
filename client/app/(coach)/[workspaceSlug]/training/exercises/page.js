@@ -3,13 +3,19 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel } from "@/app/components/Field";
 import DataTable from "@/app/components/DataTable";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
 
+// Native file inputs and textareas have no HeroUI equivalent here, so they keep
+// this shared input styling for visual consistency with the converted fields.
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
-const labelCls = "text-xs text-muted-foreground mb-1 block";
 
 const initialState = {
     name_en: "",
@@ -178,6 +184,7 @@ export default function ExerciseLibraryPage() {
                     muscleGroups={muscleGroups}
                     equipments={equipments}
                     onSubmit={handleCreate}
+                    onCancel={() => { setShowForm(false); resetForm(); }}
                     onVideoChange={setVideoFile}
                     onThumbnailChange={setThumbnailFile}
                     submitLabel={t("submitCreate")}
@@ -191,6 +198,7 @@ export default function ExerciseLibraryPage() {
                     muscleGroups={muscleGroups}
                     equipments={equipments}
                     onSubmit={handleUpdate}
+                    onCancel={() => { setEditing(null); resetForm(); }}
                     onVideoChange={setVideoFile}
                     onThumbnailChange={setThumbnailFile}
                     submitLabel={t("submitEdit")}
@@ -209,65 +217,72 @@ export default function ExerciseLibraryPage() {
     );
 }
 
-function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onVideoChange, onThumbnailChange, submitLabel }) {
+function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onCancel, onVideoChange, onThumbnailChange, submitLabel }) {
     const t = useTranslations("exercises");
+    const tCommon = useTranslations("common");
+    const setField = (name) => (val) => onChange((prev) => ({ ...prev, [name]: val }));
     return (
         <form onSubmit={onSubmit} className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
-                <div>
-                    <label className={labelCls}>{t("labelNameEn")}</label>
-                    <input
-                        className={inputCls}
-                        placeholder={t("placeholderNameEn")}
-                        value={value?.name_en || ""}
-                        onChange={(e) => onChange((prev) => ({ ...prev, name_en: e.target.value }))}
-                        required
-                    />
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel required>{t("labelNameEn")}</FieldLabel>
+                    <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} value={value?.name_en || ""} onChange={setField("name_en")}>
+                        <Input type="text" placeholder={t("placeholderNameEn")} />
+                    </TextField>
                 </div>
-                <div>
-                    <label className={labelCls}>{t("labelNameAr")}</label>
-                    <input
-                        className={inputCls}
-                        placeholder={t("placeholderNameAr")}
-                        value={value?.name_ar || ""}
-                        onChange={(e) => onChange((prev) => ({ ...prev, name_ar: e.target.value }))}
-                        dir="rtl"
-                    />
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>{t("labelNameAr")}</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} value={value?.name_ar || ""} onChange={setField("name_ar")}>
+                        <Input type="text" placeholder={t("placeholderNameAr")} dir="rtl" />
+                    </TextField>
                 </div>
             </div>
-            <select
-                className={inputCls}
-                value={value?.muscle_group || ""}
-                onChange={(e) => onChange((prev) => ({ ...prev, muscle_group: e.target.value }))}
-            >
-                <option value="">{t("selectMuscleGroup")}</option>
-                {muscleGroups.map((g) => <option key={g.id} value={g.name_en}>{g.name_en}{g.name_ar ? ` / ${g.name_ar}` : ''}</option>)}
-            </select>
-            <select
-                className={inputCls}
-                value={value?.equipment || ""}
-                onChange={(e) => onChange((prev) => ({ ...prev, equipment: e.target.value }))}
-            >
-                <option value="">{t("selectEquipment")}</option>
-                {equipments.map((g) => <option key={g.id} value={g.name_en}>{g.name_en}{g.name_ar ? ` / ${g.name_ar}` : ''}</option>)}
-            </select>
-            <input
-                className={inputCls}
-                placeholder={t("placeholderYoutube")}
-                value={value?.youtube_url || ""}
-                onChange={(e) => onChange((prev) => ({ ...prev, youtube_url: e.target.value }))}
-            />
-            <div>
-                <label className="text-xs text-muted-foreground">{t("labelVideo")}</label>
+            <Select variant="secondary" fullWidth placeholder={t("selectMuscleGroup")} aria-label={t("selectMuscleGroup")} value={value?.muscle_group || ""} onChange={setField("muscle_group")}>
+                <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                    <ListBox>
+                        {muscleGroups.map((g) => (
+                            <ListBox.Item key={g.id} id={g.name_en} textValue={g.name_en}>
+                                {g.name_en}{g.name_ar ? ` / ${g.name_ar}` : ''}
+                                <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                        ))}
+                    </ListBox>
+                </Select.Popover>
+            </Select>
+            <Select variant="secondary" fullWidth placeholder={t("selectEquipment")} aria-label={t("selectEquipment")} value={value?.equipment || ""} onChange={setField("equipment")}>
+                <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                    <ListBox>
+                        {equipments.map((g) => (
+                            <ListBox.Item key={g.id} id={g.name_en} textValue={g.name_en}>
+                                {g.name_en}{g.name_ar ? ` / ${g.name_ar}` : ''}
+                                <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                        ))}
+                    </ListBox>
+                </Select.Popover>
+            </Select>
+            <TextField variant="secondary" fullWidth aria-label={t("placeholderYoutube")} value={value?.youtube_url || ""} onChange={setField("youtube_url")}>
+                <Input type="text" placeholder={t("placeholderYoutube")} />
+            </TextField>
+            <div className="flex flex-col gap-1.5">
+                <FieldLabel>{t("labelVideo")}</FieldLabel>
                 <input type="file" accept="video/*" className={inputCls} onChange={(e) => onVideoChange(e.target.files?.[0] || null)} />
             </div>
-            <div>
-                <label className="text-xs text-muted-foreground">{t("labelThumbnail")}</label>
+            <div className="flex flex-col gap-1.5">
+                <FieldLabel>{t("labelThumbnail")}</FieldLabel>
                 <input type="file" accept="image/*,.gif" className={inputCls} onChange={(e) => onThumbnailChange(e.target.files?.[0] || null)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-                <div>
-                    <label className={labelCls}>{t("labelInstructionsEn")}</label>
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>{t("labelInstructionsEn")}</FieldLabel>
                     <textarea
                         className={`${inputCls} min-h-24`}
                         placeholder={t("placeholderInstructionsEn")}
@@ -275,8 +290,8 @@ function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onV
                         onChange={(e) => onChange((prev) => ({ ...prev, instructions_en: e.target.value }))}
                     />
                 </div>
-                <div>
-                    <label className={labelCls}>{t("labelInstructionsAr")}</label>
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>{t("labelInstructionsAr")}</FieldLabel>
                     <textarea
                         className={`${inputCls} min-h-24`}
                         placeholder={t("placeholderInstructionsAr")}
@@ -286,7 +301,10 @@ function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onV
                     />
                 </div>
             </div>
-            <Button type="submit" variant="primary" fullWidth>{submitLabel}</Button>
+            <ModalFooter>
+                <Button type="button" variant="ghost" onClick={onCancel}>{tCommon("cancel")}</Button>
+                <Button type="submit" variant="primary">{submitLabel}</Button>
+            </ModalFooter>
         </form>
     );
 }

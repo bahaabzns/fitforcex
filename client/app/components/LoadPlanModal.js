@@ -2,10 +2,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import api from '@/lib/axios';
-import { Modal } from '@heroui/react/modal';
+import AppModal, { ModalFooter } from '@/app/components/Modal';
+import { FieldLabel } from '@/app/components/Field';
 import { Button } from '@heroui/react/button';
 import { Skeleton } from '@heroui/react/skeleton';
 import { ScrollShadow } from '@heroui/react/scroll-shadow';
+import { TextField } from '@heroui/react/textfield';
+import { Input } from '@heroui/react/input';
+import { Select } from '@heroui/react/select';
+import { ListBox } from '@heroui/react/list-box';
+
+// Sentinel for the "all members" option — HeroUI Select keys can't be the empty
+// string, but the creator filter uses '' to mean "no filter". Map between them.
+const ALL_CREATORS = '__all__';
 
 function formatRelativeTime(dateStr, t) {
     if (!dateStr) return '';
@@ -26,26 +35,16 @@ function formatRelativeTime(dateStr, t) {
 function RangeInput({ label, minValue, maxValue, onMinChange, onMaxChange, unit = '' }) {
     const tCommon = useTranslations('common');
     return (
-        <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+        <div className="flex flex-col gap-1.5">
+            <FieldLabel>{label}</FieldLabel>
             <div className="flex items-center gap-1.5">
-                <input
-                    type="number"
-                    min="0"
-                    placeholder={tCommon('min')}
-                    value={minValue}
-                    onChange={(e) => onMinChange(e.target.value)}
-                    className="w-16 text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                />
+                <TextField variant="secondary" aria-label={`${label} ${tCommon('min')}`} value={minValue} onChange={onMinChange} className="w-20">
+                    <Input type="number" min="0" inputMode="numeric" placeholder={tCommon('min')} />
+                </TextField>
                 <span className="text-xs text-muted-foreground">–</span>
-                <input
-                    type="number"
-                    min="0"
-                    placeholder={tCommon('max')}
-                    value={maxValue}
-                    onChange={(e) => onMaxChange(e.target.value)}
-                    className="w-16 text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                />
+                <TextField variant="secondary" aria-label={`${label} ${tCommon('max')}`} value={maxValue} onChange={onMaxChange} className="w-20">
+                    <Input type="number" min="0" inputMode="numeric" placeholder={tCommon('max')} />
+                </TextField>
                 {unit && <span className="text-[11px] text-muted-foreground">{unit}</span>}
             </div>
         </div>
@@ -150,161 +149,163 @@ export default function LoadPlanModal({ open, onClose, type, onLoad }) {
     const title = type === 'training' ? tModal('loadTrainingPlan') : tModal('loadNutritionPlan');
 
     return (
-        <Modal isOpen={open} onOpenChange={(o) => !o && onClose()}>
-            <Modal.Backdrop>
-                <Modal.Container className="max-w-3xl w-full">
-                    <Modal.Dialog>
-                        <Modal.Header>
-                            <Modal.Heading>{title}</Modal.Heading>
-                            <Modal.CloseTrigger />
-                        </Modal.Header>
-                        <Modal.Body className="flex flex-col gap-4 pb-2">
+        <AppModal open={open} onClose={onClose} title={title} dialogClassName="max-w-3xl">
+            <div className="flex flex-col gap-4">
 
-                            {/* Search */}
-                            <input
-                                type="text"
-                                placeholder={tFilter('searchPlanName')}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                            />
+                {/* Search */}
+                <TextField variant="secondary" fullWidth aria-label={tFilter('searchPlanName')} value={searchQuery} onChange={setSearchQuery}>
+                    <Input type="text" placeholder={tFilter('searchPlanName')} />
+                </TextField>
 
-                            {/* Filters */}
-                            <div className="flex flex-wrap gap-x-5 gap-y-3 p-3 rounded-xl bg-default border border-border">
-                                {type === 'training' ? (
-                                    <>
-                                        <RangeInput label={tTraining('daysSection')} minValue={minDays} maxValue={maxDays} onMinChange={setMinDays} onMaxChange={setMaxDays} />
-                                        <RangeInput label={tTraining('exercises')} minValue={minExercises} maxValue={maxExercises} onMinChange={setMinExercises} onMaxChange={setMaxExercises} />
-                                    </>
-                                ) : (
-                                    <>
-                                        <RangeInput label={tNutrition('caloriesLabel')} minValue={minCalories} maxValue={maxCalories} onMinChange={setMinCalories} onMaxChange={setMaxCalories} unit="kcal" />
-                                        <RangeInput label={tNutrition('protein')} minValue={minProtein} maxValue={maxProtein} onMinChange={setMinProtein} onMaxChange={setMaxProtein} unit="g" />
-                                        <RangeInput label={tNutrition('carbs')} minValue={minCarbs} maxValue={maxCarbs} onMinChange={setMinCarbs} onMaxChange={setMaxCarbs} unit="g" />
-                                        <RangeInput label={tNutrition('fat')} minValue={minFats} maxValue={maxFats} onMinChange={setMinFats} onMaxChange={setMaxFats} unit="g" />
-                                    </>
-                                )}
+                {/* Filters */}
+                <div className="flex flex-wrap gap-x-5 gap-y-3 p-3 rounded-xl bg-default border border-border">
+                    {type === 'training' ? (
+                        <>
+                            <RangeInput label={tTraining('daysSection')} minValue={minDays} maxValue={maxDays} onMinChange={setMinDays} onMaxChange={setMaxDays} />
+                            <RangeInput label={tTraining('exercises')} minValue={minExercises} maxValue={maxExercises} onMinChange={setMinExercises} onMaxChange={setMaxExercises} />
+                        </>
+                    ) : (
+                        <>
+                            <RangeInput label={tNutrition('caloriesLabel')} minValue={minCalories} maxValue={maxCalories} onMinChange={setMinCalories} onMaxChange={setMaxCalories} unit="kcal" />
+                            <RangeInput label={tNutrition('protein')} minValue={minProtein} maxValue={maxProtein} onMinChange={setMinProtein} onMaxChange={setMaxProtein} unit="g" />
+                            <RangeInput label={tNutrition('carbs')} minValue={minCarbs} maxValue={maxCarbs} onMinChange={setMinCarbs} onMaxChange={setMaxCarbs} unit="g" />
+                            <RangeInput label={tNutrition('fat')} minValue={minFats} maxValue={maxFats} onMinChange={setMinFats} onMaxChange={setMaxFats} unit="g" />
+                        </>
+                    )}
 
-                                {creators.length > 0 && (
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{tFilter('createdBy')}</span>
-                                        <select
-                                            value={creatorFilter}
-                                            onChange={(e) => setCreatorFilter(e.target.value)}
-                                            className="text-xs px-2 py-1.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:border-primary"
-                                        >
-                                            <option value="">{tFilter('allMembers')}</option>
-                                            {creators.map((name) => (
-                                                <option key={name} value={name}>{name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Plan list */}
-                            <ScrollShadow className="max-h-72" hideScrollBar>
-                                {loading ? (
-                                    <div className="flex flex-col gap-2">
-                                        {[1, 2, 3, 4].map((i) => (
-                                            <Skeleton key={i} className="h-16 rounded-xl" />
+                    {creators.length > 0 && (
+                        <div className="flex flex-col gap-1.5 min-w-44">
+                            <FieldLabel>{tFilter('createdBy')}</FieldLabel>
+                            <Select
+                                variant="secondary"
+                                fullWidth
+                                aria-label={tFilter('createdBy')}
+                                value={creatorFilter || ALL_CREATORS}
+                                onChange={(key) => setCreatorFilter(key === ALL_CREATORS ? '' : key)}
+                            >
+                                <Select.Trigger>
+                                    <Select.Value />
+                                    <Select.Indicator />
+                                </Select.Trigger>
+                                <Select.Popover>
+                                    <ListBox>
+                                        <ListBox.Item id={ALL_CREATORS} textValue={tFilter('allMembers')}>
+                                            {tFilter('allMembers')}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                        {creators.map((name) => (
+                                            <ListBox.Item key={name} id={name} textValue={name}>
+                                                {name}
+                                                <ListBox.ItemIndicator />
+                                            </ListBox.Item>
                                         ))}
-                                    </div>
-                                ) : filteredPlans.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-                                        <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <p className="text-sm text-muted-foreground">
-                                            {plans.length === 0 ? tFilter('noPlansYet') : tFilter('noPlansMatch')}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-1.5">
-                                        {filteredPlans.map((plan) => {
-                                            const isSelected = String(selectedPlanId) === String(plan.id);
-                                            return (
-                                                <button
-                                                    key={plan.id}
-                                                    onClick={() => setSelectedPlanId(plan.id)}
-                                                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all duration-100 ${
-                                                        isSelected
-                                                            ? 'bg-primary/10 border-primary/40'
-                                                            : 'bg-background border-border hover:bg-default hover:border-border/60'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="min-w-0">
-                                                            <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>
-                                                                {plan.name}
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                                                {plan.client_name ?? tCommon('unknownClient')}
-                                                                {plan.creator_name ? ` ${tCommon('byCreator', { name: plan.creator_name })}` : ''}
-                                                            </p>
-                                                        </div>
-                                                        <p className="text-[11px] text-muted-foreground shrink-0 mt-0.5">
-                                                            {formatRelativeTime(plan.updated_at, tCommon)}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-                                                        {type === 'training' ? (
-                                                            <>
-                                                                <span className="text-[11px] text-muted-foreground">
-                                                                    {tTraining('dayCount', { count: plan.day_count ?? 0 })}
-                                                                </span>
-                                                                <span className="text-[11px] text-muted-foreground">
-                                                                    {tTraining('exerciseCount', { count: plan.exercise_count ?? 0 })}
-                                                                </span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <span className="text-[11px] text-muted-foreground">
-                                                                    {tNutrition('cycleCount', { count: plan.cycle_count ?? 0 })}
-                                                                </span>
-                                                                {plan.avg_calories != null && (
-                                                                    <span className="text-[11px] text-muted-foreground">{plan.avg_calories} kcal</span>
-                                                                )}
-                                                                {plan.avg_protein != null && (
-                                                                    <span className="text-[11px] text-muted-foreground">P: {plan.avg_protein}g</span>
-                                                                )}
-                                                                {plan.avg_carbs != null && (
-                                                                    <span className="text-[11px] text-muted-foreground">C: {plan.avg_carbs}g</span>
-                                                                )}
-                                                                {plan.avg_fats != null && (
-                                                                    <span className="text-[11px] text-muted-foreground">F: {plan.avg_fats}g</span>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </ScrollShadow>
-
-                        </Modal.Body>
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-border">
-                            <p className={`text-xs ${loadError ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                {loadError
-                                    ? tModal('loadFailed')
-                                    : !loading && tFilter('plansCount', { filtered: filteredPlans.length, total: plans.length })}
-                            </p>
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={onClose}>{tModal('cancel')}</Button>
-                                <Button
-                                    variant="primary"
-                                    isDisabled={!selectedPlanId}
-                                    onClick={handleLoad}
-                                >
-                                    {tModal('loadSelectedPlan')}
-                                </Button>
-                            </div>
+                                    </ListBox>
+                                </Select.Popover>
+                            </Select>
                         </div>
-                    </Modal.Dialog>
-                </Modal.Container>
-            </Modal.Backdrop>
-        </Modal>
+                    )}
+                </div>
+
+                {/* Plan list */}
+                <ScrollShadow className="max-h-72" hideScrollBar>
+                    {loading ? (
+                        <div className="flex flex-col gap-2">
+                            {[1, 2, 3, 4].map((i) => (
+                                <Skeleton key={i} className="h-16 rounded-xl" />
+                            ))}
+                        </div>
+                    ) : filteredPlans.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                            <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p className="text-sm text-muted-foreground">
+                                {plans.length === 0 ? tFilter('noPlansYet') : tFilter('noPlansMatch')}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-1.5">
+                            {filteredPlans.map((plan) => {
+                                const isSelected = String(selectedPlanId) === String(plan.id);
+                                return (
+                                    <button
+                                        key={plan.id}
+                                        onClick={() => setSelectedPlanId(plan.id)}
+                                        className={`w-full text-left px-4 py-3 rounded-xl border transition-all duration-100 ${
+                                            isSelected
+                                                ? 'bg-primary/10 border-primary/40'
+                                                : 'bg-background border-border hover:bg-default hover:border-border/60'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                                                    {plan.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                                    {plan.client_name ?? tCommon('unknownClient')}
+                                                    {plan.creator_name ? ` ${tCommon('byCreator', { name: plan.creator_name })}` : ''}
+                                                </p>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground shrink-0 mt-0.5">
+                                                {formatRelativeTime(plan.updated_at, tCommon)}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                                            {type === 'training' ? (
+                                                <>
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                        {tTraining('dayCount', { count: plan.day_count ?? 0 })}
+                                                    </span>
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                        {tTraining('exerciseCount', { count: plan.exercise_count ?? 0 })}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                        {tNutrition('cycleCount', { count: plan.cycle_count ?? 0 })}
+                                                    </span>
+                                                    {plan.avg_calories != null && (
+                                                        <span className="text-[11px] text-muted-foreground">{plan.avg_calories} kcal</span>
+                                                    )}
+                                                    {plan.avg_protein != null && (
+                                                        <span className="text-[11px] text-muted-foreground">P: {plan.avg_protein}g</span>
+                                                    )}
+                                                    {plan.avg_carbs != null && (
+                                                        <span className="text-[11px] text-muted-foreground">C: {plan.avg_carbs}g</span>
+                                                    )}
+                                                    {plan.avg_fats != null && (
+                                                        <span className="text-[11px] text-muted-foreground">F: {plan.avg_fats}g</span>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </ScrollShadow>
+
+                {/* Footer: status text (left) + actions (right) */}
+                <ModalFooter className="mt-2 border-t border-border pt-4">
+                    <p className={`me-auto text-xs ${loadError ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        {loadError
+                            ? tModal('loadFailed')
+                            : !loading && tFilter('plansCount', { filtered: filteredPlans.length, total: plans.length })}
+                    </p>
+                    <Button variant="ghost" onClick={onClose}>{tModal('cancel')}</Button>
+                    <Button
+                        variant="primary"
+                        isDisabled={!selectedPlanId}
+                        onClick={handleLoad}
+                    >
+                        {tModal('loadSelectedPlan')}
+                    </Button>
+                </ModalFooter>
+
+            </div>
+        </AppModal>
     );
 }

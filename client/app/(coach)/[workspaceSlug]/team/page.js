@@ -4,11 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import api from "@/lib/axios";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel } from "@/app/components/Field";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Chip } from "@heroui/react/chip";
 import { Avatar } from "@heroui/react/avatar";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
 import {
     Users2, UserPlus, Mail,
     Trash2, Clock, CheckCircle2, XCircle, Building2, Plus, SlidersHorizontal,
@@ -714,6 +717,7 @@ function MyInvitationsTab({ myInvitations, setMyInvitations, setMe }) {
 
 function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
     const t = useTranslations("team");
+    const tCommon = useTranslations("common");
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
     const [creating, setCreating] = useState(false);
@@ -763,29 +767,19 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                                 </p>
                             )
                         )}
-                        <div>
-                            <label className="text-xs text-muted-foreground font-medium block mb-1">{t("workspaceNameLabel")}</label>
-                            <input
-                                type="text"
-                                placeholder={t("workspaceNamePlaceholder")}
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                className={inputCls}
-                                required
-                                autoFocus
-                            />
+                        <div className="flex flex-col gap-1.5">
+                            <FieldLabel required>{t("workspaceNameLabel")}</FieldLabel>
+                            <TextField variant="secondary" fullWidth isRequired aria-label={t("workspaceNameLabel")} value={name} onChange={setName}>
+                                <Input type="text" placeholder={t("workspaceNamePlaceholder")} autoFocus />
+                            </TextField>
                         </div>
-                        <div>
-                            <label className="text-xs text-muted-foreground font-medium block mb-1">
+                        <div className="flex flex-col gap-1.5">
+                            <FieldLabel>
                                 {t("slugLabel")} <span className="font-normal opacity-60">{t("slugOptional")}</span>
-                            </label>
-                            <input
-                                type="text"
-                                placeholder={t("slugPlaceholder")}
-                                value={slug}
-                                onChange={e => setSlug(e.target.value)}
-                                className={inputCls}
-                            />
+                            </FieldLabel>
+                            <TextField variant="secondary" fullWidth aria-label={t("slugLabel")} value={slug} onChange={setSlug}>
+                                <Input type="text" placeholder={t("slugPlaceholder")} />
+                            </TextField>
                             <p className="text-xs text-muted-foreground mt-1">{t("slugHint")}</p>
                         </div>
                         {maxWorkspaces !== null && (
@@ -793,14 +787,18 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                                 {t("workspacesUsed", { used: ownedCount, max: maxWorkspaces })}
                             </p>
                         )}
-                        <Button
-                            type="submit"
-                            isDisabled={creating || !name.trim()}
-                            variant="primary"
-                            className="self-start"
-                        >
-                            {creating ? t("creating") : t("createWorkspace")}
-                        </Button>
+                        <ModalFooter>
+                            <Button type="button" variant="ghost" onClick={() => { reset(); onClose(); }}>
+                                {tCommon("cancel")}
+                            </Button>
+                            <Button
+                                type="submit"
+                                isDisabled={creating || !name.trim()}
+                                variant="primary"
+                            >
+                                {creating ? t("creating") : t("createWorkspace")}
+                            </Button>
+                        </ModalFooter>
                     </form>
                 )}
             </div>

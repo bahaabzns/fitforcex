@@ -3,15 +3,16 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel } from "@/app/components/Field";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
-
-const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
-const labelCls = "text-xs text-muted-foreground mb-1 block";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
 
 export default function FoodCategoriesPage() {
     const t = useTranslations("foodCategories");
+    const tCommon = useTranslations("common");
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -97,32 +98,46 @@ export default function FoodCategoriesPage() {
             <Modal open={showForm} onClose={() => { setShowForm(false); setNewNameEn(''); setNewNameAr(''); }} title={t("addTitle")}>
                 <form onSubmit={handleAdd} className="flex flex-col gap-4">
                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className={labelCls}>{t("labelNameEn")}</label>
-                            <input type="text" value={newNameEn} onChange={(e) => setNewNameEn(e.target.value)} placeholder={t("placeholderNameEn")} className={inputCls} required autoFocus />
+                        <div className="flex flex-col gap-1.5">
+                            <FieldLabel required>{t("labelNameEn")}</FieldLabel>
+                            <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} value={newNameEn} onChange={setNewNameEn}>
+                                <Input type="text" placeholder={t("placeholderNameEn")} autoFocus />
+                            </TextField>
                         </div>
-                        <div>
-                            <label className={labelCls}>{t("labelNameAr")}</label>
-                            <input type="text" value={newNameAr} onChange={(e) => setNewNameAr(e.target.value)} placeholder={t("placeholderNameAr")} className={inputCls} dir="rtl" />
+                        <div className="flex flex-col gap-1.5">
+                            <FieldLabel>{t("labelNameAr")}</FieldLabel>
+                            <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} value={newNameAr} onChange={setNewNameAr}>
+                                <Input type="text" placeholder={t("placeholderNameAr")} dir="rtl" />
+                            </TextField>
                         </div>
                     </div>
-                    <Button type="submit" variant="primary" fullWidth>{t("submitAdd")}</Button>
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={() => { setShowForm(false); setNewNameEn(''); setNewNameAr(''); }}>{tCommon("cancel")}</Button>
+                        <Button type="submit" variant="primary">{t("submitAdd")}</Button>
+                    </ModalFooter>
                 </form>
             </Modal>
 
             <Modal open={!!editingItem} onClose={() => setEditingItem(null)} title={t("editTitle")}>
                 <form onSubmit={handleUpdate} className="flex flex-col gap-4">
                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className={labelCls}>{t("labelNameEn")}</label>
-                            <input type="text" value={editingItem?.name_en || ''} onChange={(e) => setEditingItem({ ...editingItem, name_en: e.target.value })} className={inputCls} required autoFocus />
+                        <div className="flex flex-col gap-1.5">
+                            <FieldLabel required>{t("labelNameEn")}</FieldLabel>
+                            <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} value={editingItem?.name_en || ''} onChange={(val) => setEditingItem({ ...editingItem, name_en: val })}>
+                                <Input type="text" autoFocus />
+                            </TextField>
                         </div>
-                        <div>
-                            <label className={labelCls}>{t("labelNameAr")}</label>
-                            <input type="text" value={editingItem?.name_ar || ''} onChange={(e) => setEditingItem({ ...editingItem, name_ar: e.target.value })} className={inputCls} dir="rtl" />
+                        <div className="flex flex-col gap-1.5">
+                            <FieldLabel>{t("labelNameAr")}</FieldLabel>
+                            <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} value={editingItem?.name_ar || ''} onChange={(val) => setEditingItem({ ...editingItem, name_ar: val })}>
+                                <Input type="text" dir="rtl" />
+                            </TextField>
                         </div>
                     </div>
-                    <Button type="submit" variant="primary" fullWidth>{t("submitEdit")}</Button>
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={() => setEditingItem(null)}>{tCommon("cancel")}</Button>
+                        <Button type="submit" variant="primary">{t("submitEdit")}</Button>
+                    </ModalFooter>
                 </form>
             </Modal>
 

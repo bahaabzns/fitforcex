@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from "react";
 import DataTable from "@/app/components/DataTable";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import api from "@/lib/axios";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
 
 const TYPES = ["cash", "card", "wallet", "bank_transfer"];
 
@@ -273,19 +276,14 @@ export default function PaymentMethodsPage() {
             {/* Creation Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newMethodTitle')}>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('nameLabel')}</label>
-                        <input
-                            type="text"
-                            placeholder={t('namePlaceholder')}
-                            value={formName}
-                            onChange={(e) => setFormName(e.target.value)}
-                            className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                            autoFocus
-                        />
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('nameLabel')}</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t('nameLabel')} value={formName} onChange={setFormName}>
+                            <Input type="text" placeholder={t('namePlaceholder')} autoFocus />
+                        </TextField>
                     </div>
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('typeLabel')}</label>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('typeLabel')}</FieldLabel>
                         <div className="flex gap-2 flex-wrap">
                             {TYPES.map(typeKey => (
                                 <Button
@@ -303,10 +301,15 @@ export default function PaymentMethodsPage() {
                             ))}
                         </div>
                     </div>
-                    {error && <p className="text-destructive text-sm">{error}</p>}
-                    <Button type="submit" variant="primary" fullWidth>
-                        {t('createMethod')}
-                    </Button>
+                    <FieldErrorText msg={error} />
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={() => { setShowForm(false); setError(""); }}>
+                            {tCommon('cancel')}
+                        </Button>
+                        <Button type="submit" variant="primary">
+                            {t('createMethod')}
+                        </Button>
+                    </ModalFooter>
                 </form>
             </Modal>
 

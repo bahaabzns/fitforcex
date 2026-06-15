@@ -5,8 +5,13 @@ import api from '@/lib/axios';
 import { Plus, Pencil, Star, Trash2, Check, X } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
-import { Modal } from '@heroui/react/modal';
 import { AlertDialog } from '@heroui/react/alert-dialog';
+import AppModal, { ModalFooter } from '@/app/components/Modal';
+import { FieldLabel, FieldErrorText } from '@/app/components/Field';
+import { TextField } from '@heroui/react/textfield';
+import { Input } from '@heroui/react/input';
+import { Select } from '@heroui/react/select';
+import { ListBox } from '@heroui/react/list-box';
 
 const EMPTY_FORM = {
     name: '', display_name: '',
@@ -113,238 +118,238 @@ function PlanModal({ plan, onClose, onSaved, billingPeriods }) {
     }
 
     return (
-        <Modal isOpen={true} onOpenChange={(o) => !o && onClose()}>
-            <Modal.Backdrop>
-                <Modal.Container>
-                    <Modal.Dialog>
-                        <Modal.Header>
-                            <Modal.Heading>{isEdit ? 'Edit Plan' : 'New Plan'}</Modal.Heading>
-                            <Modal.CloseTrigger />
-                        </Modal.Header>
-                        <Modal.Body className="flex flex-col gap-4">
+        <AppModal open onClose={onClose} title={isEdit ? 'Edit Plan' : 'New Plan'} wide>
+            <div className="flex flex-col gap-4">
 
-                            {/* ── Core fields ── */}
-                            {!isEdit && (
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">
-                                        Internal name <span className="text-muted-foreground">(e.g. pro)</span>
-                                    </label>
-                                    <input type="text" placeholder="pro" value={form.name}
-                                        onChange={e => set('name', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                            )}
+                {/* ── Core fields ── */}
+                {!isEdit && (
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Internal name <span className="text-muted-foreground">(e.g. pro)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Internal name" value={form.name} onChange={(val) => set('name', val)}>
+                            <Input type="text" placeholder="pro" />
+                        </TextField>
+                    </div>
+                )}
 
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Display name</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Display name" value={form.display_name} onChange={(val) => set('display_name', val)}>
+                        <Input type="text" placeholder="Pro" />
+                    </TextField>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Max clients <span className="text-muted-foreground">(blank = unlimited)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Max clients" value={form.max_clients} onChange={(val) => set('max_clients', val)}>
+                            <Input type="number" min="1" inputMode="numeric" placeholder="∞" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Max team seats <span className="text-muted-foreground">(blank = unlimited)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Max team seats" value={form.max_team_seats} onChange={(val) => set('max_team_seats', val)}>
+                            <Input type="number" min="0" inputMode="numeric" placeholder="∞" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Max workspaces <span className="text-muted-foreground">(blank = unlimited)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Max workspaces" value={form.max_workspaces} onChange={(val) => set('max_workspaces', val)}>
+                            <Input type="number" min="1" inputMode="numeric" placeholder="∞" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Monthly price <span className="text-muted-foreground">(blank = TBD)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Monthly price" value={form.price_monthly} onChange={(val) => set('price_monthly', val)}>
+                            <Input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Trial days <span className="text-muted-foreground">(blank = no expiry)</span></FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Trial days" value={form.trial_days} onChange={(val) => set('trial_days', val)}>
+                            <Input type="number" min="1" inputMode="numeric" placeholder="—" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Fawaterak payment link <span className="text-muted-foreground">(paste from your Fawaterak dashboard)</span></FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Fawaterak payment link" value={form.payment_link} onChange={(val) => set('payment_link', val)}>
+                        <Input type="url" placeholder="https://app.fawaterak.com/pay/..." />
+                    </TextField>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
+                    Active
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
+                    <span className="flex items-center gap-1">
+                        <Star size={13} className="text-yellow-500" />
+                        Default plan for new registrations
+                    </span>
+                </label>
+
+                {/* ── Landing page display ── */}
+                <p className={SECTION_LABEL_CLS}>Landing Page Display</p>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Subtitle</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Subtitle" value={form.subtitle} onChange={(val) => set('subtitle', val)}>
+                        <Input type="text" placeholder="For solo coaches" />
+                    </TextField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Currency</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Currency" value={form.currency} onChange={(val) => set('currency', val)}>
+                            <Input type="text" placeholder="LE" />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Sort order</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label="Sort order" value={form.sort_order} onChange={(val) => set('sort_order', val)}>
+                            <Input type="number" min="0" inputMode="numeric" placeholder="0" />
+                        </TextField>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>CTA button text</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="CTA button text" value={form.cta_text} onChange={(val) => set('cta_text', val)}>
+                        <Input type="text" placeholder="Get Started – It's FREE!" />
+                    </TextField>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>CTA button style</FieldLabel>
+                    <Select variant="secondary" fullWidth aria-label="CTA button style" value={form.cta_variant} onChange={(key) => set('cta_variant', key)}>
+                        <Select.Trigger>
+                            <Select.Value />
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item id="outline" textValue="Outline">Outline<ListBox.ItemIndicator /></ListBox.Item>
+                                <ListBox.Item id="primary" textValue="Primary (filled)">Primary (filled)<ListBox.ItemIndicator /></ListBox.Item>
+                                <ListBox.Item id="ghost" textValue="Ghost">Ghost<ListBox.ItemIndicator /></ListBox.Item>
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Features section header</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Features section header" value={form.features_header} onChange={(val) => set('features_header', val)}>
+                        <Input type="text" placeholder="What's included:" />
+                    </TextField>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Features sub-header <span className="text-muted-foreground">(optional)</span></FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label="Features sub-header" value={form.features_subheader} onChange={(val) => set('features_subheader', val)}>
+                        <Input type="text" placeholder="Team Features" />
+                    </TextField>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Features <span className="text-muted-foreground">(one per line)</span></FieldLabel>
+                    <textarea
+                        rows={6}
+                        placeholder={"∞ Unlimited clients\nWorkout plan delivery\n..."}
+                        value={Array.isArray(form.features) ? form.features.join('\n') : ''}
+                        onChange={e => set('features', e.target.value.split('\n'))}
+                        className={`${INPUT_CLS} resize-y`}
+                    />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.is_popular} onChange={e => set('is_popular', e.target.checked)} className="rounded" />
+                    Show "Most Popular" badge
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.has_team_counter} onChange={e => set('has_team_counter', e.target.checked)} className="rounded" />
+                    Show team member counter widget
+                </label>
+
+                {form.has_team_counter && (
+                    <div className="ml-6 flex flex-col gap-3 p-3 rounded-lg bg-secondary/40 border border-border">
+                        <div className="flex flex-col gap-1.5">
+                            <FieldLabel>Price per additional seat / month <span className="text-muted-foreground">(blank = no seat charge)</span></FieldLabel>
+                            <TextField variant="secondary" fullWidth aria-label="Price per additional seat" value={form.price_per_seat} onChange={(val) => set('price_per_seat', val)}>
+                                <Input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" />
+                            </TextField>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">Display name</label>
-                                <input type="text" placeholder="Pro" value={form.display_name}
-                                    onChange={e => set('display_name', e.target.value)} className={INPUT_CLS} />
+                                <FieldLabel>Min seats</FieldLabel>
+                                <TextField variant="secondary" fullWidth aria-label="Min seats" value={form.min_seat_count} onChange={(val) => set('min_seat_count', val)}>
+                                    <Input type="number" min="1" inputMode="numeric" placeholder="1" />
+                                </TextField>
                             </div>
-
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">
-                                        Max clients <span className="text-muted-foreground">(blank = unlimited)</span>
-                                    </label>
-                                    <input type="number" min="1" placeholder="∞" value={form.max_clients}
-                                        onChange={e => set('max_clients', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">
-                                        Max team seats <span className="text-muted-foreground">(blank = unlimited)</span>
-                                    </label>
-                                    <input type="number" min="0" placeholder="∞" value={form.max_team_seats}
-                                        onChange={e => set('max_team_seats', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">
-                                        Max workspaces <span className="text-muted-foreground">(blank = unlimited)</span>
-                                    </label>
-                                    <input type="number" min="1" placeholder="∞" value={form.max_workspaces}
-                                        onChange={e => set('max_workspaces', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">
-                                        Monthly price <span className="text-muted-foreground">(blank = TBD)</span>
-                                    </label>
-                                    <input type="number" min="0" step="0.01" placeholder="0.00" value={form.price_monthly}
-                                        onChange={e => set('price_monthly', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">
-                                        Trial days <span className="text-muted-foreground">(blank = no expiry)</span>
-                                    </label>
-                                    <input type="number" min="1" placeholder="—" value={form.trial_days}
-                                        onChange={e => set('trial_days', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                            </div>
-
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">
-                                    Fawaterak payment link <span className="text-muted-foreground">(paste from your Fawaterak dashboard)</span>
-                                </label>
-                                <input type="url" placeholder="https://app.fawaterak.com/pay/..." value={form.payment_link}
-                                    onChange={e => set('payment_link', e.target.value)} className={INPUT_CLS} />
+                                <FieldLabel>Max seats</FieldLabel>
+                                <TextField variant="secondary" fullWidth aria-label="Max seats" value={form.max_seat_count} onChange={(val) => set('max_seat_count', val)}>
+                                    <Input type="number" min="1" inputMode="numeric" placeholder="20" />
+                                </TextField>
                             </div>
+                        </div>
+                    </div>
+                )}
 
-                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
-                                Active
-                            </label>
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input type="checkbox" checked={form.show_on_landing} onChange={e => set('show_on_landing', e.target.checked)} className="rounded" />
+                    Show on landing page
+                </label>
 
-                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="rounded" />
-                                <span className="flex items-center gap-1">
-                                    <Star size={13} className="text-yellow-500" />
-                                    Default plan for new registrations
-                                </span>
-                            </label>
-
-                            {/* ── Landing page display ── */}
-                            <p className={SECTION_LABEL_CLS}>Landing Page Display</p>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">Subtitle</label>
-                                <input type="text" placeholder="For solo coaches" value={form.subtitle}
-                                    onChange={e => set('subtitle', e.target.value)} className={INPUT_CLS} />
+                {/* ── Payment links per billing period ── */}
+                {billingPeriods?.length > 0 && (
+                    <>
+                        <p className={SECTION_LABEL_CLS}>Payment Links per Billing Period</p>
+                        <p className="text-xs text-muted-foreground -mt-2">
+                            Each period needs its own Fawaterak link (different billing amount). Leave blank to fall back to the default payment link above.
+                        </p>
+                        {billingPeriods.map(d => (
+                            <div key={d.period_key} className="flex flex-col gap-1.5">
+                                <FieldLabel>
+                                    <span className="flex items-center gap-2">
+                                        {d.label}
+                                        {d.save_label && (
+                                            <span className="text-xs text-primary font-semibold">{d.save_label}</span>
+                                        )}
+                                        <span className="text-muted-foreground font-normal">({d.months} mo)</span>
+                                    </span>
+                                </FieldLabel>
+                                <TextField
+                                    variant="secondary"
+                                    fullWidth
+                                    aria-label={d.label}
+                                    value={form.period_links?.[d.period_key] ?? ''}
+                                    onChange={(val) => set('period_links', { ...form.period_links, [d.period_key]: val })}
+                                >
+                                    <Input type="url" placeholder="https://app.fawaterak.com/pay/..." />
+                                </TextField>
                             </div>
+                        ))}
+                    </>
+                )}
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">Currency</label>
-                                    <input type="text" placeholder="LE" value={form.currency}
-                                        onChange={e => set('currency', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-foreground">Sort order</label>
-                                    <input type="number" min="0" placeholder="0" value={form.sort_order}
-                                        onChange={e => set('sort_order', e.target.value)} className={INPUT_CLS} />
-                                </div>
-                            </div>
+                <FieldErrorText msg={error} />
 
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">CTA button text</label>
-                                <input type="text" placeholder="Get Started – It's FREE!" value={form.cta_text}
-                                    onChange={e => set('cta_text', e.target.value)} className={INPUT_CLS} />
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">CTA button style</label>
-                                <select value={form.cta_variant} onChange={e => set('cta_variant', e.target.value)} className={INPUT_CLS}>
-                                    <option value="outline">Outline</option>
-                                    <option value="primary">Primary (filled)</option>
-                                    <option value="ghost">Ghost</option>
-                                </select>
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">Features section header</label>
-                                <input type="text" placeholder="What's included:" value={form.features_header}
-                                    onChange={e => set('features_header', e.target.value)} className={INPUT_CLS} />
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">
-                                    Features sub-header <span className="text-muted-foreground">(optional)</span>
-                                </label>
-                                <input type="text" placeholder="Team Features" value={form.features_subheader}
-                                    onChange={e => set('features_subheader', e.target.value)} className={INPUT_CLS} />
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-foreground">
-                                    Features <span className="text-muted-foreground">(one per line)</span>
-                                </label>
-                                <textarea
-                                    rows={6}
-                                    placeholder={"∞ Unlimited clients\nWorkout plan delivery\n..."}
-                                    value={Array.isArray(form.features) ? form.features.join('\n') : ''}
-                                    onChange={e => set('features', e.target.value.split('\n'))}
-                                    className={`${INPUT_CLS} resize-y`}
-                                />
-                            </div>
-
-                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                <input type="checkbox" checked={form.is_popular} onChange={e => set('is_popular', e.target.checked)} className="rounded" />
-                                Show "Most Popular" badge
-                            </label>
-
-                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                <input type="checkbox" checked={form.has_team_counter} onChange={e => set('has_team_counter', e.target.checked)} className="rounded" />
-                                Show team member counter widget
-                            </label>
-
-                            {form.has_team_counter && (
-                                <div className="ml-6 flex flex-col gap-3 p-3 rounded-lg bg-secondary/40 border border-border">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-medium text-foreground">
-                                            Price per additional seat / month <span className="text-muted-foreground">(blank = no seat charge)</span>
-                                        </label>
-                                        <input type="number" min="0" step="0.01" placeholder="0.00" value={form.price_per_seat}
-                                            onChange={e => set('price_per_seat', e.target.value)} className={INPUT_CLS} />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-medium text-foreground">Min seats</label>
-                                            <input type="number" min="1" placeholder="1" value={form.min_seat_count}
-                                                onChange={e => set('min_seat_count', e.target.value)} className={INPUT_CLS} />
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-medium text-foreground">Max seats</label>
-                                            <input type="number" min="1" placeholder="20" value={form.max_seat_count}
-                                                onChange={e => set('max_seat_count', e.target.value)} className={INPUT_CLS} />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                <input type="checkbox" checked={form.show_on_landing} onChange={e => set('show_on_landing', e.target.checked)} className="rounded" />
-                                Show on landing page
-                            </label>
-
-                            {/* ── Payment links per billing period ── */}
-                            {billingPeriods?.length > 0 && (
-                                <>
-                                    <p className={SECTION_LABEL_CLS}>Payment Links per Billing Period</p>
-                                    <p className="text-xs text-muted-foreground -mt-2">
-                                        Each period needs its own Fawaterak link (different billing amount). Leave blank to fall back to the default payment link above.
-                                    </p>
-                                    {billingPeriods.map(d => (
-                                        <div key={d.period_key} className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-medium text-foreground flex items-center gap-2">
-                                                {d.label}
-                                                {d.save_label && (
-                                                    <span className="text-xs text-primary font-semibold">{d.save_label}</span>
-                                                )}
-                                                <span className="text-muted-foreground font-normal">({d.months} mo)</span>
-                                            </label>
-                                            <input
-                                                type="url"
-                                                placeholder="https://app.fawaterak.com/pay/..."
-                                                value={form.period_links?.[d.period_key] ?? ''}
-                                                onChange={e => set('period_links', { ...form.period_links, [d.period_key]: e.target.value })}
-                                                className={INPUT_CLS}
-                                            />
-                                        </div>
-                                    ))}
-                                </>
-                            )}
-
-                            {error && <p className="text-sm text-red-500">{error}</p>}
-                        </Modal.Body>
-                        <Modal.Footer>
-                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                            <Button variant="primary" isDisabled={saving} onClick={handleSave}>
-                                {saving ? 'Saving…' : 'Save'}
-                            </Button>
-                        </Modal.Footer>
-                    </Modal.Dialog>
-                </Modal.Container>
-            </Modal.Backdrop>
-        </Modal>
+                <ModalFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button variant="primary" isDisabled={saving} onClick={handleSave}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                </ModalFooter>
+            </div>
+        </AppModal>
     );
 }
 

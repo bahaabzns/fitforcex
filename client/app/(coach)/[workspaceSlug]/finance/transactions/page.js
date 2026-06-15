@@ -3,12 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import DataTable from "@/app/components/DataTable";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
 
 // --- HELPERS ---
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
@@ -518,8 +523,8 @@ export default function TransactionsPage() {
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
                     {/* Client */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('clientLabel')} *</label>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('clientLabel')}</FieldLabel>
                         <SearchableClientSelect
                             clients={clients}
                             selected={selectedClient}
@@ -533,22 +538,33 @@ export default function TransactionsPage() {
                     </div>
 
                     {/* Package */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('packageLabel')} *</label>
-                        <select
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('packageLabel')}</FieldLabel>
+                        <Select
+                            variant="secondary"
+                            fullWidth
+                            placeholder={t('selectPackage')}
                             value={selectedPkgKey}
-                            onChange={e => {
-                                const key = e.target.value;
+                            onChange={(key) => {
                                 setSelectedPkgKey(key);
                                 setSelectedPkg(packageVariationOptions.find(p => p.key === key) || null);
                             }}
-                            className={`${inputCls} ${!selectedPkgKey ? "text-muted-foreground" : ""}`}
                         >
-                            <option value="">{t('selectPackage')}</option>
-                            {packageVariationOptions.map(p => (
-                                <option key={p.key} value={p.key}>{p.label}</option>
-                            ))}
-                        </select>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    {packageVariationOptions.map(p => (
+                                        <ListBox.Item key={p.key} id={p.key} textValue={p.label}>
+                                            {p.label}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
                         {selectedPkg && (
                             <div className="flex gap-4 mt-2 px-1 text-xs text-muted-foreground">
                                 <span>{t('durationInfo')} <span className="text-foreground font-semibold">{t('durationDays', { count: selectedPkg.duration })}</span></span>
@@ -558,45 +574,53 @@ export default function TransactionsPage() {
                     </div>
 
                     {/* Payment Method */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('paymentMethodLabel')} *</label>
-                        <select
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('paymentMethodLabel')}</FieldLabel>
+                        <Select
+                            variant="secondary"
+                            fullWidth
+                            placeholder={t('selectMethod')}
                             value={formPaymentMethod}
-                            onChange={e => setFormPaymentMethod(e.target.value)}
-                            className={`${inputCls} ${!formPaymentMethod ? "text-muted-foreground" : ""}`}
+                            onChange={setFormPaymentMethod}
                         >
-                            <option value="">{t('selectMethod')}</option>
-                            {allPaymentMethodNames.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    {allPaymentMethodNames.map(m => (
+                                        <ListBox.Item key={m} id={m} textValue={m}>
+                                            {m}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
                     </div>
 
                     {/* Transaction Date */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('txDateLabel')}</label>
-                        <input
-                            type="date"
-                            value={formDate}
-                            onChange={e => setFormDate(e.target.value)}
-                            className={inputCls}
-                        />
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('txDateLabel')}</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t('txDateLabel')} value={formDate} onChange={setFormDate}>
+                            <Input type="date" />
+                        </TextField>
                     </div>
 
                     {/* Subscription Start Date */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>
                             {t('subStartDateLabel')} <span className="text-muted-foreground/60">{t('subStartDateHint')}</span>
-                        </label>
-                        <input
-                            type="date"
-                            value={formSubStartDate}
-                            onChange={e => setFormSubStartDate(e.target.value)}
-                            className={inputCls}
-                        />
+                        </FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t('subStartDateLabel')} value={formSubStartDate} onChange={setFormSubStartDate}>
+                            <Input type="date" />
+                        </TextField>
                         {formSubStartDate && (
                             <button
                                 type="button"
                                 onClick={() => setFormSubStartDate("")}
-                                className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
+                                className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer self-start"
                             >
                                 {t('clearUseQueue')}
                             </button>
@@ -604,8 +628,8 @@ export default function TransactionsPage() {
                     </div>
 
                     {/* Notes */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></label>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('notesLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></FieldLabel>
                         <textarea
                             rows={2}
                             placeholder={t('notesPlaceholder')}
@@ -616,8 +640,8 @@ export default function TransactionsPage() {
                     </div>
 
                     {/* Proof of transaction */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('proofLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></label>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('proofLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></FieldLabel>
                         {proofUrl && !proofFile && (
                             <div className="flex items-center gap-2 mb-2">
                                 <a
@@ -646,18 +670,22 @@ export default function TransactionsPage() {
                         {proofFile && <p className="text-xs text-muted-foreground mt-1">{proofFile.name}</p>}
                     </div>
 
-                    {formError && <p className="text-destructive text-sm">{formError}</p>}
+                    <FieldErrorText msg={formError} />
 
-                    <Button
-                        type="submit"
-                        isDisabled={submitting}
-                        variant="primary"
-                        fullWidth
-                    >
-                        {submitting
-                            ? (editingTx ? t('saving') : t('recording'))
-                            : (editingTx ? t('saveChanges') : t('recordTransaction'))}
-                    </Button>
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={closeForm}>
+                            {tCommon('cancel')}
+                        </Button>
+                        <Button
+                            type="submit"
+                            isDisabled={submitting}
+                            variant="primary"
+                        >
+                            {submitting
+                                ? (editingTx ? t('saving') : t('recording'))
+                                : (editingTx ? t('saveChanges') : t('recordTransaction'))}
+                        </Button>
+                    </ModalFooter>
                 </form>
             </Modal>
 

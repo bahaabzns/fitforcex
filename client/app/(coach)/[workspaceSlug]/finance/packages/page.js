@@ -3,10 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import DataTable from "@/app/components/DataTable";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
 
 // --- CURRENCY LIST ---
 const CURRENCIES = [
@@ -585,8 +588,8 @@ export default function PackagesPage() {
             {/* Creation Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newPackageTitle')} wide>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('packageNameLabel')}</label>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('packageNameLabel')}</FieldLabel>
                         <PackageNameCombo
                             value={packageName}
                             onChange={(name, pkgId) => { setPackageName(name); setSelectedPackageId(pkgId); }}
@@ -599,7 +602,7 @@ export default function PackagesPage() {
 
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm text-muted-foreground">{t('variationsLabel')}</label>
+                            <FieldLabel>{t('variationsLabel')}</FieldLabel>
                             <Button type="button" variant="ghost" size="sm" onClick={addVariation} className="text-xs text-primary px-0">
                                 {t('addVariation')}
                             </Button>
@@ -617,51 +620,38 @@ export default function PackagesPage() {
                                         )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder={t('variationNamePlaceholder')}
-                                            value={v.name}
-                                            onChange={(e) => updateVariation(i, "name", e.target.value)}
-                                            className={inputCls}
-                                        />
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            placeholder={t('durationPlaceholder')}
-                                            value={v.duration}
-                                            onChange={(e) => updateVariation(i, "duration", e.target.value)}
-                                            className={inputCls}
-                                        />
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            placeholder={t('pricePlaceholder')}
-                                            value={v.price}
-                                            onChange={(e) => updateVariation(i, "price", e.target.value)}
-                                            className={inputCls}
-                                        />
+                                        <TextField variant="secondary" fullWidth aria-label={t('variationNamePlaceholder')} value={v.name} onChange={(val) => updateVariation(i, "name", val)}>
+                                            <Input type="text" placeholder={t('variationNamePlaceholder')} />
+                                        </TextField>
+                                        <TextField variant="secondary" fullWidth aria-label={t('durationPlaceholder')} value={v.duration} onChange={(val) => updateVariation(i, "duration", val)}>
+                                            <Input type="number" min="1" inputMode="numeric" placeholder={t('durationPlaceholder')} />
+                                        </TextField>
+                                        <TextField variant="secondary" fullWidth aria-label={t('pricePlaceholder')} value={v.price} onChange={(val) => updateVariation(i, "price", val)}>
+                                            <Input type="number" min="0" inputMode="decimal" placeholder={t('pricePlaceholder')} />
+                                        </TextField>
                                         <CurrencySelect
                                             value={v.currency}
                                             onChange={(c) => updateVariation(i, "currency", c)}
                                         />
                                     </div>
-                                    <input
-                                        type="text"
-                                        placeholder={t('descriptionPlaceholder')}
-                                        value={v.description}
-                                        onChange={(e) => updateVariation(i, "description", e.target.value)}
-                                        className={inputCls}
-                                    />
+                                    <TextField variant="secondary" fullWidth aria-label={t('descriptionPlaceholder')} value={v.description} onChange={(val) => updateVariation(i, "description", val)}>
+                                        <Input type="text" placeholder={t('descriptionPlaceholder')} />
+                                    </TextField>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {error && <p className="text-destructive text-sm">{error}</p>}
+                    <FieldErrorText msg={error} />
 
-                    <Button type="submit" variant="primary" fullWidth>
-                        {selectedPackageId ? t('addVariations') : t('createPackage')}
-                    </Button>
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={() => { setShowForm(false); setError(""); }}>
+                            {tCommon('cancel')}
+                        </Button>
+                        <Button type="submit" variant="primary">
+                            {selectedPackageId ? t('addVariations') : t('createPackage')}
+                        </Button>
+                    </ModalFooter>
                 </form>
             </Modal>
 

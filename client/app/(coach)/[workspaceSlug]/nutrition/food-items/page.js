@@ -3,12 +3,14 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel } from "@/app/components/Field";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
-
-const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
-const labelCls = "text-xs text-muted-foreground mb-1 block";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
 
 const emptyForm = {
     name_en: '',
@@ -24,6 +26,7 @@ const emptyForm = {
 
 export default function FoodItemsPage() {
     const t = useTranslations("foodItems");
+    const tCommon = useTranslations("common");
     const [foodItems, setFoodItems] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -112,61 +115,93 @@ export default function FoodItemsPage() {
         )},
     ];
 
-    const FoodForm = ({ data, onChange, onSubmit, submitLabel, isEdit }) => (
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3">
-                <div>
-                    <label className={labelCls}>{t("labelNameEn")}</label>
-                    <input type="text" name="name_en" value={data.name_en || ''} placeholder={t("placeholderNameEn")} onChange={onChange} className={inputCls} required autoFocus={!isEdit} />
-                </div>
-                <div>
-                    <label className={labelCls}>{t("labelNameAr")}</label>
-                    <input type="text" name="name_ar" value={data.name_ar || ''} placeholder={t("placeholderNameAr")} onChange={onChange} className={inputCls} dir="rtl" />
-                </div>
-            </div>
-            <div>
-                <label className={labelCls}>{t("labelCategory")}</label>
-                <select name="food_category" value={data.food_category || ''} onChange={onChange} className={inputCls}>
-                    <option value="">{t("selectCategory")}</option>
-                    {categories.map(cat => (
-                        <option key={cat.id} value={cat.name_en}>{cat.name_en}{cat.name_ar ? ` / ${cat.name_ar}` : ''}</option>
-                    ))}
-                </select>
-            </div>
-            <div className="flex gap-4">
-                <div className="flex-1">
-                    <label className={labelCls}>{t("labelServingSize")}</label>
-                    <input type="number" step="any" name="serving_size" value={data.serving_size || ''} placeholder="100" onChange={onChange} className={inputCls} />
-                </div>
-                <div className="flex-1">
-                    <label className={labelCls}>{t("labelServingUnit")}</label>
-                    <input type="text" name="serving_unit" value={data.serving_unit || ''} placeholder="g" onChange={onChange} className={inputCls} />
-                </div>
-            </div>
-            <div>
-                <label className={labelCls}>{t("labelNutritionFacts")}</label>
-                <div className="grid grid-cols-4 gap-3">
-                    <div>
-                        <span className="text-xs text-muted-foreground">{t("labelCalories")}</span>
-                        <input type="number" step="any" name="calories_per_serving" value={data.calories_per_serving || ''} placeholder="kcal" onChange={onChange} className={inputCls} />
+    const FoodForm = ({ data, onChange, onSubmit, onCancel, submitLabel, isEdit }) => {
+        // Adapts HeroUI's value-based onChange back to the event shape the
+        // existing name-keyed handlers ({ target: { name, value } }) expect.
+        const field = (name) => ({
+            value: data[name] || '',
+            onChange: (value) => onChange({ target: { name, value } }),
+        });
+        return (
+            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t("labelNameEn")}</FieldLabel>
+                        <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} {...field("name_en")}>
+                            <Input type="text" placeholder={t("placeholderNameEn")} autoFocus={!isEdit} />
+                        </TextField>
                     </div>
-                    <div>
-                        <span className="text-xs text-muted-foreground">{t("labelCarbs")}</span>
-                        <input type="number" step="any" name="carbs_per_serving" value={data.carbs_per_serving || ''} placeholder="g" onChange={onChange} className={inputCls} />
-                    </div>
-                    <div>
-                        <span className="text-xs text-muted-foreground">{t("labelProtein")}</span>
-                        <input type="number" step="any" name="protein_per_serving" value={data.protein_per_serving || ''} placeholder="g" onChange={onChange} className={inputCls} />
-                    </div>
-                    <div>
-                        <span className="text-xs text-muted-foreground">{t("labelFats")}</span>
-                        <input type="number" step="any" name="fats_per_serving" value={data.fats_per_serving || ''} placeholder="g" onChange={onChange} className={inputCls} />
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t("labelNameAr")}</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} {...field("name_ar")}>
+                            <Input type="text" placeholder={t("placeholderNameAr")} dir="rtl" />
+                        </TextField>
                     </div>
                 </div>
-            </div>
-            <Button type="submit" variant="primary" fullWidth>{submitLabel}</Button>
-        </form>
-    );
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>{t("labelCategory")}</FieldLabel>
+                    <Select
+                        variant="secondary"
+                        fullWidth
+                        placeholder={t("selectCategory")}
+                        aria-label={t("labelCategory")}
+                        value={data.food_category || ''}
+                        onChange={(key) => onChange({ target: { name: "food_category", value: key } })}
+                    >
+                        <Select.Trigger>
+                            <Select.Value />
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                {categories.map(cat => (
+                                    <ListBox.Item key={cat.id} id={cat.name_en} textValue={cat.name_en}>
+                                        {cat.name_en}{cat.name_ar ? ` / ${cat.name_ar}` : ''}
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                ))}
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
+                </div>
+                <div className="flex gap-4">
+                    <div className="flex-1 flex flex-col gap-1.5">
+                        <FieldLabel>{t("labelServingSize")}</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t("labelServingSize")} {...field("serving_size")}>
+                            <Input type="number" step="any" inputMode="decimal" placeholder="100" />
+                        </TextField>
+                    </div>
+                    <div className="flex-1 flex flex-col gap-1.5">
+                        <FieldLabel>{t("labelServingUnit")}</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t("labelServingUnit")} {...field("serving_unit")}>
+                            <Input type="text" placeholder="g" />
+                        </TextField>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>{t("labelNutritionFacts")}</FieldLabel>
+                    <div className="grid grid-cols-4 gap-3">
+                        <TextField variant="secondary" fullWidth aria-label={t("labelCalories")} {...field("calories_per_serving")}>
+                            <Input type="number" step="any" inputMode="decimal" placeholder={t("labelCalories")} />
+                        </TextField>
+                        <TextField variant="secondary" fullWidth aria-label={t("labelCarbs")} {...field("carbs_per_serving")}>
+                            <Input type="number" step="any" inputMode="decimal" placeholder={t("labelCarbs")} />
+                        </TextField>
+                        <TextField variant="secondary" fullWidth aria-label={t("labelProtein")} {...field("protein_per_serving")}>
+                            <Input type="number" step="any" inputMode="decimal" placeholder={t("labelProtein")} />
+                        </TextField>
+                        <TextField variant="secondary" fullWidth aria-label={t("labelFats")} {...field("fats_per_serving")}>
+                            <Input type="number" step="any" inputMode="decimal" placeholder={t("labelFats")} />
+                        </TextField>
+                    </div>
+                </div>
+                <ModalFooter>
+                    <Button type="button" variant="ghost" onClick={onCancel}>{tCommon("cancel")}</Button>
+                    <Button type="submit" variant="primary">{submitLabel}</Button>
+                </ModalFooter>
+            </form>
+        );
+    };
 
     return (
         <div className="p-8 flex flex-col gap-6">
@@ -176,11 +211,11 @@ export default function FoodItemsPage() {
             </div>
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setFormData(emptyForm); }} title={t("addTitle")}>
-                <FoodForm data={formData} onChange={handleChange} onSubmit={handleSubmit} submitLabel={t("submitAdd")} />
+                <FoodForm data={formData} onChange={handleChange} onSubmit={handleSubmit} onCancel={() => { setShowForm(false); setFormData(emptyForm); }} submitLabel={t("submitAdd")} />
             </Modal>
 
             <Modal open={!!editingItem} onClose={() => setEditingItem(null)} title={t("editTitle")}>
-                <FoodForm data={editingItem || emptyForm} onChange={handleEditChange} onSubmit={handleUpdate} submitLabel={t("submitEdit")} isEdit />
+                <FoodForm data={editingItem || emptyForm} onChange={handleEditChange} onSubmit={handleUpdate} onCancel={() => setEditingItem(null)} submitLabel={t("submitEdit")} isEdit />
             </Modal>
 
             <DataTable
