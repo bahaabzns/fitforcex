@@ -17,6 +17,7 @@ type TxDbRow = Record<string, unknown>;
 function mapRow(row: TxDbRow) {
     return {
         id:                    row.id,
+        code:                  row.transaction_code,
         clientId:              row.client_id,
         clientName:            row.client_name,
         packageVariation:      row.package_variation,
@@ -113,6 +114,15 @@ async function getFirstPlanActivation(clientId: string): Promise<string | null> 
         ) x
     `;
     return rows[0]?.first_activation ? rows[0].first_activation.toISOString() : null;
+}
+
+// Next per-workspace sequential transaction code (the human-friendly #0001 shown in the UI).
+async function nextTransactionCode(workspaceId: string): Promise<number> {
+    const max = await prisma.transactions.aggregate({
+        where: { workspace_id: workspaceId },
+        _max: { transaction_code: true },
+    });
+    return (max._max.transaction_code ?? 0) + 1;
 }
 
 async function syncClientPackage(clientId: string | null, workspaceId: string): Promise<void> {
@@ -275,26 +285,39 @@ export async function createTransaction(req: Request, res: Response, next: NextF
             if (currentStatus === 'Active') startMode = 'queued';
         }
 
-        const tx = await prisma.transactions.create({
-            data: {
-                id:                      createId(),
-                workspace_id:            req.user!.workspaceId,
-                client_id:               clientId || null,
-                client_name:             clientName.trim(),
-                package_variation:       packageVariation?.trim() || null,
-                payment_method:          paymentMethod.trim(),
-                amount:                  amt,
-                currency:                currency.trim(),
-                duration:                duration ? Number(duration) : null,
-                type:                    type || 'subscription',
-                status:                  status || 'completed',
-                notes:                   notes?.trim() || null,
-                proof_image:             proofImage || null,
-                transaction_date:        date ? new Date(date) : new Date(),
-                subscription_start_date: finalSubStartDate,
-                start_mode:              startMode,
-            },
-        });
+        const newData = {
+            workspace_id:            req.user!.workspaceId,
+            client_id:               clientId || null,
+            client_name:             clientName.trim(),
+            package_variation:       packageVariation?.trim() || null,
+            payment_method:          paymentMethod.trim(),
+            amount:                  amt,
+            currency:                currency.trim(),
+            duration:                duration ? Number(duration) : null,
+            type:                    type || 'subscription',
+            status:                  status || 'completed',
+            notes:                   notes?.trim() || null,
+            proof_image:             proofImage || null,
+            transaction_date:        date ? new Date(date) : new Date(),
+            subscription_start_date: finalSubStartDate,
+            start_mode:              startMode,
+        };
+
+        // Retry on the (workspace_id, transaction_code) unique constraint in case a
+        // concurrent create grabbed the same sequential code first.
+        let tx: Awaited<ReturnType<typeof prisma.transactions.create>> | null = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                tx = await prisma.transactions.create({
+                    data: { id: createId(), transaction_code: await nextTransactionCode(req.user!.workspaceId), ...newData },
+                });
+                break;
+            } catch (e) {
+                if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002' && attempt < 4) continue;
+                throw e;
+            }
+        }
+        if (!tx) return res.status(500).json({ error: 'Failed to generate unique transaction code' });
 
         await syncClientPackage(tx.client_id, req.user!.workspaceId);
         res.status(201).json(mapRow(tx as unknown as TxDbRow));

@@ -170,6 +170,24 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
             ? `${firstPhone.countryCode || ''} ${firstPhone.number || ''}`.trim()
             : null;
 
+        // Reject duplicates within the workspace before inserting (email also has a DB unique
+        // constraint as a backstop; primary phone is enforced here only).
+        const emailValue = (email as string | undefined)?.trim();
+        if (emailValue) {
+            const dupeEmail = await prisma.clients.findFirst({
+                where: { workspace_id: req.user!.workspaceId, email: { equals: emailValue, mode: 'insensitive' } },
+                select: { id: true },
+            });
+            if (dupeEmail) return res.status(409).json({ error: 'duplicate_email' });
+        }
+        if (phoneText) {
+            const dupePhone = await prisma.clients.findFirst({
+                where: { workspace_id: req.user!.workspaceId, phone: phoneText },
+                select: { id: true },
+            });
+            if (dupePhone) return res.status(409).json({ error: 'duplicate_phone' });
+        }
+
         const client = await prisma.clients.create({
             data: {
                 id:                  createId(),

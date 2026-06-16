@@ -21,5 +21,5 @@
   "ts-node": {
     "files": true
   },
-  "exclude": ["node_modules", "dist", "tests", "migrations", "scripts"]
+  "exclude": ["node_modules", "dist", "tests", "migrations", "scripts", "src/scripts"]
 }
