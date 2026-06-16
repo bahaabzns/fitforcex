@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
-import { Eye, EyeOff, Copy, Check } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Trash2 } from 'lucide-react';
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
+import CountryCodeSelect from "@/app/components/CountryCodeSelect";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -17,99 +18,6 @@ import { InputGroup } from "@heroui/react/input-group";
 function generatePassword(length = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
-const COUNTRY_CODES = [
-    { code: "+93", name: "Afghanistan" }, { code: "+355", name: "Albania" }, { code: "+213", name: "Algeria" },
-    { code: "+376", name: "Andorra" }, { code: "+244", name: "Angola" }, { code: "+54", name: "Argentina" },
-    { code: "+374", name: "Armenia" }, { code: "+61", name: "Australia" }, { code: "+43", name: "Austria" },
-    { code: "+994", name: "Azerbaijan" }, { code: "+973", name: "Bahrain" }, { code: "+880", name: "Bangladesh" },
-    { code: "+375", name: "Belarus" }, { code: "+32", name: "Belgium" }, { code: "+55", name: "Brazil" },
-    { code: "+1", name: "Canada / USA" }, { code: "+86", name: "China" }, { code: "+57", name: "Colombia" },
-    { code: "+385", name: "Croatia" }, { code: "+357", name: "Cyprus" }, { code: "+420", name: "Czech Republic" },
-    { code: "+45", name: "Denmark" }, { code: "+20", name: "Egypt" }, { code: "+358", name: "Finland" },
-    { code: "+33", name: "France" }, { code: "+995", name: "Georgia" }, { code: "+49", name: "Germany" },
-    { code: "+233", name: "Ghana" }, { code: "+30", name: "Greece" }, { code: "+36", name: "Hungary" },
-    { code: "+354", name: "Iceland" }, { code: "+91", name: "India" }, { code: "+62", name: "Indonesia" },
-    { code: "+98", name: "Iran" }, { code: "+964", name: "Iraq" }, { code: "+353", name: "Ireland" },
-    { code: "+972", name: "Israel" }, { code: "+39", name: "Italy" }, { code: "+81", name: "Japan" },
-    { code: "+962", name: "Jordan" }, { code: "+7", name: "Kazakhstan / Russia" }, { code: "+254", name: "Kenya" },
-    { code: "+965", name: "Kuwait" }, { code: "+961", name: "Lebanon" }, { code: "+218", name: "Libya" },
-    { code: "+60", name: "Malaysia" }, { code: "+960", name: "Maldives" }, { code: "+52", name: "Mexico" },
-    { code: "+212", name: "Morocco" }, { code: "+31", name: "Netherlands" }, { code: "+64", name: "New Zealand" },
-    { code: "+234", name: "Nigeria" }, { code: "+47", name: "Norway" }, { code: "+968", name: "Oman" },
-    { code: "+92", name: "Pakistan" }, { code: "+970", name: "Palestine" }, { code: "+507", name: "Panama" },
-    { code: "+63", name: "Philippines" }, { code: "+48", name: "Poland" }, { code: "+351", name: "Portugal" },
-    { code: "+974", name: "Qatar" }, { code: "+40", name: "Romania" }, { code: "+250", name: "Rwanda" },
-    { code: "+966", name: "Saudi Arabia" }, { code: "+221", name: "Senegal" }, { code: "+381", name: "Serbia" },
-    { code: "+65", name: "Singapore" }, { code: "+27", name: "South Africa" }, { code: "+82", name: "South Korea" },
-    { code: "+34", name: "Spain" }, { code: "+94", name: "Sri Lanka" }, { code: "+249", name: "Sudan" },
-    { code: "+46", name: "Sweden" }, { code: "+41", name: "Switzerland" }, { code: "+963", name: "Syria" },
-    { code: "+886", name: "Taiwan" }, { code: "+255", name: "Tanzania" }, { code: "+66", name: "Thailand" },
-    { code: "+216", name: "Tunisia" }, { code: "+90", name: "Turkey" }, { code: "+256", name: "Uganda" },
-    { code: "+380", name: "Ukraine" }, { code: "+971", name: "United Arab Emirates" }, { code: "+44", name: "United Kingdom" },
-    { code: "+1", name: "United States" }, { code: "+998", name: "Uzbekistan" }, { code: "+58", name: "Venezuela" },
-    { code: "+84", name: "Vietnam" }, { code: "+967", name: "Yemen" }, { code: "+260", name: "Zambia" },
-    { code: "+263", name: "Zimbabwe" },
-];
-
-function CountryCodeSelect({ value, onChange }) {
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState("");
-    const ref = useRef(null);
-    const t = useTranslations('clients');
-
-    useEffect(() => {
-        function handler(e) {
-            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-        }
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
-
-    const filtered = COUNTRY_CODES.filter(c =>
-        c.name.toLowerCase().includes(search.toLowerCase()) || c.code.includes(search)
-    );
-
-    return (
-        <div className="relative" ref={ref}>
-            <button
-                type="button"
-                onClick={() => setOpen(!open)}
-                className="w-24 px-3 py-2 rounded-lg bg-background border border-input text-foreground text-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring truncate transition-colors"
-            >
-                {value || "+?"}
-            </button>
-            {open && (
-                <div className="absolute top-full left-0 mt-1 z-20 w-64 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
-                    <input
-                        type="text"
-                        placeholder={t('searchCountry')}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full px-3 py-2 bg-background border-b border-border text-foreground text-xs placeholder:text-muted-foreground focus-visible:outline-none"
-                        autoFocus
-                    />
-                    <div className="max-h-48 overflow-y-auto">
-                        {filtered.map((c, i) => (
-                            <button
-                                key={`${c.code}-${i}`}
-                                type="button"
-                                onClick={() => { onChange(c.code); setOpen(false); setSearch(""); }}
-                                className={`w-full px-3 py-1.5 text-left text-xs transition-colors flex justify-between ${
-                                    value === c.code ? "bg-primary/10 text-primary" : "text-foreground hover:bg-default"
-                                }`}
-                            >
-                                <span>{c.name}</span>
-                                <span className="text-muted-foreground">{c.code}</span>
-                            </button>
-                        ))}
-                        {filtered.length === 0 && <p className="px-3 py-2 text-muted-foreground text-xs">{t('noResults')}</p>}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
 }
 
 const BLANK_PHONE = { countryCode: "+20", number: "" };
@@ -123,8 +31,7 @@ export default function ClientOverviewPage() {
 
   // Edit form state
   const [formData, setFormData] = useState({ fname: "", lname: "", email: "" });
-  const [editPhones, setEditPhones] = useState([{ ...BLANK_PHONE }, { ...BLANK_PHONE }, { ...BLANK_PHONE }]);
-  const [editPhoneCount, setEditPhoneCount] = useState(1);
+  const [editPhones, setEditPhones] = useState([{ ...BLANK_PHONE }]);
 
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -152,18 +59,21 @@ export default function ClientOverviewPage() {
     });
   }
 
+  function addEditPhone() {
+    setEditPhones(prev => (prev.length >= 3 ? prev : [...prev, { ...BLANK_PHONE }]));
+  }
+
+  function removeEditPhone(index) {
+    setEditPhones(prev => prev.filter((_, i) => i !== index));
+  }
+
   function openEdit() {
     const phones = (client.phones && client.phones.length > 0)
       ? client.phones
       : (client.phone ? [{ countryCode: "", number: client.phone }] : []);
 
     setFormData({ fname: client.fname, lname: client.lname, email: client.email });
-    setEditPhones([
-      phones[0] || { ...BLANK_PHONE },
-      phones[1] || { ...BLANK_PHONE },
-      phones[2] || { ...BLANK_PHONE },
-    ]);
-    setEditPhoneCount(Math.max(1, phones.length));
+    setEditPhones(phones.length > 0 ? phones.slice(0, 3).map(p => ({ ...p })) : [{ ...BLANK_PHONE }]);
     setNewPassword("");
     setPasswordError("");
     setShowNewPassword(false);
@@ -177,7 +87,7 @@ export default function ClientOverviewPage() {
       setPasswordError(t('passwordMinLength'));
       return;
     }
-    const phonesToSend = editPhones.slice(0, editPhoneCount).filter(p => p.number.trim());
+    const phonesToSend = editPhones.filter(p => p.number.trim());
     try {
       const updated = await api.put(`/api/clients/${id}`, {
         ...formData,
@@ -342,31 +252,35 @@ export default function ClientOverviewPage() {
 
               {/* Phone numbers */}
               <div className="flex flex-col gap-3">
-                <FieldLabel>{t('phoneNumbers')}</FieldLabel>
-                <div className="flex gap-2 items-center">
-                  <CountryCodeSelect value={editPhones[0].countryCode} onChange={code => updateEditPhone(0, "countryCode", code)} />
-                  <TextField variant="secondary" fullWidth aria-label={t('primaryPhonePlaceholder')} value={editPhones[0].number} onChange={(val) => updateEditPhone(0, "number", val)} className="flex-1">
-                    <Input type="text" inputMode="numeric" placeholder={t('primaryPhonePlaceholder')} />
-                  </TextField>
-                </div>
-                {editPhoneCount >= 2 && (
-                  <div className="flex gap-2 items-center">
-                    <CountryCodeSelect value={editPhones[1].countryCode} onChange={code => updateEditPhone(1, "countryCode", code)} />
-                    <TextField variant="secondary" fullWidth aria-label={t('phone2')} value={editPhones[1].number} onChange={(val) => updateEditPhone(1, "number", val)} className="flex-1">
-                      <Input type="text" inputMode="numeric" placeholder={t('phone2')} />
-                    </TextField>
-                  </div>
-                )}
-                {editPhoneCount >= 3 && (
-                  <div className="flex gap-2 items-center">
-                    <CountryCodeSelect value={editPhones[2].countryCode} onChange={code => updateEditPhone(2, "countryCode", code)} />
-                    <TextField variant="secondary" fullWidth aria-label={t('phone3')} value={editPhones[2].number} onChange={(val) => updateEditPhone(2, "number", val)} className="flex-1">
-                      <Input type="text" inputMode="numeric" placeholder={t('phone3')} />
-                    </TextField>
-                  </div>
-                )}
-                {editPhoneCount < 3 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditPhoneCount(c => c + 1)} className="self-end">
+                {editPhones.map((phone, i) => {
+                  const isPrimary = i === 0;
+                  const phoneLabel = isPrimary ? t('primaryPhoneLabel') : t('additionalPhoneLabel', { n: i + 1 });
+                  return (
+                    <div key={i} className="flex flex-col gap-1.5">
+                      <FieldLabel required={isPrimary}>{phoneLabel}</FieldLabel>
+                      <div className="flex gap-2 items-center">
+                        <CountryCodeSelect value={phone.countryCode} onChange={code => updateEditPhone(i, "countryCode", code)} />
+                        <TextField variant="secondary" fullWidth aria-label={phoneLabel} value={phone.number} onChange={(val) => updateEditPhone(i, "number", val)} className="flex-1">
+                          <Input type="text" inputMode="numeric" placeholder={phoneLabel} />
+                        </TextField>
+                        {!isPrimary && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            isIconOnly
+                            aria-label={t('removePhone')}
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeEditPhone(i)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {editPhones.length < 3 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={addEditPhone} className="self-end">
                     {t('addAnotherPhone')}
                   </Button>
                 )}

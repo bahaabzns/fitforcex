@@ -97,7 +97,7 @@
     "primaryPhone": "Primary phone (required)",
     "phone2": "Phone 2 (optional)",
     "phone3": "Phone 3 (optional)",
-    "primaryPhoneLabel": "Primary phone",
+    "primaryPhoneLabel": "Phone number",
     "additionalPhoneLabel": "Phone {n}",
     "countryCode": "Country code",
     "removePhone": "Remove phone",

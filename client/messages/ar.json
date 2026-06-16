@@ -97,7 +97,7 @@
     "primaryPhone": "الهاتف الأساسي (مطلوب)",
     "phone2": "الهاتف 2 (اختياري)",
     "phone3": "الهاتف 3 (اختياري)",
-    "primaryPhoneLabel": "الهاتف الأساسي",
+    "primaryPhoneLabel": "رقم الهاتف",
     "additionalPhoneLabel": "الهاتف {n}",
     "countryCode": "رمز الدولة",
     "removePhone": "حذف الهاتف",
