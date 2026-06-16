@@ -257,6 +257,8 @@
     "notesPlaceholder": "Optional notes...",
     "proofLabel": "Proof of Payment",
     "proofEditLabel": "Proof of Transaction",
+    "proofDropLabel": "Drag a file here or click to browse",
+    "proofDropHint": "Image or PDF, up to 10 MB",
     "viewCurrentProof": "View current proof",
     "removeProof": "Remove",
     "saving": "Saving…",

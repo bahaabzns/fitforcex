@@ -7,6 +7,7 @@ import api from "@/lib/axios";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import DatePickerField, { strToDate } from "@/app/components/DatePickerField";
+import ProofDropZone from "@/app/components/ProofDropZone";
 import DataTable from "@/app/components/DataTable";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
@@ -765,13 +766,13 @@ export default function ClientTransactionsPage() {
                     {/* Proof */}
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel>{t('proofLabel')}</FieldLabel>
-                        <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={e => setAddProofFile(e.target.files[0] || null)}
-                            className="w-full text-sm text-muted-foreground file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
+                        <ProofDropZone
+                            file={addProofFile}
+                            onChange={setAddProofFile}
+                            label={t('proofDropLabel')}
+                            hint={t('proofDropHint')}
+                            removeLabel={t('removeProof')}
                         />
-                        {addProofFile && <p className="text-xs text-muted-foreground mt-1">{addProofFile.name}</p>}
                     </div>
 
                     <FieldErrorText msg={addError} />
@@ -894,13 +895,13 @@ export default function ClientTransactionsPage() {
                                 </button>
                             </div>
                         )}
-                        <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={e => setEditProofFile(e.target.files[0] || null)}
-                            className="w-full text-sm text-muted-foreground file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
+                        <ProofDropZone
+                            file={editProofFile}
+                            onChange={setEditProofFile}
+                            label={t('proofDropLabel')}
+                            hint={t('proofDropHint')}
+                            removeLabel={t('removeProof')}
                         />
-                        {editProofFile && <p className="text-xs text-muted-foreground mt-1">{editProofFile.name}</p>}
                     </div>
 
                     <FieldErrorText msg={editError} />

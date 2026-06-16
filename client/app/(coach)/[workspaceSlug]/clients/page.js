@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Copy, Check, Trash2, UploadCloud, X, CreditCard, ClipboardList, FileText, Snowflake, Sun, ListChecks } from 'lucide-react';
+import { Copy, Check, Trash2, X, CreditCard, ClipboardList, FileText, Snowflake, Sun, ListChecks } from 'lucide-react';
 import DataTable from "@/app/components/DataTable";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
@@ -21,6 +21,7 @@ import { Label } from "@heroui/react/label";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import CountryCodeSelect from "@/app/components/CountryCodeSelect";
+import ProofDropZone from "@/app/components/ProofDropZone";
 import { Switch } from "@heroui/react/switch";
 import { DatePicker } from "@heroui/react/date-picker";
 import { DateField } from "@heroui/react/date-field";
@@ -114,75 +115,6 @@ function dateToStr(dateValue) {
     return dateValue ? dateValue.toString() : "";
 }
 
-// Human-readable file size.
-function formatFileSize(bytes) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// --- PROOF DROP ZONE (drag-and-drop single file upload) ---
-function ProofDropZone({ file, onChange }) {
-    const t = useTranslations('clients');
-    const inputRef = useRef(null);
-    const [dragOver, setDragOver] = useState(false);
-
-    function pickFirst(fileList) {
-        const picked = fileList && fileList[0];
-        if (picked) onChange(picked);
-    }
-
-    if (file) {
-        const ext = (file.name.split(".").pop() || "file").toUpperCase();
-        return (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-semibold text-primary">
-                    {ext.slice(0, 4)}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm text-foreground">{file.name}</span>
-                    <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
-                </div>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    isIconOnly
-                    aria-label={t('removeProof')}
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => onChange(null)}
-                >
-                    <X className="h-4 w-4" />
-                </Button>
-            </div>
-        );
-    }
-
-    return (
-        <div
-            role="button"
-            tabIndex={0}
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); pickFirst(e.dataTransfer.files); }}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 py-4 text-center transition-colors ${
-                dragOver ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/60"
-            }`}
-        >
-            <UploadCloud className="h-5 w-5 text-muted-foreground" />
-            <span className="text-xs font-medium text-foreground">{t('proofDropLabel')}</span>
-            <span className="text-[11px] text-muted-foreground">{t('proofDropHint')}</span>
-            <input
-                ref={inputRef}
-                type="file"
-                accept="image/*,.pdf"
-                className="hidden"
-                onChange={(e) => pickFirst(e.target.files)}
-            />
-        </div>
-    );
-}
 
 // --- REVIEW SUMMARY ROW ---
 function ReviewRow({ label, value, mono }) {
@@ -1003,7 +935,7 @@ export default function ClientsPage() {
                                     {/* Proof of Payment */}
                                     <div className="flex flex-col gap-1.5">
                                         <Label>{t('proofOfPayment')} <span className="font-normal opacity-60">{t('proofOptional')}</span></Label>
-                                        <ProofDropZone file={txProofFile} onChange={setTxProofFile} />
+                                        <ProofDropZone file={txProofFile} onChange={setTxProofFile} label={t('proofDropLabel')} hint={t('proofDropHint')} removeLabel={t('removeProof')} />
                                     </div>
 
                                     {/* Subscription Start — toggle "on first plan"; the date picker stays
@@ -1423,7 +1355,7 @@ export default function ClientsPage() {
                     {/* Proof of Payment */}
                     <div className="flex flex-col gap-1.5">
                         <Label>{t('proofOfPayment')} <span className="font-normal opacity-60">{t('proofOptional')}</span></Label>
-                        <ProofDropZone file={bulkTxProof} onChange={setBulkTxProof} />
+                        <ProofDropZone file={bulkTxProof} onChange={setBulkTxProof} label={t('proofDropLabel')} hint={t('proofDropHint')} removeLabel={t('removeProof')} />
                     </div>
 
                     {/* Subscription Start — "on first plan" queues after each client's current plan. */}

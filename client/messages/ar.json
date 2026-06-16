@@ -257,6 +257,8 @@
     "notesPlaceholder": "ملاحظات اختيارية...",
     "proofLabel": "إثبات الدفع",
     "proofEditLabel": "إثبات المعاملة",
+    "proofDropLabel": "اسحب ملفًا هنا أو انقر للتصفح",
+    "proofDropHint": "صورة أو PDF، حتى 10 ميجابايت",
     "viewCurrentProof": "عرض الإثبات الحالي",
     "removeProof": "إزالة",
     "saving": "جارٍ الحفظ…",
