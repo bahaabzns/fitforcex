@@ -1,14 +1,10 @@
 
-Context
-Files to change
-Step-by-step implementation
-Result
-Verification
+# fitforce trusted food item / exercise label in the databases of nutrition and training
 
+# add current next step client should take in the flow
 
-> CLIENT DETAILS PAGE
-# fix close panel button in training builder and fix the auto day open
-
+# on freeze / expired clients what should be done ? 'business decision to be made from settings'
+> remove access for client? if yes what module to remove? even in what package? any exceptions?
 
 
 # hover of plans cards on builders .. change color (we will change the card design itself)
@@ -21,13 +17,10 @@ https://heroui.com/docs/react/components/radio-group#delivery--payment
 https://heroui.com/docs/react/components/number-field#with-chevrons
 
 
-# double active tabs in side bar when navigating nutrition builder and training builder
 
-# client code is not correct
 
 #  change the bg color to the blue and active buttons like sidebar
 > GLOBAL
-# arabic version
 
 # Dashboard insights
 # export bulk data
@@ -42,23 +35,12 @@ https://heroui.com/docs/react/components/number-field#with-chevrons
 
 # add bulk data
 
-# apply single shimmer skeleton on all loader pages with the compatible or use spinner instead
-https://heroui.com/docs/react/components/skeleton
-
 
 
 
 > 
 
-# add alert dialoge for all actions signout, delete, discard changes, complete task, reset password
-https://heroui.com/docs/react/components/alert-dialog
 
-# unify all action icons in all tables and inside builders
-https://heroui.com/docs/react/components/alert-dialog#custom-trigger
-https://heroui.com/docs/react/components/button#icon-only
-
-# use animations of fluid slide in dialogues
-https://heroui.com/docs/react/components/alert-dialog#custom-animations
 
 # use multiple select in filter drop-downs without search field
 https://heroui.com/docs/react/components/alert-dialog#custom-trigger
@@ -79,25 +61,20 @@ https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 # use this for tempo
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
-# change the logo in dark mode
 
 
 # In-App Chat
 
 
-# responsiveness
 
 
 # use numbers badge for queue plans nav-item of the sidebar
 https://heroui.com/docs/react/components/badge#with-content
 
-# use search field instead of plain text field in any search field
 
 # add external links to quick add equipment or food category or add exercises in builders
 https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 
-# unify all modals
-https://heroui.com/docs/react/components/modal
 
 # use this toggle for dark mode and light mode
 https://heroui.com/docs/react/components/switch#with-icons
@@ -105,8 +82,12 @@ https://heroui.com/docs/react/components/switch#with-icons
 # subscription logic audit
 
 # team assignation on queue
+
+
 # in selecting team members avatars add this drop down
 https://heroui.com/docs/react/components/alert-dialog#custom-trigger
+
+
 # use avatars for team members (gradient style)
 https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 
@@ -130,15 +111,32 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 - [done] change the route name of dashboard into nutrition
 - [done] convert side bar into bottom navigation bar similar to mobile apps
 - [done] add language switcher
-- add training mode to save client weight progress
-- fix exercise thumbnail
+- add training mode to save client weight progress (add workout mode and workout history and charts per exercise
+)
 - add diet diary log
 - add streak progress tracking for diet and workout
 - add weekly list of items
-
 - onboarding messages for clients
 
+# fix the lang switcher in arabic version
+
+# what is the next step of the client now eg.
+- 
+
 # onboarding coaches
+on 'https://fitforce.app/register' : 
+- make the phone number required
+- after this make do an onboarding workflow
+
+1. register info : (fname, lname, country code, phone, email, password)
+
+2. mini survey : 
+(how many clients do you currently work with? : [0 - just starting, 1-10 clients, 11-50, 51-100] , 
+what best describes your work? : [nutritionist, personal trainer, gym owner], 
+how do you deliver your services to clients? : [online, offline, both - hybrid]
+how do you deliver your service? : (excel sheets, other system, whatsapp) )
+
+3. create a simple checklist of the to start setup his account 
 
 # Delete Client
 
@@ -148,9 +146,24 @@ https://heroui.com/docs/react/components/alert-dialog#custom-trigger
 - recipies
 
 
-# unify all empty states in system
 
-# unify all pages paddings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -174,3 +187,51 @@ https://heroui.com/docs/react/components/input-group#with-prefix-and-suffix
 # [done] enhance data tables filtering section
 
 # [done] change the location of the number of max rows in data tables and use this theme
+# [done] double active tabs in side bar when navigating nutrition builder and training builder
+# [done] arabic version
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+> CLIENT DETAILS PAGE
+# fix close panel button in training builder and fix the auto day open
+# client code is not correct
+- fix exercise thumbnail in client portal
+# fix the sidebar in arabic version
+# change the logo in dark mode
+# responsiveness
+# unify all modals
+https://heroui.com/docs/react/components/modal
+# unify all action icons in all tables and inside builders
+https://heroui.com/docs/react/components/alert-dialog#custom-trigger
+https://heroui.com/docs/react/components/button#icon-only
+
+# unify all empty states in system
+
+# unify all pages paddings
+
+
+# apply single shimmer skeleton on all loader pages with the compatible or use spinner instead
+https://heroui.com/docs/react/components/skeleton
+# add alert dialoge for all actions signout, delete, discard changes, complete task, reset password
+https://heroui.com/docs/react/components/alert-dialog
+# use animations of fluid slide in dialogues
+https://heroui.com/docs/react/components/alert-dialog#custom-animations
+# use search field instead of plain text field in any search field
+# use less confusing date formats in all system
