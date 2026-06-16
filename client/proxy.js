@@ -5,7 +5,7 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'fitforce.app';
 // Subdomains that are NOT coach slugs — route normally
 const RESERVED = new Set(['my', 'admin', 'www', 'api', 'mail', 'smtp']);
 
-export function middleware(request) {
+export function proxy(request) {
     const host = request.headers.get('host') || '';
     const hostname = host.split(':')[0]; // strip port if present
 
