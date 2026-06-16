@@ -202,13 +202,13 @@ export default function Sidebar({ collapsed }) {
                     <li>
                         <Link
                             href={`/${slug}/messenger`}
-                            title={collapsed ? 'Messenger' : undefined}
+                            title={collapsed ? tNav('messenger') : undefined}
                             className={navLink(pathname.includes('/messenger'))}
                         >
                             <MessageSquare size={17} className="shrink-0" />
                             {!collapsed && (
                                 <>
-                                    <span className="flex-1">Messenger</span>
+                                    <span className="flex-1">{tNav('messenger')}</span>
                                     {totalUnread > 0 && (
                                         <span style={{
                                             background: 'var(--primary)', color: 'var(--primary-foreground)',

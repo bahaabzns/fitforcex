@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
@@ -24,27 +25,27 @@ const STATUS_CHIP = {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function formatTimestamp(ts) {
+function formatTimestamp(ts, locale) {
     if (!ts) return '';
     const date = new Date(ts);
     const isToday = date.toDateString() === new Date().toDateString();
-    if (isToday) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    if (isToday) return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
-function formatGroupTime(ts) {
+function formatGroupTime(ts, locale) {
     if (!ts) return '';
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
-function getDateLabel(ts) {
+function getDateLabel(ts, locale, labels) {
     const date = new Date(ts);
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    if (date.toDateString() === today.toDateString()) return labels.today;
+    if (date.toDateString() === yesterday.toDateString()) return labels.yesterday;
+    return date.toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 function getInitials(fname, lname) {
@@ -52,7 +53,7 @@ function getInitials(fname, lname) {
 }
 
 // Groups consecutive messages from the same sender within a 5-minute window.
-function buildSegments(messages) {
+function buildSegments(messages, locale, dateLabels) {
     const groups = [];
     messages.forEach(msg => {
         const last = groups[groups.length - 1];
@@ -71,7 +72,7 @@ function buildSegments(messages) {
     groups.forEach(group => {
         const dateStr = new Date(group.messages[0].created_at).toDateString();
         if (dateStr !== lastDate) {
-            segments.push({ type: 'date', label: getDateLabel(group.messages[0].created_at) });
+            segments.push({ type: 'date', label: getDateLabel(group.messages[0].created_at, locale, dateLabels) });
             lastDate = dateStr;
         }
         segments.push({ type: 'group', group });
@@ -103,6 +104,8 @@ const scrollbarCls =
 
 export default function MessengerPage() {
     const { workspaceSlug } = useParams();
+    const t = useTranslations('messenger');
+    const locale = useLocale();
     const containerRef = useRef(null);
     const [widths, setWidths] = useState([26, 46, 28]);
 
@@ -183,9 +186,9 @@ export default function MessengerPage() {
     useEffect(() => {
         if (!search.trim()) { setFilteredThreads(threads); return; }
         const q = search.toLowerCase();
-        setFilteredThreads(threads.filter(t =>
-            `${t.fname} ${t.lname}`.toLowerCase().includes(q) ||
-            t.latest_message?.toLowerCase().includes(q)
+        setFilteredThreads(threads.filter(thread =>
+            `${thread.fname} ${thread.lname}`.toLowerCase().includes(q) ||
+            thread.latest_message?.toLowerCase().includes(q)
         ));
     }, [search, threads]);
 
@@ -225,8 +228,8 @@ export default function MessengerPage() {
         finally { setTogglingStatus(false); }
     };
 
-    const selectedThread = threads.find(t => t.id === selectedThreadId);
-    const segments = buildSegments(messages);
+    const selectedThread = threads.find(thread => thread.id === selectedThreadId);
+    const segments = buildSegments(messages, locale, { today: t('today'), yesterday: t('yesterday') });
 
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
@@ -238,13 +241,13 @@ export default function MessengerPage() {
                     <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
 
                         <div className="flex flex-col gap-3 mb-3 shrink-0">
-                            <h2 className="text-base font-semibold text-foreground">Messages</h2>
+                            <h2 className="text-base font-semibold text-foreground">{t('title')}</h2>
                             <div className="relative">
                                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                                 <input
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
-                                    placeholder="Search…"
+                                    placeholder={t('searchPlaceholder')}
                                     className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted/40 text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                                 />
                             </div>
@@ -264,7 +267,7 @@ export default function MessengerPage() {
                             ) : filteredThreads.length === 0 ? (
                                 <Surface variant="default" className="rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center mx-1 my-1">
                                     <p className="text-sm text-muted-foreground">
-                                        {search ? 'No results found.' : 'No conversations yet. They appear here when a client sends their first message.'}
+                                        {search ? t('noResults') : t('noConversations')}
                                     </p>
                                 </Surface>
                             ) : (
@@ -296,12 +299,12 @@ export default function MessengerPage() {
                                                             </span>
                                                         )}
                                                         <span className="text-[11px] text-muted-foreground">
-                                                            {formatTimestamp(thread.latest_message_at || thread.updated_at)}
+                                                            {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 <p className={`text-xs truncate ${hasUnread ? 'text-foreground/70' : 'text-muted-foreground'}`}>
-                                                    {thread.latest_message || 'No messages yet'}
+                                                    {thread.latest_message || t('threadNoMessages')}
                                                 </p>
                                             </div>
                                         </button>
@@ -326,8 +329,8 @@ export default function MessengerPage() {
                                 <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
                                     <Send size={20} className="text-muted-foreground" />
                                 </div>
-                                <p className="text-sm font-medium text-foreground">No conversation selected</p>
-                                <p className="text-xs text-muted-foreground">Choose a conversation from the list to start messaging</p>
+                                <p className="text-sm font-medium text-foreground">{t('noThreadSelected')}</p>
+                                <p className="text-xs text-muted-foreground">{t('noThreadSelectedHint')}</p>
                             </div>
                         ) : (
                             <>
@@ -345,7 +348,7 @@ export default function MessengerPage() {
                                         variant="flat"
                                         className="shrink-0"
                                     >
-                                        {selectedThread?.status === 'open' ? 'Open' : 'Closed'}
+                                        {selectedThread?.status === 'open' ? t('statusOpen') : t('statusClosed')}
                                     </Chip>
                                     <Button
                                         variant="ghost"
@@ -355,7 +358,7 @@ export default function MessengerPage() {
                                         className="shrink-0 text-xs text-muted-foreground gap-1"
                                     >
                                         <CheckCheck size={13} />
-                                        {selectedThread?.status === 'open' ? 'Close' : 'Reopen'}
+                                        {selectedThread?.status === 'open' ? t('close') : t('reopen')}
                                     </Button>
                                 </div>
 
@@ -369,7 +372,7 @@ export default function MessengerPage() {
                                         ))
                                     ) : messages.length === 0 ? (
                                         <div className="flex-1 flex items-center justify-center">
-                                            <p className="text-sm text-muted-foreground">No messages yet. Say hello!</p>
+                                            <p className="text-sm text-muted-foreground">{t('emptyChat')}</p>
                                         </div>
                                     ) : (
                                         segments.map((seg, si) => {
@@ -409,7 +412,7 @@ export default function MessengerPage() {
                                                     })}
                                                     {/* Single timestamp per group, shown after last message */}
                                                     <span className="text-[11px] text-muted-foreground mt-0.5 px-1">
-                                                        {formatGroupTime(group.messages[group.messages.length - 1].created_at)}
+                                                        {formatGroupTime(group.messages[group.messages.length - 1].created_at, locale)}
                                                     </span>
                                                 </div>
                                             );
@@ -427,7 +430,7 @@ export default function MessengerPage() {
                                         <input
                                             value={draft}
                                             onChange={e => setDraft(e.target.value)}
-                                            placeholder="Reply… (Enter to send)"
+                                            placeholder={t('replyPlaceholder')}
                                             className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none"
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -464,7 +467,7 @@ export default function MessengerPage() {
 
                         {!selectedThreadId ? (
                             <Surface variant="default" className="rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center flex-1">
-                                <p className="text-sm text-muted-foreground">Select a conversation to view the client profile</p>
+                                <p className="text-sm text-muted-foreground">{t('selectConversationProfile')}</p>
                             </Surface>
                         ) : profileLoading ? (
                             <div className="flex flex-col items-center gap-4 pt-4">
@@ -525,9 +528,9 @@ export default function MessengerPage() {
                                         <div className="flex items-start gap-3">
                                             <Calendar size={14} className="text-muted-foreground mt-0.5 shrink-0" />
                                             <div>
-                                                <p className="text-[11px] text-muted-foreground">Member since</p>
+                                                <p className="text-[11px] text-muted-foreground">{t('memberSince')}</p>
                                                 <p className="text-xs text-foreground">
-                                                    {new Date(clientProfile.created_at).toLocaleDateString([], { month: 'long', year: 'numeric' })}
+                                                    {new Date(clientProfile.created_at).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
                                                 </p>
                                             </div>
                                         </div>
@@ -536,9 +539,9 @@ export default function MessengerPage() {
                                         <div className="flex items-start gap-3">
                                             <Clock size={14} className="text-muted-foreground mt-0.5 shrink-0" />
                                             <div>
-                                                <p className="text-[11px] text-muted-foreground">Last message</p>
+                                                <p className="text-[11px] text-muted-foreground">{t('lastMessage')}</p>
                                                 <p className="text-xs text-foreground">
-                                                    {formatTimestamp(selectedThread.latest_message_at)}
+                                                    {formatTimestamp(selectedThread.latest_message_at, locale)}
                                                 </p>
                                             </div>
                                         </div>
@@ -550,7 +553,7 @@ export default function MessengerPage() {
                                     <Link href={`/${workspaceSlug}/clients/${clientProfile.id}`}>
                                         <Button variant="outline" size="sm" className="w-full gap-1.5">
                                             <ExternalLink size={13} />
-                                            Open Profile
+                                            {t('openProfile')}
                                         </Button>
                                     </Link>
                                 </div>

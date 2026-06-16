@@ -95,7 +95,7 @@ export default function DataTable({
 
     function summarizeFilter(rule, col) {
         if (col.filterType === "text")      return `"${rule.value}"`;
-        if (col.filterType === "multi")     return rule.value.join(", ");
+        if (col.filterType === "multi")     return rule.value.map(v => col.optionLabel ? col.optionLabel(v) : v).join(", ");
         if (col.filterType === "dateRange") {
             const { from, to } = rule.value;
             if (from && to) return `${from} – ${to}`;
@@ -366,7 +366,7 @@ export default function DataTable({
                                                                     }}
                                                                     className="rounded"
                                                                 />
-                                                                {option}
+                                                                {col.optionLabel ? col.optionLabel(option) : option}
                                                             </label>
                                                         ))}
                                                     </div>
