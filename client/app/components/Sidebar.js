@@ -165,7 +165,7 @@ export default function Sidebar({ collapsed }) {
                 {collapsed
                     ? <NextImage src="/dark - i.png" alt="FitForce X" width={32} height={32} className="shrink-0" />
                     : <>
-                        <NextImage src="/ff_logo_main.svg" alt="FitForce X" width={148} height={40} className="shrink-0" />
+                        <NextImage src="/ff_logo_main.svg" alt="FitForce X" width={148} height={40} priority style={{ height: "auto" }} className="shrink-0" />
                         <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px] ms-auto">Beta</Chip>
                       </>
                 }
