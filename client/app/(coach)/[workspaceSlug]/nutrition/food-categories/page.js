@@ -96,15 +96,15 @@ export default function FoodCategoriesPage() {
             </div>
 
             <Modal open={showForm} onClose={() => { setShowForm(false); setNewNameEn(''); setNewNameAr(''); }} title={t("addTitle")}>
-                <form onSubmit={handleAdd} className="flex flex-col gap-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
+                <form onSubmit={handleAdd} className="flex flex-col gap-5 px-1 py-1">
+                    <div className="flex gap-2">
+                        <div className="flex flex-1 flex-col gap-1.5">
                             <FieldLabel required>{t("labelNameEn")}</FieldLabel>
                             <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} value={newNameEn} onChange={setNewNameEn}>
                                 <Input type="text" placeholder={t("placeholderNameEn")} autoFocus />
                             </TextField>
                         </div>
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-1 flex-col gap-1.5">
                             <FieldLabel>{t("labelNameAr")}</FieldLabel>
                             <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} value={newNameAr} onChange={setNewNameAr}>
                                 <Input type="text" placeholder={t("placeholderNameAr")} dir="rtl" />
@@ -119,15 +119,15 @@ export default function FoodCategoriesPage() {
             </Modal>
 
             <Modal open={!!editingItem} onClose={() => setEditingItem(null)} title={t("editTitle")}>
-                <form onSubmit={handleUpdate} className="flex flex-col gap-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1.5">
+                <form onSubmit={handleUpdate} className="flex flex-col gap-5 px-1 py-1">
+                    <div className="flex gap-2">
+                        <div className="flex flex-1 flex-col gap-1.5">
                             <FieldLabel required>{t("labelNameEn")}</FieldLabel>
                             <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} value={editingItem?.name_en || ''} onChange={(val) => setEditingItem({ ...editingItem, name_en: val })}>
                                 <Input type="text" autoFocus />
                             </TextField>
                         </div>
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-1 flex-col gap-1.5">
                             <FieldLabel>{t("labelNameAr")}</FieldLabel>
                             <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} value={editingItem?.name_ar || ''} onChange={(val) => setEditingItem({ ...editingItem, name_ar: val })}>
                                 <Input type="text" dir="rtl" />

@@ -4,12 +4,17 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
-import Modal from "@/app/components/Modal";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel, FieldErrorText } from "@/app/components/Field";
+import DatePickerField, { strToDate } from "@/app/components/DatePickerField";
 import DataTable from "@/app/components/DataTable";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { TextArea } from "@heroui/react/textarea";
 
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 
@@ -670,120 +675,151 @@ export default function ClientTransactionsPage() {
 
             {/* Add Transaction Modal */}
             <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title={t('addTransactionTitle')}>
-                <form onSubmit={handleAdd} className="flex flex-col gap-4">
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('packageLabel')} *</label>
-                        <select
+                <form onSubmit={handleAdd} className="flex flex-col gap-5 px-1 py-1">
+                    {/* Package */}
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('packageLabel')}</FieldLabel>
+                        <Select
+                            variant="secondary"
+                            fullWidth
+                            placeholder={t('selectPackage')}
                             value={addPkgKey}
-                            onChange={e => {
-                                setAddPkgKey(e.target.value);
-                                setAddPkg(packageVariationOptions.find(p => p.key === e.target.value) || null);
+                            onChange={(key) => {
+                                setAddPkgKey(key);
+                                setAddPkg(packageVariationOptions.find(p => p.key === key) || null);
                             }}
-                            className={inputCls}
                         >
-                            <option value="">{t('selectPackage')}</option>
-                            {packageVariationOptions.map(p => (
-                                <option key={p.key} value={p.key}>{p.label}</option>
-                            ))}
-                        </select>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    {packageVariationOptions.map(p => (
+                                        <ListBox.Item key={p.key} id={p.key} textValue={p.label}>
+                                            {p.label}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
                         {addPkg && (
-                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                            <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
                                 <span>{t('durationInfo')} <span className="text-foreground font-medium">{t('durationDays', { count: addPkg.duration })}</span></span>
                                 <span>{t('priceInfo')} <span className="text-foreground font-medium">{addPkg.price.toLocaleString()} {addPkg.currency}</span></span>
                             </div>
                         )}
                     </div>
 
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('paymentMethodLabel')} *</label>
-                        <select value={addMethod} onChange={e => setAddMethod(e.target.value)} className={inputCls}>
-                            <option value="">{t('selectMethod')}</option>
-                            {paymentMethodOptions.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
+                    {/* Payment Method */}
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('paymentMethodLabel')}</FieldLabel>
+                        <Select variant="secondary" fullWidth placeholder={t('selectMethod')} value={addMethod} onChange={setAddMethod}>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    {paymentMethodOptions.map(m => (
+                                        <ListBox.Item key={m} id={m} textValue={m}>
+                                            {m}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
                     </div>
 
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('txDateLabel')}</label>
-                        <input type="date" value={addDate} onChange={e => setAddDate(e.target.value)} className={inputCls} />
+                    {/* Transaction Date */}
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('txDateLabel')}</FieldLabel>
+                        <DatePickerField ariaLabel={t('txDateLabel')} value={strToDate(addDate)} onChange={(dv) => setAddDate(dv ? dv.toString() : "")} />
                     </div>
 
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">
-                            {t('subStartDateLabel')} <span className="text-muted-foreground/60">{t('subStartDateHint')}</span>
-                        </label>
-                        <input
-                            type="date"
-                            value={addSubStartDate}
-                            onChange={e => setAddSubStartDate(e.target.value)}
-                            className={inputCls}
-                        />
+                    {/* Subscription Start Date */}
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>
+                            {t('subStartDateLabel')} <span className="font-normal opacity-60">{t('subStartDateHint')}</span>
+                        </FieldLabel>
+                        <DatePickerField ariaLabel={t('subStartDateLabel')} value={strToDate(addSubStartDate)} onChange={(dv) => setAddSubStartDate(dv ? dv.toString() : "")} />
                         {addSubStartDate && (
                             <button
                                 type="button"
                                 onClick={() => setAddSubStartDate("")}
-                                className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
+                                className="self-start text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
                             >
                                 {t('clearOnFirstPlan')}
                             </button>
                         )}
                     </div>
 
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')}</label>
-                        <textarea
-                            rows={2}
-                            value={addNotes}
-                            onChange={e => setAddNotes(e.target.value)}
-                            placeholder={t('notesPlaceholder')}
-                            className={`${inputCls} resize-none`}
-                        />
+                    {/* Notes */}
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('notesLabel')}</FieldLabel>
+                        <TextArea variant="secondary" fullWidth rows={2} aria-label={t('notesLabel')} placeholder={t('notesPlaceholder')} value={addNotes} onChange={e => setAddNotes(e.target.value)} />
                     </div>
 
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('proofLabel')}</label>
+                    {/* Proof */}
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('proofLabel')}</FieldLabel>
                         <input
                             type="file"
                             accept="image/*,.pdf"
                             onChange={e => setAddProofFile(e.target.files[0] || null)}
-                            className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
+                            className="w-full text-sm text-muted-foreground file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
                         />
                         {addProofFile && <p className="text-xs text-muted-foreground mt-1">{addProofFile.name}</p>}
                     </div>
 
-                    {addError && <p className="text-destructive text-sm">{addError}</p>}
+                    <FieldErrorText msg={addError} />
 
-                    <div className="flex gap-2">
-                        <Button type="submit" isDisabled={addSaving} variant="primary" fullWidth>
-                            {addSaving ? t('saving') : t('addTransaction')}
-                        </Button>
-                        <Button type="button" onClick={() => setShowAddModal(false)} variant="ghost" fullWidth>
+                    <ModalFooter>
+                        <Button type="button" onClick={() => setShowAddModal(false)} variant="ghost">
                             {tCommon('cancel')}
                         </Button>
-                    </div>
+                        <Button type="submit" isDisabled={addSaving} variant="primary">
+                            {addSaving ? t('saving') : t('addTransaction')}
+                        </Button>
+                    </ModalFooter>
                 </form>
             </Modal>
 
             {/* Edit Transaction Modal */}
             <Modal open={showEditModal} onClose={closeEdit} title={t('editTransactionTitle')}>
-                <form onSubmit={handleEdit} className="flex flex-col gap-4">
+                <form onSubmit={handleEdit} className="flex flex-col gap-5 px-1 py-1">
                     {/* Package */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('packageLabel')} *</label>
-                        <select
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('packageLabel')}</FieldLabel>
+                        <Select
+                            variant="secondary"
+                            fullWidth
+                            placeholder={t('selectPackage')}
                             value={editPkgKey}
-                            onChange={e => {
-                                setEditPkgKey(e.target.value);
-                                setEditPkg(packageVariationOptions.find(p => p.key === e.target.value) || null);
+                            onChange={(key) => {
+                                setEditPkgKey(key);
+                                setEditPkg(packageVariationOptions.find(p => p.key === key) || null);
                             }}
-                            className={inputCls}
                         >
-                            <option value="">{t('selectPackage')}</option>
-                            {packageVariationOptions.map(p => (
-                                <option key={p.key} value={p.key}>{p.label}</option>
-                            ))}
-                        </select>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    {packageVariationOptions.map(p => (
+                                        <ListBox.Item key={p.key} id={p.key} textValue={p.label}>
+                                            {p.label}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
                         {editPkg && (
-                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                            <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
                                 <span>{t('durationInfo')} <span className="text-foreground font-medium">{t('durationDays', { count: editPkg.duration })}</span></span>
                                 <span>{t('priceInfo')} <span className="text-foreground font-medium">{editPkg.price.toLocaleString()} {editPkg.currency}</span></span>
                             </div>
@@ -796,36 +832,43 @@ export default function ClientTransactionsPage() {
                     </div>
 
                     {/* Payment Method */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('paymentMethodLabel')}</label>
-                        <select value={editMethod} onChange={e => setEditMethod(e.target.value)} className={inputCls}>
-                            <option value="">{t('selectMethod')}</option>
-                            {paymentMethodOptions.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('paymentMethodLabel')}</FieldLabel>
+                        <Select variant="secondary" fullWidth placeholder={t('selectMethod')} value={editMethod} onChange={setEditMethod}>
+                            <Select.Trigger>
+                                <Select.Value />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    {paymentMethodOptions.map(m => (
+                                        <ListBox.Item key={m} id={m} textValue={m}>
+                                            {m}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
                     </div>
 
                     {/* Transaction Date */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('txDateLabel')}</label>
-                        <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className={inputCls} />
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('txDateLabel')}</FieldLabel>
+                        <DatePickerField ariaLabel={t('txDateLabel')} value={strToDate(editDate)} onChange={(dv) => setEditDate(dv ? dv.toString() : "")} />
                     </div>
 
                     {/* Subscription Start Date */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">
-                            {t('subStartDateLabel')} <span className="text-muted-foreground/60">{t('subStartDateEditHint')}</span>
-                        </label>
-                        <input
-                            type="date"
-                            value={editSubStartDate}
-                            onChange={e => setEditSubStartDate(e.target.value)}
-                            className={inputCls}
-                        />
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>
+                            {t('subStartDateLabel')} <span className="font-normal opacity-60">{t('subStartDateEditHint')}</span>
+                        </FieldLabel>
+                        <DatePickerField ariaLabel={t('subStartDateLabel')} value={strToDate(editSubStartDate)} onChange={(dv) => setEditSubStartDate(dv ? dv.toString() : "")} />
                         {editSubStartDate && (
                             <button
                                 type="button"
                                 onClick={() => setEditSubStartDate("")}
-                                className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
+                                className="self-start text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
                             >
                                 {t('clearUseQueue')}
                             </button>
@@ -833,22 +876,16 @@ export default function ClientTransactionsPage() {
                     </div>
 
                     {/* Notes */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('notesLabel')}</label>
-                        <textarea
-                            rows={2}
-                            value={editNotes}
-                            onChange={e => setEditNotes(e.target.value)}
-                            placeholder={t('notesPlaceholder')}
-                            className={`${inputCls} resize-none`}
-                        />
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('notesLabel')}</FieldLabel>
+                        <TextArea variant="secondary" fullWidth rows={2} aria-label={t('notesLabel')} placeholder={t('notesPlaceholder')} value={editNotes} onChange={e => setEditNotes(e.target.value)} />
                     </div>
 
                     {/* Proof image */}
-                    <div>
-                        <label className="block text-sm text-muted-foreground mb-1">{t('proofEditLabel')}</label>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel>{t('proofEditLabel')}</FieldLabel>
                         {editProofUrl && !editProofFile && (
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2 mb-1">
                                 <a href={`${process.env.NEXT_PUBLIC_API_URL}${editProofUrl}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
                                     {t('viewCurrentProof')}
                                 </a>
@@ -861,21 +898,21 @@ export default function ClientTransactionsPage() {
                             type="file"
                             accept="image/*,.pdf"
                             onChange={e => setEditProofFile(e.target.files[0] || null)}
-                            className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
+                            className="w-full text-sm text-muted-foreground file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
                         />
                         {editProofFile && <p className="text-xs text-muted-foreground mt-1">{editProofFile.name}</p>}
                     </div>
 
-                    {editError && <p className="text-destructive text-sm">{editError}</p>}
+                    <FieldErrorText msg={editError} />
 
-                    <div className="flex gap-2">
-                        <Button type="submit" isDisabled={saving} variant="primary" fullWidth>
-                            {saving ? t('saving') : t('saveChanges')}
-                        </Button>
-                        <Button type="button" onClick={closeEdit} variant="ghost" fullWidth>
+                    <ModalFooter>
+                        <Button type="button" onClick={closeEdit} variant="ghost">
                             {tCommon('cancel')}
                         </Button>
-                    </div>
+                        <Button type="submit" isDisabled={saving} variant="primary">
+                            {saving ? t('saving') : t('saveChanges')}
+                        </Button>
+                    </ModalFooter>
                 </form>
             </Modal>
 

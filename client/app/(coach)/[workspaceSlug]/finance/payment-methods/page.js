@@ -275,7 +275,7 @@ export default function PaymentMethodsPage() {
 
             {/* Creation Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newMethodTitle')}>
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel>{t('nameLabel')}</FieldLabel>
                         <TextField variant="secondary" fullWidth aria-label={t('nameLabel')} value={formName} onChange={setFormName}>

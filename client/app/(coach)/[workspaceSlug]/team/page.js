@@ -757,7 +757,7 @@ function CreateWorkspaceModal({ open, onClose, onCreated, me, workspace }) {
                         </p>
                     </>
                 ) : (
-                    <form onSubmit={handleCreate} className="flex flex-col gap-3">
+                    <form onSubmit={handleCreate} className="flex flex-col gap-5 px-1 py-1">
                         {error && (
                             error.toLowerCase().includes("workspace") && error.toLowerCase().includes("plan") ? (
                                 <UpgradeBanner message={error} />

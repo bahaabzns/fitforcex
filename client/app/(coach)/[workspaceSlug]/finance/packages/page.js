@@ -587,7 +587,7 @@ export default function PackagesPage() {
 
             {/* Creation Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newPackageTitle')} wide>
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel>{t('packageNameLabel')}</FieldLabel>
                         <PackageNameCombo

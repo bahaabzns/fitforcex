@@ -222,15 +222,15 @@ function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onC
     const tCommon = useTranslations("common");
     const setField = (name) => (val) => onChange((prev) => ({ ...prev, [name]: val }));
     return (
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
+        <form onSubmit={onSubmit} className="flex flex-col gap-5 px-1 py-1">
+            <div className="flex gap-2">
+                <div className="flex flex-1 flex-col gap-1.5">
                     <FieldLabel required>{t("labelNameEn")}</FieldLabel>
                     <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} value={value?.name_en || ""} onChange={setField("name_en")}>
                         <Input type="text" placeholder={t("placeholderNameEn")} />
                     </TextField>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-1 flex-col gap-1.5">
                     <FieldLabel>{t("labelNameAr")}</FieldLabel>
                     <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} value={value?.name_ar || ""} onChange={setField("name_ar")}>
                         <Input type="text" placeholder={t("placeholderNameAr")} dir="rtl" />
@@ -280,8 +280,8 @@ function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onC
                 <FieldLabel>{t("labelThumbnail")}</FieldLabel>
                 <input type="file" accept="image/*,.gif" className={inputCls} onChange={(e) => onThumbnailChange(e.target.files?.[0] || null)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
+            <div className="flex gap-2">
+                <div className="flex flex-1 flex-col gap-1.5">
                     <FieldLabel>{t("labelInstructionsEn")}</FieldLabel>
                     <textarea
                         className={`${inputCls} min-h-24`}
@@ -290,7 +290,7 @@ function ExerciseForm({ value, onChange, muscleGroups, equipments, onSubmit, onC
                         onChange={(e) => onChange((prev) => ({ ...prev, instructions_en: e.target.value }))}
                     />
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-1 flex-col gap-1.5">
                     <FieldLabel>{t("labelInstructionsAr")}</FieldLabel>
                     <textarea
                         className={`${inputCls} min-h-24`}

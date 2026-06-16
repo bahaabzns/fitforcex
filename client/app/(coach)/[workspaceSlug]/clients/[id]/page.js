@@ -4,13 +4,15 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
-import { Eye, EyeOff, RefreshCw, Copy, Check } from 'lucide-react';
-import Modal from "@/app/components/Modal";
+import { Eye, EyeOff, Copy, Check } from 'lucide-react';
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
-
-const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { InputGroup } from "@heroui/react/input-group";
 
 function generatePassword(length = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
@@ -313,107 +315,108 @@ export default function ClientOverviewPage() {
 
           {/* Edit Modal */}
           <Modal open={showEditForm} onClose={() => setShowEditForm(false)} title={t('editClientTitle')}>
-            <form onSubmit={handleUpdate} className="flex flex-col gap-3">
+            <form onSubmit={handleUpdate} className="flex flex-col gap-5 px-1 py-1">
               {/* First + Last name */}
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder={t('firstNamePlaceholder')}
-                  value={formData.fname}
-                  onChange={e => setFormData({ ...formData, fname: e.target.value })}
-                  className={`${inputCls} flex-1`}
-                  autoFocus
-                />
-                <input
-                  type="text"
-                  placeholder={t('lastName')}
-                  value={formData.lname}
-                  onChange={e => setFormData({ ...formData, lname: e.target.value })}
-                  className={`${inputCls} flex-1`}
-                />
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <FieldLabel required>{t('firstName')}</FieldLabel>
+                  <TextField variant="secondary" fullWidth isRequired aria-label={t('firstName')} value={formData.fname} onChange={(val) => setFormData({ ...formData, fname: val })}>
+                    <Input type="text" placeholder={t('firstNamePlaceholder')} autoFocus />
+                  </TextField>
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <FieldLabel>{t('lastName')}</FieldLabel>
+                  <TextField variant="secondary" fullWidth aria-label={t('lastName')} value={formData.lname} onChange={(val) => setFormData({ ...formData, lname: val })}>
+                    <Input type="text" placeholder={t('lastName')} />
+                  </TextField>
+                </div>
               </div>
 
               {/* Email */}
-              <input
-                type="email"
-                placeholder={t('emailPlaceholder')}
-                value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className={inputCls}
-              />
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel required>{t('emailAddress')}</FieldLabel>
+                <TextField variant="secondary" fullWidth isRequired aria-label={t('emailAddress')} value={formData.email} onChange={(val) => setFormData({ ...formData, email: val })}>
+                  <Input type="email" placeholder={t('emailPlaceholder')} />
+                </TextField>
+              </div>
 
               {/* Phone numbers */}
-              <label className="text-muted-foreground text-xs font-medium">{t('phoneNumbers')}</label>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
+                <FieldLabel>{t('phoneNumbers')}</FieldLabel>
                 <div className="flex gap-2 items-center">
                   <CountryCodeSelect value={editPhones[0].countryCode} onChange={code => updateEditPhone(0, "countryCode", code)} />
-                  <input type="text" placeholder={t('primaryPhonePlaceholder')} value={editPhones[0].number} onChange={e => updateEditPhone(0, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                  <TextField variant="secondary" fullWidth aria-label={t('primaryPhonePlaceholder')} value={editPhones[0].number} onChange={(val) => updateEditPhone(0, "number", val)} className="flex-1">
+                    <Input type="text" inputMode="numeric" placeholder={t('primaryPhonePlaceholder')} />
+                  </TextField>
                 </div>
                 {editPhoneCount >= 2 && (
                   <div className="flex gap-2 items-center">
                     <CountryCodeSelect value={editPhones[1].countryCode} onChange={code => updateEditPhone(1, "countryCode", code)} />
-                    <input type="text" placeholder={t('phone2')} value={editPhones[1].number} onChange={e => updateEditPhone(1, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                    <TextField variant="secondary" fullWidth aria-label={t('phone2')} value={editPhones[1].number} onChange={(val) => updateEditPhone(1, "number", val)} className="flex-1">
+                      <Input type="text" inputMode="numeric" placeholder={t('phone2')} />
+                    </TextField>
                   </div>
                 )}
                 {editPhoneCount >= 3 && (
                   <div className="flex gap-2 items-center">
                     <CountryCodeSelect value={editPhones[2].countryCode} onChange={code => updateEditPhone(2, "countryCode", code)} />
-                    <input type="text" placeholder={t('phone3')} value={editPhones[2].number} onChange={e => updateEditPhone(2, "number", e.target.value)} className={`flex-1 ${inputCls}`} />
+                    <TextField variant="secondary" fullWidth aria-label={t('phone3')} value={editPhones[2].number} onChange={(val) => updateEditPhone(2, "number", val)} className="flex-1">
+                      <Input type="text" inputMode="numeric" placeholder={t('phone3')} />
+                    </TextField>
                   </div>
                 )}
                 {editPhoneCount < 3 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditPhoneCount(c => c + 1)} className="text-xs text-primary self-start px-0">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditPhoneCount(c => c + 1)} className="self-end">
                     {t('addAnotherPhone')}
                   </Button>
                 )}
               </div>
 
               {/* Password */}
-              <div className="border-t border-border pt-3 mt-1 flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground">
-                  {t('newPassword')} <span className="font-normal">({t('newPasswordHint')})</span>
-                </label>
+              <div className="flex flex-col gap-1.5 border-t border-border pt-4">
+                <FieldLabel>
+                  {t('newPassword')} <span className="font-normal opacity-60">({t('newPasswordHint')})</span>
+                </FieldLabel>
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
+                  <InputGroup variant="secondary" className={`flex-1${passwordError ? " ring-1 ring-destructive rounded-lg" : ""}`}>
+                    <InputGroup.Input
                       type={showNewPassword ? "text" : "password"}
                       value={newPassword}
                       onChange={e => { setNewPassword(e.target.value); setPasswordError(""); }}
                       placeholder={t('newPasswordPlaceholder')}
-                      className={`${inputCls} pr-10 ${passwordError ? "border-destructive" : ""}`}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(v => !v)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                      tabIndex={-1}
-                    >
-                      {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                  <button
+                    <InputGroup.Suffix>
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(v => !v)}
+                        aria-label={showNewPassword ? tCommon('hide') : tCommon('show')}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </InputGroup.Suffix>
+                  </InputGroup>
+                  <Button
                     type="button"
+                    variant="secondary"
+                    className="shrink-0 whitespace-nowrap"
                     onClick={() => { setNewPassword(generatePassword()); setShowNewPassword(true); setPasswordError(""); }}
-                    className="cursor-pointer p-2 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors shrink-0"
                   >
-                    <RefreshCw size={15} />
-                  </button>
+                    {t('generate')}
+                  </Button>
                 </div>
-                {passwordError && <p className="text-xs text-destructive">{passwordError}</p>}
+                <FieldErrorText msg={passwordError} />
               </div>
 
-              <div className="flex gap-2 mt-1">
-                <Button type="submit" variant="primary" fullWidth>
-                  {t('saveChanges')}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => setShowEditForm(false)}
-                  className="flex-1 bg-destructive/10 hover:bg-destructive/20 text-destructive"
-                >
+              <ModalFooter>
+                <Button type="button" variant="ghost" onClick={() => setShowEditForm(false)}>
                   {tCommon('cancel')}
                 </Button>
-              </div>
+                <Button type="submit" variant="primary">
+                  {t('saveChanges')}
+                </Button>
+              </ModalFooter>
             </form>
           </Modal>
         </div>

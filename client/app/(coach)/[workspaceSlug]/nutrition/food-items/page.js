@@ -123,15 +123,15 @@ export default function FoodItemsPage() {
             onChange: (value) => onChange({ target: { name, value } }),
         });
         return (
-            <form onSubmit={onSubmit} className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
+            <form onSubmit={onSubmit} className="flex flex-col gap-5 px-1 py-1">
+                <div className="flex gap-2">
+                    <div className="flex flex-1 flex-col gap-1.5">
                         <FieldLabel required>{t("labelNameEn")}</FieldLabel>
                         <TextField variant="secondary" fullWidth isRequired aria-label={t("labelNameEn")} {...field("name_en")}>
                             <Input type="text" placeholder={t("placeholderNameEn")} autoFocus={!isEdit} />
                         </TextField>
                     </div>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-1 flex-col gap-1.5">
                         <FieldLabel>{t("labelNameAr")}</FieldLabel>
                         <TextField variant="secondary" fullWidth aria-label={t("labelNameAr")} {...field("name_ar")}>
                             <Input type="text" placeholder={t("placeholderNameAr")} dir="rtl" />
@@ -164,7 +164,7 @@ export default function FoodItemsPage() {
                         </Select.Popover>
                     </Select>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-2">
                     <div className="flex-1 flex flex-col gap-1.5">
                         <FieldLabel>{t("labelServingSize")}</FieldLabel>
                         <TextField variant="secondary" fullWidth aria-label={t("labelServingSize")} {...field("serving_size")}>

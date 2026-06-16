@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { UploadCloud, X, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
@@ -10,16 +12,19 @@ import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
-import { TextField } from "@heroui/react/textfield";
-import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
+import { Switch } from "@heroui/react/switch";
+import { Link as UILink } from "@heroui/react/link";
+import { Tooltip } from "@heroui/react/tooltip";
+import { SearchField } from "@heroui/react/search-field";
+import { TextArea } from "@heroui/react/textarea";
+import DatePickerField, { strToDate } from "@/app/components/DatePickerField";
 
 // --- HELPERS ---
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 const DISPLAY_CURRENCIES = Object.keys(EXCHANGE_RATES);
-
-const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
 
 function statusColor(status) {
     switch (status) {
@@ -52,6 +57,76 @@ function fmtDate(d, locale) {
     return d ? new Date(d).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }) : "—";
 }
 
+// Human-readable file size.
+function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// --- PROOF DROP ZONE (drag-and-drop single file upload, matches "add client") ---
+function ProofDropZone({ file, onChange }) {
+    const t = useTranslations('transactions');
+    const inputRef = useRef(null);
+    const [dragOver, setDragOver] = useState(false);
+
+    function pickFirst(fileList) {
+        const picked = fileList && fileList[0];
+        if (picked) onChange(picked);
+    }
+
+    if (file) {
+        const ext = (file.name.split(".").pop() || "file").toUpperCase();
+        return (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-semibold text-primary">
+                    {ext.slice(0, 4)}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm text-foreground">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    isIconOnly
+                    aria-label={t('removeProof')}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => onChange(null)}
+                >
+                    <X className="h-4 w-4" />
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            role="button"
+            tabIndex={0}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); pickFirst(e.dataTransfer.files); }}
+            className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 py-4 text-center transition-colors ${
+                dragOver ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/60"
+            }`}
+        >
+            <UploadCloud className="h-5 w-5 text-muted-foreground" />
+            <span className="text-xs font-medium text-foreground">{t('proofDropLabel')}</span>
+            <span className="text-[11px] text-muted-foreground">{t('proofDropHint')}</span>
+            <input
+                ref={inputRef}
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={(e) => pickFirst(e.target.files)}
+            />
+        </div>
+    );
+}
+
 // --- SEARCHABLE CLIENT SELECT ---
 function SearchableClientSelect({ clients, selected, onSelect }) {
     const t = useTranslations('transactions');
@@ -79,31 +154,29 @@ function SearchableClientSelect({ clients, selected, onSelect }) {
 
     return (
         <div ref={ref} className="relative">
-            <input
+            <SearchField
+                aria-label={t('clientLabel')}
+                variant="secondary"
+                fullWidth
                 value={selected ? selected.name : query}
-                onChange={e => {
+                onChange={(val) => {
                     if (selected) onSelect(null);
-                    setQuery(e.target.value);
+                    setQuery(val);
                     setOpen(true);
                 }}
-                onFocus={() => { if (!selected) setOpen(true); }}
-                onClick={() => {
-                    if (selected) { onSelect(null); setQuery(""); setOpen(true); }
-                }}
-                placeholder={t('clientSearchPlaceholder')}
-                className={inputCls}
-                autoComplete="off"
-            />
-            {selected && (
-                <button
-                    type="button"
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={() => { onSelect(null); setQuery(""); setOpen(true); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors text-lg leading-none cursor-pointer"
-                >
-                    ×
-                </button>
-            )}
+                onClear={() => { onSelect(null); setQuery(""); setOpen(true); }}
+            >
+                <SearchField.Group>
+                    <SearchField.SearchIcon />
+                    <SearchField.Input
+                        placeholder={t('clientSearchPlaceholder')}
+                        autoComplete="off"
+                        onFocus={() => { if (!selected) setOpen(true); }}
+                        onClick={() => { if (selected) { onSelect(null); setQuery(""); setOpen(true); } }}
+                    />
+                    <SearchField.ClearButton />
+                </SearchField.Group>
+            </SearchField>
             {open && filtered.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {filtered.map(c => (
@@ -130,7 +203,7 @@ function SearchableClientSelect({ clients, selected, onSelect }) {
 }
 
 // --- TRANSACTIONS TABLE ---
-function TransactionsTable({ transactions, allClientNames, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
+function TransactionsTable({ transactions, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
@@ -143,7 +216,6 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
     const [filteredRows, setFilteredRows] = useState(transactions);
     const [displayCurrency, setDisplayCurrency] = useState("EGP");
 
-    const clientNames       = [...new Set([...allClientNames,       ...transactions.map(tx => tx.clientName).filter(Boolean)])];
     const packageVariations = [...new Set([...allPackageVariations, ...transactions.map(tx => tx.packageVariation).filter(Boolean)])];
     const paymentMethods    = [...new Set([...allPaymentMethods,    ...transactions.map(tx => tx.paymentMethod).filter(Boolean)])];
 
@@ -167,8 +239,16 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
     }
 
     const columns = [
-        { key: "id", label: t('colId'), filterType: "text", sortable: true },
-        { key: "clientName", label: t('colClient'), filterType: "multi", options: clientNames, sortable: true },
+        {
+            key: "code",
+            label: t('colId'),
+            filterType: "text",
+            sortable: true,
+            render: (row) => (
+                <span className="font-mono text-muted-foreground">#{String(row.code ?? "").padStart(4, "0")}</span>
+            ),
+        },
+        { key: "clientName", label: t('colClient'), filterType: "text", sortable: true },
         {
             key: "packageVariation",
             label: t('colPackage'),
@@ -197,6 +277,7 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
             label: t('colPayStatus'),
             filterType: "multi",
             options: ["completed", "refunded"],
+            optionLabel: (v) => STATUS_LABELS[v] ?? v,
             sortable: true,
             render: (row) => (
                 <Chip size="sm" className={statusColor(row.status)}>
@@ -232,36 +313,56 @@ function TransactionsTable({ transactions, allClientNames, allPackageVariations,
         {
             key: "_proof",
             label: t('colProof'),
-            render: (row) => row.proofImage ? (
-                <a
-                    href={`${process.env.NEXT_PUBLIC_API_URL}${row.proofImage}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-primary hover:underline"
-                >
-                    {t('view')}
-                </a>
-            ) : <span className="text-muted-foreground text-xs">—</span>,
+            render: (row) => {
+                if (!row.proofImage) return <span className="text-muted-foreground text-xs">—</span>;
+                const url = `${process.env.NEXT_PUBLIC_API_URL}${row.proofImage}`;
+                const isPdf = /\.pdf$/i.test(row.proofImage);
+                return (
+                    <a href={url} target="_blank" rel="noreferrer" className="inline-flex" title={t('view')}>
+                        {isPdf ? (
+                            <span className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-[9px] font-semibold text-muted-foreground hover:border-primary transition-colors">
+                                PDF
+                            </span>
+                        ) : (
+                            <img
+                                src={url}
+                                alt={t('colProof')}
+                                className="h-10 w-10 rounded-md border border-border object-cover hover:opacity-80 transition-opacity"
+                                loading="lazy"
+                            />
+                        )}
+                    </a>
+                );
+            },
         },
         {
             key: "_actions",
             label: "",
             render: (row) => (
-                <div className="flex gap-2 justify-end whitespace-nowrap">
+                <div className="flex items-center gap-1 justify-end whitespace-nowrap">
                     {onEdit && (
-                        <button onClick={() => onEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer transition-colors">
-                            {tCommon('edit')}
-                        </button>
+                        <Tooltip>
+                            <Button isIconOnly size="sm" variant="ghost" aria-label={tCommon('edit')} onClick={() => onEdit(row)}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Tooltip.Content>{tCommon('edit')}</Tooltip.Content>
+                        </Tooltip>
                     )}
                     {row.status === "completed" && onStatusChange && (
-                        <button onClick={() => onStatusChange(row.id, "refunded")} className="text-xs text-orange-500 hover:text-orange-600 cursor-pointer transition-colors">
-                            {t('refundAction')}
-                        </button>
+                        <Tooltip>
+                            <Button isIconOnly size="sm" variant="ghost" aria-label={t('refundAction')} className="text-orange-500 hover:text-orange-600" onClick={() => onStatusChange(row.id, "refunded")}>
+                                <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            <Tooltip.Content>{t('refundAction')}</Tooltip.Content>
+                        </Tooltip>
                     )}
                     {onDelete && (
-                        <button onClick={() => onDelete(row.id)} className="text-xs text-destructive hover:text-red-700 cursor-pointer transition-colors">
-                            {tCommon('delete')}
-                        </button>
+                        <Tooltip>
+                            <Button isIconOnly size="sm" variant="ghost" aria-label={tCommon('delete')} className="text-destructive hover:text-red-700" onClick={() => onDelete(row.id)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Tooltip.Content>{tCommon('delete')}</Tooltip.Content>
+                        </Tooltip>
                     )}
                 </div>
             ),
@@ -346,6 +447,7 @@ export default function TransactionsPage() {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const { workspaceSlug } = useParams();
 
     const [transactions, setTransactions]     = useState([]);
     const [clients, setClients]               = useState([]);
@@ -364,6 +466,7 @@ export default function TransactionsPage() {
     const [formPaymentMethod, setFormPaymentMethod]     = useState("");
     const [formDate, setFormDate]                       = useState(todayStr());
     const [formSubStartDate, setFormSubStartDate]       = useState("");
+    const [subStartMode, setSubStartMode]               = useState("queue"); // "queue" | "custom"
     const [formNotes, setFormNotes]                     = useState("");
     const [proofFile, setProofFile]                     = useState(null);
     const [proofUrl, setProofUrl]                       = useState(null);
@@ -392,7 +495,6 @@ export default function TransactionsPage() {
         }))
     );
 
-    const allClientNames        = clients.map(c => c.name || `${c.fname} ${c.lname}`);
     const allPackageVariations  = packageVariationOptions.map(p => p.key);
     const allPaymentMethodNames = paymentMethods.map(m => m.name);
 
@@ -405,15 +507,11 @@ export default function TransactionsPage() {
         setFormPaymentMethod("");
         setFormDate(todayStr());
         setFormSubStartDate("");
+        setSubStartMode("queue");
         setFormNotes("");
         setProofFile(null);
         setProofUrl(null);
         setFormError("");
-    }
-
-    function openCreate() {
-        closeForm();
-        setShowForm(true);
     }
 
     function openEdit(tx) {
@@ -425,6 +523,7 @@ export default function TransactionsPage() {
         setFormPaymentMethod(tx.paymentMethod || "");
         setFormDate(tx.date ? tx.date.split("T")[0] : todayStr());
         setFormSubStartDate(tx.subscriptionStartDate ? tx.subscriptionStartDate.split("T")[0] : "");
+        setSubStartMode(tx.subscriptionStartDate ? "custom" : "queue");
         setFormNotes(tx.notes || "");
         setProofFile(null);
         setProofUrl(tx.proofImage || null);
@@ -519,8 +618,8 @@ export default function TransactionsPage() {
             </div>
 
             {/* Create / Edit Modal */}
-            <Modal open={showForm} onClose={closeForm} title={editingTx ? t('editTransactionTitle') : t('newTransactionTitle')} wide>
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Modal open={showForm} onClose={closeForm} title={editingTx ? t('editTransactionTitle') : t('newTransactionTitle')} dialogClassName="max-w-[27.3rem]">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
 
                     {/* Client */}
                     <div className="flex flex-col gap-1.5">
@@ -539,7 +638,13 @@ export default function TransactionsPage() {
 
                     {/* Package */}
                     <div className="flex flex-col gap-1.5">
-                        <FieldLabel required>{t('packageLabel')}</FieldLabel>
+                        <div className="flex items-center justify-between gap-2">
+                            <FieldLabel required>{t('packageLabel')}</FieldLabel>
+                            <UILink href={`/${workspaceSlug}/finance/packages`} target="_blank" rel="noopener noreferrer" className="text-xs shrink-0">
+                                {t('managePackagesShortcut')}
+                                <UILink.Icon />
+                            </UILink>
+                        </div>
                         <Select
                             variant="secondary"
                             fullWidth
@@ -575,7 +680,13 @@ export default function TransactionsPage() {
 
                     {/* Payment Method */}
                     <div className="flex flex-col gap-1.5">
-                        <FieldLabel required>{t('paymentMethodLabel')}</FieldLabel>
+                        <div className="flex items-center justify-between gap-2">
+                            <FieldLabel required>{t('paymentMethodLabel')}</FieldLabel>
+                            <UILink href={`/${workspaceSlug}/finance/payment-methods`} target="_blank" rel="noopener noreferrer" className="text-xs shrink-0">
+                                {t('managePaymentMethodsShortcut')}
+                                <UILink.Icon />
+                            </UILink>
+                        </div>
                         <Select
                             variant="secondary"
                             fullWidth
@@ -603,45 +714,61 @@ export default function TransactionsPage() {
                     {/* Transaction Date */}
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel>{t('txDateLabel')}</FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label={t('txDateLabel')} value={formDate} onChange={setFormDate}>
-                            <Input type="date" />
-                        </TextField>
+                        <DatePickerField
+                            ariaLabel={t('txDateLabel')}
+                            value={strToDate(formDate)}
+                            onChange={(dv) => setFormDate(dv ? dv.toString() : "")}
+                        />
                     </div>
 
-                    {/* Subscription Start Date */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>
-                            {t('subStartDateLabel')} <span className="text-muted-foreground/60">{t('subStartDateHint')}</span>
-                        </FieldLabel>
-                        <TextField variant="secondary" fullWidth aria-label={t('subStartDateLabel')} value={formSubStartDate} onChange={setFormSubStartDate}>
-                            <Input type="date" />
-                        </TextField>
-                        {formSubStartDate && (
-                            <button
-                                type="button"
-                                onClick={() => setFormSubStartDate("")}
-                                className="text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer self-start"
-                            >
-                                {t('clearUseQueue')}
-                            </button>
-                        )}
+                    {/* Subscription Start — toggle "queue after current subscription"; the date
+                        picker stays visible but is disabled while "queue" is selected. */}
+                    <div className="flex flex-col gap-2">
+                        <Label>{t('subStartDateLabel')}</Label>
+                        <Switch
+                            isSelected={subStartMode === "queue"}
+                            onChange={(sel) => {
+                                setSubStartMode(sel ? "queue" : "custom");
+                                if (sel) setFormSubStartDate("");
+                            }}
+                        >
+                            <Switch.Control>
+                                <Switch.Thumb />
+                            </Switch.Control>
+                            <Switch.Content>
+                                <Label className="text-sm">{t('subStartQueueToggle')}</Label>
+                            </Switch.Content>
+                        </Switch>
+                        <p className="text-xs text-muted-foreground">
+                            {subStartMode === "queue"
+                                ? t('subStartHintQueue')
+                                : t('subStartHintCustom')}
+                        </p>
+                        <DatePickerField
+                            ariaLabel={t('subStartDateLabel')}
+                            value={strToDate(formSubStartDate)}
+                            onChange={(dv) => setFormSubStartDate(dv ? dv.toString() : "")}
+                            isDisabled={subStartMode === "queue"}
+                        />
                     </div>
 
                     {/* Notes */}
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel>{t('notesLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></FieldLabel>
-                        <textarea
+                        <TextArea
+                            variant="secondary"
+                            fullWidth
                             rows={2}
+                            aria-label={t('notesLabel')}
                             placeholder={t('notesPlaceholder')}
                             value={formNotes}
                             onChange={e => setFormNotes(e.target.value)}
-                            className={`${inputCls} resize-none`}
                         />
                     </div>
 
                     {/* Proof of transaction */}
                     <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('proofLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></FieldLabel>
+                        <Label>{t('proofLabel')} <span className="font-normal opacity-60">{t('proofOptional')}</span></Label>
                         {proofUrl && !proofFile && (
                             <div className="flex items-center gap-2 mb-2">
                                 <a
@@ -661,13 +788,7 @@ export default function TransactionsPage() {
                                 </button>
                             </div>
                         )}
-                        <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={e => setProofFile(e.target.files[0] || null)}
-                            className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:bg-secondary/80 cursor-pointer"
-                        />
-                        {proofFile && <p className="text-xs text-muted-foreground mt-1">{proofFile.name}</p>}
+                        <ProofDropZone file={proofFile} onChange={setProofFile} />
                     </div>
 
                     <FieldErrorText msg={formError} />
@@ -692,13 +813,11 @@ export default function TransactionsPage() {
             {/* Table + summaries */}
             <TransactionsTable
                 transactions={transactions}
-                allClientNames={allClientNames}
                 allPackageVariations={allPackageVariations}
                 allPaymentMethods={allPaymentMethodNames}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onEdit={openEdit}
-                toolbarEnd={<Button variant="primary" onClick={openCreate}>{t('newTransaction')}</Button>}
             />
         </div>
     );
