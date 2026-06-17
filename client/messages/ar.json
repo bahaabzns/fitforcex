@@ -1073,6 +1073,7 @@
   "common": {
     "show": "إظهار",
     "hide": "إخفاء",
+    "openOriginal": "فتح الأصل",
     "justNow": "الآن",
     "minutesAgo": "منذ {count}د",
     "hoursAgo": "منذ {count}س",

@@ -8,6 +8,7 @@ import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
 import TransactionModal from "@/app/components/TransactionModal";
+import ImagePreview from "@/app/components/ImagePreview";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
@@ -262,14 +263,15 @@ export default function ClientTransactionsPage() {
             cardPriority: "hidden",
             render: (tx) =>
                 tx.proofImage ? (
-                    <a
-                        href={`${process.env.NEXT_PUBLIC_API_URL}${tx.proofImage}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-primary hover:underline"
+                    <ImagePreview
+                        src={`${process.env.NEXT_PUBLIC_API_URL}${tx.proofImage}`}
+                        alt={t('colProof')}
+                        isPdf={/\.pdf$/i.test(tx.proofImage)}
+                        title={t('view')}
+                        triggerClassName="text-xs text-primary hover:underline"
                     >
-                        {t('view')}
-                    </a>
+                        <span className="text-xs text-primary hover:underline">{t('view')}</span>
+                    </ImagePreview>
                 ) : (
                     <span className="text-muted-foreground text-xs">—</span>
                 ),

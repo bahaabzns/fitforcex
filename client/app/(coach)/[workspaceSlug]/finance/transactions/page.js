@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import TransactionModal from "@/app/components/TransactionModal";
+import ImagePreview from "@/app/components/ImagePreview";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
@@ -164,7 +165,7 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                 const url = `${process.env.NEXT_PUBLIC_API_URL}${row.proofImage}`;
                 const isPdf = /\.pdf$/i.test(row.proofImage);
                 return (
-                    <a href={url} target="_blank" rel="noreferrer" className="inline-flex" title={t('view')}>
+                    <ImagePreview src={url} alt={t('colProof')} isPdf={isPdf} title={t('view')}>
                         {isPdf ? (
                             <span className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-[9px] font-semibold text-muted-foreground hover:border-primary transition-colors">
                                 PDF
@@ -177,7 +178,7 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                                 loading="lazy"
                             />
                         )}
-                    </a>
+                    </ImagePreview>
                 );
             },
         },

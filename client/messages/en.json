@@ -1073,6 +1073,7 @@
   "common": {
     "show": "Show",
     "hide": "Hide",
+    "openOriginal": "Open original",
     "justNow": "just now",
     "minutesAgo": "{count}m ago",
     "hoursAgo": "{count}h ago",

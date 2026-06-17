@@ -7,6 +7,7 @@ import api from "@/lib/axios";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel } from "@/app/components/Field";
 import DataTable from "@/app/components/DataTable";
+import ImagePreview from "@/app/components/ImagePreview";
 import { Button } from "@heroui/react/button";
 import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -134,19 +135,23 @@ export default function ExerciseLibraryPage() {
         {
             key: "thumbnail_path",
             label: t("columnThumbnail"),
-            render: (row) => (
-                <div className="relative w-12 h-12 rounded bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
-                    <span className="text-xs">—</span>
-                    {row.thumbnail_path && (
-                        <img
-                            src={row.thumbnail_path}
-                            alt={row.name_en}
-                            className="absolute inset-0 w-full h-full object-cover"
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                    )}
-                </div>
-            ),
+            render: (row) =>
+                row.thumbnail_path ? (
+                    <ImagePreview src={row.thumbnail_path} alt={row.name_en} title={row.name_en}>
+                        <div className="relative w-12 h-12 rounded bg-secondary overflow-hidden">
+                            <img
+                                src={row.thumbnail_path}
+                                alt={row.name_en}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                        </div>
+                    </ImagePreview>
+                ) : (
+                    <div className="relative w-12 h-12 rounded bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
+                        <span className="text-xs">—</span>
+                    </div>
+                ),
         },
         { key: "name_en", label: t("columnNameEn"), filterType: "text", sortable: true },
         { key: "name_ar", label: t("columnNameAr"), render: (row) => <span dir="rtl">{row.name_ar || "—"}</span> },
