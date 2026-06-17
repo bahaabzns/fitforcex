@@ -188,11 +188,22 @@ router.delete('/:id/questions/:qid',   formsController.deleteQuestion);
  *     responses:
  *       200:
  *         description: Submissions marked as reviewed
+ *
+ * /forms/queue/assign:
+ *   patch:
+ *     summary: Assign queue items to a team member (or unassign when assignedTo is null)
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Items assigned
  */
 router.post('/requests',                      formsController.createRequests);
 router.get('/requests/client/:client_id',     formsController.getRequestsByClient);
 router.delete('/requests/:request_id',        formsController.deleteRequest);
 router.get('/queue',                          formsController.getQueue);
 router.patch('/queue/review',                 formsController.reviewQueue);
+router.patch('/queue/assign',                 formsController.assignQueue);
 
 export default router;

@@ -363,15 +363,17 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
 
         const rows = await prisma.$queryRaw<RequestRow[]>`
             SELECT fr.id, fr.status, fr.requested_at, fr.submitted_at, fr.form_id,
-                   fr.scheduled_at, fr.post_action, fr.action_taken_at,
+                   fr.scheduled_at, fr.post_action, fr.action_taken_at, fr.assigned_to,
                    f.title_en AS form_title_en, f.title_ar AS form_title_ar,
                    f.form_type, f.post_action AS form_post_action,
                    c.id AS client_id, c.client_code, c.fname, c.lname, c.email,
+                   au.fname AS assignee_fname, au.lname AS assignee_lname,
                    NULL::text AS client_package,
                    NULL::text AS subscription_status
             FROM form_requests fr
             JOIN forms f ON f.id = fr.form_id
             JOIN clients c ON c.id = fr.client_id
+            LEFT JOIN users au ON au.id = fr.assigned_to
             WHERE fr.workspace_id = ${req.user!.workspaceId}
             ORDER BY fr.requested_at DESC
         `;
@@ -387,6 +389,8 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                     postAction: normalizePostAction(row.post_action || row.form_post_action),
                     requestedAt: row.requested_at, scheduledAt: row.scheduled_at, submittedAt: null, actionTakenAt: null,
                     status: row.status === 'scheduled' ? 'scheduled' : 'awaiting',
+                    assignedTo: row.assigned_to ?? null,
+                    assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
                     answers: {}, responses: [],
                 };
             }
@@ -414,6 +418,8 @@ export async function getQueue(req: Request, res: Response, next: NextFunction) 
                 requestedAt: row.requested_at, scheduledAt: row.scheduled_at,
                 submittedAt: row.submitted_at, actionTakenAt: row.action_taken_at,
                 status: row.status === 'reviewed' ? 'action-done' : 'need-action',
+                assignedTo: row.assigned_to ?? null,
+                assignedToName: row.assigned_to ? `${row.assignee_fname ?? ''} ${row.assignee_lname ?? ''}`.trim() : null,
                 answers,
                 responses: responses.map(r => ({ ...r, ...questionMap.get(r.question_id ?? '') }))
                     .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
@@ -455,6 +461,47 @@ export async function reviewQueue(req: Request, res: Response, next: NextFunctio
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+export async function assignQueue(req: Request, res: Response, next: NextFunction) {
+    const { ids, assignedTo } = req.body as { ids?: unknown[]; assignedTo?: string | null };
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'ids array is required' });
+    }
+
+    try {
+        // Unassign when assignedTo is null/empty; otherwise verify the assignee is a
+        // member of this workspace before storing their user id.
+        let assigneeId: string | null = null;
+        if (assignedTo) {
+            const member = await prisma.workspace_members.findFirst({
+                where:  { workspace_id: req.user!.workspaceId, user_id: assignedTo },
+                select: { id: true },
+            });
+            const owner = await prisma.workspaces.findFirst({
+                where:  { id: req.user!.workspaceId, owner_id: assignedTo },
+                select: { id: true },
+            });
+            if (!member && !owner) {
+                return res.status(400).json({ error: 'Assignee is not a member of this workspace' });
+            }
+            assigneeId = assignedTo;
+        }
+
+        const idList = ids.map(String);
+        // Raw UPDATE so the new `assigned_to` column is reachable without depending
+        // on a freshly regenerated Prisma client.
+        const updated = await prisma.$queryRaw<{ id: string }[]>`
+            UPDATE form_requests
+            SET assigned_to = ${assigneeId}
+            WHERE workspace_id = ${req.user!.workspaceId}
+              AND id IN (${Prisma.join(idList)})
+            RETURNING id
+        `;
+        res.json({ updatedIds: updated.map(r => r.id), assignedTo: assigneeId });
+    } catch (err) {
+        next(err);
     }
 }
 
