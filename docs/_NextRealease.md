@@ -15,7 +15,7 @@
     [x] Client row selection only through checkbox
 
 ## UI Consistency
-    [ ] Unify all modals
+    [-] Unify all modals
     [ ] Unify datatables
     [ ] Unify all empty states
     [ ] Unify all page paddings

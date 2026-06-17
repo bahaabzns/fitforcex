@@ -1,4 +1,11 @@
 
+
+# add workout logs in training builder per each exercises
+
+# black list of food items and exercises per client
+
+# add observations
+
 # fitforce trusted food item / exercise label in the databases of nutrition and training
 
 # add current next step client should take in the flow

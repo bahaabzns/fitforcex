@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "dev": "pwsh -ExecutionPolicy Bypass -File ./dev.ps1",
+    "dev:same": "pwsh -ExecutionPolicy Bypass -File ./dev.ps1 -SameWindow",
+    "dev:noclean": "pwsh -ExecutionPolicy Bypass -File ./dev.ps1 -SkipClean"
+  },
   "devDependencies": {
     "playwright": "^1.60.0"
   }

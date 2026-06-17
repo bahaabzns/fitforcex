@@ -144,7 +144,16 @@
       "PowerShell(npx eslint \"app/\\(coach\\)/[workspaceSlug]/clients/[id]/page.js\" \"app/\\(coach\\)/[workspaceSlug]/clients/[id]/transactions/page.js\" \"app/\\(coach\\)/[workspaceSlug]/finance/transactions/page.js\" \"app/components/DatePickerField.js\" \"app/\\(coach\\)/[workspaceSlug]/training/exercises/page.js\" \"app/\\(coach\\)/[workspaceSlug]/nutrition/food-items/page.js\" \"app/\\(coach\\)/[workspaceSlug]/team/page.js\")",
       "PowerShell(npm run lint 2>&1)",
       "Bash(export NODE_OPTIONS=--max-old-space-size=8192)",
-      "Bash(echo \"LINT_CLEAN\")"
+      "Bash(echo \"LINT_CLEAN\")",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,2\\)\\)\")",
+      "Bash(node -e \"try{const c=require\\('./package.json'\\).config;console.log\\(JSON.stringify\\(c\\)\\)}catch\\(e\\){console.log\\('no config block'\\)}\")",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" \"http://localhost:3000/bahaa-bzns/clients/g0x2ckg85nlgviyvpp3lyn3x/nutrition\")",
+      "PowerShell($null = [System.Management.Automation.Language.Parser]::ParseFile\\(\"d:\\\\fitforce-x\\\\dev.ps1\", [ref]$null, [ref]$errs\\); if \\($errs\\) { $errs } else { \"OK: parses clean\" })",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('main:',p.main\\); console.log\\(JSON.stringify\\(p.scripts,null,1\\)\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/en.json','utf8'\\)\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/ar.json','utf8'\\)\\); console.log\\('JSON OK'\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/en.json','utf8'\\)\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/ar.json','utf8'\\)\\); console.log\\('both JSON valid'\\)\")",
+      "Bash(ls DECISIONS.md server/DECISIONS.md)",
+      "Bash(echo \"exit $?\")"
     ],
     "additionalDirectories": [
       "D:\\fitforce-x\\client\\app\\(coach)\\[workspaceSlug]\\nutrition\\food-items",
