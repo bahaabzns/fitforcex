@@ -40,12 +40,24 @@ function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 
 if (-not $SkipClean) {
   Write-Step 'Stopping stray next dev / nodemon node processes...'
+  # Match the nodemon wrapper AND the ts-node child that actually holds the
+  # backend port — killing only the wrapper leaves a zombie on :4000, which
+  # makes the next restart fail with EADDRINUSE.
   Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-    Where-Object { $_.CommandLine -match 'next(\\|/)dist.*dev|start-server\.js|nodemon' } |
+    Where-Object { $_.CommandLine -match 'next(\\|/)dist.*dev|start-server\.js|nodemon|src(\\|/)server\.ts' } |
     ForEach-Object {
       Write-Host "    killing PID $($_.ProcessId)" -ForegroundColor DarkGray
       try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch {}
     }
+
+  # Belt-and-braces: free the dev ports in case a process slipped the filter.
+  foreach ($port in 4000, 3000) {
+    Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object {
+        Write-Host "    freeing port $port (PID $_)" -ForegroundColor DarkGray
+        try { Stop-Process -Id $_ -Force -ErrorAction Stop } catch {}
+      }
+  }
 
   $next = Join-Path $client '.next'
   if (Test-Path $next) {
