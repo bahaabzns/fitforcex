@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
@@ -201,6 +201,14 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                                 <RotateCcw className="h-4 w-4" />
                             </Button>
                             <Tooltip.Content>{t('refundAction')}</Tooltip.Content>
+                        </Tooltip>
+                    )}
+                    {row.status === "refunded" && onStatusChange && (
+                        <Tooltip>
+                            <Button isIconOnly size="sm" variant="ghost" aria-label={t('undoRefundAction')} className="text-emerald-600 hover:text-emerald-700" onClick={() => onStatusChange(row.id, "completed")}>
+                                <RotateCw className="h-4 w-4" />
+                            </Button>
+                            <Tooltip.Content>{t('undoRefundAction')}</Tooltip.Content>
                         </Tooltip>
                     )}
                     {onDelete && (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
@@ -296,6 +296,14 @@ export default function ClientTransactionsPage() {
                             <Tooltip.Content>{t('refundAction')}</Tooltip.Content>
                         </Tooltip>
                     )}
+                    {tx.status === "refunded" && (
+                        <Tooltip>
+                            <Button isIconOnly size="sm" variant="ghost" aria-label={t('undoRefundAction')} className="text-emerald-600 hover:text-emerald-700" onClick={() => handleUndoRefund(tx)}>
+                                <RotateCw className="h-4 w-4" />
+                            </Button>
+                            <Tooltip.Content>{t('undoRefundAction')}</Tooltip.Content>
+                        </Tooltip>
+                    )}
                     <Tooltip>
                         <Button isIconOnly size="sm" variant="ghost" aria-label={tCommon('delete')} className="text-destructive hover:text-red-700" onClick={() => handleDelete(tx)}>
                             <Trash2 className="h-4 w-4" />
@@ -331,6 +339,15 @@ export default function ClientTransactionsPage() {
     async function handleRefund(tx) {
         try {
             const res = await api.put(`/api/transactions/${tx.id}`, { status: "refunded" });
+            setTransactions(prev => prev.map(item => item.id === tx.id ? res.data : item));
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function handleUndoRefund(tx) {
+        try {
+            const res = await api.put(`/api/transactions/${tx.id}`, { status: "completed" });
             setTransactions(prev => prev.map(item => item.id === tx.id ? res.data : item));
         } catch (err) {
             console.error(err);
