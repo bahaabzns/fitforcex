@@ -285,7 +285,7 @@ export default function PackagesPage() {
                         <span className="flex items-center gap-1.5">
                             {hasChildItems && isTreeColumn ? (
                                 <Button isIconOnly slot="chevron" size="sm" variant="ghost" aria-label={isExpanded ? tCommon('collapse') : tCommon('expand')}>
-                                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : "rtl:rotate-180"}`} />
                                 </Button>
                             ) : null}
                             <span className={isPackage ? "font-medium text-accent" : "text-foreground"}>{row.name}</span>
