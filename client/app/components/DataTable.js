@@ -33,6 +33,10 @@ import { useTranslations, useLocale } from "next-intl";
 //   scrollable — boolean
 //   defaultSort / defaultSortDirection
 
+// Action columns use either key convention across the app. They get no visible
+// header and their buttons sit flush-right, revealed on row hover.
+const isActionsColumn = (key) => key === "_actions" || key === "actions";
+
 export default function DataTable({
     columns,
     data,
@@ -279,6 +283,7 @@ export default function DataTable({
                             <SearchField.Group>
                                 <SearchField.SearchIcon />
                                 <SearchField.Input
+                                    className="py-2"
                                     placeholder={quickSearch.placeholder ?? "Search..."}
                                     onFocus={() => setSearchFocused(true)}
                                     onBlur={() => setSearchFocused(false)}
@@ -326,11 +331,11 @@ export default function DataTable({
                                             onClick={() => { setPendingColKey(pendingColKey === col.key ? null : col.key); setPendingValue(null); }}
                                         >
                                             {col.label}
-                                            <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                                            <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
                                         </button>
 
                                         {pendingColKey === col.key && pendingValue !== null && (
-                                            <div className="absolute z-30 left-full top-0 ml-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                                            <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
                                                 {col.filterType === "text" && (
                                                     <SearchField
                                                         autoFocus
@@ -436,7 +441,7 @@ export default function DataTable({
                     </div>
                 )}
 
-                {toolbarEnd && <div className="ml-auto">{toolbarEnd}</div>}
+                {toolbarEnd && <div className="ms-auto">{toolbarEnd}</div>}
             </div>
 
             {/* ── Toolbar row 2: active filter chips ── */}
@@ -492,18 +497,20 @@ export default function DataTable({
                                         allowsSorting={!!col.sortable}
                                         isRowHeader={i === 0}
                                         style={col.width ? { width: col.width, minWidth: col.width } : undefined}
-                                        className={col.key === "_actions" ? "text-end" : ""}
+                                        className={isActionsColumn(col.key) ? "text-end" : ""}
                                     >
-                                        {col.sortable
-                                            ? ({ sortDirection: sd }) => (
-                                                <span className="flex items-center justify-between gap-1">
-                                                    {col.label}
-                                                    {sd === "ascending"  && <ChevronUp size={13} className="text-primary shrink-0" />}
-                                                    {sd === "descending" && <ChevronDown size={13} className="text-primary shrink-0" />}
-                                                    {!sd && <ChevronsUpDown size={13} className="text-muted-foreground shrink-0 opacity-50" />}
-                                                </span>
-                                            )
-                                            : col.label
+                                        {isActionsColumn(col.key)
+                                            ? <span className="sr-only">{col.label}</span>
+                                            : col.sortable
+                                                ? ({ sortDirection: sd }) => (
+                                                    <span className="flex items-center justify-between gap-1">
+                                                        {col.label}
+                                                        {sd === "ascending"  && <ChevronUp size={13} className="text-primary shrink-0" />}
+                                                        {sd === "descending" && <ChevronDown size={13} className="text-primary shrink-0" />}
+                                                        {!sd && <ChevronsUpDown size={13} className="text-muted-foreground shrink-0 opacity-50" />}
+                                                    </span>
+                                                )
+                                                : col.label
                                         }
                                     </Table.Column>
                                 ))}
@@ -515,7 +522,7 @@ export default function DataTable({
                                     const isLastRow  = rowIdx === paginatedData.length - 1;
                                     return (
                                         <React.Fragment key={row[rowKey]}>
-                                            <Table.Row id={row[rowKey]}>
+                                            <Table.Row id={row[rowKey]} className="group">
                                                 {selectable && (() => {
                                                     const s = {};
                                                     if (isRtl) {
@@ -539,6 +546,7 @@ export default function DataTable({
                                                 {columns.map((col, colIdx) => {
                                                     const isFirstCol = !selectable && colIdx === 0;
                                                     const isLastCol  = colIdx === columns.length - 1;
+                                                    const isActionsCol = isActionsColumn(col.key);
                                                     const baseStyle  = col.width ? { width: col.width, minWidth: col.width } : {};
                                                     const extra = {};
                                                     if (isRtl) {
@@ -554,10 +562,15 @@ export default function DataTable({
                                                         <Table.Cell
                                                             key={col.key}
                                                             style={cellStyle}
-                                                            className={col.key === "_actions" ? "text-end" : ""}
+                                                            className={isActionsCol ? "text-end" : ""}
                                                             onPointerDown={(e) => e.stopPropagation()}
                                                         >
-                                                            {col.render ? col.render(row) : row[col.key]}
+                                                            {isActionsCol
+                                                                // Buttons sit flush-right and fade in on row hover; only
+                                                                // the buttons fade (not the cell bg) so the row's hover
+                                                                // highlight shows through behind them.
+                                                                ? <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">{col.render ? col.render(row) : row[col.key]}</div>
+                                                                : (col.render ? col.render(row) : row[col.key])}
                                                         </Table.Cell>
                                                     );
                                                 })}

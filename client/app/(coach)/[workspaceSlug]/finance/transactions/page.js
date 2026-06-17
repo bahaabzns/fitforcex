@@ -335,11 +335,6 @@ export default function TransactionsPage() {
         setEditingTx(null);
     }
 
-    function openCreate() {
-        setEditingTx(null);
-        setShowForm(true);
-    }
-
     function openEdit(tx) {
         setEditingTx(tx);
         setShowForm(true);
@@ -418,7 +413,6 @@ export default function TransactionsPage() {
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onEdit={openEdit}
-                toolbarEnd={<Button size="sm" variant="primary" onClick={openCreate}>{t('newTransactionTitle')}</Button>}
             />
         </div>
     );

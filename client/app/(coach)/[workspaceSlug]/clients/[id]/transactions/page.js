@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
@@ -11,6 +12,7 @@ import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Tooltip } from "@heroui/react/tooltip";
 
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 
@@ -277,27 +279,27 @@ export default function ClientTransactionsPage() {
             label: "",
             cardPriority: "hidden",
             render: (tx) => (
-                <div className="flex items-center gap-2 justify-end">
-                    <button
-                        onClick={() => openEdit(tx)}
-                        className="text-xs text-primary hover:text-primary/80 transition-colors cursor-pointer"
-                    >
-                        {tCommon('edit')}
-                    </button>
+                <div className="flex items-center gap-1 justify-end whitespace-nowrap">
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label={tCommon('edit')} onClick={() => openEdit(tx)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>{tCommon('edit')}</Tooltip.Content>
+                    </Tooltip>
                     {tx.status === "completed" && (
-                        <button
-                            onClick={() => handleRefund(tx)}
-                            className="text-xs text-orange-500 hover:text-orange-700 transition-colors cursor-pointer"
-                        >
-                            {t('refundAction')}
-                        </button>
+                        <Tooltip>
+                            <Button isIconOnly size="sm" variant="ghost" aria-label={t('refundAction')} className="text-orange-500 hover:text-orange-600" onClick={() => handleRefund(tx)}>
+                                <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            <Tooltip.Content>{t('refundAction')}</Tooltip.Content>
+                        </Tooltip>
                     )}
-                    <button
-                        onClick={() => handleDelete(tx)}
-                        className="text-xs text-destructive hover:text-red-700 transition-colors cursor-pointer"
-                    >
-                        {tCommon('delete')}
-                    </button>
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label={tCommon('delete')} className="text-destructive hover:text-red-700" onClick={() => handleDelete(tx)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>{tCommon('delete')}</Tooltip.Content>
+                    </Tooltip>
                 </div>
             ),
         },

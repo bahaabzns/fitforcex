@@ -19,11 +19,12 @@
     [ ] Unify datatables
     [ ] Unify all empty states
     [ ] Unify all page paddings
-    [ ] Unify action icons
     [ ] Unify loaders (single skeleton/spinner)
     [ ] Unify alert dialogs
     [ ] Unify animations
     [ ] Use consistent search fields
+    
+    [x] Unify action icons
 
 # Audit
     [ ] Authentication flows 

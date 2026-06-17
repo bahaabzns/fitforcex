@@ -1,11 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { Pencil, Trash2 } from "lucide-react";
 import api from "@/lib/axios";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel } from "@/app/components/Field";
 import DataTable from "@/app/components/DataTable";
 import { Button } from "@heroui/react/button";
+import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
@@ -86,9 +88,19 @@ export default function MuscleGroupsPage() {
             label: t("columnActions"),
             cardPriority: "hidden",
             render: (row) => (
-                <div className="flex gap-2">
-                    <button onClick={() => setEditing(row)} className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted px-3 py-1 text-sm transition-colors cursor-pointer">{t("editButton")}</button>
-                    <button onClick={() => handleDelete(row.id)} className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1 text-sm transition-colors cursor-pointer">{t("deleteButton")}</button>
+                <div className="flex items-center gap-1">
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label={t("editButton")} onClick={() => setEditing(row)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>{t("editButton")}</Tooltip.Content>
+                    </Tooltip>
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label={t("deleteButton")} className="text-destructive hover:text-red-700" onClick={() => handleDelete(row.id)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>{t("deleteButton")}</Tooltip.Content>
+                    </Tooltip>
                 </div>
             ),
         },

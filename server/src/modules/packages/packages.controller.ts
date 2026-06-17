@@ -114,11 +114,18 @@ export async function updatePackage(req: Request, res: Response, next: NextFunct
 
 export async function deletePackage(req: Request, res: Response, next: NextFunction) {
     const { packageId, variationId } = req.body as { packageId?: string; variationId?: string };
-    if (!packageId || !variationId) return res.status(400).json({ error: 'packageId and variationId are required' });
+    if (!packageId) return res.status(400).json({ error: 'packageId is required' });
 
     try {
         const pkg = await prisma.packages.findFirst({ where: { id: packageId, workspace_id: req.user!.workspaceId } });
         if (!pkg) return res.status(404).json({ error: 'Package not found' });
+
+        // No variationId → delete the whole package and all of its variations.
+        if (!variationId) {
+            await prisma.package_variations.deleteMany({ where: { package_id: packageId } });
+            await prisma.packages.delete({ where: { id: packageId } });
+            return res.json({ deleted: 'package', id: packageId });
+        }
 
         await prisma.package_variations.deleteMany({ where: { id: variationId, package_id: packageId } });
 

@@ -1,4 +1,17 @@
 
+# mobile apps
+
+# default user in all workspaces
+
+# regular backup
+
+# admin kpis dashboard as system admin and ceo
+
+# kpis cards for dashboards
+
+# add quick serach for all datatables
+
+# custom branding
 
 # add workout logs in training builder per each exercises
 

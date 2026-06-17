@@ -1,6 +1,6 @@
 'use client';
 
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { Languages, Check } from 'lucide-react';
@@ -13,6 +13,7 @@ const LANGS = [
 
 export default function LanguageSwitcher() {
     const locale   = useLocale();
+    const tCommon  = useTranslations('common');
     const router   = useRouter();
     const [switching, setSwitching] = useState(false);
     const [open, setOpen]           = useState(false);
@@ -44,7 +45,7 @@ export default function LanguageSwitcher() {
                 <button
                     onClick={() => setOpen(o => !o)}
                     disabled={switching}
-                    aria-label="Choose a language"
+                    aria-label={tCommon('chooseLanguage')}
                     style={{ backgroundColor: 'var(--color-background)' }}
                     className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 cursor-pointer transition-opacity text-foreground hover:opacity-90"
                 >
@@ -53,9 +54,9 @@ export default function LanguageSwitcher() {
             </div>
 
             {open && (
-                <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                <div className="absolute ltr:right-0 rtl:left-0 top-full mt-1 z-50 min-w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
                     <p className="text-xs font-medium text-muted-foreground px-3 py-2 border-b border-border">
-                        Choose a language
+                        {tCommon('chooseLanguage')}
                     </p>
                     {LANGS.map(lang => (
                         <button

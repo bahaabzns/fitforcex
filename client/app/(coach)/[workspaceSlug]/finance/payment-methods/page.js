@@ -1,37 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import DataTable from "@/app/components/DataTable";
-import Modal, { ModalFooter } from "@/app/components/Modal";
-import { FieldLabel, FieldErrorText } from "@/app/components/Field";
-import api from "@/lib/axios";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
+import { ChevronRight, ListFilter, Pencil, Plus, Power, Trash2 } from "lucide-react";
+import Modal, { ModalFooter } from "@/app/components/Modal";
+import { FieldLabel } from "@/app/components/Field";
+import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
-import { Card } from "@heroui/react/card";
-import { Chip } from "@heroui/react/chip";
+import { Table } from "@heroui/react/table";
+import { SearchField } from "@heroui/react/search-field";
+import { Tooltip } from "@heroui/react/tooltip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 
 const TYPES = ["cash", "card", "wallet", "bank_transfer"];
 
-const TYPE_COLORS = {
-    cash:          "bg-emerald-500/15 text-emerald-600",
-    card:          "bg-accent/15 text-accent",
-    wallet:        "bg-purple-500/15 text-purple-600",
-    bank_transfer: "bg-orange-500/15 text-orange-600",
-};
-
-const editInputCls = "w-full px-2 py-1 rounded-lg border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring";
-const activeBadge   = "bg-green-500/15 text-green-600 hover:bg-green-500/25";
-const inactiveBadge = "bg-secondary text-muted-foreground hover:bg-secondary/80";
+// Row action items that stay hidden until the row is hovered or an action is focused.
+const HOVER_ACTIONS = "flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
 
 export default function PaymentMethodsPage() {
     const t = useTranslations('paymentMethods');
     const tCommon = useTranslations('common');
+    const tFilter = useTranslations('filter');
     const locale = useLocale();
 
-    const TYPE_LABELS_I18N = {
+    const TYPE_LABELS = {
         cash:          t('typeCash'),
         card:          t('typeCard'),
         wallet:        t('typeWallet'),
@@ -40,12 +34,22 @@ export default function PaymentMethodsPage() {
 
     const [methods, setMethods] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState("");
+    // Which type groups are expanded to reveal their methods (react-aria tree keys).
+    const [expandedTypes, setExpandedTypes] = useState(() => new Set());
+    // Status filter (no name filter — methods are searched by name instead).
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [pendingFilterKey, setPendingFilterKey] = useState(null);
+    const [statusFilter, setStatusFilter] = useState([]); // [] = all; subset of ["active","inactive"]
+
+    // Create modal (new method) + edit modal (existing method, name + type)
     const [showForm, setShowForm] = useState(false);
     const [formName, setFormName] = useState("");
     const [formType, setFormType] = useState("cash");
+    const [editingMethod, setEditingMethod] = useState(null); // { id, name, type } | null
     const [error, setError] = useState("");
-    const [editingId, setEditingId] = useState(null);
-    const [editData, setEditData] = useState({});
+
+    const searchRef = useRef(null);
 
     useEffect(() => {
         api.get("/api/payment-methods")
@@ -54,153 +58,95 @@ export default function PaymentMethodsPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    const columns = [
-        {
-            key: "name",
-            label: t('nameLabel'),
-            filterType: "text",
-            sortable: true,
-            render: (row) => {
-                if (editingId === row.id) {
-                    return (
-                        <input
-                            type="text"
-                            value={editData.name}
-                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                            className={editInputCls}
-                        />
-                    );
-                }
-                return <span className="font-medium text-foreground">{row.name}</span>;
-            },
-        },
-        {
-            key: "type",
-            label: t('typeLabel'),
-            filterType: "multi",
-            options: TYPES.map(type => TYPE_LABELS_I18N[type]),
-            sortable: true,
-            render: (row) => {
-                if (editingId === row.id) {
-                    return (
-                        <select
-                            value={editData.type}
-                            onChange={(e) => setEditData({ ...editData, type: e.target.value })}
-                            className="px-2 py-1 rounded-lg border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            {TYPES.map(typeKey => (
-                                <option key={typeKey} value={typeKey}>{TYPE_LABELS_I18N[typeKey]}</option>
-                            ))}
-                        </select>
-                    );
-                }
-                return (
-                    <Chip size="sm" className={`${TYPE_COLORS[row._typeRaw] ?? "bg-secondary text-muted-foreground"}`}>
-                        {row.type}
-                    </Chip>
-                );
-            },
-        },
-        {
-            key: "active",
-            label: t('statusLabel'),
-            filterType: "multi",
-            options: [t('active'), t('inactive')],
-            render: (row) => {
-                if (editingId === row.id) {
-                    return (
-                        <button
-                            type="button"
-                            onClick={() => setEditData({ ...editData, active: !editData.active })}
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                                editData.active ? activeBadge : inactiveBadge
-                            }`}
-                        >
-                            {editData.active ? t('active') : t('inactive')}
-                        </button>
-                    );
-                }
-                return (
-                    <button
-                        onClick={() => handleToggleActive(row.id, row._activeRaw)}
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                            row._activeRaw ? activeBadge : inactiveBadge
-                        }`}
-                    >
-                        {row.active}
-                    </button>
-                );
-            },
-        },
-        {
-            key: "created_at",
-            label: t('createdLabel'),
-            filterType: "dateRange",
-            sortable: true,
-            render: (row) => new Date(row.created_at).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }),
-        },
-        {
-            key: "_actions",
-            label: "",
-            render: (row) => {
-                if (editingId === row.id) {
-                    return (
-                        <div className="flex gap-2 justify-end">
-                            <button onClick={() => handleSaveEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">{t('save')}</button>
-                            <button onClick={() => { setEditingId(null); setError(""); }} className="text-xs text-muted-foreground hover:text-foreground cursor-pointer">{tCommon('cancel')}</button>
-                        </div>
-                    );
-                }
-                return (
-                    <div className="flex gap-2 justify-end">
-                        <button onClick={() => startEdit(row)} className="text-xs text-primary hover:text-primary/80 cursor-pointer">{tCommon('edit')}</button>
-                        <button onClick={() => handleDelete(row.id)} className="text-xs text-destructive hover:text-red-700 cursor-pointer">{tCommon('delete')}</button>
-                    </div>
-                );
-            },
-        },
-    ];
+    // Ctrl+K focuses the quick search (matches the shared DataTable shortcut).
+    useEffect(() => {
+        function onKeyDown(e) {
+            if (e.ctrlKey && (e.key === "k" || e.key === "K")) {
+                e.preventDefault();
+                searchRef.current?.querySelector("input")?.focus();
+            }
+        }
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
 
-    const displayRows = methods.map(m => ({
-        ...m,
-        _typeRaw: m.type,
-        _activeRaw: m.active,
-        type: TYPE_LABELS_I18N[m.type] ?? m.type,
-        active: m.active ? t('active') : t('inactive'),
-    }));
+    // ── Filtering ─────────────────────────────────────────────
+    const query = search.trim().toLowerCase();
 
-    const activeCount = methods.filter(m => m.active).length;
-    const typeCounts = TYPES.reduce((acc, typeKey) => {
-        acc[typeKey] = methods.filter(m => m.type === typeKey).length;
-        return acc;
-    }, {});
+    function methodPassesFilters(m) {
+        if (statusFilter.length > 0) {
+            if (m.active && !statusFilter.includes("active")) return false;
+            if (!m.active && !statusFilter.includes("inactive")) return false;
+        }
+        return true;
+    }
 
+    function clearFilters() {
+        setStatusFilter([]);
+    }
+
+    const filterChips = [];
+    if (statusFilter.length > 0) {
+        filterChips.push({
+            key: "status",
+            label: t('statusFilterLabel'),
+            value: statusFilter.map(s => s === "active" ? t('active') : t('inactive')).join(", "),
+            clear: () => setStatusFilter([]),
+        });
+    }
+
+    // Tree rows: each payment-method type is a parent row whose children are the
+    // (visible) methods of that type. Empty types drop out.
+    const treeRows = TYPES
+        .map(type => {
+            const typeMethods = methods.filter(m =>
+                m.type === type &&
+                methodPassesFilters(m) &&
+                (!query || m.name.toLowerCase().includes(query)));
+            return { type, typeMethods };
+        })
+        .filter(({ typeMethods }) => typeMethods.length > 0)
+        .map(({ type, typeMethods }) => ({
+            id: `type-${type}`,
+            kind: "type",
+            type,
+            name: TYPE_LABELS[type],
+            children: typeMethods.map(m => ({
+                id: `method-${m.id}`,
+                kind: "method",
+                name: m.name,
+                method: m,
+                children: [],
+            })),
+        }));
+
+    // ── Actions ───────────────────────────────────────────────
     async function handleToggleActive(id, currentActive) {
         try {
             const res = await api.put("/api/payment-methods", { id, active: !currentActive });
-            setMethods(prev => prev.map(m => m.id === id ? res.data : m));
+            setMethods(prev => prev.map(m => m.id === res.data.id ? res.data : m));
         } catch (err) {
             setError(err.response?.data?.error || t('errorUpdate'));
         }
     }
 
-    function startEdit(row) {
-        setEditingId(row.id);
+    function startEditMethod(m) {
         setError("");
-        setEditData({ name: row.name, type: row._typeRaw, active: row._activeRaw });
+        setEditingMethod({ id: m.id, name: m.name, type: m.type });
     }
 
-    async function handleSaveEdit(row) {
-        if (!editData.name?.trim()) { setError(t('errorNameRequired')); return; }
+    async function handleSaveMethod(e) {
+        e.preventDefault();
+        if (!editingMethod) return;
+        if (!editingMethod.name?.trim()) { setError(t('errorNameRequired')); return; }
         try {
             const res = await api.put("/api/payment-methods", {
-                id: row.id,
-                name: editData.name.trim(),
-                type: editData.type,
-                active: editData.active,
+                id: editingMethod.id,
+                name: editingMethod.name.trim(),
+                type: editingMethod.type,
             });
-            setMethods(prev => prev.map(m => m.id === row.id ? res.data : m));
-            setEditingId(null);
+            setMethods(prev => prev.map(m => m.id === res.data.id ? res.data : m));
+            setEditingMethod(null);
             setError("");
         } catch (err) {
             setError(err.response?.data?.error || t('errorSave'));
@@ -216,6 +162,13 @@ export default function PaymentMethodsPage() {
         }
     }
 
+    function openCreate(type) {
+        setError("");
+        setFormName("");
+        setFormType(type ?? "cash");
+        setShowForm(true);
+    }
+
     async function handleSubmit(e) {
         e.preventDefault();
         setError("");
@@ -229,6 +182,106 @@ export default function PaymentMethodsPage() {
         } catch (err) {
             setError(err.response?.data?.error || t('errorCreate'));
         }
+    }
+
+    function toggleActiveButton(isActive, onToggle) {
+        const label = isActive ? tCommon('deactivate') : tCommon('activate');
+        return (
+            <Tooltip>
+                <Button isIconOnly size="sm" variant="ghost" aria-label={label} className={isActive ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"} onClick={onToggle}>
+                    <Power className="h-4 w-4" />
+                </Button>
+                <Tooltip.Content>{label}</Tooltip.Content>
+            </Tooltip>
+        );
+    }
+
+    function typeActions(type) {
+        return (
+            <div className="flex items-center gap-1 justify-end">
+                <span className={HOVER_ACTIONS}>
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label={t('newMethod')} onClick={() => openCreate(type)}>
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>{t('newMethod')}</Tooltip.Content>
+                    </Tooltip>
+                </span>
+            </div>
+        );
+    }
+
+    function methodActions(m) {
+        return (
+            <div className="flex items-center gap-1 justify-end">
+                {/* Visible only when the row is hovered (or an action is focused). */}
+                <span className={HOVER_ACTIONS}>
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label={tCommon('edit')} onClick={() => startEditMethod(m)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>{tCommon('edit')}</Tooltip.Content>
+                    </Tooltip>
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label={tCommon('delete')} className="text-destructive hover:text-red-700" onClick={() => handleDelete(m.id)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>{tCommon('delete')}</Tooltip.Content>
+                    </Tooltip>
+                </span>
+                {toggleActiveButton(m.active, () => handleToggleActive(m.id, m.active))}
+            </div>
+        );
+    }
+
+    // Single render fn for both type (parent) and method (child) rows.
+    function renderTreeRow(row) {
+        const isType = row.kind === "type";
+        const m = row.method;
+        return (
+            <Table.Row id={row.id} textValue={row.name} className="group">
+                <Table.Cell textValue={row.name}>
+                    {({ hasChildItems, isExpanded, isTreeColumn }) => (
+                        <span className="flex items-center gap-1.5">
+                            {hasChildItems && isTreeColumn ? (
+                                <Button isIconOnly slot="chevron" size="sm" variant="ghost" aria-label={isExpanded ? tCommon('collapse') : tCommon('expand')}>
+                                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                                </Button>
+                            ) : null}
+                            <span className={isType ? "font-medium text-accent" : "text-foreground"}>{row.name}</span>
+                            {isType && (
+                                <span className="text-xs text-muted-foreground">· {t('methodCount', { count: row.children.length })}</span>
+                            )}
+                        </span>
+                    )}
+                </Table.Cell>
+                <Table.Cell>{isType ? null : new Date(m.created_at).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" })}</Table.Cell>
+                <Table.Cell className="text-end">{isType ? typeActions(row.type) : methodActions(m)}</Table.Cell>
+                <Table.Collection items={row.children}>{renderTreeRow}</Table.Collection>
+            </Table.Row>
+        );
+    }
+
+    // Type picker shared by the create + edit modals.
+    function typePicker(value, onChange) {
+        return (
+            <div className="flex gap-2 flex-wrap">
+                {TYPES.map(typeKey => (
+                    <Button
+                        key={typeKey}
+                        type="button"
+                        onClick={() => onChange(typeKey)}
+                        className={`px-3 py-1.5 text-sm font-medium border ${
+                            value === typeKey
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
+                        }`}
+                    >
+                        {TYPE_LABELS[typeKey]}
+                    </Button>
+                ))}
+            </div>
+        );
     }
 
     if (loading) {
@@ -250,58 +303,29 @@ export default function PaymentMethodsPage() {
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <Card>
-                    <Card.Content className="p-6">
-                        <p className="text-sm text-muted-foreground font-medium">{t('total')}</p>
-                        <p className="text-2xl font-bold text-foreground mt-1">{methods.length}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{t('activeCount', { count: activeCount })}</p>
-                    </Card.Content>
-                </Card>
-                {TYPES.map(typeKey => (
-                    <Card key={typeKey}>
-                        <Card.Content className="p-6">
-                            <p className="text-sm text-muted-foreground font-medium">{TYPE_LABELS_I18N[typeKey]}</p>
-                            <p className="text-2xl font-bold text-foreground mt-1">{typeCounts[typeKey]}</p>
-                            <Chip size="sm" className={`text-xs mt-1 ${TYPE_COLORS[typeKey]}`}>{TYPE_LABELS_I18N[typeKey]}</Chip>
-                        </Card.Content>
-                    </Card>
-                ))}
-            </div>
+            {/* Toggle/delete errors (create + edit errors render inside their modals) */}
+            {!showForm && !editingMethod && error && <p className="text-destructive text-sm">{error}</p>}
 
-            {/* Error from edit/delete */}
-            {!showForm && error && <p className="text-destructive text-sm">{error}</p>}
-
-            {/* Creation Modal */}
+            {/* New Method Modal */}
             <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newMethodTitle')}>
-                <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-4 py-1">
                     <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('nameLabel')}</FieldLabel>
+                        <FieldLabel required>{t('nameLabel')}</FieldLabel>
                         <TextField variant="secondary" fullWidth aria-label={t('nameLabel')} value={formName} onChange={setFormName}>
                             <Input type="text" placeholder={t('namePlaceholder')} autoFocus />
                         </TextField>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('typeLabel')}</FieldLabel>
-                        <div className="flex gap-2 flex-wrap">
-                            {TYPES.map(typeKey => (
-                                <Button
-                                    key={typeKey}
-                                    type="button"
-                                    onClick={() => setFormType(typeKey)}
-                                    className={`px-3 py-1.5 text-sm font-medium border ${
-                                        formType === typeKey
-                                            ? "border-primary bg-primary/10 text-primary"
-                                            : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
-                                    }`}
-                                >
-                                    {TYPE_LABELS_I18N[typeKey]}
-                                </Button>
-                            ))}
-                        </div>
+                        <FieldLabel required>{t('typeLabel')}</FieldLabel>
+                        {typePicker(formType, setFormType)}
                     </div>
-                    <FieldErrorText msg={error} />
+
+                    {error && (
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                            <p className="text-destructive text-xs">{error}</p>
+                        </div>
+                    )}
+
                     <ModalFooter>
                         <Button type="button" variant="ghost" onClick={() => { setShowForm(false); setError(""); }}>
                             {tCommon('cancel')}
@@ -313,14 +337,137 @@ export default function PaymentMethodsPage() {
                 </form>
             </Modal>
 
-            {/* Table */}
-            <DataTable
-                columns={columns}
-                data={displayRows}
-                rowKey="id"
-                quickSearch={{ fields: ["name", "type"], placeholder: t('searchPlaceholder') }}
-                toolbarEnd={<Button variant="primary" onClick={() => { setShowForm(true); setError(""); setFormName(""); setFormType("cash"); }}>{t('newMethod')}</Button>}
-            />
+            {/* Edit Method Modal — name + type (active is toggled from the table) */}
+            <Modal open={!!editingMethod} onClose={() => { setEditingMethod(null); setError(""); }} title={t('editMethodTitle')}>
+                <form onSubmit={handleSaveMethod} className="flex flex-col gap-5 px-4 py-1">
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('nameLabel')}</FieldLabel>
+                        <TextField variant="secondary" fullWidth aria-label={t('nameLabel')} value={editingMethod?.name ?? ""} onChange={(val) => setEditingMethod(em => ({ ...em, name: val }))}>
+                            <Input type="text" placeholder={t('namePlaceholder')} />
+                        </TextField>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <FieldLabel required>{t('typeLabel')}</FieldLabel>
+                        {typePicker(editingMethod?.type ?? "cash", (typeKey) => setEditingMethod(em => ({ ...em, type: typeKey })))}
+                    </div>
+
+                    {error && (
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                            <p className="text-destructive text-xs">{error}</p>
+                        </div>
+                    )}
+
+                    <ModalFooter>
+                        <Button type="button" variant="ghost" onClick={() => { setEditingMethod(null); setError(""); }}>
+                            {tCommon('cancel')}
+                        </Button>
+                        <Button type="submit" variant="primary">
+                            {t('save')}
+                        </Button>
+                    </ModalFooter>
+                </form>
+            </Modal>
+
+            {/* Toolbar: quick search + filter + New Method */}
+            <div className="flex items-center gap-2">
+                <div ref={searchRef} className="max-w-xs w-full">
+                    <SearchField
+                        value={search}
+                        onChange={setSearch}
+                        onClear={() => setSearch("")}
+                        aria-label={t('searchPlaceholder')}
+                        fullWidth
+                    >
+                        <SearchField.Group>
+                            <SearchField.SearchIcon />
+                            <SearchField.Input className="py-2" placeholder={t('searchPlaceholder')} />
+                            <SearchField.ClearButton />
+                        </SearchField.Group>
+                    </SearchField>
+                </div>
+
+                {/* Filter — same pattern as the shared DataTable: field list → side sub-panel */}
+                <div className="relative">
+                    {filtersOpen && <div className="fixed inset-0 z-10" onClick={() => { setFiltersOpen(false); setPendingFilterKey(null); }} />}
+                    <Button size="sm" variant="secondary" onClick={() => setFiltersOpen(o => !o)}>
+                        <ListFilter size={14} />
+                        {tFilter('filterButton')}
+                    </Button>
+                    {filtersOpen && (
+                        <div className="absolute z-20 top-full mt-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48">
+                            <div className="relative">
+                                <button
+                                    className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingFilterKey === "status" ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
+                                    onClick={() => setPendingFilterKey(pendingFilterKey === "status" ? null : "status")}
+                                >
+                                    {t('statusFilterLabel')}
+                                    <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
+                                </button>
+                                {pendingFilterKey === "status" && (
+                                    <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-0.5 min-w-44">
+                                        {[["active", t('active')], ["inactive", t('inactive')]].map(([value, label]) => (
+                                            <label key={value} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={statusFilter.includes(value)}
+                                                    onChange={(e) => setStatusFilter(prev => e.target.checked ? [...prev, value] : prev.filter(s => s !== value))}
+                                                    className="rounded"
+                                                />
+                                                {label}
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="ms-auto">
+                    <Button variant="primary" onClick={() => openCreate()}>
+                        {t('newMethod')}
+                    </Button>
+                </div>
+            </div>
+
+            {/* Active filter chips */}
+            {filterChips.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                    {filterChips.map(chip => (
+                        <div key={chip.key} className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm border border-primary/20">
+                            <span className="font-medium">{chip.label}:</span>
+                            <span>{chip.value}</span>
+                            <button className="ml-0.5 hover:text-destructive transition-colors leading-none" onClick={chip.clear}>✕</button>
+                        </div>
+                    ))}
+                    <Button size="sm" variant="ghost" onClick={clearFilters}>
+                        {tFilter('clearAll')}
+                    </Button>
+                </div>
+            )}
+
+            {/* Expandable table — types as parent rows, methods as children */}
+            <Table>
+                <Table.ScrollContainer>
+                    <Table.Content
+                        aria-label={t('title')}
+                        treeColumn="name"
+                        expandedKeys={expandedTypes}
+                        onExpandedChange={setExpandedTypes}
+                    >
+                        <Table.Header>
+                            <Table.Column isRowHeader id="name">{t('nameLabel')}</Table.Column>
+                            <Table.Column id="created">{t('createdLabel')}</Table.Column>
+                            <Table.Column id="actions"><span className="sr-only">{tCommon('edit')}</span></Table.Column>
+                        </Table.Header>
+                        <Table.Body items={treeRows}>{renderTreeRow}</Table.Body>
+                    </Table.Content>
+                </Table.ScrollContainer>
+            </Table>
+
+            {treeRows.length === 0 && (
+                <p className="text-muted-foreground text-sm">{t('noMethodsYet')}</p>
+            )}
         </div>
     );
 }
