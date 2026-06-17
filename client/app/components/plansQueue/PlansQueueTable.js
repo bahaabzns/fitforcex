@@ -1,25 +1,67 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Salad, Dumbbell, Check, Undo2, UserPlus } from "lucide-react";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
 import { Chip } from "@heroui/react/chip";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 
-export default function PlansQueueTable({ initialSubmissions, awaiting, forms }) {
+// "assessment" → "Assessment", "check-in" → "Check-in"
+function titleCaseType(type) {
+    if (!type) return "";
+    return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+// Compact icon button with an accessible tooltip — used for the row actions.
+function IconAction({ label, onClick, disabled, className = "", children }) {
+    return (
+        <Tooltip>
+            <button
+                type="button"
+                onClick={onClick}
+                disabled={disabled}
+                aria-label={label}
+                className={`p-1.5 rounded hover:bg-default transition-colors disabled:opacity-50 ${className}`}
+            >
+                {children}
+            </button>
+            <Tooltip.Content>{label}</Tooltip.Content>
+        </Tooltip>
+    );
+}
+
+export default function PlansQueueTable({ initialSubmissions, awaiting, forms, members = [] }) {
     const t = useTranslations('plansQueue');
     const locale = useLocale();
     const [submissions, setSubmissions] = useState(initialSubmissions);
     const [expandedId, setExpandedId] = useState(null);
     const [marking, setMarking] = useState(false);
-    const [filteredItems, setFilteredItems] = useState(null);
+    // Per-row assignee overrides applied on top of the server data (id → { assignedTo, assignedToName }).
+    const [assignMap, setAssignMap] = useState({});
+    // Card quick-filters: click a stat card to filter the table by status / action.
+    const [cardStatus, setCardStatus] = useState(null);
+    const [cardAction, setCardAction] = useState(null);
     const router = useRouter();
 
-    const handleFilteredDataChange = useCallback((data) => {
-        setFilteredItems(data);
-    }, []);
+    async function assignTo(rowId, userId) {
+        const member = members.find((m) => m.id === userId);
+        // Optimistic — reflect the new assignee immediately, then persist.
+        setAssignMap((prev) => ({
+            ...prev,
+            [rowId]: { assignedTo: userId || null, assignedToName: member?.name || null },
+        }));
+        try {
+            await api.patch("/api/forms/queue/assign", { ids: [rowId], assignedTo: userId || null });
+        } catch {
+            // silent — leave the optimistic value; a reload reconciles with the server
+        }
+    }
 
     function getPostAction(formId) {
         const form = forms.find((f) => f.id === formId);
@@ -36,19 +78,28 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         return form?.questions || [];
     }
 
-    const mergedSubmissions = submissions.map((item) => ({
-        ...item,
-        postAction: item.postAction || getPostAction(item.formId),
-        formType: item.formType || getFormType(item.formId),
-    }));
+    const withDerived = (item) => {
+        const override = assignMap[item.id];
+        return {
+            ...item,
+            postAction: item.postAction || getPostAction(item.formId),
+            formType: item.formType || getFormType(item.formId),
+            assignedTo: override ? override.assignedTo : (item.assignedTo ?? null),
+            assignedToName: override ? override.assignedToName : (item.assignedToName ?? null),
+        };
+    };
 
-    const mergedAwaiting = awaiting.map((item) => ({
-        ...item,
-        postAction: item.postAction || getPostAction(item.formId),
-        formType: item.formType || getFormType(item.formId),
-    }));
+    const mergedSubmissions = submissions.map(withDerived);
+    const mergedAwaiting = awaiting.map(withDerived);
 
     const allItems = [...mergedAwaiting, ...mergedSubmissions];
+
+    // Card quick-filters narrow the rows handed to the table; the table's own
+    // column filters then apply on top.
+    const displayItems = allItems.filter((r) =>
+        (!cardStatus || r.status === cardStatus) &&
+        (!cardAction || r.postAction === cardAction)
+    );
 
     async function markReviewed(ids, action = "review") {
         setMarking(true);
@@ -80,15 +131,16 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
         return String(value);
     }
 
-    const visible = filteredItems || allItems;
-    const scheduledCount = visible.filter((r) => r.status === "scheduled").length;
-    const awaitingCount = visible.filter((r) => r.status === "awaiting").length;
-    const needActionCount = visible.filter((r) => r.status === "need-action").length;
-    const actionDoneCount = visible.filter((r) => r.status === "action-done").length;
+    // Stat cards show full totals (independent of the active card filter) so the
+    // numbers stay stable as you toggle filters.
+    const scheduledCount = allItems.filter((r) => r.status === "scheduled").length;
+    const awaitingCount = allItems.filter((r) => r.status === "awaiting").length;
+    const needActionCount = allItems.filter((r) => r.status === "need-action").length;
+    const actionDoneCount = allItems.filter((r) => r.status === "action-done").length;
 
-    const nutritionPlanCount = visible.filter((r) => r.postAction === "nutrition-plan").length;
-    const workoutPlanCount = visible.filter((r) => r.postAction === "workout-plan").length;
-    const noActionCount = visible.filter((r) => r.postAction === "nothing").length;
+    const nutritionPlanCount = allItems.filter((r) => r.postAction === "nutrition-plan").length;
+    const workoutPlanCount = allItems.filter((r) => r.postAction === "workout-plan").length;
+    const noActionCount = allItems.filter((r) => r.postAction === "nothing").length;
 
     function parseQueueDate(dateStr) {
         if (!dateStr) return new Date(0);
@@ -170,6 +222,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             label: t('type'),
             filterType: "multi",
             options: ["assessment", "check-in"],
+            optionLabel: (v) => titleCaseType(v),
             width: "100px",
             cardPriority: "secondary",
             render: (row) => (
@@ -178,7 +231,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                         ? "bg-purple-500/20 text-purple-400"
                         : "bg-accent/15 text-accent"
                 }`}>
-                    {row.formType}
+                    {titleCaseType(row.formType)}
                 </Chip>
             ),
         },
@@ -228,6 +281,43 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
             render: (row) => statusBadge(row.status),
         },
         {
+            key: "assignedTo",
+            label: t('assigned'),
+            filterType: "multi",
+            options: members.map((m) => m.id),
+            optionLabel: (id) => members.find((m) => m.id === id)?.name || id,
+            width: "170px",
+            cardPriority: "secondary",
+            render: (row) => (
+                <Select
+                    aria-label={t('assignTo')}
+                    value={row.assignedTo ?? "none"}
+                    onChange={(v) => assignTo(row.id, v === "none" ? null : v)}
+                    size="sm"
+                >
+                    <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer max-w-full">
+                        <UserPlus size={13} className="shrink-0" />
+                        <span className="truncate text-xs">{row.assignedToName || t('unassigned')}</span>
+                        <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                        <ListBox>
+                            <ListBox.Item id="none" textValue={t('unassigned')}>
+                                {t('unassigned')}
+                                <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                            {members.map((m) => (
+                                <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
+                                    {m.name}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                            ))}
+                        </ListBox>
+                    </Select.Popover>
+                </Select>
+            ),
+        },
+        {
             key: "actions",
             label: t('action'),
             filterType: "multi",
@@ -261,52 +351,51 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                 }
 
                 return (
-                    <div className="flex items-center gap-1">
-                        <button
+                    <div className="flex items-center gap-0.5">
+                        <IconAction
+                            label={expandedId === row.id ? t('hide') : t('view')}
                             onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === row.id ? null : row.id); }}
-                            className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded hover:bg-default transition-colors"
+                            className="text-muted-foreground hover:text-foreground"
                         >
-                            {expandedId === row.id ? t('hide') : t('view')}
-                        </button>
+                            {expandedId === row.id ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </IconAction>
                         {row.status === "need-action" && (
                             row.postAction === "nutrition-plan" ? (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        router.push(`/clients/${row.clientId}/nutrition?submissionId=${row.id}`);
-                                    }}
-                                    className="text-amber-600 hover:text-amber-700 text-[11px] px-2 py-1 rounded hover:bg-amber-500/15 transition-colors whitespace-nowrap"
+                                <IconAction
+                                    label={t('openNutrition')}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/clients/${row.clientId}/nutrition?submissionId=${row.id}`); }}
+                                    className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/15"
                                 >
-                                    {t('openNutrition')}
-                                </button>
+                                    <Salad size={15} />
+                                </IconAction>
                             ) : row.postAction === "workout-plan" ? (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        router.push(`/clients/${row.clientId}/training?submissionId=${row.id}`);
-                                    }}
-                                    className="text-primary hover:text-primary/80 text-[11px] px-2 py-1 rounded hover:bg-primary/10 transition-colors whitespace-nowrap"
+                                <IconAction
+                                    label={t('openWorkout')}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/clients/${row.clientId}/training?submissionId=${row.id}`); }}
+                                    className="text-primary hover:text-primary/80 hover:bg-primary/10"
                                 >
-                                    {t('openWorkout')}
-                                </button>
+                                    <Dumbbell size={15} />
+                                </IconAction>
                             ) : (
-                                <button
+                                <IconAction
+                                    label={t('markReviewed')}
                                     onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "review"); }}
                                     disabled={marking}
-                                    className="text-emerald-600 hover:text-emerald-700 text-[11px] px-2 py-1 rounded hover:bg-emerald-500/15 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/15"
                                 >
-                                    {t('markReviewed')}
-                                </button>
+                                    <Check size={15} />
+                                </IconAction>
                             )
                         )}
                         {row.status === "action-done" && (
-                            <button
+                            <IconAction
+                                label={t('undo')}
                                 onClick={(e) => { e.stopPropagation(); markReviewed([row.id], "undo"); }}
                                 disabled={marking}
-                                className="text-muted-foreground hover:text-foreground text-[11px] px-2 py-1 rounded hover:bg-default transition-colors disabled:opacity-50 whitespace-nowrap"
+                                className="text-muted-foreground hover:text-foreground"
                             >
-                                {t('undo')}
-                            </button>
+                                <Undo2 size={15} />
+                            </IconAction>
                         )}
                     </div>
                 );
@@ -371,44 +460,75 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms })
                     <p className="text-muted-foreground text-sm mt-1">{t('description')}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
+                    <button
+                        type="button"
+                        onClick={() => setCardStatus((s) => (s === "scheduled" ? null : "scheduled"))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 cursor-pointer transition-shadow ${cardStatus === "scheduled" ? "ring-2 ring-primary/50" : "hover:ring-1 hover:ring-primary/30"}`}
+                    >
                         <div className="w-2 h-2 rounded-full bg-accent" />
                         <span className="text-primary text-sm font-medium">{scheduledCount} {t('scheduled')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCardStatus((s) => (s === "awaiting" ? null : "awaiting"))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary cursor-pointer transition-shadow ${cardStatus === "awaiting" ? "ring-2 ring-muted-foreground/40" : "hover:ring-1 hover:ring-muted-foreground/30"}`}
+                    >
                         <div className="w-2 h-2 rounded-full bg-muted-foreground/50" />
                         <span className="text-muted-foreground text-sm font-medium">{awaitingCount} {t('awaiting')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-lg">
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCardStatus((s) => (s === "need-action" ? null : "need-action"))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 cursor-pointer transition-shadow ${cardStatus === "need-action" ? "ring-2 ring-amber-400/60" : "hover:ring-1 hover:ring-amber-400/40"}`}
+                    >
                         <div className="w-2 h-2 rounded-full bg-amber-400" />
                         <span className="text-amber-500 text-sm font-medium">{needActionCount} {t('needAction')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-lg">
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCardStatus((s) => (s === "action-done" ? null : "action-done"))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 cursor-pointer transition-shadow ${cardStatus === "action-done" ? "ring-2 ring-emerald-500/60" : "hover:ring-1 hover:ring-emerald-500/40"}`}
+                    >
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
                         <span className="text-emerald-600 text-sm font-medium">{actionDoneCount} {t('actionDone')}</span>
-                    </div>
+                    </button>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-muted-foreground text-xs">{t('actionType')}</span>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 rounded-lg">
+                    <button
+                        type="button"
+                        onClick={() => setCardAction((a) => (a === "nutrition-plan" ? null : "nutrition-plan"))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 cursor-pointer transition-shadow ${cardAction === "nutrition-plan" ? "ring-2 ring-amber-400/60" : "hover:ring-1 hover:ring-amber-400/40"}`}
+                    >
                         <span className="text-amber-500 text-sm font-medium">{nutritionPlanCount} {t('nutrition')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCardAction((a) => (a === "workout-plan" ? null : "workout-plan"))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 cursor-pointer transition-shadow ${cardAction === "workout-plan" ? "ring-2 ring-primary/50" : "hover:ring-1 hover:ring-primary/30"}`}
+                    >
                         <span className="text-primary text-sm font-medium">{workoutPlanCount} {t('workout')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCardAction((a) => (a === "nothing" ? null : "nothing"))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary cursor-pointer transition-shadow ${cardAction === "nothing" ? "ring-2 ring-muted-foreground/40" : "hover:ring-1 hover:ring-muted-foreground/30"}`}
+                    >
                         <span className="text-muted-foreground text-sm font-medium">{noActionCount} {t('noAction')}</span>
-                    </div>
+                    </button>
                 </div>
             </div>
 
             <DataTable
                 columns={columns}
-                data={allItems}
+                data={displayItems}
                 rowKey="id"
                 scrollable
                 dateParser={parseQueueDate}
-                onFilteredDataChange={handleFilteredDataChange}
+                quickSearch={{
+                    fields: ["clientName", "clientEmail", "clientCode", "formTitle_en", "formTitle_ar"],
+                    placeholder: t('searchPlaceholder'),
+                }}
                 renderExpandedRow={renderExpandedRow}
                 renderMobileExpanded={renderMobileExpanded}
             />

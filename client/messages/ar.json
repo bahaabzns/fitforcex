@@ -643,7 +643,11 @@
     "submissionAnswers": "إجابات الاستمارة",
     "actionType": "نوع الإجراء:",
     "waitingForClient": "في انتظار العميل",
-    "loadingQueue": "جارٍ تحميل قائمة الخطط…"
+    "loadingQueue": "جارٍ تحميل قائمة الخطط…",
+    "assigned": "مُسنَد إلى",
+    "assignTo": "إسناد إلى عضو الفريق",
+    "unassigned": "غير مُسنَد",
+    "searchPlaceholder": "ابحث في القائمة…"
   },
   "auth": {
     "login": "تسجيل الدخول",

@@ -643,7 +643,11 @@
     "submissionAnswers": "Submission Answers",
     "actionType": "Action Type:",
     "waitingForClient": "Waiting for client",
-    "loadingQueue": "Loading plans queue…"
+    "loadingQueue": "Loading plans queue…",
+    "assigned": "Assigned",
+    "assignTo": "Assign to team member",
+    "unassigned": "Unassigned",
+    "searchPlaceholder": "Search queue…"
   },
   "auth": {
     "login": "Login",

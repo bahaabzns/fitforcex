@@ -9,8 +9,36 @@ export default function PlansQueuePage() {
     const t = useTranslations('plansQueue');
     const [queueItems, setQueueItems] = useState([]);
     const [forms, setForms] = useState([]);
+    const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    useEffect(() => {
+        async function loadMembers() {
+            try {
+                const meRes = await api.get("/api/auth/me");
+                const me = meRes.data;
+                const wsId = me.currentWorkspace?.id;
+                let list = [];
+                if (wsId) {
+                    const mres = await api.get(`/api/workspaces/${wsId}/members`).catch(() => ({ data: [] }));
+                    list = (mres.data || []).map((m) => ({
+                        id: m.user_id,
+                        name: `${m.fname ?? ""} ${m.lname ?? ""}`.trim() || m.email,
+                    }));
+                }
+                // Ensure the signed-in coach (often the owner, who may not appear in the
+                // members list) is always an assignable option.
+                if (me.userId && !list.some((x) => x.id === me.userId)) {
+                    list = [{ id: me.userId, name: `${me.fname ?? ""} ${me.lname ?? ""}`.trim() || me.email }, ...list];
+                }
+                setMembers(list);
+            } catch {
+                // assignment is optional — leave members empty on failure
+            }
+        }
+        loadMembers();
+    }, []);
 
     useEffect(() => {
         async function loadQueue() {
@@ -99,6 +127,7 @@ export default function PlansQueuePage() {
                 initialSubmissions={submissions}
                 awaiting={awaiting}
                 forms={forms}
+                members={members}
             />
         </div>
     );
