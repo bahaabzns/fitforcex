@@ -574,24 +574,26 @@ export default function ClientsPage() {
     const uniquePackages = [...new Set(clients.map(c => c.current_package).filter(Boolean))];
 
     const columns = [
-        { key: "code", label: t('colCode'), filterType: "text", sortable: true },
+        {
+            key: "code",
+            label: t('colCode'),
+            filterType: "text",
+            sortable: true,
+            render: (row) => <span className="text-muted-foreground font-mono text-xs">#{row.code ?? "-"}</span>,
+        },
         {
             key: "name",
             label: t('colName'),
             filterType: "text",
             sortable: true,
             render: (row) => (
-                <Link href={`/${workspaceSlug}/clients/${row.id}`} className="text-primary hover:underline font-medium">
-                    {row.name}
-                </Link>
+                <div className="min-w-0">
+                    <Link href={`/${workspaceSlug}/clients/${row.id}`} className="text-primary hover:underline font-medium block truncate">
+                        {row.name}
+                    </Link>
+                    {row.email && <p className="text-muted-foreground text-[10px] truncate">{row.email}</p>}
+                </div>
             ),
-        },
-        {
-            key: "email",
-            label: t('colEmail'),
-            filterType: "text",
-            sortable: true,
-            render: (row) => <span className="text-muted-foreground">{row.email}</span>,
         },
         {
             key: "phoneSearch",

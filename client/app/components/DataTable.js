@@ -482,7 +482,7 @@ export default function DataTable({
                         >
                             <Table.Header>
                                 {selectable && (
-                                    <Table.Column className="w-10 pr-0">
+                                    <Table.Column className={`w-10 pr-0 ${isRtl ? "ps-3" : ""}`}>
                                         <Checkbox aria-label="Select all" slot="selection">
                                             <Checkbox.Control>
                                                 <Checkbox.Indicator />
@@ -530,7 +530,7 @@ export default function DataTable({
                                                         if (isLastRow)  { s.borderBottomLeftRadius = 0; s.borderBottomRightRadius = CORNER_RADIUS; }
                                                     }
                                                     return (
-                                                        <Table.Cell className="pr-0" style={Object.keys(s).length ? s : undefined}>
+                                                        <Table.Cell className={`pr-0 ${isRtl ? "ps-3" : ""}`} style={Object.keys(s).length ? s : undefined}>
                                                             <Checkbox
                                                                 aria-label={`Select row ${row[rowKey]}`}
                                                                 slot="selection"
