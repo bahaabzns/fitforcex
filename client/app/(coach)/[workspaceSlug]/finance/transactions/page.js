@@ -1,27 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
-import Modal, { ModalFooter } from "@/app/components/Modal";
-import { FieldLabel, FieldErrorText } from "@/app/components/Field";
-import ProofDropZone from "@/app/components/ProofDropZone";
+import TransactionModal from "@/app/components/TransactionModal";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
-import { Label } from "@heroui/react/label";
-import { Select } from "@heroui/react/select";
-import { ListBox } from "@heroui/react/list-box";
-import { Switch } from "@heroui/react/switch";
-import { Link as UILink } from "@heroui/react/link";
 import { Tooltip } from "@heroui/react/tooltip";
-import { SearchField } from "@heroui/react/search-field";
-import { TextArea } from "@heroui/react/textarea";
-import DatePickerField, { strToDate } from "@/app/components/DatePickerField";
 
 // --- HELPERS ---
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
@@ -58,81 +47,6 @@ function fmtDate(d, locale) {
     return d ? new Date(d).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }) : "—";
 }
 
-
-// --- SEARCHABLE CLIENT SELECT ---
-function SearchableClientSelect({ clients, selected, onSelect }) {
-    const t = useTranslations('transactions');
-    const [query, setQuery] = useState("");
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-
-    useEffect(() => {
-        const handler = (e) => {
-            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
-
-    const filtered = !selected && query.trim()
-        ? clients.filter(c => {
-            const q = query.toLowerCase();
-            if (c.name.toLowerCase().includes(q)) return true;
-            if (String(c.code).includes(q)) return true;
-            if ((c.phones || []).some(p => p.number.replace(/\s/g, "").includes(q.replace(/\s/g, "")))) return true;
-            return false;
-        }).slice(0, 8)
-        : [];
-
-    return (
-        <div ref={ref} className="relative">
-            <SearchField
-                aria-label={t('clientLabel')}
-                variant="secondary"
-                fullWidth
-                value={selected ? selected.name : query}
-                onChange={(val) => {
-                    if (selected) onSelect(null);
-                    setQuery(val);
-                    setOpen(true);
-                }}
-                onClear={() => { onSelect(null); setQuery(""); setOpen(true); }}
-            >
-                <SearchField.Group>
-                    <SearchField.SearchIcon />
-                    <SearchField.Input
-                        placeholder={t('clientSearchPlaceholder')}
-                        autoComplete="off"
-                        onFocus={() => { if (!selected) setOpen(true); }}
-                        onClick={() => { if (selected) { onSelect(null); setQuery(""); setOpen(true); } }}
-                    />
-                    <SearchField.ClearButton />
-                </SearchField.Group>
-            </SearchField>
-            {open && filtered.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {filtered.map(c => (
-                        <button
-                            key={c.id}
-                            type="button"
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => { onSelect(c); setQuery(""); setOpen(false); }}
-                            className="w-full px-3 py-2.5 text-left hover:bg-default flex items-center gap-2 transition-colors"
-                        >
-                            <span className="text-foreground text-sm font-medium flex-1">{c.name}</span>
-                            <span className="text-muted-foreground text-xs">#{c.code}</span>
-                            {c.phones?.[0] && (
-                                <span className="text-muted-foreground text-xs">
-                                    {c.phones[0].countryCode} {c.phones[0].number}
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
 
 // --- TRANSACTIONS TABLE ---
 function TransactionsTable({ transactions, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
@@ -379,29 +293,15 @@ export default function TransactionsPage() {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
-    const { workspaceSlug } = useParams();
 
     const [transactions, setTransactions]     = useState([]);
     const [clients, setClients]               = useState([]);
     const [packages, setPackages]             = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [loading, setLoading]               = useState(true);
-    const [showForm, setShowForm]             = useState(false);
-    const [formError, setFormError]           = useState("");
-    const [submitting, setSubmitting]         = useState(false);
-
-    // Shared form state (create + edit)
-    const [editingTx, setEditingTx]                     = useState(null);
-    const [selectedClient, setSelectedClient]           = useState(null);
-    const [selectedPkgKey, setSelectedPkgKey]           = useState("");
-    const [selectedPkg, setSelectedPkg]                 = useState(null);
-    const [formPaymentMethod, setFormPaymentMethod]     = useState("");
-    const [formDate, setFormDate]                       = useState(todayStr());
-    const [formSubStartDate, setFormSubStartDate]       = useState("");
-    const [subStartMode, setSubStartMode]               = useState("queue"); // "queue" | "custom"
-    const [formNotes, setFormNotes]                     = useState("");
-    const [proofFile, setProofFile]                     = useState(null);
-    const [proofUrl, setProofUrl]                       = useState(null);
+    // The shared TransactionModal owns the form; this page only tracks open/edit state.
+    const [showForm, setShowForm]   = useState(false);
+    const [editingTx, setEditingTx] = useState(null);
 
     useEffect(() => {
         Promise.all([
@@ -433,87 +333,28 @@ export default function TransactionsPage() {
     function closeForm() {
         setShowForm(false);
         setEditingTx(null);
-        setSelectedClient(null);
-        setSelectedPkgKey("");
-        setSelectedPkg(null);
-        setFormPaymentMethod("");
-        setFormDate(todayStr());
-        setFormSubStartDate("");
-        setSubStartMode("queue");
-        setFormNotes("");
-        setProofFile(null);
-        setProofUrl(null);
-        setFormError("");
     }
 
-    function openEdit(tx) {
-        const pkg = packageVariationOptions.find(p => p.key === tx.packageVariation);
-        setEditingTx(tx);
-        setSelectedClient(tx.clientId ? { id: tx.clientId, name: tx.clientName } : null);
-        setSelectedPkgKey(tx.packageVariation || "");
-        setSelectedPkg(pkg || null);
-        setFormPaymentMethod(tx.paymentMethod || "");
-        setFormDate(tx.date ? tx.date.split("T")[0] : todayStr());
-        setFormSubStartDate(tx.subscriptionStartDate ? tx.subscriptionStartDate.split("T")[0] : "");
-        setSubStartMode(tx.subscriptionStartDate ? "custom" : "queue");
-        setFormNotes(tx.notes || "");
-        setProofFile(null);
-        setProofUrl(tx.proofImage || null);
-        setFormError("");
+    function openCreate() {
+        setEditingTx(null);
         setShowForm(true);
     }
 
-    async function handleSubmit(e) {
-        e.preventDefault();
-        setFormError("");
-        if (!selectedClient) { setFormError(t('errorClientRequired')); return; }
-        if (!selectedPkgKey) { setFormError(t('errorPackageRequired')); return; }
-        if (!formPaymentMethod) { setFormError(t('errorMethodRequired')); return; }
+    function openEdit(tx) {
+        setEditingTx(tx);
+        setShowForm(true);
+    }
 
-        setSubmitting(true);
-        try {
-            let finalProofUrl = proofUrl;
-            if (proofFile) {
-                const fd = new FormData();
-                fd.append("proof", proofFile);
-                const up = await api.post("/api/transactions/upload-proof", fd);
-                finalProofUrl = up.data.path;
-            }
-
-            const payload = {
-                clientId: selectedClient.id,
-                clientName: selectedClient.name,
-                packageVariation: selectedPkgKey,
-                paymentMethod: formPaymentMethod,
-                amount: selectedPkg?.price ?? editingTx?.amount,
-                currency: selectedPkg?.currency ?? editingTx?.currency,
-                duration: selectedPkg?.duration ?? editingTx?.duration,
-                type: "subscription",
-                status: "completed",
-                date: formDate,
-                subscriptionStartDate: formSubStartDate || null,
-                notes: formNotes || null,
-                proofImage: finalProofUrl,
-            };
-
-            if (editingTx) {
-                const res = await api.put("/api/transactions", { id: editingTx.id, ...payload });
-                setTransactions(prev => prev.map(tx => tx.id === editingTx.id ? res.data : tx));
-            } else {
-                const res = await api.post("/api/transactions", payload);
-                setTransactions(prev => [res.data, ...prev]);
-            }
-            closeForm();
-        } catch (err) {
-            setFormError(err.response?.data?.error || t('errorSave'));
-        } finally {
-            setSubmitting(false);
-        }
+    // Does this client already have a completed subscription (excluding the tx being
+    // edited)? Drives the modal's start label — first subscription vs queue after current.
+    function clientHasSubscription(clientId) {
+        return transactions.some(tx =>
+            tx.clientId === clientId && tx.id !== editingTx?.id && tx.status === "completed" && tx.duration > 0);
     }
 
     async function handleStatusChange(id, status) {
         try {
-            const res = await api.put("/api/transactions", { id, status });
+            const res = await api.put(`/api/transactions/${id}`, { status });
             setTransactions(prev => prev.map(tx => tx.id === id ? res.data : tx));
         } catch (err) {
             console.error(err);
@@ -523,7 +364,7 @@ export default function TransactionsPage() {
     async function handleDelete(id) {
         if (!confirm(t('deleteConfirm'))) return;
         try {
-            await api.delete(`/api/transactions?id=${id}`);
+            await api.delete(`/api/transactions/${id}`);
             setTransactions(prev => prev.filter(tx => tx.id !== id));
         } catch (err) {
             console.error(err);
@@ -549,204 +390,25 @@ export default function TransactionsPage() {
                 <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
             </div>
 
-            {/* Create / Edit Modal */}
-            <Modal open={showForm} onClose={closeForm} title={editingTx ? t('editTransactionTitle') : t('newTransactionTitle')} dialogClassName="max-w-[27.3rem]">
-                <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
-
-                    {/* Client */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel required>{t('clientLabel')}</FieldLabel>
-                        <SearchableClientSelect
-                            clients={clients}
-                            selected={selectedClient}
-                            onSelect={setSelectedClient}
-                        />
-                        {selectedClient && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                                #{selectedClient.code ?? ""} · {selectedClient.email ?? ""}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Package */}
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <FieldLabel required>{t('packageLabel')}</FieldLabel>
-                            <UILink href={`/${workspaceSlug}/finance/packages`} target="_blank" rel="noopener noreferrer" className="text-xs shrink-0">
-                                {t('managePackagesShortcut')}
-                                <UILink.Icon />
-                            </UILink>
-                        </div>
-                        <Select
-                            variant="secondary"
-                            fullWidth
-                            placeholder={t('selectPackage')}
-                            value={selectedPkgKey}
-                            onChange={(key) => {
-                                setSelectedPkgKey(key);
-                                setSelectedPkg(packageVariationOptions.find(p => p.key === key) || null);
-                            }}
-                        >
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {packageVariationOptions.map(p => (
-                                        <ListBox.Item key={p.key} id={p.key} textValue={p.label}>
-                                            {p.label}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                        {selectedPkg && (
-                            <div className="flex gap-4 mt-2 px-1 text-xs text-muted-foreground">
-                                <span>{t('durationInfo')} <span className="text-foreground font-semibold">{t('durationDays', { count: selectedPkg.duration })}</span></span>
-                                <span>{t('priceInfo')} <span className="text-foreground font-semibold">{selectedPkg.price.toLocaleString(locale)} {selectedPkg.currency}</span></span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Payment Method */}
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <FieldLabel required>{t('paymentMethodLabel')}</FieldLabel>
-                            <UILink href={`/${workspaceSlug}/finance/payment-methods`} target="_blank" rel="noopener noreferrer" className="text-xs shrink-0">
-                                {t('managePaymentMethodsShortcut')}
-                                <UILink.Icon />
-                            </UILink>
-                        </div>
-                        <Select
-                            variant="secondary"
-                            fullWidth
-                            placeholder={t('selectMethod')}
-                            value={formPaymentMethod}
-                            onChange={setFormPaymentMethod}
-                        >
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {allPaymentMethodNames.map(m => (
-                                        <ListBox.Item key={m} id={m} textValue={m}>
-                                            {m}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                    </div>
-
-                    {/* Transaction Date */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('txDateLabel')}</FieldLabel>
-                        <DatePickerField
-                            ariaLabel={t('txDateLabel')}
-                            value={strToDate(formDate)}
-                            onChange={(dv) => setFormDate(dv ? dv.toString() : "")}
-                        />
-                    </div>
-
-                    {/* Subscription Start — toggle "queue after current subscription"; the date
-                        picker stays visible but is disabled while "queue" is selected. */}
-                    <div className="flex flex-col gap-2">
-                        <Label>{t('subStartDateLabel')}</Label>
-                        <Switch
-                            isSelected={subStartMode === "queue"}
-                            onChange={(sel) => {
-                                setSubStartMode(sel ? "queue" : "custom");
-                                if (sel) setFormSubStartDate("");
-                            }}
-                        >
-                            <Switch.Control>
-                                <Switch.Thumb />
-                            </Switch.Control>
-                            <Switch.Content>
-                                <Label className="text-sm">{t('subStartQueueToggle')}</Label>
-                            </Switch.Content>
-                        </Switch>
-                        <p className="text-xs text-muted-foreground">
-                            {subStartMode === "queue"
-                                ? t('subStartHintQueue')
-                                : t('subStartHintCustom')}
-                        </p>
-                        <DatePickerField
-                            ariaLabel={t('subStartDateLabel')}
-                            value={strToDate(formSubStartDate)}
-                            onChange={(dv) => setFormSubStartDate(dv ? dv.toString() : "")}
-                            isDisabled={subStartMode === "queue"}
-                        />
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('notesLabel')} <span className="text-muted-foreground/60">{t('notesHint')}</span></FieldLabel>
-                        <TextArea
-                            variant="secondary"
-                            fullWidth
-                            rows={2}
-                            aria-label={t('notesLabel')}
-                            placeholder={t('notesPlaceholder')}
-                            value={formNotes}
-                            onChange={e => setFormNotes(e.target.value)}
-                        />
-                    </div>
-
-                    {/* Proof of transaction */}
-                    <div className="flex flex-col gap-1.5">
-                        <Label>{t('proofLabel')} <span className="font-normal opacity-60">{t('proofOptional')}</span></Label>
-                        {proofUrl && !proofFile && (
-                            <div className="flex items-center gap-2 mb-2">
-                                <a
-                                    href={`${process.env.NEXT_PUBLIC_API_URL}${proofUrl}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs text-primary hover:underline"
-                                >
-                                    {t('viewCurrentProof')}
-                                </a>
-                                <button
-                                    type="button"
-                                    onClick={() => setProofUrl(null)}
-                                    className="text-xs text-destructive hover:underline cursor-pointer"
-                                >
-                                    {t('removeProof')}
-                                </button>
-                            </div>
-                        )}
-                        <ProofDropZone
-                            file={proofFile}
-                            onChange={setProofFile}
-                            label={t('proofDropLabel')}
-                            hint={t('proofDropHint')}
-                            removeLabel={t('removeProof')}
-                        />
-                    </div>
-
-                    <FieldErrorText msg={formError} />
-
-                    <ModalFooter>
-                        <Button type="button" variant="ghost" onClick={closeForm}>
-                            {tCommon('cancel')}
-                        </Button>
-                        <Button
-                            type="submit"
-                            isDisabled={submitting}
-                            variant="primary"
-                        >
-                            {submitting
-                                ? (editingTx ? t('saving') : t('recording'))
-                                : (editingTx ? t('saveChanges') : t('recordTransaction'))}
-                        </Button>
-                    </ModalFooter>
-                </form>
-            </Modal>
+            {/* Create / Edit Transaction — shared modal with a client picker */}
+            <TransactionModal
+                open={showForm}
+                onClose={closeForm}
+                mode={editingTx ? "edit" : "add"}
+                transaction={editingTx}
+                clientPicker
+                pickerClients={clients}
+                packages={packages}
+                paymentMethods={paymentMethods}
+                getClientHasSubscription={clientHasSubscription}
+                onSuccess={(result) => {
+                    if (editingTx) {
+                        setTransactions(prev => prev.map(tx => tx.id === result.id ? result : tx));
+                    } else {
+                        setTransactions(prev => [...result, ...prev]);
+                    }
+                }}
+            />
 
             {/* Table + summaries */}
             <TransactionsTable
@@ -756,6 +418,7 @@ export default function TransactionsPage() {
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onEdit={openEdit}
+                toolbarEnd={<Button size="sm" variant="primary" onClick={openCreate}>{t('newTransactionTitle')}</Button>}
             />
         </div>
     );

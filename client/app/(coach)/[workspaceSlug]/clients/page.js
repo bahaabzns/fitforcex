@@ -9,6 +9,7 @@ import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import Stepper from "@/app/components/Stepper";
 import ActionBar from "@/app/components/ActionBar";
+import TransactionModal from "@/app/components/TransactionModal";
 import api from "@/lib/axios";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@heroui/react/button";
@@ -186,16 +187,8 @@ export default function ClientsPage() {
     const [scheduledDate, setScheduledDate]     = useState("");
     const [minBulkScheduleDate, setMinBulkScheduleDate] = useState("");
 
-    // Bulk transaction — record one transaction per selected client
+    // Bulk transaction — record one transaction per selected client (shared TransactionModal)
     const [showTxModal, setShowTxModal]                 = useState(false);
-    const [bulkTxPackage, setBulkTxPackage]             = useState("");
-    const [bulkTxPaymentMethod, setBulkTxPaymentMethod] = useState("");
-    const [bulkTxDate, setBulkTxDate]                   = useState(today(getLocalTimeZone()));
-    const [bulkTxProof, setBulkTxProof]                 = useState(null);
-    const [bulkTxSubMode, setBulkTxSubMode]             = useState("on_first_plan");
-    const [bulkTxSubStart, setBulkTxSubStart]           = useState(null);
-    const [bulkTxSaving, setBulkTxSaving]               = useState(false);
-    const [bulkTxError, setBulkTxError]                 = useState("");
 
     useEffect(() => {
         Promise.all([
@@ -548,66 +541,12 @@ export default function ClientsPage() {
         }
     }
 
-    function openBulkTransaction() {
-        setBulkTxPackage("");
-        setBulkTxPaymentMethod("");
-        setBulkTxDate(today(getLocalTimeZone()));
-        setBulkTxProof(null);
-        setBulkTxSubMode("on_first_plan");
-        setBulkTxSubStart(null);
-        setBulkTxError("");
-        setShowTxModal(true);
-    }
-
-    async function handleBulkTransaction(e) {
-        e.preventDefault();
-        if (!bulkTxPackage) { setBulkTxError(t('validationPackage')); return; }
-        if (!bulkTxPaymentMethod) { setBulkTxError(t('validationPaymentMethod')); return; }
-        if (!bulkTxDate) { setBulkTxError(t('validationTransactionDate')); return; }
-        if (bulkTxSubMode === "custom" && !bulkTxSubStart) { setBulkTxError(t('validationSubscriptionDate')); return; }
-
-        const selectedPkg = packageOptions.find(pv => pv.value === bulkTxPackage);
-        if (!selectedPkg) { setBulkTxError(t('validationPackage')); return; }
-
-        setBulkTxSaving(true);
-        try {
-            // Upload the proof once and share the path across every client's transaction.
-            let proofImagePath = null;
-            if (bulkTxProof) {
-                const fd = new FormData();
-                fd.append("proof", bulkTxProof);
-                const up = await api.post("/api/transactions/upload-proof", fd);
-                proofImagePath = up.data.path;
-            }
-
-            for (const clientId of [...selectedIds]) {
-                const client = clients.find(c => c.id === clientId);
-                await api.post("/api/transactions", {
-                    clientId,
-                    clientName: client?.name,
-                    packageVariation: bulkTxPackage,
-                    amount: selectedPkg.price,
-                    currency: selectedPkg.currency,
-                    duration: selectedPkg.duration,
-                    paymentMethod: bulkTxPaymentMethod,
-                    type: "subscription",
-                    status: "completed",
-                    date: dateToStr(bulkTxDate),
-                    ...(bulkTxSubMode === "custom" && bulkTxSubStart ? { subscriptionStartDate: dateToStr(bulkTxSubStart) } : {}),
-                    ...(proofImagePath ? { proofImage: proofImagePath } : {}),
-                });
-            }
-
-            // Re-fetch so computed subscription statuses reflect the new transactions.
-            const updated = await api.get("/api/clients?page=1&limit=10000");
-            setClients(updated.data.data ?? []);
-            setSelectedIds(new Set());
-            setShowTxModal(false);
-        } catch (err) {
-            setBulkTxError(err.response?.data?.error || t('failedToCreate'));
-        } finally {
-            setBulkTxSaving(false);
-        }
+    // Re-fetch after recording so computed subscription statuses reflect the new
+    // transactions, then clear the selection. The TransactionModal owns the form.
+    async function handleBulkTransactionSuccess() {
+        const updated = await api.get("/api/clients?page=1&limit=10000");
+        setClients(updated.data.data ?? []);
+        setSelectedIds(new Set());
     }
 
     function copyCredsModalCredentials() {
@@ -934,7 +873,7 @@ export default function ClientsPage() {
 
                                     {/* Proof of Payment */}
                                     <div className="flex flex-col gap-1.5">
-                                        <Label>{t('proofOfPayment')} <span className="font-normal opacity-60">{t('proofOptional')}</span></Label>
+                                        <Label>{t('proofOfPayment')}</Label>
                                         <ProofDropZone file={txProofFile} onChange={setTxProofFile} label={t('proofDropLabel')} hint={t('proofDropHint')} removeLabel={t('removeProof')} />
                                     </div>
 
@@ -1141,7 +1080,7 @@ export default function ClientsPage() {
                 </ActionBar.Prefix>
                 <Separator orientation="vertical" className="h-6" />
                 <ActionBar.Content>
-                    <Button variant="ghost" size="sm" onClick={openBulkTransaction}>
+                    <Button variant="ghost" size="sm" onClick={() => setShowTxModal(true)}>
                         <CreditCard className="w-4 h-4" />
                         <span className="action-bar__label">{t('newTransactionBulk')}</span>
                     </Button>
@@ -1279,122 +1218,20 @@ export default function ClientsPage() {
                 </div>
             </Modal>
 
-            {/* Bulk transaction modal — records one transaction per selected client */}
-            <Modal open={showTxModal} onClose={() => setShowTxModal(false)} title={t('bulkTransactionTitle')} dialogClassName="max-w-[27.3rem]">
-                <form onSubmit={handleBulkTransaction} className="flex flex-col gap-4 px-1 py-1">
-                    <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-                        {t('bulkTransactionHint', { count: selectedIds.size })}
-                    </p>
-
-                    {bulkTxError && (
-                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-                            <p className="text-destructive text-xs">{bulkTxError}</p>
-                        </div>
-                    )}
-
-                    {/* Package Variation */}
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <FieldLabel required>{t('packageVariationLabel')}</FieldLabel>
-                            <UILink href={`/${workspaceSlug}/finance/packages`} target="_blank" rel="noopener noreferrer" className="text-xs shrink-0">
-                                {t('managePackagesShortcut')}
-                                <UILink.Icon />
-                            </UILink>
-                        </div>
-                        <Select variant="secondary" fullWidth placeholder={t('selectPackagePlaceholder')} value={bulkTxPackage} onChange={setBulkTxPackage}>
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {packageOptions.map(pv => (
-                                        <ListBox.Item key={pv.value} id={pv.value} textValue={pv.label}>
-                                            {pv.label} — {pv.duration} days, {pv.price.toLocaleString()} {pv.currency}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                    </div>
-
-                    {/* Payment Method */}
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <FieldLabel required>{t('paymentMethodLabel')}</FieldLabel>
-                            <UILink href={`/${workspaceSlug}/finance/payment-methods`} target="_blank" rel="noopener noreferrer" className="text-xs shrink-0">
-                                {t('managePaymentMethodsShortcut')}
-                                <UILink.Icon />
-                            </UILink>
-                        </div>
-                        <Select variant="secondary" fullWidth placeholder={t('selectPaymentMethodPlaceholder')} value={bulkTxPaymentMethod} onChange={setBulkTxPaymentMethod}>
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {paymentMethodOptions.map(pm => (
-                                        <ListBox.Item key={pm.value} id={pm.value} textValue={pm.label}>
-                                            {pm.label}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                    </div>
-
-                    {/* Transaction Date */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel required>{t('transactionDate')}</FieldLabel>
-                        <DatePickerField value={bulkTxDate} onChange={setBulkTxDate} ariaLabel={t('transactionDate')} />
-                    </div>
-
-                    {/* Proof of Payment */}
-                    <div className="flex flex-col gap-1.5">
-                        <Label>{t('proofOfPayment')} <span className="font-normal opacity-60">{t('proofOptional')}</span></Label>
-                        <ProofDropZone file={bulkTxProof} onChange={setBulkTxProof} label={t('proofDropLabel')} hint={t('proofDropHint')} removeLabel={t('removeProof')} />
-                    </div>
-
-                    {/* Subscription Start — "on first plan" queues after each client's current plan. */}
-                    <div className="flex flex-col gap-2">
-                        <Label>{t('subscriptionStarts')}</Label>
-                        <Switch
-                            isSelected={bulkTxSubMode === "on_first_plan"}
-                            onChange={(sel) => setBulkTxSubMode(sel ? "on_first_plan" : "custom")}
-                        >
-                            <Switch.Control>
-                                <Switch.Thumb />
-                            </Switch.Control>
-                            <Switch.Content>
-                                <Label className="text-sm">{t('onFirstPlan')}</Label>
-                            </Switch.Content>
-                        </Switch>
-                        <p className="text-xs text-muted-foreground">
-                            {bulkTxSubMode === "on_first_plan"
-                                ? t('subscriptionStartHintOnFirstPlan')
-                                : t('subscriptionStartHintCustom')}
-                        </p>
-                        <DatePickerField
-                            value={bulkTxSubStart}
-                            onChange={setBulkTxSubStart}
-                            ariaLabel={t('subscriptionStarts')}
-                            isDisabled={bulkTxSubMode === "on_first_plan"}
-                        />
-                    </div>
-
-                    <ModalFooter>
-                        <Button type="button" variant="ghost" onClick={() => setShowTxModal(false)}>
-                            {tCommon('cancel')}
-                        </Button>
-                        <Button type="submit" variant="primary" isDisabled={bulkTxSaving}>
-                            {bulkTxSaving ? t('saving') : t('recordTransactionBulk', { count: selectedIds.size })}
-                        </Button>
-                    </ModalFooter>
-                </form>
-            </Modal>
+            {/* Bulk transaction modal — one record per selected client; the shared
+                TransactionModal owns the form, validation, and submission. */}
+            <TransactionModal
+                open={showTxModal}
+                onClose={() => setShowTxModal(false)}
+                clients={clients.filter(c => selectedIds.has(c.id))}
+                packages={packages}
+                paymentMethods={paymentMethods}
+                getClientHasSubscription={(cid) => {
+                    const c = clients.find(x => x.id === cid);
+                    return !!c && !!c.subscription_status && c.subscription_status !== "No Subscriptions";
+                }}
+                onSuccess={handleBulkTransactionSuccess}
+            />
 
             {/* Bulk form picker modal */}
             <Modal open={showFormPicker} onClose={() => setShowFormPicker(false)} title={t('requestFormsTitle')}>

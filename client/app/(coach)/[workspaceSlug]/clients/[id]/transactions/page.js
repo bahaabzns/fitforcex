@@ -4,18 +4,13 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import api from "@/lib/axios";
-import Modal, { ModalFooter } from "@/app/components/Modal";
-import { FieldLabel, FieldErrorText } from "@/app/components/Field";
-import DatePickerField, { strToDate } from "@/app/components/DatePickerField";
-import ProofDropZone from "@/app/components/ProofDropZone";
+import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
+import TransactionModal from "@/app/components/TransactionModal";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
-import { Select } from "@heroui/react/select";
-import { ListBox } from "@heroui/react/list-box";
-import { TextArea } from "@heroui/react/textarea";
 
 const EXCHANGE_RATES = { EGP: 1, USD: 50.5, SAR: 13.47, EUR: 55.2, GBP: 64.1 };
 
@@ -106,7 +101,7 @@ function computeTimeline(transactions, freezes, firstPlanActivatedAt) {
 }
 
 export default function ClientTransactionsPage() {
-    const { id } = useParams();
+    const { id, workspaceSlug } = useParams();
     const t = useTranslations('clientTransactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
@@ -119,31 +114,9 @@ export default function ClientTransactionsPage() {
     const [clientName, setClientName]         = useState("");
     const [loading, setLoading]               = useState(true);
 
-    // Add modal
+    // Transaction add/edit modals — the shared TransactionModal owns the form.
     const [showAddModal, setShowAddModal]     = useState(false);
-    const [addPkgKey, setAddPkgKey]           = useState("");
-    const [addPkg, setAddPkg]                 = useState(null);
-    const [addMethod, setAddMethod]           = useState("");
-    const [addDate, setAddDate]               = useState(todayStr());
-    const [addSubStartDate, setAddSubStartDate] = useState("");
-    const [addNotes, setAddNotes]             = useState("");
-    const [addProofFile, setAddProofFile]     = useState(null);
-    const [addError, setAddError]             = useState("");
-    const [addSaving, setAddSaving]           = useState(false);
-
-    // Edit modal
     const [editingTx, setEditingTx]           = useState(null);
-    const [showEditModal, setShowEditModal]   = useState(false);
-    const [editPkgKey, setEditPkgKey]         = useState("");
-    const [editPkg, setEditPkg]               = useState(null);
-    const [editMethod, setEditMethod]         = useState("");
-    const [editDate, setEditDate]             = useState("");
-    const [editSubStartDate, setEditSubStartDate] = useState("");
-    const [editNotes, setEditNotes]           = useState("");
-    const [editProofFile, setEditProofFile]   = useState(null);
-    const [editProofUrl, setEditProofUrl]     = useState(null);
-    const [editError, setEditError]           = useState("");
-    const [saving, setSaving]                 = useState(false);
 
     // Freeze modal
     const [showFreezeModal, setShowFreezeModal] = useState(false);
@@ -331,105 +304,14 @@ export default function ClientTransactionsPage() {
     ];
 
     function openEdit(tx) {
-        const found = packageVariationOptions.find(p => p.key === tx.packageVariation);
         setEditingTx(tx);
-        setEditPkgKey(tx.packageVariation || "");
-        setEditPkg(found || null);
-        setEditMethod(tx.paymentMethod || "");
-        setEditDate(tx.date ? tx.date.split("T")[0] : todayStr());
-        setEditSubStartDate(tx.subscriptionStartDate ? tx.subscriptionStartDate.split("T")[0] : "");
-        setEditNotes(tx.notes || "");
-        setEditProofFile(null);
-        setEditProofUrl(tx.proofImage || null);
-        setEditError("");
-        setShowEditModal(true);
     }
 
-    function closeEdit() {
-        setShowEditModal(false);
-        setEditingTx(null);
-        setEditProofFile(null);
-    }
-
-    function openAdd() {
-        setAddPkgKey(""); setAddPkg(null); setAddMethod("");
-        setAddDate(todayStr()); setAddSubStartDate(""); setAddNotes("");
-        setAddProofFile(null); setAddError("");
-        setShowAddModal(true);
-    }
-
-    async function handleAdd(e) {
-        e.preventDefault();
-        if (!addPkgKey || !addPkg) { setAddError(t('errorPackageRequired')); return; }
-        if (!addMethod) { setAddError(t('errorMethodRequired')); return; }
-        setAddSaving(true);
-        setAddError("");
-        try {
-            let proofImage = null;
-            if (addProofFile) {
-                const fd = new FormData();
-                fd.append("proof", addProofFile);
-                const up = await api.post("/api/transactions/upload-proof", fd);
-                proofImage = up.data.path;
-            }
-            const res = await api.post("/api/transactions", {
-                clientId: id,
-                clientName,
-                packageVariation: addPkgKey,
-                paymentMethod: addMethod,
-                amount: addPkg.price,
-                currency: addPkg.currency,
-                duration: addPkg.duration,
-                type: "subscription",
-                status: "completed",
-                date: addDate,
-                subscriptionStartDate: addSubStartDate || null,
-                notes: addNotes || null,
-                proofImage,
-            });
-            setTransactions(prev => [res.data, ...prev]);
-            setShowAddModal(false);
-        } catch (err) {
-            setAddError(err.response?.data?.error || t('errorAddFailed'));
-        } finally {
-            setAddSaving(false);
-        }
-    }
-
-    async function handleEdit(e) {
-        e.preventDefault();
-        if (!editPkgKey) { setEditError(t('errorPackageRequired')); return; }
-        setSaving(true);
-        setEditError("");
-        try {
-            let proofImage = editProofUrl;
-            if (editProofFile) {
-                const fd = new FormData();
-                fd.append("proof", editProofFile);
-                const up = await api.post("/api/transactions/upload-proof", fd);
-                proofImage = up.data.path;
-            }
-
-            const res = await api.put(`/api/transactions/${editingTx.id}`, {
-                packageVariation: editPkgKey,
-                paymentMethod: editMethod,
-                amount: editPkg?.price ?? editingTx.amount,
-                currency: editPkg?.currency ?? editingTx.currency,
-                duration: editPkg?.duration ?? editingTx.duration,
-                date: editDate,
-                subscriptionStartDate: editSubStartDate || null,
-                notes: editNotes || null,
-                proofImage,
-                type: editingTx.type,
-                status: editingTx.status,
-            });
-            setTransactions(prev => prev.map(tx => tx.id === editingTx.id ? res.data : tx));
-            closeEdit();
-        } catch (err) {
-            setEditError(err.response?.data?.error || t('errorSaveFailed'));
-        } finally {
-            setSaving(false);
-        }
+    // Does this client already have a completed subscription (optionally excluding one
+    // transaction)? Drives the shared modal's start label — first subscription shows
+    // "on first plan activation", otherwise "queue after current subscription".
+    function clientHasSubscription(excludeTxId) {
+        return transactions.some(tx => tx.id !== excludeTxId && tx.status === "completed" && tx.duration > 0);
     }
 
     async function handleDelete(tx) {
@@ -671,251 +553,31 @@ export default function ClientTransactionsPage() {
                 defaultSortDirection="desc"
                 dateParser={(d) => new Date(d)}
                 quickSearch={{ fields: ["packageVariation", "paymentMethod", "status"], placeholder: t('searchPlaceholder') }}
-                toolbarEnd={<Button size="sm" variant="primary" onClick={openAdd}>{t('addTransactionButton')}</Button>}
+                toolbarEnd={<Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>{t('addTransactionButton')}</Button>}
             />
 
-            {/* Add Transaction Modal */}
-            <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title={t('addTransactionTitle')}>
-                <form onSubmit={handleAdd} className="flex flex-col gap-5 px-1 py-1">
-                    {/* Package */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel required>{t('packageLabel')}</FieldLabel>
-                        <Select
-                            variant="secondary"
-                            fullWidth
-                            placeholder={t('selectPackage')}
-                            value={addPkgKey}
-                            onChange={(key) => {
-                                setAddPkgKey(key);
-                                setAddPkg(packageVariationOptions.find(p => p.key === key) || null);
-                            }}
-                        >
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {packageVariationOptions.map(p => (
-                                        <ListBox.Item key={p.key} id={p.key} textValue={p.label}>
-                                            {p.label}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                        {addPkg && (
-                            <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                                <span>{t('durationInfo')} <span className="text-foreground font-medium">{t('durationDays', { count: addPkg.duration })}</span></span>
-                                <span>{t('priceInfo')} <span className="text-foreground font-medium">{addPkg.price.toLocaleString()} {addPkg.currency}</span></span>
-                            </div>
-                        )}
-                    </div>
+            {/* Add / Edit Transaction — shared modal */}
+            <TransactionModal
+                open={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                clients={[{ id, name: clientName }]}
+                packages={packages}
+                paymentMethods={paymentMethods}
+                getClientHasSubscription={() => clientHasSubscription()}
+                onSuccess={(created) => setTransactions(prev => [...created, ...prev])}
+            />
 
-                    {/* Payment Method */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel required>{t('paymentMethodLabel')}</FieldLabel>
-                        <Select variant="secondary" fullWidth placeholder={t('selectMethod')} value={addMethod} onChange={setAddMethod}>
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {paymentMethodOptions.map(m => (
-                                        <ListBox.Item key={m} id={m} textValue={m}>
-                                            {m}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                    </div>
-
-                    {/* Transaction Date */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('txDateLabel')}</FieldLabel>
-                        <DatePickerField ariaLabel={t('txDateLabel')} value={strToDate(addDate)} onChange={(dv) => setAddDate(dv ? dv.toString() : "")} />
-                    </div>
-
-                    {/* Subscription Start Date */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>
-                            {t('subStartDateLabel')} <span className="font-normal opacity-60">{t('subStartDateHint')}</span>
-                        </FieldLabel>
-                        <DatePickerField ariaLabel={t('subStartDateLabel')} value={strToDate(addSubStartDate)} onChange={(dv) => setAddSubStartDate(dv ? dv.toString() : "")} />
-                        {addSubStartDate && (
-                            <button
-                                type="button"
-                                onClick={() => setAddSubStartDate("")}
-                                className="self-start text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
-                            >
-                                {t('clearOnFirstPlan')}
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('notesLabel')}</FieldLabel>
-                        <TextArea variant="secondary" fullWidth rows={2} aria-label={t('notesLabel')} placeholder={t('notesPlaceholder')} value={addNotes} onChange={e => setAddNotes(e.target.value)} />
-                    </div>
-
-                    {/* Proof */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('proofLabel')}</FieldLabel>
-                        <ProofDropZone
-                            file={addProofFile}
-                            onChange={setAddProofFile}
-                            label={t('proofDropLabel')}
-                            hint={t('proofDropHint')}
-                            removeLabel={t('removeProof')}
-                        />
-                    </div>
-
-                    <FieldErrorText msg={addError} />
-
-                    <ModalFooter>
-                        <Button type="button" onClick={() => setShowAddModal(false)} variant="ghost">
-                            {tCommon('cancel')}
-                        </Button>
-                        <Button type="submit" isDisabled={addSaving} variant="primary">
-                            {addSaving ? t('saving') : t('addTransaction')}
-                        </Button>
-                    </ModalFooter>
-                </form>
-            </Modal>
-
-            {/* Edit Transaction Modal */}
-            <Modal open={showEditModal} onClose={closeEdit} title={t('editTransactionTitle')}>
-                <form onSubmit={handleEdit} className="flex flex-col gap-5 px-1 py-1">
-                    {/* Package */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel required>{t('packageLabel')}</FieldLabel>
-                        <Select
-                            variant="secondary"
-                            fullWidth
-                            placeholder={t('selectPackage')}
-                            value={editPkgKey}
-                            onChange={(key) => {
-                                setEditPkgKey(key);
-                                setEditPkg(packageVariationOptions.find(p => p.key === key) || null);
-                            }}
-                        >
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {packageVariationOptions.map(p => (
-                                        <ListBox.Item key={p.key} id={p.key} textValue={p.label}>
-                                            {p.label}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                        {editPkg && (
-                            <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                                <span>{t('durationInfo')} <span className="text-foreground font-medium">{t('durationDays', { count: editPkg.duration })}</span></span>
-                                <span>{t('priceInfo')} <span className="text-foreground font-medium">{editPkg.price.toLocaleString()} {editPkg.currency}</span></span>
-                            </div>
-                        )}
-                        {!editPkg && editPkgKey && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {t('storedPackage', { pkg: editPkgKey })} · {editingTx?.amount} {editingTx?.currency} · {editingTx?.duration ? t('durationDays', { count: editingTx.duration }) : t('noDuration')}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Payment Method */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('paymentMethodLabel')}</FieldLabel>
-                        <Select variant="secondary" fullWidth placeholder={t('selectMethod')} value={editMethod} onChange={setEditMethod}>
-                            <Select.Trigger>
-                                <Select.Value />
-                                <Select.Indicator />
-                            </Select.Trigger>
-                            <Select.Popover>
-                                <ListBox>
-                                    {paymentMethodOptions.map(m => (
-                                        <ListBox.Item key={m} id={m} textValue={m}>
-                                            {m}
-                                            <ListBox.ItemIndicator />
-                                        </ListBox.Item>
-                                    ))}
-                                </ListBox>
-                            </Select.Popover>
-                        </Select>
-                    </div>
-
-                    {/* Transaction Date */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('txDateLabel')}</FieldLabel>
-                        <DatePickerField ariaLabel={t('txDateLabel')} value={strToDate(editDate)} onChange={(dv) => setEditDate(dv ? dv.toString() : "")} />
-                    </div>
-
-                    {/* Subscription Start Date */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>
-                            {t('subStartDateLabel')} <span className="font-normal opacity-60">{t('subStartDateEditHint')}</span>
-                        </FieldLabel>
-                        <DatePickerField ariaLabel={t('subStartDateLabel')} value={strToDate(editSubStartDate)} onChange={(dv) => setEditSubStartDate(dv ? dv.toString() : "")} />
-                        {editSubStartDate && (
-                            <button
-                                type="button"
-                                onClick={() => setEditSubStartDate("")}
-                                className="self-start text-xs text-muted-foreground hover:text-destructive mt-1 transition-colors cursor-pointer"
-                            >
-                                {t('clearUseQueue')}
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('notesLabel')}</FieldLabel>
-                        <TextArea variant="secondary" fullWidth rows={2} aria-label={t('notesLabel')} placeholder={t('notesPlaceholder')} value={editNotes} onChange={e => setEditNotes(e.target.value)} />
-                    </div>
-
-                    {/* Proof image */}
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel>{t('proofEditLabel')}</FieldLabel>
-                        {editProofUrl && !editProofFile && (
-                            <div className="flex items-center gap-2 mb-1">
-                                <a href={`${process.env.NEXT_PUBLIC_API_URL}${editProofUrl}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
-                                    {t('viewCurrentProof')}
-                                </a>
-                                <button type="button" onClick={() => setEditProofUrl(null)} className="text-xs text-destructive hover:underline cursor-pointer">
-                                    {t('removeProof')}
-                                </button>
-                            </div>
-                        )}
-                        <ProofDropZone
-                            file={editProofFile}
-                            onChange={setEditProofFile}
-                            label={t('proofDropLabel')}
-                            hint={t('proofDropHint')}
-                            removeLabel={t('removeProof')}
-                        />
-                    </div>
-
-                    <FieldErrorText msg={editError} />
-
-                    <ModalFooter>
-                        <Button type="button" onClick={closeEdit} variant="ghost">
-                            {tCommon('cancel')}
-                        </Button>
-                        <Button type="submit" isDisabled={saving} variant="primary">
-                            {saving ? t('saving') : t('saveChanges')}
-                        </Button>
-                    </ModalFooter>
-                </form>
-            </Modal>
+            <TransactionModal
+                open={!!editingTx}
+                onClose={() => setEditingTx(null)}
+                mode="edit"
+                transaction={editingTx}
+                clients={[{ id, name: clientName }]}
+                packages={packages}
+                paymentMethods={paymentMethods}
+                getClientHasSubscription={() => clientHasSubscription(editingTx?.id)}
+                onSuccess={(updated) => setTransactions(prev => prev.map(tx => tx.id === updated.id ? updated : tx))}
+            />
 
             {/* Freeze Modal */}
             <Modal open={showFreezeModal} onClose={() => setShowFreezeModal(false)} title={t('addFreezeTitle')}>
