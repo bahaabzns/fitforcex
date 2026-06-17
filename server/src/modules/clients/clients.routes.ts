@@ -210,4 +210,52 @@ router.delete('/:id/freezes/:freezeId', clientsController.deleteFreeze);
  */
 router.post('/:id/set-password', clientsController.setPassword);
 
+/**
+ * @openapi
+ * /clients/{id}/workout-logs:
+ *   get:
+ *     summary: List a client's logged workout sessions
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Array of session summaries
+ *
+ * /clients/{id}/exercise-progress:
+ *   get:
+ *     summary: Progress time series for one of the client's exercises
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: query, name: exercise_library_id, schema: { type: string } }
+ *       - { in: query, name: exercise_id, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Ascending array of progress points
+ *
+ * /clients/{id}/workout-logs/{logId}:
+ *   get:
+ *     summary: Get one of the client's logged sessions with its sets
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: logId, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Session detail
+ *       404:
+ *         description: Not found
+ */
+router.get('/:id/workout-logs',        clientsController.getClientWorkoutLogs);
+router.get('/:id/exercise-progress',   clientsController.getClientExerciseProgress);
+router.get('/:id/logged-exercises',    clientsController.getClientLoggedExercises);
+router.get('/:id/workout-logs/:logId', clientsController.getClientWorkoutLog);
+
 export default router;

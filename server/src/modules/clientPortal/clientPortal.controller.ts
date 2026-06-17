@@ -1,11 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
+import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { toPublicUrl } from '../../lib/storage';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { getIo } from '../../lib/socket';
+import {
+    summarizeLog,
+    buildExerciseProgress,
+    extractPreviousSets,
+    distinctLoggedExercises,
+    type LoggedExercise,
+    type WorkoutLogRow,
+    type ExerciseKey,
+} from '../../utils/workoutLogStats';
 
 async function activateDueClientScheduledRequests(clientId: string): Promise<void> {
     await prisma.$executeRaw`
@@ -436,6 +446,196 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             .emit('new_message', { threadId: thread.id, message, fromClient: true });
 
         res.status(201).json(message);
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ─── workout logs (Training Mode) ───────────────────────────────────────────────
+
+const HISTORY_LIMIT  = 50;   // sessions returned in the history list
+const PROGRESS_LIMIT = 200;  // sessions scanned to build a progress chart
+
+const loggedSetSchema = z.object({
+    set_order:    z.number().int().nonnegative(),
+    weight:       z.number().nullable().default(null),
+    reps:         z.number().nullable().default(null),
+    rir:          z.number().nullable().default(null),
+    rest_seconds: z.number().int().nullable().default(null),
+    completed:    z.boolean().default(false),
+});
+
+const loggedExerciseSchema = z.object({
+    exercise_id:         z.string().min(1),
+    exercise_library_id: z.string().nullable().default(null),
+    name:                z.string().min(1),
+    note:                z.string().nullable().default(null),
+    sets:                z.array(loggedSetSchema),
+});
+
+const createWorkoutLogSchema = z.object({
+    plan_id:    z.string().min(1).nullable().default(null),
+    day_id:     z.string().min(1).nullable().default(null),
+    day_index:  z.number().int().nullable().default(null),
+    notes:      z.string().nullable().default(null),
+    started_at: z.string().min(1),
+    ended_at:   z.string().min(1),
+    exercises:  z.array(loggedExerciseSchema),
+});
+
+/** Prisma returns the `exercises` JSON column as an opaque value; coerce to our shape. */
+function parseLoggedExercises(value: unknown): LoggedExercise[] {
+    return Array.isArray(value) ? (value as LoggedExercise[]) : [];
+}
+
+function toLogRow(row: { id: string; date: Date; start_time: string | null; end_time: string | null; exercises: unknown }): WorkoutLogRow {
+    return {
+        id:         row.id,
+        date:       row.date,
+        start_time: row.start_time,
+        end_time:   row.end_time,
+        exercises:  parseLoggedExercises(row.exercises),
+    };
+}
+
+export async function createWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    const parsed = createWorkoutLogSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten().fieldErrors });
+    }
+    const data = parsed.data;
+
+    try {
+        const sessionDate = new Date(data.started_at);
+        const log = await prisma.workout_logs.create({
+            data: {
+                id:           createId(),
+                client_id:    req.client!.clientId,
+                workspace_id: req.client!.workspaceId,
+                plan_id:      data.plan_id,
+                day_id:       data.day_id,
+                day_index:    data.day_index,
+                date:         Number.isNaN(sessionDate.getTime()) ? new Date() : sessionDate,
+                start_time:   data.started_at,
+                end_time:     data.ended_at,
+                notes:        data.notes,
+                exercises:    data.exercises as object,
+                completed:    true,
+            },
+        });
+        res.status(201).json({ id: log.id, ...summarizeLog(toLogRow(log)) });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getWorkoutLogs(req: Request, res: Response, next: NextFunction) {
+    try {
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.client!.clientId },
+            orderBy: [{ date: 'desc' }, { created_at: 'desc' }],
+            take:    HISTORY_LIMIT,
+            include: { training_days: { select: { name: true } } },
+        });
+
+        res.json(logs.map(log => ({
+            id:        log.id,
+            date:      log.date,
+            day_id:    log.day_id,
+            day_name:  log.training_days?.name ?? null,
+            notes:     log.notes,
+            ...summarizeLog(toLogRow(log)),
+        })));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getWorkoutLogPrevious(req: Request, res: Response, next: NextFunction) {
+    const dayId = req.query.day_id as string | undefined;
+    if (!dayId) return res.status(400).json({ error: 'day_id is required' });
+
+    try {
+        const dayExercises = await prisma.training_exercises.findMany({
+            where:  { day_id: dayId },
+            select: { id: true, exercise_library_id: true, name: true },
+        });
+        const targets: ExerciseKey[] = dayExercises.map(e => ({
+            exercise_id:         e.id,
+            exercise_library_id: e.exercise_library_id,
+            name:                e.name,
+        }));
+
+        const priorLogs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.client!.clientId },
+            orderBy: { date: 'desc' },
+            take:    HISTORY_LIMIT,
+            select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
+        });
+
+        res.json(extractPreviousSets(priorLogs.map(toLogRow), targets));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getExerciseProgress(req: Request, res: Response, next: NextFunction) {
+    const exerciseLibraryId = req.query.exercise_library_id as string | undefined;
+    const exerciseId        = req.query.exercise_id as string | undefined;
+    if (!exerciseLibraryId && !exerciseId) {
+        return res.status(400).json({ error: 'exercise_library_id or exercise_id is required' });
+    }
+
+    try {
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.client!.clientId },
+            orderBy: { date: 'asc' },
+            take:    PROGRESS_LIMIT,
+            select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
+        });
+
+        res.json(buildExerciseProgress(
+            logs.map(toLogRow),
+            { exercise_library_id: exerciseLibraryId ?? null, exercise_id: exerciseId ?? null },
+        ));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getLoggedExercises(req: Request, res: Response, next: NextFunction) {
+    try {
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.client!.clientId },
+            orderBy: { date: 'desc' },
+            take:    PROGRESS_LIMIT,
+            select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
+        });
+        res.json(distinctLoggedExercises(logs.map(toLogRow)));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    try {
+        const log = await prisma.workout_logs.findFirst({
+            where:   { id: req.params.id as string, client_id: req.client!.clientId },
+            include: { training_days: { select: { name: true } } },
+        });
+        if (!log) return res.status(404).json({ error: 'Workout log not found' });
+
+        res.json({
+            id:         log.id,
+            date:       log.date,
+            day_id:     log.day_id,
+            day_name:   log.training_days?.name ?? null,
+            start_time: log.start_time,
+            end_time:   log.end_time,
+            notes:      log.notes,
+            exercises:  parseLoggedExercises(log.exercises),
+            ...summarizeLog(toLogRow(log)),
+        });
     } catch (err) {
         next(err);
     }

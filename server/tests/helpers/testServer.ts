@@ -59,3 +59,10 @@ export async function makeAuthCookie(userId: string, workspaceId: string, role =
     });
     return `token=${token}`;
 }
+
+// Client-portal identity: a plain JWT in the `client_token` cookie. The client
+// auth middleware verifies the JWT only (no session row), so no DB write needed.
+export function makeClientCookie(clientId: string, workspaceId: string): string {
+    const token = jwt.sign({ clientId, workspaceId }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+    return `client_token=${token}`;
+}

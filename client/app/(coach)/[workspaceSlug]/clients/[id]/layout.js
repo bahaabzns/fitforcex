@@ -3,7 +3,7 @@ import { usePathname, useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
-import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, Activity } from 'lucide-react';
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
 
@@ -105,6 +105,7 @@ export default function ClientLayout({ children }) {
         { id: "overview",     name: tClients('tabOverview'),  icon: LayoutDashboard, href: `/${workspaceSlug}/clients/${id}` },
         { id: "nutrition",    name: tNav('nutrition'),        icon: Apple,           href: `/${workspaceSlug}/clients/${id}/nutrition` },
         { id: "training",     name: tNav('training'),         icon: Dumbbell,        href: `/${workspaceSlug}/clients/${id}/training` },
+        { id: "workout-logs", name: tClients('tabWorkoutLogs'), icon: Activity,      href: `/${workspaceSlug}/clients/${id}/workout-logs` },
         { id: "forms",        name: tNav('forms'),            icon: ClipboardList,   href: `/${workspaceSlug}/clients/${id}/forms` },
         { id: "transactions", name: tNav('transactions'),     icon: CreditCard,      href: `/${workspaceSlug}/clients/${id}/transactions` },
     ];

@@ -195,4 +195,88 @@ router.post('/form-requests/:request_id/submit', clientAuthMiddleware, clientPor
 router.get('/messages',  clientAuthMiddleware, clientPortalController.getMessages);
 router.post('/messages', clientAuthMiddleware, clientPortalController.sendMessage);
 
+/**
+ * @openapi
+ * /client-portal/workout-logs:
+ *   get:
+ *     summary: List the client's logged workout sessions (newest first)
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of session summaries
+ *   post:
+ *     summary: Save a finished Training Mode session
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [started_at, ended_at, exercises]
+ *             properties:
+ *               plan_id:    { type: string, nullable: true }
+ *               day_id:     { type: string, nullable: true }
+ *               day_index:  { type: integer, nullable: true }
+ *               notes:      { type: string, nullable: true }
+ *               started_at: { type: string, format: date-time }
+ *               ended_at:   { type: string, format: date-time }
+ *               exercises:  { type: array, items: { type: object } }
+ *     responses:
+ *       201:
+ *         description: Session saved; returns id + summary
+ *       400:
+ *         description: Validation failed
+ *
+ * /client-portal/workout-logs/previous:
+ *   get:
+ *     summary: Previous logged sets per exercise for a training day
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: day_id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Map of exercise_id to previously logged sets
+ *
+ * /client-portal/workout-logs/exercise-progress:
+ *   get:
+ *     summary: Progress time series for one exercise across sessions
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: exercise_library_id, schema: { type: string } }
+ *       - { in: query, name: exercise_id, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Ascending array of progress points
+ *
+ * /client-portal/workout-logs/{id}:
+ *   get:
+ *     summary: Get a single logged session with its sets
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Session detail
+ *       404:
+ *         description: Not found
+ */
+// Specific routes before the parameterized /:id (§8.6).
+router.get('/workout-logs',                   clientAuthMiddleware, clientPortalController.getWorkoutLogs);
+router.post('/workout-logs',                  clientAuthMiddleware, clientPortalController.createWorkoutLog);
+router.get('/workout-logs/previous',          clientAuthMiddleware, clientPortalController.getWorkoutLogPrevious);
+router.get('/workout-logs/exercise-progress', clientAuthMiddleware, clientPortalController.getExerciseProgress);
+router.get('/workout-logs/exercises',         clientAuthMiddleware, clientPortalController.getLoggedExercises);
+router.get('/workout-logs/:id',               clientAuthMiddleware, clientPortalController.getWorkoutLog);
+
 export default router;

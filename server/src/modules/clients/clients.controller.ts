@@ -5,6 +5,13 @@ import { Prisma } from '@prisma/client';
 import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
 import { checkClientLimit } from '../../lib/seatLimits';
 import { prisma } from '../../lib/prisma';
+import {
+    summarizeLog,
+    buildExerciseProgress,
+    distinctLoggedExercises,
+    type LoggedExercise,
+    type WorkoutLogRow,
+} from '../../utils/workoutLogStats';
 
 type ClientRow = Record<string, unknown>;
 type FreezeRow = Record<string, unknown>;
@@ -369,6 +376,130 @@ export async function setPassword(req: Request, res: Response, next: NextFunctio
         });
         if (updated.count === 0) return res.status(404).json({ error: 'Client not found' });
         res.json({ message: 'Password set successfully' });
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ─── workout logs (coach read-only view) ────────────────────────────────────────
+
+const WORKOUT_HISTORY_LIMIT  = 100;
+const WORKOUT_PROGRESS_LIMIT = 200;
+
+function parseLoggedExercises(value: unknown): LoggedExercise[] {
+    return Array.isArray(value) ? (value as LoggedExercise[]) : [];
+}
+
+function toLogRow(row: { id: string; date: Date; start_time: string | null; end_time: string | null; exercises: unknown }): WorkoutLogRow {
+    return {
+        id:         row.id,
+        date:       row.date,
+        start_time: row.start_time,
+        end_time:   row.end_time,
+        exercises:  parseLoggedExercises(row.exercises),
+    };
+}
+
+/** Confirm the client belongs to the caller's workspace; 404 otherwise. */
+async function assertClientInWorkspace(clientId: string, workspaceId: string): Promise<boolean> {
+    const client = await prisma.clients.findFirst({
+        where:  { id: clientId, workspace_id: workspaceId },
+        select: { id: true },
+    });
+    return !!client;
+}
+
+export async function getClientWorkoutLogs(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: [{ date: 'desc' }, { created_at: 'desc' }],
+            take:    WORKOUT_HISTORY_LIMIT,
+            include: { training_days: { select: { name: true } } },
+        });
+
+        res.json(logs.map(log => ({
+            id:       log.id,
+            date:     log.date,
+            day_id:   log.day_id,
+            day_name: log.training_days?.name ?? null,
+            notes:    log.notes,
+            ...summarizeLog(toLogRow(log)),
+        })));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getClientExerciseProgress(req: Request, res: Response, next: NextFunction) {
+    const exerciseLibraryId = req.query.exercise_library_id as string | undefined;
+    const exerciseId        = req.query.exercise_id as string | undefined;
+    if (!exerciseLibraryId && !exerciseId) {
+        return res.status(400).json({ error: 'exercise_library_id or exercise_id is required' });
+    }
+
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'asc' },
+            take:    WORKOUT_PROGRESS_LIMIT,
+            select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
+        });
+
+        res.json(buildExerciseProgress(
+            logs.map(toLogRow),
+            { exercise_library_id: exerciseLibraryId ?? null, exercise_id: exerciseId ?? null },
+        ));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getClientLoggedExercises(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'desc' },
+            take:    WORKOUT_PROGRESS_LIMIT,
+            select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
+        });
+        res.json(distinctLoggedExercises(logs.map(toLogRow)));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getClientWorkoutLog(req: Request, res: Response, next: NextFunction) {
+    try {
+        const log = await prisma.workout_logs.findFirst({
+            where:   { id: req.params.logId as string, client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            include: { training_days: { select: { name: true } } },
+        });
+        if (!log) return res.status(404).json({ error: 'Workout log not found' });
+
+        res.json({
+            id:         log.id,
+            date:       log.date,
+            day_id:     log.day_id,
+            day_name:   log.training_days?.name ?? null,
+            start_time: log.start_time,
+            end_time:   log.end_time,
+            notes:      log.notes,
+            exercises:  parseLoggedExercises(log.exercises),
+            ...summarizeLog(toLogRow(log)),
+        });
     } catch (err) {
         next(err);
     }

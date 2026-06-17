@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import api from "@/lib/axios";
-import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Play, History, LineChart } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -181,6 +182,32 @@ export default function ClientTrainingPage() {
                     </Card>
                 ) : (
                     <>
+                        {/* Training Mode actions */}
+                        {activeDay && (activeDay.exercises ?? []).length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <Link
+                                    href={`/portal/training/session?day=${activeDayIndex}`}
+                                    className="flex-1 flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                                >
+                                    <Play className="w-4 h-4" /> {t('startTraining')}
+                                </Link>
+                                <Link
+                                    href="/portal/training/history"
+                                    aria-label={t('history')}
+                                    className="shrink-0 p-2.5 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-default"
+                                >
+                                    <History className="w-5 h-5" />
+                                </Link>
+                                <Link
+                                    href="/portal/training/progress"
+                                    aria-label={t('progress')}
+                                    className="shrink-0 p-2.5 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-default"
+                                >
+                                    <LineChart className="w-5 h-5" />
+                                </Link>
+                            </div>
+                        )}
+
                         {/* Plan coach note — collapsible */}
                         {trainingPlan.notes && (
                             <div className="border border-yellow-500/40 overflow-hidden" style={{ borderRadius: 'min(32px, var(--radius-3xl))' }}>
