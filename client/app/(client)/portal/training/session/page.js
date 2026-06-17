@@ -76,11 +76,15 @@ export default function TrainingSessionPage() {
                     return;
                 }
 
-                const { data: prevMap } = await api.get("/api/client-portal/workout-logs/previous", {
-                    params: { day_id: day.id },
-                });
+                // Previous values are a nice-to-have — never let their failure
+                // eject the client from the session they just started.
+                try {
+                    const { data: prevMap } = await api.get("/api/client-portal/workout-logs/previous", {
+                        params: { day_id: day.id },
+                    });
+                    if (!cancelled) setPrevious(prevMap ?? {});
+                } catch { /* no previous data available */ }
                 if (cancelled) return;
-                setPrevious(prevMap ?? {});
 
                 let restored = null;
                 try {
