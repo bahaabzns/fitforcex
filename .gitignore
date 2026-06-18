@@ -3,3 +3,8 @@ node_modules/
 *.log
 dist/
 build/
+
+# Local database backups / dumps — never commit (large, sensitive)
+docs/old_db/
+*.sql
+*.sql.gz
