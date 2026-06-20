@@ -1,3 +1,6 @@
+# add cardio, supplements and drugs sections
+
+# mark as transformation 
 
 # mobile apps
 

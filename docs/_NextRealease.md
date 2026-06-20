@@ -1,7 +1,6 @@
 # Release 1 — Core Stability (Must Fix Before Scale)
 
 ## Bugs
-    [ ] Fix close panel button in training builder
     [ ] Fix auto day open in training builder
     [ ] Client code is not correct
     [ ] Fix exercise thumbnail in client portal
@@ -13,6 +12,7 @@
     [x] Breadcrumb clickable
     [x] Fix language switcher in Arabic version
     [x] Client row selection only through checkbox
+    [x] Fix close panel button in training builder
 
 ## UI Consistency
     [-] Unify all modals
