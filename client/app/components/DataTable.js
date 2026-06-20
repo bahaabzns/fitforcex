@@ -288,7 +288,7 @@ export default function DataTable({
                                     onFocus={() => setSearchFocused(true)}
                                     onBlur={() => setSearchFocused(false)}
                                 />
-                                <div className="flex items-center gap-1 pr-2 shrink-0">
+                                <div className="flex items-center gap-1 pe-2 shrink-0">
                                     {(searchFocused || quickSearchValue) ? (
                                         <Kbd>
                                             <Kbd.Content>Esc</Kbd.Content>
@@ -327,7 +327,7 @@ export default function DataTable({
                                 {columns.filter(c => c.filterType).map(col => (
                                     <div key={col.key} className="relative">
                                         <button
-                                            className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
+                                            className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingColKey === col.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
                                             onClick={() => { setPendingColKey(pendingColKey === col.key ? null : col.key); setPendingValue(null); }}
                                         >
                                             {col.label}
@@ -455,7 +455,7 @@ export default function DataTable({
                                 <span className="font-medium">{col.label}:</span>
                                 <span>{summarizeFilter(rule, col)}</span>
                                 <button
-                                    className="ml-0.5 hover:text-destructive transition-colors leading-none"
+                                    className="ms-0.5 hover:text-destructive transition-colors leading-none"
                                     onClick={() => setFilterRules(rs => rs.filter(r => r.id !== rule.id))}
                                 >✕</button>
                             </div>
@@ -482,7 +482,7 @@ export default function DataTable({
                         >
                             <Table.Header>
                                 {selectable && (
-                                    <Table.Column className={`w-10 pr-0 ${isRtl ? "ps-3" : ""}`}>
+                                    <Table.Column className="w-10 pe-0">
                                         <Checkbox aria-label="Select all" slot="selection">
                                             <Checkbox.Control>
                                                 <Checkbox.Indicator />
@@ -530,7 +530,7 @@ export default function DataTable({
                                                         if (isLastRow)  { s.borderBottomLeftRadius = 0; s.borderBottomRightRadius = CORNER_RADIUS; }
                                                     }
                                                     return (
-                                                        <Table.Cell className={`pr-0 ${isRtl ? "ps-3" : ""}`} style={Object.keys(s).length ? s : undefined}>
+                                                        <Table.Cell className="pe-0" style={Object.keys(s).length ? s : undefined}>
                                                             <Checkbox
                                                                 aria-label={`Select row ${row[rowKey]}`}
                                                                 slot="selection"
@@ -627,7 +627,7 @@ export default function DataTable({
                     </div>
 
                     {/* RIGHT group starts — Rows per page */}
-                    <div className="flex items-center ml-auto border-r border-separator">
+                    <div className="flex items-center ms-auto border-e border-separator">
                         <Select
                             value={String(pageSize)}
                             onChange={(val) => setPageSize(Number(val))}

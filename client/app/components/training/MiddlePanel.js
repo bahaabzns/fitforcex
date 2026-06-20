@@ -5,8 +5,10 @@ import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
+import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import InlineEditField from "@/app/components/InlineEditField";
 
 const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -64,7 +66,11 @@ export default function MiddlePanel({
     }, [newlyCreatedDayId]);
 
     const isSelectedPlanDirty = dirtyPlanIds?.includes(String(selectedPlan.id));
-    const selectedDay = selectedPlan.days?.find((d) => String(d.id) === String(selectedDayId)) ?? selectedPlan.days?.[0] ?? null;
+    // Mirror the hook: a null selectedDayId means no day is open, so no day is
+    // highlighted. Only fall back to the first day for a stale (deleted) id.
+    const selectedDay = selectedDayId == null
+        ? null
+        : (selectedPlan.days?.find((d) => String(d.id) === String(selectedDayId)) ?? selectedPlan.days?.[0] ?? null);
 
     const currentDays = selectedPlan.days ?? [];
     const previewDays = (() => {
@@ -95,21 +101,16 @@ export default function MiddlePanel({
             <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
                 {/* Plan name + actions */}
                 <div className="flex justify-between items-center mb-3 gap-4">
-                    <input
+                    <InlineEditField
                         ref={planNameRef}
                         key={selectedPlan.id}
-                        type="text"
-                        defaultValue={selectedPlan.name}
-                        onBlur={(e) => {
-                            const trimmed = e.target.value.trim() || t('untitledPlan');
-                            e.target.value = trimmed;
-                            if (trimmed !== selectedPlan.name) handleRenamePlan(selectedPlan.id, trimmed);
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") e.target.blur();
-                            if (e.key === "Escape") { e.target.value = selectedPlan.name; e.target.blur(); }
-                        }}
-                        className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
+                        value={selectedPlan.name}
+                        fallback={t('untitledPlan')}
+                        onCommit={(name) => handleRenamePlan(selectedPlan.id, name)}
+                        ariaLabel="Plan name"
+                        variant="primary"
+                        className="flex-1 min-w-0"
+                        inputClassName="font-semibold shadow-none"
                     />
                     {isSelectedPlanDirty && (
                         <Button
@@ -147,7 +148,7 @@ export default function MiddlePanel({
                         <button
                             title={t('closePanel')}
                             onClick={onClose}
-                            className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
+                            className="cursor-pointer p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
@@ -263,16 +264,18 @@ export default function MiddlePanel({
                     </Disclosure.Heading>
                     <Disclosure.Content>
                         <Disclosure.Body className="px-0 pt-0">
-                            <textarea
+                            <TextArea
                                 key={selectedPlan.id + "-note"}
                                 defaultValue={selectedPlan.notes ?? ""}
                                 placeholder={t('planNoteHint')}
                                 rows={3}
+                                fullWidth
+                                variant="secondary"
                                 onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== (selectedPlan.notes ?? "")) handleUpdatePlanNotes(selectedPlan.id, val);
                                 }}
-                                className="w-full mb-2 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                className="mb-2 resize-none"
                             />
                         </Disclosure.Body>
                     </Disclosure.Content>

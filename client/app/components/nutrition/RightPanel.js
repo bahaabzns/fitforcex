@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import MacrosBadges from "../MacrosBadges";
+import MacrosDonut from "./MacrosDonut";
+import InlineEditField from "@/app/components/InlineEditField";
 import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 import { Button } from "@heroui/react/button";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
@@ -49,30 +53,20 @@ export default function RightPanel({
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4">
-                <input
+                <InlineEditField
                     ref={mealTitleRef}
                     key={selectedMeal.id}
-                    type="text"
-                    defaultValue={selectedMeal.name}
-                    onBlur={(e) => {
-                        const trimmed = e.target.value.trim() || t('untitledMeal');
-                        e.target.value = trimmed;
-                        if (trimmed !== selectedMeal.name) {
-                            handleRenameMeal(selectedMeal.id, trimmed);
-                        }
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") e.target.blur();
-                        if (e.key === "Escape") {
-                            e.target.value = selectedMeal.name;
-                            e.target.blur();
-                        }
-                    }}
-                    className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
+                    value={selectedMeal.name}
+                    fallback={t('untitledMeal')}
+                    onCommit={(name) => handleRenameMeal(selectedMeal.id, name)}
+                    ariaLabel="Meal name"
+                    variant="primary"
+                    className="flex-1 min-w-0"
+                    inputClassName="font-semibold shadow-none"
                 />
                 <button
                     title={t('closePanel')}
-                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
+                    className="cursor-pointer p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedMeal(null)}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -81,7 +75,10 @@ export default function RightPanel({
 
             {/* Totals */}
             <div className="mb-3">
-                <MacrosBadges {...calcMeal(selectedMeal)} />
+                <MacrosDonut
+                    totals={calcMeal(selectedMeal)}
+                    labels={{ carbs: t('carbs'), fat: t('fat'), protein: t('protein'), kcal: t('calories') }}
+                />
             </div>
 
             <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
@@ -149,16 +146,15 @@ export default function RightPanel({
 
                                                         {/* Amount input */}
                                                         <div className="flex items-center gap-1 shrink-0">
-                                                            <input
+                                                            <InlineEditField
+                                                                key={item.amount}
+                                                                value={item.amount}
                                                                 type="number"
-                                                                defaultValue={item.amount}
-                                                                onClick={(e) => e.target.select()}
-                                                                onBlur={(e) => handleAmountChange(item.id, e.target.value)}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === "Enter") e.target.blur();
-                                                                    if (e.key === "Escape") { e.target.value = item.amount; e.target.blur(); }
-                                                                }}
-                                                                className="w-14 p-1 border border-border rounded-lg text-center bg-card text-xs"
+                                                                selectOnFocus
+                                                                onCommit={(amount) => handleAmountChange(item.id, amount)}
+                                                                ariaLabel="Amount"
+                                                                className="w-14"
+                                                                inputClassName="px-1 py-1 h-8 text-center text-xs"
                                                             />
                                                             <span className="text-xs text-muted-foreground">{item.serving_unit}</span>
                                                         </div>
@@ -198,12 +194,9 @@ export default function RightPanel({
                                                                     </p>
                                                                 </div>
                                                                 <div className="flex items-center gap-1 shrink-0">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={alt.amount}
-                                                                        readOnly
-                                                                        className="w-14 p-1 border rounded-lg text-center border-border bg-card/60 cursor-not-allowed text-xs"
-                                                                    />
+                                                                    <TextField value={String(alt.amount)} isReadOnly aria-label="Amount" className="w-14">
+                                                                        <Input type="number" className="px-1 py-1 h-8 text-center text-xs cursor-not-allowed shadow-none" />
+                                                                    </TextField>
                                                                     <span className="text-xs text-muted-foreground">{alt.serving_unit}</span>
                                                                 </div>
                                                                 <div className="flex items-baseline gap-0.5 shrink-0">
@@ -252,18 +245,20 @@ export default function RightPanel({
                         </Disclosure.Heading>
                         <Disclosure.Content>
                             <Disclosure.Body className="px-0 pt-0">
-                                <textarea
+                                <TextArea
                                     key={selectedMeal.id + '-note'}
                                     defaultValue={selectedMeal.note ?? ""}
                                     placeholder={t('addMealNote')}
                                     rows={3}
+                                    fullWidth
+                                    variant="secondary"
                                     onBlur={(e) => {
                                         const val = e.target.value;
                                         if (val !== (selectedMeal.note ?? "")) {
                                             handleUpdateMealNote(selectedMeal.id, val);
                                         }
                                     }}
-                                    className="w-full mb-2 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    className="mb-2 resize-none"
                                 />
                             </Disclosure.Body>
                         </Disclosure.Content>

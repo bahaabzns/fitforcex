@@ -126,7 +126,9 @@ export function useTrainingPlan(clientId) {
         const found = plans.find((p) => String(p.id) === String(plan.id));
         if (!found) return;
         setSelectedPlan(found);
-        setSelectedDayId(found.days?.[0]?.id ?? null);
+        // Don't auto-open a day — leave the right panel closed until the user
+        // picks a day from the middle panel.
+        setSelectedDayId(null);
     }, [plans]);
 
     const handleSelectDay = useCallback((dayId) => {
@@ -707,7 +709,13 @@ export function useTrainingPlan(clientId) {
         });
     }, [plans, sortOrder]);
 
-    const selectedDay = selectedPlan?.days?.find((d) => String(d.id) === String(selectedDayId)) ?? selectedPlan?.days?.[0] ?? null;
+    // A null selectedDayId means no day is open (initial load or the close
+    // button) — show nothing. Only fall back to the first day when the id is
+    // set but stale (its day was just deleted), so the panel never goes blank
+    // while days remain.
+    const selectedDay = selectedDayId == null
+        ? null
+        : (selectedPlan?.days?.find((d) => String(d.id) === String(selectedDayId)) ?? selectedPlan?.days?.[0] ?? null);
 
     return {
         plans,

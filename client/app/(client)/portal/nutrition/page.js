@@ -9,6 +9,7 @@ import { calcCycle, calcItem, calcMeal } from "@/lib/nutritionCalc";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
 import ShoppingListDrawer from "@/app/components/ShoppingListDrawer";
+import MacrosDonut from "@/app/components/nutrition/MacrosDonut";
 
 export default function ClientDashboardPage() {
     const t         = useTranslations('portal.dashboard');
@@ -22,7 +23,6 @@ export default function ClientDashboardPage() {
     const [noplan, setNoPlan]                     = useState(false);
     const [showLeftShadow, setShowLeftShadow]     = useState(false);
     const [showRightShadow, setShowRightShadow]   = useState(false);
-    const [ringAnimated, setRingAnimated]         = useState(false);
     const [expandedMeals, setExpandedMeals]       = useState(new Set());
     const [checkedItems, setCheckedItems]         = useState(new Set());
     const [noteExpanded, setNoteExpanded]         = useState(false);
@@ -74,22 +74,13 @@ export default function ClientDashboardPage() {
     }, [router]);
 
     useEffect(() => {
-        if (!plan) return;
-        setRingAnimated(false);
-        const timer = setTimeout(() => setRingAnimated(true), 50);
-        return () => clearTimeout(timer);
-    }, [plan, activeCycleIndex]);
-
-    useEffect(() => {
         function handleScroll() { setIsPageScrolled(window.scrollY > 4); }
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     function switchCycle(i) {
-        setRingAnimated(false);
         setActiveCycleIndex(i);
-        setTimeout(() => setRingAnimated(true), 50);
     }
 
     function toggleMeal(id) {
@@ -133,33 +124,9 @@ export default function ClientDashboardPage() {
 
     const donut = (() => {
         if (!cycle) return null;
-        const totals     = calcCycle(cycle);
-        const carbCal    = totals.carbs   * 4;
-        const proteinCal = totals.protein * 4;
-        const fatCal     = totals.fats    * 9;
-        const macroCal   = carbCal + proteinCal + fatCal;
-        if (macroCal === 0) return { totals, empty: true };
-        const carbPct    = Math.round((carbCal    / macroCal) * 100);
-        const fatPct     = Math.round((fatCal     / macroCal) * 100);
-        const proteinPct = 100 - carbPct - fatPct;
-        const macros = [
-            { label: t('macroCarbs'),   value: Math.round(totals.carbs),   pct: carbPct,    color: "var(--primary)", textColor: "text-primary"    },
-            { label: t('macroFat'),     value: Math.round(totals.fats),    pct: fatPct,     color: "#f59e0b",        textColor: "text-amber-500"  },
-            { label: t('macroProtein'), value: Math.round(totals.protein), pct: proteinPct, color: "#f97316",        textColor: "text-orange-500" },
-        ];
-        const cx = 40, cy = 40, r = 30, sw = 8;
-        const circ   = 2 * Math.PI * r;
-        const gapLen = (3 / 360) * circ;
-        const minArc = (8 / 360) * circ;
-        let accDeg = 0;
-        const segments = macros.map(m => {
-            const rotation = -90 + accDeg;
-            const natural  = (m.pct / 100) * circ - gapLen;
-            const len      = ringAnimated ? (m.pct > 0 ? Math.max(minArc, natural) : 0) : 0;
-            accDeg += (m.pct / 100) * 360;
-            return { ...m, len, rotation };
-        });
-        return { totals, macros, segments, cx, cy, r, sw, circ };
+        const totals   = calcCycle(cycle);
+        const macroCal = totals.carbs * 4 + totals.protein * 4 + totals.fats * 9;
+        return { totals, empty: macroCal === 0 };
     })();
 
     // Format "C 25g" or "25g ك" depending on locale
@@ -180,41 +147,10 @@ export default function ClientDashboardPage() {
                     donut.empty ? (
                         <p className="text-sm text-muted-foreground text-center py-2">{t('noNutritionData')}</p>
                     ) : (
-                        <div className="flex items-center gap-4" dir="ltr">
-                            {/* Donut ring */}
-                            <div className="relative shrink-0 w-20 h-20">
-                                <svg viewBox="0 0 80 80" className="w-20 h-20">
-                                    <circle cx={donut.cx} cy={donut.cy} r={donut.r} fill="none" strokeWidth={donut.sw} className="stroke-secondary" />
-                                    {donut.segments.map((seg, i) => (
-                                        <circle
-                                            key={seg.label}
-                                            cx={donut.cx} cy={donut.cy} r={donut.r}
-                                            fill="none"
-                                            stroke={seg.color}
-                                            strokeWidth={donut.sw}
-                                            strokeDasharray={`${seg.len} ${donut.circ}`}
-                                            transform={`rotate(${seg.rotation} ${donut.cx} ${donut.cy})`}
-                                            strokeLinecap="butt"
-                                            style={{ transition: `stroke-dasharray 0.6s ease ${i * 0.15}s` }}
-                                        />
-                                    ))}
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-lg font-bold text-foreground leading-none">{Math.round(donut.totals.calories)}</span>
-                                    <span className="text-[11px] font-medium text-muted-foreground">{t('kcal')}</span>
-                                </div>
-                            </div>
-                            {/* Macro columns */}
-                            <div className="flex flex-1 justify-around">
-                                {donut.macros.map(m => (
-                                    <div key={m.label} className="flex flex-col items-center gap-0.5">
-                                        <span className={`text-xs font-semibold ${m.textColor}`}>{m.pct}%</span>
-                                        <span className="text-base font-bold text-foreground">{m.value}g</span>
-                                        <span className="text-xs text-muted-foreground">{m.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <MacrosDonut
+                            totals={donut.totals}
+                            labels={{ carbs: t('macroCarbs'), fat: t('macroFat'), protein: t('macroProtein'), kcal: t('kcal') }}
+                        />
                     )
                 )}
 

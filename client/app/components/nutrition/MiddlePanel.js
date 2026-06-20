@@ -2,12 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
-import MacrosBadges from "../MacrosBadges";
+import MacrosDonut from "./MacrosDonut";
+import InlineEditField from "@/app/components/InlineEditField";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
-import { ProgressBar } from "@heroui/react/progress-bar";
+import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
@@ -47,7 +48,7 @@ export default function MiddlePanel({
     const [hoverIndex, setHoverIndex] = useState(null);
     const [cycleDragIndex, setCycleDragIndex] = useState(null);
     const [cycleHoverIndex, setCycleHoverIndex] = useState(null);
-    const [expandedKeys, setExpandedKeys] = useState(new Set(["cycles", "meals", "notes"]));
+    const [expandedKeys, setExpandedKeys] = useState(new Set(["meals", "notes"]));
     const [activateModal, setActivateModal] = useState(false);
     const [activating, setActivating] = useState(false);
 
@@ -61,6 +62,15 @@ export default function MiddlePanel({
             setPendingFocusPlanId(null);
         }
     }, [pendingFocusPlanId, selectedPlan?.id, setPendingFocusPlanId]);
+
+    // When the coach switches to a different plan, focus the meals section:
+    // collapse cycles and leave meals (and notes) open. Done as a during-render
+    // adjustment (not an effect) so it applies before paint without cascading.
+    const prevPlanIdRef = useRef(selectedPlan?.id);
+    if (prevPlanIdRef.current !== selectedPlan?.id) {
+        prevPlanIdRef.current = selectedPlan?.id;
+        setExpandedKeys(new Set(["meals", "notes"]));
+    }
 
     useEffect(() => {
         if (pendingFocusCycleId && selectedPlan.cycles[selectedCycleIndex]?.id === pendingFocusCycleId) {
@@ -111,26 +121,16 @@ export default function MiddlePanel({
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4">
-                <input
+                <InlineEditField
                     ref={planTitleRef}
                     key={selectedPlan.id}
-                    type="text"
-                    defaultValue={selectedPlan.name}
-                    onBlur={(e) => {
-                        const trimmed = e.target.value.trim() || t('untitledPlan');
-                        e.target.value = trimmed;
-                        if (trimmed !== selectedPlan.name) {
-                            handleRenamePlan(selectedPlan.id, trimmed);
-                        }
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') e.target.blur();
-                        if (e.key === 'Escape') {
-                            e.target.value = selectedPlan.name;
-                            e.target.blur();
-                        }
-                    }}
-                    className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
+                    value={selectedPlan.name}
+                    fallback={t('untitledPlan')}
+                    onCommit={(name) => handleRenamePlan(selectedPlan.id, name)}
+                    ariaLabel="Plan name"
+                    variant="primary"
+                    className="flex-1 min-w-0"
+                    inputClassName="font-semibold shadow-none"
                 />
                 {isSelectedPlanDirty && (
                     <Button
@@ -171,7 +171,7 @@ export default function MiddlePanel({
                 )}
                 <button
                     title={t('closePanel')}
-                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
+                    className="cursor-pointer p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     onClick={() => setSelectedPlan(null)}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -185,67 +185,29 @@ export default function MiddlePanel({
                 return (
                     <>
                         <div className="flex items-center mb-3 gap-3 shrink-0">
-                            <input
+                            <InlineEditField
                                 ref={cycleTitleRef}
                                 key={cycle.id}
-                                type="text"
-                                defaultValue={cycle.name}
-                                onBlur={(e) => {
-                                    const trimmed = e.target.value.trim() || t('untitledCycle');
-                                    e.target.value = trimmed;
-                                    if (trimmed !== cycle.name) handleRenameCycle(cycle.id, trimmed);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') e.target.blur();
-                                    if (e.key === 'Escape') { e.target.value = cycle.name; e.target.blur(); }
-                                }}
-                                className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
+                                value={cycle.name}
+                                fallback={t('untitledCycle')}
+                                onCommit={(name) => handleRenameCycle(cycle.id, name)}
+                                ariaLabel="Cycle name"
+                                variant="primary"
+                                className="flex-1 min-w-0"
+                                inputClassName="font-semibold shadow-none"
                             />
                         </div>
                         <Surface variant="secondary" className="rounded-lg p-4 mb-3 shrink-0">
-                            <div className="flex items-baseline gap-2 mb-2">
-                                <span className="text-2xl font-bold text-foreground">{cycleTotals.calories}</span>
-                                {cycle.goal_calories
-                                    ? <span className="text-sm text-muted-foreground">/ {cycle.goal_calories} kcal</span>
-                                    : <span className="text-sm text-muted-foreground">kcal</span>
-                                }
-                                {cycle.goal_calories && (
-                                    <span className="ml-auto text-xs text-muted-foreground">
-                                        {Math.round((cycleTotals.calories / cycle.goal_calories) * 100)}%
-                                    </span>
-                                )}
-                            </div>
-                            {cycle.goal_calories && (
-                                <ProgressBar value={Math.min(100, (cycleTotals.calories / cycle.goal_calories) * 100)} className="mb-3">
-                                    <ProgressBar.Track className="h-1.5">
-                                        <ProgressBar.Fill />
-                                    </ProgressBar.Track>
-                                </ProgressBar>
-                            )}
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { label: "C", current: cycleTotals.carbs,   target: cycle.goal_carbs },
-                                    { label: "P", current: cycleTotals.protein, target: cycle.goal_protein },
-                                    { label: "F", current: cycleTotals.fats,    target: cycle.goal_fats },
-                                ].map(({ label, current, target }) => (
-                                    <div key={label}>
-                                        <p className="text-sm text-foreground flex items-baseline gap-0.5">
-                                            <span className="text-xs text-muted-foreground mr-0.5">{label}</span>
-                                            <span className="font-medium">{current}</span>
-                                            <span className="text-xs text-muted-foreground font-normal">
-                                                {target ? `/${target}g` : "g"}
-                                            </span>
-                                        </p>
-                                        {target && (
-                                            <ProgressBar value={Math.min(100, (current / target) * 100)} className="mt-1.5">
-                                                <ProgressBar.Track className="h-1">
-                                                    <ProgressBar.Fill className="bg-muted-foreground" />
-                                                </ProgressBar.Track>
-                                            </ProgressBar>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                            <MacrosDonut
+                                totals={cycleTotals}
+                                labels={{ carbs: t('carbs'), fat: t('fat'), protein: t('protein'), kcal: t('calories') }}
+                                goals={{
+                                    calories: cycle.goal_calories,
+                                    carbs:    cycle.goal_carbs,
+                                    protein:  cycle.goal_protein,
+                                    fats:     cycle.goal_fats,
+                                }}
+                            />
                         </Surface>
                     </>
                 );
@@ -464,16 +426,18 @@ export default function MiddlePanel({
                             {selectedPlan.cycles.length > 0 && (() => {
                                 const cycle = selectedPlan.cycles[selectedCycleIndex];
                                 return (
-                                    <textarea
+                                    <TextArea
                                         key={cycle.id + '-note'}
                                         defaultValue={cycle.note ?? ""}
                                         placeholder={t('cycleNoteHint')}
                                         rows={3}
+                                        fullWidth
+                                        variant="secondary"
                                         onBlur={(e) => {
                                             const val = e.target.value;
                                             if (val !== (cycle.note ?? "")) handleUpdateCycleNote(cycle.id, val);
                                         }}
-                                        className="w-full mb-2 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                        className="mb-2 resize-none"
                                     />
                                 );
                             })()}

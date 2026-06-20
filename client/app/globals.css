@@ -264,3 +264,12 @@
   left: auto;
   right: 0;
 }
+
+/* Bug 5 — Search field icon: HeroUI gives the icon physical `mr-0 ml-3`.
+   In RTL the icon sits at the right (start) edge, so `mr-0` leaves it flush
+   against the border with no spacing and `ml-3` puts the gap on the inner
+   side. Mirror the margins so the icon keeps its start gap. */
+[dir="rtl"] .search-field__search-icon {
+  margin-right: 0.75rem !important;
+  margin-left: 0 !important;
+}

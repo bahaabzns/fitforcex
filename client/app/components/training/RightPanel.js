@@ -2,10 +2,14 @@ import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 import { Button } from "@heroui/react/button";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import InlineEditField from "@/app/components/InlineEditField";
 
-const INPUT_CLASS = "h-8 w-full rounded-md border border-border px-2 text-xs focus:outline-none focus:border-primary/40";
+const SET_INPUT_CLASS = "h-8 px-2 py-0 text-xs text-center shadow-none";
 function getYoutubeEmbedUrl(url) {
     if (!url) return null;
     const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?]+)/);
@@ -55,26 +59,21 @@ export default function RightPanel({
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
-                <input
+                <InlineEditField
                     key={selectedDay.id}
-                    type="text"
-                    defaultValue={selectedDay.name}
-                    onBlur={(e) => {
-                        const trimmed = e.target.value.trim() || t('untitledDay');
-                        e.target.value = trimmed;
-                        if (trimmed !== selectedDay.name) handleRenameDay(selectedDay.id, trimmed);
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") e.target.blur();
-                        if (e.key === "Escape") { e.target.value = selectedDay.name; e.target.blur(); }
-                    }}
-                    className="flex-1 text-base font-semibold bg-transparent border border-transparent rounded-md px-2 py-1 outline-none w-full transition-colors hover:border-primary/30 truncate text-foreground"
+                    value={selectedDay.name}
+                    fallback={t('untitledDay')}
+                    onCommit={(name) => handleRenameDay(selectedDay.id, name)}
+                    ariaLabel="Day name"
+                    variant="primary"
+                    className="flex-1 min-w-0"
+                    inputClassName="font-semibold shadow-none"
                 />
                 {onClose && (
                     <button
                         title={t('closePanel')}
                         onClick={onClose}
-                        className="cursor-pointer p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
+                        className="cursor-pointer p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-default transition-colors shrink-0"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
@@ -166,11 +165,14 @@ export default function RightPanel({
                                                             </svg>
                                                         </span>
                                                         <span className="text-xs font-semibold text-primary shrink-0">#{index + 1}</span>
-                                                        <input
+                                                        <TextField
                                                             value={exercise.name}
-                                                            onChange={(e) => handleRenameExercise(selectedDay.id, exercise.id, e.target.value)}
-                                                            className="flex-1 bg-transparent text-sm font-semibold text-foreground focus:outline-none min-w-0"
-                                                        />
+                                                            onChange={(val) => handleRenameExercise(selectedDay.id, exercise.id, val)}
+                                                            aria-label="Exercise name"
+                                                            className="flex-1 min-w-0"
+                                                        >
+                                                            <Input className="h-8 px-2 py-0 text-sm font-semibold shadow-none" />
+                                                        </TextField>
                                                         {exercise.exercise_library_id && (
                                                             <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold shrink-0">lib</span>
                                                         )}
@@ -216,12 +218,14 @@ export default function RightPanel({
                                             )}
 
                                             {/* Exercise notes */}
-                                            <input
+                                            <TextField
                                                 value={exercise.notes ?? ""}
-                                                onChange={(e) => handleUpdateExerciseNotes(selectedDay.id, exercise.id, e.target.value)}
-                                                placeholder={t('exerciseNotes')}
-                                                className="w-full mb-2 bg-transparent text-xs text-muted-foreground focus:outline-none placeholder:text-muted-foreground/40 border-b border-transparent focus:border-border"
-                                            />
+                                                onChange={(val) => handleUpdateExerciseNotes(selectedDay.id, exercise.id, val)}
+                                                aria-label={t('exerciseNotes')}
+                                                className="w-full mb-2"
+                                            >
+                                                <Input placeholder={t('exerciseNotes')} className="h-8 px-2 py-0 text-xs shadow-none" />
+                                            </TextField>
 
                                             {/* Sets header */}
                                             <div className="grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
@@ -237,10 +241,18 @@ export default function RightPanel({
                                                 {(exercise.sets ?? []).map((set, sIdx) => (
                                                     <div key={set.id} className="group/set grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 items-center">
                                                         <span className="text-xs text-muted-foreground">{sIdx + 1}</span>
-                                                        <input value={set.reps ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
-                                                        <input value={set.rest_seconds ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
-                                                        <input value={set.tempo ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
-                                                        <input value={set.rir ?? ""} onChange={(e) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", e.target.value)} onFocus={(e) => e.target.select()} className={INPUT_CLASS} />
+                                                        <TextField value={String(set.reps ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", val)} aria-label={t('reps')}>
+                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                        </TextField>
+                                                        <TextField value={String(set.rest_seconds ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", val)} aria-label={t('rest')}>
+                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                        </TextField>
+                                                        <TextField value={String(set.tempo ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", val)} aria-label={t('tempo')}>
+                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                        </TextField>
+                                                        <TextField value={String(set.rir ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", val)} aria-label={t('rir')}>
+                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                        </TextField>
                                                         <button
                                                             onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
                                                             className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
@@ -303,16 +315,18 @@ export default function RightPanel({
                         </Disclosure.Heading>
                         <Disclosure.Content>
                             <Disclosure.Body className="px-0 pt-0">
-                                <textarea
+                                <TextArea
                                     key={selectedDay.id + "-note"}
                                     defaultValue={selectedDay.notes ?? ""}
                                     placeholder={t('dayNotes')}
                                     rows={3}
+                                    fullWidth
+                                    variant="secondary"
                                     onBlur={(e) => {
                                         const val = e.target.value;
                                         if (val !== (selectedDay.notes ?? "")) handleUpdateDayNotes(selectedDay.id, val);
                                     }}
-                                    className="w-full mb-2 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none resize-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                                    className="mb-2 resize-none"
                                 />
                             </Disclosure.Body>
                         </Disclosure.Content>

@@ -3,6 +3,9 @@ import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { ProgressBar } from "@heroui/react/progress-bar";
+import { TextField } from "@heroui/react/textfield";
+import { Input } from "@heroui/react/input";
+import { InputGroup } from "@heroui/react/input-group";
 
 const ACTIVITY_LEVEL_VALUES = [1.2, 1.375, 1.55, 1.725, 1.9];
 
@@ -68,8 +71,8 @@ function InputWithUnit({ label, unit, value, onChange, placeholder, step, min, m
                     {label}{required && <span className="text-destructive ml-0.5">*</span>}
                 </label>
             )}
-            <div className="flex items-center rounded-lg border border-border bg-secondary overflow-hidden focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition">
-                <input
+            <InputGroup variant="secondary">
+                <InputGroup.Input
                     type="number"
                     value={value}
                     onChange={onChange}
@@ -77,14 +80,9 @@ function InputWithUnit({ label, unit, value, onChange, placeholder, step, min, m
                     step={step}
                     min={min}
                     max={max}
-                    className="flex-1 px-3 py-2.5 bg-transparent outline-none text-sm text-foreground min-w-0"
                 />
-                {unit && (
-                    <span className="px-3 text-xs font-medium text-muted-foreground border-l border-border shrink-0">
-                        {unit}
-                    </span>
-                )}
-            </div>
+                {unit && <InputGroup.Suffix>{unit}</InputGroup.Suffix>}
+            </InputGroup>
         </div>
     );
 }
@@ -349,13 +347,9 @@ export default function CycleCalculator({ cycle, onApply }) {
                     {/* TDEE */}
                     <div className="flex flex-col items-center gap-1 py-4 bg-primary/10 rounded-lg border border-primary/20">
                         <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70">{t("calcDailyCalTarget")}</span>
-                        <input
-                            type="number"
-                            value={tdee}
-                            onChange={e => setTdee(e.target.value)}
-                            className="text-4xl font-bold text-primary bg-transparent text-center outline-none w-36"
-                            min={0}
-                        />
+                        <TextField value={String(tdee)} onChange={setTdee} aria-label={t("calcDailyCalTarget")} className="w-36">
+                            <Input type="number" min={0} className="text-4xl sm:text-4xl font-bold text-primary text-center bg-transparent border-0 shadow-none px-0 h-auto py-0" />
+                        </TextField>
                         <span className="text-xs text-primary/70">{t("calcKcalPerDay")}</span>
                     </div>
 
@@ -373,16 +367,16 @@ export default function CycleCalculator({ cycle, onApply }) {
                             {macroConfig.map(({ key, label, bar, text, g }) => (
                                 <div key={key} className="flex items-center gap-3">
                                     <span className={`text-xs font-semibold w-12 shrink-0 ${text}`}>{label}</span>
-                                    <div className="flex items-center rounded-lg border border-border bg-secondary overflow-hidden focus-within:border-primary/40 transition shrink-0">
-                                        <input
+                                    <InputGroup variant="secondary" className="w-24 shrink-0">
+                                        <InputGroup.Input
                                             type="number"
-                                            className="w-12 px-2 py-1.5 bg-transparent outline-none text-sm text-center text-foreground"
+                                            className="text-center"
                                             value={macros[key]}
                                             onChange={e => handleMacroPct(key, e.target.value)}
                                             min={0} max={100}
                                         />
-                                        <span className="pr-2 text-xs text-muted-foreground">%</span>
-                                    </div>
+                                        <InputGroup.Suffix>%</InputGroup.Suffix>
+                                    </InputGroup>
                                     <ProgressBar value={macros[key]} className="flex-1">
                                         <ProgressBar.Track className="h-1.5">
                                             <ProgressBar.Fill className={bar} />
