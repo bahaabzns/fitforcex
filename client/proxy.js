@@ -80,6 +80,8 @@ export function proxy(request) {
 }
 
 export const config = {
-    // Run on all paths except Next.js internals and static files
-    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+    // Run on all paths except Next.js internals and static files. The trailing
+    // `.*\\.[\\w]+$` also skips public/ assets (e.g. /ff_logo_main.svg) so the
+    // coach-slug rewrite below doesn't turn them into /portal/{slug}/... 404s.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)'],
 };
