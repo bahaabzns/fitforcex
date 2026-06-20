@@ -1,0 +1,52 @@
+name: fitforce_x
+description: FitForce X — client mobile app (iOS + Android).
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management / DI
+  flutter_riverpod: ^2.6.1
+
+  # Routing
+  go_router: ^14.8.1
+
+  # Networking
+  dio: ^5.8.0
+
+  # Storage
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.5.2
+
+  # i18n
+  intl: ^0.20.2
+
+  # ── Added in later phases (kept here as a documented roadmap) ──
+  # freezed_annotation / json_annotation   # Phase 2 — models
+  # hive / hive_flutter                     # Phase 4 — session draft
+  # fl_chart                                # Phase 4 — progress chart
+  # youtube_player_flutter / video_player   # Phase 3 — exercise video
+  # socket_io_client                        # Phase 6 — realtime chat
+  # firebase_core / firebase_messaging      # Phase 7 — push
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+  # ── Codegen, online from Phase 2 ──
+  # build_runner / freezed / json_serializable / riverpod_generator
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/images/

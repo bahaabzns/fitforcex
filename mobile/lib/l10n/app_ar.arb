@@ -1,0 +1,55 @@
+{
+  "@@locale": "ar",
+
+  "appName": "فيت فورس إكس",
+
+  "navHome": "الرئيسية",
+  "navNutrition": "التغذية",
+  "navTraining": "التدريب",
+  "navForms": "الاستمارات",
+  "navMessages": "الرسائل",
+
+  "commonRetry": "حاول مجدداً",
+  "commonCancel": "إلغاء",
+  "commonBack": "رجوع",
+  "commonSomethingWentWrong": "حدث خطأ ما",
+  "commonUnexpectedError": "حدث خطأ غير متوقع أثناء تحميل هذه الصفحة",
+  "commonFailedToLoad": "فشل التحميل",
+  "commonComingSoon": "قريباً",
+
+  "loginTitle": "بوابة العميل",
+  "loginWorkspaceLabel": "مساحة العمل",
+  "loginWorkspaceHint": "مساحة عمل مدربك",
+  "loginEmailLabel": "البريد الإلكتروني",
+  "loginPasswordLabel": "كلمة المرور",
+  "loginSubmit": "تسجيل الدخول",
+  "loginSubmitting": "جارٍ تسجيل الدخول…",
+  "loginPortalHint": "البوابة: {slug}",
+  "loginFailed": "فشل تسجيل الدخول",
+  "loginWorkspaceRequired": "مساحة العمل مطلوبة",
+
+  "homeTitle": "الرئيسية",
+  "homeComingSoon": "قريباً",
+  "homeComingSoonHint": "لوحة تحكمك الرئيسية في الطريق.",
+
+  "nutritionTitle": "خطة التغذية",
+  "trainingTitle": "خطة التدريب",
+  "formsTitle": "الاستمارات",
+  "messagesTitle": "الرسائل",
+
+  "notificationsTitle": "الإشعارات",
+  "notificationsComingSoon": "قريباً",
+  "notificationsComingSoonHint": "ستُعلَم هنا بشأن خططك والتحديثات.",
+
+  "profileTitle": "الملف الشخصي",
+  "profilePreferences": "التفضيلات",
+  "profileAppearance": "المظهر",
+  "profileLanguage": "اللغة",
+  "profileLogout": "تسجيل الخروج",
+  "profileLogoutConfirmTitle": "تسجيل الخروج؟",
+  "profileLogoutConfirmMessage": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+
+  "themeSystem": "النظام",
+  "themeLight": "فاتح",
+  "themeDark": "داكن"
+}

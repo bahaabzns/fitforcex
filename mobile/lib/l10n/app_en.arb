@@ -1,0 +1,58 @@
+{
+  "@@locale": "en",
+
+  "appName": "FitForce X",
+
+  "navHome": "Home",
+  "navNutrition": "Nutrition",
+  "navTraining": "Training",
+  "navForms": "Forms",
+  "navMessages": "Messages",
+
+  "commonRetry": "Try Again",
+  "commonCancel": "Cancel",
+  "commonBack": "Back",
+  "commonSomethingWentWrong": "Something went wrong",
+  "commonUnexpectedError": "An unexpected error occurred while loading this page",
+  "commonFailedToLoad": "Failed to load",
+  "commonComingSoon": "Coming soon",
+
+  "loginTitle": "Client Portal",
+  "loginWorkspaceLabel": "Workspace",
+  "loginWorkspaceHint": "Your coach's workspace",
+  "loginEmailLabel": "Email",
+  "loginPasswordLabel": "Password",
+  "loginSubmit": "Sign in",
+  "loginSubmitting": "Signing in…",
+  "loginPortalHint": "Portal: {slug}",
+  "@loginPortalHint": {
+    "placeholders": { "slug": { "type": "String" } }
+  },
+  "loginFailed": "Login failed",
+  "loginWorkspaceRequired": "Workspace is required",
+
+  "homeTitle": "Home",
+  "homeComingSoon": "Coming soon",
+  "homeComingSoonHint": "Your home dashboard is on its way.",
+
+  "nutritionTitle": "Nutrition Plan",
+  "trainingTitle": "Training Plan",
+  "formsTitle": "Forms",
+  "messagesTitle": "Messages",
+
+  "notificationsTitle": "Notifications",
+  "notificationsComingSoon": "Coming soon",
+  "notificationsComingSoonHint": "You'll be notified about your plans and updates here.",
+
+  "profileTitle": "Profile",
+  "profilePreferences": "Preferences",
+  "profileAppearance": "Appearance",
+  "profileLanguage": "Language",
+  "profileLogout": "Logout",
+  "profileLogoutConfirmTitle": "Log out?",
+  "profileLogoutConfirmMessage": "Are you sure you want to log out?",
+
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark"
+}
