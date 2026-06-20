@@ -393,7 +393,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
-            loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }: { dbClient: PoolClient; planId: number; clientId: string; coachId: string }) => {
+            loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }: { dbClient: PoolClient; planId: string; clientId: string; coachId: string }) => {
                 const existing = await dbClient.query(
                     `SELECT id, created_at, created_by FROM nutrition_plans WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
@@ -401,7 +401,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 existingCreatedBy = (existing.rows[0] as Row)?.created_by as string ?? null;
                 return existing.rows[0] ?? null;
             },
-            deleteExistingPlanTree: async ({ dbClient, planId }: { dbClient: PoolClient; planId: number }) => {
+            deleteExistingPlanTree: async ({ dbClient, planId }: { dbClient: PoolClient; planId: string }) => {
                 await dbClient.query(
                     `DELETE FROM nutrition_meal_item_alternatives nmia
                      USING nutrition_meal_items nmi, nutrition_meals nm, nutrition_cycles nc

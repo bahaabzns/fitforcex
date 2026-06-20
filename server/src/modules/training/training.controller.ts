@@ -439,7 +439,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
-            loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }: { dbClient: PoolClient; planId: number; clientId: string; coachId: string }) => {
+            loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }: { dbClient: PoolClient; planId: string; clientId: string; coachId: string }) => {
                 const existing = await dbClient.query(
                     `SELECT id, created_at, created_by FROM training_plans WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
@@ -447,7 +447,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 existingCreatedBy = (existing.rows[0] as Row)?.created_by as string ?? null;
                 return existing.rows[0] ?? null;
             },
-            deleteExistingPlanTree: async ({ dbClient, planId }: { dbClient: PoolClient; planId: number }) => {
+            deleteExistingPlanTree: async ({ dbClient, planId }: { dbClient: PoolClient; planId: string }) => {
                 await dbClient.query('DELETE FROM training_plans WHERE id = $1', [planId]);
             },
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }: { dbClient: PoolClient; plan: Row; clientId: string; coachId: string; createdAt: string; updatedAt: string }) => {
@@ -551,15 +551,11 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
 }
 
 export async function activatePlan(req: Request, res: Response, next: NextFunction) {
-    const planId = Number(req.params.id);
-    if (!Number.isInteger(planId) || planId <= 0) {
-        return res.status(400).json({ error: 'Plan must be saved before it can be activated' });
-    }
     try {
         const updatedPlan = await activateSinglePlan({
             pool,
             tableName:      'training_plans',
-            planId,
+            planId:         req.params.id as string,
             coachId:        req.user!.workspaceId,
             clientIdColumn: 'client_id',
         });

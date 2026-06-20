@@ -134,8 +134,8 @@ interface SaveSinglePlanDraftParams {
     clientId:                  string;
     coachId:                   string;
     activePlanId?:             string | number | null;
-    loadExistingPlan:          (p: { dbClient: PoolClient; planId: number; clientId: string; coachId: string }) => Promise<PlainRecord | null>;
-    deleteExistingPlanTree:    (p: { dbClient: PoolClient; planId: number; clientId: string; coachId: string }) => Promise<void>;
+    loadExistingPlan:          (p: { dbClient: PoolClient; planId: string; clientId: string; coachId: string }) => Promise<PlainRecord | null>;
+    deleteExistingPlanTree:    (p: { dbClient: PoolClient; planId: string; clientId: string; coachId: string }) => Promise<void>;
     insertPlanTree:            (p: { dbClient: PoolClient; plan: PlainRecord; clientId: string; coachId: string; createdAt: string; updatedAt: string }) => Promise<PlainRecord>;
     activatePlanInTransaction: (p: { dbClient: PoolClient; planId: unknown; clientId: string; coachId: string }) => Promise<void>;
     fetchSavedPlan:            (p: { planId: unknown; clientId: string; coachId: string }) => Promise<PlainRecord>;
@@ -159,17 +159,19 @@ export async function saveSinglePlanDraft({
 
     const oldPlanId      = plan.id;
     const rawPlanId      = String(plan.id ?? '');
-    const parsedPlanId   = Number(rawPlanId);
-    const hasPersistentPlanId = !rawPlanId.startsWith('tmp-') && Number.isInteger(parsedPlanId);
+    // Persisted plans use cuid string ids; only unsaved client-side drafts use
+    // `tmp-` ids. (IDs migrated int→cuid, so an integer check here misclassified
+    // every saved plan as new and re-inserted it, duplicating the plan.)
+    const hasPersistentPlanId = rawPlanId !== '' && !rawPlanId.startsWith('tmp-');
 
     const txResult = await withTransaction(pool, async (dbClient) => {
         let existingCreatedAt: unknown = null;
 
         if (hasPersistentPlanId) {
-            const existing = await loadExistingPlan({ dbClient, planId: parsedPlanId, clientId, coachId });
+            const existing = await loadExistingPlan({ dbClient, planId: rawPlanId, clientId, coachId });
             if (!existing) throw createHttpError(404, 'Plan not found for this client');
             existingCreatedAt = existing.created_at;
-            await deleteExistingPlanTree({ dbClient, planId: parsedPlanId, clientId, coachId });
+            await deleteExistingPlanTree({ dbClient, planId: rawPlanId, clientId, coachId });
         }
 
         const createdAt = toIsoDateOrNull(plan.created_at) || toIsoDateOrNull(existingCreatedAt) || new Date().toISOString();
