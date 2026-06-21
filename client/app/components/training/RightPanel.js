@@ -1,15 +1,17 @@
 import React, { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { getLocalizedField } from "@/utils/localization";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 import { Button } from "@heroui/react/button";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { TextArea } from "@heroui/react/textarea";
-import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
+import { Table } from "@heroui/react/table";
+import { Disclosure, DisclosureGroup, Separator, Surface, Text } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import InlineEditField from "@/app/components/InlineEditField";
 
-const SET_INPUT_CLASS = "h-8 px-2 py-0 text-xs text-center shadow-none";
+const SET_INPUT_CLASS = "h-8 px-2 py-0 text-xs text-center shadow-none w-full";
 function getYoutubeEmbedUrl(url) {
     if (!url) return null;
     const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?]+)/);
@@ -22,13 +24,27 @@ const TrashIcon = ({ size = 14 }) => (
         <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
     </svg>
 );
+const DumbbellIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M6.5 6.5v11M17.5 6.5v11M4 9v6M20 9v6M6.5 12h11"/>
+    </svg>
+);
+const ChevronIcon = ({ className }) => (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="6 9 12 15 18 9"/>
+    </svg>
+);
+const PlayIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+    </svg>
+);
 
 export default function RightPanel({
     selectedDay,
     handleAddExercise,
     handleAddMultipleExercises,
     handleDeleteExercise,
-    handleRenameExercise,
     handleUpdateExerciseNotes,
     handleReorderExercises,
     handleRenameDay,
@@ -41,22 +57,30 @@ export default function RightPanel({
     onClose,
 }) {
     const t = useTranslations('training');
+    const locale = useLocale();
     const [showPicker, setShowPicker] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises"]));
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [videoOpenId, setVideoOpenId] = useState(null);
+    const [expandedExerciseIds, setExpandedExerciseIds] = useState(() => new Set());
+
+    const toggleExercise = (id) => setExpandedExerciseIds((prev) => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+    });
 
     if (!selectedDay) {
         return (
-            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
                 <p className="text-muted-foreground text-sm text-center flex items-center justify-center h-full">{t('selectDay')}</p>
             </Surface>
         );
     }
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
                 <InlineEditField
@@ -114,7 +138,7 @@ export default function RightPanel({
                     </Disclosure>
                     {expandedKeys.has("exercises") && (
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
-                                <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-1">
                                     {(() => {
                                         const exercises = selectedDay.exercises ?? [];
                                         const preview = (() => {
@@ -128,6 +152,11 @@ export default function RightPanel({
                                         const originalIndex = exercises.findIndex((e) => e.id === exercise.id);
                                         const isDragging = dragIndex !== null && exercises[dragIndex]?.id === exercise.id;
                                         const index = originalIndex;
+                                        // Name is defined by the linked library exercise — show it read-only.
+                                        const exerciseName = getLocalizedField(exercise, "library_name", locale) || exercise.name || "";
+                                        const setCount = exercise.sets?.length ?? 0;
+                                        const isExpanded = expandedExerciseIds.has(exercise.id);
+                                        const hasVideo = exercise.youtube_url || exercise.video_path;
                                         return (
                                         <div
                                             key={exercise.id}
@@ -136,19 +165,16 @@ export default function RightPanel({
                                             onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                                             onDrop={() => { handleReorderExercises(selectedDay.id, dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                             onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                            className={`group rounded-lg border border-border p-3 select-none transition-all ${isDragging ? "opacity-30 scale-95" : ""}`}
+                                            className={`group rounded-lg select-none transition-colors ${isDragging ? "opacity-40" : ""} ${isExpanded ? "bg-default/40" : "hover:bg-default"}`}
                                         >
-                                            {/* Exercise header */}
-                                            <div className="flex items-start gap-2 mb-2">
-                                                {/* Thumbnail */}
-                                                <div className="relative w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
-                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
-                                                    </svg>
+                                            {/* Exercise header row */}
+                                            <div onClick={() => toggleExercise(exercise.id)} className="flex items-center gap-3 px-2.5 py-2 cursor-pointer">
+                                                <div className="relative shrink-0 w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-muted overflow-hidden cursor-grab">
+                                                    <DumbbellIcon />
                                                     {exercise.thumbnail_path && (
                                                         <img
                                                             src={exercise.thumbnail_path}
-                                                            alt={exercise.name}
+                                                            alt={exerciseName}
                                                             className="absolute inset-0 w-full h-full object-cover"
                                                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                                         />
@@ -156,50 +182,40 @@ export default function RightPanel({
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
-                                                        {/* Drag grip */}
-                                                        <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0">
-                                                            <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
-                                                                <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
-                                                                <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
-                                                                <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
-                                                            </svg>
-                                                        </span>
-                                                        <span className="text-xs font-semibold text-primary shrink-0">#{index + 1}</span>
-                                                        <TextField
-                                                            value={exercise.name}
-                                                            onChange={(val) => handleRenameExercise(selectedDay.id, exercise.id, val)}
-                                                            aria-label="Exercise name"
-                                                            className="flex-1 min-w-0"
-                                                        >
-                                                            <Input className="h-8 px-2 py-0 text-sm font-semibold shadow-none" />
-                                                        </TextField>
+                                                        <Text type="body-xs" weight="semibold" className="text-primary shrink-0">#{index + 1}</Text>
+                                                        <Text type="body-sm" weight="semibold" truncate className="flex-1 min-w-0" title={exerciseName}>
+                                                            {exerciseName}
+                                                        </Text>
                                                         {exercise.exercise_library_id && (
-                                                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold shrink-0">lib</span>
+                                                            <Text type="body-xs" weight="semibold" title="From library" className="bg-primary/10 text-primary px-1.5 py-0.5 rounded shrink-0">lib</Text>
                                                         )}
-                                                        {(exercise.youtube_url || exercise.video_path) && (
-                                                            <button
-                                                                onClick={() => setVideoOpenId(videoOpenId === exercise.id ? null : exercise.id)}
-                                                                className={`shrink-0 p-1 rounded transition-colors cursor-pointer ${videoOpenId === exercise.id ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
-                                                                title={videoOpenId === exercise.id ? t('hideVideo') : t('watchVideo')}
-                                                            >
-                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
-                                                                </svg>
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => handleDeleteExercise(selectedDay.id, exercise.id)}
-                                                            className="shrink-0 p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
-                                                            title={t('deleteExercise')}
-                                                        >
-                                                            <TrashIcon />
-                                                        </button>
                                                     </div>
-                                                    {exercise.muscle_group && (
-                                                        <span className="text-[10px] text-muted-foreground ml-1">{exercise.muscle_group}</span>
-                                                    )}
+                                                    <Text type="body-xs" color="muted" truncate>
+                                                        {exercise.muscle_group ? `${exercise.muscle_group} · ` : ""}{setCount} sets
+                                                    </Text>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteExercise(selectedDay.id, exercise.id); }}
+                                                        className="p-1 rounded text-muted hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-60 group-hover:opacity-100"
+                                                        title={t('deleteExercise')}
+                                                    >
+                                                        <TrashIcon />
+                                                    </button>
+                                                    <ChevronIcon className={`text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                                                 </div>
                                             </div>
+
+                                            {isExpanded && (
+                                            <div className="px-3 pb-3 flex flex-col gap-2">
+                                                {hasVideo && (
+                                                    <button
+                                                        onClick={() => setVideoOpenId(videoOpenId === exercise.id ? null : exercise.id)}
+                                                        className="flex items-center gap-1.5 text-xs text-primary hover:underline cursor-pointer w-fit"
+                                                    >
+                                                        <PlayIcon /> {videoOpenId === exercise.id ? t('hideVideo') : t('watchVideo')}
+                                                    </button>
+                                                )}
 
                                             {/* Inline video */}
                                             {videoOpenId === exercise.id && (exercise.youtube_url || exercise.video_path) && (
@@ -224,54 +240,71 @@ export default function RightPanel({
                                                 aria-label={t('exerciseNotes')}
                                                 className="w-full mb-2"
                                             >
-                                                <Input placeholder={t('exerciseNotes')} className="h-8 px-2 py-0 text-xs shadow-none" />
+                                                <Input variant="secondary" placeholder={t('exerciseNotes')} className="h-8 px-2 py-0 text-xs shadow-none" />
                                             </TextField>
 
-                                            {/* Sets header */}
-                                            <div className="grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-                                                <span>#</span>
-                                                <span>{t('reps')}</span>
-                                                <span>{t('rest')}</span>
-                                                <span>{t('tempo')}</span>
-                                                <span>{t('rir')}</span>
-                                                <span/><span/>
-                                            </div>
-
-                                            <div className="flex flex-col gap-1.5">
-                                                {(exercise.sets ?? []).map((set, sIdx) => (
-                                                    <div key={set.id} className="group/set grid grid-cols-[20px_1fr_1fr_1fr_1fr_16px_16px] gap-2 items-center">
-                                                        <span className="text-xs text-muted-foreground">{sIdx + 1}</span>
-                                                        <TextField value={String(set.reps ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", val)} aria-label={t('reps')}>
-                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
-                                                        </TextField>
-                                                        <TextField value={String(set.rest_seconds ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", val)} aria-label={t('rest')}>
-                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
-                                                        </TextField>
-                                                        <TextField value={String(set.tempo ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", val)} aria-label={t('tempo')}>
-                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
-                                                        </TextField>
-                                                        <TextField value={String(set.rir ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", val)} aria-label={t('rir')}>
-                                                            <Input onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
-                                                        </TextField>
-                                                        <button
-                                                            onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
-                                                            className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
-                                                            title={t('duplicateSet')}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteSet(selectedDay.id, exercise.id, set.id)}
-                                                            className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover/set:opacity-100"
-                                                            title={t('deleteSet')}
-                                                        >
-                                                            <TrashIcon size={12} />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            {/* Sets table */}
+                                            <Table variant="primary" aria-label="Sets" className="mb-1">
+                                                <Table.ScrollContainer>
+                                                    <Table.Content aria-label="Sets">
+                                                        <Table.Header>
+                                                            <Table.Column isRowHeader className="w-8 px-2">#</Table.Column>
+                                                            <Table.Column className="px-1">{t('reps')}</Table.Column>
+                                                            <Table.Column className="px-1">{t('rest')}</Table.Column>
+                                                            <Table.Column className="px-1">{t('tempo')}</Table.Column>
+                                                            <Table.Column className="px-1">{t('rir')}</Table.Column>
+                                                            <Table.Column className="w-12 px-2 text-end"><span className="sr-only">Actions</span></Table.Column>
+                                                        </Table.Header>
+                                                        <Table.Body>
+                                                            {(exercise.sets ?? []).map((set, sIdx) => (
+                                                                <Table.Row key={set.id} id={set.id} className="group/set">
+                                                                    <Table.Cell className="px-2 text-xs text-muted">{sIdx + 1}</Table.Cell>
+                                                                    <Table.Cell className="px-1">
+                                                                        <TextField className="min-w-0" value={String(set.reps ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", val)} aria-label={t('reps')}>
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                        </TextField>
+                                                                    </Table.Cell>
+                                                                    <Table.Cell className="px-1">
+                                                                        <TextField className="min-w-0" value={String(set.rest_seconds ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", val)} aria-label={t('rest')}>
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                        </TextField>
+                                                                    </Table.Cell>
+                                                                    <Table.Cell className="px-1">
+                                                                        <TextField className="min-w-0" value={String(set.tempo ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", val)} aria-label={t('tempo')}>
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                        </TextField>
+                                                                    </Table.Cell>
+                                                                    <Table.Cell className="px-1">
+                                                                        <TextField className="min-w-0" value={String(set.rir ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", val)} aria-label={t('rir')}>
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                        </TextField>
+                                                                    </Table.Cell>
+                                                                    <Table.Cell className="px-1">
+                                                                        <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover/set:opacity-100 focus-within:opacity-100">
+                                                                            <button
+                                                                                onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
+                                                                                className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                                                title={t('duplicateSet')}
+                                                                            >
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                                                                                </svg>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleDeleteSet(selectedDay.id, exercise.id, set.id)}
+                                                                                className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                                                                title={t('deleteSet')}
+                                                                            >
+                                                                                <TrashIcon size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </Table.Cell>
+                                                                </Table.Row>
+                                                            ))}
+                                                        </Table.Body>
+                                                    </Table.Content>
+                                                </Table.ScrollContainer>
+                                            </Table>
 
                                             <div className="mt-2 flex items-center gap-2">
                                                 <Button size="sm" variant="primary" onClick={() => handleAddSet(selectedDay.id, exercise.id)}>
@@ -283,6 +316,8 @@ export default function RightPanel({
                                                     </Button>
                                                 )}
                                             </div>
+                                            </div>
+                                            )}
                                         </div>
                                         );
                                         });
@@ -290,7 +325,7 @@ export default function RightPanel({
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
                                         <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
-                                            <p className="text-sm text-muted-foreground">{t('noExercises')}</p>
+                                            <Text type="body-sm" color="muted">{t('noExercises')}</Text>
                                         </Surface>
                                     )}
                                 </div>

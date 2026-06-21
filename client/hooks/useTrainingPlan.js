@@ -12,6 +12,9 @@ function normalizePlan(plan) {
         exercises: (day.exercises ?? []).map((exercise, exIdx) => ({
             ...exercise,
             exercise_order: exIdx + 1,
+            // The linked library exercise owns the name; prefer it over a stale
+            // stored value so the builder and a future re-save stay consistent.
+            name: exercise.library_name_en || exercise.name,
             sets: (exercise.sets ?? []).map((set, setIdx) => ({ ...set, set_order: setIdx + 1 })),
         })),
     }));
@@ -383,7 +386,9 @@ export function useTrainingPlan(clientId) {
                         ...(d.exercises ?? []),
                         {
                             id: makeTempId("exercise"),
-                            name: libraryItem?.name ?? `Exercise ${(d.exercises?.length ?? 0) + 1}`,
+                            name: libraryItem?.name_en ?? `Exercise ${(d.exercises?.length ?? 0) + 1}`,
+                            library_name_en: libraryItem?.name_en ?? null,
+                            library_name_ar: libraryItem?.name_ar ?? null,
                             equipment: libraryItem?.equipment ?? "",
                             notes: "",
                             exercise_library_id: libraryItem?.id ?? null,
@@ -412,7 +417,9 @@ export function useTrainingPlan(clientId) {
                 if (String(d.id) !== String(dayId)) return d;
                 const newExercises = libraryItems.map((item) => ({
                     id: makeTempId("exercise"),
-                    name: item.name,
+                    name: item.name_en,
+                    library_name_en: item.name_en ?? null,
+                    library_name_ar: item.name_ar ?? null,
                     equipment: item.equipment ?? "",
                     notes: "",
                     exercise_library_id: item.id ?? null,
@@ -438,22 +445,6 @@ export function useTrainingPlan(clientId) {
             days: (selectedPlan.days ?? []).map((d) => {
                 if (String(d.id) !== String(dayId)) return d;
                 return { ...d, exercises: (d.exercises ?? []).filter((e) => String(e.id) !== String(exerciseId)) };
-            }),
-        };
-        applyPlanUpdate(nextPlan);
-        markPlanDirty(selectedPlan.id);
-    }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
-
-    const handleRenameExercise = useCallback((dayId, exerciseId, name) => {
-        if (!selectedPlan) return;
-        const nextPlan = {
-            ...selectedPlan,
-            days: (selectedPlan.days ?? []).map((d) => {
-                if (String(d.id) !== String(dayId)) return d;
-                return {
-                    ...d,
-                    exercises: (d.exercises ?? []).map((e) => (String(e.id) === String(exerciseId) ? { ...e, name } : e)),
-                };
             }),
         };
         applyPlanUpdate(nextPlan);
@@ -746,7 +737,6 @@ export function useTrainingPlan(clientId) {
         handleAddExercise,
         handleAddMultipleExercises,
         handleDeleteExercise,
-        handleRenameExercise,
         handleUpdateExerciseNotes,
         handleAddSet,
         handleDuplicateSet,

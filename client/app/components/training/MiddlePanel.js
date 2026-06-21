@@ -21,6 +21,11 @@ const DuplicateIcon = () => (
         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
     </svg>
 );
+const StatusDot = () => (
+    <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
+        <circle cx="3" cy="3" r="3" fill="currentColor" />
+    </svg>
+);
 
 export default function MiddlePanel({
     selectedPlan,
@@ -98,7 +103,7 @@ export default function MiddlePanel({
 
     return (
         <>
-            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
                 {/* Plan name + actions */}
                 <div className="flex justify-between items-center mb-3 gap-4">
                     <InlineEditField
@@ -134,13 +139,15 @@ export default function MiddlePanel({
                         </Button>
                     )}
                     {isSelectedPlanDirty && (
-                        <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
-                            {t('unsaved')}
+                        <Chip size="sm" color="warning" variant="soft" className="shrink-0">
+                            <StatusDot />
+                            <Chip.Label>{t('unsaved')}</Chip.Label>
                         </Chip>
                     )}
                     {!isSelectedPlanDirty && saveStatus === "saved" && (
-                        <Chip size="sm" className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 shrink-0">
-                            {t('saved')}
+                        <Chip size="sm" color="success" variant="soft" className="shrink-0">
+                            <StatusDot />
+                            <Chip.Label>{t('saved')}</Chip.Label>
                         </Chip>
                     )}
 
@@ -182,7 +189,7 @@ export default function MiddlePanel({
                     </Disclosure.Heading>
                 </Disclosure>
                 {expandedKeys.has("days") && (
-                <ScrollShadow className="flex flex-col gap-2 flex-1 min-h-0" hideScrollBar>
+                <ScrollShadow className="flex flex-col gap-1 flex-1 min-h-0" hideScrollBar>
                             {previewDays.map((day) => {
                                 const originalIndex = currentDays.findIndex((d) => d.id === day.id);
                                 const isDragging = dragIndex !== null && currentDays[dragIndex]?.id === day.id;
@@ -197,41 +204,38 @@ export default function MiddlePanel({
                                         onDrop={() => { handleReorderDays(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                         onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
                                         onClick={() => handleSelectDay(day.id)}
-                                        className={`group relative w-full text-left rounded-lg border px-3 py-3 transition-all cursor-pointer select-none ${
-                                            isDragging ? "opacity-30 scale-95" : ""
+                                        className={`group relative flex items-center gap-3 rounded-lg px-2.5 py-2 cursor-pointer select-none transition-colors ${
+                                            isDragging ? "opacity-40" : ""
                                         } ${
-                                            isActive ? "bg-primary/10 border-primary/30" : "border-border hover:bg-default"
+                                            isActive ? "bg-primary/8" : "hover:bg-default"
                                         }`}
                                     >
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-muted-foreground/50 hover:text-muted-foreground cursor-grab shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
-                                                    <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
-                                                    <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
-                                                    <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
-                                                </svg>
-                                            </span>
-                                            <div className="flex-1 min-w-0 pr-14">
-                                                <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
-                                                    {day.name}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {day.exercises?.length ?? 0} exercises · {setCount} sets
-                                                </p>
-                                            </div>
+                                        {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-full bg-primary" />}
+                                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm font-semibold cursor-grab transition-colors ${
+                                            isActive ? "bg-primary/15 text-primary" : "bg-default text-muted group-hover:text-foreground"
+                                        }`}>
+                                            {originalIndex + 1}
                                         </div>
-                                        <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold truncate text-foreground">
+                                                {day.name}
+                                            </p>
+                                            <p className="text-xs leading-5 text-muted truncate">
+                                                {day.exercises?.length ?? 0} exercises · {setCount} sets
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
                                             <button
                                                 title={tCommon('duplicate')}
                                                 onClick={(e) => { e.stopPropagation(); handleDuplicateDay(day.id); }}
-                                                className="cursor-pointer p-1 rounded text-muted-foreground hover:text-foreground hover:bg-card/80 transition-colors"
+                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-foreground hover:bg-default transition-colors"
                                             >
                                                 <DuplicateIcon />
                                             </button>
                                             <button
                                                 title={tCommon('delete')}
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteDay(day.id); }}
-                                                className="cursor-pointer p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
                                             >
                                                 <TrashIcon />
                                             </button>

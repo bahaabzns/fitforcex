@@ -118,7 +118,7 @@ export default function MiddlePanel({
 
     return (
         <>
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
             {/* Header */}
             <div className="flex justify-between items-center mb-3 gap-4">
                 <InlineEditField

@@ -218,6 +218,14 @@
 
 /* ── RTL overrides ── */
 
+/* Sidebar divider: the .sidebar border is physical (border-right) so in RTL,
+   where the sidebar sits on the right, it lands on the outer screen edge.
+   Move it to the left so it stays on the divider between sidebar and content. */
+[dir="rtl"] .sidebar {
+  border-right: 0;
+  border-left: 1px solid var(--sidebar-border);
+}
+
 /* Prevent tab text from wrapping to multiple lines (affects both LTR and RTL) */
 .tabs__tab {
   white-space: nowrap;

@@ -22,9 +22,14 @@ const TrashIcon = () => (
     </svg>
 );
 
-const CheckIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
+const StatusDot = () => (
+    <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
+        <circle cx="3" cy="3" r="3" fill="currentColor" />
+    </svg>
+);
+const PlanIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
     </svg>
 );
 
@@ -83,7 +88,7 @@ export default function LeftPanel({
     const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
             <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Plans Section ── */}
@@ -168,7 +173,7 @@ export default function LeftPanel({
                                         </div>
                                     </Surface>
                                 ) : (
-                                    <div className="divide-y divide-border">
+                                    <div className="flex flex-col gap-1">
                                         {plans.map((plan) => {
                                             const isActive = String(selectedPlan?.id) === String(plan.id);
                                             const isPlanDirty = dirtyPlanIds?.includes(String(plan.id));
@@ -176,46 +181,47 @@ export default function LeftPanel({
                                                 <div
                                                     key={plan.id}
                                                     onClick={() => handleSelectedPlan(plan)}
-                                                    className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-lg transition-all duration-150 ${
-                                                        isActive
-                                                            ? "bg-primary/10 border border-primary/30"
-                                                            : "hover:bg-default border border-transparent"
+                                                    className={`group relative flex items-center gap-3 rounded-lg px-2.5 py-2 cursor-pointer select-none transition-colors ${
+                                                        isActive ? "bg-primary/8" : "hover:bg-default"
                                                     }`}
                                                 >
-                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-primary" : "bg-border group-hover:bg-muted-foreground"}`} />
+                                                    {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-full bg-primary" />}
+                                                    <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                                                        isActive ? "bg-primary/15 text-primary" : "bg-default text-muted group-hover:text-foreground"
+                                                    }`}>
+                                                        <PlanIcon />
+                                                    </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
-                                                            <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
+                                                            <p className="flex-1 min-w-0 text-sm font-semibold truncate text-foreground">
                                                                 {plan.name}
                                                             </p>
                                                             {plan.status === "active" && (
-                                                                <Chip size="sm" className="bg-green-500/15 text-green-600 shrink-0">
-                                                                    <span className="flex items-center gap-0.5"><CheckIcon /> {t('active')}</span>
+                                                                <Chip size="sm" color="success" variant="soft" className="shrink-0">
+                                                                    <StatusDot />
+                                                                    <Chip.Label>{t('active')}</Chip.Label>
                                                                 </Chip>
                                                             )}
                                                             {isPlanDirty && (
-                                                                <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
-                                                                    {t('unsaved')}
-                                                                </Chip>
+                                                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title={t('unsaved')} />
                                                             )}
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                                            {plan.day_count ?? plan.days?.length ?? 0}{" "}
-                                                            {t('days')}
+                                                        <p className="text-xs leading-5 text-muted truncate">
+                                                            {t('daysCount', { count: plan.day_count ?? plan.days?.length ?? 0 })}
                                                             {" · "}{t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
                                                         </p>
                                                     </div>
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                    <div className="flex items-center gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
                                                         <button
                                                             title={t('duplicatePlan')}
-                                                            className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
+                                                            className="cursor-pointer p-1 rounded-md text-muted hover:text-foreground hover:bg-default transition-colors"
                                                             onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
                                                         >
                                                             <DuplicateIcon />
                                                         </button>
                                                         <button
                                                             title={t('deletePlan')}
-                                                            className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                            className="cursor-pointer p-1 rounded-md text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
                                                             onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
                                                         >
                                                             <TrashIcon />

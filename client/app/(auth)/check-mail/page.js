@@ -1,32 +1,31 @@
 'use client';
 
 import { useSearchParams } from "next/navigation";
-import { Button } from "@heroui/react/button";
+import { useTranslations } from "next-intl";
+import { buttonVariants } from "@heroui/react/button";
 import { Suspense } from "react";
 
 function CheckMailContent() {
+    const t = useTranslations('auth');
     const searchParams = useSearchParams();
-    const email = searchParams.get('email') || 'your email';
+    const email = searchParams.get('email') || t('yourEmail');
 
     return (
         <div className="auth-wrapper">
             <div className="auth-card" style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>📬</div>
-                <h1 className="auth-title">Check your email</h1>
+                <h1 className="auth-title">{t('checkMailTitle')}</h1>
                 <p className="text-sm text-muted-foreground mb-6">
-                    We sent a 6-digit code to <strong>{email}</strong>.
-                    Enter it on the reset password page.
+                    {t.rich('checkMailBody', { email, b: (chunks) => <strong>{chunks}</strong> })}
                 </p>
-                <Button
-                    as="a"
+                <a
                     href={`/reset-password?email=${encodeURIComponent(email)}`}
-                    color="primary"
-                    fullWidth
+                    className={buttonVariants({ fullWidth: true })}
                 >
-                    Enter Reset Code
-                </Button>
+                    {t('enterResetCode')}
+                </a>
                 <p className="auth-link mt-4">
-                    <a href="/login">Back to login</a>
+                    <a href="/login">{t('backToLogin')}</a>
                 </p>
             </div>
         </div>

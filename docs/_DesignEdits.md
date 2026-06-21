@@ -1,3 +1,5 @@
+# add custom branding for logo and colors
+
 # add cardio, supplements and drugs sections
 
 # mark as transformation 

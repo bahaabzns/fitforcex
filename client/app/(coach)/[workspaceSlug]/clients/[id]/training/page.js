@@ -74,7 +74,6 @@ export default function TrainingPage({ onDirtyChange }) {
         handleAddExercise,
         handleAddMultipleExercises,
         handleDeleteExercise,
-        handleRenameExercise,
         handleUpdateExerciseNotes,
         handleReorderExercises,
         handleAddSet,
@@ -180,7 +179,6 @@ export default function TrainingPage({ onDirtyChange }) {
                         handleAddExercise={handleAddExercise}
                         handleAddMultipleExercises={handleAddMultipleExercises}
                         handleDeleteExercise={handleDeleteExercise}
-                        handleRenameExercise={handleRenameExercise}
                         handleUpdateExerciseNotes={handleUpdateExerciseNotes}
                         handleReorderExercises={handleReorderExercises}
                         handleRenameDay={handleRenameDay}

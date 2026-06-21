@@ -17,17 +17,14 @@ function LoginContent() {
     const searchParams = useSearchParams();
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState(searchParams.get('reset') === 'success' ? 'Password reset successfully. You can now log in.' : '');
+    const [success, setSuccess] = useState(searchParams.get('reset') === 'success' ? t('resetSuccess') : '');
     const [loading, setLoading] = useState(false);
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
         api.get('/api/auth/me')
             .then(res => {
-                if (res.data?.emailVerified === false) {
-                    router.push('/verify-email-required');
-                    return;
-                }
+                // Email-verification gate disabled for now.
                 const slug = res.data?.currentWorkspace?.slug;
                 if (slug) {
                     redirectToDashboard(slug);
@@ -46,10 +43,7 @@ function LoginContent() {
         try {
             await api.post('/api/auth/login', formData);
             const me = await api.get('/api/auth/me');
-            if (me.data?.emailVerified === false) {
-                router.push('/verify-email-required');
-                return;
-            }
+            // Email-verification gate disabled for now.
             const slug = me.data?.currentWorkspace?.slug;
             if (!slug) { router.push('/login'); return; }
             redirectToDashboard(slug);
@@ -79,6 +73,7 @@ function LoginContent() {
                     <TextField
                         fullWidth
                         isRequired
+                        variant="secondary"
                         value={formData.email}
                         onChange={(val) => setFormData(prev => ({ ...prev, email: val }))}
                     >
@@ -88,6 +83,7 @@ function LoginContent() {
                     <TextField
                         fullWidth
                         isRequired
+                        variant="secondary"
                         value={formData.password}
                         onChange={(val) => setFormData(prev => ({ ...prev, password: val }))}
                     >
@@ -100,7 +96,7 @@ function LoginContent() {
                         {loading ? t('loggingIn') : t('login')}
                     </Button>
                     <p className="auth-link">
-                        <a href="/forgot-password">Forgot password?</a>
+                        <a href="/forgot-password">{t('forgotPassword')}</a>
                     </p>
                     <p className="auth-link">
                         {t('noAccount')}{" "}
