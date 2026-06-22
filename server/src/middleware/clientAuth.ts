@@ -3,7 +3,10 @@ import { Request, Response, NextFunction } from 'express';
 import { env } from '../config/env';
 
 export function clientAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
-    const token = req.cookies.client_token;
+    // Browsers send the httpOnly cookie; mobile/API clients send a Bearer token.
+    const bearer = req.headers.authorization;
+    const token = req.cookies.client_token
+        ?? (bearer?.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : undefined);
     if (!token) {
         res.status(401).json({ message: 'Not authenticated' });
         return;

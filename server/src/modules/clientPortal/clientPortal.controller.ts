@@ -183,7 +183,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
             secure:   env.NODE_ENV === 'production',
             sameSite: 'strict',
             maxAge:   7 * 24 * 60 * 60 * 1000,
-        }).status(200).json({ message: 'Login successful' });
+        }).status(200).json({ message: 'Login successful', token });
     } catch (err) {
         next(err);
     }
