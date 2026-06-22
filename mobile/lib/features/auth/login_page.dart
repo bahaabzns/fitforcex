@@ -27,6 +27,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _password = TextEditingController();
 
   bool _submitting = false;
+  bool _obscurePassword = true;
   String? _error;
 
   @override
@@ -130,12 +131,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _password,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
                       autofillHints: const [AutofillHints.password],
                       onFieldSubmitted: (_) => _submit(),
-                      decoration:
-                          InputDecoration(labelText: l10n.loginPasswordLabel),
+                      decoration: InputDecoration(
+                        labelText: l10n.loginPasswordLabel,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          tooltip: _obscurePassword
+                              ? l10n.loginPasswordShow
+                              : l10n.loginPasswordHide,
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                        ),
+                      ),
                       validator: (v) => (v == null || v.isEmpty)
                           ? l10n.loginPasswordLabel
                           : null,

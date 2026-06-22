@@ -22,6 +22,8 @@
   "loginWorkspaceHint": "مساحة عمل مدربك",
   "loginEmailLabel": "البريد الإلكتروني",
   "loginPasswordLabel": "كلمة المرور",
+  "loginPasswordShow": "إظهار كلمة المرور",
+  "loginPasswordHide": "إخفاء كلمة المرور",
   "loginSubmit": "تسجيل الدخول",
   "loginSubmitting": "جارٍ تسجيل الدخول…",
   "loginPortalHint": "البوابة: {slug}",

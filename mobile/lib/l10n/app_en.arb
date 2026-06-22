@@ -22,6 +22,8 @@
   "loginWorkspaceHint": "Your coach's workspace",
   "loginEmailLabel": "Email",
   "loginPasswordLabel": "Password",
+  "loginPasswordShow": "Show password",
+  "loginPasswordHide": "Hide password",
   "loginSubmit": "Sign in",
   "loginSubmitting": "Signing in…",
   "loginPortalHint": "Portal: {slug}",
