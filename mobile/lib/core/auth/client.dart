@@ -37,8 +37,9 @@ class Client {
       lname: (json['lname'] as String?) ?? '',
       email: (json['email'] as String?) ?? '',
       workspaceId: (json['workspace_id'] as String?) ?? '',
-      phone: json['phone'] as String?,
-      clientCode: json['client_code'] as String?,
+      phone: json['phone']?.toString(),
+      // client_code comes back as a number (e.g. 6302); coerce to String.
+      clientCode: json['client_code']?.toString(),
     );
   }
 }
