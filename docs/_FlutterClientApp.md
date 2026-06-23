@@ -297,20 +297,22 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 
 > Each phase ends with a runnable, testable build. Order front-loads the auth spine and the highest-value flows (nutrition + training), matching how the portal proved itself.
 
-**Phase 0 — Spine (no features)**
+> **Status (live):** Phase 0 ✅ · Phase 1 ✅ · Phase 2 ✅ (nutrition) · Phase 3 ✅ (training plan view) — all verified with `flutter analyze` + tests green (32 tests). Next: Phase 4 (Training Mode session + history + progress). Note: the training screen's Start/History/Progress buttons are placeholders until Phase 4.
+
+**Phase 0 — Spine (no features)** ✅
 - Flutter project, flavors, theme tokens, i18n scaffold (EN/AR + RTL), go_router with auth redirect, dio client + interceptors, secure token storage, `AsyncValue` UI pattern, shared widgets (EmptyState, Skeleton, ErrorView, CollapsibleNote, PillTabs), CI build green.
 - **Backend coordination:** confirm/add bearer-token login + `workspace?slug=` (§12).
 - Exit: app boots → splash → login → `/me` → empty Home shell with bottom tabs.
 
-**Phase 1 — Auth & Shell**
+**Phase 1 — Auth & Shell** ✅ (incl. backend bearer login + workspace lookup + branded login + deep links)
 - Workspace selection (manual + deep link), branded login, `/me`, logout, profile screen (theme + language + logout), session expiry handling.
 - Exit: full auth loop + profile working in both locales.
 
-**Phase 2 — Nutrition**
+**Phase 2 — Nutrition** ✅
 - `/active-plan` model + screen: macros donut, cycle tabs, collapsible notes, expandable meals, alternatives, shopping-list sheet. `nutrition_calc.dart` port + unit tests.
 - Exit: nutrition parity with web, RTL verified.
 
-**Phase 3 — Training plan view**
+**Phase 3 — Training plan view** ✅
 - `/active-training-plan` model + screen: day tabs, notes, exercise cards, chips, sets grid, alternatives, inline video (YouTube + uploaded).
 - Exit: training plan parity.
 
