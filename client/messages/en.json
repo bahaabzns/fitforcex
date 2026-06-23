@@ -414,7 +414,10 @@
     "dayCount": "{count, plural, one {# day} other {# days}}",
     "exerciseCount": "{count, plural, one {# exercise} other {# exercises}}",
     "untitledPlan": "Untitled Plan",
-    "untitledDay": "Untitled Day"
+    "untitledDay": "Untitled Day",
+    "createExerciseNamed": "Create “{name}”",
+    "creatingExercise": "Creating…",
+    "createExerciseFailed": "Could not create exercise"
   },
   "nutrition": {
     "savePlan": "Save Plan",
@@ -539,7 +542,10 @@
     "cycleCount": "{count, plural, one {# cycle} other {# cycles}}",
     "untitledPlan": "Untitled Plan",
     "untitledCycle": "Untitled Cycle",
-    "untitledMeal": "Untitled Meal"
+    "untitledMeal": "Untitled Meal",
+    "createFoodNamed": "Create “{name}”",
+    "creatingFood": "Creating…",
+    "createFoodFailed": "Could not create food item"
   },
   "forms": {
     "createForm": "+ New Form",
@@ -700,7 +706,8 @@
     "checkMailTitle": "Check your email",
     "checkMailBody": "We sent a 6-digit code to <b>{email}</b>. Enter it on the reset password page.",
     "yourEmail": "your email",
-    "enterResetCode": "Enter Reset Code"
+    "enterResetCode": "Enter Reset Code",
+    "phoneRequired": "Phone number is required"
   },
   "settings": {
     "profile": "Profile",

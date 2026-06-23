@@ -18,6 +18,8 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const [filterGroup, setFilterGroup] = useState("");
     const [filterEquipment, setFilterEquipment] = useState("");
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [creating, setCreating] = useState(false);
+    const [createError, setCreateError] = useState("");
 
     useEffect(() => {
         if (!open) return;
@@ -76,6 +78,25 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const handleConfirm = () => {
         const selectedItems = items.filter((item) => selectedIds.has(item.id));
         onAddExercises(selectedItems);
+    };
+
+    // Smart empty state: create the searched exercise in context, then add it
+    // straight to the workout (parent closes the picker on add).
+    const handleCreateExercise = async () => {
+        const name = search.trim();
+        if (!name) return;
+        setCreating(true);
+        setCreateError("");
+        try {
+            const res = await api.post("/api/training/exercise-library", { name_en: name });
+            const created = res.data;
+            setItems((prev) => [created, ...prev]);
+            onAddExercises([created]);
+        } catch (err) {
+            setCreateError(err.response?.data?.error || t('createExerciseFailed'));
+        } finally {
+            setCreating(false);
+        }
     };
 
     return (
@@ -158,10 +179,22 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
                             <tbody>
                                 {filtered.length === 0 && (
                                     <tr>
-                                        <td colSpan={4} className="text-center py-12 text-muted-foreground">
-                                            {items.length === 0
-                                                ? t('noExercisesInLibrary')
-                                                : t('noExercisesMatch')}
+                                        <td colSpan={4} className="py-12 text-muted-foreground">
+                                            <div className="flex flex-col items-center gap-3 text-center">
+                                                <span>
+                                                    {items.length === 0
+                                                        ? t('noExercisesInLibrary')
+                                                        : t('noExercisesMatch')}
+                                                </span>
+                                                {search.trim() && (
+                                                    <Button variant="primary" isDisabled={creating} onClick={handleCreateExercise}>
+                                                        {creating
+                                                            ? t('creatingExercise')
+                                                            : t('createExerciseNamed', { name: search.trim() })}
+                                                    </Button>
+                                                )}
+                                                {createError && <span className="text-xs text-destructive">{createError}</span>}
+                                            </div>
                                         </td>
                                     </tr>
                                 )}

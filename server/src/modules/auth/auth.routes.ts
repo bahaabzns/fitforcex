@@ -75,6 +75,20 @@ router.get('/me', authMiddleware, authController.getMe);
 
 /**
  * @openapi
+ * /auth/clone-status:
+ *   get:
+ *     summary: Default-libraries clone status for the active workspace (onboarding)
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Clone status (pending|cloning|ready|failed) and library counts
+ */
+router.get('/clone-status', authMiddleware, authController.getCloneStatus);
+
+/**
+ * @openapi
  * /auth/logout:
  *   post:
  *     summary: Log out and revoke the current session

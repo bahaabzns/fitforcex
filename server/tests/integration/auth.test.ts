@@ -2,6 +2,41 @@ import { request, createTestUser } from '../helpers/testServer';
 import { testPrisma } from '../helpers/testDb';
 import { createId } from '@paralleldrive/cuid2';
 
+describe('POST /auth/register — phone required + email/phone uniqueness', () => {
+    const base = { fname: 'New', lname: 'Coach', password: 'password123' };
+
+    test('registers a coach with a unique email + phone (201)', async () => {
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email: `reg-${createId()}@test.com`, phone: `+2010${Date.now()}` });
+        expect(res.status).toBe(201);
+    });
+
+    test('rejects registration without a phone number (400)', async () => {
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email: `nophone-${createId()}@test.com` });
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/phone/i);
+    });
+
+    test('rejects a duplicate email (409)', async () => {
+        const email = `dupe-${createId()}@test.com`;
+        await createTestUser({ email, phone: `+2010${Date.now()}1` });
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email, phone: `+2010${Date.now()}2` });
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/email/i);
+    });
+
+    test('rejects a duplicate phone number (409)', async () => {
+        const phone = `+2010${Date.now()}3`;
+        await createTestUser({ email: `phone-owner-${createId()}@test.com`, phone });
+        const res = await request.post('/api/auth/register')
+            .send({ ...base, email: `other-${createId()}@test.com`, phone });
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/phone/i);
+    });
+});
+
 describe('P1-1 — Forgot / Reset Password', () => {
     test('POST /auth/forgot-password returns 200 for known email', async () => {
         await createTestUser({ email: 'known@test.com' });

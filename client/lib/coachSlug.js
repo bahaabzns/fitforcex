@@ -74,15 +74,22 @@ export function buildPortalUrl(slug) {
 }
 
 /**
- * Navigates to the coach dashboard on my.{ROOT_DOMAIN}/{slug}/dashboard.
+ * Navigates to a path inside a workspace on my.{ROOT_DOMAIN}/{slug}/{subpath}.
  * Uses window.location.href so it works cross-subdomain (e.g. fitforce.app → my.fitforce.app).
  * In dev (localhost) stays on the same host to avoid subdomain complexity.
  */
-export function redirectToDashboard(slug) {
+export function redirectToWorkspace(slug, subpath = 'dashboard') {
     if (!slug || typeof window === 'undefined') return;
     const { protocol, hostname, port } = window.location;
     const targetHost = hostname === 'localhost'
         ? (port ? `localhost:${port}` : 'localhost')
         : (port ? `my.${ROOT_DOMAIN}:${port}` : `my.${ROOT_DOMAIN}`);
-    window.location.href = `${protocol}//${targetHost}/${slug}/dashboard`;
+    window.location.href = `${protocol}//${targetHost}/${slug}/${subpath.replace(/^\//, '')}`;
+}
+
+/**
+ * Navigates to the coach dashboard on my.{ROOT_DOMAIN}/{slug}/dashboard.
+ */
+export function redirectToDashboard(slug) {
+    redirectToWorkspace(slug, 'dashboard');
 }

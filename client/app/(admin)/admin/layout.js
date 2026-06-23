@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Users, Building2, Package, CreditCard, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, Package, CreditCard, Library, LogOut } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { Avatar } from '@heroui/react/avatar';
@@ -13,6 +13,7 @@ const NAV = [
     { href: '/', label: 'Overview', icon: LayoutDashboard, exact: true },
     { href: '/users',      label: 'Users',       icon: Users },
     { href: '/workspaces', label: 'Workspaces',  icon: Building2 },
+    { href: '/libraries',  label: 'Default Libraries', icon: Library },
     { href: '/plans',      label: 'Plans',       icon: Package },
     { href: '/payments',   label: 'Payments',    icon: CreditCard },
 ];

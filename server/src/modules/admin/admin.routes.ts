@@ -2,6 +2,7 @@ import { Router } from 'express';
 import adminAuthMiddleware from '../../middleware/adminAuth';
 import { loginLimiter } from '../../middleware/rateLimit';
 import * as adminController from './admin.controller';
+import * as libraryController from './defaultLibraries.controller';
 
 const router = Router();
 
@@ -278,5 +279,70 @@ router.get('/payments/stats',              adminAuthMiddleware, adminController.
 router.get('/payments',                    adminAuthMiddleware, adminController.getPayments);
 router.post('/payments/:id/mark-paid',     adminAuthMiddleware, adminController.markPaymentPaid);
 router.patch('/payments/:id/status',       adminAuthMiddleware, adminController.updatePaymentStatus);
+
+/**
+ * @openapi
+ * /admin/libraries/{resource}:
+ *   get:
+ *     summary: "List Default Library records (resource: muscle-groups, equipment, exercises, food-categories, food-items)"
+ *     tags: [Admin, DefaultLibraries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: resource, required: true, schema: { type: string } }
+ *       - { in: query, name: search, schema: { type: string } }
+ *       - { in: query, name: limit, schema: { type: integer } }
+ *       - { in: query, name: offset, schema: { type: integer } }
+ *     responses:
+ *       200: { description: "records and total count" }
+ *   post:
+ *     summary: Create a Default Library record
+ *     tags: [Admin, DefaultLibraries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: resource, required: true, schema: { type: string } }
+ *     responses:
+ *       201: { description: Record created }
+ *
+ * /admin/libraries/{resource}/import:
+ *   post:
+ *     summary: "Bulk-import Default Library records from a records array"
+ *     tags: [Admin, DefaultLibraries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: resource, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: "imported, skipped and errors summary" }
+ *
+ * /admin/libraries/{resource}/{id}:
+ *   put:
+ *     summary: Update a Default Library record
+ *     tags: [Admin, DefaultLibraries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: resource, required: true, schema: { type: string } }
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Record updated }
+ *   delete:
+ *     summary: Delete a Default Library record
+ *     tags: [Admin, DefaultLibraries]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: resource, required: true, schema: { type: string } }
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       204: { description: Record deleted }
+ */
+// Specific (/import) before parameterized (/:id) so it is not shadowed.
+router.get('/libraries/:resource',             adminAuthMiddleware, libraryController.listRecords);
+router.post('/libraries/:resource',            adminAuthMiddleware, libraryController.createRecord);
+router.post('/libraries/:resource/import',     adminAuthMiddleware, libraryController.importRecords);
+router.put('/libraries/:resource/:id',         adminAuthMiddleware, libraryController.updateRecord);
+router.delete('/libraries/:resource/:id',      adminAuthMiddleware, libraryController.deleteRecord);
 
 export default router;

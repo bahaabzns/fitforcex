@@ -414,7 +414,10 @@
     "dayCount": "{count, plural, one {# يوم} two {# يومان} few {# أيام} many {# يوماً} other {# أيام}}",
     "exerciseCount": "{count, plural, one {# تمرين} two {# تمرينان} few {# تمارين} many {# تمريناً} other {# تمارين}}",
     "untitledPlan": "خطة بدون عنوان",
-    "untitledDay": "يوم بدون عنوان"
+    "untitledDay": "يوم بدون عنوان",
+    "createExerciseNamed": "إنشاء \"{name}\"",
+    "creatingExercise": "جارٍ الإنشاء…",
+    "createExerciseFailed": "تعذّر إنشاء التمرين"
   },
   "nutrition": {
     "savePlan": "حفظ الخطة",
@@ -539,7 +542,10 @@
     "cycleCount": "{count, plural, one {# دورة} two {# دورتان} few {# دورات} many {# دورات} other {# دورات}}",
     "untitledPlan": "خطة بدون عنوان",
     "untitledCycle": "دورة بدون عنوان",
-    "untitledMeal": "وجبة بدون عنوان"
+    "untitledMeal": "وجبة بدون عنوان",
+    "createFoodNamed": "إنشاء \"{name}\"",
+    "creatingFood": "جارٍ الإنشاء…",
+    "createFoodFailed": "تعذّر إنشاء الصنف"
   },
   "forms": {
     "createForm": "+ استمارة جديدة",
@@ -700,7 +706,8 @@
     "checkMailTitle": "تحقق من بريدك الإلكتروني",
     "checkMailBody": "أرسلنا رمزاً مكوناً من 6 أرقام إلى <b>{email}</b>. أدخله في صفحة إعادة تعيين كلمة المرور.",
     "yourEmail": "بريدك الإلكتروني",
-    "enterResetCode": "إدخال رمز إعادة التعيين"
+    "enterResetCode": "إدخال رمز إعادة التعيين",
+    "phoneRequired": "رقم الهاتف مطلوب"
   },
   "settings": {
     "profile": "الملف الشخصي",

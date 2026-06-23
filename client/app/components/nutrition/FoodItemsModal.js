@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
@@ -10,10 +11,17 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
     const t = useTranslations("nutrition");
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [categoryFilter, setCategoryFilter] = useState(lockedCategory || '');
+    // Locally-created items (parent owns foodItems) so created foods show immediately.
+    const [extraItems, setExtraItems] = useState([]);
+    const [creating, setCreating] = useState(false);
+    const [createError, setCreateError] = useState('');
 
-    const categories = [...new Set(foodItems.map(fi => fi.food_category).filter(Boolean))];
+    useEffect(() => { if (!open) { setExtraItems([]); setSelectedIds(new Set()); setCreateError(''); } }, [open]);
 
-    const filtered = foodItems.filter(fi => {
+    const allFoodItems = [...extraItems, ...foodItems];
+    const categories = [...new Set(allFoodItems.map(fi => fi.food_category).filter(Boolean))];
+
+    const filtered = allFoodItems.filter(fi => {
         const matchesSearch = (fi.name_en || fi.name_ar || '').toLowerCase().includes((foodSearchQuery || '').toLowerCase());
         const matchesCategory = lockedCategory
             ? fi.food_category === lockedCategory
@@ -44,8 +52,31 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
     };
 
     const handleConfirm = () => {
-        const selectedItems = foodItems.filter(fi => selectedIds.has(fi.id));
+        const selectedItems = allFoodItems.filter(fi => selectedIds.has(fi.id));
         onAddItems(selectedItems);
+    };
+
+    // Smart empty state: create the searched food in context, show it in the list,
+    // and add it straight to the meal/alternatives.
+    const handleCreateFood = async () => {
+        const name = (foodSearchQuery || '').trim();
+        if (!name) return;
+        setCreating(true);
+        setCreateError('');
+        try {
+            const res = await api.post('/api/nutrition/food-items', {
+                name_en: name,
+                food_category: lockedCategory || null,
+                calories_per_serving: 0, protein_per_serving: 0, carbs_per_serving: 0, fats_per_serving: 0,
+            });
+            const created = res.data;
+            setExtraItems(prev => [created, ...prev]);
+            onAddItems([created]);
+        } catch (err) {
+            setCreateError(err.response?.data?.error || t('createFoodFailed'));
+        } finally {
+            setCreating(false);
+        }
     };
 
     return (
@@ -116,10 +147,22 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
                         <tbody>
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="text-center py-12 text-muted-foreground">
-                                        {foodSearchQuery
-                                            ? t("foodNoMatch", { query: foodSearchQuery })
-                                            : t("foodNoItems")}
+                                    <td colSpan={5} className="py-12 text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-3 text-center">
+                                            <span>
+                                                {foodSearchQuery
+                                                    ? t("foodNoMatch", { query: foodSearchQuery })
+                                                    : t("foodNoItems")}
+                                            </span>
+                                            {(foodSearchQuery || '').trim() && (
+                                                <Button variant="primary" isDisabled={creating} onClick={handleCreateFood}>
+                                                    {creating
+                                                        ? t('creatingFood')
+                                                        : t('createFoodNamed', { name: foodSearchQuery.trim() })}
+                                                </Button>
+                                            )}
+                                            {createError && <span className="text-xs text-destructive">{createError}</span>}
+                                        </div>
                                     </td>
                                 </tr>
                             )}

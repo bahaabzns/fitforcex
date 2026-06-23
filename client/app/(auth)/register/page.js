@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
+import { redirectToDashboard, redirectToWorkspace } from "@/lib/coachSlug";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { TextField } from "@heroui/react/textfield";
@@ -71,9 +72,10 @@ export default function RegisterPage() {
         const checkAuth = async () => {
             try {
                 const me = await api.get('/api/auth/me');
-                if (me.data) {
-                    const slug = me.data?.currentWorkspace?.slug;
-                    router.push(slug ? `/${slug}/dashboard` : '/login');
+                const slug = me.data?.currentWorkspace?.slug;
+                if (slug) {
+                    // Logged in → the coach app lives on the `my.` subdomain.
+                    redirectToDashboard(slug);
                     return;
                 }
                 setCheckingAuth(false);
@@ -87,11 +89,13 @@ export default function RegisterPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setError('');
-        const phone = formData.phoneNumber.trim()
-            ? `${formData.countryCode}${formData.phoneNumber.trim()}`
-            : undefined;
+        if (!formData.phoneNumber.trim()) {
+            setError(t('phoneRequired'));
+            return;
+        }
+        setLoading(true);
+        const phone = `${formData.countryCode}${formData.phoneNumber.trim()}`;
         try {
             const res = await api.post('/api/auth/register', {
                 fname: formData.fname,
@@ -103,9 +107,16 @@ export default function RegisterPage() {
                 period: periodKey,
             });
             const slug = res.data?.workspace_slug;
-            const billingUrl = slug ? `/${slug}/settings/billing` : '/login';
-            const finalUrl = planSlug ? `${billingUrl}?plan=${encodeURIComponent(planSlug)}` : billingUrl;
-            router.push(finalUrl);
+            if (!slug) { router.push('/login'); return; }
+            // Flag the new workspace so the dashboard shows the onboarding welcome once.
+            try { localStorage.setItem(`ff_show_welcome_${slug}`, '1'); } catch {}
+            // Register now auto-logs the coach in, so go straight into the workspace
+            // (on the my. subdomain). With a selected plan, land on billing to pay.
+            const subpath = planSlug
+                ? `settings/billing?plan=${encodeURIComponent(planSlug)}`
+                : 'dashboard';
+            redirectToWorkspace(slug, subpath);
+            return;
         } catch (err) {
             setError(err.response?.data?.message || t('registrationFailed'));
         } finally {
@@ -137,28 +148,29 @@ export default function RegisterPage() {
                 )}
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="grid grid-cols-2 gap-3">
-                        <TextField fullWidth isRequired value={formData.fname} onChange={set('fname')}>
+                        <TextField variant="secondary" fullWidth isRequired value={formData.fname} onChange={set('fname')}>
                             <Label>{t('firstName')}</Label>
                             <Input type="text" placeholder="John" />
                         </TextField>
-                        <TextField fullWidth isRequired value={formData.lname} onChange={set('lname')}>
+                        <TextField variant="secondary" fullWidth isRequired value={formData.lname} onChange={set('lname')}>
                             <Label>{t('lastName')}</Label>
                             <Input type="text" placeholder="Doe" />
                         </TextField>
                     </div>
-                    <TextField fullWidth isRequired value={formData.email} onChange={set('email')}>
+                    <TextField variant="secondary" fullWidth isRequired value={formData.email} onChange={set('email')}>
                         <Label>{t('email')}</Label>
                         <Input type="email" placeholder="you@example.com" />
                     </TextField>
-                    <TextField fullWidth isRequired value={formData.password} onChange={set('password')}>
+                    <TextField variant="secondary" fullWidth isRequired value={formData.password} onChange={set('password')}>
                         <Label>{t('password')}</Label>
                         <Input type="password" placeholder="••••••••" />
                     </TextField>
 
                     <div className="flex flex-col gap-1.5">
-                        <Label>{t('phoneNumber')}</Label>
+                        <Label>{t('phoneNumber')} <span className="text-destructive">*</span></Label>
                         <div className="flex gap-2">
                             <Autocomplete
+                                variant="secondary"
                                 value={formData.countryCode}
                                 onChange={(code) => { if (code) setFormData(prev => ({ ...prev, countryCode: code })); }}
                             >
@@ -193,6 +205,7 @@ export default function RegisterPage() {
                             </Autocomplete>
                             <Input
                                 type="tel"
+                                variant="secondary"
                                 value={formData.phoneNumber}
                                 onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                                 placeholder="1012345678"

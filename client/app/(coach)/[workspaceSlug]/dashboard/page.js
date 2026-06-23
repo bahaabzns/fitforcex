@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import { useRouter, useParams } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Users, ClipboardList, TrendingUp, AlertCircle } from 'lucide-react';
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
+import WelcomeOnboarding from "@/app/components/WelcomeOnboarding";
 
 const STATUS_CHIP = {
     Active:      "bg-green-500/15 text-green-700",
@@ -21,17 +23,29 @@ const STATUS_CHIP = {
 };
 
 export default function DashboardPage() {
+    const { formatDate } = useDateFormatter();
     const [data, setData] = useState(null);
     const router = useRouter();
     const { workspaceSlug } = useParams();
     const t = useTranslations('dashboard');
-    const locale = useLocale();
+    const [showWelcome, setShowWelcome] = useState(false);
 
     useEffect(() => {
         api.get('/api/dashboard')
             .then(res => setData(res.data))
             .catch(() => router.push('/login'));
     }, [router]);
+
+    // Show the onboarding gate to brand-new coaches (flagged at registration) or
+    // whenever the Default Libraries are still being cloned for this workspace.
+    useEffect(() => {
+        let flagged = false;
+        try { flagged = !!localStorage.getItem(`ff_show_welcome_${workspaceSlug}`); } catch {}
+        if (flagged) { setShowWelcome(true); return; }
+        api.get('/api/auth/clone-status')
+            .then(res => { if (res.data.status !== 'ready') setShowWelcome(true); })
+            .catch(() => {});
+    }, [workspaceSlug]);
 
     if (!data) {
         return (
@@ -54,6 +68,10 @@ export default function DashboardPage() {
 
     return (
         <div className="p-8 flex flex-col gap-6">
+            {showWelcome && (
+                <WelcomeOnboarding workspaceSlug={workspaceSlug} onDone={() => setShowWelcome(false)} />
+            )}
+
             {/* Greeting */}
             <div>
                 <h1 className="text-3xl font-bold text-foreground">
@@ -139,7 +157,7 @@ export default function DashboardPage() {
                                     {client.subscription_status}
                                 </Chip>
                                 <span className="text-xs text-muted-foreground shrink-0">
-                                    {new Date(client.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
+                                    {formatDate(client.created_at)}
                                 </span>
                             </Link>
                         ))}

@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { sendPasswordResetEmail } from '../../lib/email';
 import { prisma } from '../../lib/prisma';
+import { cloneDefaultLibraries, getLibraryCounts } from '../../lib/libraryClone';
 import {
     cookieOptions, normalizeSlug, buildToken, buildTokenForWorkspace,
     fetchUserWorkspaces, fetchPendingInvitationsCount, issueToken,
@@ -26,6 +27,25 @@ export async function register(req: Request, res: Response, next: NextFunction) 
         if (password.length < 8) {
             return res.status(400).json({ message: 'Password must be at least 8 characters' });
         }
+        if (!phone || typeof phone !== 'string' || !phone.trim()) {
+            return res.status(400).json({ message: 'Phone number is required' });
+        }
+
+        const trimmedEmail = email.trim();
+        const trimmedPhone = phone.trim();
+
+        // Email and phone must each be unique across coaches. (email has a DB unique
+        // constraint; phone does not, so it's enforced here.)
+        const existing = await prisma.users.findFirst({
+            where:  { OR: [{ email: trimmedEmail }, { phone: trimmedPhone }] },
+            select: { email: true, phone: true },
+        });
+        if (existing) {
+            const message = existing.email === trimmedEmail
+                ? 'An account with this email already exists'
+                : 'An account with this phone number already exists';
+            return res.status(409).json({ message });
+        }
 
         const hashed         = await bcrypt.hash(password, 10);
         const rawSlug        = email.split('@')[0] || `${fname}-${lname}`;
@@ -44,8 +64,8 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                 const newUser = await tx.users.create({
                     data: {
                         id: userId, fname: fname || '', lname: lname || '',
-                        email: email.trim(), password: hashed,
-                        phone: phone?.trim() || null,
+                        email: trimmedEmail, password: hashed,
+                        phone: trimmedPhone,
                     },
                     select: { id: true, fname: true, lname: true, email: true },
                 });
@@ -54,6 +74,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
                     data: {
                         id: workspaceId, slug, name: `${fname}'s Workspace`,
                         owner_id: newUser.id, slug_customized: false,
+                        clone_status: 'pending',
                     },
                 });
 
@@ -84,10 +105,28 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 
             await storeAndSendVerificationCode(userId, email.trim());
 
-            res.status(201).json({
-                id: user.id, fname: user.fname, lname: user.lname,
-                email: user.email, workspace_slug: slug,
+            // Seed the new workspace with the global Default Libraries in the
+            // background — the response returns immediately; the onboarding screen
+            // polls GET /auth/clone-status until it reports ready.
+            void cloneDefaultLibraries(workspaceId);
+
+            // Auto-login: issue the same session + auth cookie as login, so the new
+            // coach lands straight in their workspace instead of the login page.
+            const wsContext = await buildToken(userId);
+            const token = issueToken({
+                userId,
+                workspaceId: wsContext.workspaceId,
+                role:        wsContext.role,
+                permissions: wsContext.permissions,
             });
+            await createSession(userId, token);
+
+            res.cookie('token', token, cookieOptions())
+               .status(201)
+               .json({
+                   id: user.id, fname: user.fname, lname: user.lname,
+                   email: user.email, workspace_slug: slug, workspace_id: workspaceId,
+               });
         } catch (err) {
             if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
                 return res.status(409).json({ message: 'An account with this email already exists' });
@@ -97,6 +136,22 @@ export async function register(req: Request, res: Response, next: NextFunction) 
     } catch (err) {
         next(err);
     }
+}
+
+// Onboarding: report whether the new workspace's Default Libraries have finished
+// cloning, plus live counts to render the "Your workspace is ready" screen.
+export async function getCloneStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+        const workspaceId = req.user!.workspaceId;
+        const ws = await prisma.workspaces.findUnique({
+            where:  { id: workspaceId },
+            select: { clone_status: true, clone_error: true },
+        });
+        if (!ws) return res.status(404).json({ message: 'Workspace not found' });
+
+        const counts = await getLibraryCounts(workspaceId);
+        res.json({ status: ws.clone_status, error: ws.clone_error, counts });
+    } catch (err) { next(err); }
 }
 
 export async function login(req: Request, res: Response, next: NextFunction) {
