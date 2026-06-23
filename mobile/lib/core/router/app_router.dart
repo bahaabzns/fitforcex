@@ -11,6 +11,10 @@ import '../../features/nutrition/nutrition_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/shell/shell_page.dart';
 import '../../features/splash/splash_page.dart';
+import '../../features/training/history_detail_page.dart';
+import '../../features/training/history_page.dart';
+import '../../features/training/progress_page.dart';
+import '../../features/training/session_page.dart';
 import '../../features/training/training_page.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_state.dart';
@@ -65,6 +69,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.notifications,
         builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.trainingSession,
+        builder: (context, state) {
+          final day =
+              int.tryParse(state.uri.queryParameters['day'] ?? '0') ?? 0;
+          return SessionPage(dayIndex: day);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.trainingHistory,
+        builder: (context, state) => const HistoryPage(),
+      ),
+      GoRoute(
+        path: '/training/history/:id',
+        builder: (context, state) =>
+            HistoryDetailPage(logId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: AppRoutes.trainingProgress,
+        builder: (context, state) => const ProgressPage(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

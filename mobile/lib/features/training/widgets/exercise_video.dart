@@ -94,8 +94,9 @@ class _ExerciseVideoState extends State<ExerciseVideo> {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: AspectRatio(
-          aspectRatio:
-              _video!.value.aspectRatio == 0 ? 16 / 9 : _video!.value.aspectRatio,
+          aspectRatio: _video!.value.aspectRatio == 0
+              ? 16 / 9
+              : _video!.value.aspectRatio,
           child: GestureDetector(
             onTap: () => setState(
               () => _video!.value.isPlaying ? _video!.pause() : _video!.play(),

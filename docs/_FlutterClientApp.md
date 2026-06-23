@@ -297,7 +297,7 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 
 > Each phase ends with a runnable, testable build. Order front-loads the auth spine and the highest-value flows (nutrition + training), matching how the portal proved itself.
 
-> **Status (live):** Phase 0 ✅ · Phase 1 ✅ · Phase 2 ✅ (nutrition) · Phase 3 ✅ (training plan view) — all verified with `flutter analyze` + tests green (32 tests). Next: Phase 4 (Training Mode session + history + progress). Note: the training screen's Start/History/Progress buttons are placeholders until Phase 4.
+> **Status (live):** Phase 0 ✅ · Phase 1 ✅ · Phase 2 ✅ (nutrition) · Phase 3 ✅ (training plan view) · Phase 4 ✅ (Training Mode session + history + progress) — all verified with `flutter analyze` + tests green (38 tests) + debug APK builds. Next: Phase 5 (Forms). Session draft persists via shared_preferences; progress chart is a CustomPainter (no fl_chart); training Start/History/Progress are wired live.
 
 **Phase 0 — Spine (no features)** ✅
 - Flutter project, flavors, theme tokens, i18n scaffold (EN/AR + RTL), go_router with auth redirect, dio client + interceptors, secure token storage, `AsyncValue` UI pattern, shared widgets (EmptyState, Skeleton, ErrorView, CollapsibleNote, PillTabs), CI build green.
@@ -316,7 +316,7 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 - `/active-training-plan` model + screen: day tabs, notes, exercise cards, chips, sets grid, alternatives, inline video (YouTube + uploaded).
 - Exit: training plan parity.
 
-**Phase 4 — Training Mode (session) + History + Progress**
+**Phase 4 — Training Mode (session) + History + Progress** ✅
 - Session screen with live logging, rest timer, Hive persistence/resume, finish→POST. History list+detail. Progress picker + fl_chart + metric toggle. `workout.dart` port + tests.
 - Exit: the full train→log→review→progress loop works offline-resilient.
 

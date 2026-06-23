@@ -12,6 +12,12 @@ class AppRoutes {
   static const forms = '/forms';
   static const messages = '/messages';
 
+  // Training Mode (pushed full-screen over the shell)
+  static const trainingSession = '/training/session';
+  static const trainingHistory = '/training/history';
+  static const trainingProgress = '/training/progress';
+  static String trainingHistoryDetail(String id) => '/training/history/$id';
+
   // Top-bar destinations (pushed over the shell)
   static const profile = '/profile';
   static const notifications = '/notifications';

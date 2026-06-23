@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/config/providers.dart';
+import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/collapsible_note.dart';
@@ -94,7 +96,9 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => _comingSoon(context),
+                  onPressed: () => context.push(
+                    '${AppRoutes.trainingSession}?day=$_activeDay',
+                  ),
                   icon: const Icon(Icons.play_arrow, size: 18),
                   label: Text(l10n.trainingStart),
                 ),
@@ -103,13 +107,13 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
               _IconAction(
                 icon: Icons.history,
                 tooltip: l10n.trainingHistory,
-                onTap: () => _comingSoon(context),
+                onTap: () => context.push(AppRoutes.trainingHistory),
               ),
               const SizedBox(width: 8),
               _IconAction(
                 icon: Icons.show_chart,
                 tooltip: l10n.trainingProgress,
-                onTap: () => _comingSoon(context),
+                onTap: () => context.push(AppRoutes.trainingProgress),
               ),
             ],
           ),
@@ -154,12 +158,6 @@ class _TrainingViewState extends ConsumerState<_TrainingView> {
           ],
         ],
       ],
-    );
-  }
-
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).commonComingSoon)),
     );
   }
 }
