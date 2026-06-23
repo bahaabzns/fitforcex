@@ -26,11 +26,23 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.5.2
 
+  # Deep links (workspace onboarding: fitforcex://w/<slug>)
+  app_links: ^6.3.2
+
+  # Exercise video: inline mp4 player (native) + open YouTube externally.
+  # NB: we deliberately avoid webview-based YouTube players — flutter_inappwebview
+  # ships a Gradle file incompatible with modern AGP (proguard-android.txt).
+  video_player: ^2.9.2
+  url_launcher: ^6.3.1
+
   # i18n
   intl: ^0.20.2
 
+  # Models (immutable + JSON codegen)
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
   # ── Added in later phases (kept here as a documented roadmap) ──
-  # freezed_annotation / json_annotation   # Phase 2 — models
   # hive / hive_flutter                     # Phase 4 — session draft
   # fl_chart                                # Phase 4 — progress chart
   # youtube_player_flutter / video_player   # Phase 3 — exercise video
@@ -42,8 +54,10 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
 
-  # ── Codegen, online from Phase 2 ──
-  # build_runner / freezed / json_serializable / riverpod_generator
+  # Codegen for freezed/json models
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true

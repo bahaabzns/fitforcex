@@ -9,7 +9,8 @@ void main() {
         flavor: Flavor.prod,
         defaultWorkspaceSlug: '',
       );
-      expect(config.clientPortalBase, 'https://api.example.com/api/client-portal');
+      expect(
+          config.clientPortalBase, 'https://api.example.com/api/client-portal');
     });
 
     test('flavor flags resolve correctly', () {

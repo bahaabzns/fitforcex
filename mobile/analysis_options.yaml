@@ -19,7 +19,6 @@ linter:
     - prefer_const_constructors_in_immutables
     - prefer_final_locals
     - prefer_single_quotes
-    - require_trailing_commas
     - sort_child_properties_last
     - unawaited_futures
     - use_key_in_widget_constructors

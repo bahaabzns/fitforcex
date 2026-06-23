@@ -170,9 +170,13 @@ class _ThemeSelector extends ConsumerWidget {
       showSelectedIcon: false,
       style: const ButtonStyle(visualDensity: VisualDensity.compact),
       segments: const [
-        ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto, size: 18)),
-        ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 18)),
-        ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 18)),
+        ButtonSegment(
+            value: ThemeMode.system,
+            icon: Icon(Icons.brightness_auto, size: 18)),
+        ButtonSegment(
+            value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 18)),
+        ButtonSegment(
+            value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 18)),
       ],
       selected: {mode},
       onSelectionChanged: (s) => unawaited(

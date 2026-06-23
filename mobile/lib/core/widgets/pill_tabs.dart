@@ -52,7 +52,8 @@ class PillTabs extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.selected, required this.onTap});
+  const _Pill(
+      {required this.label, required this.selected, required this.onTap});
 
   final String label;
   final bool selected;

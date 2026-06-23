@@ -14,14 +14,16 @@ class AppColors {
   static const Color lightBackground = Color(0xFFFFFFFF);
   static const Color lightForeground = Color(0xFF0A0A0A);
   static const Color lightSecondary = Color(0xFFF1F3F5);
-  static const Color lightMutedForeground = Color(0xFF6B7280); // hsl(220 9% 46%)
+  static const Color lightMutedForeground =
+      Color(0xFF6B7280); // hsl(220 9% 46%)
   static const Color lightBorder = Color(0xFFE5E7EB); // hsl(220 13% 91%)
 
   // Dark
   static const Color darkBackground = Color(0xFF0B0D0F);
   static const Color darkForeground = Color(0xFFF5F5F5);
   static const Color darkSecondary = Color(0xFF1A1D21);
-  static const Color darkMutedForeground = Color(0xFF9AA4B2); // hsl(215 20% 65%)
+  static const Color darkMutedForeground =
+      Color(0xFF9AA4B2); // hsl(215 20% 65%)
   static const Color darkBorder = Color(0xFF3E4046); // hsl(240 5% 26%)
 
   // Shared semantic accents (used across the portal)

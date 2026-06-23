@@ -25,5 +25,6 @@ class Unauthenticated extends AuthState {
 extension AuthStateX on AuthState {
   bool get isAuthenticated => this is Authenticated;
   bool get isUnknown => this is AuthUnknown;
-  Client? get clientOrNull => this is Authenticated ? (this as Authenticated).client : null;
+  Client? get clientOrNull =>
+      this is Authenticated ? (this as Authenticated).client : null;
 }

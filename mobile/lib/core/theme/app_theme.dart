@@ -12,11 +12,15 @@ class AppTheme {
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
 
-    final background = isDark ? AppColors.darkBackground : AppColors.lightBackground;
-    final foreground = isDark ? AppColors.darkForeground : AppColors.lightForeground;
-    final secondary = isDark ? AppColors.darkSecondary : AppColors.lightSecondary;
+    final background =
+        isDark ? AppColors.darkBackground : AppColors.lightBackground;
+    final foreground =
+        isDark ? AppColors.darkForeground : AppColors.lightForeground;
+    final secondary =
+        isDark ? AppColors.darkSecondary : AppColors.lightSecondary;
     final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final muted = isDark ? AppColors.darkMutedForeground : AppColors.lightMutedForeground;
+    final muted =
+        isDark ? AppColors.darkMutedForeground : AppColors.lightMutedForeground;
 
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
@@ -63,12 +67,16 @@ class AppTheme {
           (states) => TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w500,
-            color: states.contains(WidgetState.selected) ? AppColors.primary : muted,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : muted,
           ),
         ),
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
-            color: states.contains(WidgetState.selected) ? AppColors.primary : muted,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : muted,
           ),
         ),
       ),

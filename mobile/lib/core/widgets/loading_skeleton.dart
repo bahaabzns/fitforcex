@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// A single shimmering placeholder block — the parallel of HeroUI's <Skeleton>.
+/// A single shimmering placeholder block — the parallel of HeroUI's `Skeleton`.
 class SkeletonBox extends StatefulWidget {
   const SkeletonBox({
     super.key,

@@ -6,13 +6,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/auth/token_storage.dart';
+import '../../core/auth/workspace.dart';
+import '../../core/auth/workspace_repository.dart';
 import '../../core/config/app_config.dart';
 import '../../core/config/providers.dart';
+import '../../core/deeplink/deep_link_service.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// Workspace + credentials login. The mobile parallel of the web portal login,
-/// but the workspace is entered explicitly (no subdomain on mobile — plan §4).
+/// but the workspace is entered explicitly (no subdomain on mobile — plan §4)
+/// and resolved to a branded identity via `GET /client-portal/workspace`.
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -26,6 +31,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
 
+  /// The slug the workspace-lookup provider watches; updated on a short debounce
+  /// so we don't hit the endpoint on every keystroke.
+  String _debouncedSlug = '';
+  Timer? _debounce;
+
   bool _submitting = false;
   bool _obscurePassword = true;
   String? _error;
@@ -33,6 +43,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void initState() {
     super.initState();
+    _workspace.addListener(_onWorkspaceChanged);
     unawaited(_prefillWorkspace());
   }
 
@@ -40,7 +51,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final stored = await ref.read(tokenStorageProvider).readWorkspaceSlug();
     final AppConfig config = ref.read(appConfigProvider);
     final initial = stored ?? config.defaultWorkspaceSlug;
-    if (initial.isNotEmpty && mounted) _workspace.text = initial;
+    if (initial.isNotEmpty && mounted) {
+      _workspace.text = initial;
+      setState(() => _debouncedSlug = initial.trim());
+    }
 
     // Surface a session-expired message routed in from a global 401.
     final auth = ref.read(authControllerProvider);
@@ -49,8 +63,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  void _onWorkspaceChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      final next = _workspace.text.trim();
+      if (next != _debouncedSlug && mounted) {
+        setState(() => _debouncedSlug = next);
+      }
+    });
+  }
+
+  /// Apply a slug delivered by a deep link: fill the field and look it up.
+  void _applyDeepLinkSlug(String slug) {
+    _workspace.text = slug;
+    setState(() => _debouncedSlug = slug);
+  }
+
   @override
   void dispose() {
+    _debounce?.cancel();
+    _workspace.removeListener(_onWorkspaceChanged);
     _workspace.dispose();
     _email.dispose();
     _password.dispose();
@@ -66,7 +98,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     try {
       await ref.read(authControllerProvider.notifier).login(
             workspaceSlug: _workspace.text.trim(),
-            email: _email.text.trim(),
+            email: _email.text.trim().toLowerCase(),
             password: _password.text,
           );
       // Router redirect handles navigation on the authenticated state.
@@ -84,6 +116,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    // A deep link (fitforcex://w/<slug>) prefills + brands the screen.
+    ref.listen<String?>(pendingWorkspaceSlugProvider, (_, next) {
+      if (next != null && next.isNotEmpty) _applyDeepLinkSlug(next);
+    });
+
+    final slug = _debouncedSlug;
+    final lookup =
+        slug.isEmpty ? null : ref.watch(workspaceLookupProvider(slug));
+
+    // Brand the heading with the resolved workspace name when available.
+    String heading = l10n.loginTitle;
+    lookup?.whenData((ws) {
+      if (ws != null) heading = ws.name;
+    });
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -98,11 +146,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      l10n.loginTitle,
+                      heading,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                     const SizedBox(height: 24),
                     TextFormField(
@@ -116,6 +165,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ? l10n.loginWorkspaceRequired
                           : null,
                     ),
+                    if (lookup != null) ...[
+                      const SizedBox(height: 6),
+                      _WorkspaceStatus(lookup: lookup),
+                    ],
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _email,
@@ -173,6 +226,59 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Inline status under the workspace field: checking / found (✓ name) / not found.
+class _WorkspaceStatus extends StatelessWidget {
+  const _WorkspaceStatus({required this.lookup});
+
+  final AsyncValue<Workspace?> lookup;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final muted = context.appColors.mutedForeground;
+
+    return lookup.when(
+      loading: () => _row(
+        const SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        l10n.loginWorkspaceChecking,
+        muted,
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (ws) {
+        if (ws == null) {
+          return _row(
+            Icon(Icons.error_outline,
+                size: 14, color: context.appColors.warning),
+            l10n.loginWorkspaceNotFound,
+            context.appColors.warning,
+          );
+        }
+        return _row(
+          Icon(Icons.check_circle, size: 14, color: context.appColors.success),
+          ws.name,
+          context.appColors.success,
+        );
+      },
+    );
+  }
+
+  Widget _row(Widget leading, String text, Color color) {
+    return Row(
+      children: [
+        leading,
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(text, style: TextStyle(fontSize: 12, color: color)),
+        ),
+      ],
     );
   }
 }

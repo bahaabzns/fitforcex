@@ -76,7 +76,8 @@ class _CollapsibleNoteState extends State<CollapsibleNote> {
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: Icon(Icons.keyboard_arrow_down, size: 18, color: accent),
+                    child: Icon(Icons.keyboard_arrow_down,
+                        size: 18, color: accent),
                   ),
                 ],
               ),
