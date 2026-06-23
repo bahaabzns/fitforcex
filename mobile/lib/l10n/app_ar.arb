@@ -139,6 +139,14 @@
   "formsSubmitFailed": "فشل الإرسال. يرجى المحاولة مجدداً.",
   "formsAlreadySubmitted": "لقد قدّمت هذه الاستمارة بالفعل. إجاباتك معروضة أدناه.",
 
+  "messagesEmptyTitle": "لا توجد رسائل بعد",
+  "messagesEmptyHint": "أرسل رسالة إلى مدربك أدناه.",
+  "messagesSubtitle": "تحدّث مع مدربك",
+  "messagesCoachFallback": "مدربك",
+  "messagesReplyHint": "رسالة…",
+  "messagesToday": "اليوم",
+  "messagesYesterday": "أمس",
+
   "themeSystem": "النظام",
   "themeLight": "فاتح",
   "themeDark": "داكن"

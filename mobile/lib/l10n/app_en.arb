@@ -144,6 +144,14 @@
   "formsSubmitFailed": "Failed to submit. Please try again.",
   "formsAlreadySubmitted": "You have already submitted this form. Your answers are shown below.",
 
+  "messagesEmptyTitle": "No messages yet",
+  "messagesEmptyHint": "Send a message to your coach below.",
+  "messagesSubtitle": "Chat with your coach",
+  "messagesCoachFallback": "Your Coach",
+  "messagesReplyHint": "Message…",
+  "messagesToday": "Today",
+  "messagesYesterday": "Yesterday",
+
   "themeSystem": "System",
   "themeLight": "Light",
   "themeDark": "Dark"
