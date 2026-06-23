@@ -68,6 +68,27 @@ To keep the spine buildable with just `pub get`, Phase 0 uses **manual** Riverpo
 
 Token auth (bearer in the `/client-portal/login` response body) is **backend change #1** in the plan (§12). Until it lands, login can't complete against the current cookie-only endpoint. The client code is written for bearer and degrades gracefully if `token` is absent.
 
+## Release signing (Android)
+
+Release builds are signed from `android/key.properties` (gitignored). Without it,
+a release build falls back to debug keys (not publishable). To produce a real
+release artifact:
+
+```bash
+# 1. Create an upload keystore (once)
+keytool -genkey -v -keystore upload-keystore.jks -storetype JKS \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+
+# 2. Copy the template and fill in passwords + absolute storeFile path
+cp android/key.properties.example android/key.properties
+
+# 3. Build a signed release
+flutter build appbundle --release \
+  --dart-define=API_BASE_URL=https://api.your-domain.com --dart-define=FLAVOR=prod
+```
+
+Never commit `key.properties` or the `.jks` — both are gitignored.
+
 ## Native flavors (follow-up)
 
 Dart-level flavors work today via `FLAVOR`. Native product flavors / Xcode schemes (distinct app ids per env) are wired after `flutter create` generates the platform folders — tracked as a Phase 0 follow-up.
