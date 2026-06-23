@@ -24,7 +24,14 @@ flutter pub get
 # 4. Generate localizations (reads l10n.yaml + lib/l10n/*.arb)
 flutter gen-l10n
 
-# 5. Run (Android emulator example — host API on 10.0.2.2)
+# 5. Codegen for freezed/json models
+dart run build_runner build --delete-conflicting-outputs
+
+# 6. (Re)generate launcher icon + native splash from assets/icon/app_icon.png
+dart run flutter_launcher_icons
+dart run flutter_native_splash:create
+
+# 7. Run (Android emulator example — host API on 10.0.2.2)
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000 --dart-define=FLAVOR=dev
 ```
 

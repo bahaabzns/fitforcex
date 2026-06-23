@@ -62,6 +62,32 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
 
+  # Launcher icon + native splash generators (run once, see README)
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
+
+# Launcher icon: the blue brand mark on a white background.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+
+# Native splash: brand mark centered; light + dark backgrounds.
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#0B0D0F"
+  image: assets/icon/app_icon.png
+  android_12:
+    image: assets/icon/app_icon.png
+    color: "#FFFFFF"
+    color_dark: "#0B0D0F"
+  android: true
+  ios: true
+
 flutter:
   uses-material-design: true
   generate: true
