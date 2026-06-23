@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
 import DataTable from "@/app/components/DataTable";
 import TransactionModal from "@/app/components/TransactionModal";
@@ -108,6 +109,7 @@ export default function ClientTransactionsPage() {
     const t = useTranslations('clientTransactions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const { formatDate } = useDateFormatter();
 
     const [transactions, setTransactions]     = useState([]);
     const [packages, setPackages]             = useState([]);
@@ -147,9 +149,7 @@ export default function ClientTransactionsPage() {
     }, [id]);
 
     function fmtDate(d) {
-        return d
-            ? new Date(d).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" })
-            : "—";
+        return formatDate(d) || "—";
     }
 
     const packageVariationOptions = packages.flatMap(p =>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
+import { useDateFormatter } from '@/utils/useDateFormatter';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
@@ -26,6 +27,7 @@ function StatCard({ label, value, sub, accent }) {
 }
 
 export default function AdminPaymentsPage() {
+    const { formatDate } = useDateFormatter();
     const [payments, setPayments]   = useState([]);
     const [stats, setStats]         = useState(null);
     const [total, setTotal]         = useState(0);
@@ -162,7 +164,7 @@ export default function AdminPaymentsPage() {
                                 ))}
                             </select>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                {formatDate(p.created_at)}
                             </span>
                         </div>
                     ))

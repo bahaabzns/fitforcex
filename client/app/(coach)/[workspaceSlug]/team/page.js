@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel } from "@/app/components/Field";
 import { Button } from "@heroui/react/button";
@@ -570,6 +571,7 @@ function MembersTab({ workspace, members, setMembers, me, pendingCount }) {
 
 function InvitationsTab({ workspace, invitations, setInvitations, me }) {
     const t = useTranslations("team");
+    const { formatDate } = useDateFormatter();
     const isOwner = me?.currentWorkspace?.role === "owner";
     const canManage = isOwner || me?.currentWorkspace?.permissions?.team?.write;
     const [cancellingId, setCancellingId] = useState(null);
@@ -607,7 +609,7 @@ function InvitationsTab({ workspace, invitations, setInvitations, me }) {
                     <RoleBadge role={inv.role} />
                     <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                         <Clock size={11} />
-                        {new Date(inv.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {formatDate(inv.created_at)}
                     </div>
                     {canManage && (
                         <button

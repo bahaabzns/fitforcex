@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
@@ -106,6 +107,7 @@ export default function MessengerPage() {
     const { workspaceSlug } = useParams();
     const t = useTranslations('messenger');
     const locale = useLocale();
+    const { formatDate } = useDateFormatter();
     const containerRef = useRef(null);
     const [widths, setWidths] = useState([26, 46, 28]);
 
@@ -530,7 +532,7 @@ export default function MessengerPage() {
                                             <div>
                                                 <p className="text-[11px] text-muted-foreground">{t('memberSince')}</p>
                                                 <p className="text-xs text-foreground">
-                                                    {new Date(clientProfile.created_at).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
+                                                    {formatDate(clientProfile.created_at)}
                                                 </p>
                                             </div>
                                         </div>

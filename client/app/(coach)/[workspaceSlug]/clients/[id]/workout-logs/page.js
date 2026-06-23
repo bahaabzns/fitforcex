@@ -9,6 +9,7 @@ import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import LineChart from "@/app/components/charts/LineChart";
 import { formatDuration } from "@/utils/workout";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 
 const METRICS = [
     { key: "top_weight",   labelKey: "metricWeight" },
@@ -19,6 +20,7 @@ const METRICS = [
 export default function ClientWorkoutLogsPage() {
     const t = useTranslations("workoutLogs");
     const locale = useLocale();
+    const { formatDate } = useDateFormatter();
     const { id } = useParams();
 
     const [view, setView]       = useState("sessions");
@@ -76,10 +78,6 @@ export default function ClientWorkoutLogsPage() {
         label: new Date(point.date).toLocaleDateString(locale, { day: "numeric", month: "short" }),
         value: point[metric],
     })), [series, metric, locale]);
-
-    function formatDate(value) {
-        return new Date(value).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-    }
 
     if (loading) {
         return (

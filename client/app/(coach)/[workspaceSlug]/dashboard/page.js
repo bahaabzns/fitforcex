@@ -36,12 +36,18 @@ export default function DashboardPage() {
             .catch(() => router.push('/login'));
     }, [router]);
 
-    // Show the onboarding gate to brand-new coaches (flagged at registration) or
-    // whenever the Default Libraries are still being cloned for this workspace.
+    // Show the onboarding gate to brand-new coaches. Registration redirects here
+    // with ?welcome=1 — a query param (not localStorage) because the redirect
+    // crosses origins (auth domain → my. subdomain), and localStorage isn't shared
+    // across them. Also show it while the Default Libraries are still cloning.
     useEffect(() => {
-        let flagged = false;
-        try { flagged = !!localStorage.getItem(`ff_show_welcome_${workspaceSlug}`); } catch {}
-        if (flagged) { setShowWelcome(true); return; }
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('welcome') === '1') {
+            setShowWelcome(true);
+            // Strip the param so a refresh doesn't re-trigger the popup.
+            window.history.replaceState(null, '', `/${workspaceSlug}/dashboard`);
+            return;
+        }
         api.get('/api/auth/clone-status')
             .then(res => { if (res.data.status !== 'ready') setShowWelcome(true); })
             .catch(() => {});

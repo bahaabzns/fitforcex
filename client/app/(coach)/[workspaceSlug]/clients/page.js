@@ -11,6 +11,7 @@ import Stepper from "@/app/components/Stepper";
 import ActionBar from "@/app/components/ActionBar";
 import TransactionModal from "@/app/components/TransactionModal";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
@@ -132,6 +133,7 @@ export default function ClientsPage() {
     const t = useTranslations('clients');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const { formatDate } = useDateFormatter();
     const { workspaceSlug } = useParams();
 
     // Forms store localized titles (title_en / title_ar); resolve by active locale.
@@ -633,9 +635,7 @@ export default function ClientsPage() {
             label: t('colDateAdded'),
             filterType: "dateRange",
             sortable: true,
-            render: (row) => row.dateCreated
-                ? new Date(row.dateCreated).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
-                : "—",
+            render: (row) => formatDate(row.dateCreated) || "—",
         },
     ];
 

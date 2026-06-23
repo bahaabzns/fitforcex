@@ -7,6 +7,7 @@ import DataTable from "@/app/components/DataTable";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
@@ -44,16 +45,13 @@ function convert(amount, fromCurrency, toCurrency) {
 function parseTransactionDate(dateStr) { return new Date(dateStr); }
 function todayStr() { return new Date().toISOString().split("T")[0]; }
 
-function fmtDate(d, locale) {
-    return d ? new Date(d).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }) : "—";
-}
-
 
 // --- TRANSACTIONS TABLE ---
 function TransactionsTable({ transactions, allPackageVariations, allPaymentMethods, onStatusChange, onDelete, onEdit, toolbarEnd }) {
     const t = useTranslations('transactions');
     const tCommon = useTranslations('common');
-    const locale = useLocale();
+    const { formatDate } = useDateFormatter();
+    const fmtDate = (d) => formatDate(d) || "—";
     const STATUS_LABELS = { completed: t('completed'), refunded: t('refunded') };
     const SUB_STATUS_LABELS = {
         Active: t('statusActive'), Expired: t('statusExpired'),
@@ -149,13 +147,13 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
             label: t('colTxDate'),
             filterType: "dateRange",
             sortable: true,
-            render: (row) => fmtDate(row.date, locale),
+            render: (row) => fmtDate(row.date),
         },
         {
             key: "createdAt",
             label: t('colCreated'),
             sortable: true,
-            render: (row) => fmtDate(row.createdAt, locale),
+            render: (row) => fmtDate(row.createdAt),
         },
         {
             key: "_proof",

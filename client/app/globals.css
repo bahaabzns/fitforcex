@@ -3,6 +3,11 @@
 /* ── App-specific tokens (sidebar + brand supplements) ── */
 /* --accent overrides HeroUI's default to match logo #159bff */
 :root {
+  /* System-wide corner radius — HeroUI derives its whole scale
+     (--radius-sm/md/lg/xl/2xl/3xl) from this single token.
+     Default is 0.5rem; lowered to 0.25rem for a tighter, "small" look. */
+  --radius: 0.5rem;
+
   /* Brand blue — logo primary color #159bff = oklch(0.675 0.18 249) */
   --accent:            oklch(0.675 0.18 249);
   --accent-foreground: oklch(0.991 0 0);

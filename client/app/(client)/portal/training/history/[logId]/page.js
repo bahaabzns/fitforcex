@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { ChevronLeft } from "lucide-react";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import { formatDuration } from "@/utils/workout";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 
 export default function WorkoutLogDetailPage() {
     const t = useTranslations("portal.training");
-    const locale = useLocale();
+    const { formatDate } = useDateFormatter();
     const router = useRouter();
     const { logId } = useParams();
 
@@ -36,7 +37,7 @@ export default function WorkoutLogDetailPage() {
     }
     if (!log) return null;
 
-    const formattedDate = new Date(log.date).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const formattedDate = formatDate(log.date);
 
     return (
         <div className="max-w-4xl mx-auto px-6 pt-5 pb-6 flex flex-col gap-4">

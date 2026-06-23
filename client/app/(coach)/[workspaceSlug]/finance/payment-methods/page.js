@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { ChevronRight, ListFilter, Pencil, Plus, Power, Trash2 } from "lucide-react";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel } from "@/app/components/Field";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
 import { Table } from "@heroui/react/table";
 import { SearchField } from "@heroui/react/search-field";
@@ -20,10 +21,10 @@ const TYPES = ["cash", "card", "wallet", "bank_transfer"];
 const HOVER_ACTIONS = "flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100";
 
 export default function PaymentMethodsPage() {
+    const { formatDate } = useDateFormatter();
     const t = useTranslations('paymentMethods');
     const tCommon = useTranslations('common');
     const tFilter = useTranslations('filter');
-    const locale = useLocale();
 
     const TYPE_LABELS = {
         cash:          t('typeCash'),
@@ -255,7 +256,7 @@ export default function PaymentMethodsPage() {
                         </span>
                     )}
                 </Table.Cell>
-                <Table.Cell>{isType ? null : new Date(m.created_at).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" })}</Table.Cell>
+                <Table.Cell>{isType ? null : formatDate(m.created_at)}</Table.Cell>
                 <Table.Cell className="text-end">{isType ? typeActions(row.type) : methodActions(m)}</Table.Cell>
                 <Table.Collection items={row.children}>{renderTreeRow}</Table.Collection>
             </Table.Row>

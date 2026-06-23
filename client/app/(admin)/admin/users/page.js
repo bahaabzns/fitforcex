@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
+import { useDateFormatter } from '@/utils/useDateFormatter';
 import { Search, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
@@ -17,6 +18,7 @@ function useDebounce(value, delay = 350) {
 }
 
 function UserDrawer({ userId, onClose }) {
+    const { formatDate } = useDateFormatter();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -61,7 +63,7 @@ function UserDrawer({ userId, onClose }) {
                             </div>
 
                             <div className="text-xs text-muted-foreground">
-                                Joined {new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                Joined {formatDate(user.created_at)}
                             </div>
 
                             <div>
@@ -97,6 +99,7 @@ function UserDrawer({ userId, onClose }) {
 }
 
 export default function AdminUsersPage() {
+    const { formatDate } = useDateFormatter();
     const [users, setUsers] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
@@ -181,7 +184,7 @@ export default function AdminUsersPage() {
                             <span className="text-sm text-foreground text-center w-16">{u.workspace_count}</span>
                             <span className="text-sm text-foreground text-center w-16">{u.member_count}</span>
                             <span className="text-xs text-muted-foreground shrink-0">
-                                {new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                {formatDate(u.created_at)}
                             </span>
                         </button>
                     ))

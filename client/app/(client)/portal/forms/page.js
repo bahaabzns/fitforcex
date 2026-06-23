@@ -5,6 +5,7 @@ import Link from "next/link";
 import api from "@/lib/axios";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Clock, CheckCircle, ClipboardList, CalendarClock } from 'lucide-react';
 import { Skeleton } from "@heroui/react/skeleton";
 import { Card } from "@heroui/react/card";
@@ -13,6 +14,7 @@ import { Chip } from "@heroui/react/chip";
 export default function ClientFormsListPage() {
     const t = useTranslations('portal.forms');
     const locale = useLocale();
+    const { formatDate, formatDateTime } = useDateFormatter();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("pending");
@@ -111,9 +113,9 @@ export default function ClientFormsListPage() {
                                         )}
                                         <p className="text-[11px] text-muted-foreground/60 mt-1">
                                             {req.status === "scheduled" && req.scheduled_at
-                                                ? `${t('filterScheduled')} ${new Date(req.scheduled_at).toLocaleString()}`
-                                                : `${t('filterPending')} ${new Date(req.requested_at).toLocaleDateString()}`}
-                                            {req.submitted_at && ` · ${t('filterSubmitted')} ${new Date(req.submitted_at).toLocaleDateString()}`}
+                                                ? `${t('filterScheduled')} ${formatDateTime(req.scheduled_at)}`
+                                                : `${t('filterPending')} ${formatDate(req.requested_at)}`}
+                                            {req.submitted_at && ` · ${t('filterSubmitted')} ${formatDate(req.submitted_at)}`}
                                         </p>
                                     </div>
 

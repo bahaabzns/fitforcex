@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
+import { useDateFormatter } from '@/utils/useDateFormatter';
 import Link from 'next/link';
 import { Users, Building2, Package, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
@@ -25,6 +26,7 @@ function StatCard({ icon: Icon, label, value, accent }) {
 }
 
 export default function AdminOverviewPage() {
+    const { formatDate } = useDateFormatter();
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
 
@@ -113,7 +115,7 @@ export default function AdminOverviewPage() {
                                     <span className="text-xs text-muted-foreground truncate max-w-32">{u.workspace_name}</span>
                                 )}
                                 <span className="text-xs text-muted-foreground shrink-0">
-                                    {new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {formatDate(u.created_at)}
                                 </span>
                             </Link>
                         ))

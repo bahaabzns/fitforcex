@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import api from "@/lib/axios";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
 import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send } from 'lucide-react';
 
@@ -14,6 +15,7 @@ export default function ClientFormsPage() {
     const t = useTranslations('forms');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const { formatDate, formatDateTime } = useDateFormatter();
     const { id } = useParams();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -205,9 +207,9 @@ export default function ClientFormsPage() {
                                     )}
                                     <p className="text-xs text-muted-foreground/70 mt-1">
                                         {req.status === 'scheduled' && req.scheduled_at
-                                            ? `${tCommon('scheduled')} ${new Date(req.scheduled_at).toLocaleString()}`
-                                            : new Date(req.requested_at).toLocaleDateString()}
-                                        {req.submitted_at && ` · ${t('submitted')} ${new Date(req.submitted_at).toLocaleDateString()}`}
+                                            ? `${tCommon('scheduled')} ${formatDateTime(req.scheduled_at)}`
+                                            : formatDate(req.requested_at)}
+                                        {req.submitted_at && ` · ${t('submitted')} ${formatDate(req.submitted_at)}`}
                                     </p>
                                 </button>
                             ))}
@@ -246,9 +248,9 @@ export default function ClientFormsPage() {
                                         <p className="text-sm text-muted-foreground mt-0.5">{getLocalizedField(selected, 'form_description', locale)}</p>
                                     )}
                                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                        <span>{t('requested')} {new Date(selected.requested_at).toLocaleDateString()}</span>
+                                        <span>{t('requested')} {formatDate(selected.requested_at)}</span>
                                         {selected.submitted_at && (
-                                            <span>· {t('submitted')} {new Date(selected.submitted_at).toLocaleDateString()}</span>
+                                            <span>· {t('submitted')} {formatDate(selected.submitted_at)}</span>
                                         )}
                                     </div>
                                 </div>
@@ -287,7 +289,7 @@ export default function ClientFormsPage() {
                                             <>
                                                 <CalendarClock size={36} className="text-accent" />
                                                 <p className="text-sm font-medium text-muted-foreground">{t('formScheduled')}</p>
-                                                <p className="text-xs text-muted-foreground/70">{t('formScheduledHint', { time: selected.scheduled_at ? new Date(selected.scheduled_at).toLocaleString() : '—' })}</p>
+                                                <p className="text-xs text-muted-foreground/70">{t('formScheduledHint', { time: selected.scheduled_at ? formatDateTime(selected.scheduled_at) : '—' })}</p>
                                             </>
                                         ) : (
                                             <>

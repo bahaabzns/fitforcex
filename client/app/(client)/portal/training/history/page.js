@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import { ChevronLeft, Dumbbell, LineChart as LineChartIcon } from "lucide-react";
 import { Card } from "@heroui/react/card";
 import { Skeleton } from "@heroui/react/skeleton";
 import { formatDuration } from "@/utils/workout";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 
 export default function TrainingHistoryPage() {
     const t = useTranslations("portal.training");
-    const locale = useLocale();
+    const { formatDate } = useDateFormatter();
     const router = useRouter();
 
     const [logs, setLogs]       = useState([]);
@@ -24,10 +25,6 @@ export default function TrainingHistoryPage() {
             .catch(() => router.replace("/portal/training"))
             .finally(() => setLoading(false));
     }, [router]);
-
-    function formatDate(value) {
-        return new Date(value).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-    }
 
     if (loading) {
         return (

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Tabs } from "@heroui/react";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
@@ -27,6 +28,7 @@ function ErrorMsg({ msg }) {
 }
 
 export default function BillingPage() {
+    const { formatDate } = useDateFormatter();
     const t = useTranslations("billing");
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -121,7 +123,7 @@ export default function BillingPage() {
             key: "created_at",
             label: t("columnDate"),
             sortable: true,
-            render: (row) => new Date(row.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            render: (row) => formatDate(row.created_at),
         },
         {
             key: "plan_display",

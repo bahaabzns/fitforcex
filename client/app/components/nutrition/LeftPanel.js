@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import CycleCalculator from "./CycleCalculator";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
 import { Button } from "@heroui/react/button";
@@ -65,6 +66,7 @@ export default function LeftPanel({
     const locale = useLocale();
     const t = useTranslations('nutrition');
     const tCommon = useTranslations('common');
+    const { formatDate } = useDateFormatter();
     const [expandedKeys, setExpandedKeys] = useState(new Set(["plans"]));
     const [loadModalOpen, setLoadModalOpen] = useState(false);
 
@@ -286,7 +288,7 @@ export default function LeftPanel({
                                                 >
                                                     <span className="flex-1 text-sm font-medium text-foreground truncate text-left">{getLocalizedField(req, 'form_title', locale)}</span>
                                                     <span className="text-[10px] text-muted-foreground shrink-0">
-                                                        {req.submitted_at ? new Date(req.submitted_at).toLocaleDateString() : ''}
+                                                        {formatDate(req.submitted_at)}
                                                     </span>
                                                     <Disclosure.Indicator className="shrink-0" />
                                                 </Button>

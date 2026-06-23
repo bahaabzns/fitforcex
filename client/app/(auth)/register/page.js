@@ -108,13 +108,13 @@ export default function RegisterPage() {
             });
             const slug = res.data?.workspace_slug;
             if (!slug) { router.push('/login'); return; }
-            // Flag the new workspace so the dashboard shows the onboarding welcome once.
-            try { localStorage.setItem(`ff_show_welcome_${slug}`, '1'); } catch {}
             // Register now auto-logs the coach in, so go straight into the workspace
-            // (on the my. subdomain). With a selected plan, land on billing to pay.
+            // (on the my. subdomain). ?welcome=1 triggers the onboarding popup there —
+            // a query param survives the cross-origin redirect (localStorage would not).
+            // With a selected plan, land on billing to pay instead.
             const subpath = planSlug
                 ? `settings/billing?plan=${encodeURIComponent(planSlug)}`
-                : 'dashboard';
+                : 'dashboard?welcome=1';
             redirectToWorkspace(slug, subpath);
             return;
         } catch (err) {

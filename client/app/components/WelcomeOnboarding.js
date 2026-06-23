@@ -47,7 +47,6 @@ export default function WelcomeOnboarding({ workspaceSlug, onDone }) {
     }, []);
 
     function dismiss(navigateTo) {
-        try { localStorage.removeItem(`ff_show_welcome_${workspaceSlug}`); } catch {}
         onDone?.();
         if (navigateTo) router.push(navigateTo);
     }
@@ -74,7 +73,7 @@ export default function WelcomeOnboarding({ workspaceSlug, onDone }) {
                 {status === 'failed' && (
                     <>
                         <p className="text-sm text-destructive mt-3">
-                            We hit a snag preparing your libraries. You can still start — they'll be available shortly.
+                            We hit a snag preparing your libraries. You can still start — your libraries will be available shortly.
                         </p>
                         <Button variant="primary" className="mt-6" onClick={() => dismiss(`/${workspaceSlug}/clients`)}>
                             Continue <ArrowRight size={15} className="ml-1.5" />

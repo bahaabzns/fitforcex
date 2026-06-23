@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
+import { useDateFormatter } from '@/utils/useDateFormatter';
 import { Search, ChevronLeft, ChevronRight, ArchiveRestore, Archive } from 'lucide-react';
 import { Skeleton } from '@heroui/react/skeleton';
 import { Button } from '@heroui/react/button';
@@ -90,6 +91,7 @@ function SubscriptionModal({ workspace, plans, onClose, onSaved }) {
 }
 
 function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
+    const { formatDate } = useDateFormatter();
     const [workspace, setWorkspace] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showSubModal, setShowSubModal] = useState(false);
@@ -162,7 +164,7 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
                                     </div>
                                     <p className="text-sm text-muted-foreground">/{workspace.slug}</p>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        Created {new Date(workspace.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                        Created {formatDate(workspace.created_at)}
                                     </p>
                                 </div>
 
@@ -246,6 +248,7 @@ function WorkspaceDrawer({ workspaceId, plans, onClose, onRefresh }) {
 }
 
 export default function AdminWorkspacesPage() {
+    const { formatDate } = useDateFormatter();
     const [workspaces, setWorkspaces] = useState([]);
     const [total, setTotal] = useState(0);
     const [plans, setPlans] = useState([]);
@@ -345,7 +348,7 @@ export default function AdminWorkspacesPage() {
                             <span className="text-sm text-foreground text-center w-16">{w.member_count}</span>
                             <span className="text-sm text-foreground text-center w-16">{w.client_count}</span>
                             <span className="text-xs text-muted-foreground shrink-0">
-                                {new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                {formatDate(w.created_at)}
                             </span>
                         </button>
                     ))

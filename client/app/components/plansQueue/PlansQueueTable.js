@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Salad, Dumbbell, Check, Undo2, UserPlus } from "lucide-react";
 import api from "@/lib/axios";
+import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
 import { Chip } from "@heroui/react/chip";
 import { Select } from "@heroui/react/select";
@@ -39,6 +40,7 @@ function IconAction({ label, onClick, disabled, className = "", children }) {
 export default function PlansQueueTable({ initialSubmissions, awaiting, forms, members = [] }) {
     const t = useTranslations('plansQueue');
     const locale = useLocale();
+    const { formatDateTime } = useDateFormatter();
     const [submissions, setSubmissions] = useState(initialSubmissions);
     const [expandedId, setExpandedId] = useState(null);
     const [marking, setMarking] = useState(false);
@@ -151,16 +153,9 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
 
     function shortDate(dateStr) {
         if (!dateStr) return <span className="text-muted-foreground">-</span>;
-        const d = new Date(dateStr);
-        if (Number.isNaN(d.getTime())) return <span className="text-muted-foreground/60 text-xs">{dateStr}</span>;
-        return (
-            <span className="text-muted-foreground text-xs whitespace-nowrap">
-                {d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                <span className="text-muted-foreground ml-1">
-                    {d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}
-                </span>
-            </span>
-        );
+        const formatted = formatDateTime(dateStr);
+        if (!formatted) return <span className="text-muted-foreground/60 text-xs">{dateStr}</span>;
+        return <span className="text-muted-foreground text-xs whitespace-nowrap">{formatted}</span>;
     }
 
     function statusBadge(status) {
