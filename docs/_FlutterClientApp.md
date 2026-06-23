@@ -297,7 +297,7 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 
 > Each phase ends with a runnable, testable build. Order front-loads the auth spine and the highest-value flows (nutrition + training), matching how the portal proved itself.
 
-> **Status (live):** Phase 0 ✅ · Phase 1 ✅ · Phase 2 ✅ (nutrition) · Phase 3 ✅ (training) · Phase 4 ✅ (Training Mode) · Phase 5 ✅ (forms) · Phase 6 ✅ (messages) · Phase 7 🟡 (real Home dashboard done; **push + notifications list blocked** on backend changes #3/#4 + a Firebase project) — verified with `flutter analyze` + tests green (45 tests) + debug APK builds. Chat uses 5s polling (socket is a follow-up); session draft via shared_preferences; charts via CustomPainter.
+> **Status (live):** Phase 0 ✅ · Phase 1 ✅ · Phase 2 ✅ (nutrition) · Phase 3 ✅ (training) · Phase 4 ✅ (Training Mode) · Phase 5 ✅ (forms) · Phase 6 ✅ (messages) · Phase 7 🟡 (real Home dashboard done; **push + notifications list blocked** on backend changes #3/#4 + a Firebase project) — verified with `flutter analyze` + tests green (45 tests) + debug APK builds. Chat is realtime via Socket.IO (5s polling fallback); session draft via shared_preferences; charts via CustomPainter.
 
 **Phase 0 — Spine (no features)** ✅
 - Flutter project, flavors, theme tokens, i18n scaffold (EN/AR + RTL), go_router with auth redirect, dio client + interceptors, secure token storage, `AsyncValue` UI pattern, shared widgets (EmptyState, Skeleton, ErrorView, CollapsibleNote, PillTabs), CI build green.
@@ -324,7 +324,7 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 - List + filters + dynamic renderer (all 6 question types) + validation + submit + read-only submitted view.
 - Exit: forms parity.
 
-**Phase 6 — Messages** ✅ (polling; socket realtime is a follow-up)
+**Phase 6 — Messages** ✅ (Socket.IO realtime + polling fallback)
 - Chat thread, grouping/date separators, send, polling; then socket realtime with polling fallback.
 - Exit: chat parity + live updates.
 

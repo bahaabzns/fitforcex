@@ -16,13 +16,20 @@ export function initSocket(httpServer: HttpServer): SocketServer {
     });
 
     io.use((socket, next) => {
+        // Browsers send the JWT in a cookie; mobile/API clients send it via the
+        // handshake auth payload or an Authorization: Bearer header.
         const cookieHeader = socket.handshake.headers?.cookie ?? '';
-        const token = cookieHeader
+        const cookieToken = cookieHeader
             .split(';')
             .map(c => c.trim())
-            .find(c => c.startsWith('token='))
+            .find(c => c.startsWith('token=') || c.startsWith('client_token='))
             ?.split('=')[1];
 
+        const authToken = (socket.handshake.auth as { token?: string } | undefined)?.token;
+        const header = socket.handshake.headers?.authorization;
+        const bearer = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;
+
+        const token = authToken ?? bearer ?? cookieToken;
         if (!token) return next(new Error('Not authenticated'));
 
         try {

@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import '../../core/auth/token_storage.dart';
+import '../../core/config/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/message.dart';
@@ -13,7 +16,8 @@ import 'messages_repository.dart';
 const _pollInterval = Duration(seconds: 5);
 
 /// Client ↔ coach chat. WhatsApp-style grouped bubbles with date separators,
-/// 5s polling (socket realtime is a follow-up). Port of the web messages page.
+/// realtime via Socket.IO with 5s polling as a fallback. Port of the web
+/// messages page.
 class MessagesPage extends ConsumerStatefulWidget {
   const MessagesPage({super.key});
 
@@ -29,20 +33,56 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   bool _loading = true;
   bool _sending = false;
   Timer? _poll;
+  io.Socket? _socket;
 
   @override
   void initState() {
     super.initState();
     unawaited(_fetch(initial: true));
-    _poll = Timer.periodic(_pollInterval, (_) => unawaited(_fetch()));
+    _startPolling();
+    unawaited(_initSocket());
   }
 
   @override
   void dispose() {
-    _poll?.cancel();
+    _stopPolling();
+    _socket?.dispose();
     _draft.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _startPolling() {
+    _poll ??= Timer.periodic(_pollInterval, (_) => unawaited(_fetch()));
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  /// Connect to the realtime thread. On `new_message` we refetch; while the
+  /// socket is live we stop polling, and resume it on disconnect/error.
+  Future<void> _initSocket() async {
+    final token = await ref.read(tokenStorageProvider).readToken();
+    if (token == null || token.isEmpty || !mounted) return;
+    final baseUrl = ref.read(appConfigProvider).apiBaseUrl;
+
+    final socket = io.io(
+      baseUrl,
+      io.OptionBuilder()
+          .setTransports(['websocket']).setAuth({'token': token}).build(),
+    );
+    _socket = socket;
+
+    socket.onConnect((_) => _stopPolling());
+    socket.on('new_message', (_) => unawaited(_fetch()));
+    socket.onDisconnect((_) {
+      if (mounted) _startPolling();
+    });
+    socket.onConnectError((_) {
+      if (mounted) _startPolling();
+    });
   }
 
   Future<void> _fetch({bool initial = false}) async {
