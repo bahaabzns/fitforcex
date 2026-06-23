@@ -40,3 +40,6 @@ ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 android/.gradle/
 android/local.properties
+
+# Kotlin compiler session files (build noise)
+android/.kotlin/
