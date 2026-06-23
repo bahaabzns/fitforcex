@@ -122,6 +122,23 @@
   "trainingNoExercisesForProgress": "سجّل تمريناً أولاً لرؤية تقدمك.",
   "trainingNoLogsForExercise": "لا توجد بيانات مسجلة لهذا التمرين بعد",
 
+  "formsFilterPending": "معلق",
+  "formsFilterSubmitted": "مُرسل",
+  "formsFilterScheduled": "مجدول",
+  "formsPendingChip": "{count} معلق",
+  "formsEmptyPending": "لا توجد استمارات معلقة",
+  "formsEmptySubmitted": "لا توجد استمارات مُرسلة بعد",
+  "formsEmptyHint": "سيرسل لك مدربك استمارات لتملأها.",
+  "formsFillForm": "ملء الاستمارة",
+  "formsViewAnswers": "عرض الإجابات",
+  "formsNotOpenYet": "غير متاحة بعد",
+  "formsSubmit": "إرسال الاستمارة",
+  "formsSubmitting": "جارٍ الإرسال…",
+  "formsSelectOption": "اختر خياراً…",
+  "formsRequiredError": "يرجى الإجابة على جميع الأسئلة المطلوبة ({count} غير مكتمل).",
+  "formsSubmitFailed": "فشل الإرسال. يرجى المحاولة مجدداً.",
+  "formsAlreadySubmitted": "لقد قدّمت هذه الاستمارة بالفعل. إجاباتك معروضة أدناه.",
+
   "themeSystem": "النظام",
   "themeLight": "فاتح",
   "themeDark": "داكن"

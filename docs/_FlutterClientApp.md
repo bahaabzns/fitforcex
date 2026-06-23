@@ -297,7 +297,7 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 
 > Each phase ends with a runnable, testable build. Order front-loads the auth spine and the highest-value flows (nutrition + training), matching how the portal proved itself.
 
-> **Status (live):** Phase 0 ✅ · Phase 1 ✅ · Phase 2 ✅ (nutrition) · Phase 3 ✅ (training plan view) · Phase 4 ✅ (Training Mode session + history + progress) — all verified with `flutter analyze` + tests green (38 tests) + debug APK builds. Next: Phase 5 (Forms). Session draft persists via shared_preferences; progress chart is a CustomPainter (no fl_chart); training Start/History/Progress are wired live.
+> **Status (live):** Phase 0 ✅ · Phase 1 ✅ · Phase 2 ✅ (nutrition) · Phase 3 ✅ (training plan view) · Phase 4 ✅ (Training Mode session + history + progress) · Phase 5 ✅ (forms) — all verified with `flutter analyze` + tests green (41 tests) + debug APK builds. Next: Phase 6 (Messages). Session draft persists via shared_preferences; progress chart is a CustomPainter (no fl_chart); forms render all 6 question types with read-only-when-submitted.
 
 **Phase 0 — Spine (no features)** ✅
 - Flutter project, flavors, theme tokens, i18n scaffold (EN/AR + RTL), go_router with auth redirect, dio client + interceptors, secure token storage, `AsyncValue` UI pattern, shared widgets (EmptyState, Skeleton, ErrorView, CollapsibleNote, PillTabs), CI build green.
@@ -320,7 +320,7 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 - Session screen with live logging, rest timer, Hive persistence/resume, finish→POST. History list+detail. Progress picker + fl_chart + metric toggle. `workout.dart` port + tests.
 - Exit: the full train→log→review→progress loop works offline-resilient.
 
-**Phase 5 — Forms**
+**Phase 5 — Forms** ✅
 - List + filters + dynamic renderer (all 6 question types) + validation + submit + read-only submitted view.
 - Exit: forms parity.
 

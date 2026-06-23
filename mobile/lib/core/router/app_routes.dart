@@ -18,6 +18,9 @@ class AppRoutes {
   static const trainingProgress = '/training/progress';
   static String trainingHistoryDetail(String id) => '/training/history/$id';
 
+  // Forms
+  static String formFill(String id) => '/forms/$id';
+
   // Top-bar destinations (pushed over the shell)
   static const profile = '/profile';
   static const notifications = '/notifications';

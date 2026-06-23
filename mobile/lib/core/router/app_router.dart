@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/login_page.dart';
+import '../../features/forms/form_fill_page.dart';
 import '../../features/forms/forms_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/messages/messages_page.dart';
@@ -90,6 +91,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.trainingProgress,
         builder: (context, state) => const ProgressPage(),
+      ),
+      GoRoute(
+        path: '/forms/:id',
+        builder: (context, state) =>
+            FormFillPage(requestId: state.pathParameters['id']!),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
