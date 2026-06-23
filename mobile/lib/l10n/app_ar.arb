@@ -147,6 +147,9 @@
   "messagesToday": "اليوم",
   "messagesYesterday": "أمس",
 
+  "homeWelcome": "مرحباً بعودتك، {name}!",
+  "homeAllCaughtUp": "كل شيء على ما يرام",
+
   "themeSystem": "النظام",
   "themeLight": "فاتح",
   "themeDark": "داكن"

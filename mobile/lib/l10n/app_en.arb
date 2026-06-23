@@ -152,6 +152,10 @@
   "messagesToday": "Today",
   "messagesYesterday": "Yesterday",
 
+  "homeWelcome": "Welcome back, {name}!",
+  "@homeWelcome": { "placeholders": { "name": { "type": "String" } } },
+  "homeAllCaughtUp": "All caught up",
+
   "themeSystem": "System",
   "themeLight": "Light",
   "themeDark": "Dark"
