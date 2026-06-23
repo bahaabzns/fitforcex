@@ -193,6 +193,30 @@ export function logout(_req: Request, res: Response) {
     res.clearCookie('client_token').status(200).json({ message: 'Logged out' });
 }
 
+/**
+ * Public workspace lookup for the mobile branded-login screen. Mobile has no
+ * subdomain, so it resolves a slug to the workspace's display identity before
+ * the client signs in. Returns only non-sensitive branding fields.
+ */
+export async function getWorkspace(req: Request, res: Response, next: NextFunction) {
+    const slug = (req.query.slug as string | undefined)?.trim();
+    if (!slug) return res.status(400).json({ message: 'slug is required' });
+
+    try {
+        const workspace = await prisma.workspaces.findFirst({
+            where:  { slug, archived_at: null },
+            select: { slug: true, name: true },
+        });
+        if (!workspace) return res.status(404).json({ message: 'Workspace not found' });
+
+        // logoUrl / brandColor are not yet modelled per-workspace; return null so
+        // the client can fall back to app defaults without a contract change later.
+        res.json({ slug: workspace.slug, name: workspace.name, logoUrl: null, brandColor: null });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function getMe(req: Request, res: Response, next: NextFunction) {
     try {
         const client = await prisma.clients.findFirst({

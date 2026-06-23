@@ -46,6 +46,32 @@ router.post('/logout', clientPortalController.logout);
 
 /**
  * @openapi
+ * /client-portal/workspace:
+ *   get:
+ *     summary: Public workspace lookup for the mobile branded-login screen
+ *     tags: [Client Portal]
+ *     security: []
+ *     parameters:
+ *       - { in: query, name: slug, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Workspace branding identity
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 slug:       { type: string }
+ *                 name:       { type: string }
+ *                 logoUrl:    { type: string, nullable: true }
+ *                 brandColor: { type: string, nullable: true }
+ *       404:
+ *         description: Workspace not found
+ */
+router.get('/workspace', clientPortalController.getWorkspace);
+
+/**
+ * @openapi
  * /client-portal/me:
  *   get:
  *     summary: Get the authenticated client's profile

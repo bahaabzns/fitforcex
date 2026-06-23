@@ -9,6 +9,9 @@ function requireEnv(key: string): string {
 export const env = {
     NODE_ENV:             process.env.NODE_ENV ?? 'development',
     PORT:                 parseInt(process.env.PORT ?? '4000', 10),
+    // Bind address. Default loopback for safety; set HOST=0.0.0.0 to reach the
+    // dev server from a physical device on the LAN (mobile testing).
+    HOST:                 process.env.HOST ?? '127.0.0.1',
 
     // Auth
     JWT_SECRET:           requireEnv('JWT_SECRET'),

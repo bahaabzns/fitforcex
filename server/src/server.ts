@@ -18,8 +18,8 @@ if (env.NODE_ENV !== 'test') {
 const httpServer = http.createServer(app);
 initSocket(httpServer);
 
-httpServer.listen(env.PORT, '127.0.0.1', () => {
-    console.log(`Server running on http://127.0.0.1:${env.PORT}`);
+httpServer.listen(env.PORT, env.HOST, () => {
+    console.log(`Server running on http://${env.HOST}:${env.PORT}`);
 });
 
 export default httpServer;
