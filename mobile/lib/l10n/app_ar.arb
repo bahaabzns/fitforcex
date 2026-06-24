@@ -152,5 +152,22 @@
 
   "themeSystem": "النظام",
   "themeLight": "فاتح",
-  "themeDark": "داكن"
+  "themeDark": "داكن",
+
+  "statusExpiredTitle": "انتهى الاشتراك",
+  "statusExpiredBody": "انتهى اشتراك التدريب الخاص بك. جدّد اشتراكك لمواصلة تلقّي التدريب والمتابعات والدعم وتحديثات الخطط.",
+  "statusExpiredRenew": "تجديد الاشتراك",
+  "statusFrozenTitle": "الاشتراك متوقف مؤقتًا",
+  "statusFrozenBody": "اشتراك التدريب الخاص بك متوقف مؤقتًا حاليًا. تعتمد الميزات المتاحة لك على سياسة وصول مدربك.",
+  "statusContactCoach": "تواصل مع المدرب",
+  "statusRefresh": "تحديث",
+  "statusBannerExpired": "انتهى اشتراكك — بعض الميزات محدودة.",
+  "statusBannerFrozen": "اشتراكك متوقف مؤقتًا — بعض الميزات محدودة.",
+  "restrictedTitle": "الوصول مقيّد",
+  "restrictedTraining": "لم يعد لديك وصول إلى خطط التدريب.",
+  "restrictedNutrition": "لم يعد لديك وصول إلى خطط التغذية.",
+  "restrictedProgress": "لم يعد لديك وصول إلى سجل تقدمك.",
+  "restrictedForms": "لم يعد لديك وصول إلى الاستمارات.",
+  "restrictedMessages": "المراسلة غير متاحة في حالة اشتراكك الحالية.",
+  "restrictedCheckinSubmit": "المتابعات غير متاحة حاليًا في حالة اشتراكك."
 }

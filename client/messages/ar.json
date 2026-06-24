@@ -22,7 +22,8 @@
     "foodCategories": "تصنيفات الطعام",
     "exercises": "التمارين",
     "muscleGroups": "مجموعات العضلات",
-    "equipment": "المعدات"
+    "equipment": "المعدات",
+    "subscriptionPolicies": "سياسات الاشتراك"
   },
   "sidebar": {
     "logout": "تسجيل الخروج",
@@ -195,7 +196,43 @@
     "passwordMinLength": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
     "tabOverview": "نظرة عامة",
     "tabWorkoutLogs": "سجلات التمرين",
-    "unsavedChangesPrompt": "لديك تغييرات غير محفوظة. هل تريد المغادرة دون حفظ؟"
+    "unsavedChangesPrompt": "لديك تغييرات غير محفوظة. هل تريد المغادرة دون حفظ؟",
+    "statusArchived": "مؤرشف",
+    "archiveAction": "أرشفة العميل",
+    "archiveClientTitle": "أرشفة العميل",
+    "archiveClientDesc": "سيتم إزالة هذا العميل من قوائم العملاء النشطين وسير العمل التدريبي. سيتم الاحتفاظ بجميع البيانات التاريخية والتقييمات وتسجيلات المتابعة والخطط والرسائل والملفات والمدفوعات ويمكن استعادتها لاحقًا.",
+    "archiveClientConfirm": "أرشفة العميل",
+    "archiving": "جارٍ الأرشفة…",
+    "restoreClient": "استعادة العميل",
+    "restoring": "جارٍ الاستعادة…",
+    "restoreSuccess": "تمت استعادة العميل بنجاح.",
+    "archivedBannerTitle": "هذا العميل مؤرشف",
+    "archivedBannerDesc": "تم تعطيل الوصول إلى البوابة وإيقاف تسجيلات المتابعة وإرسال النماذج الجديدة. استعد العميل لاستئناف التدريب.",
+    "dangerZone": "منطقة الخطر",
+    "permanentDelete": "حذف العميل نهائيًا",
+    "permanentDeleteDesc": "لا يمكن التراجع عن الحذف النهائي للعميل. ستختار طريقة التعامل مع بياناته الشخصية عند التأكيد.",
+    "permanentDeleteWarning": "هذا الإجراء دائم ولا يمكن التراجع عنه.",
+    "deleteStrategyLabel": "كيف يجب التعامل مع البيانات الشخصية؟",
+    "recommended": "موصى به",
+    "anonymizeTitle": "إخفاء الهوية",
+    "anonymizeDesc": "استبدال اسم العميل وبريده الإلكتروني وهاتفه بقيم مجهولة الهوية. تبقى التقارير التاريخية وتحليلات الإيرادات سليمة.",
+    "hardTitle": "حذف نهائي",
+    "hardDesc": "إزالة ملف العميل والتقييمات وتسجيلات المتابعة والنماذج والملفات وصور التقدم والرسائل والخطط والقياسات نهائيًا. يتم فصل سجلات الإيرادات والاحتفاظ بها.",
+    "permanentDeleteConfirmLabel": "اكتب \"{name}\" لحذف هذا العميل نهائيًا.",
+    "permanentDeleteConfirmPlaceholder": "اكتب الاسم الكامل للعميل",
+    "permanentDeleteButton": "حذف نهائي",
+    "deleting": "جارٍ الحذف…",
+    "deleteFailed": "تعذّر حذف هذا العميل — يرجى المحاولة مرة أخرى.",
+    "nameMismatch": "الاسم الذي كتبته غير مطابق.",
+    "activityTimeline": "سجل النشاط",
+    "noActivity": "لا يوجد نشاط مسجل بعد.",
+    "timelineArchived": "تمت أرشفة العميل",
+    "timelineRestored": "تمت استعادة العميل",
+    "timelineDeleted": "تم حذف العميل نهائيًا",
+    "timelineStatusChange": "تغيّرت الحالة من {from} إلى {to}",
+    "actorYou": "أنت",
+    "actorCoach": "أحد المدربين",
+    "actorSystem": "النظام"
   },
   "workoutLogs": {
     "sessions": "الجلسات",
@@ -1278,6 +1315,18 @@
       "title": "الإشعارات",
       "comingSoon": "قريباً",
       "comingSoonHint": "ستُعلَم هنا بشأن خططك والتحديثات."
+    },
+    "status": {
+      "expiredTitle": "انتهى الاشتراك",
+      "expiredBody": "انتهى اشتراك التدريب الخاص بك. جدّد اشتراكك لمواصلة تلقّي التدريب وتحديثات الخطط والمتابعات والدعم.",
+      "expiredCta": "تجديد الاشتراك",
+      "frozenTitle": "الاشتراك متوقف مؤقتًا",
+      "frozenBody": "اشتراك التدريب الخاص بك متوقف مؤقتًا حاليًا. تظل خططك وتقدمك متاحة وفقًا لسياسة مدربك.",
+      "frozenCta": "تواصل مع المدرب",
+      "restrictedTitle": "غير متاح",
+      "restrictedBody": "هذا القسم غير متاح في اشتراكك الحالي.",
+      "bannerExpired": "انتهى اشتراكك — بعض الميزات محدودة.",
+      "bannerFrozen": "اشتراكك متوقف مؤقتًا — بعض الميزات محدودة."
     }
   },
   "error": {
@@ -1424,6 +1473,21 @@
     "deleteButton": "حذف",
     "searchPlaceholder": "البحث في عناصر الطعام..."
   },
+  "notifications": {
+    "title": "الإشعارات",
+    "empty": "لا توجد إشعارات جديدة",
+    "loading": "جارٍ التحميل…",
+    "markAllRead": "تعليم الكل كمقروء",
+    "timeJustNow": "الآن",
+    "types": {
+      "messageReceived": "رسالة جديدة من عميل",
+      "planAssigned": "تم تعيين خطة جديدة",
+      "checkinSubmitted": "أرسل عميل نموذج متابعة",
+      "clientCreated": "تمت إضافة عميل جديد",
+      "paymentReceived": "تم استلام دفعة اشتراكك",
+      "paymentFailed": "فشلت دفعة اشتراكك"
+    }
+  },
   "messenger": {
     "title": "الرسائل",
     "searchPlaceholder": "بحث…",
@@ -1444,5 +1508,50 @@
     "openProfile": "فتح الملف الشخصي",
     "today": "اليوم",
     "yesterday": "أمس"
+  },
+  "subscriptionPolicies": {
+    "pageTitle": "سياسات الاشتراك",
+    "pageSubtitle": "تحكم فيما يمكن للعملاء المنتهية أو المجمدة اشتراكاتهم رؤيته والقيام به في البوابة.",
+    "expiredTitle": "سياسة العميل المنتهي",
+    "expiredDesc": "تُطبق عند انتهاء اشتراك العميل.",
+    "frozenTitle": "سياسة العميل المجمد",
+    "frozenDesc": "تُطبق أثناء إيقاف اشتراك العميل مؤقتًا.",
+    "gracePeriodLabel": "فترة السماح (أيام)",
+    "gracePeriodHelp": "عدد الأيام بعد الانتهاء التي يحتفظ فيها العميل بكامل الصلاحيات.",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ…",
+    "saveSuccess": "تم حفظ السياسات بنجاح.",
+    "saveFailed": "فشل حفظ السياسات.",
+    "overridesTitle": "سياسة الاشتراك",
+    "overridesHelp": "تجاوز السياسة العامة للعملاء على هذه الباقة.",
+    "useGlobal": "استخدام السياسة العامة",
+    "custom": "مخصص",
+    "expiredOverride": "سياسة الانتهاء",
+    "frozenOverride": "سياسة التجميد",
+    "comingSoon": "قريبًا",
+    "label": {
+      "keep_portal_access": "إبقاء الوصول للبوابة",
+      "view_training_plans": "عرض خطط التدريب",
+      "view_nutrition_plans": "عرض خطط التغذية",
+      "view_progress_history": "عرض سجل التقدم",
+      "view_assessments": "عرض التقييمات",
+      "view_checkins": "عرض المتابعات",
+      "allow_messaging": "المراسلة",
+      "allow_submit_checkins": "إرسال المتابعات",
+      "allow_booking_appointments": "حجز المواعيد",
+      "allow_download_files": "تنزيل الملفات"
+    },
+    "help": {
+      "keep_portal_access": "السماح للعميل بتسجيل الدخول إلى بوابته.",
+      "view_training_plans": "السماح للعميل بفتح خطط التدريب المخصصة له.",
+      "view_nutrition_plans": "السماح للعميل بفتح خطط التغذية.",
+      "view_progress_history": "السماح للعميل برؤية التمارين المسجلة ومخططات التقدم.",
+      "view_assessments": "السماح للعميل بعرض نماذج التقييم.",
+      "view_checkins": "السماح للعميل بعرض نماذج المتابعة.",
+      "allow_messaging": "السماح للعميل بمراسلة فريق التدريب.",
+      "allow_submit_checkins": "السماح للعميل بإرسال نماذج المتابعة.",
+      "allow_booking_appointments": "السماح للعميل بحجز المواعيد.",
+      "allow_download_files": "السماح للعميل بتنزيل الملفات."
+    }
   }
 }

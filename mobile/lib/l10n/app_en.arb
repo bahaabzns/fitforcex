@@ -158,5 +158,22 @@
 
   "themeSystem": "System",
   "themeLight": "Light",
-  "themeDark": "Dark"
+  "themeDark": "Dark",
+
+  "statusExpiredTitle": "Subscription Expired",
+  "statusExpiredBody": "Your coaching subscription has ended. Renew your subscription to continue receiving coaching, check-ins, support, and plan updates.",
+  "statusExpiredRenew": "Renew Subscription",
+  "statusFrozenTitle": "Subscription Paused",
+  "statusFrozenBody": "Your coaching subscription is currently on hold. Your available features depend on your coach's access policy.",
+  "statusContactCoach": "Contact Coach",
+  "statusRefresh": "Refresh",
+  "statusBannerExpired": "Your subscription has expired — some features are limited.",
+  "statusBannerFrozen": "Your subscription is paused — some features are limited.",
+  "restrictedTitle": "Access Restricted",
+  "restrictedTraining": "You no longer have access to training plans.",
+  "restrictedNutrition": "You no longer have access to nutrition plans.",
+  "restrictedProgress": "You no longer have access to your progress history.",
+  "restrictedForms": "You no longer have access to forms.",
+  "restrictedMessages": "Messaging is unavailable for your current subscription status.",
+  "restrictedCheckinSubmit": "Check-ins are currently unavailable under your subscription status."
 }

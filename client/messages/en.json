@@ -22,7 +22,8 @@
     "foodCategories": "Food Categories",
     "exercises": "Exercises",
     "muscleGroups": "Muscle Groups",
-    "equipment": "Equipment"
+    "equipment": "Equipment",
+    "subscriptionPolicies": "Subscription Policies"
   },
   "sidebar": {
     "logout": "Logout",
@@ -195,7 +196,43 @@
     "passwordMinLength": "Password must be at least 6 characters",
     "tabOverview": "Overview",
     "tabWorkoutLogs": "Workout Logs",
-    "unsavedChangesPrompt": "You have unsaved changes. Leave without saving?"
+    "unsavedChangesPrompt": "You have unsaved changes. Leave without saving?",
+    "statusArchived": "Archived",
+    "archiveAction": "Archive Client",
+    "archiveClientTitle": "Archive Client",
+    "archiveClientDesc": "This client will be removed from active client lists and coaching workflows. All historical data, assessments, check-ins, plans, messages, files and payments will be preserved and can be restored later.",
+    "archiveClientConfirm": "Archive Client",
+    "archiving": "Archiving…",
+    "restoreClient": "Restore Client",
+    "restoring": "Restoring…",
+    "restoreSuccess": "Client restored successfully.",
+    "archivedBannerTitle": "This client is archived",
+    "archivedBannerDesc": "Portal access is disabled and new check-ins and form submissions are paused. Restore the client to resume coaching.",
+    "dangerZone": "Danger Zone",
+    "permanentDelete": "Permanently Delete Client",
+    "permanentDeleteDesc": "Permanently removing a client cannot be undone. You'll choose how their personal data is handled when you confirm.",
+    "permanentDeleteWarning": "This action is permanent and cannot be undone.",
+    "deleteStrategyLabel": "How should personal data be handled?",
+    "recommended": "Recommended",
+    "anonymizeTitle": "Anonymize",
+    "anonymizeDesc": "Replace the client's name, email and phone with anonymized values. Historical reports and revenue analytics remain intact.",
+    "hardTitle": "Hard Delete",
+    "hardDesc": "Permanently remove the client's profile, assessments, check-ins, forms, files, progress photos, messages, plans and measurements. Revenue records are detached and preserved.",
+    "permanentDeleteConfirmLabel": "Type \"{name}\" to permanently delete this client.",
+    "permanentDeleteConfirmPlaceholder": "Type the client's full name",
+    "permanentDeleteButton": "Delete Permanently",
+    "deleting": "Deleting…",
+    "deleteFailed": "Could not delete this client — please try again.",
+    "nameMismatch": "The name you typed does not match.",
+    "activityTimeline": "Activity Timeline",
+    "noActivity": "No activity recorded yet.",
+    "timelineArchived": "Client archived",
+    "timelineRestored": "Client restored",
+    "timelineDeleted": "Client permanently deleted",
+    "timelineStatusChange": "Status changed from {from} to {to}",
+    "actorYou": "You",
+    "actorCoach": "A coach",
+    "actorSystem": "System"
   },
   "workoutLogs": {
     "sessions": "Sessions",
@@ -1278,6 +1315,18 @@
       "title": "Notifications",
       "comingSoon": "Coming soon",
       "comingSoonHint": "You'll be notified about your plans and updates here."
+    },
+    "status": {
+      "expiredTitle": "Subscription Expired",
+      "expiredBody": "Your coaching subscription has ended. Renew your subscription to continue receiving coaching, plan updates, check-ins, and support.",
+      "expiredCta": "Renew Subscription",
+      "frozenTitle": "Subscription Paused",
+      "frozenBody": "Your coaching subscription is currently on hold. Your existing plans and progress remain available according to your coach's policy.",
+      "frozenCta": "Contact Coach",
+      "restrictedTitle": "Not available",
+      "restrictedBody": "This section isn't available on your current subscription.",
+      "bannerExpired": "Your subscription has expired — some features are limited.",
+      "bannerFrozen": "Your subscription is paused — some features are limited."
     }
   },
   "error": {
@@ -1424,6 +1473,21 @@
     "deleteButton": "Delete",
     "searchPlaceholder": "Search food items..."
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "You're all caught up",
+    "loading": "Loading…",
+    "markAllRead": "Mark all read",
+    "timeJustNow": "Just now",
+    "types": {
+      "messageReceived": "New message from a client",
+      "planAssigned": "A new plan was assigned",
+      "checkinSubmitted": "A client submitted a check-in",
+      "clientCreated": "A new client was added",
+      "paymentReceived": "Your subscription payment was received",
+      "paymentFailed": "Your subscription payment failed"
+    }
+  },
   "messenger": {
     "title": "Messages",
     "searchPlaceholder": "Search…",
@@ -1444,5 +1508,50 @@
     "openProfile": "Open Profile",
     "today": "Today",
     "yesterday": "Yesterday"
+  },
+  "subscriptionPolicies": {
+    "pageTitle": "Subscription Policies",
+    "pageSubtitle": "Control what expired and frozen clients can see and do in their portal.",
+    "expiredTitle": "Expired Client Policy",
+    "expiredDesc": "Applies when a client's subscription has ended.",
+    "frozenTitle": "Frozen Client Policy",
+    "frozenDesc": "Applies while a client's subscription is paused / on hold.",
+    "gracePeriodLabel": "Grace period (days)",
+    "gracePeriodHelp": "Days after expiry during which the client keeps full access.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saveSuccess": "Policies saved successfully.",
+    "saveFailed": "Failed to save policies.",
+    "overridesTitle": "Subscription Policy",
+    "overridesHelp": "Override the global policy for clients on this package.",
+    "useGlobal": "Use global policy",
+    "custom": "Custom",
+    "expiredOverride": "Expired policy",
+    "frozenOverride": "Frozen policy",
+    "comingSoon": "Coming soon",
+    "label": {
+      "keep_portal_access": "Keep Portal Access",
+      "view_training_plans": "View Training Plans",
+      "view_nutrition_plans": "View Nutrition Plans",
+      "view_progress_history": "View Progress History",
+      "view_assessments": "View Assessments",
+      "view_checkins": "View Check-ins",
+      "allow_messaging": "Messaging",
+      "allow_submit_checkins": "Submit Check-ins",
+      "allow_booking_appointments": "Book Appointments",
+      "allow_download_files": "Download Files"
+    },
+    "help": {
+      "keep_portal_access": "Allow the client to sign in to their portal at all.",
+      "view_training_plans": "Let the client open their assigned training plans.",
+      "view_nutrition_plans": "Let the client open their nutrition plans.",
+      "view_progress_history": "Let the client see logged workouts and progress charts.",
+      "view_assessments": "Let the client view assessment forms.",
+      "view_checkins": "Let the client view check-in forms.",
+      "allow_messaging": "Let the client message the coaching team.",
+      "allow_submit_checkins": "Let the client submit check-in forms.",
+      "allow_booking_appointments": "Let the client book appointments.",
+      "allow_download_files": "Let the client download files and exports."
+    }
   }
 }
