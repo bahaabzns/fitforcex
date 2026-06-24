@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
@@ -10,6 +11,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/utils/workout.dart';
+import '../access/restricted_view.dart';
 import 'workout_repository.dart';
 
 /// Logged workout history list. Tapping a session opens its detail.
@@ -34,25 +36,27 @@ class HistoryPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: AsyncValueWidget<List<WorkoutLogSummary>>(
-        value: logs,
-        onRetry: () => ref.invalidate(workoutLogsProvider),
-        data: (logs) {
-          if (logs.isEmpty) {
-            return EmptyState(
-              icon: Icons.fitness_center,
-              title: l10n.trainingNoLogs,
-              hint: l10n.trainingNoLogsHint,
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(24),
-            itemCount: logs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (_, i) => _LogTile(log: logs[i], locale: locale),
-          );
-        },
-      ),
+      body: !ref.watch(clientAccessProvider).canViewProgress
+          ? RestrictedView(message: l10n.restrictedProgress)
+          : AsyncValueWidget<List<WorkoutLogSummary>>(
+              value: logs,
+              onRetry: () => ref.invalidate(workoutLogsProvider),
+              data: (logs) {
+                if (logs.isEmpty) {
+                  return EmptyState(
+                    icon: Icons.fitness_center,
+                    title: l10n.trainingNoLogs,
+                    hint: l10n.trainingNoLogsHint,
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: logs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => _LogTile(log: logs[i], locale: locale),
+                );
+              },
+            ),
     );
   }
 }

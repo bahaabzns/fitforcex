@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/form.dart';
 import '../../shared/utils/localization.dart';
+import '../access/restricted_view.dart';
 import 'forms_repository.dart';
 
 /// Renders a form request's questions and submits answers. Read-only once
@@ -19,18 +21,25 @@ class FormFillPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final detail = ref.watch(formRequestProvider(requestId));
+    final canView = ref.watch(clientAccessProvider).canViewForms;
 
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(onPressed: () => context.pop()),
         title: Text(l10n.formsTitle),
       ),
-      body: AsyncValueWidget<FormRequestDetail>(
-        value: detail,
-        onRetry: () => ref.invalidate(formRequestProvider(requestId)),
-        data: (detail) => _FormBody(requestId: requestId, detail: detail),
-      ),
+      body: !canView
+          ? RestrictedView(message: l10n.restrictedForms)
+          : _buildBody(ref),
+    );
+  }
+
+  Widget _buildBody(WidgetRef ref) {
+    final detail = ref.watch(formRequestProvider(requestId));
+    return AsyncValueWidget<FormRequestDetail>(
+      value: detail,
+      onRetry: () => ref.invalidate(formRequestProvider(requestId)),
+      data: (detail) => _FormBody(requestId: requestId, detail: detail),
     );
   }
 }
@@ -143,11 +152,22 @@ class _FormBodyState extends ConsumerState<_FormBody> {
           _Banner(message: _error!, error: true),
           const SizedBox(height: 12),
         ],
-        if (!_isSubmitted)
-          FilledButton(
-            onPressed: _submitting ? null : _submit,
-            child: Text(_submitting ? l10n.formsSubmitting : l10n.formsSubmit),
-          ),
+        if (!_isSubmitted) ...[
+          if (ref.watch(clientAccessProvider).canSubmitCheckins)
+            FilledButton(
+              onPressed: _submitting ? null : _submit,
+              child:
+                  Text(_submitting ? l10n.formsSubmitting : l10n.formsSubmit),
+            )
+          else ...[
+            _Banner(message: l10n.restrictedCheckinSubmit),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: null,
+              child: Text(l10n.formsSubmit),
+            ),
+          ],
+        ],
       ],
     );
   }

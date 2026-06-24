@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
+import '../access/restricted_view.dart';
 import 'widgets/line_chart.dart';
 import 'workout_repository.dart';
 
@@ -36,36 +38,38 @@ class _ProgressPageState extends ConsumerState<ProgressPage> {
         leading: BackButton(onPressed: () => context.pop()),
         title: Text(l10n.trainingProgress),
       ),
-      body: AsyncValueWidget<List<LoggedExerciseRef>>(
-        value: exercises,
-        onRetry: () => ref.invalidate(loggedExercisesProvider),
-        data: (list) {
-          if (list.isEmpty) {
-            return EmptyState(
-              icon: Icons.show_chart,
-              title: l10n.trainingNoExercisesForProgress,
-            );
-          }
-          final selected = _selected ?? list.first;
-          return ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              _ExercisePicker(
-                exercises: list,
-                selected: selected,
-                onSelected: (e) => setState(() => _selected = e),
-              ),
-              const SizedBox(height: 12),
-              _MetricToggle(
-                metric: _metric,
-                onChanged: (m) => setState(() => _metric = m),
-              ),
-              const SizedBox(height: 16),
-              _Chart(selected: selected, metric: _metric),
-            ],
-          );
-        },
-      ),
+      body: !ref.watch(clientAccessProvider).canViewProgress
+          ? RestrictedView(message: l10n.restrictedProgress)
+          : AsyncValueWidget<List<LoggedExerciseRef>>(
+              value: exercises,
+              onRetry: () => ref.invalidate(loggedExercisesProvider),
+              data: (list) {
+                if (list.isEmpty) {
+                  return EmptyState(
+                    icon: Icons.show_chart,
+                    title: l10n.trainingNoExercisesForProgress,
+                  );
+                }
+                final selected = _selected ?? list.first;
+                return ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    _ExercisePicker(
+                      exercises: list,
+                      selected: selected,
+                      onSelected: (e) => setState(() => _selected = e),
+                    ),
+                    const SizedBox(height: 12),
+                    _MetricToggle(
+                      metric: _metric,
+                      onChanged: (m) => setState(() => _metric = m),
+                    ),
+                    const SizedBox(height: 16),
+                    _Chart(selected: selected, metric: _metric),
+                  ],
+                );
+              },
+            ),
     );
   }
 }

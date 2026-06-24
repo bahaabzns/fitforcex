@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/workout_log.dart';
 import '../../shared/utils/workout.dart';
+import '../access/restricted_view.dart';
 import 'workout_repository.dart';
 
 /// A single logged session with its exercises and sets. Port of the web
@@ -28,44 +30,50 @@ class HistoryDetailPage extends ConsumerWidget {
         leading: BackButton(onPressed: () => context.pop()),
         title: Text(l10n.trainingHistory),
       ),
-      body: AsyncValueWidget<WorkoutLogDetail>(
-        value: log,
-        onRetry: () => ref.invalidate(workoutLogProvider(logId)),
-        data: (log) {
-          final date = DateTime.tryParse(log.date);
-          final dateLabel =
-              date != null ? DateFormat.yMMMEd(locale).format(date) : log.date;
-          final muted = context.appColors.mutedForeground;
+      body: !ref.watch(clientAccessProvider).canViewProgress
+          ? RestrictedView(message: l10n.restrictedProgress)
+          : AsyncValueWidget<WorkoutLogDetail>(
+              value: log,
+              onRetry: () => ref.invalidate(workoutLogProvider(logId)),
+              data: (log) {
+                final date = DateTime.tryParse(log.date);
+                final dateLabel = date != null
+                    ? DateFormat.yMMMEd(locale).format(date)
+                    : log.date;
+                final muted = context.appColors.mutedForeground;
 
-          return ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              Text(log.dayName ?? l10n.trainingWorkout,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              Text(dateLabel, style: TextStyle(fontSize: 13, color: muted)),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  _stat(formatDuration(log.durationSeconds), muted),
-                  const SizedBox(width: 12),
-                  _stat('${_n(log.totalVolume)} ${l10n.trainingVolumeUnit}',
-                      muted),
-                  const SizedBox(width: 12),
-                  _stat('${log.totalSets} ${l10n.trainingSetsShort}', muted),
-                ],
-              ),
-              const SizedBox(height: 16),
-              for (var i = 0; i < log.exercises.length; i++) ...[
-                _ExerciseCard(exercise: log.exercises[i], index: i),
-                const SizedBox(height: 12),
-              ],
-            ],
-          );
-        },
-      ),
+                return ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    Text(log.dayName ?? l10n.trainingWorkout,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(dateLabel,
+                        style: TextStyle(fontSize: 13, color: muted)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _stat(formatDuration(log.durationSeconds), muted),
+                        const SizedBox(width: 12),
+                        _stat(
+                            '${_n(log.totalVolume)} ${l10n.trainingVolumeUnit}',
+                            muted),
+                        const SizedBox(width: 12),
+                        _stat('${log.totalSets} ${l10n.trainingSetsShort}',
+                            muted),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    for (var i = 0; i < log.exercises.length; i++) ...[
+                      _ExerciseCard(exercise: log.exercises[i], index: i),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                );
+              },
+            ),
     );
   }
 

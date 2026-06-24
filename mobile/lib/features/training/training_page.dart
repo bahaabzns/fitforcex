@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/config/providers.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
@@ -13,6 +14,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/training_plan.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/media_url.dart';
+import '../access/restricted_view.dart';
 import 'training_repository.dart';
 import 'widgets/exercise_video.dart';
 
@@ -25,6 +27,11 @@ class TrainingPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+
+    if (!ref.watch(clientAccessProvider).canViewTraining) {
+      return RestrictedView(message: l10n.restrictedTraining);
+    }
+
     final plan = ref.watch(activeTrainingPlanProvider);
 
     return AsyncValueWidget<TrainingPlan?>(

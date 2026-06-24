@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
@@ -9,6 +10,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/form.dart';
 import '../../shared/utils/localization.dart';
+import '../access/restricted_view.dart';
 import 'forms_repository.dart';
 
 enum _Filter { pending, submitted }
@@ -29,6 +31,11 @@ class _FormsPageState extends ConsumerState<FormsPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).languageCode;
+
+    if (!ref.watch(clientAccessProvider).canViewForms) {
+      return RestrictedView(message: l10n.restrictedForms);
+    }
+
     final requests = ref.watch(formRequestsProvider);
 
     return AsyncValueWidget<List<FormRequestSummary>>(

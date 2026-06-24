@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_value_widget.dart';
 import '../../core/widgets/collapsible_note.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/pill_tabs.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../access/restricted_view.dart';
 import '../../shared/models/nutrition_plan.dart';
 import '../../shared/utils/localization.dart';
 import '../../shared/utils/nutrition_calc.dart';
@@ -23,6 +25,11 @@ class NutritionPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+
+    if (!ref.watch(clientAccessProvider).canViewNutrition) {
+      return RestrictedView(message: l10n.restrictedNutrition);
+    }
+
     final plan = ref.watch(activeNutritionPlanProvider);
 
     return AsyncValueWidget<NutritionPlan?>(

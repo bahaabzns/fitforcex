@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/access/access_controller.dart';
 import '../../core/config/providers.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_theme.dart';
@@ -13,6 +14,7 @@ import '../../shared/models/workout_log.dart';
 import '../../shared/models/workout_session.dart';
 import '../../shared/utils/media_url.dart';
 import '../../shared/utils/workout.dart';
+import '../access/restricted_view.dart';
 import 'session_store.dart';
 import 'training_repository.dart';
 import 'widgets/exercise_log_card.dart';
@@ -311,6 +313,15 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    // Logging a session requires training-plan access; guard direct/deep-link entry.
+    if (!ref.watch(clientAccessProvider).canViewTraining) {
+      return Scaffold(
+        appBar: AppBar(leading: BackButton(onPressed: () => context.pop())),
+        body: RestrictedView(message: l10n.restrictedTraining),
+      );
+    }
+
     if (_loading || _session == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

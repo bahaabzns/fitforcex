@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import '../../core/access/access_controller.dart';
 import '../../core/auth/token_storage.dart';
 import '../../core/config/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/message.dart';
+import '../access/restricted_view.dart';
 import 'message_segments.dart';
 import 'messages_repository.dart';
 
@@ -135,6 +137,10 @@ class _MessagesPageState extends ConsumerState<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    if (!ref.watch(clientAccessProvider).canMessage) {
+      return RestrictedView(message: l10n.restrictedMessages);
+    }
 
     return Column(
       children: [
