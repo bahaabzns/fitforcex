@@ -3,6 +3,7 @@ import adminAuthMiddleware from '../../middleware/adminAuth';
 import { loginLimiter } from '../../middleware/rateLimit';
 import * as adminController from './admin.controller';
 import * as libraryController from './defaultLibraries.controller';
+import * as templateController from './adminFormTemplates.controller';
 
 const router = Router();
 
@@ -344,5 +345,107 @@ router.post('/libraries/:resource',            adminAuthMiddleware, libraryContr
 router.post('/libraries/:resource/import',     adminAuthMiddleware, libraryController.importRecords);
 router.put('/libraries/:resource/:id',         adminAuthMiddleware, libraryController.updateRecord);
 router.delete('/libraries/:resource/:id',      adminAuthMiddleware, libraryController.deleteRecord);
+
+/**
+ * @openapi
+ * /admin/forms-templates:
+ *   get:
+ *     summary: List all Master Form Templates (default Assessment & Check-In forms)
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: "Array of templates with question_count" }
+ *   post:
+ *     summary: Create a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       201: { description: Template created }
+ *
+ * /admin/forms-templates/{id}:
+ *   put:
+ *     summary: Update a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Template updated }
+ *   delete:
+ *     summary: Delete a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Template deleted }
+ *
+ * /admin/forms-templates/{id}/questions:
+ *   get:
+ *     summary: List questions for a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Array of questions }
+ *   post:
+ *     summary: Add a question to a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       201: { description: Question created }
+ *
+ * /admin/forms-templates/{id}/questions/reorder:
+ *   put:
+ *     summary: Reorder questions in a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Questions reordered }
+ *
+ * /admin/forms-templates/{id}/questions/{qid}:
+ *   put:
+ *     summary: Update a question in a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: qid, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Question updated }
+ *   delete:
+ *     summary: Delete a question from a Master Form Template
+ *     tags: [Admin, FormTemplates]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: qid, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Question deleted }
+ */
+// Specific (/questions/reorder) before parameterized (/questions/:qid) so it is not shadowed.
+router.get('/forms-templates',                          adminAuthMiddleware, templateController.listTemplates);
+router.post('/forms-templates',                         adminAuthMiddleware, templateController.createTemplate);
+router.put('/forms-templates/:id',                      adminAuthMiddleware, templateController.updateTemplate);
+router.delete('/forms-templates/:id',                   adminAuthMiddleware, templateController.deleteTemplate);
+router.get('/forms-templates/:id/questions',            adminAuthMiddleware, templateController.getTemplateQuestions);
+router.post('/forms-templates/:id/questions',           adminAuthMiddleware, templateController.createTemplateQuestion);
+router.put('/forms-templates/:id/questions/reorder',    adminAuthMiddleware, templateController.reorderTemplateQuestions);
+router.put('/forms-templates/:id/questions/:qid',       adminAuthMiddleware, templateController.updateTemplateQuestion);
+router.delete('/forms-templates/:id/questions/:qid',    adminAuthMiddleware, templateController.deleteTemplateQuestion);
 
 export default router;

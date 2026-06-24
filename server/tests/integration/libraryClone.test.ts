@@ -10,6 +10,9 @@ const EQUIPMENT = 2;
 const EXERCISES = 3;
 const FOOD_CATEGORIES = 2;
 const FOOD_ITEMS = 4;
+const ASSESSMENT_FORMS = 1;
+const CHECKIN_FORMS = 1;
+const ASSESSMENT_QUESTIONS = 3;   // questions on the seeded assessment template
 
 async function seedMaster() {
     await testPrisma.master_exercise_muscle_groups.createMany({
@@ -27,6 +30,21 @@ async function seedMaster() {
     await testPrisma.master_food_items.createMany({
         data: Array.from({ length: FOOD_ITEMS }, (_, i) => ({ id: createId(), name_en: `FI ${i}`, calories_per_serving: 100, protein_per_serving: 10, carbs_per_serving: 5, fats_per_serving: 2 })),
     });
+
+    // Assessment template (with questions) + Check-In template (no questions) so the
+    // clone is exercised both with and without nested questions.
+    const assessmentId = createId();
+    await testPrisma.master_forms.create({
+        data: { id: assessmentId, title_en: 'Assessment Tpl', form_type: 'assessment', status: 'active' },
+    });
+    await testPrisma.master_form_questions.createMany({
+        data: Array.from({ length: ASSESSMENT_QUESTIONS }, (_, i) => ({
+            id: createId(), master_form_id: assessmentId, label_en: `Q ${i}`, type: 'text', order_index: i,
+        })),
+    });
+    await testPrisma.master_forms.create({
+        data: { id: createId(), title_en: 'Check-In Tpl', form_type: 'check-in', status: 'active' },
+    });
 }
 
 async function clearMaster() {
@@ -35,6 +53,7 @@ async function clearMaster() {
     await testPrisma.master_exercise_library.deleteMany();
     await testPrisma.master_food_categories.deleteMany();
     await testPrisma.master_food_items.deleteMany();
+    await testPrisma.master_forms.deleteMany();   // cascades to master_form_questions
 }
 
 describe('Default Libraries clone engine', () => {
@@ -61,10 +80,26 @@ describe('Default Libraries clone engine', () => {
             foodCategories: FOOD_CATEGORIES,
             equipment: EQUIPMENT,
             muscleGroups: MUSCLE_GROUPS,
+            assessmentForms: ASSESSMENT_FORMS,
+            checkInForms: CHECKIN_FORMS,
         });
 
         const after = await testPrisma.workspaces.findUnique({ where: { id: ws.id }, select: { clone_status: true } });
         expect(after?.clone_status).toBe('ready');
+    });
+
+    it('clones master form templates with their questions as editable workspace forms', async () => {
+        const ws = await freshWorkspace();
+
+        await cloneDefaultLibraries(ws.id);
+
+        const forms = await testPrisma.forms.findMany({ where: { workspace_id: ws.id } });
+        expect(forms).toHaveLength(ASSESSMENT_FORMS + CHECKIN_FORMS);
+
+        const assessment = forms.find((f) => f.form_type === 'assessment');
+        expect(assessment).toBeDefined();
+        const questions = await testPrisma.form_questions.findMany({ where: { form_id: assessment!.id } });
+        expect(questions).toHaveLength(ASSESSMENT_QUESTIONS);
     });
 
     it('is idempotent — a second clone does not duplicate rows', async () => {

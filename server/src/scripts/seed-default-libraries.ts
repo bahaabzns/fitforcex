@@ -10,7 +10,7 @@
  *   npx dotenv -e .env -- npx tsx src/scripts/seed-default-libraries.ts
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { createId } from '@paralleldrive/cuid2';
 
 const prisma = new PrismaClient();
@@ -116,6 +116,97 @@ const FOOD_ITEMS: [string, string, string, number, number, number, number][] = [
     ['Fava Beans', 'فول', 'Legumes', 110, 7.6, 19, 0.4],
 ];
 
+// ── Default Form Templates (master_forms / master_form_questions) ───────────────
+// Cloned into every new workspace as editable coach forms (see lib/libraryClone.ts).
+// Question types reuse the shared form builder: text, long_text, number, scale,
+// select, multiselect, date. Photo/measurement elements don't exist yet, so the
+// "progress photos" prompt is a long_text placeholder until that element ships.
+
+type SeedQuestion = {
+    label_en: string;
+    label_ar: string;
+    type: string;
+    required?: boolean;
+    options?: string[];
+    options_ar?: string[];
+    min_value?: number;
+    max_value?: number;
+    placeholder_en?: string;
+};
+
+type SeedTemplate = {
+    title_en: string;
+    title_ar: string;
+    form_type: 'assessment' | 'check-in';
+    description_en: string;
+    questions: SeedQuestion[];
+};
+
+const FORM_TEMPLATES: SeedTemplate[] = [
+    {
+        title_en: 'Standard Assessment Form',
+        title_ar: 'نموذج التقييم القياسي',
+        form_type: 'assessment',
+        description_en: 'Initial intake collected when a new client starts.',
+        questions: [
+            { label_en: 'What is your primary goal?', label_ar: 'ما هو هدفك الأساسي؟', type: 'long_text', required: true },
+            { label_en: 'Training experience', label_ar: 'خبرة التمرين', type: 'select', required: true,
+              options: ['Beginner', 'Intermediate', 'Advanced'], options_ar: ['مبتدئ', 'متوسط', 'متقدم'] },
+            { label_en: 'Any injuries or limitations?', label_ar: 'هل لديك أي إصابات أو قيود؟', type: 'long_text' },
+            { label_en: 'Current weight (kg)', label_ar: 'الوزن الحالي (كجم)', type: 'number', required: true },
+            { label_en: 'Height (cm)', label_ar: 'الطول (سم)', type: 'number', required: true },
+            { label_en: 'Days per week available to train', label_ar: 'عدد أيام التمرين المتاحة أسبوعياً', type: 'number', required: true },
+        ],
+    },
+    {
+        title_en: 'Weekly Check-In Form',
+        title_ar: 'نموذج المتابعة الأسبوعي',
+        form_type: 'check-in',
+        description_en: 'Weekly progress check-in submitted by the client.',
+        questions: [
+            { label_en: 'Current weight (kg)', label_ar: 'الوزن الحالي (كجم)', type: 'number', required: true },
+            { label_en: 'Energy level', label_ar: 'مستوى الطاقة', type: 'scale', min_value: 1, max_value: 10 },
+            { label_en: 'Training adherence', label_ar: 'الالتزام بالتمرين', type: 'scale', min_value: 1, max_value: 10 },
+            { label_en: 'Nutrition adherence', label_ar: 'الالتزام بالتغذية', type: 'scale', min_value: 1, max_value: 10 },
+            { label_en: 'Sleep quality', label_ar: 'جودة النوم', type: 'scale', min_value: 1, max_value: 10 },
+            { label_en: 'Notes for your coach', label_ar: 'ملاحظات لمدربك', type: 'long_text' },
+            { label_en: 'Progress photos (paste links)', label_ar: 'صور التقدم (أضف الروابط)', type: 'long_text',
+              placeholder_en: 'Front, side and back photo links' },
+        ],
+    },
+];
+
+async function seedFormTemplates() {
+    const existing = new Set(
+        (await prisma.master_forms.findMany({ select: { title_en: true } })).map((f) => f.title_en.toLowerCase())
+    );
+
+    let created = 0;
+    for (const tpl of FORM_TEMPLATES) {
+        if (existing.has(tpl.title_en.toLowerCase())) continue;
+
+        const formId = createId();
+        await prisma.master_forms.create({
+            data: {
+                id: formId, title_en: tpl.title_en, title_ar: tpl.title_ar,
+                description_en: tpl.description_en, form_type: tpl.form_type, status: 'active',
+            },
+        });
+        await prisma.master_form_questions.createMany({
+            data: tpl.questions.map((q, i) => ({
+                id: createId(), master_form_id: formId,
+                label_en: q.label_en, label_ar: q.label_ar, type: q.type,
+                required: q.required ?? false, order_index: i,
+                options: q.options ?? Prisma.DbNull, options_ar: q.options_ar ?? Prisma.DbNull,
+                min_value: q.min_value ?? null, max_value: q.max_value ?? null,
+                placeholder_en: q.placeholder_en ?? null,
+            })),
+        });
+        created += 1;
+    }
+    console.log(`  Form templates: +${created} (${FORM_TEMPLATES.length - created} already present)`);
+}
+
 async function seedSimple(label: string, existing: Set<string>, rows: [string, string][], insert: (data: { id: string; name_en: string; name_ar: string }[]) => Promise<unknown>) {
     const toInsert = rows
         .filter(([en]) => !existing.has(en.toLowerCase()))
@@ -157,6 +248,8 @@ async function main() {
         }));
     if (fiToInsert.length) await prisma.master_food_items.createMany({ data: fiToInsert, skipDuplicates: true });
     console.log(`  Food items: +${fiToInsert.length} (${FOOD_ITEMS.length - fiToInsert.length} already present)`);
+
+    await seedFormTemplates();
 
     console.log('Done.');
 }

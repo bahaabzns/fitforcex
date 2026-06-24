@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import logger from '../logger';
 
@@ -20,17 +21,75 @@ export type LibraryCounts = {
     foodCategories: number;
     equipment: number;
     muscleGroups: number;
+    assessmentForms: number;
+    checkInForms: number;
 };
 
 export async function getLibraryCounts(workspaceId: string): Promise<LibraryCounts> {
-    const [exercises, foodItems, foodCategories, equipment, muscleGroups] = await Promise.all([
+    const [exercises, foodItems, foodCategories, equipment, muscleGroups, assessmentForms, checkInForms] = await Promise.all([
         prisma.exercise_library.count({ where: { workspace_id: workspaceId } }),
         prisma.food_items.count({ where: { workspace_id: workspaceId } }),
         prisma.food_categories.count({ where: { workspace_id: workspaceId } }),
         prisma.exercise_equipments.count({ where: { workspace_id: workspaceId } }),
         prisma.exercise_muscle_groups.count({ where: { workspace_id: workspaceId } }),
+        prisma.forms.count({ where: { workspace_id: workspaceId, form_type: 'assessment' } }),
+        prisma.forms.count({ where: { workspace_id: workspaceId, form_type: 'check-in' } }),
     ]);
-    return { exercises, foodItems, foodCategories, equipment, muscleGroups };
+    return { exercises, foodItems, foodCategories, equipment, muscleGroups, assessmentForms, checkInForms };
+}
+
+/**
+ * Clone every Master Form Template (master_forms + master_form_questions) into the given
+ * workspace as fully-editable coach forms (forms + form_questions). Each form gets a fresh
+ * cuid and its questions get fresh cuids with the FK remapped to the new form. The coach
+ * copy is fully decoupled — later edits to the master never touch existing copies.
+ */
+async function cloneMasterForms(workspaceId: string): Promise<{ forms: number; questions: number }> {
+    const masterForms = await prisma.master_forms.findMany({
+        include: { questions: { orderBy: [{ order_index: 'asc' }, { id: 'asc' }] } },
+        orderBy: { created_at: 'asc' },
+    });
+
+    let questionCount = 0;
+    for (const mf of masterForms) {
+        const newFormId = createId();
+        await prisma.forms.create({
+            data: {
+                id:             newFormId,
+                workspace_id:   workspaceId,
+                title_en:       mf.title_en,
+                title_ar:       mf.title_ar,
+                description_en: mf.description_en,
+                description_ar: mf.description_ar,
+                status:         mf.status,
+                post_action:    mf.post_action,
+                form_type:      mf.form_type,
+            },
+        });
+
+        if (mf.questions.length) {
+            await prisma.form_questions.createMany({
+                data: mf.questions.map((q) => ({
+                    id:             createId(),
+                    form_id:        newFormId,
+                    label_en:       q.label_en,
+                    label_ar:       q.label_ar,
+                    type:           q.type,
+                    required:       q.required,
+                    order_index:    q.order_index,
+                    options:        q.options ?? Prisma.DbNull,
+                    options_ar:     q.options_ar ?? Prisma.DbNull,
+                    placeholder_en: q.placeholder_en,
+                    placeholder_ar: q.placeholder_ar,
+                    min_value:      q.min_value,
+                    max_value:      q.max_value,
+                })),
+            });
+            questionCount += mf.questions.length;
+        }
+    }
+
+    return { forms: masterForms.length, questions: questionCount };
 }
 
 async function cloneInBatches<TRow, TData>(rows: TRow[], map: (row: TRow) => TData, insert: (data: TData[]) => Promise<unknown>): Promise<void> {
@@ -101,8 +160,10 @@ export async function cloneDefaultLibraries(workspaceId: string): Promise<void> 
             }),
             (data) => prisma.food_items.createMany({ data, skipDuplicates: true }));
 
+        const forms = await cloneMasterForms(workspaceId);
+
         await prisma.workspaces.update({ where: { id: workspaceId }, data: { clone_status: 'ready', clone_error: null } });
-        logger.info({ workspaceId, counts: { muscleGroups: muscleGroups.length, equipment: equipment.length, exercises: exercises.length, foodCategories: foodCategories.length, foodItems: foodItems.length } }, '[libraryClone] completed');
+        logger.info({ workspaceId, counts: { muscleGroups: muscleGroups.length, equipment: equipment.length, exercises: exercises.length, foodCategories: foodCategories.length, foodItems: foodItems.length, forms: forms.forms, formQuestions: forms.questions } }, '[libraryClone] completed');
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         await prisma.workspaces.update({ where: { id: workspaceId }, data: { clone_status: 'failed', clone_error: message } }).catch(() => {});
