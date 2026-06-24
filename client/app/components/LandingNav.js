@@ -20,7 +20,8 @@ export default function LandingNav({ user, dashboardUrl }) {
 
                 {/* Logo */}
                 <NextLink href="/" className="flex items-center">
-                    <img src="/ff_logo_main.svg" alt="FitForce" className="h-8" />
+                    {/* Landing is forced dark mode → white-wordmark lockup */}
+                    <img src="/blue_white.png" alt="FitForce" className="h-8 w-auto" />
                 </NextLink>
 
                 {/* Desktop nav links */}
@@ -75,7 +76,7 @@ export default function LandingNav({ user, dashboardUrl }) {
                                 <Drawer.Dialog className="flex h-full flex-col bg-background">
 
                                     <Drawer.Header className="flex items-center justify-between border-b border-border px-6 py-4">
-                                        <img src="/ff_logo_main.svg" alt="FitForce" className="h-7" />
+                                        <img src="/blue_white.png" alt="FitForce" className="h-7 w-auto" />
                                         <Drawer.CloseTrigger className="inline-flex items-center justify-center rounded-lg p-1.5 text-foreground/60 transition-colors hover:bg-surface hover:text-foreground">
                                             <X className="h-5 w-5" />
                                         </Drawer.CloseTrigger>

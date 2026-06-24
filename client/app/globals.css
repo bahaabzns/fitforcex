@@ -60,6 +60,14 @@
   --sidebar-border:            hsl(240 5% 20%);
 }
 
+/* ── Brand wordmark swap ──
+   The icon stays blue in both themes (theme-independent: white fist on blue fill).
+   Only the expanded wordmark flips: dark text on light, white text on dark.
+   Driven by the .dark class so it's flash-free and SSR-safe (no JS theme probe). */
+.brand-logo-dark { display: none; }
+.dark .brand-logo-light { display: none; }
+.dark .brand-logo-dark { display: block; }
+
 /* ── Tailwind v4 @theme — supplements HeroUI's own @theme inline ── */
 @theme inline {
   /* Brand primary */

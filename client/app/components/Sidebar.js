@@ -163,9 +163,11 @@ export default function Sidebar({ collapsed }) {
             {/* Brand */}
             <div className={`flex items-center px-4 h-16 shrink-0 ${collapsed ? 'justify-center' : 'gap-2'}`}>
                 {collapsed
-                    ? <NextImage src="/dark - i.png" alt="FitForce X" width={32} height={32} className="shrink-0" />
+                    ? <NextImage src="/mark.svg" alt="FitForce X" width={30} height={30} priority unoptimized className="shrink-0" />
                     : <>
-                        <NextImage src="/ff_logo_main.svg" alt="FitForce X" width={148} height={40} priority style={{ height: "auto" }} className="shrink-0" />
+                        {/* Blue icon stays constant; wordmark flips with theme (see globals.css). */}
+                        <NextImage src="/blue_dark.png" alt="FitForce X" width={148} height={40} priority style={{ height: "auto" }} className="brand-logo-light shrink-0" />
+                        <NextImage src="/blue_white.png" alt="FitForce X" width={148} height={40} priority style={{ height: "auto" }} className="brand-logo-dark shrink-0" />
                         <Chip size="sm" color="primary" variant="solid" className="shrink-0 text-[10px] ms-auto">Beta</Chip>
                       </>
                 }

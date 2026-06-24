@@ -60,14 +60,23 @@ export default function ClientPortalNav() {
                     </Link>
                 </div>
 
-                {/* Center: logo */}
+                {/* Center: logo — icon constant, wordmark flips with theme (see globals.css) */}
                 <div className="flex justify-center">
                     <NextImage
-                        src="/ff_logo_main.svg"
+                        src="/blue_dark.png"
                         alt="FitForce X"
                         width={120}
                         height={32}
-                        className="shrink-0"
+                        className="brand-logo-light shrink-0"
+                        style={{ height: "auto" }}
+                    />
+                    <NextImage
+                        src="/blue_white.png"
+                        alt="FitForce X"
+                        width={120}
+                        height={32}
+                        className="brand-logo-dark shrink-0"
+                        style={{ height: "auto" }}
                     />
                 </div>
 
