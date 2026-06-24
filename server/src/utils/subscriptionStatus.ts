@@ -14,18 +14,30 @@ type FreezeRow = {
 
 export type SubscriptionStatus = 'No Subscriptions' | 'Pre-start' | 'Active' | 'Expired' | 'Frozen';
 
-export function computeSubscriptionStatus(
+export type SubscriptionDetails = {
+    status: SubscriptionStatus;
+    /** End of the most recent subscription period — used to apply an expiry grace window. Null when there is no started period. */
+    currentPeriodEnd: Date | null;
+};
+
+/**
+ * Computes a client's subscription status AND the end date of their most recent
+ * period. The status branches are identical to the long-standing
+ * computeSubscriptionStatus (which now delegates here) — only the extra
+ * currentPeriodEnd is new, so existing behaviour is preserved.
+ */
+export function computeSubscriptionDetails(
     allTransactions:        TxRow[],
     freezes:                FreezeRow[],
     firstPlanActivationDate: Date | string | null
-): SubscriptionStatus {
-    if (allTransactions.length === 0) return 'No Subscriptions';
+): SubscriptionDetails {
+    if (allTransactions.length === 0) return { status: 'No Subscriptions', currentPeriodEnd: null };
 
     const completed = allTransactions
         .filter(t => t.status === 'completed' && t.duration && Number(t.duration) > 0)
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-    if (completed.length === 0) return 'Pre-start';
+    if (completed.length === 0) return { status: 'Pre-start', currentPeriodEnd: null };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -44,7 +56,7 @@ export function computeSubscriptionStatus(
         } else if (firstPlanActivationDate) {
             start = new Date(firstPlanActivationDate);
         } else {
-            return 'Pre-start';
+            return { status: 'Pre-start', currentPeriodEnd: null };
         }
 
         start.setHours(0, 0, 0, 0);
@@ -63,20 +75,30 @@ export function computeSubscriptionStatus(
         prevEnd = new Date(endMs);
     }
 
-    if (periods.length === 0) return 'Pre-start';
+    if (periods.length === 0) return { status: 'Pre-start', currentPeriodEnd: null };
+
+    const lastPeriodEnd = periods[periods.length - 1].end;
 
     for (const { start, end } of periods) {
-        if (today < start) return 'Pre-start';
+        if (today < start) return { status: 'Pre-start', currentPeriodEnd: lastPeriodEnd };
         if (today >= start && today < end) {
             for (const freeze of freezes) {
                 const fs = new Date(freeze.freeze_start_date);
                 fs.setHours(0, 0, 0, 0);
                 const fe = new Date(fs.getTime() + Number(freeze.freeze_duration_days) * 86400000);
-                if (today >= fs && today < fe) return 'Frozen';
+                if (today >= fs && today < fe) return { status: 'Frozen', currentPeriodEnd: lastPeriodEnd };
             }
-            return 'Active';
+            return { status: 'Active', currentPeriodEnd: lastPeriodEnd };
         }
     }
 
-    return 'Expired';
+    return { status: 'Expired', currentPeriodEnd: lastPeriodEnd };
+}
+
+export function computeSubscriptionStatus(
+    allTransactions:        TxRow[],
+    freezes:                FreezeRow[],
+    firstPlanActivationDate: Date | string | null
+): SubscriptionStatus {
+    return computeSubscriptionDetails(allTransactions, freezes, firstPlanActivationDate).status;
 }

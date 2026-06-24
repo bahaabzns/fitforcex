@@ -12,6 +12,11 @@ declare global {
                 clientId:    string;
                 workspaceId: string;
             };
+            clientAccess?: {
+                status:      string;
+                withinGrace: boolean;
+                access:      Record<string, boolean>;
+            };
             admin?: {
                 isAdmin: boolean;
                 [key: string]: unknown;

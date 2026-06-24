@@ -80,6 +80,12 @@ model clients {
   phones               Json?                  @default("[]")
   current_package      String?
   subscription_status  String                 @default("Active")
+  archived_at          DateTime?              @db.Timestamptz(6)
+  archived_by          String?
+  restored_at          DateTime?              @db.Timestamptz(6)
+  restored_by          String?
+  deleted_at           DateTime?              @db.Timestamptz(6)
+  deleted_by           String?
   client_measurements  client_measurements?
   client_observations  client_observations[]
   client_photos        client_photos[]
@@ -92,6 +98,7 @@ model clients {
 
   @@unique([workspace_id, client_code], map: "clients_coach_id_client_code_key")
   @@unique([workspace_id, email])
+  @@index([workspace_id, archived_at], map: "idx_clients_ws_archived")
 }
 
 model exercise_equipments {
@@ -223,6 +230,46 @@ model master_food_items {
 
   @@index([name_en])
   @@index([food_category])
+}
+
+// Master Form Templates — global default Assessment & Check-In forms owned by the
+// Super Admin. Cloned into workspace-scoped forms / form_questions on coach signup
+// (see lib/libraryClone.ts). Not workspace-scoped: the single global master set.
+
+model master_forms {
+  id             String                  @id
+  title_en       String                  @default("Untitled Form") @db.VarChar(255)
+  title_ar       String?                 @db.VarChar(255)
+  description_en String?
+  description_ar String?
+  status         String                  @default("draft") @db.VarChar(20)
+  post_action    String                  @default("nothing")
+  form_type      String                  @default("check-in")
+  created_at     DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime                @default(now()) @db.Timestamptz(6)
+  questions      master_form_questions[]
+
+  @@index([form_type])
+}
+
+model master_form_questions {
+  id             String       @id
+  master_form_id String
+  label_en       String       @default("Question")
+  label_ar       String?
+  type           String       @default("text") @db.VarChar(30)
+  required       Boolean      @default(false)
+  order_index    Int          @default(0)
+  options        Json?
+  options_ar     Json?
+  placeholder_en String?
+  placeholder_ar String?
+  min_value      Int?
+  max_value      Int?
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  master_forms   master_forms @relation(fields: [master_form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([master_form_id])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -381,14 +428,87 @@ model package_variations {
 }
 
 model packages {
-  id                 String               @id
-  workspace_id       String
-  name               String
-  active             Boolean              @default(true)
-  created_at         DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
-  package_variations package_variations[]
-  workspaces         workspaces           @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_packages_workspace")
+  id                           String                         @id
+  workspace_id                 String
+  name                         String
+  active                       Boolean                        @default(true)
+  created_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime                       @default(now()) @db.Timestamptz(6)
+  package_variations           package_variations[]
+  subscription_access_policies subscription_access_policies[]
+  workspaces                   workspaces                     @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_packages_workspace")
+}
+
+// Subscription Access Policy — what an Expired or Frozen client may still see/do.
+// One row per (workspace, scope) is the global default (package_id NULL); a row with
+// package_id set overrides the global for that package + scope. See utils/subscriptionPolicy.ts.
+model subscription_access_policies {
+  id                         String     @id
+  workspace_id               String
+  package_id                 String?
+  scope                      String // 'expired' | 'frozen'
+  keep_portal_access         Boolean    @default(true)
+  view_training_plans        Boolean    @default(true)
+  view_nutrition_plans       Boolean    @default(true)
+  view_progress_history      Boolean    @default(true)
+  view_assessments           Boolean    @default(true)
+  view_checkins              Boolean    @default(true)
+  allow_messaging            Boolean    @default(false)
+  allow_submit_checkins      Boolean    @default(false)
+  allow_booking_appointments Boolean    @default(false)
+  allow_download_files       Boolean    @default(false)
+  grace_period_days          Int        @default(0)
+  created_at                 DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime?  @default(now()) @db.Timestamptz(6)
+  packages                   packages?  @relation(fields: [package_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces                 workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([workspace_id], map: "idx_sub_policy_workspace")
+  @@index([package_id], map: "idx_sub_policy_package")
+}
+
+// Audit trail for subscription policy edits ('policy.update') and automatic status
+// transitions ('status.change', actor_type 'system'). Not FK-constrained on purpose:
+// system events have no user actor and the client may be hard-deleted.
+model subscription_status_audit {
+  id            String   @id
+  workspace_id  String
+  client_id     String?
+  actor_type    String // 'coach' | 'system'
+  actor_user_id String?
+  event_type    String // 'policy.update' | 'status.change'
+  from_status   String?
+  to_status     String?
+  metadata      Json?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([workspace_id, created_at(sort: Desc)], map: "idx_sub_audit_workspace")
+  @@index([client_id], map: "idx_sub_audit_client")
+}
+
+// Durable per-recipient notification surface (the bell). Written by recordEvent()
+// in lib/events.ts, the single choke point for domain events. Not FK-constrained
+// on the recipient on purpose: recipients can be a user OR a client, and either
+// may be hard-deleted; the workspace FK cascades cleanup.
+model notifications {
+  id             String    @id
+  workspace_id   String
+  recipient_type String // 'user' | 'client'
+  recipient_id   String
+  type           String // event key, e.g. 'message.received'
+  importance     String    @default("info") // 'info' | 'actionable' | 'alert'
+  title          String
+  body           String?
+  entity_type    String?
+  entity_id      String?
+  actor_type     String?
+  actor_id       String?
+  metadata       Json?
+  read_at        DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([recipient_type, recipient_id, read_at, created_at(sort: Desc)], map: "idx_notifications_recipient")
+  @@index([workspace_id, created_at(sort: Desc)], map: "idx_notifications_workspace")
 }
 
 model password_reset_tokens {
@@ -762,15 +882,16 @@ model workspace_subscriptions {
 }
 
 model workspaces {
-  id                                           String                   @id
-  slug                                         String                   @unique
+  id                                           String                         @id
+  slug                                         String                         @unique
   name                                         String
   owner_id                                     String
-  slug_customized                              Boolean                  @default(false)
-  archived_at                                  DateTime?                @db.Timestamptz(6)
-  created_at                                   DateTime                 @default(now()) @db.Timestamptz(6)
-  clone_status                                 String                   @default("ready")
+  slug_customized                              Boolean                        @default(false)
+  archived_at                                  DateTime?                      @db.Timestamptz(6)
+  created_at                                   DateTime                       @default(now()) @db.Timestamptz(6)
+  clone_status                                 String                         @default("ready")
   clone_error                                  String?
+  client_deletion_strategy                     String                         @default("anonymize")
   client_observations                          client_observations[]
   clients                                      clients[]
   exercise_equipments                          exercise_equipments[]
@@ -783,16 +904,17 @@ model workspaces {
   nutrition_plans                              nutrition_plans[]
   packages                                     packages[]
   payment_methods                              payment_methods[]
+  subscription_access_policies                 subscription_access_policies[]
   training_plans                               training_plans[]
   transactions                                 transactions[]
-  users_users_default_workspace_idToworkspaces users[]                  @relation("users_default_workspace_idToworkspaces")
+  users_users_default_workspace_idToworkspaces users[]                        @relation("users_default_workspace_idToworkspaces")
   workout_logs                                 workout_logs[]
   workspace_audit_log                          workspace_audit_log[]
   workspace_invitations                        workspace_invitations[]
   workspace_members                            workspace_members[]
   workspace_payments                           workspace_payments[]
   workspace_subscriptions                      workspace_subscriptions?
-  users_workspaces_owner_idTousers             users                    @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
+  users_workspaces_owner_idTousers             users                          @relation("workspaces_owner_idTousers", fields: [owner_id], references: [id], onUpdate: NoAction, map: "fk_workspaces_owner")
 
   @@index([owner_id], map: "idx_workspaces_owner")
   @@index([slug], map: "idx_workspaces_slug")

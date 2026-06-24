@@ -1,27 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import api from "@/lib/axios";
+import { usePathname } from "next/navigation";
 import ClientPortalNav from "@/app/components/ClientPortalNav";
+import ClientPortalProvider, { useClientPortal } from "@/app/components/ClientPortalProvider";
+import ClientPortalStatusCard from "@/app/components/ClientPortalStatusCard";
 import { Skeleton } from "@heroui/react/skeleton";
 
-export default function ClientLayout({ children }) {
-    const [loading, setLoading] = useState(true);
-    const router = useRouter();
-    const pathname = usePathname();
-    const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages'];
-    const isLoginPage = !PROTECTED.some(p => pathname.startsWith(p));
+const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages'];
 
-    useEffect(() => {
-        if (isLoginPage) { setLoading(false); return; }
-        api.get("/api/client-portal/me")
-            .then(() => setLoading(false))
-            .catch(() => {
-            // The subdomain identifies the coach, so the login page is just /portal.
-            router.push('/portal');
-        });
-    }, [pathname, router, isLoginPage]);
+// Renders inside the provider so it can read the loaded access state.
+function PortalShell({ children }) {
+    const { loading, access, status } = useClientPortal();
 
     if (loading) {
         return (
@@ -31,7 +20,14 @@ export default function ClientLayout({ children }) {
         );
     }
 
-    if (isLoginPage) return <>{children}</>;
+    // Portal closed entirely → show only the status card (no nav, no children).
+    if (access && access.keep_portal_access === false) {
+        return (
+            <div className="min-h-screen bg-background text-foreground">
+                <ClientPortalStatusCard variant={status === "Frozen" ? "frozen" : "expired"} />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -40,5 +36,18 @@ export default function ClientLayout({ children }) {
                 {children}
             </main>
         </div>
+    );
+}
+
+export default function ClientLayout({ children }) {
+    const pathname = usePathname();
+    const isLoginPage = !PROTECTED.some(p => pathname.startsWith(p));
+
+    if (isLoginPage) return <>{children}</>;
+
+    return (
+        <ClientPortalProvider>
+            <PortalShell>{children}</PortalShell>
+        </ClientPortalProvider>
     );
 }

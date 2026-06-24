@@ -40,6 +40,7 @@ function statusChipColor(status) {
         case "Expired":          return "danger";
         case "Frozen":           return "accent";
         case "Pre-start":        return "warning";
+        case "Archived":         return "default";
         case "No Subscriptions": return "default";
         default:                 return "default";
     }
@@ -192,6 +193,8 @@ export default function ClientsPage() {
     // Bulk transaction — record one transaction per selected client (shared TransactionModal)
     const [showTxModal, setShowTxModal]                 = useState(false);
 
+    // Clients (active + archived in one list) plus reference data. Archived
+    // clients are surfaced via the "Archived" status filter and dimmed in the row.
     useEffect(() => {
         Promise.all([
             api.get("/api/clients?page=1&limit=10000"),
@@ -570,6 +573,7 @@ export default function ClientsPage() {
         phoneSearch: (Array.isArray(c.phones) ? c.phones : []).map(p => `${p.countryCode} ${p.number}`).join(" "),
         currentPackage: c.current_package || "—",
         currentSubscriptionStatus: c.subscription_status || "Active",
+        isArchived: !!c.is_archived,
         dateCreated: c.created_at,
     }));
 
@@ -622,7 +626,7 @@ export default function ClientsPage() {
             key: "currentSubscriptionStatus",
             label: t('status'),
             filterType: "multi",
-            options: ["Active", "Expired", "Frozen", "Pre-start", "No Subscriptions", "Cancelled", "Refunded"],
+            options: ["Active", "Expired", "Frozen", "Pre-start", "Archived", "No Subscriptions", "Cancelled", "Refunded"],
             sortable: true,
             render: (row) => (
                 <Chip size="sm" variant="soft" color={statusChipColor(row.currentSubscriptionStatus)}>
@@ -1046,6 +1050,7 @@ export default function ClientsPage() {
                 data={clientsData}
                 rowKey="id"
                 dateParser={(str) => new Date(str)}
+                rowClassName={(row) => (row.isArchived ? "opacity-50" : "")}
                 selectable
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}

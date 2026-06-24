@@ -1,9 +1,20 @@
 import { Router } from 'express';
 import clientAuthMiddleware from '../../middleware/clientAuth';
+import {
+    loadClientAccess,
+    requirePortalOpen,
+    requireClientAccess,
+    requireAnyClientAccess,
+} from '../../middleware/clientAccessPolicy';
 import { loginLimiter } from '../../middleware/rateLimit';
 import * as clientPortalController from './clientPortal.controller';
 
 const router = Router();
+
+// Authenticated + access-loaded chain (no portal-open gate — used by /me and /access).
+const authed = [clientAuthMiddleware, loadClientAccess];
+// Feature chain: also blocks entirely when keep_portal_access is off.
+const open   = [clientAuthMiddleware, loadClientAccess, requirePortalOpen];
 
 /**
  * @openapi
@@ -84,7 +95,21 @@ router.get('/workspace', clientPortalController.getWorkspace);
  *       401:
  *         description: Not authenticated
  */
-router.get('/me', clientAuthMiddleware, clientPortalController.getMe);
+router.get('/me', ...authed, clientPortalController.getMe);
+
+/**
+ * @openapi
+ * /client-portal/access:
+ *   get:
+ *     summary: Get the client's effective subscription access (status + flags)
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ status, withinGrace, access: { ...10 flags } }"
+ */
+router.get('/access', ...authed, clientPortalController.getAccess);
 
 /**
  * @openapi
@@ -102,7 +127,7 @@ router.get('/me', clientAuthMiddleware, clientPortalController.getMe);
  *             schema:
  *               $ref: '#/components/schemas/NutritionPlan'
  */
-router.get('/active-plan', clientAuthMiddleware, clientPortalController.getActivePlan);
+router.get('/active-plan', ...open, requireClientAccess('view_nutrition_plans'), clientPortalController.getActivePlan);
 
 /**
  * @openapi
@@ -120,7 +145,7 @@ router.get('/active-plan', clientAuthMiddleware, clientPortalController.getActiv
  *             schema:
  *               $ref: '#/components/schemas/WorkoutPlan'
  */
-router.get('/active-training-plan', clientAuthMiddleware, clientPortalController.getActiveTrainingPlan);
+router.get('/active-training-plan', ...open, requireClientAccess('view_training_plans'), clientPortalController.getActiveTrainingPlan);
 
 /**
  * @openapi
@@ -175,9 +200,9 @@ router.get('/active-training-plan', clientAuthMiddleware, clientPortalController
  *       200:
  *         description: Form submitted
  */
-router.get('/form-requests',                     clientAuthMiddleware, clientPortalController.getFormRequests);
-router.get('/form-requests/:request_id',         clientAuthMiddleware, clientPortalController.getFormRequest);
-router.post('/form-requests/:request_id/submit', clientAuthMiddleware, clientPortalController.submitFormRequest);
+router.get('/form-requests',                     ...open, requireAnyClientAccess(['view_assessments', 'view_checkins']), clientPortalController.getFormRequests);
+router.get('/form-requests/:request_id',         ...open, requireAnyClientAccess(['view_assessments', 'view_checkins']), clientPortalController.getFormRequest);
+router.post('/form-requests/:request_id/submit', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.submitFormRequest);
 
 /**
  * @openapi
@@ -218,8 +243,8 @@ router.post('/form-requests/:request_id/submit', clientAuthMiddleware, clientPor
  *             schema:
  *               $ref: '#/components/schemas/Message'
  */
-router.get('/messages',  clientAuthMiddleware, clientPortalController.getMessages);
-router.post('/messages', clientAuthMiddleware, clientPortalController.sendMessage);
+router.get('/messages',  ...open, requireClientAccess('allow_messaging'), clientPortalController.getMessages);
+router.post('/messages', ...open, requireClientAccess('allow_messaging'), clientPortalController.sendMessage);
 
 /**
  * @openapi
@@ -298,11 +323,12 @@ router.post('/messages', clientAuthMiddleware, clientPortalController.sendMessag
  *         description: Not found
  */
 // Specific routes before the parameterized /:id (§8.6).
-router.get('/workout-logs',                   clientAuthMiddleware, clientPortalController.getWorkoutLogs);
-router.post('/workout-logs',                  clientAuthMiddleware, clientPortalController.createWorkoutLog);
-router.get('/workout-logs/previous',          clientAuthMiddleware, clientPortalController.getWorkoutLogPrevious);
-router.get('/workout-logs/exercise-progress', clientAuthMiddleware, clientPortalController.getExerciseProgress);
-router.get('/workout-logs/exercises',         clientAuthMiddleware, clientPortalController.getLoggedExercises);
-router.get('/workout-logs/:id',               clientAuthMiddleware, clientPortalController.getWorkoutLog);
+// Logging a session needs the training plan; reading history needs progress-history view.
+router.get('/workout-logs',                   ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLogs);
+router.post('/workout-logs',                  ...open, requireClientAccess('view_training_plans'),   clientPortalController.createWorkoutLog);
+router.get('/workout-logs/previous',          ...open, requireClientAccess('view_training_plans'),   clientPortalController.getWorkoutLogPrevious);
+router.get('/workout-logs/exercise-progress', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseProgress);
+router.get('/workout-logs/exercises',         ...open, requireClientAccess('view_progress_history'), clientPortalController.getLoggedExercises);
+router.get('/workout-logs/:id',               ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLog);
 
 export default router;

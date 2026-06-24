@@ -3,38 +3,39 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import api from "@/lib/axios";
 import { Home, Salad, Dumbbell, ClipboardList, Bell, MessageSquare } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
+import { useClientPortal } from "@/app/components/ClientPortalProvider";
 
 export default function ClientPortalNav() {
     const pathname = usePathname();
     const tPortal = useTranslations('portal.sidebar');
-    const [client, setClient] = useState(null);
-
-    useEffect(() => {
-        api.get("/api/client-portal/me")
-            .then(res => setClient(res.data))
-            .catch(() => {});
-    }, []);
+    const tStatus = useTranslations('portal.status');
+    const { me: client, access, status, withinGrace } = useClientPortal();
 
     const getInitials = (c) => {
         if (!c) return "?";
         return `${c.fname?.[0] ?? ""}${c.lname?.[0] ?? ""}`.toUpperCase();
     };
 
+    // A flag is visible when access is unknown (full UI) or explicitly allowed.
+    const can = (key) => !access || access[key] === true;
+
     // Routes that have no sub-pages use exact-match for the active state
     const EXACT_MATCH_ROUTES = new Set(["/portal/home", "/portal/nutrition"]);
 
     const navItems = [
-        { href: "/portal/home",      label: tPortal('home'),          icon: Home },
-        { href: "/portal/nutrition", label: tPortal('nutritionPlan'), icon: Salad },
-        { href: "/portal/training",  label: tPortal('trainingPlan'),  icon: Dumbbell },
-        { href: "/portal/forms",     label: tPortal('forms'),         icon: ClipboardList },
-        { href: "/portal/messages",  label: tPortal('messages'),      icon: MessageSquare },
-    ];
+        { href: "/portal/home",      label: tPortal('home'),          icon: Home,           show: true },
+        { href: "/portal/nutrition", label: tPortal('nutritionPlan'), icon: Salad,          show: can('view_nutrition_plans') },
+        { href: "/portal/training",  label: tPortal('trainingPlan'),  icon: Dumbbell,       show: can('view_training_plans') || can('view_progress_history') },
+        { href: "/portal/forms",     label: tPortal('forms'),         icon: ClipboardList,  show: can('view_assessments') || can('view_checkins') },
+        { href: "/portal/messages",  label: tPortal('messages'),      icon: MessageSquare,  show: can('allow_messaging') },
+    ].filter(item => item.show);
+
+    // Show a banner when the subscription is restricted (and not in its grace window).
+    const showBanner = !!access && !withinGrace && (status === 'Expired' || status === 'Frozen');
+    const bannerText = status === 'Frozen' ? tStatus('bannerFrozen') : tStatus('bannerExpired');
 
     const isProfileActive       = pathname.startsWith('/portal/profile');
     const isNotificationsActive = pathname.startsWith('/portal/notifications');
@@ -94,6 +95,17 @@ export default function ClientPortalNav() {
                     </Link>
                 </div>
             </header>
+
+            {/* Subscription status banner */}
+            {showBanner && (
+                <div className={`px-4 py-2 text-center text-xs font-medium ${
+                    status === 'Frozen'
+                        ? 'bg-amber-500/10 text-amber-700 border-b border-amber-500/20'
+                        : 'bg-destructive/10 text-destructive border-b border-destructive/20'
+                }`}>
+                    {bannerText}
+                </div>
+            )}
 
             {/* Fixed bottom tab bar */}
             <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-background/95 backdrop-blur-sm border-t border-border">

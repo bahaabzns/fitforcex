@@ -19,6 +19,7 @@ import {
     scheduleFormDispatcher,
     scheduleSubscriptionExpiry,
     scheduleSessionCleanup,
+    scheduleClientStatusSync,
 } from './middleware/scheduler';
 
 process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
@@ -40,6 +41,8 @@ import adminRouter       from './modules/admin/index';
 import workspacesRouter  from './modules/workspaces/index';
 import invitationsRouter from './modules/invitations/index';
 import billingRouter     from './modules/billing/index';
+import subscriptionPoliciesRouter from './modules/subscriptionPolicies/index';
+import notificationsRouter from './modules/notifications/index';
 import paymentsWebhookRouter from './modules/paymentsWebhook/index';
 
 Sentry.init({
@@ -54,6 +57,7 @@ if (env.NODE_ENV !== 'test') {
     scheduleFormDispatcher();
     scheduleSubscriptionExpiry();
     scheduleSessionCleanup();
+    scheduleClientStatusSync();
 }
 
 const serverStartTime = Date.now();
@@ -124,6 +128,8 @@ app.use('/api/admin',          requireAdminSubdomain, apiLimiter, adminRouter);
 app.use('/api/workspaces',     apiLimiter, workspacesRouter);
 app.use('/api/invitations',    apiLimiter, invitationsRouter);
 app.use('/api/billing',        apiLimiter, billingRouter);
+app.use('/api/subscription-policies', apiLimiter, subscriptionPoliciesRouter);
+app.use('/api/notifications',  apiLimiter, notificationsRouter);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
 import requirePermission from '../../middleware/requirePermission';
+import requireOwner from '../../middleware/requireOwner';
 import * as clientsController from './clients.controller';
 
 const router = Router();
@@ -118,7 +119,7 @@ router.post('/', clientsController.createClient);
  *       404:
  *         description: Client not found
  *   delete:
- *     summary: Soft-delete a client
+ *     summary: Archive a client (default delete — preserves all data, reversible)
  *     tags: [Clients]
  *     security:
  *       - cookieAuth: []
@@ -126,13 +127,74 @@ router.post('/', clientsController.createClient);
  *       - { in: path, name: id, required: true, schema: { type: string } }
  *     responses:
  *       200:
- *         description: Client deleted
+ *         description: Client archived
  *       404:
  *         description: Client not found
+ *       409:
+ *         description: Client is already archived
  */
 router.get('/:id', clientsController.getClient);
 router.put('/:id', clientsController.updateClient);
-router.delete('/:id', clientsController.deleteClient);
+router.delete('/:id', clientsController.archiveClient);
+
+/**
+ * @openapi
+ * /clients/{id}/restore:
+ *   post:
+ *     summary: Restore an archived client to active operations
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Client restored
+ *       409:
+ *         description: Client is not archived
+ *
+ * /clients/{id}/audit:
+ *   get:
+ *     summary: Activity timeline for a client (archive/restore/delete + status changes)
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Array of audit events, newest first
+ *
+ * /clients/{id}/permanent:
+ *   delete:
+ *     summary: Permanently delete an archived client (owner only, name confirmation)
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [confirmName]
+ *             properties:
+ *               confirmName: { type: string, description: Exact "First Last" of the client }
+ *     responses:
+ *       200:
+ *         description: Client permanently deleted (anonymized or hard-deleted per workspace strategy)
+ *       400:
+ *         description: Name confirmation did not match
+ *       403:
+ *         description: Owner permission required
+ *       409:
+ *         description: Only archived clients can be permanently deleted
+ */
+router.post('/:id/restore', clientsController.restoreClient);
+router.get('/:id/audit', clientsController.getClientAudit);
+router.delete('/:id/permanent', requireOwner, clientsController.permanentDeleteClient);
 
 /**
  * @openapi

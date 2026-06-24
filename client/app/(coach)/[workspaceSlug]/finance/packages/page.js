@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronRight, ListFilter, Pencil, Plus, Power, Trash2 } from "lucide-react";
 import Modal, { ModalFooter } from "@/app/components/Modal";
+import PackagePolicyOverride from "@/app/components/PackagePolicyOverride";
 import { FieldLabel } from "@/app/components/Field";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
@@ -693,6 +694,8 @@ export default function PackagesPage() {
                         </Button>
                     </ModalFooter>
                 </form>
+
+                {editingPackage && <PackagePolicyOverride packageId={editingPackage.id} />}
             </Modal>
 
             {/* Edit Variation Modal — variation fields (active is toggled from the table) */}
