@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createId } from '@paralleldrive/cuid2';
 import { prisma } from '../../lib/prisma';
-import { getIo } from '../../lib/socket';
+import { recordEvent } from '../../lib/events';
 
 type ThreadRow = {
     id: string; client_id: string; status: string; updated_at: Date;
@@ -88,7 +88,7 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
     try {
         const thread = await prisma.threads.findFirst({
             where: { id: threadId, workspace_id: req.user!.workspaceId },
-            select: { id: true },
+            select: { id: true, client_id: true },
         });
         if (!thread) return res.status(404).json({ error: 'Thread not found' });
 
@@ -108,9 +108,18 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             data:  { updated_at: new Date() },
         });
 
-        getIo()
-            .to(`workspace:${req.user!.workspaceId}`)
-            .emit('new_message', { threadId, message });
+        // Durable: notify the client of their coach's message. Realtime: keep the
+        // legacy workspace-room `new_message` so open coach threads still live-sync.
+        await recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'message.received',
+            importance:  'actionable',
+            title:       'New message from your coach',
+            recipients:  [{ type: 'client', id: thread.client_id }],
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'thread', id: threadId },
+            realtime:    { rooms: [`workspace:${req.user!.workspaceId}`], event: 'new_message', payload: { threadId, message } },
+        });
 
         res.status(201).json(message);
     } catch (err) { next(err); }

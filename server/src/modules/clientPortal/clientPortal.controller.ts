@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { toPublicUrl } from '../../lib/storage';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
-import { getIo } from '../../lib/socket';
+import { recordEvent, teamRecipients } from '../../lib/events';
 import {
     summarizeLog,
     buildExerciseProgress,
@@ -357,7 +357,7 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
     try {
         const request = await prisma.form_requests.findFirst({
             where:  { id: req.params.request_id as string, client_id: req.client!.clientId, status: 'pending' },
-            select: { id: true, form_id: true },
+            select: { id: true, form_id: true, assigned_to: true },
         });
         if (!request) return res.status(404).json({ error: 'Request not found or already submitted' });
 
@@ -375,6 +375,19 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
                 data:  { status: 'submitted', submitted_at: new Date() },
             }),
         ]);
+
+        // Notify the assigned reviewer if one is set, otherwise the whole team.
+        await recordEvent({
+            workspaceId: req.client!.workspaceId,
+            type:        'checkin.submitted',
+            importance:  'actionable',
+            title:       'A client submitted a check-in',
+            recipients:  request.assigned_to
+                ? [{ type: 'user', id: request.assigned_to }]
+                : await teamRecipients(req.client!.workspaceId),
+            actor:       { type: 'client', id: req.client!.clientId },
+            entity:      { type: 'form_request', id: request.id },
+        });
 
         res.json({ success: true });
     } catch (err) {
@@ -441,9 +454,19 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             data:  { updated_at: new Date() },
         });
 
-        getIo()
-            .to(`workspace:${req.client!.workspaceId}`)
-            .emit('new_message', { threadId: thread.id, message, fromClient: true });
+        // Durable: this is the bug recordEvent fixes — a coach who had the tab
+        // closed used to never learn a client replied. Notify the whole team;
+        // keep the legacy workspace-room emit so open threads still live-sync.
+        await recordEvent({
+            workspaceId: req.client!.workspaceId,
+            type:        'message.received',
+            importance:  'actionable',
+            title:       'New message from a client',
+            recipients:  await teamRecipients(req.client!.workspaceId),
+            actor:       { type: 'client', id: req.client!.clientId },
+            entity:      { type: 'thread', id: thread.id },
+            realtime:    { rooms: [`workspace:${req.client!.workspaceId}`], event: 'new_message', payload: { threadId: thread.id, message, fromClient: true } },
+        });
 
         res.status(201).json(message);
     } catch (err) {
