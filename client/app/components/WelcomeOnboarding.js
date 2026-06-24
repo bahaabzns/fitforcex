@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
-import { Dumbbell, Apple, Boxes, Layers, Check, ArrowRight } from 'lucide-react';
+import { Dumbbell, Apple, Boxes, Layers, ClipboardList, CalendarCheck, Check, ArrowRight } from 'lucide-react';
 import { Button } from '@heroui/react/button';
 
 // Post-signup "aha moment". Polls the Default Libraries clone status for the new
@@ -17,6 +17,13 @@ const ITEMS = [
     { key: 'foodItems',      label: 'food items loaded',      icon: Apple },
     { key: 'equipment',      label: 'equipment types loaded', icon: Boxes },
     { key: 'muscleGroups',   label: 'muscle groups loaded',   icon: Layers },
+];
+
+// Default form templates cloned into the workspace — shown as a ready/not-ready
+// state rather than a count (a coach starts with one of each).
+const FORMS = [
+    { key: 'assessmentForms', label: 'Assessment form ready', icon: ClipboardList },
+    { key: 'checkInForms',    label: 'Check-in form ready',   icon: CalendarCheck },
 ];
 
 export default function WelcomeOnboarding({ workspaceSlug, onDone }) {
@@ -92,6 +99,15 @@ export default function WelcomeOnboarding({ workspaceSlug, onDone }) {
                                     <Icon size={16} className="text-muted-foreground shrink-0" />
                                     <span className="text-sm text-foreground text-left flex-1">
                                         <span className="font-semibold">{(counts[key] ?? 0).toLocaleString()}</span> {label}
+                                    </span>
+                                </div>
+                            ))}
+                            {FORMS.map(({ key, label, icon: Icon }) => (
+                                <div key={key} className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3">
+                                    <Check className="text-green-500 shrink-0" size={18} />
+                                    <Icon size={16} className="text-muted-foreground shrink-0" />
+                                    <span className="text-sm text-foreground text-left flex-1">
+                                        {label}
                                     </span>
                                 </div>
                             ))}

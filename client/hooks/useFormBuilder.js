@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 
-export function useFormBuilder() {
+// `basePath` lets the same builder drive either the coach's workspace forms
+// (default) or the Super Admin's Master Form Templates (/api/admin/forms-templates).
+// The endpoint shape is identical, so one hook + the shared panels serve both.
+export function useFormBuilder({ basePath = '/api/forms' } = {}) {
 
     // ── State ──────────────────────────────────────────────────────────────────
 
@@ -19,7 +22,7 @@ export function useFormBuilder() {
     useEffect(() => {
         const fetchForms = async () => {
             try {
-                const res = await api.get('/api/forms');
+                const res = await api.get(basePath);
                 setForms(res.data);
             } catch (err) {
                 console.error('Error fetching forms:', err);
@@ -28,7 +31,7 @@ export function useFormBuilder() {
             }
         };
         fetchForms();
-    }, []);
+    }, [basePath]);
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -45,7 +48,7 @@ export function useFormBuilder() {
         setSelectedForm(form);
         setSelectedQuestion(null);
         try {
-            const res = await api.get(`/api/forms/${form.id}/questions`);
+            const res = await api.get(`${basePath}/${form.id}/questions`);
             setQuestions(res.data);
         } catch (err) {
             console.error('Error fetching questions:', err);
@@ -55,7 +58,7 @@ export function useFormBuilder() {
 
     const handleCreateForm = async () => {
         try {
-            const res = await api.post('/api/forms', { title_en: 'Untitled Form' });
+            const res = await api.post(basePath, { title_en: 'Untitled Form' });
             const newForm = { ...res.data, question_count: 0 };
             setForms(prev => [newForm, ...prev]);
             setSelectedForm(newForm);
@@ -69,7 +72,7 @@ export function useFormBuilder() {
 
     const handleUpdateForm = async (id, updates) => {
         try {
-            const res = await api.put(`/api/forms/${id}`, updates);
+            const res = await api.put(`${basePath}/${id}`, updates);
             setForms(prev => prev.map(f => f.id === id ? { ...f, ...res.data } : f));
             if (selectedForm?.id === id) setSelectedForm(prev => ({ ...prev, ...res.data }));
         } catch (err) {
@@ -79,7 +82,7 @@ export function useFormBuilder() {
 
     const handleDeleteForm = async (id) => {
         try {
-            await api.delete(`/api/forms/${id}`);
+            await api.delete(`${basePath}/${id}`);
             setForms(prev => prev.filter(f => f.id !== id));
             if (selectedForm?.id === id) {
                 setSelectedForm(null);
@@ -95,9 +98,9 @@ export function useFormBuilder() {
         try {
             // Get source form questions then create new form + questions
             const source = forms.find(f => f.id === id);
-            const qs = await api.get(`/api/forms/${id}/questions`);
+            const qs = await api.get(`${basePath}/${id}/questions`);
 
-            const newFormRes = await api.post('/api/forms', {
+            const newFormRes = await api.post(basePath, {
                 title_en: `${source.title_en || 'Untitled Form'} (copy)`,
                 title_ar: source.title_ar,
                 description_en: source.description_en,
@@ -109,7 +112,7 @@ export function useFormBuilder() {
 
             // Re-create all questions
             for (const q of qs.data) {
-                await api.post(`/api/forms/${newForm.id}/questions`, {
+                await api.post(`${basePath}/${newForm.id}/questions`, {
                     label_en: q.label_en, label_ar: q.label_ar,
                     type: q.type, required: q.required,
                     placeholder_en: q.placeholder_en, placeholder_ar: q.placeholder_ar,
@@ -118,7 +121,7 @@ export function useFormBuilder() {
                 });
             }
 
-            const finalRes = await api.get('/api/forms');
+            const finalRes = await api.get(basePath);
             setForms(finalRes.data);
         } catch (err) {
             console.error('Error duplicating form:', err);
@@ -130,7 +133,7 @@ export function useFormBuilder() {
     const handleCreateQuestion = async (type = 'text') => {
         if (!selectedForm) return;
         try {
-            const res = await api.post(`/api/forms/${selectedForm.id}/questions`, {
+            const res = await api.post(`${basePath}/${selectedForm.id}/questions`, {
                 label_en: 'Question',
                 type,
             });
@@ -151,7 +154,7 @@ export function useFormBuilder() {
     const handleUpdateQuestion = async (qid, updates) => {
         if (!selectedForm) return;
         try {
-            const res = await api.put(`/api/forms/${selectedForm.id}/questions/${qid}`, updates);
+            const res = await api.put(`${basePath}/${selectedForm.id}/questions/${qid}`, updates);
             const updated = res.data;
             setQuestions(prev => prev.map(q => q.id === qid ? updated : q));
             if (selectedQuestion?.id === qid) setSelectedQuestion(updated);
@@ -163,7 +166,7 @@ export function useFormBuilder() {
     const handleDeleteQuestion = async (qid) => {
         if (!selectedForm) return;
         try {
-            await api.delete(`/api/forms/${selectedForm.id}/questions/${qid}`);
+            await api.delete(`${basePath}/${selectedForm.id}/questions/${qid}`);
             setQuestions(prev => prev.filter(q => q.id !== qid));
             if (selectedQuestion?.id === qid) setSelectedQuestion(null);
             setForms(prev => prev.map(f =>
@@ -184,7 +187,7 @@ export function useFormBuilder() {
         // Optimistic update
         setQuestions(reordered);
         try {
-            await api.put(`/api/forms/${selectedForm.id}/questions/reorder`, {
+            await api.put(`${basePath}/${selectedForm.id}/questions/reorder`, {
                 order: reordered.map((q, i) => ({ id: q.id, order_index: i })),
             });
         } catch (err) {

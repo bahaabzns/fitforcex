@@ -231,7 +231,10 @@
       "Bash(echo \"=== What went wrong block ===\")",
       "Bash(grep -niE 'what went wrong|execution failed|Could not close incremental|Out of Memory|error:|Exception|No space|caches' C:/Users/HP/AppData/Local/Temp/claude/d--fitforce-x/e5df05b2-6a4d-4a35-a7d4-b280e4609acf/tasks/b1latdfy6.output)",
       "Bash(echo \"tsc exit: $?\")",
-      "Bash(node node_modules/typescript/lib/tsc.js --project tsconfig.json --noEmit)"
+      "Bash(node node_modules/typescript/lib/tsc.js --project tsconfig.json --noEmit)",
+      "PowerShell(Stop-Process -Id 16852 -Force)",
+      "PowerShell(\"stopped ts-node worker\")",
+      "Bash(echo \"EXIT $?\")"
     ],
     "additionalDirectories": [
       "D:\\fitforce-x\\client\\app\\(coach)\\[workspaceSlug]\\nutrition\\food-items",

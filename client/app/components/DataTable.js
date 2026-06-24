@@ -53,6 +53,7 @@ export default function DataTable({
     defaultSortDirection,
     quickSearch,
     toolbarEnd,
+    rowClassName,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
@@ -522,7 +523,7 @@ export default function DataTable({
                                     const isLastRow  = rowIdx === paginatedData.length - 1;
                                     return (
                                         <React.Fragment key={row[rowKey]}>
-                                            <Table.Row id={row[rowKey]} className="group">
+                                            <Table.Row id={row[rowKey]} className={`group ${rowClassName ? rowClassName(row) : ""}`}>
                                                 {selectable && (() => {
                                                     const s = {};
                                                     if (isRtl) {
@@ -690,7 +691,7 @@ export default function DataTable({
                             key={key}
                             className={`bg-card border rounded-xl p-4 transition-colors ${
                                 isSelected ? "border-primary/40 bg-primary/5" : "border-border"
-                            }`}
+                            } ${rowClassName ? rowClassName(row) : ""}`}
                         >
                             <div className="flex items-start gap-3">
                                 {selectable && (

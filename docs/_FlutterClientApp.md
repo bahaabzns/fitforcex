@@ -4,6 +4,8 @@
 >
 > This document is the source of truth for the mobile build. It is the parallel of `CLAUDE.md` for the Flutter side: it defines the stack, architecture, conventions, and a phased roadmap. Keep it honest — when a pattern changes, fix the code or fix this file.
 
+flutter run --dart-define=API_BASE_URL=http://192.168.1.18:4000 --dart-define=FLAVOR=dev
+
 ---
 
 ## 0 — Scope & Source of Truth
@@ -280,6 +282,11 @@ Port of `training/session/page.js` + `ExerciseLogCard` + `RestTimerBar`.
 
 ### Security
 - Token in secure storage only; never logged. Certificate pinning (optional, prod). Obfuscate release builds. No secrets in the repo — use `--dart-define` / flavor configs.
+
+### Subscription access policy ✅
+- The backend resolves status + policy + grace and returns `{ status, withinGrace, access:{...10 snake_case flags} }` from `GET /client-portal/access` (also embedded in `/me`). **The app never infers permissions** — it mirrors this.
+- `core/access/`: `ClientAccess` (the permission layer — `canViewTraining`, `canMessage`, …), `AccessRepository`, `AccessController` (`AsyncNotifier`, rebuilds on auth change, `refresh()` on app-resume / pull / post-renewal, `shared_preferences` cache for offline), and `clientAccessProvider` (sync read, defaults to allow while loading — backend still 403s).
+- Enforcement mirrors the web: portal closed (`keep_portal_access=false`) → full-screen `SubscriptionStatusCard`; expired/frozen (outside grace) → `SubscriptionStatusBanner` + hidden tabs in the shell; each module guards its own route (deep-link/push safe) with `RestrictedView`; forms allow viewing but disable submit when `allow_submit_checkins` is off. Copy in `app_{en,ar}.arb` (`status*` / `restricted*`).
 
 ---
 

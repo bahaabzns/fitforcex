@@ -22,6 +22,29 @@ Format:
 
 ---
 
+## 2026-06-24 — client (no toast system)
+**Type:** Shortcut
+**What:** The Client Archiving spec asked for toast notifications, but the app has no toast/sonner system wired up (only documented in DESIGN_SYSTEM.md). Archive/restore/delete feedback uses inline success messages + redirect instead.
+**Why it matters:** Inconsistent UX vs. the design intent; future success/error feedback will keep reinventing inline banners until a shared toaster exists.
+**Effort:** Medium (add a Toaster provider + useToast hook, migrate inline banners)
+**Priority:** Low
+
+## 2026-06-24 — server/prisma (unused workspaces column)
+**Type:** Shortcut
+**What:** workspaces.client_deletion_strategy is no longer read or written — the deletion strategy is now chosen per-deletion in the danger-zone modal. The column remains with its default.
+**Why it matters:** Dead column; a future reader may assume it drives behavior.
+**Effort:** Small (drop column in a follow-up migration)
+**Priority:** Low
+
+## 2026-06-24 — server/src/modules/clients (anonymize scope)
+**Type:** Shortcut
+**What:** Permanent-delete "anonymize" scrubs the clients-table PII (name/email/phone/password) only; coaching notes in client_observations are left intact (the modal copy reflects this — name/email/phone).
+**Why it matters:** If "notes" anonymization is later required, anonymizeClient must be extended.
+**Effort:** Small (clear client_observations.content on anonymize)
+**Priority:** Low
+
+---
+
 ## 2026-05-25 — Project root (all doc files)
 **Type:** Documentation
 **What:** PROJECT.md, DEBT.md, DEPENDENCIES.md, GLOSSARY.md, WHY.md, LEARNING.md, REVIEWS.md were never created at project start.
@@ -344,3 +367,21 @@ Format:
 **Effort:** Large (move active-workspace authority out of the JWT to per-request derivation from the URL slug; authorize membership of the slug's workspace on every protected endpoint; `switch-workspace` mostly disappears — switching becomes navigation)
 **Priority:** Medium
 **Mitigation in place:** `buildTokenForWorkspace` validates the user is a member before issuing a token for a workspace, so the current model is safe (no cross-tenant access) — just not multi-tab-correct.
+
+---
+
+## 2026-06-24 — server/src/modules/subscriptionPolicies/subscriptionPolicies.service.ts (resolveClientPackageId)
+**Type:** Shortcut
+**What:** A client is mapped to its package for per-package policy override resolution by matching `clients.current_package` (a package-variation *name* string) to `package_variations.name`. There is no FK from clients/transactions to packages.
+**Why it matters:** If two variations share a name, or a variation is renamed/deleted, override resolution can match the wrong package or silently fall back to the global policy. Affects only the package-override feature, not the global policy.
+**Effort:** Medium (add a `package_id` column to transactions and/or clients, backfill, and resolve by id)
+**Priority:** Medium
+
+---
+
+## 2026-06-24 — server/src/middleware/scheduler.ts (scheduleClientStatusSync)
+**Type:** Shortcut
+**What:** The daily client status-sync job recomputes status one client at a time (3 queries per client via computeClientStatus), instead of the bulk per-workspace query pattern used by clients.controller getClients.
+**Why it matters:** Fine at current scale, but the per-client round-trips will degrade as client counts grow; it's a single-instance in-process cron with no horizontal-scale story.
+**Effort:** Medium (batch per workspace; reuse a shared bulk status helper extracted from getClients)
+**Priority:** Low

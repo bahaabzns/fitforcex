@@ -412,6 +412,13 @@ export default function Sidebar({ collapsed }) {
                                         </li>
                                         {user?.currentWorkspace?.role === 'owner' && (
                                             <li>
+                                                <Link href={`/${slug}/settings/subscription-policies`} className={subLink(pathname.includes('/settings/subscription-policies'))}>
+                                                    {tNav('subscriptionPolicies')}
+                                                </Link>
+                                            </li>
+                                        )}
+                                        {user?.currentWorkspace?.role === 'owner' && (
+                                            <li>
                                                 <Link href={`/${slug}/settings/billing`} className={subLink(pathname.includes('/settings/billing'))}>
                                                     {tNav('billing')}
                                                 </Link>
