@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
 import { checkClientLimit } from '../../lib/seatLimits';
+import { logSubscriptionAudit } from '../subscriptionPolicies/subscriptionPolicies.service';
+import { recordEvent, teamRecipients } from '../../lib/events';
 import { prisma } from '../../lib/prisma';
 import {
     summarizeLog,
@@ -33,6 +35,13 @@ function mapClient(row: ClientRow) {
         subscription_status: row.subscription_status || 'Pre-start',
         has_password:        !!row.password,
         created_at:          row.created_at,
+        // Archive lifecycle — null on active clients. `is_archived` is the single
+        // source of truth the UI branches on (Archived chip, restore/danger zone).
+        is_archived:         !!row.archived_at,
+        archived_at:         row.archived_at ?? null,
+        archived_by:         row.archived_by ?? null,
+        restored_at:         row.restored_at ?? null,
+        restored_by:         row.restored_by ?? null,
     };
 }
 
@@ -57,6 +66,8 @@ export async function getClients(req: Request, res: Response, next: NextFunction
     const wsId   = req.user!.workspaceId;
 
     try {
+        // Active and archived clients live in one list; archived rows are
+        // surfaced via the "Archived" status filter and dimmed in the UI.
         const whereClause: Prisma.clientsWhereInput = { workspace_id: wsId };
         if (search) {
             whereClause.OR = [
@@ -124,11 +135,15 @@ export async function getClients(req: Request, res: Response, next: NextFunction
         res.json({
             data: clientRows.map(row => ({
                 ...mapClient(row as unknown as ClientRow),
-                subscription_status: computeSubscriptionStatus(
-                    txByClient[row.id] || [],
-                    freezesByClient[row.id] || [],
-                    planActivationByClient[row.id] ?? null
-                ),
+                // Archived is a lifecycle state that sits above the computed
+                // subscription status — surface it instead of Active/Frozen/etc.
+                subscription_status: row.archived_at
+                    ? 'Archived'
+                    : computeSubscriptionStatus(
+                        txByClient[row.id] || [],
+                        freezesByClient[row.id] || [],
+                        planActivationByClient[row.id] ?? null
+                    ),
             })),
             total, page, limit, totalPages: Math.ceil(total / limit),
         });
@@ -210,6 +225,16 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
                 password:            hashedPassword,
             },
         });
+        // Notify the rest of the team (not the creator) that a client was added.
+        await recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'client.created',
+            title:       'A new client was added',
+            recipients:  await teamRecipients(req.user!.workspaceId, req.user!.userId),
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'client', id: client.id },
+        });
+
         res.status(201).json(mapClient(client as unknown as ClientRow));
     } catch (err) {
         next(err);
@@ -247,8 +272,10 @@ export async function getClient(req: Request, res: Response, next: NextFunction)
 
         if (!client) return res.status(404).json({ error: 'Client not found' });
 
+        const mapped = mapClient(client as unknown as ClientRow);
         res.json({
-            ...mapClient(client as unknown as ClientRow),
+            ...mapped,
+            subscription_status: mapped.is_archived ? 'Archived' : mapped.subscription_status,
             firstPlanActivatedAt: planActRows[0]?.first_activation ?? null,
         });
     } catch (err) {
@@ -287,13 +314,183 @@ export async function updateClient(req: Request, res: Response, next: NextFuncti
     }
 }
 
-export async function deleteClient(req: Request, res: Response, next: NextFunction) {
+/**
+ * Default "delete" behaviour: archive the client (never destroys data). Removes
+ * them from active lists, blocks portal login (see clientPortal login + access
+ * policy), and freezes new check-ins/submissions while preserving every
+ * historical record. Reversible via restoreClient.
+ */
+export async function archiveClient(req: Request, res: Response, next: NextFunction) {
+    const clientId = req.params.id as string;
+    const wsId     = req.user!.workspaceId;
     try {
-        const deleted = await prisma.clients.deleteMany({
-            where: { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: wsId },
+            select: { id: true, archived_at: true },
         });
-        if (deleted.count === 0) return res.status(404).json({ error: 'Client not found' });
-        res.json({ deleted: req.params.id });
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+        if (client.archived_at) return res.status(409).json({ error: 'Client is already archived' });
+
+        const updated = await prisma.clients.update({
+            where: { id: clientId },
+            data:  { archived_at: new Date(), archived_by: req.user!.userId },
+        });
+
+        await logSubscriptionAudit({
+            workspaceId: wsId,
+            clientId,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'client.archive',
+            toStatus:    'Archived',
+        });
+
+        res.json(mapClient(updated as unknown as ClientRow));
+    } catch (err) {
+        next(err);
+    }
+}
+
+/** Restores an archived client back to active operations. Clears the archive marker. */
+export async function restoreClient(req: Request, res: Response, next: NextFunction) {
+    const clientId = req.params.id as string;
+    const wsId     = req.user!.workspaceId;
+    try {
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: wsId },
+            select: { id: true, archived_at: true },
+        });
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+        if (!client.archived_at) return res.status(409).json({ error: 'Client is not archived' });
+
+        const updated = await prisma.clients.update({
+            where: { id: clientId },
+            data:  { archived_at: null, archived_by: null, restored_at: new Date(), restored_by: req.user!.userId },
+        });
+
+        await logSubscriptionAudit({
+            workspaceId: wsId,
+            clientId,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'client.restore',
+            fromStatus:  'Archived',
+            toStatus:    'Active',
+        });
+
+        res.json(mapClient(updated as unknown as ClientRow));
+    } catch (err) {
+        next(err);
+    }
+}
+
+/** Scrub a client's personal info in place, preserving every related row for analytics. */
+async function anonymizeClient(clientId: string): Promise<void> {
+    await prisma.clients.update({
+        where: { id: clientId },
+        data: {
+            fname:    'Deleted',
+            lname:    'Client',
+            // Keep the workspace+email unique constraint satisfied with a per-row token.
+            email:    `deleted+${clientId}@anonymized.invalid`,
+            phone:    null,
+            phones:   [] as unknown as Prisma.InputJsonValue,
+            password: null,
+        },
+    });
+}
+
+/**
+ * Permanently remove a client. FK-safe: transactions (no cascade) are detached to
+ * preserve revenue rows; training_plans and threads (no FK to clients) are deleted
+ * explicitly; the rest cascade from the client row.
+ */
+async function hardDeleteClient(clientId: string, wsId: string): Promise<void> {
+    await prisma.$transaction([
+        prisma.transactions.updateMany({ where: { client_id: clientId, workspace_id: wsId }, data: { client_id: null } }),
+        prisma.training_plans.deleteMany({ where: { client_id: clientId, workspace_id: wsId } }),
+        prisma.threads.deleteMany({ where: { client_id: clientId, workspace_id: wsId } }),
+        prisma.clients.delete({ where: { id: clientId } }),
+    ]);
+}
+
+/**
+ * Danger zone (owner-only, archived clients only). Honours the workspace
+ * client_deletion_strategy: 'anonymize' (default) scrubs PII while keeping
+ * analytics; 'hard' destroys the client and its personal data. The caller must
+ * echo the client's exact name in `confirmName`.
+ */
+export async function permanentDeleteClient(req: Request, res: Response, next: NextFunction) {
+    const clientId    = req.params.id as string;
+    const wsId        = req.user!.workspaceId;
+    const body        = req.body as { confirmName?: string; strategy?: string };
+    const confirmName = body.confirmName?.trim();
+    // Strategy is chosen per-deletion in the danger-zone modal; default to the
+    // safer anonymize when unspecified.
+    const strategy    = body.strategy === 'hard' ? 'hard' : 'anonymize';
+
+    try {
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: wsId },
+            select: { id: true, fname: true, lname: true, archived_at: true },
+        });
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+        if (!client.archived_at) {
+            return res.status(409).json({ error: 'Only archived clients can be permanently deleted' });
+        }
+
+        const expectedName = `${client.fname} ${client.lname}`.trim();
+        if (!confirmName || confirmName !== expectedName) {
+            return res.status(400).json({ error: 'name_mismatch' });
+        }
+
+        if (strategy === 'hard') {
+            await hardDeleteClient(clientId, wsId);
+        } else {
+            await anonymizeClient(clientId);
+            await prisma.clients.update({
+                where: { id: clientId },
+                data:  { deleted_at: new Date(), deleted_by: req.user!.userId },
+            });
+        }
+
+        await logSubscriptionAudit({
+            workspaceId: wsId,
+            // For a hard delete the client row is gone; keep the id in metadata only.
+            clientId:    strategy === 'hard' ? null : clientId,
+            actorType:   'coach',
+            actorUserId: req.user!.userId,
+            eventType:   'client.delete',
+            fromStatus:  'Archived',
+            metadata:    { strategy, clientId, clientName: expectedName },
+        });
+
+        res.json({ deleted: clientId, strategy });
+    } catch (err) {
+        next(err);
+    }
+}
+
+/** Activity timeline for one client: archive/restore/delete + system status changes. */
+export async function getClientAudit(req: Request, res: Response, next: NextFunction) {
+    const clientId = req.params.id as string;
+    const wsId     = req.user!.workspaceId;
+    try {
+        const rows = await prisma.subscription_status_audit.findMany({
+            where:   { workspace_id: wsId, client_id: clientId },
+            orderBy: { created_at: 'desc' },
+            take:    100,
+        });
+        res.json(rows.map(r => ({
+            id:          r.id,
+            actorType:   r.actor_type,
+            actorUserId: r.actor_user_id,
+            eventType:   r.event_type,
+            fromStatus:  r.from_status,
+            toStatus:    r.to_status,
+            metadata:    r.metadata,
+            createdAt:   r.created_at,
+        })));
     } catch (err) {
         next(err);
     }

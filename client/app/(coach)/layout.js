@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
+import NotificationBell from "@/app/components/NotificationBell";
 
 // Returns { icon: ReactElement, crumbs: { label, href }[] } for the current path.
 // Every crumb carries an href so the whole trail is clickable; parent crumbs link
@@ -225,6 +226,7 @@ export default function WorkspaceLayout({ children }) {
                     )}
 
                     <div className="ms-auto flex items-center gap-1">
+                        <NotificationBell />
                         <ThemeToggle />
                         <LanguageSwitcher />
                     </div>
