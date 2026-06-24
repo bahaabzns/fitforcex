@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { env } from '../../config/env';
 import { applyPayment } from '../billing/index';
+import { recordEvent, ownerRecipients } from '../../lib/events';
 
 export async function handleWebhook(req: Request, res: Response) {
     try {
@@ -88,9 +89,26 @@ export async function handleWebhook(req: Request, res: Response) {
         if (isPaid) {
             await applyPayment(payment.id, payment.workspace_id);
             console.log('[Webhook] Payment', payment.id, '→ paid, subscription extended');
+            await recordEvent({
+                workspaceId: payment.workspace_id,
+                type:        'billing.payment_received',
+                title:       'Your subscription payment was received',
+                recipients:  await ownerRecipients(payment.workspace_id),
+                actor:       { type: 'system' },
+                entity:      { type: 'workspace_payment', id: payment.id },
+            });
         } else if (['failed', 'expired', 'cancelled'].includes(fawStatus)) {
             await prisma.workspace_payments.update({ where: { id: payment.id }, data: { fawaterak_status: 'failed' } });
             console.log('[Webhook] Payment', payment.id, '→ failed');
+            await recordEvent({
+                workspaceId: payment.workspace_id,
+                type:        'billing.payment_failed',
+                importance:  'alert',
+                title:       'Your subscription payment failed',
+                recipients:  await ownerRecipients(payment.workspace_id),
+                actor:       { type: 'system' },
+                entity:      { type: 'workspace_payment', id: payment.id },
+            });
         } else if (fawStatus === 'refunded') {
             await prisma.workspace_payments.update({ where: { id: payment.id }, data: { fawaterak_status: 'refunded' } });
             console.log('[Webhook] Payment', payment.id, '→ refunded');

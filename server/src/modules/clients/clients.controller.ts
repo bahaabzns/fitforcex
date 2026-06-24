@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { computeSubscriptionStatus } from '../../utils/subscriptionStatus';
 import { checkClientLimit } from '../../lib/seatLimits';
+import { recordEvent, teamRecipients } from '../../lib/events';
 import { prisma } from '../../lib/prisma';
 import {
     summarizeLog,
@@ -210,6 +211,16 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
                 password:            hashedPassword,
             },
         });
+        // Notify the rest of the team (not the creator) that a client was added.
+        await recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'client.created',
+            title:       'A new client was added',
+            recipients:  await teamRecipients(req.user!.workspaceId, req.user!.userId),
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'client', id: client.id },
+        });
+
         res.status(201).json(mapClient(client as unknown as ClientRow));
     } catch (err) {
         next(err);

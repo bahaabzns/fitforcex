@@ -1417,6 +1417,21 @@
     "deleteButton": "حذف",
     "searchPlaceholder": "البحث في عناصر الطعام..."
   },
+  "notifications": {
+    "title": "الإشعارات",
+    "empty": "لا توجد إشعارات جديدة",
+    "loading": "جارٍ التحميل…",
+    "markAllRead": "تعليم الكل كمقروء",
+    "timeJustNow": "الآن",
+    "types": {
+      "messageReceived": "رسالة جديدة من عميل",
+      "planAssigned": "تم تعيين خطة جديدة",
+      "checkinSubmitted": "أرسل عميل نموذج متابعة",
+      "clientCreated": "تمت إضافة عميل جديد",
+      "paymentReceived": "تم استلام دفعة اشتراكك",
+      "paymentFailed": "فشلت دفعة اشتراكك"
+    }
+  },
   "messenger": {
     "title": "الرسائل",
     "searchPlaceholder": "بحث…",

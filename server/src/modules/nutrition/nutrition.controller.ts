@@ -14,7 +14,7 @@ import {
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
 import { toNumberOrNull } from './nutrition.service';
-import { getIo } from '../../lib/socket';
+import { recordEvent } from '../../lib/events';
 
 type Row = Record<string, unknown>;
 
@@ -547,9 +547,15 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
         });
         if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
 
-        getIo()
-            .to(`client:${updatedPlan.client_id as string}`)
-            .emit('plan_assigned', { type: 'nutrition', planId: updatedPlan.id });
+        await recordEvent({
+            workspaceId: req.user!.workspaceId,
+            type:        'plan.assigned',
+            title:       'A new nutrition plan was assigned to you',
+            recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+            actor:       { type: 'user', id: req.user!.userId },
+            entity:      { type: 'nutrition_plan', id: updatedPlan.id as string },
+            realtime:    { rooms: [`client:${updatedPlan.client_id as string}`], event: 'plan_assigned', payload: { type: 'nutrition', planId: updatedPlan.id } },
+        });
 
         res.json(updatedPlan);
     } catch (err) { next(err); }

@@ -20,6 +20,7 @@ export async function resetTestDb(): Promise<void> {
         await tx.$executeRawUnsafe(`UPDATE users SET default_workspace_id = NULL`);
         await tx.$executeRawUnsafe(`
             TRUNCATE TABLE
+                notifications,
                 messages, threads,
                 workout_logs, form_requests, forms,
                 client_observations, clients,

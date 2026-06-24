@@ -328,6 +328,31 @@ model packages {
   workspaces         workspaces           @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_packages_workspace")
 }
 
+// Durable per-recipient notification surface (the bell). Written by recordEvent()
+// in lib/events.ts, the single choke point for domain events. Not FK-constrained
+// on the recipient on purpose: recipients can be a user OR a client, and either
+// may be hard-deleted; the workspace FK cascades cleanup.
+model notifications {
+  id             String    @id
+  workspace_id   String
+  recipient_type String // 'user' | 'client'
+  recipient_id   String
+  type           String // event key, e.g. 'message.received'
+  importance     String    @default("info") // 'info' | 'actionable' | 'alert'
+  title          String
+  body           String?
+  entity_type    String?
+  entity_id      String?
+  actor_type     String?
+  actor_id       String?
+  metadata       Json?
+  read_at        DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([recipient_type, recipient_id, read_at, created_at(sort: Desc)], map: "idx_notifications_recipient")
+  @@index([workspace_id, created_at(sort: Desc)], map: "idx_notifications_workspace")
+}
+
 model password_reset_tokens {
   id         String    @id
   user_id    String
