@@ -1417,6 +1417,21 @@
     "deleteButton": "Delete",
     "searchPlaceholder": "Search food items..."
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "You're all caught up",
+    "loading": "Loading…",
+    "markAllRead": "Mark all read",
+    "timeJustNow": "Just now",
+    "types": {
+      "messageReceived": "New message from a client",
+      "planAssigned": "A new plan was assigned",
+      "checkinSubmitted": "A client submitted a check-in",
+      "clientCreated": "A new client was added",
+      "paymentReceived": "Your subscription payment was received",
+      "paymentFailed": "Your subscription payment failed"
+    }
+  },
   "messenger": {
     "title": "Messages",
     "searchPlaceholder": "Search…",
