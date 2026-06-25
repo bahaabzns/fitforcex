@@ -39,12 +39,6 @@ const TrashIcon = () => (
     </svg>
 );
 
-const CheckIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
-    </svg>
-);
-
 const PlanIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
@@ -210,14 +204,13 @@ export default function LeftPanel({
                                                                 {plan.name}
                                                             </p>
                                                             {plan.status === 'active' && (
-                                                                <Chip size="sm" className="bg-green-500/15 text-green-600 shrink-0">
-                                                                    <span className="flex items-center gap-0.5"><CheckIcon /> {t('active')}</span>
+                                                                <Chip size="sm" color="success" variant="soft" className="shrink-0">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                                                                    <Chip.Label>{t('active')}</Chip.Label>
                                                                 </Chip>
                                                             )}
                                                             {isPlanDirty && (
-                                                                <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
-                                                                    {t('unsaved')}
-                                                                </Chip>
+                                                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title={t('unsaved')} />
                                                             )}
                                                         </div>
                                                         <p className="text-xs text-muted-foreground mt-0.5">
