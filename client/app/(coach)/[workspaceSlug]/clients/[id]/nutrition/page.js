@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useNutritionPlan } from "@/hooks/useNutritionPlan";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { calcMeal, calcCycle, calcItem } from "@/lib/nutritionCalc";
 import NameModal from "@/app/components/NameModal";
 import LeftPanel from "@/app/components/nutrition/LeftPanel";
@@ -21,6 +22,9 @@ export default function NutritionPage({ onDirtyChange }) {
 
     const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
+    // Below this width three side-by-side columns get cramped, so the deepest
+    // panel (meal detail) switches to an overlay drawer. Wide layout unchanged.
+    const isNarrow = useMediaQuery("(max-width: 1279px)");
 
     function handleDividerMouseDown(index, e) {
         e.preventDefault();
@@ -120,6 +124,34 @@ if (loading) {
     return <div>{tCommon('loading')}</div>;
 }
 
+// Rendered either as the third column (wide) or inside the overlay drawer
+// (narrow). Defined once so the prop list isn't duplicated across branches.
+const mealPanel = (
+    <RightPanel
+        selectedMeal={selectedMeal}
+        setSelectedMeal={setSelectedMeal}
+        foodItems={foodItems}
+        setFoodItems={setFoodItems}
+        foodItemModalOpen={foodItemModalOpen}
+        setFoodItemModalOpen={setFoodItemModalOpen}
+        foodSearchQuery={foodSearchQuery}
+        setFoodSearchQuery={setFoodSearchQuery}
+        handleFoodSearch={handleFoodSearch}
+        handleAddFoodItem={handleAddFoodItem}
+        handleAmountChange={handleAmountChange}
+        handleDeleteMealItem={handleDeleteMealItem}
+        handleRenameMeal={handleRenameMeal}
+        handleReorderFoodItems={handleReorderFoodItems}
+        handleUpdateMealNote={handleUpdateMealNote}
+        pendingFocusMealId={pendingFocusMealId}
+        setPendingFocusMealId={setPendingFocusMealId}
+        alternativeModalOpenForItemId={alternativeModalOpenForItemId}
+        setAlternativeModalOpenForItemId={setAlternativeModalOpenForItemId}
+        handleDeleteAlternative={handleDeleteAlternative}
+        handleAlternativeAmountChange={handleAlternativeAmountChange}
+    />
+);
+
 return (
     <div className="flex-1 h-full min-h-full flex flex-col overflow-hidden">
         
@@ -127,7 +159,7 @@ return (
     <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-0">
 
         {/* Panel 1: Plans List */}
-        <div style={{ width: `${widths[0]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
+        <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>
             <LeftPanel
                 plans={sortedPlans}
                 selectedPlan={selectedPlan}
@@ -152,16 +184,18 @@ return (
             />
         </div>
 
-        {/* Divider 1 */}
+        {/* Divider 1 (wide only) */}
+        {!isNarrow && (
         <div
                 className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
                 onMouseDown={(e) => handleDividerMouseDown(0, e)}
             >
                 <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
             </div>
+        )}
 
         {/* Panel 2: Plan Detail */}
-        <div style={{ width: `${widths[1]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
+        <div style={isNarrow ? undefined : { width: `${widths[1]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "flex-1" : ""}`}>
             {selectedPlan ? (
                 <MiddlePanel
                     selectedPlan={selectedPlan}
@@ -204,7 +238,9 @@ return (
             )}
         </div>
 
-        {/* Divider 2 */}
+        {/* Divider 2 + Panel 3: Meal Detail (wide only) */}
+        {!isNarrow && (
+        <>
         <div
                 className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group"
                 onMouseDown={(e) => handleDividerMouseDown(1, e)}
@@ -212,33 +248,8 @@ return (
                 <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
             </div>
 
-        {/* Panel 3: Meal Detail */}
         <div style={{ width: `${widths[2]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
-            {selectedMeal && selectedPlan ? (
-                <RightPanel
-                    selectedMeal={selectedMeal}
-                    setSelectedMeal={setSelectedMeal}
-                    foodItems={foodItems}
-                    setFoodItems={setFoodItems}
-                    foodItemModalOpen={foodItemModalOpen}
-                    setFoodItemModalOpen={setFoodItemModalOpen}
-                    foodSearchQuery={foodSearchQuery}
-                    setFoodSearchQuery={setFoodSearchQuery}
-                    handleFoodSearch={handleFoodSearch}
-                    handleAddFoodItem={handleAddFoodItem}
-                    handleAmountChange={handleAmountChange}
-                    handleDeleteMealItem={handleDeleteMealItem}
-                    handleRenameMeal={handleRenameMeal}
-                    handleReorderFoodItems={handleReorderFoodItems}
-                    handleUpdateMealNote={handleUpdateMealNote}
-                    pendingFocusMealId={pendingFocusMealId}
-                    setPendingFocusMealId={setPendingFocusMealId}
-                    alternativeModalOpenForItemId={alternativeModalOpenForItemId}
-                    setAlternativeModalOpenForItemId={setAlternativeModalOpenForItemId}
-                    handleDeleteAlternative={handleDeleteAlternative}
-                    handleAlternativeAmountChange={handleAlternativeAmountChange}
-                />
-            ) : (
+            {selectedMeal && selectedPlan ? mealPanel : (
                 <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
                     <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">
                         {t('selectMealHint')}
@@ -246,6 +257,18 @@ return (
                 </Surface>
             )}
         </div>
+        </>
+        )}
+
+        {/* Narrow: meal detail as an overlay drawer */}
+        {isNarrow && selectedMeal && selectedPlan && (
+            <div className="fixed inset-0 z-50 flex justify-end">
+                <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedMeal(null)} />
+                <div className="relative h-full w-full max-w-md p-2 flex flex-col">
+                    {mealPanel}
+                </div>
+            </div>
+        )}
 
         {/* Food Search Modal */}
         <FoodItemsModal

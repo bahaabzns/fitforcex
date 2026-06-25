@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTrainingPlan } from "@/hooks/useTrainingPlan";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import LeftPanel from "@/app/components/training/LeftPanel";
 import MiddlePanel from "@/app/components/training/MiddlePanel";
 import RightPanel from "@/app/components/training/RightPanel";
@@ -19,6 +20,9 @@ export default function TrainingPage({ onDirtyChange }) {
 
     const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
+    // Below this width three side-by-side columns get cramped, so the deepest
+    // panel (day detail) switches to an overlay drawer. Wide layout unchanged.
+    const isNarrow = useMediaQuery("(max-width: 1279px)");
 
     function handleDividerMouseDown(index, e) {
         e.preventDefault();
@@ -109,10 +113,31 @@ export default function TrainingPage({ onDirtyChange }) {
         return <div>{tCommon('loading')}</div>;
     }
 
+    // Rendered either as the third column (wide) or inside the overlay drawer
+    // (narrow). Defined once so the prop list isn't duplicated across branches.
+    const dayPanel = (
+        <RightPanel
+            selectedDay={selectedDay}
+            handleAddExercise={handleAddExercise}
+            handleAddMultipleExercises={handleAddMultipleExercises}
+            handleDeleteExercise={handleDeleteExercise}
+            handleUpdateExerciseNotes={handleUpdateExerciseNotes}
+            handleReorderExercises={handleReorderExercises}
+            handleRenameDay={handleRenameDay}
+            handleAddSet={handleAddSet}
+            handleDuplicateSet={handleDuplicateSet}
+            handleApplySetsToAll={handleApplySetsToAll}
+            handleDeleteSet={handleDeleteSet}
+            handleUpdateSetField={handleUpdateSetField}
+            handleUpdateDayNotes={handleUpdateDayNotes}
+            onClose={handleCloseDay}
+        />
+    );
+
     return (
         <div className="flex-1 h-full min-h-full flex flex-col overflow-hidden">
             <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-0">
-                <div style={{ width: `${widths[0]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
+                <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>
                     <LeftPanel
                         plans={sortedPlans}
                         selectedPlan={selectedPlan}
@@ -133,11 +158,13 @@ export default function TrainingPage({ onDirtyChange }) {
                     />
                 </div>
 
+                {!isNarrow && (
                 <div className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group" onMouseDown={(e) => handleDividerMouseDown(0, e)}>
                     <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
                 </div>
+                )}
 
-                <div style={{ width: `${widths[1]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
+                <div style={isNarrow ? undefined : { width: `${widths[1]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "flex-1" : ""}`}>
                     {selectedPlan ? (
                         <MiddlePanel
                             selectedPlan={selectedPlan}
@@ -169,28 +196,27 @@ export default function TrainingPage({ onDirtyChange }) {
                     )}
                 </div>
 
+                {!isNarrow && (
+                <>
                 <div className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group" onMouseDown={(e) => handleDividerMouseDown(1, e)}>
                     <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
                 </div>
 
                 <div style={{ width: `${widths[2]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
-                    <RightPanel
-                        selectedDay={selectedDay}
-                        handleAddExercise={handleAddExercise}
-                        handleAddMultipleExercises={handleAddMultipleExercises}
-                        handleDeleteExercise={handleDeleteExercise}
-                        handleUpdateExerciseNotes={handleUpdateExerciseNotes}
-                        handleReorderExercises={handleReorderExercises}
-                        handleRenameDay={handleRenameDay}
-                        handleAddSet={handleAddSet}
-                        handleDuplicateSet={handleDuplicateSet}
-                        handleApplySetsToAll={handleApplySetsToAll}
-                        handleDeleteSet={handleDeleteSet}
-                        handleUpdateSetField={handleUpdateSetField}
-                        handleUpdateDayNotes={handleUpdateDayNotes}
-                        onClose={handleCloseDay}
-                    />
+                    {dayPanel}
                 </div>
+                </>
+                )}
+
+                {/* Narrow: day detail as an overlay drawer */}
+                {isNarrow && selectedDay && (
+                    <div className="fixed inset-0 z-50 flex justify-end">
+                        <div className="absolute inset-0 bg-black/40" onClick={handleCloseDay} />
+                        <div className="relative h-full w-full max-w-md p-2 flex flex-col">
+                            {dayPanel}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
