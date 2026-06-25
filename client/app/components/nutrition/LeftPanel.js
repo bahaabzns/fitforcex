@@ -185,7 +185,7 @@ export default function LeftPanel({
                                         </div>
                                     </Surface>
                                 ) : (
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2 px-1 py-1">
                                         {plans.map((plan) => {
                                             const isActive = selectedPlan?.id === plan.id;
                                             const isPlanDirty = dirtyPlanIds?.includes(String(plan.id));
