@@ -196,7 +196,7 @@ export default function LeftPanel({
                                                     className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 ${
                                                         isActive
                                                             ? "bg-primary/5 dark:bg-(--color-surface-secondary) ring-1 ring-primary/40"
-                                                            : "bg-card dark:bg-(--color-surface-secondary) hover:ring-1 hover:ring-primary/20"
+                                                            : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                                     }`}
                                                 >
                                                     <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
