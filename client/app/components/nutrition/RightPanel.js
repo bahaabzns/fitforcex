@@ -100,7 +100,7 @@ export default function RightPanel({
                                     </h3>
                                 </Button>
                                 {expandedKeys.has("items") && (
-                                    <Button variant="primary" onClick={() => setFoodItemModalOpen(true)}>
+                                    <Button variant="outline" onClick={() => setFoodItemModalOpen(true)}>
                                         {t('addFood')}
                                     </Button>
                                 )}

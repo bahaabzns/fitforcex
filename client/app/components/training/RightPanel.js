@@ -129,7 +129,7 @@ export default function RightPanel({
                                     </h3>
                                 </Button>
                                 {expandedKeys.has("exercises") && (
-                                    <Button variant="primary" onClick={() => setShowPicker(true)} className="shrink-0">
+                                    <Button variant="outline" onClick={() => setShowPicker(true)} className="shrink-0">
                                         {t('addExercise')}
                                     </Button>
                                 )}
@@ -307,7 +307,7 @@ export default function RightPanel({
                                             </Table>
 
                                             <div className="mt-2 flex items-center gap-2">
-                                                <Button size="sm" variant="primary" onClick={() => handleAddSet(selectedDay.id, exercise.id)}>
+                                                <Button size="sm" variant="outline" onClick={() => handleAddSet(selectedDay.id, exercise.id)}>
                                                     {t('addSet')}
                                                 </Button>
                                                 {(exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 && (

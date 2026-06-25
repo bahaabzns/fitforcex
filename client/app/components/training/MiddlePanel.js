@@ -181,7 +181,7 @@ export default function MiddlePanel({
                                 </h3>
                             </Button>
                             {expandedKeys.has("days") && (
-                                <Button variant="primary" onClick={handleCreateDay} className="shrink-0">
+                                <Button variant="outline" onClick={handleCreateDay} className="shrink-0">
                                     {t('addDay')}
                                 </Button>
                             )}

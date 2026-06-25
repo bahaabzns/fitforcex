@@ -234,7 +234,7 @@ export default function MiddlePanel({
                             </h3>
                         </Button>
                         {expandedKeys.has("cycles") && (
-                            <Button variant="primary" onClick={handleCreateCycle} className="shrink-0">
+                            <Button variant="outline" onClick={handleCreateCycle} className="shrink-0">
                                 {t('addCycle')}
                             </Button>
                         )}
@@ -324,7 +324,7 @@ export default function MiddlePanel({
                                     </h3>
                                 </Button>
                                 {expandedKeys.has("meals") && (
-                                    <Button variant="primary" onClick={handleCreateMeal} className="shrink-0">
+                                    <Button variant="outline" onClick={handleCreateMeal} className="shrink-0">
                                         {t('addMeal')}
                                     </Button>
                                 )}
