@@ -33,6 +33,11 @@ const PlanIcon = () => (
         <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
     </svg>
 );
+const ChevronRightIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"/>
+    </svg>
+);
 
 function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -175,7 +180,7 @@ export default function LeftPanel({
                                         </div>
                                     </Surface>
                                 ) : (
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-2">
                                         {plans.map((plan) => {
                                             const isActive = String(selectedPlan?.id) === String(plan.id);
                                             const isPlanDirty = dirtyPlanIds?.includes(String(plan.id));
@@ -183,19 +188,18 @@ export default function LeftPanel({
                                                 <div
                                                     key={plan.id}
                                                     onClick={() => handleSelectedPlan(plan)}
-                                                    className={`group relative flex items-center gap-3 rounded-lg px-2.5 py-2 cursor-pointer select-none transition-colors ${
-                                                        isActive ? "bg-primary/8" : "hover:bg-default"
+                                                    className={`group flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 ${
+                                                        isActive ? "bg-primary/5 border-primary/40" : "bg-card border-border hover:border-primary/30"
                                                     }`}
                                                 >
-                                                    {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-full bg-primary" />}
                                                     <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                                                        isActive ? "bg-primary/15 text-primary" : "bg-default text-muted group-hover:text-foreground"
+                                                        isActive ? "bg-primary/15 text-primary" : "bg-secondary text-muted group-hover:text-foreground"
                                                     }`}>
                                                         <PlanIcon />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
-                                                            <p className="flex-1 min-w-0 text-sm font-semibold truncate text-foreground">
+                                                            <p className={`flex-1 min-w-0 text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
                                                                 {plan.name}
                                                             </p>
                                                             {plan.status === "active" && (
@@ -213,21 +217,26 @@ export default function LeftPanel({
                                                             {" · "}{t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
                                                         </p>
                                                     </div>
-                                                    <div className="flex items-center gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            title={t('duplicatePlan')}
-                                                            className="cursor-pointer p-1 rounded-md text-muted hover:text-foreground hover:bg-default transition-colors"
-                                                            onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
-                                                        >
-                                                            <DuplicateIcon />
-                                                        </button>
-                                                        <button
-                                                            title={t('deletePlan')}
-                                                            className="cursor-pointer p-1 rounded-md text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                            onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                                                        >
-                                                            <TrashIcon />
-                                                        </button>
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                title={t('duplicatePlan')}
+                                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-foreground hover:bg-default transition-colors"
+                                                                onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
+                                                            >
+                                                                <DuplicateIcon />
+                                                            </button>
+                                                            <button
+                                                                title={t('deletePlan')}
+                                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                                onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
+                                                            >
+                                                                <TrashIcon />
+                                                            </button>
+                                                        </div>
+                                                        <span className={`shrink-0 transition-colors ${isActive ? "text-primary" : "text-muted-foreground/40 group-hover:text-muted-foreground"}`}>
+                                                            <ChevronRightIcon />
+                                                        </span>
                                                     </div>
                                                 </div>
                                             );
