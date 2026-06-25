@@ -42,14 +42,22 @@ class _FormsPageState extends ConsumerState<FormsPage> {
       value: requests,
       onRetry: () => ref.invalidate(formRequestsProvider),
       data: (all) {
+        bool isSubmittedBucket(FormRequestSummary r) =>
+            r.status == formStatusSubmitted ||
+            r.status == formStatusReviewed ||
+            r.status == formStatusScheduled;
         final pendingCount =
             all.where((r) => r.status == formStatusPending).length;
+        final submittedCount = all.where(isSubmittedBucket).length;
         final filtered = all.where((r) {
           if (_filter == _Filter.pending) return r.status == formStatusPending;
-          return r.status == formStatusSubmitted ||
-              r.status == formStatusReviewed ||
-              r.status == formStatusScheduled;
+          return isSubmittedBucket(r);
         }).toList();
+        // When the current tab is empty but the other has forms, offer to jump
+        // there (recovery) instead of a dead end.
+        final otherHasItems = _filter == _Filter.submitted
+            ? pendingCount > 0
+            : submittedCount > 0;
 
         return Column(
           children: [
@@ -86,13 +94,34 @@ class _FormsPageState extends ConsumerState<FormsPage> {
             ),
             Expanded(
               child: filtered.isEmpty
-                  ? EmptyState(
-                      icon: Icons.assignment_outlined,
-                      title: _filter == _Filter.submitted
-                          ? l10n.formsEmptySubmitted
-                          : l10n.formsEmptyPending,
-                      hint: l10n.formsEmptyHint,
-                    )
+                  ? (all.isEmpty
+                      // No forms assigned at all — informational waiting state.
+                      ? EmptyState(
+                          icon: Icons.assignment_outlined,
+                          title: l10n.formsEmptyNone,
+                          hint: l10n.formsEmptyNoneHint,
+                        )
+                      // Forms exist, just not in this tab — filter recovery.
+                      : EmptyState(
+                          variant: EmptyStateVariant.filter,
+                          icon: Icons.assignment_outlined,
+                          title: _filter == _Filter.submitted
+                              ? l10n.formsEmptySubmitted
+                              : l10n.formsEmptyPending,
+                          hint: l10n.formsEmptyHint,
+                          action: otherHasItems
+                              ? OutlinedButton(
+                                  onPressed: () => setState(() {
+                                    _filter = _filter == _Filter.submitted
+                                        ? _Filter.pending
+                                        : _Filter.submitted;
+                                  }),
+                                  child: Text(_filter == _Filter.submitted
+                                      ? l10n.formsViewPending
+                                      : l10n.formsViewSubmitted),
+                                )
+                              : null,
+                        ))
                   : RefreshIndicator(
                       onRefresh: () async =>
                           ref.invalidate(formRequestsProvider),

@@ -17,6 +17,7 @@ class RestrictedView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     return EmptyState(
+      variant: EmptyStateVariant.permission,
       icon: Icons.lock_outline,
       title: l10n.restrictedTitle,
       hint: message,

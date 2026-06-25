@@ -22,4 +22,29 @@ void main() {
     expect(find.text('On its way.'), findsOneWidget);
     expect(find.byIcon(Icons.home_outlined), findsOneWidget);
   });
+
+  testWidgets('filter variant renders a tappable recovery action',
+      (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: EmptyState(
+            variant: EmptyStateVariant.filter,
+            icon: Icons.assignment_outlined,
+            title: 'No submitted forms yet',
+            action: OutlinedButton(
+              onPressed: () => tapped = true,
+              child: const Text('View pending'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('No submitted forms yet'), findsOneWidget);
+    await tester.tap(find.text('View pending'));
+    expect(tapped, isTrue);
+  });
 }
