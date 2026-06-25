@@ -248,38 +248,38 @@ export default function RightPanel({
                                                 <Table.ScrollContainer>
                                                     <Table.Content aria-label="Sets">
                                                         <Table.Header>
-                                                            <Table.Column isRowHeader className="w-8 px-2">#</Table.Column>
-                                                            <Table.Column className="px-1">{t('reps')}</Table.Column>
-                                                            <Table.Column className="px-1">{t('rest')}</Table.Column>
-                                                            <Table.Column className="px-1">{t('tempo')}</Table.Column>
-                                                            <Table.Column className="px-1">{t('rir')}</Table.Column>
-                                                            <Table.Column className="w-12 px-2 text-end"><span className="sr-only">Actions</span></Table.Column>
+                                                            <Table.Column isRowHeader className="w-8 px-2 py-1">#</Table.Column>
+                                                            <Table.Column className="px-1 py-1">{t('reps')}</Table.Column>
+                                                            <Table.Column className="px-1 py-1">{t('rest')}</Table.Column>
+                                                            <Table.Column className="px-1 py-1">{t('tempo')}</Table.Column>
+                                                            <Table.Column className="px-1 py-1">{t('rir')}</Table.Column>
+                                                            <Table.Column className="w-12 px-2 py-1 text-end"><span className="sr-only">Actions</span></Table.Column>
                                                         </Table.Header>
                                                         <Table.Body>
                                                             {(exercise.sets ?? []).map((set, sIdx) => (
                                                                 <Table.Row key={set.id} id={set.id} className="group/set">
-                                                                    <Table.Cell className="px-2 text-xs text-muted">{sIdx + 1}</Table.Cell>
-                                                                    <Table.Cell className="px-1">
+                                                                    <Table.Cell className="px-2 py-1 text-xs text-muted">{sIdx + 1}</Table.Cell>
+                                                                    <Table.Cell className="px-1 py-1">
                                                                         <TextField className="min-w-0" value={String(set.reps ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", val)} aria-label={t('reps')}>
                                                                             <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1">
+                                                                    <Table.Cell className="px-1 py-1">
                                                                         <TextField className="min-w-0" value={String(set.rest_seconds ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", val)} aria-label={t('rest')}>
                                                                             <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1">
+                                                                    <Table.Cell className="px-1 py-1">
                                                                         <TextField className="min-w-0" value={String(set.tempo ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", val)} aria-label={t('tempo')}>
                                                                             <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1">
+                                                                    <Table.Cell className="px-1 py-1">
                                                                         <TextField className="min-w-0" value={String(set.rir ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", val)} aria-label={t('rir')}>
                                                                             <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1">
+                                                                    <Table.Cell className="px-1 py-1">
                                                                         <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover/set:opacity-100 focus-within:opacity-100">
                                                                             <button
                                                                                 onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
