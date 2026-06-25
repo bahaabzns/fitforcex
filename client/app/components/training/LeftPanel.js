@@ -201,17 +201,9 @@ export default function LeftPanel({
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className={`flex-1 min-w-0 text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
-                                                                {plan.name}
-                                                            </p>
-                                                            {plan.status === "active" && (
-                                                                <Chip size="sm" color="success" variant="soft" className="shrink-0">
-                                                                    <StatusDot />
-                                                                    <Chip.Label>{t('active')}</Chip.Label>
-                                                                </Chip>
-                                                            )}
-                                                        </div>
+                                                        <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
+                                                            {plan.name}
+                                                        </p>
                                                         <p className="text-xs leading-5 text-muted truncate">
                                                             {t('daysCount', { count: plan.day_count ?? plan.days?.length ?? 0 })}
                                                             {" · "}{t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
@@ -234,6 +226,12 @@ export default function LeftPanel({
                                                                 <TrashIcon />
                                                             </button>
                                                         </div>
+                                                        {plan.status === "active" && (
+                                                            <Chip size="sm" color="success" variant="soft" className="shrink-0">
+                                                                <StatusDot />
+                                                                <Chip.Label>{t('active')}</Chip.Label>
+                                                            </Chip>
+                                                        )}
                                                         <span className={`shrink-0 transition-colors ${isActive ? "text-primary" : "text-muted-foreground/40 group-hover:text-muted-foreground"}`}>
                                                             <ChevronRightIcon />
                                                         </span>
