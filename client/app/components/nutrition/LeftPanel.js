@@ -199,8 +199,8 @@ export default function LeftPanel({
                                                             : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                                     }`}
                                                 >
-                                                    <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                                                        isActive ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground group-hover:text-foreground"
+                                                    <div className={`shrink-0 w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${
+                                                        isActive ? "bg-primary/15 text-primary border-primary/20" : "bg-secondary text-muted-foreground border-border group-hover:text-foreground"
                                                     }`}>
                                                         <PlanIcon />
                                                     </div>
