@@ -156,7 +156,7 @@ return (
     <div className="flex-1 h-full min-h-full flex flex-col overflow-hidden">
         
 
-    <div ref={containerRef} className="flex-1 h-full flex flex-row overflow-hidden min-h-0">
+    <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>
 
         {/* Panel 1: Plans List */}
         <div style={isNarrow ? undefined : { width: `${widths[0]}%` }} className={`flex flex-col h-full min-h-0 overflow-hidden ${isNarrow ? "w-[34%] shrink-0" : ""}`}>
