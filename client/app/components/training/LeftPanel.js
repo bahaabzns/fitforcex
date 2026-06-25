@@ -90,7 +90,7 @@ export default function LeftPanel({
     const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
             <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Plans Section ── */}
@@ -134,7 +134,7 @@ export default function LeftPanel({
                 {expandedKeys.has("plans") && (
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                             {/* Sort Pills */}
-                            <div className="flex gap-2 mb-4 shrink-0">
+                            <div className="flex gap-2 mb-3 shrink-0">
                                 {[
                                     { value: "created_desc", label: t('newest') },
                                     { value: "created_asc",  label: t('oldest') },

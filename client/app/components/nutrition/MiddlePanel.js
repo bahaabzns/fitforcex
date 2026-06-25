@@ -118,9 +118,9 @@ export default function MiddlePanel({
 
     return (
         <>
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
             {/* Header */}
-            <div className="flex justify-between items-center mb-3 gap-4">
+            <div className="flex justify-between items-center mb-2 gap-3">
                 <InlineEditField
                     ref={planTitleRef}
                     key={selectedPlan.id}
@@ -184,7 +184,7 @@ export default function MiddlePanel({
                 const cycleTotals = calcCycle(cycle);
                 return (
                     <>
-                        <div className="flex items-center mb-3 gap-3 shrink-0">
+                        <div className="flex items-center mb-2 gap-3 shrink-0">
                             <InlineEditField
                                 ref={cycleTitleRef}
                                 key={cycle.id}
@@ -197,7 +197,7 @@ export default function MiddlePanel({
                                 inputClassName="font-semibold shadow-none"
                             />
                         </div>
-                        <Surface variant="secondary" className="rounded-lg p-4 mb-3 shrink-0">
+                        <Surface variant="secondary" className="rounded-lg p-3 mb-2 shrink-0">
                             <MacrosDonut
                                 totals={cycleTotals}
                                 labels={{ carbs: t('carbs'), fat: t('fat'), protein: t('protein'), kcal: t('calories') }}
@@ -334,7 +334,7 @@ export default function MiddlePanel({
                     {expandedKeys.has("meals") && (
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 {selectedPlan.cycles.length === 0 ? (
-                                    <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
+                                    <Surface variant="default" className="rounded-xl p-6 flex items-center justify-center mx-2 my-2">
                                         <p className="text-sm text-muted-foreground">{t('noMealsYet')}</p>
                                     </Surface>
                                 ) : (
@@ -351,7 +351,7 @@ export default function MiddlePanel({
                                                 onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                                                 onDrop={() => { handleReorderMeals(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                                 onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                                className={`group flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all duration-150 mb-1.5 ${
+                                                className={`group flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all duration-150 mb-1 ${
                                                     isDragging ? "opacity-30 scale-95" : ""
                                                 } ${
                                                     isSelected

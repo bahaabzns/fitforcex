@@ -50,9 +50,9 @@ export default function RightPanel({
     })();
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
             {/* Header */}
-            <div className="flex justify-between items-center mb-3 gap-4">
+            <div className="flex justify-between items-center mb-2 gap-3">
                 <InlineEditField
                     ref={mealTitleRef}
                     key={selectedMeal.id}
@@ -74,7 +74,7 @@ export default function RightPanel({
             </div>
 
             {/* Totals */}
-            <div className="mb-3">
+            <div className="mb-2">
                 <MacrosDonut
                     totals={calcMeal(selectedMeal)}
                     labels={{ carbs: t('carbs'), fat: t('fat'), protein: t('protein'), kcal: t('calories') }}
@@ -87,7 +87,7 @@ export default function RightPanel({
                 <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("items") ? "1 1 0" : "0 0 auto" }}>
                     <Disclosure id="items">
                         <Disclosure.Heading>
-                            <div className="flex items-center gap-2 w-full my-3">
+                            <div className="flex items-center gap-2 w-full my-2">
                                 <Button
                                     slot="trigger"
                                     variant="ghost"
@@ -123,7 +123,7 @@ export default function RightPanel({
                                                         onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                                                         onDrop={() => { handleReorderFoodItems(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                                         onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                                        className={`group flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-150 hover:bg-default group-data-open/disc:bg-primary/10 ${isDragging ? "opacity-30 scale-95" : ""}`}
+                                                        className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 hover:bg-default group-data-open/disc:bg-primary/10 ${isDragging ? "opacity-30 scale-95" : ""}`}
                                                     >
                                                         {/* Drag grip */}
                                                         <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">

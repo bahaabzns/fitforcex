@@ -73,16 +73,16 @@ export default function RightPanel({
 
     if (!selectedDay) {
         return (
-            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
+            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
                 <p className="text-muted-foreground text-sm text-center flex items-center justify-center h-full">{t('selectDay')}</p>
             </Surface>
         );
     }
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))]">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
             {/* Header */}
-            <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
+            <div className="flex justify-between items-center mb-2 gap-3 shrink-0">
                 <InlineEditField
                     key={selectedDay.id}
                     value={selectedDay.name}
@@ -116,7 +116,7 @@ export default function RightPanel({
                 <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("exercises") ? "1 1 0" : "0 0 auto" }}>
                     <Disclosure id="exercises">
                         <Disclosure.Heading>
-                            <div className="flex items-center gap-2 w-full my-3">
+                            <div className="flex items-center gap-2 w-full my-2">
                                 <Button
                                     slot="trigger"
                                     variant="ghost"
@@ -324,7 +324,7 @@ export default function RightPanel({
                                     })()}
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
-                                        <Surface variant="default" className="rounded-xl p-8 flex items-center justify-center mx-2 my-2">
+                                        <Surface variant="default" className="rounded-xl p-6 flex items-center justify-center mx-2 my-2">
                                             <Text type="body-sm" color="muted">{t('noExercises')}</Text>
                                         </Surface>
                                     )}
