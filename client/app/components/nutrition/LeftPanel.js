@@ -95,11 +95,11 @@ export default function LeftPanel({
             <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("plans") ? "1 1 0" : "0 0 auto" }}>
                 <Disclosure id="plans">
                     <Disclosure.Heading>
-                        <div className="flex items-center gap-2 w-full mb-2">
+                        <div className="flex flex-wrap items-center gap-2 w-full mb-2">
                             <Button
                                 slot="trigger"
                                 variant="ghost"
-                                className="flex-1 justify-start gap-2 px-3 data-hover:bg-transparent min-w-0"
+                                className="flex-1 justify-start gap-2 px-3 data-hover:bg-transparent"
                             >
                                 <Disclosure.Indicator />
                                 <h2 className="text-base font-semibold text-foreground">
