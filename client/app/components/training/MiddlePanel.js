@@ -103,7 +103,7 @@ export default function MiddlePanel({
 
     return (
         <>
-            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
+            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
                 {/* Plan name + actions */}
                 <div className="flex justify-between items-center mb-2 gap-3">
                     <InlineEditField
@@ -244,7 +244,7 @@ export default function MiddlePanel({
                                 );
                             })}
                             {currentDays.length === 0 && (
-                                <Surface variant="default" className="rounded-xl p-6 flex items-center justify-center mx-2 my-2">
+                                <Surface variant="default" className="rounded-lg p-6 flex items-center justify-center mx-2 my-2">
                                     <p className="text-sm text-muted-foreground">{t('noDaysYet')}</p>
                                 </Surface>
                             )}

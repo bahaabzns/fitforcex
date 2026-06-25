@@ -230,7 +230,7 @@ return (
                     submissionId={submissionId}
                 />
             ) : (
-                <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+                <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-2xl shadow-surface">
                     <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">
                         {t('selectPlanHint')}
                     </p>
@@ -250,7 +250,7 @@ return (
 
         <div style={{ width: `${widths[2]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
             {selectedMeal && selectedPlan ? mealPanel : (
-                <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+                <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-2xl shadow-surface">
                     <p className="text-muted-foreground text-sm text-center flex justify-center items-center h-full">
                         {t('selectMealHint')}
                     </p>

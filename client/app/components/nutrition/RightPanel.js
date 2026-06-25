@@ -50,7 +50,7 @@ export default function RightPanel({
     })();
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
             {/* Header */}
             <div className="flex justify-between items-center mb-2 gap-3">
                 <InlineEditField

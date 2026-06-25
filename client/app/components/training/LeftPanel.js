@@ -90,7 +90,7 @@ export default function LeftPanel({
     const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
             <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Plans Section ── */}
@@ -157,7 +157,7 @@ export default function LeftPanel({
                             {/* Plans List */}
                             <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 {plans.length === 0 ? (
-                                    <Surface variant="default" className="rounded-xl p-6 flex flex-col items-center justify-center gap-3 text-center mx-2 my-2">
+                                    <Surface variant="default" className="rounded-lg p-6 flex flex-col items-center justify-center gap-3 text-center mx-2 my-2">
                                         <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                                         </svg>
@@ -269,7 +269,7 @@ export default function LeftPanel({
                                     ))}
                                 </div>
                             ) : submittedForms.length === 0 ? (
-                                <Surface variant="default" className="rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center mx-2 my-1">
+                                <Surface variant="default" className="rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center mx-2 my-1">
                                     <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>

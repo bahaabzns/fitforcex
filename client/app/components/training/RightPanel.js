@@ -73,14 +73,14 @@ export default function RightPanel({
 
     if (!selectedDay) {
         return (
-            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
+            <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
                 <p className="text-muted-foreground text-sm text-center flex items-center justify-center h-full">{t('selectDay')}</p>
             </Surface>
         );
     }
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-[min(32px,var(--radius-3xl))]">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
             {/* Header */}
             <div className="flex justify-between items-center mb-2 gap-3 shrink-0">
                 <InlineEditField
@@ -324,7 +324,7 @@ export default function RightPanel({
                                     })()}
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
-                                        <Surface variant="default" className="rounded-xl p-6 flex items-center justify-center mx-2 my-2">
+                                        <Surface variant="default" className="rounded-lg p-6 flex items-center justify-center mx-2 my-2">
                                             <Text type="body-sm" color="muted">{t('noExercises')}</Text>
                                         </Surface>
                                     )}
