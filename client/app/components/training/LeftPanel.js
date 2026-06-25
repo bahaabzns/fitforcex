@@ -188,8 +188,8 @@ export default function LeftPanel({
                                                 <div
                                                     key={plan.id}
                                                     onClick={() => handleSelectedPlan(plan)}
-                                                    className={`group flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 ${
-                                                        isActive ? "bg-primary/5 border-primary/40" : "bg-card border-border hover:border-primary/30"
+                                                    className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 dark:border dark:border-border ${
+                                                        isActive ? "bg-primary/5 ring-1 ring-primary/40" : "bg-card hover:ring-1 hover:ring-primary/20"
                                                     }`}
                                                 >
                                                     <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
