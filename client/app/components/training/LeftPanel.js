@@ -192,10 +192,13 @@ export default function LeftPanel({
                                                         isActive ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40" : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                                     }`}
                                                 >
-                                                    <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                                                    <div className={`relative shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
                                                         isActive ? "bg-primary/25 text-primary" : "bg-foreground/10 text-muted group-hover:text-foreground"
                                                     }`}>
                                                         <PlanIcon />
+                                                        {isPlanDirty && (
+                                                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-card dark:ring-(--color-surface-secondary)" title={t('unsaved')} />
+                                                        )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
@@ -207,9 +210,6 @@ export default function LeftPanel({
                                                                     <StatusDot />
                                                                     <Chip.Label>{t('active')}</Chip.Label>
                                                                 </Chip>
-                                                            )}
-                                                            {isPlanDirty && (
-                                                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title={t('unsaved')} />
                                                             )}
                                                         </div>
                                                         <p className="text-xs leading-5 text-muted truncate">
