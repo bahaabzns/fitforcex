@@ -189,7 +189,7 @@ export default function MiddlePanel({
                     </Disclosure.Heading>
                 </Disclosure>
                 {expandedKeys.has("days") && (
-                <ScrollShadow className="flex flex-col gap-1 flex-1 min-h-0" hideScrollBar>
+                <ScrollShadow className="flex flex-col gap-2 px-1 py-1 flex-1 min-h-0" hideScrollBar>
                             {previewDays.map((day) => {
                                 const originalIndex = currentDays.findIndex((d) => d.id === day.id);
                                 const isDragging = dragIndex !== null && currentDays[dragIndex]?.id === day.id;
@@ -204,15 +204,14 @@ export default function MiddlePanel({
                                         onDrop={() => { handleReorderDays(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                         onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
                                         onClick={() => handleSelectDay(day.id)}
-                                        className={`group relative flex items-center gap-3 rounded-lg px-2.5 py-2 cursor-pointer select-none transition-colors ${
+                                        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 ${
                                             isDragging ? "opacity-40" : ""
                                         } ${
-                                            isActive ? "bg-primary/8" : "hover:bg-default"
+                                            isActive ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40" : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                         }`}
                                     >
-                                        {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-full bg-primary" />}
                                         <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm font-semibold cursor-grab transition-colors ${
-                                            isActive ? "bg-primary/15 text-primary" : "bg-default text-muted group-hover:text-foreground"
+                                            isActive ? "bg-primary/25 text-primary" : "bg-foreground/10 text-muted group-hover:text-foreground"
                                         }`}>
                                             {originalIndex + 1}
                                         </div>
@@ -224,7 +223,7 @@ export default function MiddlePanel({
                                                 {day.exercises?.length ?? 0} exercises · {setCount} sets
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                                        <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
                                             <button
                                                 title={tCommon('duplicate')}
                                                 onClick={(e) => { e.stopPropagation(); handleDuplicateDay(day.id); }}

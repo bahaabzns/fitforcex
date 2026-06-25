@@ -338,7 +338,8 @@ export default function MiddlePanel({
                                         <p className="text-sm text-muted-foreground">{t('noMealsYet')}</p>
                                     </Surface>
                                 ) : (
-                                    previewMeals.map((meal) => {
+                                    <div className="flex flex-col gap-2 px-1 py-1">
+                                    {previewMeals.map((meal) => {
                                         const originalIndex = currentMeals.findIndex(m => m.id === meal.id);
                                         const isDragging = dragIndex !== null && currentMeals[dragIndex]?.id === meal.id;
                                         const mealTotals = calcMeal(meal);
@@ -351,12 +352,12 @@ export default function MiddlePanel({
                                                 onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                                                 onDrop={() => { handleReorderMeals(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                                 onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                                className={`group flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all duration-150 mb-1 ${
+                                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer shadow-surface transition-all duration-150 ${
                                                     isDragging ? "opacity-30 scale-95" : ""
                                                 } ${
                                                     isSelected
-                                                        ? "bg-primary/10 border-primary/30 shadow-sm"
-                                                        : "bg-card border-border hover:bg-default hover:border-primary/30 hover:shadow-sm"
+                                                        ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
+                                                        : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                                 }`}
                                                 onClick={() => setSelectedMeal(meal)}
                                             >
@@ -383,7 +384,7 @@ export default function MiddlePanel({
                                                     <span className="text-base font-bold text-foreground">{mealTotals.calories}</span>
                                                     <span className="text-xs text-muted-foreground">kcal</span>
                                                 </div>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                <div className="hidden group-hover:flex items-center gap-1 shrink-0">
                                                     <button
                                                         title={t('duplicateMeal')}
                                                         className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
@@ -401,7 +402,8 @@ export default function MiddlePanel({
                                                 </div>
                                             </div>
                                         );
-                                    })
+                                    })}
+                                    </div>
                                 )}
                     </ScrollShadow>
                     )}

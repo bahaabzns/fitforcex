@@ -210,7 +210,7 @@ export default function LeftPanel({
                                                         </p>
                                                     </div>
                                                     <div className="flex items-center gap-1 shrink-0">
-                                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="hidden group-hover:flex items-center gap-0.5">
                                                             <button
                                                                 title={t('duplicatePlan')}
                                                                 className="cursor-pointer p-1 rounded-md text-muted hover:text-foreground hover:bg-default transition-colors"
