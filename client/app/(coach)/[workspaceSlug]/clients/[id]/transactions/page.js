@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
+import { Pencil, RotateCcw, RotateCw, Trash2, Receipt } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
@@ -574,6 +574,12 @@ export default function ClientTransactionsPage() {
                 defaultSortDirection="desc"
                 dateParser={(d) => new Date(d)}
                 quickSearch={{ fields: ["packageVariation", "paymentMethod", "status"], placeholder: t('searchPlaceholder') }}
+                emptyState={{
+                    icon: Receipt,
+                    title: t('emptyTitle'),
+                    description: t('emptyHint'),
+                    action: { label: t('addTransactionButton'), onPress: () => setShowAddModal(true) },
+                }}
                 toolbarEnd={<Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>{t('addTransactionButton')}</Button>}
             />
 

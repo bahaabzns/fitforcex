@@ -16,6 +16,7 @@ import { Kbd } from "@heroui/react/kbd";
 import { Description } from "@heroui/react/description";
 import { parseDate } from "@internationalized/date";
 import { useTranslations, useLocale } from "next-intl";
+import EmptyState from "./EmptyState";
 
 // ============================================================
 // DataTable — Reusable filterable/sortable table using HeroUI
@@ -32,6 +33,9 @@ import { useTranslations, useLocale } from "next-intl";
 //   renderMobileExpanded — (row) => JSX
 //   scrollable — boolean
 //   defaultSort / defaultSortDirection
+//   emptyState — first-time (no data at all) config: { icon, title, description, action }.
+//                action = { label, onPress, icon }. Omit for tables the user can't
+//                populate themselves. Search/filter empties are handled automatically.
 
 // Action columns use either key convention across the app. They get no visible
 // header and their buttons sit flush-right, revealed on row hover.
@@ -54,6 +58,7 @@ export default function DataTable({
     quickSearch,
     toolbarEnd,
     rowClassName,
+    emptyState,
 }) {
     const t = useTranslations('filter');
     const locale = useLocale();
@@ -755,7 +760,31 @@ export default function DataTable({
             </div>
 
             {sortedData.length === 0 && (
-                <p className="text-muted-foreground mt-6 text-sm">{t('noResults')}</p>
+                data.length === 0 ? (
+                    // First-time: no data exists at all. Prominent state + creation CTA
+                    // when the page supplies one; a quiet placeholder otherwise.
+                    <EmptyState
+                        variant="firstTime"
+                        icon={emptyState?.icon}
+                        title={emptyState?.title ?? t('emptyTitle')}
+                        description={emptyState?.description}
+                        action={emptyState?.action}
+                        secondaryAction={emptyState?.secondaryAction}
+                    />
+                ) : (
+                    // Data exists but search/filter matched nothing → recovery only.
+                    <EmptyState
+                        variant={quickSearchValue ? "search" : "filter"}
+                        title={quickSearchValue ? t('searchEmptyTitle') : t('filterEmptyTitle')}
+                        description={quickSearchValue ? t('searchEmptyHint') : t('filterEmptyHint')}
+                        action={{
+                            label: quickSearchValue && hasActiveFilters
+                                ? t('clearAll')
+                                : quickSearchValue ? t('clearSearch') : t('clearFilters'),
+                            onPress: () => { setQuickSearchValue(""); setFilterRules([]); },
+                        }}
+                    />
+                )
             )}
         </div>
     );

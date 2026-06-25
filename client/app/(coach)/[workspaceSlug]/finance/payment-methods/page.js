@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight, ListFilter, Pencil, Plus, Power, Trash2 } from "lucide-react";
+import { ChevronRight, ListFilter, Pencil, Plus, Power, Trash2, CreditCard } from "lucide-react";
 import Modal, { ModalFooter } from "@/app/components/Modal";
+import EmptyState from "@/app/components/EmptyState";
 import { FieldLabel } from "@/app/components/Field";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
@@ -467,7 +468,27 @@ export default function PaymentMethodsPage() {
             </Table>
 
             {treeRows.length === 0 && (
-                <p className="text-muted-foreground text-sm">{t('noMethodsYet')}</p>
+                methods.length === 0 ? (
+                    <EmptyState
+                        variant="firstTime"
+                        icon={CreditCard}
+                        title={t('emptyTitle')}
+                        description={t('emptyHint')}
+                        action={{ label: t('newMethod'), onPress: () => openCreate() }}
+                    />
+                ) : (
+                    <EmptyState
+                        variant={search ? "search" : "filter"}
+                        title={search ? tFilter('searchEmptyTitle') : tFilter('filterEmptyTitle')}
+                        description={search ? tFilter('searchEmptyHint') : tFilter('filterEmptyHint')}
+                        action={{
+                            label: search && filterChips.length > 0
+                                ? tFilter('clearAll')
+                                : search ? tFilter('clearSearch') : tFilter('clearFilters'),
+                            onPress: () => { setSearch(""); clearFilters(); },
+                        }}
+                    />
+                )
             )}
         </div>
     );

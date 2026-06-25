@@ -73,7 +73,7 @@ function bubbleRadius(isClient, pos) {
 }
 
 export default function ClientMessagesPage() {
-    const t = useTranslations('portal.sidebar');
+    const t = useTranslations('portal.messages');
     const [messages, setMessages] = useState([]);
     const [coachName, setCoachName] = useState('');
     const [draft, setDraft] = useState('');
@@ -132,9 +132,9 @@ export default function ClientMessagesPage() {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">
-                        {coachName || 'Your Coach'}
+                        {coachName || t('coachFallback')}
                     </p>
-                    <p className="text-xs text-muted-foreground">Chat with your coach</p>
+                    <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
                 </div>
             </div>
 
@@ -151,8 +151,8 @@ export default function ClientMessagesPage() {
                         <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mb-1">
                             <Send size={18} className="text-muted-foreground" />
                         </div>
-                        <p className="text-sm font-medium text-foreground">No messages yet</p>
-                        <p className="text-xs text-muted-foreground">Send a message to your coach below.</p>
+                        <p className="text-sm font-medium text-foreground">{t('emptyTitle')}</p>
+                        <p className="text-xs text-muted-foreground">{t('emptyHint')}</p>
                     </div>
                 ) : (
                     segments.map((seg, si) => {
@@ -209,7 +209,7 @@ export default function ClientMessagesPage() {
                     <input
                         value={draft}
                         onChange={e => setDraft(e.target.value)}
-                        placeholder="Reply… (Enter to send)"
+                        placeholder={t('inputPlaceholder')}
                         className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none"
                         onKeyDown={e => {
                             if (e.key === 'Enter' && !e.shiftKey) {

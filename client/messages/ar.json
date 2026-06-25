@@ -54,6 +54,8 @@
   },
   "clients": {
     "addClient": "إضافة عميل",
+    "clientsEmptyTitle": "لا يوجد عملاء بعد",
+    "clientsEmptyHint": "أضف أول عميل لك لبدء إنشاء الخطط وتتبع التقدم.",
     "searchClients": "البحث عن عملاء...",
     "noResults": "لا توجد نتائج",
     "status": "الحالة",
@@ -295,6 +297,8 @@
     "deleteFreezeConfirm": "إزالة هذا التجميد؟ سيؤثر ذلك على تاريخ انتهاء الاشتراك.",
     "searchPlaceholder": "ابحث في المعاملات...",
     "addTransactionButton": "+ إضافة معاملة",
+    "emptyTitle": "لا توجد معاملات بعد",
+    "emptyHint": "سجّل أول دفعة لهذا العميل لبدء تتبع اشتراكه.",
     "addTransactionTitle": "إضافة معاملة",
     "editTransactionTitle": "تعديل المعاملة",
     "packageLabel": "الباقة",
@@ -502,6 +506,9 @@
     "plans": "الخطط",
     "newest": "الأحدث",
     "oldest": "الأقدم",
+    "newForm": "+ نموذج جديد",
+    "formsEmptyTitle": "لا توجد نماذج بعد",
+    "formsEmptyHint": "أنشئ أول نموذج لك لبدء جمع ردود العملاء.",
     "lastEdited": "آخر تعديل",
     "duplicatePlan": "تكرار الخطة",
     "deletePlan": "حذف الخطة",
@@ -962,6 +969,8 @@
     "searchOrCreate": "اكتب للبحث أو إنشاء جديد...",
     "createNew": "+ إنشاء \"{name}\" كباقة جديدة",
     "noPackagesYet": "لا توجد باقات بعد",
+    "emptyTitle": "لا توجد باقات بعد",
+    "emptyHint": "أنشئ أول باقة حتى يتمكن العملاء من الاشتراك فيها.",
     "save": "حفظ",
     "errorPackageName": "اسم الباقة مطلوب",
     "errorVariationName": "اسم النسخة مطلوب",
@@ -997,6 +1006,8 @@
     "editMethodTitle": "تعديل طريقة الدفع",
     "methodCount": "{count} طرق",
     "noMethodsYet": "لا توجد طرق دفع بعد",
+    "emptyTitle": "لا توجد طرق دفع بعد",
+    "emptyHint": "أضف طريقة دفع حتى تتمكن من تسجيل كيفية دفع العملاء.",
     "statusFilterLabel": "الحالة",
     "namePlaceholder": "مثال: فودافون كاش، بطاقة فيزا...",
     "createMethod": "إنشاء طريقة دفع",
@@ -1117,6 +1128,13 @@
     "selectedCount": "{n} من {total} محدد",
     "loading": "جارٍ التحميل...",
     "noResults": "لا توجد نتائج تطابق بحثك",
+    "emptyTitle": "لا يوجد شيء هنا بعد",
+    "searchEmptyTitle": "لم يتم العثور على نتائج",
+    "searchEmptyHint": "لم نتمكن من العثور على أي شيء يطابق بحثك.",
+    "filterEmptyTitle": "لا توجد سجلات مطابقة",
+    "filterEmptyHint": "لا توجد سجلات تطابق عوامل التصفية الحالية.",
+    "clearSearch": "مسح البحث",
+    "clearFilters": "مسح عوامل التصفية",
     "searchExercises": "البحث عن تمارين...",
     "searchFood": "البحث عن طعام...",
     "searchPlanName": "البحث باسم الخطة...",
@@ -1191,6 +1209,13 @@
       "trainingPlan": "التدريب",
       "forms": "الاستمارات",
       "messages": "الرسائل"
+    },
+    "messages": {
+      "coachFallback": "مدربك",
+      "subtitle": "تحدث مع مدربك",
+      "emptyTitle": "لا توجد رسائل بعد",
+      "emptyHint": "أرسل رسالة إلى مدربك أدناه.",
+      "inputPlaceholder": "رد… (Enter للإرسال)"
     },
     "forms": {
       "title": "الاستمارات",
@@ -1376,7 +1401,9 @@
     "submitEdit": "حفظ التغييرات",
     "editButton": "تعديل",
     "deleteButton": "حذف",
-    "searchPlaceholder": "البحث في التمارين..."
+    "searchPlaceholder": "البحث في التمارين...",
+    "emptyTitle": "لا توجد تمارين بعد",
+    "emptyHint": "أضف أول تمرين لك لبدء إنشاء خطط التدريب."
   },
   "equipment": {
     "pageTitle": "المعدات",
@@ -1396,7 +1423,9 @@
     "submitEdit": "حفظ التغييرات",
     "editButton": "تعديل",
     "deleteButton": "حذف",
-    "searchPlaceholder": "البحث في المعدات..."
+    "searchPlaceholder": "البحث في المعدات...",
+    "emptyTitle": "لا توجد معدات بعد",
+    "emptyHint": "أضف المعدات حتى تتمكن من ربطها بالتمارين."
   },
   "muscleGroups": {
     "pageTitle": "المجموعات العضلية",
@@ -1416,7 +1445,9 @@
     "submitEdit": "حفظ التغييرات",
     "editButton": "تعديل",
     "deleteButton": "حذف",
-    "searchPlaceholder": "البحث في المجموعات العضلية..."
+    "searchPlaceholder": "البحث في المجموعات العضلية...",
+    "emptyTitle": "لا توجد مجموعات عضلية بعد",
+    "emptyHint": "أضف مجموعات عضلية لتصنيف مكتبة التمارين."
   },
   "foodCategories": {
     "pageTitle": "فئات الطعام",
@@ -1436,7 +1467,9 @@
     "submitEdit": "حفظ التغييرات",
     "editButton": "تعديل",
     "deleteButton": "حذف",
-    "searchPlaceholder": "البحث في الفئات..."
+    "searchPlaceholder": "البحث في الفئات...",
+    "emptyTitle": "لا توجد فئات بعد",
+    "emptyHint": "أضف فئة لتنظيم عناصر الطعام."
   },
   "foodItems": {
     "pageTitle": "عناصر الطعام",
@@ -1471,7 +1504,9 @@
     "submitEdit": "حفظ التغييرات",
     "editButton": "تعديل",
     "deleteButton": "حذف",
-    "searchPlaceholder": "البحث في عناصر الطعام..."
+    "searchPlaceholder": "البحث في عناصر الطعام...",
+    "emptyTitle": "لا توجد عناصر طعام بعد",
+    "emptyHint": "أضف أول عنصر طعام لبدء إنشاء خطط التغذية."
   },
   "notifications": {
     "title": "الإشعارات",

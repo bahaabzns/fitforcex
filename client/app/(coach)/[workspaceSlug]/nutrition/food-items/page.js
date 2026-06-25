@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Apple } from "lucide-react";
 import api from "@/lib/axios";
 import DataTable from "@/app/components/DataTable";
 import Modal, { ModalFooter } from "@/app/components/Modal";
@@ -236,6 +236,12 @@ export default function FoodItemsPage() {
                 rowKey="id"
                 scrollable
                 quickSearch={{ fields: ["name_en", "name_ar", "food_category"], placeholder: t("searchPlaceholder") }}
+                emptyState={{
+                    icon: Apple,
+                    title: t("emptyTitle"),
+                    description: t("emptyHint"),
+                    action: { label: t("addButton"), onPress: () => setShowForm(true) },
+                }}
                 toolbarEnd={<Button variant="primary" onClick={() => setShowForm(!showForm)}>{t("addButton")}</Button>}
             />
         </div>

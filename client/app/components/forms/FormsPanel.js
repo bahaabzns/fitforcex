@@ -1,7 +1,9 @@
 import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { ClipboardList } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Disclosure, DisclosureGroup, Surface } from "@heroui/react";
+import EmptyState from "@/app/components/EmptyState";
 
 function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -74,7 +76,7 @@ export default function FormsPanel({
                                 </Button>
                                 {expandedKeys.has("forms") && (
                                     <Button variant="primary" onClick={handleCreateForm} className="shrink-0">
-                                        + New Form
+                                        {tNutrition('newForm')}
                                     </Button>
                                 )}
                             </div>
@@ -105,18 +107,13 @@ export default function FormsPanel({
                                 {/* Form List */}
                                 <div className="flex-1 overflow-y-auto min-h-0">
                                     {sortedForms.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
-                                            <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                            </svg>
-                                            <div>
-                                                <p className="text-sm font-medium text-muted-foreground">No forms yet</p>
-                                                <p className="text-xs text-muted-foreground mt-1">Create your first form</p>
-                                            </div>
-                                            <Button variant="primary" onClick={handleCreateForm}>
-                                                + New Form
-                                            </Button>
-                                        </div>
+                                        <EmptyState
+                                            variant="firstTime"
+                                            icon={ClipboardList}
+                                            title={tNutrition('formsEmptyTitle')}
+                                            description={tNutrition('formsEmptyHint')}
+                                            action={{ label: tNutrition('newForm'), onPress: handleCreateForm }}
+                                        />
                                     ) : (
                                         <div className="divide-y divide-border">
                                             {sortedForms.map((form) => {

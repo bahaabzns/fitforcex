@@ -106,6 +106,7 @@ const scrollbarCls =
 export default function MessengerPage() {
     const { workspaceSlug } = useParams();
     const t = useTranslations('messenger');
+    const tFilter = useTranslations('filter');
     const locale = useLocale();
     const { formatDate } = useDateFormatter();
     const containerRef = useRef(null);
@@ -271,6 +272,11 @@ export default function MessengerPage() {
                                     <p className="text-sm text-muted-foreground">
                                         {search ? t('noResults') : t('noConversations')}
                                     </p>
+                                    {search && (
+                                        <Button size="sm" variant="ghost" onClick={() => setSearch('')}>
+                                            {tFilter('clearSearch')}
+                                        </Button>
+                                    )}
                                 </Surface>
                             ) : (
                                 filteredThreads.map(thread => {

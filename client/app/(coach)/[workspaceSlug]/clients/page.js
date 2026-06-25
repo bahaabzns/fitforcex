@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Copy, Check, Trash2, X, CreditCard, ClipboardList, FileText, Snowflake, Sun, ListChecks } from 'lucide-react';
+import { Copy, Check, Trash2, X, CreditCard, ClipboardList, FileText, Snowflake, Sun, ListChecks, Users } from 'lucide-react';
 import DataTable from "@/app/components/DataTable";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
@@ -1060,6 +1060,12 @@ export default function ClientsPage() {
                 quickSearch={{
                     fields: ["code", "name", "email", "phoneSearch"],
                     placeholder: t('searchClients'),
+                }}
+                emptyState={{
+                    icon: Users,
+                    title: t('clientsEmptyTitle'),
+                    description: t('clientsEmptyHint'),
+                    action: { label: t('addClient'), onPress: openAddClientForm },
                 }}
                 toolbarEnd={
                     <Button variant="primary" onClick={openAddClientForm}>

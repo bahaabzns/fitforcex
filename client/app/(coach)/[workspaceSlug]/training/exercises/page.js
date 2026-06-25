@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Dumbbell } from "lucide-react";
 import api from "@/lib/axios";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel } from "@/app/components/Field";
@@ -228,6 +228,12 @@ export default function ExerciseLibraryPage() {
                 rowKey="id"
                 scrollable
                 quickSearch={{ fields: ["name_en", "name_ar", "muscle_group", "equipment"], placeholder: t("searchPlaceholder") }}
+                emptyState={{
+                    icon: Dumbbell,
+                    title: t("emptyTitle"),
+                    description: t("emptyHint"),
+                    action: { label: t("addButton"), onPress: () => setShowForm(true) },
+                }}
                 toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>{t("addButton")}</Button>}
             />
         </div>

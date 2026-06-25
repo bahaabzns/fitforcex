@@ -54,6 +54,8 @@
   },
   "clients": {
     "addClient": "Add Client",
+    "clientsEmptyTitle": "No clients yet",
+    "clientsEmptyHint": "Add your first client to start building plans and tracking progress.",
     "searchClients": "Search clients...",
     "noResults": "No results",
     "status": "Status",
@@ -295,6 +297,8 @@
     "deleteFreezeConfirm": "Remove this freeze? This will affect the subscription expiry date.",
     "searchPlaceholder": "Search transactions...",
     "addTransactionButton": "+ Add Transaction",
+    "emptyTitle": "No transactions yet",
+    "emptyHint": "Record this client's first payment to start tracking their subscription.",
     "addTransactionTitle": "Add Transaction",
     "editTransactionTitle": "Edit Transaction",
     "packageLabel": "Package",
@@ -502,6 +506,9 @@
     "plans": "Plans",
     "newest": "Newest",
     "oldest": "Oldest",
+    "newForm": "+ New Form",
+    "formsEmptyTitle": "No forms yet",
+    "formsEmptyHint": "Create your first form to start collecting client responses.",
     "lastEdited": "Last Edited",
     "duplicatePlan": "Duplicate plan",
     "deletePlan": "Delete plan",
@@ -962,6 +969,8 @@
     "searchOrCreate": "Type to search or create new...",
     "createNew": "+ Create \"{name}\" as new package",
     "noPackagesYet": "No packages yet",
+    "emptyTitle": "No packages yet",
+    "emptyHint": "Create your first package so clients have something to subscribe to.",
     "save": "Save",
     "errorPackageName": "Package name is required",
     "errorVariationName": "Variation name is required",
@@ -997,6 +1006,8 @@
     "editMethodTitle": "Edit Payment Method",
     "methodCount": "{count} methods",
     "noMethodsYet": "No payment methods yet",
+    "emptyTitle": "No payment methods yet",
+    "emptyHint": "Add a payment method so you can record how clients pay.",
     "statusFilterLabel": "Status",
     "namePlaceholder": "e.g. Vodafone Cash, Visa Card...",
     "createMethod": "Create Method",
@@ -1117,6 +1128,13 @@
     "selectedCount": "{n} of {total} selected",
     "loading": "Loading...",
     "noResults": "No results match your search",
+    "emptyTitle": "Nothing here yet",
+    "searchEmptyTitle": "No results found",
+    "searchEmptyHint": "We couldn't find anything matching your search.",
+    "filterEmptyTitle": "No matching records",
+    "filterEmptyHint": "No records match the current filters.",
+    "clearSearch": "Clear search",
+    "clearFilters": "Clear filters",
     "searchExercises": "Search exercises...",
     "searchFood": "Search for food...",
     "searchPlanName": "Search by plan name...",
@@ -1191,6 +1209,13 @@
       "trainingPlan": "Training",
       "forms": "Forms",
       "messages": "Messages"
+    },
+    "messages": {
+      "coachFallback": "Your Coach",
+      "subtitle": "Chat with your coach",
+      "emptyTitle": "No messages yet",
+      "emptyHint": "Send a message to your coach below.",
+      "inputPlaceholder": "Reply… (Enter to send)"
     },
     "forms": {
       "title": "Forms",
@@ -1376,7 +1401,9 @@
     "submitEdit": "Save Changes",
     "editButton": "Edit",
     "deleteButton": "Delete",
-    "searchPlaceholder": "Search exercises..."
+    "searchPlaceholder": "Search exercises...",
+    "emptyTitle": "No exercises yet",
+    "emptyHint": "Add your first exercise to start building workout plans."
   },
   "equipment": {
     "pageTitle": "Equipment",
@@ -1396,7 +1423,9 @@
     "submitEdit": "Save Changes",
     "editButton": "Edit",
     "deleteButton": "Delete",
-    "searchPlaceholder": "Search equipment..."
+    "searchPlaceholder": "Search equipment...",
+    "emptyTitle": "No equipment yet",
+    "emptyHint": "Add equipment so you can tag it on exercises."
   },
   "muscleGroups": {
     "pageTitle": "Muscle Groups",
@@ -1416,7 +1445,9 @@
     "submitEdit": "Save Changes",
     "editButton": "Edit",
     "deleteButton": "Delete",
-    "searchPlaceholder": "Search muscle groups..."
+    "searchPlaceholder": "Search muscle groups...",
+    "emptyTitle": "No muscle groups yet",
+    "emptyHint": "Add muscle groups to categorize your exercise library."
   },
   "foodCategories": {
     "pageTitle": "Food Categories",
@@ -1436,7 +1467,9 @@
     "submitEdit": "Save Changes",
     "editButton": "Edit",
     "deleteButton": "Delete",
-    "searchPlaceholder": "Search categories..."
+    "searchPlaceholder": "Search categories...",
+    "emptyTitle": "No categories yet",
+    "emptyHint": "Add a category to organize your food items."
   },
   "foodItems": {
     "pageTitle": "Food Items",
@@ -1471,7 +1504,9 @@
     "submitEdit": "Save Changes",
     "editButton": "Edit",
     "deleteButton": "Delete",
-    "searchPlaceholder": "Search food items..."
+    "searchPlaceholder": "Search food items...",
+    "emptyTitle": "No food items yet",
+    "emptyHint": "Add your first food item to start building nutrition plans."
   },
   "notifications": {
     "title": "Notifications",

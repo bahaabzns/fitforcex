@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Wrench } from "lucide-react";
 import api from "@/lib/axios";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel } from "@/app/components/Field";
@@ -164,6 +164,12 @@ export default function EquipmentPage() {
                 data={equipments}
                 rowKey="id"
                 quickSearch={{ fields: ["name_en", "name_ar"], placeholder: t("searchPlaceholder") }}
+                emptyState={{
+                    icon: Wrench,
+                    title: t("emptyTitle"),
+                    description: t("emptyHint"),
+                    action: { label: t("addButton"), onPress: () => setShowForm(true) },
+                }}
                 toolbarEnd={<Button variant="primary" onClick={() => setShowForm(true)}>{t("addButton")}</Button>}
             />
         </div>
