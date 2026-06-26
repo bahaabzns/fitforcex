@@ -468,7 +468,7 @@ export function useNutritionPlan(clientId) {
             amount: foodItem.serving_size,
             meal_item_order: (selectedMeal.items?.length ?? 0) + 1,
             serving_unit: foodItem.serving_unit,
-            name: foodItem.name,
+            name: foodItem.name_en || foodItem.name_ar || foodItem.name,
             calories_per_serving: foodItem.calories_per_serving,
             protein_per_serving: foodItem.protein_per_serving,
             carbs_per_serving: foodItem.carbs_per_serving,
@@ -502,7 +502,7 @@ export function useNutritionPlan(clientId) {
             food_item_id: foodItem.id,
             amount: foodItem.serving_size,
             serving_unit: foodItem.serving_unit,
-            name: foodItem.name,
+            name: foodItem.name_en || foodItem.name_ar || foodItem.name,
             calories_per_serving: foodItem.calories_per_serving,
             protein_per_serving: foodItem.protein_per_serving,
             carbs_per_serving: foodItem.carbs_per_serving,
@@ -762,12 +762,15 @@ export function useNutritionPlan(clientId) {
 
         const targetCalories = (mainItem.amount / mainItem.serving_size) * mainItem.calories_per_serving;
 
-        const added = foodItemsToAdd.map((foodItem) => ({
+        const added = foodItemsToAdd.map((foodItem) => {
+            const calculatedAmount = Math.round((targetCalories / foodItem.calories_per_serving) * foodItem.serving_size * 10) / 10;
+            return {
             id: makeTempId("alt"),
             meal_item_id: mealItemId,
             food_item_id: foodItem.id,
-            amount: Math.round((targetCalories / foodItem.calories_per_serving) * foodItem.serving_size * 10) / 10,
-            name: foodItem.name,
+            amount: calculatedAmount,
+            calculated_amount: calculatedAmount,
+            name: foodItem.name_en || foodItem.name_ar,
             serving_unit: foodItem.serving_unit,
             calories_per_serving: foodItem.calories_per_serving,
             protein_per_serving: foodItem.protein_per_serving,
@@ -775,7 +778,8 @@ export function useNutritionPlan(clientId) {
             fats_per_serving: foodItem.fats_per_serving,
             serving_size: foodItem.serving_size,
             food_category: foodItem.food_category,
-        }));
+            };
+        });
 
         updateItemAlts(mealItemId, (alts) => [...alts, ...added]);
         setAlternativeModalOpenForItemId(null);
