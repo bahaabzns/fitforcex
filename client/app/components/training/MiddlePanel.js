@@ -9,18 +9,8 @@ import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import InlineEditField from "@/app/components/InlineEditField";
+import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 
-const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-        <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-    </svg>
-);
-const DuplicateIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-    </svg>
-);
 const StatusDot = () => (
     <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
         <circle cx="3" cy="3" r="3" fill="currentColor" />
@@ -162,7 +152,7 @@ export default function MiddlePanel({
                     )}
                 </div>
 
-                <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
+                <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
                 {/* Days Section */}
                 <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("days") ? "1 1 0" : "0 0 auto" }}>
@@ -216,29 +206,21 @@ export default function MiddlePanel({
                                             {originalIndex + 1}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold truncate text-foreground">
+                                            <p className={`text-sm font-semibold truncate ${isActive ? "text-primary" : "text-foreground"}`}>
                                                 {day.name}
                                             </p>
                                             <p className="text-xs leading-5 text-muted truncate">
                                                 {day.exercises?.length ?? 0} exercises · {setCount} sets
                                             </p>
                                         </div>
-                                        <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
-                                            <button
-                                                title={tCommon('duplicate')}
-                                                onClick={(e) => { e.stopPropagation(); handleDuplicateDay(day.id); }}
-                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-foreground hover:bg-default transition-colors"
-                                            >
-                                                <DuplicateIcon />
-                                            </button>
-                                            <button
-                                                title={tCommon('delete')}
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteDay(day.id); }}
-                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                            >
-                                                <TrashIcon />
-                                            </button>
-                                        </div>
+                                        <CardActionsMenu
+                                            isActive={isActive}
+                                            ariaLabel={t('dayOptions')}
+                                            items={[
+                                                { key: "duplicate", label: tCommon('duplicate'), icon: <DuplicateIcon />, onSelect: () => handleDuplicateDay(day.id) },
+                                                { key: "delete", label: tCommon('delete'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeleteDay(day.id) },
+                                            ]}
+                                        />
                                     </div>
                                 );
                             })}

@@ -9,19 +9,7 @@ import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
-
-const DuplicateIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-    </svg>
-);
-
-const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-        <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-    </svg>
-);
+import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 
 const StatusDot = () => (
     <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
@@ -33,12 +21,6 @@ const PlanIcon = () => (
         <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
     </svg>
 );
-const ChevronRightIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="9 18 15 12 9 6"/>
-    </svg>
-);
-
 function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -96,7 +78,7 @@ export default function LeftPanel({
 
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
-            <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
+            <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Plans Section ── */}
             <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("plans") ? "1 1 0" : "0 0 auto" }}>
@@ -209,32 +191,21 @@ export default function LeftPanel({
                                                             {" · "}{t('edited')} {formatRelativeTime(plan.updated_at, tCommon)}
                                                         </p>
                                                     </div>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <div className="hidden group-hover:flex items-center gap-0.5">
-                                                            <button
-                                                                title={t('duplicatePlan')}
-                                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-foreground hover:bg-default transition-colors"
-                                                                onClick={(e) => { e.stopPropagation(); handleDuplicatePlan(plan.id); }}
-                                                            >
-                                                                <DuplicateIcon />
-                                                            </button>
-                                                            <button
-                                                                title={t('deletePlan')}
-                                                                className="cursor-pointer p-1 rounded-md text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                                onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                                                            >
-                                                                <TrashIcon />
-                                                            </button>
-                                                        </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
                                                         {plan.status === "active" && (
                                                             <Chip size="sm" color="success" variant="soft" className="shrink-0">
                                                                 <StatusDot />
                                                                 <Chip.Label>{t('active')}</Chip.Label>
                                                             </Chip>
                                                         )}
-                                                        <span className={`shrink-0 transition-colors ${isActive ? "text-primary" : "text-muted-foreground/40 group-hover:text-muted-foreground"}`}>
-                                                            <ChevronRightIcon />
-                                                        </span>
+                                                        <CardActionsMenu
+                                                            isActive={isActive}
+                                                            ariaLabel={t('planOptions')}
+                                                            items={[
+                                                                { key: "duplicate", label: t('duplicatePlan'), icon: <DuplicateIcon />, onSelect: () => handleDuplicatePlan(plan.id) },
+                                                                { key: "delete", label: t('deletePlan'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeletePlan(plan.id) },
+                                                            ]}
+                                                        />
                                                     </div>
                                                 </div>
                                             );
@@ -283,7 +254,7 @@ export default function LeftPanel({
                                     <p className="text-xs font-medium text-muted-foreground">{t('noSubmittedForms')}</p>
                                 </Surface>
                             ) : (
-                                <DisclosureGroup className="flex flex-col gap-1.5">
+                                <DisclosureGroup allowsMultipleExpanded className="flex flex-col gap-1.5">
                                     {submittedForms.map(req => (
                                         <Disclosure
                                             key={req.id}

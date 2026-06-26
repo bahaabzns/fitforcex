@@ -5,7 +5,8 @@
 :root {
   /* System-wide corner radius — HeroUI derives its whole scale
      (--radius-sm/md/lg/xl/2xl/3xl) from this single token.
-     Default is 0.5rem; lowered to 0.25rem for a tighter, "small" look. */
+     Default is 0.5rem; lowered to 0.1875rem (3px) to match the angular
+     ~2% corner ratio of the logo mark (client/public/blue_f.svg). */
   --radius: 0.5rem;
 
   /* Brand blue — logo primary color #159bff = oklch(0.675 0.18 249) */

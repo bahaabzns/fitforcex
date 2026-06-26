@@ -4,11 +4,10 @@ import MacrosDonut from "./MacrosDonut";
 import InlineEditField from "@/app/components/InlineEditField";
 import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 import { Button } from "@heroui/react/button";
-import { TextField } from "@heroui/react/textfield";
-import { Input } from "@heroui/react/input";
 import { TextArea } from "@heroui/react/textarea";
-import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
+import { Disclosure, DisclosureGroup, NumberField, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import MacroStat from "./MacroStat";
 
 export default function RightPanel({
     selectedMeal,
@@ -28,9 +27,14 @@ export default function RightPanel({
     const t = useTranslations('nutrition');
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
+    const dragRef = useRef(null);
+    const hoverRef = useRef(null);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["items", "notes"]));
+    const [expandedItemIds, setExpandedItemIds] = useState(new Set());
 
     const mealTitleRef = useRef(null);
+    const prevAltModalItemId = useRef(null);
+    const altCountAtModalOpen = useRef(0);
 
     useEffect(() => {
         if (pendingFocusMealId && selectedMeal?.id === pendingFocusMealId) {
@@ -39,6 +43,34 @@ export default function RightPanel({
             setPendingFocusMealId(null);
         }
     }, [pendingFocusMealId, selectedMeal?.id, setPendingFocusMealId]);
+
+    // Reset item expansions when the meal changes.
+    useEffect(() => { setExpandedItemIds(new Set()); }, [selectedMeal?.id]);
+
+    // Auto-expand the just-edited item only if new alternatives were actually added.
+    useEffect(() => {
+        const prev = prevAltModalItemId.current;
+        prevAltModalItemId.current = alternativeModalOpenForItemId;
+
+        if (alternativeModalOpenForItemId) {
+            // Modal just opened — snapshot current alt count for this item.
+            const item = selectedMeal.items.find(i => i.id === alternativeModalOpenForItemId);
+            altCountAtModalOpen.current = (item?.alternatives ?? []).length;
+        } else if (prev) {
+            // Modal just closed — expand only if count grew.
+            const item = selectedMeal.items.find(i => i.id === prev);
+            const newCount = (item?.alternatives ?? []).length;
+            if (newCount > altCountAtModalOpen.current) {
+                setExpandedItemIds(new Set([String(prev)]));
+            }
+        }
+    }, [alternativeModalOpenForItemId, selectedMeal.items]);
+
+    // Accordion handler: only one item open at a time.
+    const handleItemExpandedChange = (newSet) => {
+        const added = [...newSet].find(k => !expandedItemIds.has(k));
+        setExpandedItemIds(added ? new Set([added]) : newSet);
+    };
 
     const currentItems = selectedMeal.items;
     const previewItems = (() => {
@@ -81,7 +113,7 @@ export default function RightPanel({
                 />
             </div>
 
-            <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
+            <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
                 {/* Food Items Section */}
                 <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: expandedKeys.has("items") ? "1 1 0" : "0 0 auto" }}>
@@ -109,21 +141,22 @@ export default function RightPanel({
                     </Disclosure>
                     {expandedKeys.has("items") && (
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
-                                <DisclosureGroup className="divide-y divide-border">
+                                <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedItemIds} onExpandedChange={handleItemExpandedChange} className="divide-y divide-border py-2">
                                     {previewItems.map((item) => {
                                         const originalIndex = currentItems.findIndex(i => i.id === item.id);
                                         const isDragging = dragIndex !== null && currentItems[dragIndex]?.id === item.id;
                                         const alternatives = item.alternatives ?? [];
+                                        const itemMacros = calcItem(item);
                                         return (
                                             <Disclosure key={item.id} id={String(item.id)} className="group/disc">
                                                 <Disclosure.Heading>
                                                     <div
                                                         draggable
-                                                        onDragStart={() => setDragIndex(originalIndex)}
-                                                        onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
-                                                        onDrop={() => { handleReorderFoodItems(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
-                                                        onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                                        className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 hover:bg-default group-data-open/disc:bg-primary/10 ${isDragging ? "opacity-30 scale-95" : ""}`}
+                                                        onDragStart={() => { setDragIndex(originalIndex); dragRef.current = originalIndex; }}
+                                                        onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
+                                                        onDrop={() => { handleReorderFoodItems(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
+                                                        onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
+                                                        className={`group flex items-center gap-2 px-3 py-2 select-none transition-all duration-150 hover:bg-default group-data-open/disc:bg-primary/10 group-data-open/disc:hover:bg-primary/15 ${isDragging ? "opacity-30 scale-95" : ""}`}
                                                     >
                                                         {/* Drag grip */}
                                                         <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
@@ -134,48 +167,68 @@ export default function RightPanel({
                                                             </svg>
                                                         </span>
 
-                                                        {/* Name + macros */}
+                                                        {/* Name + quantity stepper */}
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium truncate text-foreground group-data-open/disc:text-primary">
                                                                 {item.name}
                                                             </p>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                                C {calcItem(item).carbs}g · P {calcItem(item).protein}g · F {calcItem(item).fats}g
-                                                            </p>
+                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <NumberField
+                                                                    value={Number(item.amount) || 0}
+                                                                    minValue={0}
+                                                                    onChange={(val) => handleAmountChange(item.id, String(val ?? 0))}
+                                                                    aria-label="Amount"
+                                                                    variant="secondary"
+                                                                >
+                                                                    <NumberField.Group className="h-7 !flex items-center !rounded">
+                                                                        <NumberField.Input className="w-16 py-0 px-1.5 text-center text-sm font-semibold" />
+                                                                        <span className="pr-1.5 text-xs text-muted-foreground pointer-events-none select-none leading-none">{item.serving_unit}</span>
+                                                                    </NumberField.Group>
+                                                                </NumberField>
+                                                            </div>
+                                                            {alternatives.length > 0 && (
+                                                                <Button
+                                                                    slot="trigger"
+                                                                    variant="ghost"
+                                                                    title={alternatives.map(a => a.name).filter(Boolean).join(', ')}
+                                                                    className="group/alttrigger mt-1 h-auto p-0 text-xs text-muted-foreground/70 hover:text-primary data-hover:bg-transparent cursor-pointer transition-colors font-normal justify-start leading-none"
+                                                                >
+                                                                    <span className="font-medium">{t('alternativesCount', { count: alternatives.length })}</span>
+                                                                    <span className="text-muted-foreground/40 mx-1">·</span>
+                                                                    <span>{alternatives.slice(0, 2).map(a => a.name).filter(Boolean).join(' · ')}{alternatives.length > 2 && ` +${alternatives.length - 2}`}</span>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 shrink-0 transition-transform group-aria-expanded/alttrigger:rotate-180"><polyline points="6 9 12 15 18 9"/></svg>
+                                                                </Button>
+                                                            )}
                                                         </div>
 
-                                                        {/* Amount input */}
-                                                        <div className="flex items-center gap-1 shrink-0">
-                                                            <InlineEditField
-                                                                key={item.amount}
-                                                                value={item.amount}
-                                                                type="number"
-                                                                selectOnFocus
-                                                                onCommit={(amount) => handleAmountChange(item.id, amount)}
-                                                                ariaLabel="Amount"
-                                                                className="w-14"
-                                                                inputClassName="px-1 py-1 h-8 text-center text-xs"
-                                                            />
-                                                            <span className="text-xs text-muted-foreground">{item.serving_unit}</span>
+                                                        {/* Macro columns */}
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <MacroStat label={t('carbs')} value={itemMacros.carbs} color="text-primary" />
+                                                            <MacroStat label={t('protein')} value={itemMacros.protein} color="text-orange-500" />
+                                                            <MacroStat label={t('fat')} value={itemMacros.fats} color="text-amber-500" />
+                                                            <MacroStat label={t('calories')} value={itemMacros.calories} strong width="w-14" />
                                                         </div>
 
-                                                        {/* Calories */}
-                                                        <div className="flex items-baseline gap-0.5 shrink-0">
-                                                            <span className="text-sm font-bold text-foreground">{calcItem(item).calories}</span>
-                                                            <span className="text-xs text-muted-foreground">kcal</span>
-                                                        </div>
-
-                                                        {/* Alternatives trigger + delete */}
-                                                        <div className="flex items-center gap-1 shrink-0">
-                                                            <Button
-                                                                slot="trigger"
-                                                                className="cursor-pointer px-2 py-1 rounded-lg border text-xs font-medium transition-all border-border text-muted-foreground data-hover:bg-default data-open:border-primary/40 data-open:bg-primary/10 data-open:text-primary"
+                                                        {/* Actions column — fixed width so macro columns never shift */}
+                                                        <div className="w-[72px] flex items-center justify-end gap-1.5 shrink-0">
+                                                            <button
+                                                                title={t('addAlternatives')}
+                                                                className={`cursor-pointer flex items-center gap-1 w-[46px] px-1.5 py-1.5 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors ${alternatives.length === 0 ? 'justify-center' : 'justify-start'}`}
+                                                                onClick={() => setAlternativeModalOpenForItemId(item.id)}
                                                             >
-                                                                {alternatives.length} {t('alternative')}
-                                                            </Button>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                                                    <path d="M8 3L4 7l4 4"/><path d="M4 7h16"/>
+                                                                    <path d="M16 21l4-4-4-4"/><path d="M20 17H4"/>
+                                                                </svg>
+                                                                {alternatives.length > 0 && (
+                                                                    <span className="w-4 text-center text-[11px] font-medium tabular-nums leading-none">
+                                                                        {alternatives.length}
+                                                                    </span>
+                                                                )}
+                                                            </button>
                                                             <button
                                                                 title={t('removeFoodItem')}
-                                                                className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                                                                className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
                                                                 onClick={() => handleDeleteMealItem(item.id)}
                                                             >
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
@@ -183,43 +236,62 @@ export default function RightPanel({
                                                         </div>
                                                     </div>
                                                 </Disclosure.Heading>
+                                                {alternatives.length > 0 && expandedItemIds.has(String(item.id)) && (
                                                 <Disclosure.Content>
-                                                    <Disclosure.Body className="ml-4 mb-1 px-0 pt-0">
-                                                        {alternatives.map((alt) => (
-                                                            <div key={alt.id} className="group flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20 mb-1">
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-sm font-medium text-foreground truncate">{alt.name}</p>
-                                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                                        C {calcItem(alt).carbs}g · P {calcItem(alt).protein}g · F {calcItem(alt).fats}g
-                                                                    </p>
+                                                    <Disclosure.Body className="px-0 pt-0 pb-0">
+                                                        <div className="ml-8 border-l-2 border-border/50 pl-3 pb-2 flex flex-col gap-1">
+                                                            {alternatives.map((alt) => {
+                                                                const altMacros = calcItem(alt);
+                                                                return (
+                                                                <div key={alt.id} className="group flex items-center gap-2 px-2 py-2.5 rounded-md hover:bg-default/60 transition-colors">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm text-foreground/75 truncate">{alt.name}</p>
+                                                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                                                            <NumberField
+                                                                                value={Number(alt.amount) || 0}
+                                                                                minValue={0}
+                                                                                onChange={(val) => handleAlternativeAmountChange(item.id, alt.id, String(val ?? 0))}
+                                                                                aria-label="Amount"
+                                                                                variant="secondary"
+                                                                            >
+                                                                                <NumberField.Group className="h-7 !flex items-center !rounded">
+                                                                                    <NumberField.Input className="w-16 py-0 px-1.5 text-center text-sm font-medium" />
+                                                                                    <span className="pr-1.5 text-xs text-muted-foreground/60 pointer-events-none select-none leading-none">{alt.serving_unit}</span>
+                                                                                </NumberField.Group>
+                                                                            </NumberField>
+                                                                            {alt.calculated_amount != null && Number(alt.amount) !== Number(alt.calculated_amount) && (
+                                                                                <button
+                                                                                    title={t('resetToCalculated')}
+                                                                                    className="cursor-pointer p-1.5 rounded-md text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
+                                                                                    onClick={() => handleAlternativeAmountChange(item.id, alt.id, String(alt.calculated_amount))}
+                                                                                >
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+                                                                                    </svg>
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 shrink-0">
+                                                                        <MacroStat label={t('carbs')} value={altMacros.carbs} color="text-primary" />
+                                                                        <MacroStat label={t('protein')} value={altMacros.protein} color="text-orange-500" />
+                                                                        <MacroStat label={t('fat')} value={altMacros.fats} color="text-amber-500" />
+                                                                        <MacroStat label={t('calories')} value={altMacros.calories} strong width="w-14" />
+                                                                    </div>
+                                                                    <button
+                                                                        title={t('removeAlternative')}
+                                                                        className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                                                                        onClick={() => handleDeleteAlternative(item.id, alt.id)}
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                                                    </button>
                                                                 </div>
-                                                                <div className="flex items-center gap-1 shrink-0">
-                                                                    <TextField value={String(alt.amount)} isReadOnly aria-label="Amount" className="w-14">
-                                                                        <Input type="number" className="px-1 py-1 h-8 text-center text-xs cursor-not-allowed shadow-none" />
-                                                                    </TextField>
-                                                                    <span className="text-xs text-muted-foreground">{alt.serving_unit}</span>
-                                                                </div>
-                                                                <div className="flex items-baseline gap-0.5 shrink-0">
-                                                                    <span className="text-sm font-bold text-foreground">{calcItem(alt).calories}</span>
-                                                                    <span className="text-xs text-muted-foreground">kcal</span>
-                                                                </div>
-                                                                <button
-                                                                    title={t('removeAlternative')}
-                                                                    className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
-                                                                    onClick={() => handleDeleteAlternative(item.id, alt.id)}
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                        <button
-                                                            className="cursor-pointer w-full mt-1 py-2 text-xs font-medium text-primary border border-dashed border-primary/30 rounded-lg hover:bg-primary/10 transition-colors"
-                                                            onClick={() => setAlternativeModalOpenForItemId(item.id)}
-                                                        >
-                                                            {t('addAlternative')}
-                                                        </button>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </Disclosure.Body>
                                                 </Disclosure.Content>
+                                                )}
                                             </Disclosure>
                                         );
                                     })}

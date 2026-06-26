@@ -11,6 +11,8 @@ import { Modal } from "@heroui/react/modal";
 import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import MacroStat from "./MacroStat";
+import CardActionsMenu, { DuplicateIcon, TrashIcon } from "../CardActionsMenu";
 
 export default function MiddlePanel({
     selectedPlan,
@@ -48,6 +50,10 @@ export default function MiddlePanel({
     const [hoverIndex, setHoverIndex] = useState(null);
     const [cycleDragIndex, setCycleDragIndex] = useState(null);
     const [cycleHoverIndex, setCycleHoverIndex] = useState(null);
+    const dragRef = useRef(null);
+    const hoverRef = useRef(null);
+    const cycleDragRef = useRef(null);
+    const cycleHoverRef = useRef(null);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["meals", "notes"]));
     const [activateModal, setActivateModal] = useState(false);
     const [activating, setActivating] = useState(false);
@@ -213,7 +219,7 @@ export default function MiddlePanel({
                 );
             })()}
 
-            <DisclosureGroup expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
+            <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* Cycles Section */}
             <Disclosure id="cycles">
@@ -253,10 +259,10 @@ export default function MiddlePanel({
                                         <div
                                             key={planCycle.id}
                                             draggable
-                                            onDragStart={() => setCycleDragIndex(originalIndex)}
-                                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== cycleDragIndex) setCycleHoverIndex(originalIndex); }}
-                                            onDrop={() => { handleReorderCycles(cycleDragIndex, cycleHoverIndex); setCycleDragIndex(null); setCycleHoverIndex(null); }}
-                                            onDragEnd={() => { setCycleDragIndex(null); setCycleHoverIndex(null); }}
+                                            onDragStart={() => { setCycleDragIndex(originalIndex); cycleDragRef.current = originalIndex; }}
+                                            onDragOver={(e) => { e.preventDefault(); if (originalIndex !== cycleDragRef.current) { setCycleHoverIndex(originalIndex); cycleHoverRef.current = originalIndex; } }}
+                                            onDrop={() => { handleReorderCycles(cycleDragRef.current, cycleHoverRef.current); setCycleDragIndex(null); setCycleHoverIndex(null); cycleDragRef.current = null; cycleHoverRef.current = null; }}
+                                            onDragEnd={() => { setCycleDragIndex(null); setCycleHoverIndex(null); cycleDragRef.current = null; cycleHoverRef.current = null; }}
                                             className={`group flex items-center gap-1 rounded-full pl-2.5 pr-1.5 h-9 text-sm font-semibold transition-all cursor-grab select-none ${
                                                 isDragging ? "opacity-30 scale-95" : ""
                                             } ${
@@ -348,11 +354,11 @@ export default function MiddlePanel({
                                             <div
                                                 key={meal.id}
                                                 draggable
-                                                onDragStart={() => setDragIndex(originalIndex)}
-                                                onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
-                                                onDrop={() => { handleReorderMeals(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
-                                                onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer shadow-surface transition-all duration-150 ${
+                                                onDragStart={() => { setDragIndex(originalIndex); dragRef.current = originalIndex; }}
+                                                onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
+                                                onDrop={() => { handleReorderMeals(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
+                                                onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
+                                                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none shadow-surface transition-all duration-150 ${
                                                     isDragging ? "opacity-30 scale-95" : ""
                                                 } ${
                                                     isSelected
@@ -375,31 +381,22 @@ export default function MiddlePanel({
                                                     <p className={`text-sm font-medium truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
                                                         {meal.name}
                                                     </p>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                        C {mealTotals.carbs}g · P {mealTotals.protein}g · F {mealTotals.fats}g
-                                                        <span className="ml-2">{meal.items.length} {t('items')}</span>
-                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-1">{meal.items.length} {t('items')}</p>
                                                 </div>
-                                                <div className="flex items-baseline gap-0.5 shrink-0">
-                                                    <span className="text-base font-bold text-foreground">{mealTotals.calories}</span>
-                                                    <span className="text-xs text-muted-foreground">kcal</span>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <MacroStat label={t('carbs')} value={mealTotals.carbs} color="text-primary" />
+                                                    <MacroStat label={t('protein')} value={mealTotals.protein} color="text-orange-500" />
+                                                    <MacroStat label={t('fat')} value={mealTotals.fats} color="text-amber-500" />
+                                                    <MacroStat label={t('calories')} value={mealTotals.calories} strong width="w-14" />
                                                 </div>
-                                                <div className="hidden group-hover:flex items-center gap-1 shrink-0">
-                                                    <button
-                                                        title={t('duplicateMeal')}
-                                                        className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
-                                                        onClick={(e) => { e.stopPropagation(); handleDuplicateMeal(meal.id); }}
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                                    </button>
-                                                    <button
-                                                        title={t('deleteMeal')}
-                                                        className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteMeal(meal.id); }}
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                                                    </button>
-                                                </div>
+                                                <CardActionsMenu
+                                                    isActive={isSelected}
+                                                    ariaLabel={t('mealOptions')}
+                                                    items={[
+                                                        { key: "duplicate", label: t('duplicateMeal'), icon: <DuplicateIcon />, onSelect: () => handleDuplicateMeal(meal.id) },
+                                                        { key: "delete", label: t('deleteMeal'), icon: <TrashIcon />, danger: true, onSelect: () => handleDeleteMeal(meal.id) },
+                                                    ]}
+                                                />
                                             </div>
                                         );
                                     })}
