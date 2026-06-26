@@ -234,7 +234,8 @@
       "Bash(node node_modules/typescript/lib/tsc.js --project tsconfig.json --noEmit)",
       "PowerShell(Stop-Process -Id 16852 -Force)",
       "PowerShell(\"stopped ts-node worker\")",
-      "Bash(echo \"EXIT $?\")"
+      "Bash(echo \"EXIT $?\")",
+      "Bash(node *)"
     ],
     "additionalDirectories": [
       "D:\\fitforce-x\\client\\app\\(coach)\\[workspaceSlug]\\nutrition\\food-items",
