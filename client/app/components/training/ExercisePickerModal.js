@@ -3,9 +3,32 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
-import { TextField } from "@heroui/react/textfield";
-import { Input } from "@heroui/react/input";
+import ExerciseFormModal from "@/app/components/training/ExerciseFormModal";
+import { SearchField } from "@heroui/react/search-field";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Table } from "@heroui/react/table";
+import { Checkbox } from "@heroui/react/checkbox";
+import { Separator } from "@heroui/react/separator";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { Pagination } from "@heroui/react/pagination";
+
+const PAGE_SIZE = 10;
+
+function getPageNumbers(currentPage, totalPages) {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages = [1];
+    if (currentPage > 3) pages.push("ellipsis");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+    return pages;
+}
 
 export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const t = useTranslations('training');
@@ -18,8 +41,8 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
     const [filterGroup, setFilterGroup] = useState("");
     const [filterEquipment, setFilterEquipment] = useState("");
     const [selectedIds, setSelectedIds] = useState(new Set());
-    const [creating, setCreating] = useState(false);
-    const [createError, setCreateError] = useState("");
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [page, setPage] = useState(1);
 
     useEffect(() => {
         if (!open) return;
@@ -44,8 +67,11 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
             setFilterGroup("");
             setFilterEquipment("");
             setSelectedIds(new Set());
+            setPage(1);
         }
     }, [open]);
+
+    useEffect(() => { setPage(1); }, [search, filterGroup, filterEquipment]);
 
     const filtered = items.filter((item) => {
         const matchSearch = !search || item.name_en.toLowerCase().includes(search.toLowerCase()) || (item.name_ar && item.name_ar.includes(search));
@@ -54,228 +80,278 @@ export default function ExercisePickerModal({ open, onClose, onAddExercises }) {
         return matchSearch && matchGroup && matchEquipment;
     });
 
-    const toggleItem = (id) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
-            return next;
-        });
-    };
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-    const allFilteredSelected = filtered.length > 0 && filtered.every((item) => selectedIds.has(item.id));
-    const toggleSelectAll = () => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (allFilteredSelected) {
-                filtered.forEach((item) => next.delete(item.id));
-            } else {
-                filtered.forEach((item) => next.add(item.id));
+    const pageIdSet = new Set(pageItems.map(item => String(item.id)));
+    const visibleSelectedKeys = new Set([...selectedIds].filter(id => pageIdSet.has(id)));
+
+    const handleTableSelectionChange = (keys) => {
+        setSelectedIds(prev => {
+            const outsidePage = new Set([...prev].filter(id => !pageIdSet.has(id)));
+            if (keys === "all") {
+                return new Set([...outsidePage, ...pageIdSet]);
             }
-            return next;
+            return new Set([...outsidePage, ...keys]);
         });
     };
 
     const handleConfirm = () => {
-        const selectedItems = items.filter((item) => selectedIds.has(item.id));
+        const selectedItems = items.filter((item) => selectedIds.has(String(item.id)));
         onAddExercises(selectedItems);
     };
 
-    // Smart empty state: create the searched exercise in context, then add it
-    // straight to the workout (parent closes the picker on add).
-    const handleCreateExercise = async () => {
-        const name = search.trim();
-        if (!name) return;
-        setCreating(true);
-        setCreateError("");
-        try {
-            const res = await api.post("/api/training/exercise-library", { name_en: name });
-            const created = res.data;
-            setItems((prev) => [created, ...prev]);
-            onAddExercises([created]);
-        } catch (err) {
-            setCreateError(err.response?.data?.error || t('createExerciseFailed'));
-        } finally {
-            setCreating(false);
-        }
+    const handleExerciseCreated = (created) => {
+        setItems((prev) => [created, ...prev]);
+        setSelectedIds((prev) => new Set([...prev, String(created.id)]));
+        setShowCreateForm(false);
     };
 
     return (
         <Modal open={open} onClose={onClose} title={t('addExercises')} wide>
-            <div className="flex flex-col" style={{ maxHeight: "70vh" }}>
+            <div className="flex flex-col gap-3 p-2">
 
-                {/* Search + results count */}
-                <div className="flex gap-3 mb-3 items-center">
-                    <TextField value={search} onChange={setSearch} className="flex-1">
-                        <Input type="text" placeholder={tFilter('searchExercises')} autoFocus />
-                    </TextField>
+                {/* Search row: field + muscle group dropdown + equipment dropdown + result count */}
+                <div className="flex gap-2 items-center">
+                    <SearchField
+                        value={search}
+                        onChange={setSearch}
+                        variant="secondary"
+                        className="flex-1"
+                        aria-label={tFilter('searchExercises')}
+                    >
+                        <SearchField.Group>
+                            <SearchField.SearchIcon />
+                            <SearchField.Input placeholder={tFilter('searchExercises')} autoFocus />
+                            <SearchField.ClearButton />
+                        </SearchField.Group>
+                    </SearchField>
+
+                    <Select
+                        size="sm"
+                        variant="secondary"
+                        value={filterGroup}
+                        onChange={setFilterGroup}
+                        aria-label="Muscle group filter"
+                    >
+                        <Select.Trigger className="min-w-36">
+                            <Select.Value placeholder={tFilter('allMuscles')} />
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item key="__all__" id="" textValue={tFilter('allMuscles')}>
+                                    {tFilter('allMuscles')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                                {muscleGroups.map(g => (
+                                    <ListBox.Item key={g.name_en} id={g.name_en} textValue={g.name_en}>
+                                        {g.name_en}
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                ))}
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
+
+                    <Select
+                        size="sm"
+                        variant="secondary"
+                        value={filterEquipment}
+                        onChange={setFilterEquipment}
+                        aria-label="Equipment filter"
+                    >
+                        <Select.Trigger className="min-w-36">
+                            <Select.Value placeholder={tFilter('allEquipment')} />
+                            <Select.Indicator />
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item key="__all__" id="" textValue={tFilter('allEquipment')}>
+                                    {tFilter('allEquipment')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                                {equipments.map(e => (
+                                    <ListBox.Item key={e.name_en} id={e.name_en} textValue={e.name_en}>
+                                        {e.name_en}
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                ))}
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
+
                     <span className="text-sm text-muted-foreground shrink-0">
                         {filtered.length} {tFilter('results')}
                     </span>
                 </div>
 
-                {/* Muscle group pills */}
-                <div className="flex gap-2 flex-wrap mb-2">
-                    {["", ...muscleGroups.map((g) => g.name_en)].map((group) => (
-                        <Button
-                            key={group}
-                            onClick={() => setFilterGroup(group)}
-                            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                                filterGroup === group
-                                    ? "bg-primary border-primary text-white"
-                                    : "border-border text-muted-foreground hover:border-border"
-                            }`}
-                        >
-                            {group || tFilter('allMuscles')}
-                        </Button>
-                    ))}
-                </div>
-
-                {/* Equipment pills */}
-                <div className="flex gap-2 flex-wrap mb-4">
-                    {["", ...equipments.map((e) => e.name_en)].map((equip) => (
-                        <Button
-                            key={equip}
-                            onClick={() => setFilterEquipment(equip)}
-                            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                                filterEquipment === equip
-                                    ? "bg-violet-500 border-violet-500 text-white"
-                                    : "border-border text-muted-foreground hover:border-border"
-                            }`}
-                        >
-                            {equip || tFilter('allEquipment')}
-                        </Button>
-                    ))}
-                </div>
-
                 {/* Table */}
-                <div className="flex-1 overflow-y-auto min-h-0">
-                    {loading ? (
-                        <div className="text-center py-10 text-sm text-muted-foreground">{t('loadingExercises')}</div>
-                    ) : (
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-card shadow-sm">
-                                <tr className="border-b-2 border-border text-left text-muted-foreground">
-                                    <th className="p-2 w-8">
-                                        <div
-                                            className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                                                allFilteredSelected
-                                                    ? "bg-primary border-primary"
-                                                    : "border-border bg-card hover:border-primary/40"
-                                            }`}
-                                            onClick={toggleSelectAll}
+                {loading ? (
+                    <div className="py-12 text-center text-sm text-muted-foreground">{t('loadingExercises')}</div>
+                ) : filtered.length === 0 ? (
+                    <div className="py-12 text-muted-foreground flex flex-col items-center gap-3 text-center text-sm">
+                        <span>
+                            {items.length === 0
+                                ? t('noExercisesInLibrary')
+                                : t('noExercisesMatch')}
+                        </span>
+                        {search.trim() && (
+                            <Button variant="primary" onPress={() => setShowCreateForm(true)}>
+                                {t('createExerciseNamed', { name: search.trim() })}
+                            </Button>
+                        )}
+                    </div>
+                ) : (
+                    <Table>
+                        <Table.ScrollContainer>
+                            <Table.Content
+                                aria-label={t('addExercises')}
+                                selectionMode="multiple"
+                                selectionBehavior="toggle"
+                                selectedKeys={visibleSelectedKeys}
+                                onSelectionChange={handleTableSelectionChange}
+                            >
+                                <Table.Header>
+                                    <Table.Column id="select" className="w-8 p-2">
+                                        <Checkbox aria-label="Select all" slot="selection">
+                                            <Checkbox.Control>
+                                                <Checkbox.Indicator />
+                                            </Checkbox.Control>
+                                        </Checkbox>
+                                    </Table.Column>
+                                    <Table.Column id="exercise" isRowHeader>{t('exerciseCol')}</Table.Column>
+                                    <Table.Column id="muscleGroup">{t('muscleGroupCol')}</Table.Column>
+                                    <Table.Column id="equipment">{t('equipmentCol')}</Table.Column>
+                                </Table.Header>
+                                <Table.Body>
+                                    {pageItems.map(item => (
+                                        <Table.Row
+                                            key={String(item.id)}
+                                            id={String(item.id)}
+                                            className="cursor-pointer"
                                         >
-                                            {allFilteredSelected && (
-                                                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                                                    <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                </svg>
-                                            )}
-                                        </div>
-                                    </th>
-                                    <th className="p-2">{t('exerciseCol')}</th>
-                                    <th className="p-2">{t('muscleGroupCol')}</th>
-                                    <th className="p-2">{t('equipmentCol')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.length === 0 && (
-                                    <tr>
-                                        <td colSpan={4} className="py-12 text-muted-foreground">
-                                            <div className="flex flex-col items-center gap-3 text-center">
-                                                <span>
-                                                    {items.length === 0
-                                                        ? t('noExercisesInLibrary')
-                                                        : t('noExercisesMatch')}
-                                                </span>
-                                                {search.trim() && (
-                                                    <Button variant="primary" isDisabled={creating} onClick={handleCreateExercise}>
-                                                        {creating
-                                                            ? t('creatingExercise')
-                                                            : t('createExerciseNamed', { name: search.trim() })}
-                                                    </Button>
-                                                )}
-                                                {createError && <span className="text-xs text-destructive">{createError}</span>}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                                {filtered.map((item) => (
-                                    <tr
-                                        key={item.id}
-                                        className={`border-b cursor-pointer transition-colors hover:bg-default ${selectedIds.has(item.id) ? "bg-primary/10" : ""}`}
-                                        onClick={() => toggleItem(item.id)}
-                                    >
-                                        <td className="p-2">
-                                            <div
-                                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                                    selectedIds.has(item.id)
-                                                        ? "bg-primary border-primary"
-                                                        : "border-border bg-card"
-                                                }`}
-                                            >
-                                                {selectedIds.has(item.id) && (
-                                                    <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                                                        <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="relative w-8 h-8 rounded-md bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                                                    </svg>
-                                                    {item.thumbnail_path && (
-                                                        <img
-                                                            src={item.thumbnail_path}
-                                                            alt={item.name_en}
-                                                            className="absolute inset-0 w-full h-full object-cover"
-                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                        />
-                                                    )}
+                                            <Table.Cell className="p-2">
+                                                <Checkbox
+                                                    aria-label={`Select ${item.name_en}`}
+                                                    slot="selection"
+                                                >
+                                                    <Checkbox.Control>
+                                                        <Checkbox.Indicator />
+                                                    </Checkbox.Control>
+                                                </Checkbox>
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2 font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="relative w-8 h-8 rounded-md bg-secondary flex items-center justify-center shrink-0 text-muted-foreground overflow-hidden">
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                                                        </svg>
+                                                        {item.thumbnail_path && (
+                                                            <img
+                                                                src={item.thumbnail_path}
+                                                                alt={item.name_en}
+                                                                className="absolute inset-0 w-full h-full object-cover"
+                                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    {item.name_en}
                                                 </div>
-                                                <span className="font-medium text-foreground">{item.name_en}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-2">
-                                            {item.muscle_group
-                                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.muscle_group}</span>
-                                                : <span className="text-muted-foreground/40">—</span>
-                                            }
-                                        </td>
-                                        <td className="p-2">
-                                            {item.equipment
-                                                ? <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600">{item.equipment}</span>
-                                                : <span className="text-muted-foreground/40">—</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2">
+                                                {item.muscle_group ? (
+                                                    <Chip size="sm" variant="soft" color="default">
+                                                        <Chip.Label>{item.muscle_group}</Chip.Label>
+                                                    </Chip>
+                                                ) : (
+                                                    <span className="text-muted-foreground/40">—</span>
+                                                )}
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2">
+                                                {item.equipment ? (
+                                                    <Chip size="sm" variant="soft" color="secondary">
+                                                        <Chip.Label>{item.equipment}</Chip.Label>
+                                                    </Chip>
+                                                ) : (
+                                                    <span className="text-muted-foreground/40">—</span>
+                                                )}
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    ))}
+                                </Table.Body>
+                            </Table.Content>
+                        </Table.ScrollContainer>
+                    </Table>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <Pagination className="justify-center" size="sm">
+                        <Pagination.Content>
+                            <Pagination.Item>
+                                <Pagination.Previous isDisabled={safePage === 1} onPress={() => setPage(p => p - 1)}>
+                                    <Pagination.PreviousIcon />
+                                    <span>Previous</span>
+                                </Pagination.Previous>
+                            </Pagination.Item>
+                            {getPageNumbers(safePage, totalPages).map((p, i) =>
+                                p === "ellipsis" ? (
+                                    <Pagination.Item key={`ellipsis-${i}`}>
+                                        <Pagination.Ellipsis />
+                                    </Pagination.Item>
+                                ) : (
+                                    <Pagination.Item key={p}>
+                                        <Pagination.Link isActive={p === safePage} onPress={() => setPage(p)}>
+                                            {p}
+                                        </Pagination.Link>
+                                    </Pagination.Item>
+                                )
+                            )}
+                            <Pagination.Item>
+                                <Pagination.Next isDisabled={safePage === totalPages} onPress={() => setPage(p => p + 1)}>
+                                    <span>Next</span>
+                                    <Pagination.NextIcon />
+                                </Pagination.Next>
+                            </Pagination.Item>
+                        </Pagination.Content>
+                    </Pagination>
+                )}
 
                 {/* Footer */}
-                <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                    <span className="text-sm text-muted-foreground">{selectedIds.size} {tFilter('selected')}</span>
+                <Separator />
+                <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">
+                        {selectedIds.size} {tFilter('selected')}
+                    </span>
                     <div className="flex gap-3">
                         <Button
-                            variant="outline"
-                            onClick={() => setSelectedIds(new Set())}
-                            disabled={selectedIds.size === 0}
+                            variant="secondary"
+                            onPress={() => setSelectedIds(new Set())}
+                            isDisabled={selectedIds.size === 0}
                         >
                             {tFilter('resetSelection')}
                         </Button>
                         <Button
-                            onClick={handleConfirm}
-                            disabled={selectedIds.size === 0}
+                            variant="primary"
+                            onPress={handleConfirm}
+                            isDisabled={selectedIds.size === 0}
                         >
                             {tFilter('addSelected')}
                         </Button>
                     </div>
                 </div>
             </div>
+
+        <ExerciseFormModal
+            open={showCreateForm}
+            onClose={() => setShowCreateForm(false)}
+            initialValues={{ name_en: search.trim() }}
+            muscleGroups={muscleGroups}
+            equipments={equipments}
+            onCreated={handleExerciseCreated}
+        />
         </Modal>
     );
 }
