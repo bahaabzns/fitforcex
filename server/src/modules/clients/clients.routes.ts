@@ -339,4 +339,22 @@ router.get('/:id/exercise-insights',   clientsController.getClientExerciseInsigh
 router.get('/:id/logged-exercises',    clientsController.getClientLoggedExercises);
 router.get('/:id/workout-logs/:logId', clientsController.getClientWorkoutLog);
 
+/**
+ * @openapi
+ * /clients/{id}/transformation:
+ *   get:
+ *     summary: Tracked metric history and form submission timeline for a client
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: "{ metrics: [{ id, name, unit, type, icon, history }], timeline: [...] }"
+ *       404:
+ *         description: Client not found
+ */
+router.get('/:id/transformation', clientsController.getClientTransformation);
+
 export default router;

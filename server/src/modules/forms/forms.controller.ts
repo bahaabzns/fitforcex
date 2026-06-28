@@ -140,8 +140,27 @@ export async function getQuestions(req: Request, res: Response, next: NextFuncti
 }
 
 export async function createQuestion(req: Request, res: Response, next: NextFunction) {
-    const { label_en, label_ar, type } = req.body as Record<string, unknown>;
+    const { label_en, label_ar, type, metric_id } = req.body as Record<string, unknown>;
+    const questionType = (type as string | undefined) || 'text';
+    const isMetricType = questionType === 'metric';
+
+    // Non-metric types must never carry a metric_id.
+    // Metric type may be created without a metric_id (coach picks it in the editor).
+    const resolvedMetricId = isMetricType ? ((metric_id as string | undefined) || null) : null;
+
     try {
+        if (resolvedMetricId) {
+            const metric = await prisma.metrics.findFirst({
+                where: { id: resolvedMetricId, workspace_id: req.user!.workspaceId, deleted_at: null },
+            });
+            if (!metric) return res.status(400).json({ error: 'Metric not found' });
+
+            const duplicate = await prisma.form_questions.findFirst({
+                where: { form_id: req.params.id as string, metric_id: resolvedMetricId },
+            });
+            if (duplicate) return res.status(409).json({ error: 'This metric is already tracked by another question in this form' });
+        }
+
         const agg = await prisma.form_questions.aggregate({
             where:   { form_id: req.params.id as string },
             _max:    { order_index: true },
@@ -149,9 +168,9 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
         const orderIndex = (agg._max.order_index ?? -1) + 1;
 
         const defaults = {
-            min_value: type === 'scale' ? 1 : null,
-            max_value: type === 'scale' ? 10 : null,
-            options:   ['select', 'multiselect'].includes(type as string) ? ([] as Prisma.InputJsonValue) : null,
+            min_value: questionType === 'scale' ? 1 : null,
+            max_value: questionType === 'scale' ? 10 : null,
+            options:   ['select', 'multiselect'].includes(questionType) ? ([] as Prisma.InputJsonValue) : null,
         };
 
         const question = await prisma.form_questions.create({
@@ -160,11 +179,12 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
                 form_id:     req.params.id as string,
                 label_en:    (label_en as string | undefined) || 'Question',
                 label_ar:    (label_ar as string | undefined) || null,
-                type:        (type as string | undefined) || 'text',
+                type:        questionType,
                 order_index: orderIndex,
                 min_value:   defaults.min_value,
                 max_value:   defaults.max_value,
                 options:     defaults.options ?? Prisma.DbNull,
+                metric_id:   resolvedMetricId,
             },
         });
 
@@ -179,12 +199,36 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
 }
 
 export async function updateQuestion(req: Request, res: Response, next: NextFunction) {
-    const { label_en, label_ar, type, required, placeholder_en, placeholder_ar, options, options_ar, min_value, max_value } = req.body as Record<string, unknown>;
+    const { label_en, label_ar, type, required, placeholder_en, placeholder_ar, options, options_ar, min_value, max_value, metric_id } = req.body as Record<string, unknown>;
     try {
         const existing = await prisma.form_questions.findFirst({
             where: { id: req.params.qid as string, form_id: req.params.id as string },
         });
         if (!existing) return res.status(404).json({ error: 'Question not found' });
+
+        const resolvedType = (type as string | undefined) ?? existing.type;
+        const isMetricType = resolvedType === 'metric';
+
+        // Derive metric_id: metric questions require one; switching away clears it.
+        let resolvedMetricId: string | null = existing.metric_id;
+
+        if (!isMetricType) {
+            // Changing to or staying as non-metric — always clear the metric link.
+            resolvedMetricId = null;
+        } else if (metric_id !== undefined && metric_id !== null) {
+            // Metric type with a new metric_id being set.
+            const metric = await prisma.metrics.findFirst({
+                where: { id: metric_id as string, workspace_id: req.user!.workspaceId, deleted_at: null },
+            });
+            if (!metric) return res.status(400).json({ error: 'Metric not found' });
+
+            const duplicate = await prisma.form_questions.findFirst({
+                where: { form_id: req.params.id as string, metric_id: metric_id as string, id: { not: req.params.qid as string } },
+            });
+            if (duplicate) return res.status(409).json({ error: 'This metric is already tracked by another question in this form' });
+
+            resolvedMetricId = metric_id as string;
+        }
 
         const updated = await prisma.form_questions.update({
             where: { id: req.params.qid as string },
@@ -199,6 +243,7 @@ export async function updateQuestion(req: Request, res: Response, next: NextFunc
                 options_ar:     options_ar !== undefined ? (options_ar != null ? options_ar as Prisma.InputJsonValue : Prisma.DbNull) : (existing.options_ar ?? Prisma.DbNull),
                 min_value:      min_value  !== undefined ? (min_value  as number | null) : existing.min_value,
                 max_value:      max_value  !== undefined ? (max_value  as number | null) : existing.max_value,
+                metric_id:      resolvedMetricId,
             },
         });
 

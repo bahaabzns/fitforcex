@@ -204,6 +204,8 @@ router.get('/form-requests',                     ...open, requireAnyClientAccess
 router.get('/form-requests/:request_id',         ...open, requireAnyClientAccess(['view_assessments', 'view_checkins']), clientPortalController.getFormRequest);
 router.post('/form-requests/:request_id/submit', ...open, requireClientAccess('allow_submit_checkins'), clientPortalController.submitFormRequest);
 
+router.post('/uploads/photo', ...open, clientPortalController.photoUploader.single('photo'), clientPortalController.uploadPhoto);
+
 /**
  * @openapi
  * /client-portal/messages:
@@ -330,5 +332,19 @@ router.get('/workout-logs/previous',          ...open, requireClientAccess('view
 router.get('/workout-logs/exercise-progress', ...open, requireClientAccess('view_progress_history'), clientPortalController.getExerciseProgress);
 router.get('/workout-logs/exercises',         ...open, requireClientAccess('view_progress_history'), clientPortalController.getLoggedExercises);
 router.get('/workout-logs/:id',               ...open, requireClientAccess('view_progress_history'), clientPortalController.getWorkoutLog);
+
+/**
+ * @openapi
+ * /client-portal/transformation:
+ *   get:
+ *     summary: Client's own tracked metric history and form submission timeline
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: "{ metrics: [{ id, name, unit, type, icon, history }], timeline: [...] }"
+ */
+router.get('/transformation', ...open, clientPortalController.getPortalTransformation);
 
 export default router;

@@ -743,3 +743,123 @@ export async function getClientWorkoutLog(req: Request, res: Response, next: Nex
         next(err);
     }
 }
+
+// Shared by getClientTransformation (coach) and re-exported for the portal controller.
+// Uses flat queries + in-memory joins to stay compatible with this Prisma client version.
+export async function buildTransformationPayload(clientId: string, workspaceId: string) {
+    // 1. Submitted form requests for this client
+    const requests = await prisma.form_requests.findMany({
+        where:  { client_id: clientId, workspace_id: workspaceId, status: 'submitted' },
+        select: { id: true, submitted_at: true, form_id: true },
+    });
+    if (requests.length === 0) return { metrics: [], timeline: [] };
+
+    const requestIds = requests.map(r => r.id);
+    const requestMap = new Map(requests.map(r => [r.id, r]));
+
+    // 2. Metric-linked responses for those requests
+    const responses = await prisma.form_responses.findMany({
+        where:  { request_id: { in: requestIds }, metric_id: { not: null } },
+        select: { id: true, request_id: true, question_id: true, answer: true, metric_id: true },
+    });
+    if (responses.length === 0) return { metrics: [], timeline: [] };
+
+    // 3. Form titles
+    const formIds = [...new Set(requests.map(r => r.form_id).filter((id): id is string => !!id))];
+    const forms   = await (prisma as any).forms.findMany({
+        where:  { id: { in: formIds } },
+        select: { id: true, title_en: true, title_ar: true },
+    }) as { id: string; title_en: string | null; title_ar: string | null }[];
+    const formMap = new Map(forms.map(f => [f.id, f]));
+
+    // 4. Question labels
+    const questionIds = [...new Set(responses.map(r => r.question_id).filter((id): id is string => !!id))];
+    const questions   = await prisma.form_questions.findMany({
+        where:  { id: { in: questionIds } },
+        select: { id: true, label_en: true, label_ar: true },
+    });
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+
+    // 5. Metric metadata
+    const metricIds  = [...new Set(responses.map(r => r.metric_id).filter((id): id is string => !!id))];
+    const metricsData = await prisma.metrics.findMany({
+        where:  { id: { in: metricIds } },
+        select: { id: true, name: true, unit: true, type: true, icon: true },
+    });
+    const metricMap = new Map(metricsData.map(m => [m.id, m]));
+
+    // Sort ascending by submission date for history arrays
+    const sorted = [...responses].sort((a, b) => {
+        const da = requestMap.get(a.request_id ?? '')?.submitted_at?.getTime() ?? 0;
+        const db = requestMap.get(b.request_id ?? '')?.submitted_at?.getTime() ?? 0;
+        return da - db;
+    });
+
+    // Per-metric history
+    const historyByMetricId = new Map<string, { date: string; value: string; responseId: string }[]>();
+    for (const r of sorted) {
+        if (!r.metric_id || !r.answer) continue;
+        const submittedAt = requestMap.get(r.request_id ?? '')?.submitted_at;
+        if (!submittedAt) continue;
+        const arr = historyByMetricId.get(r.metric_id) ?? [];
+        arr.push({ date: submittedAt.toISOString(), value: r.answer, responseId: r.id });
+        historyByMetricId.set(r.metric_id, arr);
+    }
+
+    // Timeline — newest first
+    const timelineMap = new Map<string, {
+        submissionId: string; submittedAt: string;
+        formTitle: string; formTitleAr: string | null;
+        answers: { responseId: string; label: string; labelAr: string | null; answer: string; metricId: string | null; metricName: string | null; metricType: string | null }[];
+    }>();
+    for (const r of [...sorted].reverse()) {
+        if (!r.request_id) continue;
+        const fr = requestMap.get(r.request_id);
+        if (!fr?.submitted_at) continue;
+        if (!timelineMap.has(r.request_id)) {
+            const form = fr.form_id ? formMap.get(fr.form_id) : null;
+            timelineMap.set(r.request_id, {
+                submissionId: r.request_id,
+                submittedAt:  fr.submitted_at.toISOString(),
+                formTitle:    form?.title_en ?? 'Form',
+                formTitleAr:  form?.title_ar ?? null,
+                answers:      [],
+            });
+        }
+        const question = r.question_id ? questionMap.get(r.question_id) : null;
+        const metric   = r.metric_id   ? metricMap.get(r.metric_id)     : null;
+        timelineMap.get(r.request_id)!.answers.push({
+            responseId: r.id,
+            label:      question?.label_en ?? '',
+            labelAr:    question?.label_ar ?? null,
+            answer:     r.answer ?? '',
+            metricId:   r.metric_id,
+            metricName: metric?.name ?? null,
+            metricType: metric?.type ?? null,
+        });
+    }
+
+    return {
+        metrics:  metricsData.map(m => ({ ...m, history: historyByMetricId.get(m.id) ?? [] }))
+                             .filter(m => m.history.length > 0),
+        timeline: Array.from(timelineMap.values()),
+    };
+}
+
+export async function getClientTransformation(req: Request, res: Response, next: NextFunction) {
+    try {
+        const clientId    = req.params.id as string;
+        const workspaceId = req.user!.workspaceId;
+
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: workspaceId },
+            select: { id: true },
+        });
+        if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
+
+        const result = await buildTransformationPayload(clientId, workspaceId);
+        res.json(result);
+    } catch (err) {
+        next(err);
+    }
+}

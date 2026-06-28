@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { toPublicUrl } from '../../lib/storage';
+import { toPublicUrl, makeUploader } from '../../lib/storage';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { recordEvent, teamRecipients } from '../../lib/events';
@@ -16,6 +16,7 @@ import {
     type WorkoutLogRow,
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
+import { buildTransformationPayload } from '../clients/clients.controller';
 
 async function activateDueClientScheduledRequests(clientId: string): Promise<void> {
     await prisma.$executeRaw`
@@ -368,10 +369,11 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
             return res.status(403).json({ error: 'This form is not available yet' });
         }
 
-        const [questions, responses] = await Promise.all([
+        const [rawQuestions, responses] = await Promise.all([
             prisma.form_questions.findMany({
                 where:   { form_id: request.form_id as string },
                 orderBy: [{ order_index: 'asc' }, { id: 'asc' }],
+                include: { metrics: { select: { type: true, unit: true, name: true, icon: true } } },
             }),
             request.status !== 'pending' && request.status !== 'scheduled'
                 ? prisma.form_responses.findMany({
@@ -381,6 +383,15 @@ export async function getFormRequest(req: Request, res: Response, next: NextFunc
                 : Promise.resolve([]),
         ]);
 
+        // Flatten metric fields onto each question so the client portal renderer
+        // can determine the input type without a second fetch.
+        const questions = rawQuestions.map(q => ({
+            ...q,
+            metric_type: (q as unknown as { metrics?: { type: string; unit: string | null; name: string; icon: string | null } }).metrics?.type ?? null,
+            metric_unit: (q as unknown as { metrics?: { unit: string | null } }).metrics?.unit ?? null,
+            metric_name: (q as unknown as { metrics?: { name: string } }).metrics?.name ?? null,
+            metric_icon: (q as unknown as { metrics?: { icon: string | null } }).metrics?.icon ?? null,
+        }));
         res.json({ ...request, questions, responses });
     } catch (err) {
         next(err);
@@ -399,12 +410,23 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
         });
         if (!request) return res.status(404).json({ error: 'Request not found or already submitted' });
 
+        // Fetch metric_ids so they can be denormalized into each answer row.
+        // This keeps transformation queries fast and preserves history even if
+        // the question is later re-linked or deleted.
+        const questionIds = answers.map(a => a.question_id).filter(Boolean);
+        const questionMetrics = await prisma.form_questions.findMany({
+            where:  { id: { in: questionIds } },
+            select: { id: true, metric_id: true },
+        });
+        const metricByQuestion = new Map(questionMetrics.map(q => [q.id, q.metric_id]));
+
         await prisma.$transaction([
             prisma.form_responses.createMany({
                 data: answers.map(({ question_id, answer }) => ({
                     id:         createId(),
                     request_id: req.params.request_id as string,
                     question_id,
+                    metric_id:  metricByQuestion.get(question_id) ?? null,
                     answer:     answer != null ? String(answer) : '',
                 })),
             }),
@@ -697,6 +719,38 @@ export async function getWorkoutLog(req: Request, res: Response, next: NextFunct
             exercises:  parseLoggedExercises(log.exercises),
             ...summarizeLog(toLogRow(log)),
         });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function uploadPhoto(req: Request, res: Response) {
+    const file = req.file as (Express.Multer.File & { key?: string; location?: string }) | undefined;
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const key = file.key ?? file.path;
+    const url = toPublicUrl(key);
+    res.status(201).json({ url });
+}
+
+export const photoUploader = makeUploader(
+    'client-progress-photos',
+    ['.jpg', '.jpeg', '.png', '.heic', '.webp'],
+    { maxSize: 20 * 1024 * 1024 },
+);
+
+export async function getPortalTransformation(req: Request, res: Response, next: NextFunction) {
+    try {
+        const clientId = req.client!.clientId;
+
+        const clientRecord = await prisma.clients.findUnique({
+            where:  { id: clientId },
+            select: { workspace_id: true },
+        });
+        if (!clientRecord?.workspace_id) { res.status(404).json({ error: 'Client not found' }); return; }
+
+        const result = await buildTransformationPayload(clientId, clientRecord.workspace_id as string);
+        res.json(result);
     } catch (err) {
         next(err);
     }
