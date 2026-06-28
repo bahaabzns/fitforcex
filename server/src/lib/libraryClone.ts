@@ -2,6 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import logger from '../logger';
+import { seedWorkspaceMetrics } from '../modules/metrics/metrics.controller';
 
 // Copy the global Default Libraries (master_* tables) into a freshly created
 // workspace. Runs in the background after signup (see auth.controller). Idempotent:
@@ -161,9 +162,10 @@ export async function cloneDefaultLibraries(workspaceId: string): Promise<void> 
             (data) => prisma.food_items.createMany({ data, skipDuplicates: true }));
 
         const forms = await cloneMasterForms(workspaceId);
+        const metricCount = await seedWorkspaceMetrics(workspaceId);
 
         await prisma.workspaces.update({ where: { id: workspaceId }, data: { clone_status: 'ready', clone_error: null } });
-        logger.info({ workspaceId, counts: { muscleGroups: muscleGroups.length, equipment: equipment.length, exercises: exercises.length, foodCategories: foodCategories.length, foodItems: foodItems.length, forms: forms.forms, formQuestions: forms.questions } }, '[libraryClone] completed');
+        logger.info({ workspaceId, counts: { muscleGroups: muscleGroups.length, equipment: equipment.length, exercises: exercises.length, foodCategories: foodCategories.length, foodItems: foodItems.length, forms: forms.forms, formQuestions: forms.questions, metrics: metricCount } }, '[libraryClone] completed');
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         await prisma.workspaces.update({ where: { id: workspaceId }, data: { clone_status: 'failed', clone_error: message } }).catch(() => {});
