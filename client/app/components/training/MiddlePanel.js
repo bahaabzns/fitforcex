@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Modal } from "@heroui/react/modal";
@@ -17,6 +15,7 @@ const StatusDot = () => (
     </svg>
 );
 
+
 export default function MiddlePanel({
     selectedPlan,
     selectedDayId,
@@ -28,27 +27,26 @@ export default function MiddlePanel({
     handleRenamePlan,
     handleRenameDay,
     handleUpdatePlanNotes,
-    handleActivatePlan,
-    handleSaveSelectedPlan,
     handleDeletePlan,
     handleDuplicatePlan,
-    isSaving,
-    saveStatus,
     dirtyPlanIds,
-    submissionId,
+    saveStatus,
     focusPlanNameSignal,
     newlyCreatedDayId,
     onClose,
+    activateModal,
+    setActivateModal,
+    activating,
+    handleActivateAndMark,
 }) {
-    const router = useRouter();
     const t = useTranslations('training');
     const tModal = useTranslations('modal');
     const tCommon = useTranslations('common');
-    const [activateModal, setActivateModal] = useState(false);
-    const [activating, setActivating] = useState(false);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["days", "notes"]));
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
+    const dragRef = useRef(null);
+    const hoverRef = useRef(null);
     const planNameRef = useRef(null);
     const dayInputRefs = useRef({});
 
@@ -76,21 +74,6 @@ export default function MiddlePanel({
         return arr;
     })();
 
-    async function handleActivateAndMark(navigateToQueue) {
-        if (!selectedPlan?.id || !submissionId) return;
-        setActivating(true);
-        try {
-            await handleActivatePlan(selectedPlan.id);
-            await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
-            if (navigateToQueue) router.push("/plans-queue");
-        } catch {
-            // Silent: existing handlers show errors where needed.
-        } finally {
-            setActivating(false);
-            setActivateModal(false);
-        }
-    }
-
     return (
         <>
             <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
@@ -107,27 +90,6 @@ export default function MiddlePanel({
                         className="flex-1 min-w-0"
                         inputClassName="font-semibold shadow-none"
                     />
-                    {isSelectedPlanDirty && (
-                        <Button
-                            type="button"
-                            variant="primary"
-                            isDisabled={isSaving}
-                            onClick={() => handleSaveSelectedPlan(selectedPlan.id)}
-                            className="shrink-0"
-                        >
-                            {isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}
-                        </Button>
-                    )}
-                    {selectedPlan.status !== "active" && (
-                        <Button
-                            type="button"
-                            isDisabled={isSaving || activating}
-                            onClick={() => { if (submissionId) { setActivateModal(true); return; } handleActivatePlan(selectedPlan.id); }}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-white shrink-0"
-                        >
-                            {activating ? t('activating') : t('activate')}
-                        </Button>
-                    )}
                     {isSelectedPlanDirty && (
                         <Chip size="sm" color="warning" variant="soft" className="shrink-0">
                             <StatusDot />
@@ -189,18 +151,28 @@ export default function MiddlePanel({
                                     <div
                                         key={day.id}
                                         draggable
-                                        onDragStart={() => setDragIndex(originalIndex)}
-                                        onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
-                                        onDrop={() => { handleReorderDays(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
-                                        onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
+                                        onDragStart={() => { setDragIndex(originalIndex); dragRef.current = originalIndex; }}
+                                        onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
+                                        onDrop={() => { handleReorderDays(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
+                                        onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
                                         onClick={() => handleSelectDay(day.id)}
                                         className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer select-none shadow-surface transition-all duration-150 ${
-                                            isDragging ? "opacity-40" : ""
+                                            isDragging ? "opacity-30 scale-95" : ""
                                         } ${
                                             isActive ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40" : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                         }`}
                                     >
-                                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm font-semibold cursor-grab transition-colors ${
+                                        <span
+                                            className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
+                                                <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+                                                <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
+                                                <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
+                                            </svg>
+                                        </span>
+                                        <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm font-semibold transition-colors ${
                                             isActive ? "bg-primary/25 text-primary" : "bg-foreground/10 text-muted group-hover:text-foreground"
                                         }`}>
                                             {originalIndex + 1}

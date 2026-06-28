@@ -98,15 +98,6 @@ export default function LeftPanel({
                             </Button>
                             {expandedKeys.has("plans") && (
                                 <div className="flex items-center gap-2 shrink-0">
-                                    {showSaveAll && (
-                                        <Button
-                                            variant="outline"
-                                            isDisabled={!isDirty || isSaving}
-                                            onClick={handleSaveAllDrafts}
-                                        >
-                                            {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}
-                                        </Button>
-                                    )}
                                     <Button variant="outline" onClick={() => setLoadModalOpen(true)}>
                                         {t('loadPlan')}
                                     </Button>

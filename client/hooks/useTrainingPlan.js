@@ -97,7 +97,14 @@ export function useTrainingPlan(clientId) {
                 const preferredDayId = preserve?.dayId ?? prevDayId;
                 if (!preferredDayId) return null;
                 const allDays = detailed.flatMap((p) => p.days ?? []);
-                return allDays.some((d) => String(d.id) === String(preferredDayId)) ? preferredDayId : null;
+                if (allDays.some((d) => String(d.id) === String(preferredDayId))) return preferredDayId;
+                // Day ID changed (e.g. tmp → real after first save) — fall back to name match within the plan
+                if (preserve?.dayName) {
+                    const planDays = detailed.find((p) => String(p.id) === String(preserve?.planId))?.days ?? allDays;
+                    const byName = planDays.find((d) => d.name === preserve.dayName);
+                    if (byName) return byName.id;
+                }
+                return null;
             });
 
             setDirtyPlanIds(new Set());
@@ -461,13 +468,12 @@ export function useTrainingPlan(clientId) {
                     ...d,
                     exercises: (d.exercises ?? []).map((e) => {
                         if (String(e.id) !== String(exerciseId)) return e;
-                        return {
-                            ...e,
-                            sets: [
-                                ...(e.sets ?? []),
-                                { id: makeTempId("set"), reps: "", rest_seconds: null, tempo: "", rir: null },
-                            ],
-                        };
+                        const existingSets = e.sets ?? [];
+                        const lastSet = existingSets[existingSets.length - 1];
+                        const newSet = lastSet
+                            ? { ...lastSet, id: makeTempId("set") }
+                            : { id: makeTempId("set"), reps: "", rest_seconds: null, tempo: "", rir: null };
+                        return { ...e, sets: [...existingSets, newSet] };
                     }),
                 };
             }),
@@ -573,10 +579,12 @@ export function useTrainingPlan(clientId) {
             const oldPlanId = response.data?.oldPlanId ?? planId;
             const newPlanId = response.data?.newPlanId ?? planId;
 
+            const selectedDay = (target.days ?? []).find((d) => String(d.id) === String(selectedDayId));
             await fetchClientPlans({
                 planId: newPlanId,
                 planName: target.name,
                 dayId: selectedDayId,
+                dayName: selectedDay?.name,
             }, { silent: true });
 
             clearPlanDirty(oldPlanId);
@@ -666,7 +674,7 @@ export function useTrainingPlan(clientId) {
     }, [isSaving, dirtyPlanIds, handleSaveSelectedPlan, plans]);
 
     const handleReorderDays = useCallback((fromIndex, toIndex) => {
-        if (!selectedPlan || fromIndex === toIndex) return;
+        if (!selectedPlan || fromIndex == null || toIndex == null || fromIndex === toIndex) return;
         const days = [...(selectedPlan.days ?? [])];
         const [moved] = days.splice(fromIndex, 1);
         days.splice(toIndex, 0, moved);

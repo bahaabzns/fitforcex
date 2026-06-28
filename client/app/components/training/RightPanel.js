@@ -7,11 +7,25 @@ import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { TextArea } from "@heroui/react/textarea";
 import { Table } from "@heroui/react/table";
-import { Disclosure, DisclosureGroup, Separator, Surface, Text } from "@heroui/react";
+import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { Modal } from "@heroui/react/modal";
 import InlineEditField from "@/app/components/InlineEditField";
 
-const SET_INPUT_CLASS = "h-8 px-2 py-0 text-xs text-center shadow-none w-full";
+const SET_INPUT_CLASS = "h-6 px-1.5 py-0 text-sm font-semibold text-center shadow-none w-full !rounded";
+
+function handleSetInputTab(e) {
+    if (e.key === 'Enter') { e.target.blur(); return; }
+    if (e.key !== 'Tab') return;
+    const table = e.target.closest('.table__content');
+    if (!table) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const inputs = Array.from(table.querySelectorAll('input'));
+    const idx = inputs.indexOf(e.target);
+    const next = inputs[e.shiftKey ? idx - 1 : idx + 1];
+    if (next) { next.focus(); next.select(); }
+}
 function getYoutubeEmbedUrl(url) {
     if (!url) return null;
     const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?]+)/);
@@ -30,13 +44,25 @@ const DumbbellIcon = () => (
     </svg>
 );
 const ChevronIcon = ({ className }) => (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <polyline points="6 9 12 15 18 9"/>
     </svg>
 );
 const PlayIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+    </svg>
+);
+const PlusIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 5v14M5 12h14"/>
+    </svg>
+);
+const LayersIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
     </svg>
 );
 
@@ -59,17 +85,20 @@ export default function RightPanel({
     const t = useTranslations('training');
     const locale = useLocale();
     const [showPicker, setShowPicker] = useState(false);
-    const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises"]));
+    const [expandedKeys, setExpandedKeys] = useState(new Set(["exercises", "notes"]));
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
-    const [videoOpenId, setVideoOpenId] = useState(null);
+    const [videoModalId, setVideoModalId] = useState(null);
     const [expandedExerciseIds, setExpandedExerciseIds] = useState(() => new Set());
 
-    const toggleExercise = (id) => setExpandedExerciseIds((prev) => {
-        const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
-        return next;
-    });
+    const toggleExercise = (exercise) => {
+        const key = exercise.exercise_library_id ?? exercise.id;
+        setExpandedExerciseIds((prev) => {
+            const next = new Set(prev);
+            next.has(key) ? next.delete(key) : next.add(key);
+            return next;
+        });
+    };
 
     if (!selectedDay) {
         return (
@@ -78,6 +107,9 @@ export default function RightPanel({
             </Surface>
         );
     }
+
+    const videoExercise = (selectedDay.exercises ?? []).find(e => e.id === videoModalId);
+    const videoExerciseName = videoExercise ? (getLocalizedField(videoExercise, "library_name", locale) || videoExercise.name || "") : "";
 
     return (
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
@@ -129,16 +161,38 @@ export default function RightPanel({
                                     </h3>
                                 </Button>
                                 {expandedKeys.has("exercises") && (
-                                    <Button variant="outline" onClick={() => setShowPicker(true)} className="shrink-0">
-                                        {t('addExercise')}
-                                    </Button>
+                                    <>
+                                        <button
+                                            title="Expand all exercises"
+                                            onClick={() => setExpandedExerciseIds(new Set((selectedDay.exercises ?? []).map(e => e.exercise_library_id ?? e.id)))}
+                                            className="p-1.5 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-default transition-colors shrink-0"
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                <polyline points="7 6 12 11 17 6"/>
+                                                <polyline points="7 13 12 18 17 13"/>
+                                            </svg>
+                                        </button>
+                                        <button
+                                            title="Collapse all exercises"
+                                            onClick={() => setExpandedExerciseIds(new Set())}
+                                            className="p-1.5 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-default transition-colors shrink-0"
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                <polyline points="17 18 12 13 7 18"/>
+                                                <polyline points="17 11 12 6 7 11"/>
+                                            </svg>
+                                        </button>
+                                        <Button variant="outline" onClick={() => setShowPicker(true)} className="shrink-0">
+                                            {t('addExercise')}
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </Disclosure.Heading>
                     </Disclosure>
                     {expandedKeys.has("exercises") && (
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
-                                <div className="flex flex-col gap-1">
+                                <div className="space-y-1.5 px-1 py-2">
                                     {(() => {
                                         const exercises = selectedDay.exercises ?? [];
                                         const preview = (() => {
@@ -151,11 +205,10 @@ export default function RightPanel({
                                         return preview.map((exercise) => {
                                         const originalIndex = exercises.findIndex((e) => e.id === exercise.id);
                                         const isDragging = dragIndex !== null && exercises[dragIndex]?.id === exercise.id;
-                                        const index = originalIndex;
-                                        // Name is defined by the linked library exercise — show it read-only.
                                         const exerciseName = getLocalizedField(exercise, "library_name", locale) || exercise.name || "";
                                         const setCount = exercise.sets?.length ?? 0;
-                                        const isExpanded = expandedExerciseIds.has(exercise.id);
+                                        const expandKey = exercise.exercise_library_id ?? exercise.id;
+                                        const isExpanded = expandedExerciseIds.has(expandKey);
                                         const hasVideo = exercise.youtube_url || exercise.video_path;
                                         return (
                                         <div
@@ -165,11 +218,20 @@ export default function RightPanel({
                                             onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragIndex) setHoverIndex(originalIndex); }}
                                             onDrop={() => { handleReorderExercises(selectedDay.id, dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                             onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
-                                            className={`group rounded-lg select-none transition-colors ${isDragging ? "opacity-40" : ""} ${isExpanded ? "bg-default/40" : "hover:bg-default"}`}
+                                            className={`group select-none transition-all duration-150 rounded-xl overflow-hidden bg-app-surface-card shadow-surface ${isDragging ? "opacity-30 scale-95" : ""}`}
                                         >
-                                            {/* Exercise header row */}
-                                            <div onClick={() => toggleExercise(exercise.id)} className="flex items-center gap-3 px-2.5 py-2 cursor-pointer">
-                                                <div className="relative shrink-0 w-9 h-9 rounded-lg bg-secondary flex items-center justify-center text-muted overflow-hidden cursor-grab">
+                                            {/* Exercise row */}
+                                            <div onClick={() => toggleExercise(exercise)} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${isExpanded ? "bg-app-surface-selected hover:bg-app-surface-selected/80" : "hover:bg-app-surface-hover"}`}>
+                                                {/* Drag grip */}
+                                                <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
+                                                    <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden="true">
+                                                        <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+                                                        <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
+                                                        <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
+                                                    </svg>
+                                                </span>
+                                                {/* Thumbnail */}
+                                                <div className="relative shrink-0 w-9 h-9 rounded-lg bg-foreground/10 flex items-center justify-center text-muted group-hover:text-foreground transition-colors overflow-hidden">
                                                     <DumbbellIcon />
                                                     {exercise.thumbnail_path && (
                                                         <img
@@ -180,110 +242,101 @@ export default function RightPanel({
                                                         />
                                                     )}
                                                 </div>
+                                                {/* Name + meta */}
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <Text type="body-xs" weight="semibold" className="text-primary shrink-0">#{index + 1}</Text>
-                                                        <Text type="body-sm" weight="semibold" truncate className="flex-1 min-w-0" title={exerciseName}>
-                                                            {exerciseName}
-                                                        </Text>
-                                                        {exercise.exercise_library_id && (
-                                                            <Text type="body-xs" weight="semibold" title="From library" className="bg-primary/10 text-primary px-1.5 py-0.5 rounded shrink-0">lib</Text>
-                                                        )}
-                                                    </div>
-                                                    <Text type="body-xs" color="muted" truncate>
-                                                        {exercise.muscle_group ? `${exercise.muscle_group} · ` : ""}{setCount} sets
-                                                    </Text>
+                                                    <p className="text-sm font-semibold truncate text-foreground" title={exerciseName}>
+                                                        {exerciseName}
+                                                    </p>
+                                                    <p className="text-xs leading-5 text-muted truncate">
+                                                        {exercise.muscle_group ? `${exercise.muscle_group} · ` : ""}{exercise.equipment ? `${exercise.equipment} · ` : ""}{setCount} sets
+                                                    </p>
                                                 </div>
-                                                <div className="flex items-center gap-1 shrink-0">
+                                                {/* Actions */}
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    {hasVideo && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setVideoModalId(exercise.id); }}
+                                                            className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-foreground hover:bg-default transition-colors cursor-pointer"
+                                                            title={t('watchVideo')}
+                                                        >
+                                                            <PlayIcon />
+                                                        </button>
+                                                    )}
+                                                    {(exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleApplySetsToAll(selectedDay.id, exercise.id); }}
+                                                            className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-foreground hover:bg-default transition-colors cursor-pointer"
+                                                            title="Apply this exercise's sets to all exercises in this day"
+                                                        >
+                                                            <LayersIcon />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteExercise(selectedDay.id, exercise.id); }}
-                                                        className="p-1 rounded text-muted hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-60 group-hover:opacity-100"
+                                                        className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                                         title={t('deleteExercise')}
                                                     >
-                                                        <TrashIcon />
+                                                        <TrashIcon size={16} />
                                                     </button>
                                                     <ChevronIcon className={`text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                                                 </div>
                                             </div>
 
                                             {isExpanded && (
-                                            <div className="px-3 pb-3 flex flex-col gap-2">
-                                                {hasVideo && (
+                                            <div className="px-3 pb-4 pt-0 flex flex-col gap-0">
+                                                {/* Sets header */}
+                                                <div className="flex items-center justify-between py-2 mt-2 mb-3 border-b border-border/20">
+                                                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('sets')}</span>
                                                     <button
-                                                        onClick={() => setVideoOpenId(videoOpenId === exercise.id ? null : exercise.id)}
-                                                        className="flex items-center gap-1.5 text-xs text-primary hover:underline cursor-pointer w-fit"
+                                                        title={t('addSet')}
+                                                        onClick={() => handleAddSet(selectedDay.id, exercise.id)}
+                                                        className="flex items-center gap-1.5 text-xs font-semibold text-foreground hover:text-primary transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-primary/10 active:bg-primary/15"
                                                     >
-                                                        <PlayIcon /> {videoOpenId === exercise.id ? t('hideVideo') : t('watchVideo')}
+                                                        <PlusIcon /> {t('addSet')}
                                                     </button>
-                                                )}
-
-                                            {/* Inline video */}
-                                            {videoOpenId === exercise.id && (exercise.youtube_url || exercise.video_path) && (
-                                                <div className="mb-2 rounded-lg overflow-hidden bg-black aspect-video">
-                                                    {getYoutubeEmbedUrl(exercise.youtube_url) ? (
-                                                        <iframe
-                                                            src={getYoutubeEmbedUrl(exercise.youtube_url)}
-                                                            className="w-full h-full"
-                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                            allowFullScreen
-                                                        />
-                                                    ) : (
-                                                        <video src={`${SERVER}${exercise.video_path}`} controls className="w-full h-full" />
-                                                    )}
                                                 </div>
-                                            )}
-
-                                            {/* Exercise notes */}
-                                            <TextField
-                                                value={exercise.notes ?? ""}
-                                                onChange={(val) => handleUpdateExerciseNotes(selectedDay.id, exercise.id, val)}
-                                                aria-label={t('exerciseNotes')}
-                                                className="w-full mb-2"
-                                            >
-                                                <Input variant="secondary" placeholder={t('exerciseNotes')} className="h-8 px-2 py-0 text-xs shadow-none" />
-                                            </TextField>
 
                                             {/* Sets table */}
-                                            <Table variant="primary" aria-label="Sets" className="mb-1">
+                                            <Table variant="secondary" aria-label="Sets" className="sets-table mb-0">
                                                 <Table.ScrollContainer>
                                                     <Table.Content aria-label="Sets">
                                                         <Table.Header>
-                                                            <Table.Column isRowHeader className="w-8 px-2 py-1">#</Table.Column>
-                                                            <Table.Column className="px-1 py-1">{t('reps')}</Table.Column>
-                                                            <Table.Column className="px-1 py-1">{t('rest')}</Table.Column>
-                                                            <Table.Column className="px-1 py-1">{t('tempo')}</Table.Column>
-                                                            <Table.Column className="px-1 py-1">{t('rir')}</Table.Column>
-                                                            <Table.Column className="w-12 px-2 py-1 text-end"><span className="sr-only">Actions</span></Table.Column>
+                                                            <Table.Column isRowHeader className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">#</Table.Column>
+                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('reps')}</Table.Column>
+                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('rest')}</Table.Column>
+                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('tempo')}</Table.Column>
+                                                            <Table.Column className="p-1.5 text-[10px] font-medium uppercase tracking-wider text-center">{t('rir')}</Table.Column>
+                                                            <Table.Column className="p-1.5 text-end"><span className="sr-only">Actions</span></Table.Column>
                                                         </Table.Header>
                                                         <Table.Body>
                                                             {(exercise.sets ?? []).map((set, sIdx) => (
                                                                 <Table.Row key={set.id} id={set.id} className="group/set">
-                                                                    <Table.Cell className="px-2 py-1 text-xs text-muted">{sIdx + 1}</Table.Cell>
-                                                                    <Table.Cell className="px-1 py-1">
+                                                                    <Table.Cell className="p-1.5 text-xs text-muted">{sIdx + 1}</Table.Cell>
+                                                                    <Table.Cell className="p-1.5">
                                                                         <TextField className="min-w-0" value={String(set.reps ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "reps", val)} aria-label={t('reps')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1 py-1">
+                                                                    <Table.Cell className="p-1.5">
                                                                         <TextField className="min-w-0" value={String(set.rest_seconds ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rest_seconds", val)} aria-label={t('rest')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1 py-1">
+                                                                    <Table.Cell className="p-1.5">
                                                                         <TextField className="min-w-0" value={String(set.tempo ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "tempo", val)} aria-label={t('tempo')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1 py-1">
+                                                                    <Table.Cell className="p-1.5">
                                                                         <TextField className="min-w-0" value={String(set.rir ?? "")} onChange={(val) => handleUpdateSetField(selectedDay.id, exercise.id, set.id, "rir", val)} aria-label={t('rir')}>
-                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} className={SET_INPUT_CLASS} />
+                                                                            <Input variant="secondary" onFocus={(e) => e.target.select()} onKeyDown={handleSetInputTab} className={SET_INPUT_CLASS} />
                                                                         </TextField>
                                                                     </Table.Cell>
-                                                                    <Table.Cell className="px-1 py-1">
-                                                                        <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover/set:opacity-100 focus-within:opacity-100">
+                                                                    <Table.Cell className="p-1.5">
+                                                                        <div className="flex justify-end gap-0.5">
                                                                             <button
                                                                                 onClick={() => handleDuplicateSet(selectedDay.id, exercise.id, set.id)}
-                                                                                className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                                                className="p-0.5 rounded-md text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
                                                                                 title={t('duplicateSet')}
                                                                             >
                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -292,7 +345,7 @@ export default function RightPanel({
                                                                             </button>
                                                                             <button
                                                                                 onClick={() => handleDeleteSet(selectedDay.id, exercise.id, set.id)}
-                                                                                className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                                                                className="p-0.5 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                                                                 title={t('deleteSet')}
                                                                             >
                                                                                 <TrashIcon size={12} />
@@ -306,16 +359,16 @@ export default function RightPanel({
                                                 </Table.ScrollContainer>
                                             </Table>
 
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <Button size="sm" variant="outline" onClick={() => handleAddSet(selectedDay.id, exercise.id)}>
-                                                    {t('addSet')}
-                                                </Button>
-                                                {(exercise.sets?.length ?? 0) > 0 && (selectedDay.exercises?.length ?? 0) > 1 && (
-                                                    <Button size="sm" variant="outline" onClick={() => handleApplySetsToAll(selectedDay.id, exercise.id)}>
-                                                        {t('applyToAll')}
-                                                    </Button>
-                                                )}
-                                            </div>
+                                            {/* Exercise notes — secondary section */}
+                                            <div className="mt-5 border-t border-border/50" />
+                                            <TextField
+                                                value={exercise.notes ?? ""}
+                                                onChange={(val) => handleUpdateExerciseNotes(selectedDay.id, exercise.id, val)}
+                                                aria-label={t('exerciseNotes')}
+                                                className="w-full mt-3"
+                                            >
+                                                <Input variant="secondary" placeholder={t('exerciseNotes')} className="h-8 px-2 py-0 text-xs shadow-none bg-app-surface-input!" />
+                                            </TextField>
                                             </div>
                                             )}
                                         </div>
@@ -324,9 +377,9 @@ export default function RightPanel({
                                     })()}
 
                                     {(selectedDay.exercises ?? []).length === 0 && (
-                                        <Surface variant="default" className="rounded-lg p-6 flex items-center justify-center mx-2 my-2">
-                                            <Text type="body-sm" color="muted">{t('noExercises')}</Text>
-                                        </Surface>
+                                        <div className="py-8 flex items-center justify-center">
+                                            <p className="text-sm text-muted-foreground">{t('noExercises')}</p>
+                                        </div>
                                     )}
                                 </div>
                     </ScrollShadow>
@@ -369,6 +422,36 @@ export default function RightPanel({
                 </div>
 
             </DisclosureGroup>
+
+            {/* Video Modal */}
+            <Modal isOpen={!!videoModalId} onOpenChange={(o) => !o && setVideoModalId(null)}>
+                <Modal.Backdrop>
+                    <Modal.Container className="max-w-2xl w-full">
+                        <Modal.Dialog>
+                            <Modal.Header>
+                                <Modal.Heading>{videoExerciseName}</Modal.Heading>
+                                <Modal.CloseTrigger />
+                            </Modal.Header>
+                            <Modal.Body>
+                                {videoExercise && (
+                                    <div className="rounded-lg overflow-hidden bg-black aspect-video">
+                                        {getYoutubeEmbedUrl(videoExercise.youtube_url) ? (
+                                            <iframe
+                                                src={getYoutubeEmbedUrl(videoExercise.youtube_url)}
+                                                className="w-full h-full"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                            />
+                                        ) : (
+                                            <video src={videoExercise.video_path} controls className="w-full h-full" />
+                                        )}
+                                    </div>
+                                )}
+                            </Modal.Body>
+                        </Modal.Dialog>
+                    </Modal.Container>
+                </Modal.Backdrop>
+            </Modal>
         </Surface>
     );
 }
