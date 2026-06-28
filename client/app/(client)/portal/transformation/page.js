@@ -420,23 +420,15 @@ export default function PortalTransformationPage() {
                         <DateRangePicker.TriggerIndicator>
                             <Calendar size={13} className="text-muted-foreground" />
                         </DateRangePicker.TriggerIndicator>
-                        <DateInputGroup slot="start">
-                            <DateInputGroup.Input>
-                                <DateInputGroup.Segment segment="month" />
-                                <DateInputGroup.Segment segment="literal" />
-                                <DateInputGroup.Segment segment="day" />
-                                <DateInputGroup.Segment segment="literal" />
-                                <DateInputGroup.Segment segment="year" />
+                        <DateInputGroup>
+                            <DateInputGroup.Input slot="start">
+                                {(segment) => <DateInputGroup.Segment segment={segment} />}
                             </DateInputGroup.Input>
                         </DateInputGroup>
                         <DateRangePicker.RangeSeparator>–</DateRangePicker.RangeSeparator>
-                        <DateInputGroup slot="end">
-                            <DateInputGroup.Input>
-                                <DateInputGroup.Segment segment="month" />
-                                <DateInputGroup.Segment segment="literal" />
-                                <DateInputGroup.Segment segment="day" />
-                                <DateInputGroup.Segment segment="literal" />
-                                <DateInputGroup.Segment segment="year" />
+                        <DateInputGroup>
+                            <DateInputGroup.Input slot="end">
+                                {(segment) => <DateInputGroup.Segment segment={segment} />}
                             </DateInputGroup.Input>
                         </DateInputGroup>
                     </DateRangePicker.Trigger>
