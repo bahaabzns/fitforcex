@@ -3,20 +3,87 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import api from "@/lib/axios";
 import Modal from "@/app/components/Modal";
-import { TextField } from "@heroui/react/textfield";
-import { Input } from "@heroui/react/input";
+import FoodForm from "@/app/components/nutrition/FoodForm";
+import { SearchField } from "@heroui/react/search-field";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Table } from "@heroui/react/table";
+import { Checkbox } from "@heroui/react/checkbox";
+import { Separator } from "@heroui/react/separator";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
+import { Pagination } from "@heroui/react/pagination";
+
+const PAGE_SIZE = 10;
+
+function getPageNumbers(currentPage, totalPages) {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages = [1];
+    if (currentPage > 3) pages.push("ellipsis");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+    return pages;
+}
 
 export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSearchChange, onClose, onAddItems, lockedCategory, excludedFoodItemIds }) {
     const t = useTranslations("nutrition");
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [categoryFilter, setCategoryFilter] = useState(lockedCategory || '');
-    // Locally-created items (parent owns foodItems) so created foods show immediately.
     const [extraItems, setExtraItems] = useState([]);
-    const [creating, setCreating] = useState(false);
-    const [createError, setCreateError] = useState('');
+    const [page, setPage] = useState(1);
 
-    useEffect(() => { if (!open) { setExtraItems([]); setSelectedIds(new Set()); setCreateError(''); } }, [open]);
+    // Create food modal
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [createFormData, setCreateFormData] = useState({});
+    const [createError, setCreateError] = useState('');
+    const [formCategories, setFormCategories] = useState([]);
+    const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+
+    useEffect(() => { if (!open) { setExtraItems([]); setSelectedIds(new Set()); setCreateError(''); setPage(1); setCreateModalOpen(false); } }, [open]);
+    // Reset to first page whenever search or category changes
+    useEffect(() => { setPage(1); }, [foodSearchQuery, categoryFilter]);
+
+    const openCreateModal = async () => {
+        setCreateFormData({
+            name_en: (foodSearchQuery || '').trim(),
+            name_ar: '',
+            food_category: lockedCategory || '',
+            serving_size: '100',
+            serving_unit: 'g',
+            calories_per_serving: '',
+            carbs_per_serving: '',
+            protein_per_serving: '',
+            fats_per_serving: '',
+        });
+        setCreateError('');
+        if (!categoriesLoaded) {
+            try {
+                const res = await api.get('/api/nutrition/food-categories');
+                setFormCategories(res.data);
+                setCategoriesLoaded(true);
+            } catch {}
+        }
+        setCreateModalOpen(true);
+    };
+
+    const handleCreateSubmit = async (e) => {
+        e.preventDefault();
+        setCreateError('');
+        try {
+            const res = await api.post('/api/nutrition/food-items', createFormData);
+            const created = res.data;
+            setExtraItems(prev => [created, ...prev]);
+            onAddItems([created]);
+            setCreateModalOpen(false);
+        } catch (err) {
+            setCreateError(err.response?.data?.error || t('createFoodFailed'));
+        }
+    };
 
     const allFoodItems = [...extraItems, ...foodItems];
     const categories = [...new Set(allFoodItems.map(fi => fi.food_category).filter(Boolean))];
@@ -30,205 +97,261 @@ export default function FoodItemsModal({ open, foodItems, foodSearchQuery, onSea
         return matchesSearch && matchesCategory && notExcluded;
     });
 
-    const toggleItem = (id) => {
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
-            return next;
-        });
-    };
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-    const allFilteredSelected = filtered.length > 0 && filtered.every(fi => selectedIds.has(fi.id));
-    const toggleSelectAll = () => {
+    // Selection is scoped to the current page so the table's "select all" only
+    // affects visible rows; selections on other pages are preserved.
+    const pageIdSet = new Set(pageItems.map(fi => String(fi.id)));
+    const visibleSelectedKeys = new Set([...selectedIds].filter(id => pageIdSet.has(id)));
+
+    const handleTableSelectionChange = (keys) => {
         setSelectedIds(prev => {
-            const next = new Set(prev);
-            if (allFilteredSelected) {
-                filtered.forEach(fi => next.delete(fi.id));
-            } else {
-                filtered.forEach(fi => next.add(fi.id));
+            const outsidePage = new Set([...prev].filter(id => !pageIdSet.has(id)));
+            if (keys === "all") {
+                return new Set([...outsidePage, ...pageIdSet]);
             }
-            return next;
+            return new Set([...outsidePage, ...keys]);
         });
     };
 
     const handleConfirm = () => {
-        const selectedItems = allFoodItems.filter(fi => selectedIds.has(fi.id));
+        const selectedItems = allFoodItems.filter(fi => selectedIds.has(String(fi.id)));
         onAddItems(selectedItems);
     };
 
-    // Smart empty state: create the searched food in context, show it in the list,
-    // and add it straight to the meal/alternatives.
-    const handleCreateFood = async () => {
-        const name = (foodSearchQuery || '').trim();
-        if (!name) return;
-        setCreating(true);
-        setCreateError('');
-        try {
-            const res = await api.post('/api/nutrition/food-items', {
-                name_en: name,
-                food_category: lockedCategory || null,
-                calories_per_serving: 0, protein_per_serving: 0, carbs_per_serving: 0, fats_per_serving: 0,
-            });
-            const created = res.data;
-            setExtraItems(prev => [created, ...prev]);
-            onAddItems([created]);
-        } catch (err) {
-            setCreateError(err.response?.data?.error || t('createFoodFailed'));
-        } finally {
-            setCreating(false);
-        }
-    };
 
     return (
         <Modal open={open} onClose={onClose} title={t("foodModalTitle")} wide>
-            <div className="flex flex-col" style={{ maxHeight: '70vh' }}>
+            <div className="flex flex-col gap-3 p-2">
 
-                {/* Search + results count */}
-                <div className="flex gap-3 mb-3 items-center">
-                    <TextField value={foodSearchQuery} onChange={onSearchChange} className="flex-1">
-                        <Input type="text" placeholder={t("foodSearchPlaceholder")} autoFocus />
-                    </TextField>
+                {/* Search row: field + category dropdown + result count */}
+                <div className="flex gap-2 items-center">
+                    <SearchField
+                        value={foodSearchQuery}
+                        onChange={onSearchChange}
+                        variant="secondary"
+                        className="flex-1"
+                        aria-label={t("foodSearchPlaceholder")}
+                    >
+                        <SearchField.Group>
+                            <SearchField.SearchIcon />
+                            <SearchField.Input placeholder={t("foodSearchPlaceholder")} autoFocus />
+                            <SearchField.ClearButton />
+                        </SearchField.Group>
+                    </SearchField>
+
+                    {!lockedCategory && (
+                        <Select
+                            size="sm"
+                            variant="secondary"
+                            value={categoryFilter}
+                            onChange={setCategoryFilter}
+                            aria-label="Category filter"
+                        >
+                            <Select.Trigger className="min-w-36">
+                                <Select.Value placeholder={t("foodCategoryAll")} />
+                                <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                                <ListBox>
+                                    <ListBox.Item key="__all__" id="" textValue={t("foodCategoryAll")}>
+                                        {t("foodCategoryAll")}
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                    {categories.map(cat => (
+                                        <ListBox.Item key={cat} id={cat} textValue={cat}>
+                                            {cat}
+                                            <ListBox.ItemIndicator />
+                                        </ListBox.Item>
+                                    ))}
+                                </ListBox>
+                            </Select.Popover>
+                        </Select>
+                    )}
+
+                    {lockedCategory && (
+                        <Chip size="sm" color="primary" variant="solid">
+                            <Chip.Label>{lockedCategory}</Chip.Label>
+                        </Chip>
+                    )}
+
                     <span className="text-sm text-muted-foreground shrink-0">
                         {t("foodResultsCount", { count: filtered.length })}
                     </span>
                 </div>
 
-                {/* Category filter pills */}
-                {!lockedCategory ? (
-                    <div className="flex gap-2 flex-wrap mb-4">
-                        {['', ...categories].map(cat => (
-                            <Button
-                                key={cat}
-                                onClick={() => setCategoryFilter(cat)}
-                                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                                    categoryFilter === cat
-                                        ? 'bg-primary border-primary text-white'
-                                        : 'border-border text-muted-foreground hover:border-border'
-                                }`}
-                            >
-                                {cat || t("foodCategoryAll")}
+                {/* Table */}
+                {filtered.length === 0 ? (
+                    <div className="py-12 text-muted-foreground flex flex-col items-center gap-3 text-center text-sm">
+                        <span>
+                            {foodSearchQuery
+                                ? t("foodNoMatch", { query: foodSearchQuery })
+                                : t("foodNoItems")}
+                        </span>
+                        {(foodSearchQuery || '').trim() && (
+                            <Button variant="primary" onPress={openCreateModal}>
+                                {t('createFoodNamed', { name: foodSearchQuery.trim() })}
                             </Button>
-                        ))}
+                        )}
                     </div>
                 ) : (
-                    <div className="flex gap-2 flex-wrap mb-4 items-center">
-                        <span className="text-xs px-3 py-1 rounded-full bg-primary border-primary text-white">{lockedCategory}</span>
-                        <span className="text-xs text-muted-foreground">{t("foodAlternativesFiltered")}</span>
-                    </div>
+                    <Table>
+                        <Table.ScrollContainer>
+                            <Table.Content
+                                aria-label={t("foodModalTitle")}
+                                selectionMode="multiple"
+                                selectionBehavior="toggle"
+                                selectedKeys={visibleSelectedKeys}
+                                onSelectionChange={handleTableSelectionChange}
+                            >
+                                <Table.Header>
+                                    <Table.Column id="select" className="w-8 p-2">
+                                        <Checkbox aria-label="Select all" slot="selection">
+                                            <Checkbox.Control>
+                                                <Checkbox.Indicator />
+                                            </Checkbox.Control>
+                                        </Checkbox>
+                                    </Table.Column>
+                                    <Table.Column id="name" isRowHeader>{t("foodColName")}</Table.Column>
+                                    <Table.Column id="category">{t("foodColCategory")}</Table.Column>
+                                    <Table.Column id="serving">{t("foodColServing")}</Table.Column>
+                                    <Table.Column id="kcal" className="text-center">
+                                        <span className="text-muted-foreground font-medium">{t("foodColKcal")}</span>
+                                    </Table.Column>
+                                    <Table.Column id="carbs" className="text-center">
+                                        <span className="text-primary font-medium">{t("foodColCarbs")}</span>
+                                    </Table.Column>
+                                    <Table.Column id="protein" className="text-center">
+                                        <span className="text-orange-500 font-medium">{t("foodColProtein")}</span>
+                                    </Table.Column>
+                                    <Table.Column id="fat" className="text-center">
+                                        <span className="text-amber-500 font-medium">{t("foodColFat")}</span>
+                                    </Table.Column>
+                                </Table.Header>
+                                <Table.Body>
+                                    {pageItems.map(fi => (
+                                        <Table.Row
+                                            key={String(fi.id)}
+                                            id={String(fi.id)}
+                                            className="cursor-pointer"
+                                        >
+                                            <Table.Cell className="p-2">
+                                                <Checkbox
+                                                    aria-label={`Select ${fi.name_en || fi.name_ar}`}
+                                                    slot="selection"
+                                                >
+                                                    <Checkbox.Control>
+                                                        <Checkbox.Indicator />
+                                                    </Checkbox.Control>
+                                                </Checkbox>
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2 font-medium">
+                                                {fi.name_en || fi.name_ar}
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2">
+                                                {fi.food_category ? (
+                                                    <Chip size="sm" variant="soft" color="default">
+                                                        <Chip.Label>{fi.food_category}</Chip.Label>
+                                                    </Chip>
+                                                ) : (
+                                                    <span className="text-muted-foreground/40">—</span>
+                                                )}
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2 text-muted-foreground">
+                                                {fi.serving_size} {fi.serving_unit}
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2 text-center text-sm">
+                                                {fi.calories_per_serving}
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2 text-center text-sm">
+                                                {fi.carbs_per_serving}g
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2 text-center text-sm">
+                                                {fi.protein_per_serving}g
+                                            </Table.Cell>
+                                            <Table.Cell className="p-2 text-center text-sm">
+                                                {fi.fats_per_serving}g
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    ))}
+                                </Table.Body>
+                            </Table.Content>
+                        </Table.ScrollContainer>
+                    </Table>
                 )}
 
-                {/* Table */}
-                <div className="flex-1 overflow-y-auto min-h-0">
-                    <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-card shadow-sm">
-                            <tr className="border-b-2 border-border text-left text-muted-foreground">
-                                <th className="p-2 w-8">
-                                    <div
-                                        className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                                            allFilteredSelected
-                                                ? 'bg-primary border-primary'
-                                                : 'border-border bg-card hover:border-primary/40'
-                                        }`}
-                                        onClick={toggleSelectAll}
-                                    >
-                                        {allFilteredSelected && (
-                                            <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                                                <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            </svg>
-                                        )}
-                                    </div>
-                                </th>
-                                <th className="p-2">{t("foodColName")}</th>
-                                <th className="p-2">{t("foodColCategory")}</th>
-                                <th className="p-2">{t("foodColServing")}</th>
-                                <th className="p-2">{t("foodColMacros")}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="py-12 text-muted-foreground">
-                                        <div className="flex flex-col items-center gap-3 text-center">
-                                            <span>
-                                                {foodSearchQuery
-                                                    ? t("foodNoMatch", { query: foodSearchQuery })
-                                                    : t("foodNoItems")}
-                                            </span>
-                                            {(foodSearchQuery || '').trim() && (
-                                                <Button variant="primary" isDisabled={creating} onClick={handleCreateFood}>
-                                                    {creating
-                                                        ? t('creatingFood')
-                                                        : t('createFoodNamed', { name: foodSearchQuery.trim() })}
-                                                </Button>
-                                            )}
-                                            {createError && <span className="text-xs text-destructive">{createError}</span>}
-                                        </div>
-                                    </td>
-                                </tr>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <Pagination className="justify-center" size="sm">
+                        <Pagination.Content>
+                            <Pagination.Item>
+                                <Pagination.Previous isDisabled={safePage === 1} onPress={() => setPage(p => p - 1)}>
+                                    <Pagination.PreviousIcon />
+                                    <span>Previous</span>
+                                </Pagination.Previous>
+                            </Pagination.Item>
+                            {getPageNumbers(safePage, totalPages).map((p, i) =>
+                                p === "ellipsis" ? (
+                                    <Pagination.Item key={`ellipsis-${i}`}>
+                                        <Pagination.Ellipsis />
+                                    </Pagination.Item>
+                                ) : (
+                                    <Pagination.Item key={p}>
+                                        <Pagination.Link isActive={p === safePage} onPress={() => setPage(p)}>
+                                            {p}
+                                        </Pagination.Link>
+                                    </Pagination.Item>
+                                )
                             )}
-                            {filtered.map(fi => (
-                                <tr
-                                    key={fi.id}
-                                    className={`border-b cursor-pointer transition-colors hover:bg-default ${selectedIds.has(fi.id) ? 'bg-primary/10' : ''}`}
-                                    onClick={() => toggleItem(fi.id)}
-                                >
-                                    <td className="p-2">
-                                        <div
-                                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                                selectedIds.has(fi.id)
-                                                    ? 'bg-primary border-primary'
-                                                    : 'border-border bg-card'
-                                            }`}
-                                        >
-                                            {selectedIds.has(fi.id) && (
-                                                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                                                    <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                </svg>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="p-2 font-medium">{fi.name_en || fi.name_ar}</td>
-                                    <td className="p-2">
-                                        {fi.food_category
-                                            ? <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{fi.food_category}</span>
-                                            : <span className="text-muted-foreground/40">—</span>
-                                        }
-                                    </td>
-                                    <td className="p-2 text-muted-foreground">{fi.serving_size} {fi.serving_unit}</td>
-                                    <td className="p-2">
-                                        <div className="flex gap-1 flex-wrap">
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-600">{fi.calories_per_serving} kcal</span>
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-600">P {fi.protein_per_serving}g</span>
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-lime-500/15 border border-lime-500/30 text-lime-600">C {fi.carbs_per_serving}g</span>
-                                            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-500/30 text-purple-600">F {fi.fats_per_serving}g</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            <Pagination.Item>
+                                <Pagination.Next isDisabled={safePage === totalPages} onPress={() => setPage(p => p + 1)}>
+                                    <span>Next</span>
+                                    <Pagination.NextIcon />
+                                </Pagination.Next>
+                            </Pagination.Item>
+                        </Pagination.Content>
+                    </Pagination>
+                )}
 
                 {/* Footer */}
-                <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                    <span className="text-sm text-muted-foreground">{t("foodSelectedCount", { count: selectedIds.size })}</span>
+                <Separator />
+                <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">
+                        {t("foodSelectedCount", { count: selectedIds.size })}
+                    </span>
                     <div className="flex gap-3">
                         <Button
-                            variant="outline"
-                            onClick={() => setSelectedIds(new Set())}
-                            disabled={selectedIds.size === 0}
+                            variant="secondary"
+                            onPress={() => setSelectedIds(new Set())}
+                            isDisabled={selectedIds.size === 0}
                         >
                             {t("foodResetSelection")}
                         </Button>
                         <Button
-                            onClick={handleConfirm}
-                            disabled={selectedIds.size === 0}
+                            variant="primary"
+                            onPress={handleConfirm}
+                            isDisabled={selectedIds.size === 0}
                         >
                             {t("foodAddSelected")}
                         </Button>
                     </div>
                 </div>
             </div>
+
+            {/* Create food item modal — opened from the empty-state "Create X" button */}
+            <Modal open={createModalOpen} onClose={() => setCreateModalOpen(false)} title={t("createFoodModalTitle")}>
+                <FoodForm
+                    data={createFormData}
+                    onChange={(e) => setCreateFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+                    onSubmit={handleCreateSubmit}
+                    onCancel={() => setCreateModalOpen(false)}
+                    submitLabel={t("createFoodSubmit")}
+                    categories={formCategories}
+                />
+                {createError && <p className="text-xs text-destructive mt-2 px-1">{createError}</p>}
+            </Modal>
         </Modal>
     );
 }
