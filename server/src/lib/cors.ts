@@ -24,6 +24,9 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
         return false;
     }
 
+    // In development, allow any localhost port (covers Flutter web, Expo, etc.).
+    if (env.NODE_ENV === 'development' && hostname === 'localhost') return true;
+
     const root = env.ROOT_DOMAIN;
     return hostname === root || hostname.endsWith(`.${root}`);
 }
