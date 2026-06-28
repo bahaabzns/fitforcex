@@ -29,7 +29,22 @@ function hydratePlan(plan) {
     const cycles = (plan.cycles ?? []).map((cycle, cycleIndex) => {
         const meals = (cycle.meals ?? []).map((meal, mealIndex) => {
             const mealItems = (meal.items ?? []).map((item, itemIndex) => {
-                const alternatives = withListOrders(item.alternatives ?? [], "alt_order");
+                const targetCalories = item.serving_size && item.calories_per_serving
+                    ? (Number(item.amount) / Number(item.serving_size)) * Number(item.calories_per_serving)
+                    : null;
+                const alternatives = withListOrders(
+                    (item.alternatives ?? []).map((alt) => {
+                        if (alt.calculated_amount != null) return alt;
+                        if (targetCalories != null && alt.calories_per_serving && alt.serving_size) {
+                            const calculatedAmount = Math.round(
+                                (targetCalories / Number(alt.calories_per_serving)) * Number(alt.serving_size) * 10
+                            ) / 10;
+                            return { ...alt, calculated_amount: calculatedAmount };
+                        }
+                        return alt;
+                    }),
+                    "alt_order"
+                );
                 return {
                     ...item,
                     meal_item_order: itemIndex + 1,

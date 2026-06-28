@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import api from "@/lib/axios";
 import { useNutritionPlan } from "@/hooks/useNutritionPlan";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { calcMeal, calcCycle, calcItem } from "@/lib/nutritionCalc";
@@ -10,11 +11,13 @@ import LeftPanel from "@/app/components/nutrition/LeftPanel";
 import MiddlePanel from "@/app/components/nutrition/MiddlePanel";
 import RightPanel from "@/app/components/nutrition/RightPanel";
 import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
+import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 
-export default function NutritionPage({ onDirtyChange }) {
+export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) {
     const t = useTranslations('nutrition');
     const tCommon = useTranslations('common');
+    const router = useRouter();
 
     const { id } = useParams();
     const searchParams = useSearchParams();
@@ -22,6 +25,8 @@ export default function NutritionPage({ onDirtyChange }) {
 
     const [widths, setWidths] = useState([33, 34, 33]);
     const containerRef = useRef(null);
+    const [activating, setActivating] = useState(false);
+    const [activateModal, setActivateModal] = useState(false);
     // Below this width three side-by-side columns get cramped, so the deepest
     // panel (meal detail) switches to an overlay drawer. Wide layout unchanged.
     const isNarrow = useMediaQuery("(max-width: 1279px)");
@@ -103,6 +108,64 @@ export default function NutritionPage({ onDirtyChange }) {
         hasDeletedPlans,
     } = useNutritionPlan(id);
 
+    const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
+    const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
+
+    // Stable ref so onClick handlers inside the effect always call the latest version.
+    const actionsRef = useRef({});
+    actionsRef.current = { handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, selectedPlanId: selectedPlan?.id, submissionId, setActivateModal };
+
+    async function handleActivateAndMark(navigateToQueue) {
+        if (!selectedPlan?.id || !submissionId) return;
+        setActivating(true);
+        try {
+            await handleActivatePlan(selectedPlan.id);
+            await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
+            if (navigateToQueue) router.push("/plans-queue");
+        } catch {} finally {
+            setActivating(false);
+            setActivateModal(false);
+        }
+    }
+
+    useEffect(() => {
+        if (!onHeaderActionsChange) return;
+        const savePlanVisible = isSelectedPlanDirty;
+        const activateVisible = selectedPlan && selectedPlan.status !== "active";
+        if (!showSaveAll && !savePlanVisible && !activateVisible) {
+            onHeaderActionsChange(null);
+            return;
+        }
+        onHeaderActionsChange(
+            <div className="flex items-center gap-2">
+                {showSaveAll && (
+                    <Button variant="outline" isDisabled={!isDirty || isSaving}
+                        onClick={() => actionsRef.current.handleSaveAllDrafts()}>
+                        {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('saveAll')}
+                    </Button>
+                )}
+                {savePlanVisible && (
+                    <Button variant="primary" isDisabled={isSaving}
+                        onClick={() => actionsRef.current.handleSaveSelectedPlan(actionsRef.current.selectedPlanId)}>
+                        {isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}
+                    </Button>
+                )}
+                {activateVisible && (
+                    <Button
+                        isDisabled={isSaving || activating}
+                        onClick={() => {
+                            if (actionsRef.current.submissionId) { actionsRef.current.setActivateModal(true); return; }
+                            actionsRef.current.handleActivatePlan(actionsRef.current.selectedPlanId);
+                        }}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                    >
+                        {activating ? t('activating') : t('activate')}
+                    </Button>
+                )}
+            </div>
+        );
+    }, [selectedPlan?.id, selectedPlan?.status, showSaveAll, isSelectedPlanDirty, isDirty, isSaving, saveStatus, activating, submissionId, onHeaderActionsChange, t]);
+
     useEffect(() => {
         onDirtyChange?.(isDirty);
     }, [isDirty, onDirtyChange]);
@@ -154,7 +217,7 @@ const mealPanel = (
 
 return (
     <div className="flex-1 h-full min-h-full flex flex-col overflow-hidden">
-        
+
 
     <div ref={containerRef} className={`flex-1 h-full flex flex-row overflow-hidden min-h-0 ${isNarrow ? "gap-2" : ""}`}>
 
@@ -172,7 +235,6 @@ return (
                 setSortOrder={setSortOrder}
                 selectedCycleIndex={selectedCycleIndex}
                 handleUpdateCycleGoals={handleUpdateCycleGoals}
-                handleActivatePlan={handleActivatePlan}
                 handleSaveAllDrafts={handleSaveAllDrafts}
                 dirtyPlanIds={dirtyPlanIds}
                 hasDeletedPlans={hasDeletedPlans}
@@ -180,7 +242,6 @@ return (
                 isSaving={isSaving}
                 saveStatus={saveStatus}
                 clientId={id}
-                submissionId={submissionId}
             />
         </div>
 
@@ -217,17 +278,16 @@ return (
                     handleReorderMeals={handleReorderMeals}
                     handleReorderCycles={handleReorderCycles}
                     handleUpdateCycleNote={handleUpdateCycleNote}
-                    handleActivatePlan={handleActivatePlan}
-                    handleSaveSelectedPlan={handleSaveSelectedPlan}
-                    isDirty={isDirty}
-                    isSaving={isSaving}
-                    saveStatus={saveStatus}
                     dirtyPlanIds={dirtyPlanIds}
+                    saveStatus={saveStatus}
                     pendingFocusPlanId={pendingFocusPlanId}
                     setPendingFocusPlanId={setPendingFocusPlanId}
                     pendingFocusCycleId={pendingFocusCycleId}
                     setPendingFocusCycleId={setPendingFocusCycleId}
-                    submissionId={submissionId}
+                    activateModal={activateModal}
+                    setActivateModal={setActivateModal}
+                    activating={activating}
+                    handleActivateAndMark={handleActivateAndMark}
                 />
             ) : (
                 <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-2xl shadow-surface">

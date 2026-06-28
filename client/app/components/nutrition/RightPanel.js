@@ -141,14 +141,14 @@ export default function RightPanel({
                     </Disclosure>
                     {expandedKeys.has("items") && (
                     <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
-                                <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedItemIds} onExpandedChange={handleItemExpandedChange} className="divide-y divide-border py-2">
+                                <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedItemIds} onExpandedChange={handleItemExpandedChange} className="flex flex-col gap-2 px-1 py-1">
                                     {previewItems.map((item) => {
                                         const originalIndex = currentItems.findIndex(i => i.id === item.id);
                                         const isDragging = dragIndex !== null && currentItems[dragIndex]?.id === item.id;
                                         const alternatives = item.alternatives ?? [];
                                         const itemMacros = calcItem(item);
                                         return (
-                                            <Disclosure key={item.id} id={String(item.id)} className="group/disc">
+                                            <Disclosure key={item.id} id={String(item.id)} className={`group/disc rounded-xl overflow-hidden bg-app-surface-card shadow-surface transition-all duration-150 select-none ${isDragging ? "opacity-30 scale-95" : ""}`}>
                                                 <Disclosure.Heading>
                                                     <div
                                                         draggable
@@ -156,7 +156,14 @@ export default function RightPanel({
                                                         onDragOver={(e) => { e.preventDefault(); if (originalIndex !== dragRef.current) { setHoverIndex(originalIndex); hoverRef.current = originalIndex; } }}
                                                         onDrop={() => { handleReorderFoodItems(dragRef.current, hoverRef.current); setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
                                                         onDragEnd={() => { setDragIndex(null); setHoverIndex(null); dragRef.current = null; hoverRef.current = null; }}
-                                                        className={`group flex items-center gap-2 px-3 py-2 select-none transition-all duration-150 hover:bg-default group-data-open/disc:bg-primary/10 group-data-open/disc:hover:bg-primary/15 ${isDragging ? "opacity-30 scale-95" : ""}`}
+                                                        className="group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:bg-app-surface-hover group-data-open/disc:bg-app-surface-selected group-data-open/disc:hover:bg-app-surface-selected/80"
+                                                        onClick={() => {
+                                                            if (alternatives.length === 0) return;
+                                                            const key = String(item.id);
+                                                            const next = new Set(expandedItemIds);
+                                                            if (next.has(key)) next.delete(key); else next.add(key);
+                                                            handleItemExpandedChange(next);
+                                                        }}
                                                     >
                                                         {/* Drag grip */}
                                                         <span className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab shrink-0 select-none">
@@ -169,10 +176,10 @@ export default function RightPanel({
 
                                                         {/* Name + quantity stepper */}
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium truncate text-foreground group-data-open/disc:text-primary">
+                                                            <p className="text-sm font-semibold truncate text-foreground group-data-open/disc:text-primary">
                                                                 {item.name}
                                                             </p>
-                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                            <div className="flex items-center gap-1.5 mt-0.5" onClick={(e) => e.stopPropagation()}>
                                                                 <NumberField
                                                                     value={Number(item.amount) || 0}
                                                                     minValue={0}
@@ -181,23 +188,21 @@ export default function RightPanel({
                                                                     variant="secondary"
                                                                 >
                                                                     <NumberField.Group className="h-7 !flex items-center !rounded">
-                                                                        <NumberField.Input className="w-16 py-0 px-1.5 text-center text-sm font-semibold" />
+                                                                        <NumberField.Input className="w-16 py-0 px-1.5 text-center text-sm font-semibold" onFocus={(e) => e.target.select()} />
                                                                         <span className="pr-1.5 text-xs text-muted-foreground pointer-events-none select-none leading-none">{item.serving_unit}</span>
                                                                     </NumberField.Group>
                                                                 </NumberField>
                                                             </div>
                                                             {alternatives.length > 0 && (
-                                                                <Button
-                                                                    slot="trigger"
-                                                                    variant="ghost"
+                                                                <div
                                                                     title={alternatives.map(a => a.name).filter(Boolean).join(', ')}
-                                                                    className="group/alttrigger mt-1 h-auto p-0 text-xs text-muted-foreground/70 hover:text-primary data-hover:bg-transparent cursor-pointer transition-colors font-normal justify-start leading-none"
+                                                                    className="mt-1 flex items-center w-full text-xs text-muted-foreground/70 group-hover:text-muted-foreground group-data-open/disc:text-primary leading-none transition-colors"
                                                                 >
                                                                     <span className="font-medium">{t('alternativesCount', { count: alternatives.length })}</span>
                                                                     <span className="text-muted-foreground/40 mx-1">·</span>
-                                                                    <span>{alternatives.slice(0, 2).map(a => a.name).filter(Boolean).join(' · ')}{alternatives.length > 2 && ` +${alternatives.length - 2}`}</span>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5 shrink-0 transition-transform group-aria-expanded/alttrigger:rotate-180"><polyline points="6 9 12 15 18 9"/></svg>
-                                                                </Button>
+                                                                    <span className="truncate min-w-0 flex-1">{alternatives.slice(0, 2).map(a => a.name).filter(Boolean).join(' · ')}{alternatives.length > 2 && ` +${alternatives.length - 2}`}</span>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`ml-0.5 shrink-0 transition-transform ${expandedItemIds.has(String(item.id)) ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
+                                                                </div>
                                                             )}
                                                         </div>
 
@@ -210,13 +215,13 @@ export default function RightPanel({
                                                         </div>
 
                                                         {/* Actions column — fixed width so macro columns never shift */}
-                                                        <div className="w-[72px] flex items-center justify-end gap-1.5 shrink-0">
+                                                        <div className="w-17 flex items-center justify-end gap-1 shrink-0">
                                                             <button
                                                                 title={t('addAlternatives')}
-                                                                className={`cursor-pointer flex items-center gap-1 w-[46px] px-1.5 py-1.5 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors ${alternatives.length === 0 ? 'justify-center' : 'justify-start'}`}
-                                                                onClick={() => setAlternativeModalOpenForItemId(item.id)}
+                                                                className={`cursor-pointer flex items-center gap-1 w-10.5 px-1.5 py-1.5 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors ${alternatives.length === 0 ? 'justify-center' : 'justify-start'}`}
+                                                                onClick={(e) => { e.stopPropagation(); setAlternativeModalOpenForItemId(item.id); }}
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                                                                     <path d="M8 3L4 7l4 4"/><path d="M4 7h16"/>
                                                                     <path d="M16 21l4-4-4-4"/><path d="M20 17H4"/>
                                                                 </svg>
@@ -229,9 +234,9 @@ export default function RightPanel({
                                                             <button
                                                                 title={t('removeFoodItem')}
                                                                 className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                                onClick={() => handleDeleteMealItem(item.id)}
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteMealItem(item.id); }}
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                                             </button>
                                                         </div>
                                                     </div>
@@ -255,7 +260,7 @@ export default function RightPanel({
                                                                                 variant="secondary"
                                                                             >
                                                                                 <NumberField.Group className="h-7 !flex items-center !rounded">
-                                                                                    <NumberField.Input className="w-16 py-0 px-1.5 text-center text-sm font-medium" />
+                                                                                    <NumberField.Input className="w-16 py-0 px-1.5 text-center text-sm font-medium" onFocus={(e) => e.target.select()} />
                                                                                     <span className="pr-1.5 text-xs text-muted-foreground/60 pointer-events-none select-none leading-none">{alt.serving_unit}</span>
                                                                                 </NumberField.Group>
                                                                             </NumberField>

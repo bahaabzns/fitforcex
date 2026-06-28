@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import api from "@/lib/axios";
 import MacrosDonut from "./MacrosDonut";
 import InlineEditField from "@/app/components/InlineEditField";
 import { calcCycle, calcMeal } from "@/lib/nutritionCalc";
@@ -33,17 +31,15 @@ export default function MiddlePanel({
     handleReorderMeals,
     handleReorderCycles,
     handleUpdateCycleNote,
-    handleActivatePlan,
-    handleSaveSelectedPlan,
-    isDirty,
-    isSaving,
-    saveStatus,
     dirtyPlanIds,
+    saveStatus,
     pendingFocusPlanId, setPendingFocusPlanId,
     pendingFocusCycleId, setPendingFocusCycleId,
-    submissionId,
+    activateModal,
+    setActivateModal,
+    activating,
+    handleActivateAndMark,
 }) {
-    const router = useRouter();
     const t = useTranslations('nutrition');
     const tModal = useTranslations('modal');
     const [dragIndex, setDragIndex] = useState(null);
@@ -55,8 +51,6 @@ export default function MiddlePanel({
     const cycleDragRef = useRef(null);
     const cycleHoverRef = useRef(null);
     const [expandedKeys, setExpandedKeys] = useState(new Set(["meals", "notes"]));
-    const [activateModal, setActivateModal] = useState(false);
-    const [activating, setActivating] = useState(false);
 
     const planTitleRef = useRef(null);
     const cycleTitleRef = useRef(null);
@@ -104,24 +98,6 @@ export default function MiddlePanel({
     })();
     const isSelectedPlanDirty = dirtyPlanIds?.includes(String(selectedPlan.id));
 
-    async function handleActivateAndMark(navigateToQueue) {
-        if (!selectedPlan?.id || !submissionId) return;
-
-        setActivating(true);
-        try {
-            await handleActivatePlan(selectedPlan.id);
-            await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
-            if (navigateToQueue) {
-                router.push("/plans-queue");
-            }
-        } catch {
-            // silent - upstream handlers already manage errors
-        } finally {
-            setActivating(false);
-            setActivateModal(false);
-        }
-    }
-
     return (
         <>
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
@@ -138,33 +114,6 @@ export default function MiddlePanel({
                     className="flex-1 min-w-0"
                     inputClassName="font-semibold shadow-none"
                 />
-                {isSelectedPlanDirty && (
-                    <Button
-                        type="button"
-                        variant="primary"
-                        isDisabled={isSaving}
-                        onClick={() => handleSaveSelectedPlan(selectedPlan.id)}
-                        className="shrink-0"
-                    >
-                        {isSaving || saveStatus === "saving" ? t('saving') : saveStatus === "saved" ? t('saved') : t('savePlan')}
-                    </Button>
-                )}
-                {selectedPlan?.status !== "active" && (
-                    <Button
-                        type="button"
-                        isDisabled={isSaving || activating}
-                        onClick={() => {
-                            if (submissionId) {
-                                setActivateModal(true);
-                                return;
-                            }
-                            handleActivatePlan(selectedPlan.id);
-                        }}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white shrink-0"
-                    >
-                        {activating ? t('activating') : t('activate')}
-                    </Button>
-                )}
                 {isSelectedPlanDirty && (
                     <Chip size="sm" className="bg-amber-500/15 text-amber-600 border border-amber-500/20 shrink-0">
                         {t('unsaved')}
