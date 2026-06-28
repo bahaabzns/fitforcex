@@ -585,7 +585,10 @@
     "foodColName": "الاسم",
     "foodColCategory": "الفئة",
     "foodColServing": "الحصة",
-    "foodColMacros": "الماكرو",
+    "foodColKcal": "سعرات",
+    "foodColCarbs": "كربوهيدرات",
+    "foodColProtein": "بروتين",
+    "foodColFat": "دهون",
     "foodNoMatch": "لا توجد عناصر طعام تطابق \"{query}\"",
     "foodNoItems": "لا توجد عناصر طعام في هذه الفئة",
     "foodSelectedCount": "{count} عناصر محددة",
@@ -596,7 +599,8 @@
     "untitledCycle": "دورة بدون عنوان",
     "untitledMeal": "وجبة بدون عنوان",
     "createFoodNamed": "إنشاء \"{name}\"",
-    "creatingFood": "جارٍ الإنشاء…",
+    "createFoodModalTitle": "إضافة صنف غذائي",
+    "createFoodSubmit": "إضافة الصنف",
     "createFoodFailed": "تعذّر إنشاء الصنف"
   },
   "forms": {
