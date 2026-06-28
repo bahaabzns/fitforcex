@@ -185,6 +185,141 @@ export function distinctLoggedExercises(logs: WorkoutLogRow[]): LoggedExerciseRe
     return Array.from(byKey.values());
 }
 
+// ─── Coach insights ──────────────────────────────────────────────────────────
+
+export interface PersonalRecords {
+    heaviest_weight: { value: number; date: string } | null;
+    best_set:        { weight: number; reps: number; date: string } | null;
+    highest_volume:  { value: number; date: string } | null;
+    est_1rm:         { value: number; date: string } | null;
+}
+
+export interface CoachInsights {
+    strength_change_pct:       number | null;
+    strength_change_weeks:     number;
+    total_sessions:            number;
+    is_plateau:                boolean;
+    plateau_sessions_checked:  number;
+    consistency_pct:           number | null;
+}
+
+export interface RecentSession {
+    date:     string;
+    best_set: { weight: number; reps: number } | null;
+}
+
+/**
+ * All-time personal records for one exercise derived from workout logs.
+ * heaviest_weight / est_1rm / highest_volume come from progressPoints (already
+ * aggregated per session); best_set (max single-set volume) requires raw logs.
+ */
+export function computePersonalRecords(
+    logs: WorkoutLogRow[],
+    key: ExerciseKey,
+    progressPoints: ProgressPoint[],
+): PersonalRecords {
+    if (progressPoints.length === 0) {
+        return { heaviest_weight: null, best_set: null, highest_volume: null, est_1rm: null };
+    }
+
+    let hwPoint  = progressPoints[0];
+    let ermPoint = progressPoints[0];
+    let volPoint = progressPoints[0];
+    for (const p of progressPoints) {
+        if (p.top_weight   > hwPoint.top_weight)   hwPoint  = p;
+        if (p.est_1rm      > ermPoint.est_1rm)      ermPoint = p;
+        if (p.total_volume > volPoint.total_volume) volPoint = p;
+    }
+
+    let bestSet: { weight: number; reps: number; date: string } | null = null;
+    for (const log of logs) {
+        const exercise = (log.exercises ?? []).find(e => matchesExercise(e, key));
+        if (!exercise) continue;
+        for (const set of completedSets(exercise)) {
+            const vol = (set.weight as number) * (set.reps as number);
+            if (!bestSet || vol > bestSet.weight * bestSet.reps) {
+                bestSet = { weight: set.weight as number, reps: set.reps as number, date: toDateString(log.date) };
+            }
+        }
+    }
+
+    return {
+        heaviest_weight: { value: hwPoint.top_weight,   date: hwPoint.date },
+        est_1rm:         { value: ermPoint.est_1rm,      date: ermPoint.date },
+        highest_volume:  { value: volPoint.total_volume, date: volPoint.date },
+        best_set:        bestSet,
+    };
+}
+
+/**
+ * Aggregated coaching signals: strength trend, plateau detection, consistency.
+ * Compares the most recent 4-week window against the prior 4-week window for trend.
+ * Consistency = % of the last 8 calendar weeks in which the exercise appeared at least once.
+ */
+export function computeCoachInsights(progressPoints: ProgressPoint[]): CoachInsights {
+    const total        = progressPoints.length;
+    const now          = Date.now();
+    const MS_PER_WEEK  = 7 * 24 * 60 * 60 * 1000;
+
+    const recentCutoff = new Date(now - 4 * MS_PER_WEEK);
+    const olderCutoff  = new Date(now - 8 * MS_PER_WEEK);
+    const recent = progressPoints.filter(p => new Date(p.date) >= recentCutoff);
+    const older  = progressPoints.filter(p => new Date(p.date) >= olderCutoff && new Date(p.date) < recentCutoff);
+
+    let strengthChangePct: number | null = null;
+    if (recent.length >= 1 && older.length >= 1) {
+        const recentAvg = recent.reduce((s, p) => s + p.est_1rm, 0) / recent.length;
+        const olderAvg  = older.reduce((s,  p) => s + p.est_1rm, 0) / older.length;
+        if (olderAvg > 0) strengthChangePct = Math.round(((recentAvg - olderAvg) / olderAvg) * 100);
+    }
+
+    const PLATEAU_N = 4;
+    let isPlateauDetected = false;
+    if (progressPoints.length >= PLATEAU_N) {
+        const last   = progressPoints.slice(-PLATEAU_N).map(p => p.est_1rm).filter(v => v > 0);
+        const maxVal = Math.max(...last);
+        const minVal = Math.min(...last);
+        isPlateauDetected = last.length === PLATEAU_N && maxVal > 0 && (maxVal - minVal) / maxVal < 0.03;
+    }
+
+    const CONSISTENCY_WEEKS = 8;
+    const weeksWithSession = Array.from({ length: CONSISTENCY_WEEKS }, (_, i) => {
+        const weekEnd   = new Date(now - i * MS_PER_WEEK);
+        const weekStart = new Date(now - (i + 1) * MS_PER_WEEK);
+        return progressPoints.some(p => { const d = new Date(p.date); return d >= weekStart && d < weekEnd; });
+    }).filter(Boolean).length;
+
+    return {
+        strength_change_pct:      strengthChangePct,
+        strength_change_weeks:    8,
+        total_sessions:           total,
+        is_plateau:               isPlateauDetected,
+        plateau_sessions_checked: PLATEAU_N,
+        consistency_pct:          total > 0 ? Math.round((weeksWithSession / CONSISTENCY_WEEKS) * 100) : null,
+    };
+}
+
+/** Last N sessions in which the exercise appeared, newest first, with the best set per session. */
+export function extractRecentSessions(logs: WorkoutLogRow[], key: ExerciseKey, limit = 10): RecentSession[] {
+    const sorted = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const sessions: RecentSession[] = [];
+    for (const log of sorted) {
+        const exercise = (log.exercises ?? []).find(e => matchesExercise(e, key));
+        if (!exercise) continue;
+        const sets = completedSets(exercise);
+        let bestSet: { weight: number; reps: number } | null = null;
+        for (const set of sets) {
+            const vol = (set.weight as number) * (set.reps as number);
+            if (!bestSet || vol > bestSet.weight * bestSet.reps) {
+                bestSet = { weight: set.weight as number, reps: set.reps as number };
+            }
+        }
+        sessions.push({ date: toDateString(log.date), best_set: bestSet });
+        if (sessions.length >= limit) break;
+    }
+    return sessions;
+}
+
 /**
  * For each exercise the client is about to train, the sets they logged the most
  * recent time they trained it — so the UI can show a "previous" column.

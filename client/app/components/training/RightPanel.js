@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
+import ExerciseInsightsModal from "@/app/components/training/ExerciseInsightsModal";
 import { Button } from "@heroui/react/button";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
@@ -65,6 +66,12 @@ const LayersIcon = () => (
         <path d="M2 12l10 5 10-5"/>
     </svg>
 );
+const TrendingUpIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+        <polyline points="17 6 23 6 23 12"/>
+    </svg>
+);
 
 export default function RightPanel({
     selectedDay,
@@ -81,6 +88,8 @@ export default function RightPanel({
     handleUpdateSetField,
     handleUpdateDayNotes,
     onClose,
+    clientId,
+    planName,
 }) {
     const t = useTranslations('training');
     const locale = useLocale();
@@ -90,6 +99,7 @@ export default function RightPanel({
     const [hoverIndex, setHoverIndex] = useState(null);
     const [videoModalId, setVideoModalId] = useState(null);
     const [expandedExerciseIds, setExpandedExerciseIds] = useState(() => new Set());
+    const [insightsExercise, setInsightsExercise] = useState(null);
 
     const toggleExercise = (exercise) => {
         const key = exercise.exercise_library_id ?? exercise.id;
@@ -271,6 +281,15 @@ export default function RightPanel({
                                                             <LayersIcon />
                                                         </button>
                                                     )}
+                                                    {clientId && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setInsightsExercise(exercise); }}
+                                                            className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                            title="Exercise insights"
+                                                        >
+                                                            <TrendingUpIcon />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteExercise(selectedDay.id, exercise.id); }}
                                                         className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
@@ -422,6 +441,14 @@ export default function RightPanel({
                 </div>
 
             </DisclosureGroup>
+
+            <ExerciseInsightsModal
+                open={!!insightsExercise}
+                onClose={() => setInsightsExercise(null)}
+                exercise={insightsExercise}
+                clientId={clientId}
+                planName={planName}
+            />
 
             {/* Video Modal */}
             <Modal isOpen={!!videoModalId} onOpenChange={(o) => !o && setVideoModalId(null)}>

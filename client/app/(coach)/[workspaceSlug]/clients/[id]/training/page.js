@@ -194,6 +194,8 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
             handleUpdateSetField={handleUpdateSetField}
             handleUpdateDayNotes={handleUpdateDayNotes}
             onClose={handleCloseDay}
+            clientId={id}
+            planName={selectedPlan?.name}
         />
     );
 

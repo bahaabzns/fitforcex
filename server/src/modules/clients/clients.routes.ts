@@ -300,6 +300,24 @@ router.post('/:id/set-password', clientsController.setPassword);
  *       200:
  *         description: Ascending array of progress points
  *
+ * /clients/{id}/exercise-insights:
+ *   get:
+ *     summary: Combined exercise insights — progress chart, PRs, coaching signals, history
+ *     tags: [Clients]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: query, name: exercise_library_id, schema: { type: string } }
+ *       - { in: query, name: exercise_id, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: progressPoints, recentSessions, personalRecords, insights, timeline
+ *       400:
+ *         description: exercise_library_id or exercise_id required
+ *       404:
+ *         description: Client not found
+ *
  * /clients/{id}/workout-logs/{logId}:
  *   get:
  *     summary: Get one of the client's logged sessions with its sets
@@ -317,6 +335,7 @@ router.post('/:id/set-password', clientsController.setPassword);
  */
 router.get('/:id/workout-logs',        clientsController.getClientWorkoutLogs);
 router.get('/:id/exercise-progress',   clientsController.getClientExerciseProgress);
+router.get('/:id/exercise-insights',   clientsController.getClientExerciseInsights);
 router.get('/:id/logged-exercises',    clientsController.getClientLoggedExercises);
 router.get('/:id/workout-logs/:logId', clientsController.getClientWorkoutLog);
 

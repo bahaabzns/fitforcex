@@ -11,8 +11,12 @@ import {
     summarizeLog,
     buildExerciseProgress,
     distinctLoggedExercises,
+    computePersonalRecords,
+    computeCoachInsights,
+    extractRecentSessions,
     type LoggedExercise,
     type WorkoutLogRow,
+    type ExerciseKey,
 } from '../../utils/workoutLogStats';
 
 type ClientRow = Record<string, unknown>;
@@ -655,6 +659,44 @@ export async function getClientExerciseProgress(req: Request, res: Response, nex
             logs.map(toLogRow),
             { exercise_library_id: exerciseLibraryId ?? null, exercise_id: exerciseId ?? null },
         ));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function getClientExerciseInsights(req: Request, res: Response, next: NextFunction) {
+    const exerciseLibraryId = req.query.exercise_library_id as string | undefined;
+    const exerciseId        = req.query.exercise_id as string | undefined;
+    if (!exerciseLibraryId && !exerciseId) {
+        return res.status(400).json({ error: 'exercise_library_id or exercise_id is required' });
+    }
+
+    try {
+        if (!(await assertClientInWorkspace(req.params.id as string, req.user!.workspaceId))) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const logs = await prisma.workout_logs.findMany({
+            where:   { client_id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            orderBy: { date: 'desc' },
+            take:    WORKOUT_PROGRESS_LIMIT,
+            select:  { id: true, date: true, start_time: true, end_time: true, exercises: true },
+        });
+
+        const logRows       = logs.map(toLogRow);
+        const key: ExerciseKey = { exercise_library_id: exerciseLibraryId ?? null, exercise_id: exerciseId ?? null };
+        const progressPoints = buildExerciseProgress(logRows, key);
+
+        res.json({
+            progressPoints,
+            recentSessions:  extractRecentSessions(logRows, key, 10),
+            personalRecords: computePersonalRecords(logRows, key, progressPoints),
+            insights:        computeCoachInsights(progressPoints),
+            timeline: {
+                first_session_date: progressPoints.length > 0 ? progressPoints[0].date : null,
+                total_sessions:     progressPoints.length,
+            },
+        });
     } catch (err) {
         next(err);
     }
