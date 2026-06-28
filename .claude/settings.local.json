@@ -235,7 +235,11 @@
       "PowerShell(Stop-Process -Id 16852 -Force)",
       "PowerShell(\"stopped ts-node worker\")",
       "Bash(echo \"EXIT $?\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(where playwright *)",
+      "Read(//c/Users/HP/AppData/Local/ms-playwright/**)",
+      "Bash(python *)",
+      "PowerShell(Get-ChildItem *)"
     ],
     "additionalDirectories": [
       "D:\\fitforce-x\\client\\app\\(coach)\\[workspaceSlug]\\nutrition\\food-items",
