@@ -197,12 +197,12 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT w.id, w.slug, w.name, w.archived_at, w.created_at,
                        u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
-                       p.name AS plan, p.display_name AS plan_display,
+                       COALESCE(p.name, 'none') AS plan, COALESCE(p.display_name, 'No Plan') AS plan_display,
                        COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count
                 FROM workspaces w
                 JOIN users u ON u.id = w.owner_id
-                JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
-                JOIN plans p ON p.id = ws.plan_id
+                LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
+                LEFT JOIN plans p ON p.id = ws.plan_id
                 LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.is_active = TRUE
                 LEFT JOIN clients c ON c.workspace_id = w.id
                 WHERE ${where}
@@ -213,8 +213,8 @@ export async function getWorkspaces(req: Request, res: Response, next: NextFunct
             prisma.$queryRawUnsafe<Row[]>(`
                 SELECT COUNT(DISTINCT w.id)
                 FROM workspaces w
-                JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
-                JOIN plans p ON p.id = ws.plan_id
+                LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
+                LEFT JOIN plans p ON p.id = ws.plan_id
                 WHERE ${where}
             `, ...params),
         ]);
@@ -234,13 +234,13 @@ export async function getWorkspaceById(req: Request, res: Response, next: NextFu
             prisma.$queryRaw<Row[]>`
                 SELECT w.id, w.slug, w.name, w.archived_at, w.created_at, w.slug_customized,
                        u.id AS owner_id, u.fname AS owner_fname, u.lname AS owner_lname, u.email AS owner_email,
-                       p.id AS plan_id, p.name AS plan, p.display_name AS plan_display,
+                       p.id AS plan_id, COALESCE(p.name, 'none') AS plan, COALESCE(p.display_name, 'No Plan') AS plan_display,
                        ws.status AS subscription_status, ws.starts_at, ws.expires_at,
                        COUNT(DISTINCT wm.id)::int AS member_count, COUNT(DISTINCT c.id)::int AS client_count
                 FROM workspaces w
                 JOIN users u ON u.id = w.owner_id
-                JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
-                JOIN plans p ON p.id = ws.plan_id
+                LEFT JOIN workspace_subscriptions ws ON ws.workspace_id = w.id
+                LEFT JOIN plans p ON p.id = ws.plan_id
                 LEFT JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.is_active = TRUE
                 LEFT JOIN clients c ON c.workspace_id = w.id
                 WHERE w.id = ${req.params.id}
