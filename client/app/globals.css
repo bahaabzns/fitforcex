@@ -33,6 +33,19 @@
   --sidebar-accent:            color-mix(in oklch, var(--accent) 12%, transparent);
   --sidebar-accent-foreground: var(--accent);
   --sidebar-border:            hsl(220 13% 91%);
+
+  /* ── App surface elevation system ─────────────────────────────────────
+     Four semantic layers for building visual hierarchy in cards and panels.
+     Always use these names — never write raw HeroUI surface tokens in new code.
+
+       card      → cards / disclosure panels on a Surface panel
+       input     → editable fields, number spinners, notes areas
+       hover     → card background while pointer is over it
+       selected  → active / expanded card state                          */
+  --app-surface-card:     var(--surface-secondary);
+  --app-surface-input:    var(--field-background);
+  --app-surface-hover:    var(--surface-tertiary);
+  --app-surface-selected: color-mix(in oklch, var(--accent) 8%, transparent);
 }
 
 .dark {
@@ -59,6 +72,21 @@
   --sidebar-accent:            color-mix(in oklch, var(--accent) 18%, transparent);
   --sidebar-accent-foreground: var(--accent);
   --sidebar-border:            hsl(240 5% 20%);
+
+  /* ── Dark-mode surface elevation — explicit oklch, not HeroUI chains ──
+     Deliberate spacing (panel ≈ 21% fixed by HeroUI):
+       panel → card  : +3 pp  (cards emerge from the panel)
+       card  → input : +5 pp  (inputs clearly sit above the card)
+       card  → hover : +7 pp  (strong but not jarring hover feedback)
+     Selected blends 14% accent into the card colour for a barely-there tint.
+     surface-shadow is restored (HeroUI zeros it in dark) via a glass-edge
+     highlight: soft depth drop + 5% white rim on the top edge of cards.     */
+  --app-surface-card:     oklch(24% 0.006 286);
+  --app-surface-input:    oklch(29% 0.005 286);
+  --app-surface-hover:    oklch(31% 0.004 286);
+  --app-surface-selected: color-mix(in oklch, var(--accent) 14%, oklch(24% 0.006 286));
+  --surface-shadow:       0 1px 3px rgba(0, 0, 0, 0.30),
+                          0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 /* ── Brand wordmark swap ──
@@ -95,6 +123,12 @@
   /* Bridge: map tokens our component CSS uses → HeroUI equivalents */
   --color-card:            var(--color-surface);
   --color-card-foreground: var(--color-surface-foreground);
+
+  /* App surface elevation — expose as Tailwind utility values */
+  --color-app-surface-card:     var(--app-surface-card);
+  --color-app-surface-input:    var(--app-surface-input);
+  --color-app-surface-hover:    var(--app-surface-hover);
+  --color-app-surface-selected: var(--app-surface-selected);
 
   /* Radius */
   --radius-lg: var(--radius);
@@ -243,6 +277,52 @@
 /* Prevent tab text from wrapping to multiple lines (affects both LTR and RTL) */
 .tabs__tab {
   white-space: nowrap;
+}
+
+/* Sets table — data-first visual: flat, compact, ghost inputs at rest. */
+
+/* 1. Strip row borders and row-level hover tinting — interaction is at the input level */
+.sets-table .table__cell,
+.sets-table .table__row {
+  border: none !important;
+}
+.sets-table .table__row .table__cell,
+.sets-table .table__row:hover .table__cell,
+.sets-table .table__row[data-hovered="true"] .table__cell {
+  background-color: transparent !important;
+}
+
+/* 2. Flatten the header: remove the card surface, corner radius, and column separators;
+      replace with a single thin underline. */
+.sets-table .table__column {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+.sets-table .table__column::after {
+  display: none;
+}
+.sets-table .table__header {
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+/* 3. Ghost inputs: transparent at rest → subtle surface on hover → prominent on focus.
+      Uses the component's own CSS custom properties so transitions are inherited. */
+.sets-table .input--secondary {
+  --input-bg: transparent;
+  --input-bg-focus: var(--color-background);
+  border-color: transparent;
+}
+@media (hover: hover) {
+  .sets-table .input--secondary:hover:not(:focus):not(:focus-visible),
+  .sets-table .input--secondary[data-hovered="true"]:not([data-focused="true"]):not([data-focus-visible="true"]) {
+    border-color: var(--color-field-border);
+  }
+}
+.sets-table .input--secondary:focus,
+.sets-table .input--secondary[data-focused="true"] {
+  border-color: var(--color-field-border-focus);
 }
 
 /* Bug 3 — Table corner rounding: swap first/last-child radii for RTL.

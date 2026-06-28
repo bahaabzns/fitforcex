@@ -24,10 +24,8 @@ import {
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import NotificationBell from "@/app/components/NotificationBell";
+import { HeaderCollapseProvider, useHeaderCollapse } from "@/app/contexts/headerCollapse";
 
-// Returns { icon: ReactElement, crumbs: { label, href }[] } for the current path.
-// Every crumb carries an href so the whole trail is clickable; parent crumbs link
-// to their section's default page (no /nutrition, /training or /finance index exists).
 function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
     const p = pathname;
     const base = `/${slug}`;
@@ -117,7 +115,8 @@ function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
     return { icon: null, crumbs: [] };
 }
 
-export default function WorkspaceLayout({ children }) {
+function WorkspaceContent({ children }) {
+    const { headerCollapsed, setHeaderCollapsed } = useHeaderCollapse();
     const [loading, setLoading] = useState(true);
     const [collapsed, setCollapsed] = useState(false);
     const [clientLabel, setClientLabel] = useState(null);
@@ -131,9 +130,6 @@ export default function WorkspaceLayout({ children }) {
 
     const { icon, crumbs } = getPageInfo(pathname, { slug: workspaceSlug, clientId, clientLabel, tNav });
 
-    // Breadcrumbs are only clickable/hoverable within the Clients section
-    // (clients list + client-details page). Everywhere else the trail is
-    // plain, non-interactive text.
     const breadcrumbInteractive = pathname.includes('/clients');
 
     useEffect(() => {
@@ -161,6 +157,10 @@ export default function WorkspaceLayout({ children }) {
     }, [router, workspaceSlug]);
 
     useEffect(() => {
+        if (!clientId) setHeaderCollapsed(false);
+    }, [clientId, setHeaderCollapsed]);
+
+    useEffect(() => {
         if (!clientId) { setClientLabel(null); return; }
         api.get(`/api/clients/${clientId}`)
             .then(res => {
@@ -182,59 +182,69 @@ export default function WorkspaceLayout({ children }) {
         <div className="flex h-screen overflow-hidden">
             <Sidebar collapsed={collapsed} />
             <div className="flex-1 h-full flex flex-col overflow-hidden">
-                <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
-                    <Button
-                        isIconOnly
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setCollapsed(c => !c)}
-                        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    >
-                        <PanelLeft size={16} />
-                    </Button>
+                {!headerCollapsed && (
+                    <header className="flex items-center gap-3 p-4 border-b border-border shrink-0">
+                        <Button
+                            isIconOnly
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setCollapsed(c => !c)}
+                            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        >
+                            <PanelLeft size={16} />
+                        </Button>
 
-                    {crumbs.length > 0 && (
-                        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
-                            {icon && (
-                                <span className={crumbs.length === 1 ? "text-foreground" : "text-muted-foreground"}>{icon}</span>
-                            )}
-                            {crumbs.map((crumb, i) => {
-                                const isLast = i === crumbs.length - 1;
-                                const isLink = !isLast && breadcrumbInteractive;
-                                return (
-                                    <span key={i} className="flex items-center gap-1.5">
-                                        {i > 0 && <ChevronRight size={13} className="text-muted-foreground" />}
-                                        {isLink ? (
-                                            <Link
-                                                href={crumb.href}
-                                                className="text-muted-foreground underline-offset-4 transition-colors hover:underline"
-                                            >
-                                                {crumb.label}
-                                            </Link>
-                                        ) : (
-                                            <span
-                                                aria-current={isLast ? "page" : undefined}
-                                                className={isLast ? "font-medium text-foreground" : "text-muted-foreground"}
-                                            >
-                                                {crumb.label}
-                                            </span>
-                                        )}
-                                    </span>
-                                );
-                            })}
-                        </nav>
-                    )}
+                        {crumbs.length > 0 && (
+                            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
+                                {icon && (
+                                    <span className={crumbs.length === 1 ? "text-foreground" : "text-muted-foreground"}>{icon}</span>
+                                )}
+                                {crumbs.map((crumb, i) => {
+                                    const isLast = i === crumbs.length - 1;
+                                    const isLink = !isLast && breadcrumbInteractive;
+                                    return (
+                                        <span key={i} className="flex items-center gap-1.5">
+                                            {i > 0 && <ChevronRight size={13} className="text-muted-foreground" />}
+                                            {isLink ? (
+                                                <Link
+                                                    href={crumb.href}
+                                                    className="text-muted-foreground underline-offset-4 transition-colors hover:underline"
+                                                >
+                                                    {crumb.label}
+                                                </Link>
+                                            ) : (
+                                                <span
+                                                    aria-current={isLast ? "page" : undefined}
+                                                    className={isLast ? "font-medium text-foreground" : "text-muted-foreground"}
+                                                >
+                                                    {crumb.label}
+                                                </span>
+                                            )}
+                                        </span>
+                                    );
+                                })}
+                            </nav>
+                        )}
 
-                    <div className="ms-auto flex items-center gap-1">
-                        <NotificationBell />
-                        <ThemeToggle />
-                        <LanguageSwitcher />
-                    </div>
-                </header>
+                        <div className="ms-auto flex items-center gap-1">
+                            <NotificationBell />
+                            <ThemeToggle />
+                            <LanguageSwitcher />
+                        </div>
+                    </header>
+                )}
                 <main className="flex-1 h-full flex flex-col overflow-y-auto bg-background text-foreground">
                     {children}
                 </main>
             </div>
         </div>
+    );
+}
+
+export default function WorkspaceLayout({ children }) {
+    return (
+        <HeaderCollapseProvider>
+            <WorkspaceContent>{children}</WorkspaceContent>
+        </HeaderCollapseProvider>
     );
 }

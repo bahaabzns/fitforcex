@@ -3,7 +3,8 @@ import { usePathname, useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
-import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, Activity } from 'lucide-react';
+import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, Activity, ChevronUp, ChevronDown } from 'lucide-react';
+import { useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
 
@@ -65,6 +66,7 @@ export default function ClientLayout({ children }) {
     const tNav = useTranslations('nav');
     const locale = useLocale();
     const isRtl = locale === 'ar';
+    const { headerCollapsed, setHeaderCollapsed } = useHeaderCollapse();
 
     const isNutrition = pathname === `/${workspaceSlug}/clients/${id}/nutrition`;
     const isTraining  = pathname === `/${workspaceSlug}/clients/${id}/training`;
@@ -80,6 +82,8 @@ export default function ClientLayout({ children }) {
     // Dirty state bubbled up from the always-mounted pages.
     const [nutritionDirty, setNutritionDirty] = useState(false);
     const [trainingDirty,  setTrainingDirty]  = useState(false);
+    const [trainingHeaderActions, setTrainingHeaderActions] = useState(null);
+    const [nutritionHeaderActions, setNutritionHeaderActions] = useState(null);
     const isDirty = nutritionDirty || trainingDirty;
 
     // Intercept in-app link clicks that would navigate OUTSIDE the client area.
@@ -114,7 +118,7 @@ export default function ClientLayout({ children }) {
 
     return (
         <div className="p-6 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-6 shrink-0">
+            <div className="flex items-center gap-3 mb-6 shrink-0">
                 <TabsRoot
                     variant="segment"
                     selectedKey={selectedKey}
@@ -136,20 +140,31 @@ export default function ClientLayout({ children }) {
                         </TabList>
                     </TabListContainer>
                 </TabsRoot>
+                <div className="ms-auto flex items-center gap-2">
+                    {isTraining && trainingHeaderActions}
+                    {isNutrition && nutritionHeaderActions}
+                    <button
+                        onClick={() => setHeaderCollapsed(v => !v)}
+                        title={headerCollapsed ? 'Show header' : 'Hide header'}
+                        className="p-1.5 rounded-full border border-border text-muted-foreground/50 hover:text-foreground hover:bg-default transition-colors shrink-0"
+                    >
+                        {headerCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 min-h-0">
                 {/* Nutrition — mounted after first visit, hidden when not active */}
                 {(isNutrition || nutriMounted) && (
                     <div className="h-full" style={{ display: isNutrition ? undefined : "none" }}>
-                        <NutritionPage onDirtyChange={setNutritionDirty} />
+                        <NutritionPage onDirtyChange={setNutritionDirty} onHeaderActionsChange={setNutritionHeaderActions} />
                     </div>
                 )}
 
                 {/* Training — same keep-alive pattern */}
                 {(isTraining || trainMounted) && (
                     <div className="h-full" style={{ display: isTraining ? undefined : "none" }}>
-                        <TrainingPage onDirtyChange={setTrainingDirty} />
+                        <TrainingPage onDirtyChange={setTrainingDirty} onHeaderActionsChange={setTrainingHeaderActions} />
                     </div>
                 )}
 
