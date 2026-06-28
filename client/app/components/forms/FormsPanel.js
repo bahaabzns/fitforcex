@@ -2,8 +2,11 @@ import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { ClipboardList } from "lucide-react";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import { Disclosure, DisclosureGroup, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import EmptyState from "@/app/components/EmptyState";
+import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
 
 function formatRelativeTime(dateStr, t) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -19,25 +22,6 @@ function formatRelativeTime(dateStr, t) {
     if (diffDays < 365) return t('monthsAgo', { count: Math.floor(diffDays / 30) });
     return t('yearsAgo', { count: Math.floor(diffDays / 365) });
 }
-
-const CheckIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
-    </svg>
-);
-
-const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-        <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-    </svg>
-);
-
-const DuplicateIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-    </svg>
-);
 
 export default function FormsPanel({
     forms,
@@ -55,10 +39,10 @@ export default function FormsPanel({
     const [expandedKeys, setExpandedKeys] = useState(new Set(["forms"]));
 
     return (
-        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
-                {/* ── Forms Section ── */}
+                {/* Forms Section */}
                 <div className="flex flex-col min-h-0" style={{ flex: expandedKeys.has("forms") ? "1 1 0" : "0 0 auto" }}>
                     <Disclosure id="forms">
                         <Disclosure.Heading>
@@ -105,7 +89,7 @@ export default function FormsPanel({
                                 </div>
 
                                 {/* Form List */}
-                                <div className="flex-1 overflow-y-auto min-h-0">
+                                <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                     {sortedForms.length === 0 ? (
                                         <EmptyState
                                             variant="firstTime"
@@ -115,7 +99,7 @@ export default function FormsPanel({
                                             action={{ label: tNutrition('newForm'), onPress: handleCreateForm }}
                                         />
                                     ) : (
-                                        <div className="divide-y divide-border">
+                                        <div className="flex flex-col gap-2 px-1 py-1">
                                             {sortedForms.map((form) => {
                                                 const isActive = selectedForm?.id === form.id;
                                                 return (
@@ -134,7 +118,7 @@ export default function FormsPanel({
                                             })}
                                         </div>
                                     )}
-                                </div>
+                                </ScrollShadow>
                             </Disclosure.Body>
                         </Disclosure.Content>
                     </Disclosure>
@@ -148,28 +132,34 @@ export default function FormsPanel({
 function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, onSelect, onUpdate, onDelete, onDuplicate }) {
     const tForms = useTranslations('forms');
     const tCommon = useTranslations('common');
-    const titleRef = useRef(null);
 
     return (
         <div
             onClick={onSelect}
-            className={`group flex items-center gap-3 px-3 py-3 cursor-pointer rounded-lg transition-all duration-150 ${
+            className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 ${
                 isActive
-                    ? "bg-primary/10 border border-primary/30"
-                    : "hover:bg-default border border-transparent"
+                    ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
+                    : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
             }`}
         >
-            {/* Active dot */}
-            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-primary" : "bg-border group-hover:bg-muted-foreground"}`} />
+            {/* Icon avatar */}
+            <div className={`relative shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                isActive ? "bg-primary/25 text-primary" : "bg-foreground/10 text-muted-foreground group-hover:text-foreground"
+            }`}>
+                <ClipboardList size={16} />
+            </div>
 
             {/* Name + meta */}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate text-foreground flex-1">{form.title_en}</p>
+                    <p className={`text-sm font-medium truncate flex-1 ${isActive ? "text-primary" : "text-foreground"}`}>
+                        {form.title_en}
+                    </p>
                     {form.status === 'active' && (
-                        <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 text-xs font-semibold">
-                            <CheckIcon /> {tForms('active')}
-                        </span>
+                        <Chip size="sm" color="success" variant="soft" className="shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                            <Chip.Label>{tForms('active')}</Chip.Label>
+                        </Chip>
                     )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -179,32 +169,20 @@ function FormItem({ form, isActive, pendingFocusFormId, setPendingFocusFormId, o
                 </p>
             </div>
 
-            {/* Actions — visible on hover */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                {form.status !== 'active' && (
-                    <button
-                        title={tForms('setToActive')}
-                        className="cursor-pointer px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:border-green-500 hover:text-green-600 hover:bg-green-500/10 text-xs font-medium transition-colors"
-                        onClick={(e) => { e.stopPropagation(); onUpdate({ status: 'active' }); }}
-                    >
-                        Activate
-                    </button>
-                )}
-                <button
-                    title={tForms('duplicateForm')}
-                    className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors"
-                    onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
-                >
-                    <DuplicateIcon />
-                </button>
-                <button
-                    title={tForms('deleteForm')}
-                    className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                >
-                    <TrashIcon />
-                </button>
-            </div>
+            {/* Actions menu */}
+            <CardActionsMenu
+                isActive={isActive}
+                ariaLabel={form.title_en}
+                items={[
+                    ...(form.status !== 'active' ? [{
+                        key: 'activate',
+                        label: tForms('setToActive'),
+                        onSelect: () => onUpdate({ status: 'active' }),
+                    }] : []),
+                    { key: 'duplicate', label: tForms('duplicateForm'), icon: <DuplicateIcon />, onSelect: onDuplicate },
+                    { key: 'delete', label: tForms('deleteForm'), icon: <TrashIcon />, danger: true, onSelect: onDelete },
+                ]}
+            />
         </div>
     );
 }

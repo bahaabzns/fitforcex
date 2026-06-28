@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { PenLine } from "lucide-react";
 import { Button } from "@heroui/react/button";
 import { Switch } from "@heroui/react/switch";
+import { Separator, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import EmptyState from "@/app/components/EmptyState";
 import api from "@/lib/axios";
 
 const QUESTION_TYPE_VALUES = [
@@ -36,7 +40,6 @@ export default function QuestionEditorPanel({
     const [newOption, setNewOption] = useState("");
     const [metrics, setMetrics] = useState([]);
 
-    // Focus label when a new question is created
     useEffect(() => {
         if (pendingFocusQuestionId && selectedQuestion?.id === pendingFocusQuestionId) {
             labelRef.current?.focus();
@@ -45,7 +48,6 @@ export default function QuestionEditorPanel({
         }
     }, [pendingFocusQuestionId, selectedQuestion?.id, setPendingFocusQuestionId]);
 
-    // Fetch workspace metrics once for the Tracks Metric picker
     useEffect(() => {
         api.get('/api/metrics')
             .then(res => setMetrics(res.data || []))
@@ -54,13 +56,14 @@ export default function QuestionEditorPanel({
 
     if (!selectedQuestion) {
         return (
-            <div className="card w-full flex flex-col items-center justify-center min-h-full gap-3 text-center py-12">
-                <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <p className="text-sm font-medium text-muted-foreground">{t('noQuestionSelected')}</p>
-                <p className="text-xs text-muted-foreground">{t('noQuestionHint')}</p>
-            </div>
+            <Surface variant="default" className="w-full flex flex-col min-h-full p-3 rounded-2xl shadow-surface">
+                <EmptyState
+                    variant="firstTime"
+                    icon={PenLine}
+                    title={t('noQuestionSelected')}
+                    description={t('noQuestionHint')}
+                />
+            </Surface>
         );
     }
 
@@ -92,9 +95,9 @@ export default function QuestionEditorPanel({
     }
 
     return (
-        <div className="card w-full flex flex-col overflow-hidden min-h-full">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
 
-            {/* Header — inline label input + close */}
+            {/* Header: inline label input + close */}
             <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
                 <input
                     ref={labelRef}
@@ -121,199 +124,198 @@ export default function QuestionEditorPanel({
                 </button>
             </div>
 
-            {/* Divider */}
-            <div className="shrink-0 border-t border-border mb-4" />
+            <Separator className="my-2 shrink-0" />
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-5 pb-4">
+            <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
+                <div className="flex flex-col gap-5 pb-4">
 
-            {/* Type */}
-            <Field label={t('questionType')}>
-                <select
-                    key={`type-${q.id}`}
-                    defaultValue={q.type}
-                    onChange={(e) => save({ type: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
-                >
-                    {QUESTION_TYPES.map(({ value, label, icon }) => (
-                        <option key={value} value={value}>{icon} {label}</option>
-                    ))}
-                </select>
-            </Field>
-
-            {/* Metric picker — only for metric question type */}
-            {isMetricType && (
-                <Field label="Metric">
-                    {!q.metric_id && (
-                        <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30">
-                            <span className="text-warning text-sm shrink-0">⚠</span>
-                            <p className="text-xs text-warning">Select a metric below — this question won't track data until one is chosen.</p>
-                        </div>
-                    )}
-                    {metrics.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-2">No metrics found. Add metrics from Forms → Metrics.</p>
-                    ) : (
-                        <>
-                            <select
-                                key={`metric-${q.id}-${q.metric_id || 'none'}`}
-                                defaultValue={q.metric_id || ''}
-                                onChange={(e) => save({ metric_id: e.target.value || null })}
-                                className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
-                            >
-                                <option value="">— Select a metric —</option>
-                                {numberMetrics.length > 0 && (
-                                    <optgroup label="Number Metrics">
-                                        {numberMetrics.map(m => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.icon} {m.name}{m.unit ? ` (${m.unit})` : ''}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                )}
-                                {imageMetrics.length > 0 && (
-                                    <optgroup label="Photo Metrics">
-                                        {imageMetrics.map(m => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.icon} {m.name}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                )}
-                            </select>
-                            {linkedMetric && (
-                                <p className="text-xs text-primary/80 mt-1.5 flex items-center gap-1.5">
-                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                    Answers contribute to the <strong>{linkedMetric.name}</strong> history
-                                </p>
-                            )}
-                        </>
-                    )}
+                {/* Type */}
+                <Field label={t('questionType')}>
+                    <select
+                        key={`type-${q.id}`}
+                        defaultValue={q.type}
+                        onChange={(e) => save({ type: e.target.value })}
+                        className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                    >
+                        {QUESTION_TYPES.map(({ value, label, icon }) => (
+                            <option key={value} value={value}>{icon} {label}</option>
+                        ))}
+                    </select>
                 </Field>
-            )}
 
-            {/* Required — hidden for metric questions (always implied) */}
-            {!isMetricType && (
-                <div className="flex items-center justify-between gap-3 shrink-0">
-                    <div>
-                        <p className="text-sm font-medium text-foreground">{t('required')}</p>
-                        <p className="text-xs text-muted-foreground">{t('requiredHint')}</p>
-                    </div>
-                    <Switch checked={q.required} onCheckedChange={(checked) => save({ required: checked })}>
-                        <Switch.Control>
-                            <Switch.Thumb />
-                        </Switch.Control>
-                    </Switch>
-                </div>
-            )}
-
-            {/* Placeholder — text / long_text / number */}
-            {hasPlaceholder && (
-                <Field label={t('placeholderText')}>
-                    <input
-                        key={`ph-${q.id}`}
-                        type="text"
-                        defaultValue={q.placeholder_en || ''}
-                        onBlur={(e) => {
-                            const val = e.target.value.trim() || null;
-                            if (val !== (q.placeholder_en || null)) save({ placeholder_en: val });
-                        }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                        placeholder={t('placeholderHint')}
-                        className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
-                    />
-                </Field>
-            )}
-
-            {/* Scale min/max */}
-            {hasScale && (
-                <Field label={t('scaleRange')}>
-                    <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                            <label className="text-xs text-muted-foreground mb-1 block">{t('scaleMin')}</label>
-                            <input
-                                key={`min-${q.id}`}
-                                type="number"
-                                defaultValue={q.min_value ?? 1}
-                                onBlur={(e) => save({ min_value: parseInt(e.target.value) || 1 })}
-                                className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none text-center hover:border-primary/40 transition-colors"
-                                min={0} max={10}
-                            />
-                        </div>
-                        <span className="text-muted-foreground/40 mt-5 text-lg">—</span>
-                        <div className="flex-1">
-                            <label className="text-xs text-muted-foreground mb-1 block">{t('scaleMax')}</label>
-                            <input
-                                key={`max-${q.id}`}
-                                type="number"
-                                defaultValue={q.max_value ?? 10}
-                                onBlur={(e) => save({ max_value: parseInt(e.target.value) || 10 })}
-                                className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none text-center hover:border-primary/40 transition-colors"
-                                min={1} max={100}
-                            />
-                        </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between">
-                        {[...Array(Math.min((q.max_value ?? 10) - (q.min_value ?? 1) + 1, 11))].map((_, i) => {
-                            const val = (q.min_value ?? 1) + i;
-                            return (
-                                <div key={val} className="flex flex-col items-center gap-1">
-                                    <div className="w-7 h-7 rounded-full border-2 border-border bg-card flex items-center justify-center text-xs text-muted-foreground font-medium">
-                                        {val}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </Field>
-            )}
-
-            {/* Options — select / multiselect */}
-            {hasOptions && (
-                <Field label={`${t('options')} (${(q.options || []).length})`}>
-                    {/* Existing options */}
-                    <div className="flex flex-col gap-1.5 mb-3">
-                        {(q.options || []).length === 0 ? (
-                            <p className="text-xs text-muted-foreground py-2 text-center">{t('noOptions')}</p>
-                        ) : (
-                            (q.options || []).map((opt, idx) => (
-                                <div key={idx} className="flex items-center gap-2 group">
-                                    <span className={`shrink-0 w-4 h-4 rounded-full border-2 border-border ${q.type === 'multiselect' ? 'rounded' : 'rounded-full'}`} />
-                                    <span className="flex-1 text-sm text-foreground truncate">{opt}</span>
-                                    <button
-                                        className="cursor-pointer shrink-0 p-1 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                                        onClick={() => removeOption(idx)}
-                                    >
-                                        <TrashIcon />
-                                    </button>
-                                </div>
-                            ))
+                {/* Metric picker */}
+                {isMetricType && (
+                    <Field label="Metric">
+                        {!q.metric_id && (
+                            <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30">
+                                <span className="text-warning text-sm shrink-0">⚠</span>
+                                <p className="text-xs text-warning">Select a metric below — this question won't track data until one is chosen.</p>
+                            </div>
                         )}
+                        {metrics.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2">No metrics found. Add metrics from Forms Metrics.</p>
+                        ) : (
+                            <>
+                                <select
+                                    key={`metric-${q.id}-${q.metric_id || 'none'}`}
+                                    defaultValue={q.metric_id || ''}
+                                    onChange={(e) => save({ metric_id: e.target.value || null })}
+                                    className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                                >
+                                    <option value="">Select a metric</option>
+                                    {numberMetrics.length > 0 && (
+                                        <optgroup label="Number Metrics">
+                                            {numberMetrics.map(m => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.icon} {m.name}{m.unit ? ` (${m.unit})` : ''}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                    {imageMetrics.length > 0 && (
+                                        <optgroup label="Photo Metrics">
+                                            {imageMetrics.map(m => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.icon} {m.name}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                </select>
+                                {linkedMetric && (
+                                    <p className="text-xs text-primary/80 mt-1.5 flex items-center gap-1.5">
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                        Answers contribute to the <strong>{linkedMetric.name}</strong> history
+                                    </p>
+                                )}
+                            </>
+                        )}
+                    </Field>
+                )}
+
+                {/* Required */}
+                {!isMetricType && (
+                    <div className="flex items-center justify-between gap-3 shrink-0">
+                        <div>
+                            <p className="text-sm font-medium text-foreground">{t('required')}</p>
+                            <p className="text-xs text-muted-foreground">{t('requiredHint')}</p>
+                        </div>
+                        <Switch checked={q.required} onCheckedChange={(checked) => save({ required: checked })}>
+                            <Switch.Control>
+                                <Switch.Thumb />
+                            </Switch.Control>
+                        </Switch>
                     </div>
-                    {/* Add new option */}
-                    <div className="flex gap-2">
+                )}
+
+                {/* Placeholder */}
+                {hasPlaceholder && (
+                    <Field label={t('placeholderText')}>
                         <input
+                            key={`ph-${q.id}`}
                             type="text"
-                            value={newOption}
-                            onChange={(e) => setNewOption(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption(); } }}
-                            placeholder={t('addOptionHint')}
-                            className="flex-1 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                            defaultValue={q.placeholder_en || ''}
+                            onBlur={(e) => {
+                                const val = e.target.value.trim() || null;
+                                if (val !== (q.placeholder_en || null)) save({ placeholder_en: val });
+                            }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                            placeholder={t('placeholderHint')}
+                            className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
                         />
-                        <Button variant="primary" onClick={addOption} className="shrink-0">
-                            {tCommon('add')}
-                        </Button>
-                    </div>
-                </Field>
-            )}
+                    </Field>
+                )}
 
-            {/* Preview */}
-            <div className="rounded-lg bg-secondary border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('preview')}</p>
-                <QuestionPreview question={q} linkedMetric={linkedMetric} />
-            </div>
+                {/* Scale min/max */}
+                {hasScale && (
+                    <Field label={t('scaleRange')}>
+                        <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                                <label className="text-xs text-muted-foreground mb-1 block">{t('scaleMin')}</label>
+                                <input
+                                    key={`min-${q.id}`}
+                                    type="number"
+                                    defaultValue={q.min_value ?? 1}
+                                    onBlur={(e) => save({ min_value: parseInt(e.target.value) || 1 })}
+                                    className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none text-center hover:border-primary/40 transition-colors"
+                                    min={0} max={10}
+                                />
+                            </div>
+                            <span className="text-muted-foreground/40 mt-5 text-lg">—</span>
+                            <div className="flex-1">
+                                <label className="text-xs text-muted-foreground mb-1 block">{t('scaleMax')}</label>
+                                <input
+                                    key={`max-${q.id}`}
+                                    type="number"
+                                    defaultValue={q.max_value ?? 10}
+                                    onBlur={(e) => save({ max_value: parseInt(e.target.value) || 10 })}
+                                    className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none text-center hover:border-primary/40 transition-colors"
+                                    min={1} max={100}
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                            {[...Array(Math.min((q.max_value ?? 10) - (q.min_value ?? 1) + 1, 11))].map((_, i) => {
+                                const val = (q.min_value ?? 1) + i;
+                                return (
+                                    <div key={val} className="flex flex-col items-center gap-1">
+                                        <div className="w-7 h-7 rounded-full border-2 border-border bg-card flex items-center justify-center text-xs text-muted-foreground font-medium">
+                                            {val}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Field>
+                )}
 
-            </div>{/* end scrollable content */}
-        </div>
+                {/* Options */}
+                {hasOptions && (
+                    <Field label={`${t('options')} (${(q.options || []).length})`}>
+                        <div className="flex flex-col gap-1.5 mb-3">
+                            {(q.options || []).length === 0 ? (
+                                <p className="text-xs text-muted-foreground py-2 text-center">{t('noOptions')}</p>
+                            ) : (
+                                (q.options || []).map((opt, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 group">
+                                        <span className={`shrink-0 w-4 h-4 border-2 border-border ${q.type === 'multiselect' ? 'rounded' : 'rounded-full'}`} />
+                                        <span className="flex-1 text-sm text-foreground truncate">{opt}</span>
+                                        <button
+                                            className="cursor-pointer shrink-0 p-1 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                                            onClick={() => removeOption(idx)}
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={newOption}
+                                onChange={(e) => setNewOption(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption(); } }}
+                                placeholder={t('addOptionHint')}
+                                className="flex-1 px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none placeholder:text-muted-foreground hover:border-primary/40 transition-colors"
+                            />
+                            <Button variant="primary" onClick={addOption} className="shrink-0">
+                                {tCommon('add')}
+                            </Button>
+                        </div>
+                    </Field>
+                )}
+
+                {/* Preview */}
+                <div className="rounded-xl bg-secondary border border-border p-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('preview')}</p>
+                    <QuestionPreview question={q} linkedMetric={linkedMetric} />
+                </div>
+
+                </div>
+            </ScrollShadow>
+        </Surface>
     );
 }
 
@@ -330,13 +332,13 @@ function Field({ label, required, children }) {
 }
 
 function QuestionPreview({ question: q, linkedMetric }) {
-    const ph = q.placeholder_en || "Your answer…";
+    const ph = q.placeholder_en || "Your answer";
     switch (q.type) {
         case 'metric': {
             if (!linkedMetric) return <p className="text-xs text-muted-foreground italic">Select a metric above to preview</p>;
             if (linkedMetric.type === 'image') {
                 return (
-                    <div className="w-full h-24 rounded-md border-2 border-dashed border-border bg-background flex flex-col items-center justify-center gap-1 opacity-60">
+                    <div className="w-full h-24 rounded-lg border-2 border-dashed border-border bg-background flex flex-col items-center justify-center gap-1 opacity-60">
                         <span className="text-2xl">📷</span>
                         <span className="text-xs text-muted-foreground">Upload photo</span>
                     </div>
@@ -344,20 +346,20 @@ function QuestionPreview({ question: q, linkedMetric }) {
             }
             return (
                 <div className="flex items-center gap-2 opacity-60">
-                    <input type="number" placeholder={`Enter ${linkedMetric.name.toLowerCase()}…`} disabled
-                        className="flex-1 px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm" />
+                    <input type="number" placeholder={`Enter ${linkedMetric.name.toLowerCase()}`} disabled
+                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm" />
                     {linkedMetric.unit && <span className="text-sm text-muted-foreground shrink-0">{linkedMetric.unit}</span>}
                 </div>
             );
         }
         case 'text':
-            return <input type="text" placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;
+            return <input type="text" placeholder={ph} disabled className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm opacity-60" />;
         case 'long_text':
-            return <textarea rows={2} placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60 resize-none" />;
+            return <textarea rows={2} placeholder={ph} disabled className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm opacity-60 resize-none" />;
         case 'number':
-            return <input type="number" placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;
+            return <input type="number" placeholder={ph} disabled className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm opacity-60" />;
         case 'date':
-            return <input type="date" disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;
+            return <input type="date" disabled className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm opacity-60" />;
         case 'scale': {
             const min = q.min_value ?? 1;
             const max = q.max_value ?? 10;

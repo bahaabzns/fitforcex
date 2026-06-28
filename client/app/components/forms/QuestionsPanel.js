@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { ClipboardList, ListTodo } from "lucide-react";
 import { Button } from "@heroui/react/button";
+import { Separator, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import EmptyState from "@/app/components/EmptyState";
 
 const QUESTION_TYPE_VALUES = [
     { value: "text",        labelKey: "typeShortText",   icon: "T" },
@@ -50,7 +54,6 @@ export default function QuestionsPanel({
     const [showTypePicker, setShowTypePicker] = useState(false);
     const typePickerRef = useRef(null);
 
-    // Close type picker on outside click
     useEffect(() => {
         if (!showTypePicker) return;
         function handler(e) {
@@ -62,7 +65,6 @@ export default function QuestionsPanel({
         return () => document.removeEventListener('mousedown', handler);
     }, [showTypePicker]);
 
-    // Drag preview
     const previewQuestions = (() => {
         if (dragIndex === null || hoverIndex === null || dragIndex === hoverIndex) return questions;
         const arr = [...questions];
@@ -73,20 +75,21 @@ export default function QuestionsPanel({
 
     if (!selectedForm) {
         return (
-            <div className="card w-full flex flex-col items-center justify-center min-h-full gap-3 text-center py-12">
-                <svg className="w-10 h-10 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm font-medium text-muted-foreground">{t('selectForm')}</p>
-                <p className="text-xs text-muted-foreground">{t('selectFormHint')}</p>
-            </div>
+            <Surface variant="default" className="w-full flex flex-col min-h-full p-3 rounded-2xl shadow-surface">
+                <EmptyState
+                    variant="firstTime"
+                    icon={ClipboardList}
+                    title={t('selectForm')}
+                    description={t('selectFormHint')}
+                />
+            </Surface>
         );
     }
 
     return (
-        <div className="card w-full flex flex-col overflow-hidden min-h-full">
+        <Surface variant="default" className="w-full flex flex-col overflow-hidden min-h-full p-3 rounded-2xl shadow-surface">
 
-            {/* Form Title (inline edit) + close */}
+            {/* Form Title inline edit + close */}
             <div className="flex justify-between items-center mb-3 gap-4 shrink-0">
                 <FormTitleInput
                     form={selectedForm}
@@ -103,7 +106,7 @@ export default function QuestionsPanel({
                 </button>
             </div>
 
-            {/* Description (inline edit) */}
+            {/* Description inline edit */}
             <textarea
                 key={`desc-${selectedForm.id}`}
                 rows={2}
@@ -144,8 +147,7 @@ export default function QuestionsPanel({
                 </div>
             </div>
 
-            {/* Divider */}
-            <div className="shrink-0 border-t border-border my-2" />
+            <Separator className="my-2 shrink-0" />
 
             {/* Questions Section */}
             <div className="flex flex-col min-h-0 flex-1">
@@ -170,7 +172,7 @@ export default function QuestionsPanel({
                                 {t('newQuestion')}
                             </Button>
                             {showTypePicker && (
-                                <div className="absolute right-0 top-9 z-30 bg-card border border-border rounded-lg shadow-lg py-1.5 min-w-45">
+                                <div className="absolute right-0 top-9 z-30 bg-card border border-border rounded-xl shadow-lg py-1.5 min-w-45">
                                     {QUESTION_TYPES.map(({ value, label, icon }) => (
                                         <button
                                             key={value}
@@ -191,17 +193,16 @@ export default function QuestionsPanel({
                 </div>
 
                 {!questionsCollapsed && (
-                    <div className="flex-1 overflow-y-auto min-h-0 p-1">
+                    <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                         {questions.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
-                                <svg className="w-8 h-8 text-border" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                                </svg>
-                                <p className="text-sm font-medium text-muted-foreground">{t('noQuestionsYet')}</p>
-                                <p className="text-xs text-muted-foreground">{t('noQuestionsHint')}</p>
-                            </div>
+                            <EmptyState
+                                variant="firstTime"
+                                icon={ListTodo}
+                                title={t('noQuestionsYet')}
+                                description={t('noQuestionsHint')}
+                            />
                         ) : (
-                            <div>
+                            <div className="flex flex-col gap-2 px-1 py-1">
                                 {previewQuestions.map((q, i) => {
                                     const originalIndex = questions.findIndex(orig => orig.id === q.id);
                                     const isDragging = dragIndex !== null && questions[dragIndex]?.id === q.id;
@@ -216,12 +217,12 @@ export default function QuestionsPanel({
                                             onDrop={() => { handleReorderQuestions(dragIndex, hoverIndex); setDragIndex(null); setHoverIndex(null); }}
                                             onDragEnd={() => { setDragIndex(null); setHoverIndex(null); }}
                                             onClick={() => setSelectedQuestion(q)}
-                                            className={`group flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all duration-150 mb-1.5 select-none ${
+                                            className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer shadow-surface transition-all duration-150 select-none ${
                                                 isDragging ? "opacity-30 scale-95" : ""
                                             } ${
                                                 isSelected
-                                                    ? "bg-primary/10 border-primary/30 shadow-sm"
-                                                    : "bg-card border-border hover:bg-default hover:border-primary/30 hover:shadow-sm"
+                                                    ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
+                                                    : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
                                             }`}
                                         >
                                             {/* Drag grip */}
@@ -269,10 +270,10 @@ export default function QuestionsPanel({
                                 })}
                             </div>
                         )}
-                    </div>
+                    </ScrollShadow>
                 )}
             </div>
-        </div>
+        </Surface>
     );
 }
 
