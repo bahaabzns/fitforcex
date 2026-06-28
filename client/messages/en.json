@@ -23,7 +23,8 @@
     "exercises": "Exercises",
     "muscleGroups": "Muscle Groups",
     "equipment": "Equipment",
-    "subscriptionPolicies": "Subscription Policies"
+    "subscriptionPolicies": "Subscription Policies",
+    "metrics": "Metrics"
   },
   "sidebar": {
     "logout": "Logout",
@@ -634,6 +635,7 @@
     "typeSingleChoice": "Single Choice",
     "typeMultiChoice": "Multi Choice",
     "typeDate": "Date",
+    "typeMetric": "Metric",
     "placeholderText": "Placeholder Text",
     "placeholderHint": "e.g. Your answer here…",
     "scaleRange": "Scale Range",

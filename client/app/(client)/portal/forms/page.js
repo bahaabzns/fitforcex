@@ -126,7 +126,7 @@ export default function ClientFormsListPage() {
                                                     <Clock size={11} className="mr-1" />{t('filterPending')}
                                                 </Chip>
                                                 <Link
-                                                    href={`/client/forms/${req.id}`}
+                                                    href={`/portal/forms/${req.id}`}
                                                     className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer"
                                                 >
                                                     {t('fillForm')}
@@ -147,7 +147,7 @@ export default function ClientFormsListPage() {
                                                     <CheckCircle size={11} className="mr-1" />{t('filterSubmitted')}
                                                 </Chip>
                                                 <Link
-                                                    href={`/client/forms/${req.id}`}
+                                                    href={`/portal/forms/${req.id}`}
                                                     className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
                                                 >
                                                     {t('viewAnswers')}

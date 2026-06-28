@@ -33,7 +33,7 @@ export default function ClientFillFormPage() {
                     setAnswers(filled);
                 }
             })
-            .catch(() => router.push("/client/dashboard"))
+            .catch(() => router.push("/portal/home"))
             .finally(() => setLoading(false));
     }, [requestId, router]);
 
@@ -58,7 +58,7 @@ export default function ClientFillFormPage() {
                 answer: answers[q.id] ?? '',
             }));
             await api.post(`/api/client-portal/form-requests/${requestId}/submit`, { answers: answersPayload });
-            router.push("/client/forms");
+            router.push("/portal/forms");
         } catch (e) {
             setError(e.response?.data?.error || t('submitFailed'));
         } finally {
@@ -88,7 +88,7 @@ export default function ClientFillFormPage() {
                 <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push("/client/forms")}
+                    onClick={() => router.push("/portal/forms")}
                     className="mt-1 text-muted-foreground"
                 >
                     {t('back')}
@@ -131,7 +131,7 @@ export default function ClientFillFormPage() {
                                     placeholder={getLocalizedField(q, 'placeholder', locale)} disabled={isSubmitted} className={inputCls} />
                             )}
 
-                            {q.type === 'textarea' && (
+                            {(q.type === 'long_text' || q.type === 'textarea') && (
                                 <textarea value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
                                     placeholder={getLocalizedField(q, 'placeholder', locale)} disabled={isSubmitted} rows={4} className={`${inputCls} resize-none`} />
                             )}
@@ -139,6 +139,38 @@ export default function ClientFillFormPage() {
                             {q.type === 'number' && (
                                 <input type="number" value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
                                     placeholder={getLocalizedField(q, 'placeholder', locale)} disabled={isSubmitted} className={inputCls} />
+                            )}
+
+                            {q.type === 'date' && (
+                                <input type="date" value={answers[q.id] ?? ''} onChange={e => setAnswer(q.id, e.target.value)}
+                                    disabled={isSubmitted} className={inputCls} />
+                            )}
+
+                            {q.type === 'metric' && q.metric_type === 'number' && (
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        value={answers[q.id] ?? ''}
+                                        onChange={e => setAnswer(q.id, e.target.value)}
+                                        placeholder={`Enter ${(q.metric_name || 'value').toLowerCase()}…`}
+                                        disabled={isSubmitted}
+                                        className={`${inputCls} flex-1`}
+                                    />
+                                    {q.metric_unit && (
+                                        <span className="text-sm text-muted-foreground shrink-0 px-3 py-2 rounded-md border border-border bg-secondary">
+                                            {q.metric_unit}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {q.type === 'metric' && q.metric_type === 'image' && (
+                                <MetricPhotoInput
+                                    questionId={q.id}
+                                    value={answers[q.id]}
+                                    isSubmitted={isSubmitted}
+                                    onChange={setAnswer}
+                                />
                             )}
 
                             {q.type === 'scale' && (
@@ -208,6 +240,66 @@ export default function ClientFillFormPage() {
                     </Button>
                 )}
             </form>
+        </div>
+    );
+}
+
+function MetricPhotoInput({ questionId, value, isSubmitted, onChange }) {
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+
+    async function handleFile(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadError('');
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('photo', file);
+            const res = await api.post('/api/client-portal/uploads/photo', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            onChange(questionId, res.data.url);
+        } catch {
+            setUploadError('Upload failed — please try again');
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    if (isSubmitted && value) {
+        return (
+            <img src={value} alt="Progress photo" className="w-full max-h-72 object-cover rounded-lg border border-border" />
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-2">
+            <label className={`flex flex-col items-center justify-center gap-2 w-full rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                value ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/40 bg-secondary'
+            } ${isSubmitted ? 'opacity-60 pointer-events-none' : ''}`}>
+                <input type="file" accept="image/*" className="sr-only" onChange={handleFile} disabled={isSubmitted || uploading} />
+                {uploading ? (
+                    <div className="py-8 flex flex-col items-center gap-2">
+                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-muted-foreground">Uploading…</span>
+                    </div>
+                ) : value ? (
+                    <div className="relative w-full">
+                        <img src={value} alt="Progress photo" className="w-full max-h-56 object-cover rounded-lg" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg opacity-0 hover:opacity-100 transition-opacity">
+                            <span className="text-white text-xs font-medium">Tap to replace</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="py-10 flex flex-col items-center gap-2">
+                        <span className="text-3xl">📷</span>
+                        <span className="text-sm font-medium text-foreground">Tap to upload photo</span>
+                        <span className="text-xs text-muted-foreground">JPG, PNG, HEIC up to 20 MB</span>
+                    </div>
+                )}
+            </label>
+            {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
         </div>
     );
 }

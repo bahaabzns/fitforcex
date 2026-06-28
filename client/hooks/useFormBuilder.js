@@ -110,7 +110,7 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
             });
             const newForm = newFormRes.data;
 
-            // Re-create all questions
+            // Re-create all questions (metric_id carried over so tracking is preserved)
             for (const q of qs.data) {
                 await api.post(`${basePath}/${newForm.id}/questions`, {
                     label_en: q.label_en, label_ar: q.label_ar,
@@ -118,6 +118,7 @@ export function useFormBuilder({ basePath = '/api/forms' } = {}) {
                     placeholder_en: q.placeholder_en, placeholder_ar: q.placeholder_ar,
                     options: q.options, options_ar: q.options_ar,
                     min_value: q.min_value, max_value: q.max_value,
+                    metric_id: q.metric_id || null,
                 });
             }
 

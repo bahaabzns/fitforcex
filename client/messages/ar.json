@@ -23,7 +23,8 @@
     "exercises": "التمارين",
     "muscleGroups": "مجموعات العضلات",
     "equipment": "المعدات",
-    "subscriptionPolicies": "سياسات الاشتراك"
+    "subscriptionPolicies": "سياسات الاشتراك",
+    "metrics": "القياسات"
   },
   "sidebar": {
     "logout": "تسجيل الخروج",
@@ -634,6 +635,7 @@
     "typeSingleChoice": "اختيار واحد",
     "typeMultiChoice": "اختيار متعدد",
     "typeDate": "تاريخ",
+    "typeMetric": "قياس",
     "placeholderText": "نص الحقل الافتراضي",
     "placeholderHint": "مثال: أجب هنا…",
     "scaleRange": "نطاق المقياس",

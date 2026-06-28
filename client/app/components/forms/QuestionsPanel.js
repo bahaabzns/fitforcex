@@ -10,6 +10,7 @@ const QUESTION_TYPE_VALUES = [
     { value: "select",      labelKey: "typeSingleChoice",icon: "◉" },
     { value: "multiselect", labelKey: "typeMultiChoice", icon: "☑" },
     { value: "date",        labelKey: "typeDate",        icon: "📅" },
+    { value: "metric",      labelKey: "typeMetric",      icon: "📊" },
 ];
 
 const TrashIcon = () => (
@@ -244,6 +245,11 @@ export default function QuestionsPanel({
                                             }`}>
                                                 {typeMeta?.icon}
                                             </span>
+
+                                            {/* Tracked metric dot */}
+                                            {q.metric_id && (
+                                                <span title="Tracks a metric" className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary/60" />
+                                            )}
 
                                             {/* Required dot */}
                                             {q.required && (

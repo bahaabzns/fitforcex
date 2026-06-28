@@ -56,6 +56,7 @@ export default function Sidebar({ collapsed }) {
     const [nutritionOpen, setNutritionOpen] = useState(pathname.includes('/nutrition') && !pathname.includes('/clients/'));
     const [trainingOpen, setTrainingOpen] = useState(pathname.includes('/training') && !pathname.includes('/clients/'));
     const [financeOpen, setFinanceOpen] = useState(pathname.includes('/finance'));
+    const [formsOpen, setFormsOpen] = useState(pathname.includes('/forms') && !pathname.includes('/clients/'));
     const [settingsOpen, setSettingsOpen] = useState(pathname.includes('/settings'));
     const [user, setUser] = useState(null);
     const [wsOpen, setWsOpen] = useState(false);
@@ -146,6 +147,7 @@ export default function Sidebar({ collapsed }) {
     useEffect(() => {
         if (collapsed) {
             setFinanceOpen(false);
+            setFormsOpen(false);
             setNutritionOpen(false);
             setTrainingOpen(false);
             setSettingsOpen(false);
@@ -274,15 +276,37 @@ export default function Sidebar({ collapsed }) {
                         </Link>
                     </li>
 
+                    {/* Expandable menu: Forms */}
                     <li>
-                        <Link
-                            href={`/${slug}/forms`}
-                            title={collapsed ? tNav('forms') : undefined}
-                            className={navLink(pathname.includes('/forms') && !pathname.includes('/clients/'))}
-                        >
-                            <ClipboardList size={17} className="shrink-0" />
-                            {!collapsed && <span className="flex-1">{tNav('forms')}</span>}
-                        </Link>
+                        <Disclosure isExpanded={formsOpen} onExpandedChange={setFormsOpen}>
+                            <Disclosure.Heading>
+                                <Disclosure.Trigger className={`${navLink(pathname.includes('/forms') && !pathname.includes('/clients/'))} w-full cursor-pointer`} disabled={collapsed}>
+                                    <ClipboardList size={17} className="shrink-0" />
+                                    {!collapsed && (
+                                        <>
+                                            <span className="flex-1">{tNav('forms')}</span>
+                                            <ChevronRight size={14} className={`transition-transform duration-200 ${formsOpen ? 'rotate-90' : 'rtl:rotate-180'}`} />
+                                        </>
+                                    )}
+                                </Disclosure.Trigger>
+                            </Disclosure.Heading>
+                            <Disclosure.Content>
+                                <Disclosure.Body>
+                                    <ul className="flex flex-col gap-0.5 mt-1 ms-5 ps-2 border-s border-sidebar-border">
+                                        <li>
+                                            <Link href={`/${slug}/forms`} className={subLink(pathname === `/${slug}/forms` || (pathname.includes('/forms') && !pathname.includes('/forms/metrics') && !pathname.includes('/clients/')))}>
+                                                {tNav('forms')}
+                                            </Link>
+                                        </li>
+                                        <li>
+                                            <Link href={`/${slug}/forms/metrics`} className={subLink(pathname.includes('/forms/metrics'))}>
+                                                {tNav('metrics')}
+                                            </Link>
+                                        </li>
+                                    </ul>
+                                </Disclosure.Body>
+                            </Disclosure.Content>
+                        </Disclosure>
                     </li>
 
                     {/* Expandable menu: Nutrition */}

@@ -1,7 +1,10 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@heroui/react/button";
 import { Switch } from "@heroui/react/switch";
+import api from "@/lib/axios";
 
 const QUESTION_TYPE_VALUES = [
     { value: "text",        labelKey: "typeShortText",   icon: "T" },
@@ -11,6 +14,7 @@ const QUESTION_TYPE_VALUES = [
     { value: "select",      labelKey: "typeSingleChoice",icon: "◉" },
     { value: "multiselect", labelKey: "typeMultiChoice", icon: "☑" },
     { value: "date",        labelKey: "typeDate",        icon: "📅" },
+    { value: "metric",      labelKey: "typeMetric",      icon: "📊" },
 ];
 
 const TrashIcon = () => (
@@ -30,6 +34,7 @@ export default function QuestionEditorPanel({
     const QUESTION_TYPES = QUESTION_TYPE_VALUES.map(q => ({ ...q, label: t(q.labelKey) }));
     const labelRef = useRef(null);
     const [newOption, setNewOption] = useState("");
+    const [metrics, setMetrics] = useState([]);
 
     // Focus label when a new question is created
     useEffect(() => {
@@ -39,6 +44,13 @@ export default function QuestionEditorPanel({
             setPendingFocusQuestionId(null);
         }
     }, [pendingFocusQuestionId, selectedQuestion?.id, setPendingFocusQuestionId]);
+
+    // Fetch workspace metrics once for the Tracks Metric picker
+    useEffect(() => {
+        api.get('/api/metrics')
+            .then(res => setMetrics(res.data || []))
+            .catch(() => {});
+    }, []);
 
     if (!selectedQuestion) {
         return (
@@ -53,9 +65,14 @@ export default function QuestionEditorPanel({
     }
 
     const q = selectedQuestion;
-    const hasOptions    = q.type === 'select' || q.type === 'multiselect';
+    const isMetricType   = q.type === 'metric';
+    const hasOptions     = q.type === 'select' || q.type === 'multiselect';
     const hasPlaceholder = ['text', 'long_text', 'number'].includes(q.type);
-    const hasScale      = q.type === 'scale';
+    const hasScale       = q.type === 'scale';
+
+    const numberMetrics = metrics.filter(m => m.type === 'number');
+    const imageMetrics  = metrics.filter(m => m.type === 'image');
+    const linkedMetric  = q.metric_id ? metrics.find(m => m.id === q.metric_id) : null;
 
     function save(updates) {
         handleUpdateQuestion(q.id, updates);
@@ -124,18 +141,70 @@ export default function QuestionEditorPanel({
                 </select>
             </Field>
 
-            {/* Required */}
-            <div className="flex items-center justify-between gap-3 shrink-0">
-                <div>
-                    <p className="text-sm font-medium text-foreground">{t('required')}</p>
-                    <p className="text-xs text-muted-foreground">{t('requiredHint')}</p>
+            {/* Metric picker — only for metric question type */}
+            {isMetricType && (
+                <Field label="Metric">
+                    {!q.metric_id && (
+                        <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30">
+                            <span className="text-warning text-sm shrink-0">⚠</span>
+                            <p className="text-xs text-warning">Select a metric below — this question won't track data until one is chosen.</p>
+                        </div>
+                    )}
+                    {metrics.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-2">No metrics found. Add metrics from Forms → Metrics.</p>
+                    ) : (
+                        <>
+                            <select
+                                key={`metric-${q.id}-${q.metric_id || 'none'}`}
+                                defaultValue={q.metric_id || ''}
+                                onChange={(e) => save({ metric_id: e.target.value || null })}
+                                className="w-full px-3 py-2.5 text-sm text-foreground bg-card border border-border rounded-lg outline-none hover:border-primary/40 transition-colors"
+                            >
+                                <option value="">— Select a metric —</option>
+                                {numberMetrics.length > 0 && (
+                                    <optgroup label="Number Metrics">
+                                        {numberMetrics.map(m => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.icon} {m.name}{m.unit ? ` (${m.unit})` : ''}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                )}
+                                {imageMetrics.length > 0 && (
+                                    <optgroup label="Photo Metrics">
+                                        {imageMetrics.map(m => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.icon} {m.name}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                )}
+                            </select>
+                            {linkedMetric && (
+                                <p className="text-xs text-primary/80 mt-1.5 flex items-center gap-1.5">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                    Answers contribute to the <strong>{linkedMetric.name}</strong> history
+                                </p>
+                            )}
+                        </>
+                    )}
+                </Field>
+            )}
+
+            {/* Required — hidden for metric questions (always implied) */}
+            {!isMetricType && (
+                <div className="flex items-center justify-between gap-3 shrink-0">
+                    <div>
+                        <p className="text-sm font-medium text-foreground">{t('required')}</p>
+                        <p className="text-xs text-muted-foreground">{t('requiredHint')}</p>
+                    </div>
+                    <Switch checked={q.required} onCheckedChange={(checked) => save({ required: checked })}>
+                        <Switch.Control>
+                            <Switch.Thumb />
+                        </Switch.Control>
+                    </Switch>
                 </div>
-                <Switch checked={q.required} onCheckedChange={(checked) => save({ required: checked })}>
-                    <Switch.Control>
-                        <Switch.Thumb />
-                    </Switch.Control>
-                </Switch>
-            </div>
+            )}
 
             {/* Placeholder — text / long_text / number */}
             {hasPlaceholder && (
@@ -240,7 +309,7 @@ export default function QuestionEditorPanel({
             {/* Preview */}
             <div className="rounded-lg bg-secondary border border-border p-4">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('preview')}</p>
-                <QuestionPreview question={q} />
+                <QuestionPreview question={q} linkedMetric={linkedMetric} />
             </div>
 
             </div>{/* end scrollable content */}
@@ -260,9 +329,27 @@ function Field({ label, required, children }) {
     );
 }
 
-function QuestionPreview({ question: q }) {
+function QuestionPreview({ question: q, linkedMetric }) {
     const ph = q.placeholder_en || "Your answer…";
     switch (q.type) {
+        case 'metric': {
+            if (!linkedMetric) return <p className="text-xs text-muted-foreground italic">Select a metric above to preview</p>;
+            if (linkedMetric.type === 'image') {
+                return (
+                    <div className="w-full h-24 rounded-md border-2 border-dashed border-border bg-background flex flex-col items-center justify-center gap-1 opacity-60">
+                        <span className="text-2xl">📷</span>
+                        <span className="text-xs text-muted-foreground">Upload photo</span>
+                    </div>
+                );
+            }
+            return (
+                <div className="flex items-center gap-2 opacity-60">
+                    <input type="number" placeholder={`Enter ${linkedMetric.name.toLowerCase()}…`} disabled
+                        className="flex-1 px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm" />
+                    {linkedMetric.unit && <span className="text-sm text-muted-foreground shrink-0">{linkedMetric.unit}</span>}
+                </div>
+            );
+        }
         case 'text':
             return <input type="text" placeholder={ph} disabled className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors opacity-60" />;
         case 'long_text':

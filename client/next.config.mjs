@@ -16,6 +16,15 @@ const nextConfig = {
     turbopack: {
         root: __dirname,
     },
+    async redirects() {
+        return [
+            {
+                source: '/client/forms/:id',
+                destination: '/portal/forms/:id',
+                permanent: true,
+            },
+        ];
+    },
 };
 
 export default withNextIntl(nextConfig);
