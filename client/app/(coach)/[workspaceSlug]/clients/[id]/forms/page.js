@@ -7,9 +7,39 @@ import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
-import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send } from 'lucide-react';
+import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send, ChevronsDown, ChevronsUp } from 'lucide-react';
+import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Skeleton } from "@heroui/react/skeleton";
+import { Accordion, Separator, Surface } from "@heroui/react";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 const inputCls = "w-full px-3 py-2 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors";
+
+function isImageUrl(str) {
+    if (!str || typeof str !== 'string') return false;
+    try {
+        const url = new URL(str.trim());
+        return /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i.test(url.pathname);
+    } catch {
+        return false;
+    }
+}
+
+function formatRelativeTime(dateStr, t) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return t('justNow');
+    if (diffMins < 60) return t('minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('hoursAgo', { count: diffHours });
+    if (diffDays === 1) return t('yesterday');
+    if (diffDays < 7) return t('daysAgo', { count: diffDays });
+    if (diffDays < 30) return t('weeksAgo', { count: Math.floor(diffDays / 7) });
+    if (diffDays < 365) return t('monthsAgo', { count: Math.floor(diffDays / 30) });
+    return t('yearsAgo', { count: Math.floor(diffDays / 365) });
+}
 
 export default function ClientFormsPage() {
     const t = useTranslations('forms');
@@ -20,6 +50,7 @@ export default function ClientFormsPage() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
+    const [sortOrder, setSortOrder] = useState("newest");
 
     // Request Form modal state
     const [requestModal, setRequestModal] = useState(false);
@@ -30,6 +61,9 @@ export default function ClientFormsPage() {
     const [requestMode, setRequestMode] = useState('now');
     const [scheduledAt, setScheduledAt] = useState('');
     const [minScheduledAt, setMinScheduledAt] = useState('');
+
+    // Accordion expand/collapse state
+    const [expandedKeys, setExpandedKeys] = useState(new Set());
 
     // Draggable divider
     const [widths, setWidths] = useState([38, 62]);
@@ -129,10 +163,37 @@ export default function ClientFormsPage() {
         }
     };
 
+    const sortedRequests = [...requests].sort((a, b) => {
+        if (sortOrder === "oldest") return new Date(a.requested_at) - new Date(b.requested_at);
+        if (sortOrder === "lastSubmitted") {
+            const aTime = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+            const bTime = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+            return bTime - aTime;
+        }
+        return new Date(b.requested_at) - new Date(a.requested_at);
+    });
+
     if (loading) {
         return (
-            <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="flex h-full overflow-hidden gap-0">
+                <div className="flex flex-col overflow-hidden" style={{ width: "38%" }}>
+                    <Surface variant="default" className="flex flex-col flex-1 p-3 rounded-2xl gap-3">
+                        <div className="flex items-center justify-between px-1">
+                            <Skeleton className="h-5 w-24 rounded-lg" />
+                            <Skeleton className="h-8 w-28 rounded-lg" />
+                        </div>
+                        <div className="flex gap-2 px-1">
+                            {[1, 2, 3].map(i => <Skeleton key={i} className="h-6 w-20 rounded-full" />)}
+                        </div>
+                        <div className="flex flex-col gap-2 px-1">
+                            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
+                        </div>
+                    </Surface>
+                </div>
+                <div className="w-1.5 mx-1 shrink-0" />
+                <div className="flex flex-col overflow-hidden" style={{ width: "62%" }}>
+                    <Surface variant="default" className="flex flex-col flex-1 p-3 rounded-2xl" />
+                </div>
             </div>
         );
     }
@@ -148,74 +209,106 @@ export default function ClientFormsPage() {
                 className="flex flex-col overflow-hidden"
                 style={{ width: `${widths[0]}%` }}
             >
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col overflow-hidden h-full">
+                <Surface variant="default" className="flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
                     {/* Header */}
-                    <div className="flex items-center justify-between mb-4 shrink-0">
-                        <h2 className="text-base font-semibold text-foreground">{t('formRequests')}</h2>
-                        <div className="flex items-center gap-2">
-                            {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length > 0 && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 font-medium">
-                                    {requests.filter(r => r.status === 'pending' || r.status === 'scheduled').length} {t('open')}
-                                </span>
-                            )}
-                            <button
-                                onClick={openRequestModal}
-                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-purple-500 hover:border-purple-300 transition-colors cursor-pointer"
-                            >
-                                <Send size={12} />
-                                {t('requestForm')}
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-2 px-1 mb-3 shrink-0">
+                        <h2 className="flex-1 text-base font-semibold text-foreground">
+                            {t('formRequests')}
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">{requests.length}</span>
+                        </h2>
+                        <Button variant="primary" onClick={openRequestModal} className="shrink-0 gap-1.5">
+                            <Send size={14} />
+                            {t('requestForm')}
+                        </Button>
                     </div>
 
-                    {requests.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-8">
-                            <ClipboardList size={36} className="text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-muted-foreground">{t('noFormRequests')}</p>
-                            <p className="text-xs text-muted-foreground/70">{t('noFormRequestsHint')}</p>
-                        </div>
-                    ) : (
-                        <div className="flex-1 overflow-y-auto flex flex-col gap-1.5">
-                            {requests.map(req => (
-                                <button
-                                    key={req.id}
-                                    onClick={() => setSelected(req)}
-                                    className={`w-full text-left px-3 py-3 rounded-lg border transition-all cursor-pointer ${
-                                        selected?.id === req.id
-                                            ? 'border-primary/40 bg-primary/5'
-                                            : 'border-border hover:border-border/80 hover:bg-default'
-                                    }`}
-                                >
-                                    <div className="flex items-start justify-between gap-2">
-                                        <p className="text-sm font-medium text-foreground truncate flex-1">{getLocalizedField(req, 'form_title', locale)}</p>
-                                        {req.status === 'pending' ? (
-                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 font-medium shrink-0">
-                                                <Clock size={10} /> {t('pending')}
-                                            </span>
-                                        ) : req.status === 'scheduled' ? (
-                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent font-medium shrink-0">
-                                                <CalendarClock size={10} /> {tCommon('scheduled')}
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 font-medium shrink-0">
-                                                <CheckCircle size={10} /> {t('submitted')}
-                                            </span>
-                                        )}
-                                    </div>
-                                    {getLocalizedField(req, 'form_description', locale) && (
-                                        <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{getLocalizedField(req, 'form_description', locale)}</p>
-                                    )}
-                                    <p className="text-xs text-muted-foreground/70 mt-1">
-                                        {req.status === 'scheduled' && req.scheduled_at
-                                            ? `${tCommon('scheduled')} ${formatDateTime(req.scheduled_at)}`
-                                            : formatDate(req.requested_at)}
-                                        {req.submitted_at && ` · ${t('submitted')} ${formatDate(req.submitted_at)}`}
-                                    </p>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                    {/* Sort Pills */}
+                    <div className="flex gap-2 mb-3 shrink-0 px-1">
+                        {[
+                            { value: "newest",       label: t('newest') },
+                            { value: "oldest",       label: t('oldest') },
+                            { value: "lastSubmitted", label: t('lastSubmitted') },
+                        ].map(({ value, label }) => (
+                            <button
+                                key={value}
+                                onClick={() => setSortOrder(value)}
+                                className={`cursor-pointer text-xs px-3 py-1 rounded-full border transition-colors ${
+                                    sortOrder === value
+                                        ? "bg-primary border-primary text-white"
+                                        : "border-border text-muted-foreground hover:border-border hover:bg-default"
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* List */}
+                    <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
+                        {requests.length === 0 ? (
+                            <Surface variant="default" className="rounded-xl p-6 flex flex-col items-center justify-center gap-3 text-center mx-1 my-1">
+                                <ClipboardList size={36} className="text-border" />
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground">{t('noFormRequests')}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{t('noFormRequestsHint')}</p>
+                                </div>
+                                <Button variant="primary" onClick={openRequestModal}>
+                                    {t('requestForm')}
+                                </Button>
+                            </Surface>
+                        ) : (
+                            <div className="flex flex-col gap-2 px-1 py-1">
+                                {sortedRequests.map(req => {
+                                    const isActive = selected?.id === req.id;
+                                    return (
+                                        <div
+                                            key={req.id}
+                                            onClick={() => { setSelected(req); setExpandedKeys(new Set()); }}
+                                            className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl shadow-surface transition-all duration-150 select-none ${
+                                                isActive
+                                                    ? "bg-primary/5 dark:bg-primary/15 ring-1 ring-primary/40"
+                                                    : "bg-card dark:bg-(--color-surface-secondary) hover:bg-default dark:hover:bg-(--color-surface-tertiary)"
+                                            }`}
+                                        >
+                                            <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                                                isActive
+                                                    ? "bg-primary/25 text-primary"
+                                                    : "bg-foreground/10 text-muted-foreground group-hover:text-foreground"
+                                            }`}>
+                                                <ClipboardList size={16} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
+                                                    {getLocalizedField(req, 'form_title', locale)}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {req.status === 'scheduled' && req.scheduled_at
+                                                        ? `${tCommon('scheduled')} ${formatDate(req.scheduled_at)}`
+                                                        : `${t('requested')} ${formatRelativeTime(req.requested_at, tCommon)}`}
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0">
+                                                {req.status === 'submitted' ? (
+                                                    <Chip size="sm" color="success" variant="soft">
+                                                        <Chip.Label>{t('submitted')}</Chip.Label>
+                                                    </Chip>
+                                                ) : req.status === 'scheduled' ? (
+                                                    <Chip size="sm" color="secondary" variant="soft">
+                                                        <Chip.Label>{tCommon('scheduled')}</Chip.Label>
+                                                    </Chip>
+                                                ) : (
+                                                    <Chip size="sm" color="warning" variant="soft">
+                                                        <Chip.Label>{t('pending')}</Chip.Label>
+                                                    </Chip>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </ScrollShadow>
+                </Surface>
             </div>
 
             {/* ── Divider ─────────────────────────────────────────── */}
@@ -226,101 +319,149 @@ export default function ClientFormsPage() {
                 <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
             </div>
 
-            {/* ── Right Panel: Responses Detail ───────────────────── */}
+            {/* ── Right Panel: Response Detail ────────────────────── */}
             <div
                 className="flex flex-col overflow-hidden"
                 style={{ width: `${widths[1]}%` }}
             >
-                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col h-full overflow-hidden">
+                <Surface variant="default" className="flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
                     {!selected ? (
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-                            <ClipboardList size={40} className="text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-muted-foreground">{t('selectRequest')}</p>
-                            <p className="text-xs text-muted-foreground/70">{t('selectRequestHint')}</p>
+                            <ClipboardList size={40} className="text-border" />
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">{t('selectRequest')}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{t('selectRequestHint')}</p>
+                            </div>
                         </div>
                     ) : (
                         <>
-                            {/* Detail Header */}
-                            <div className="flex items-start justify-between gap-4 mb-5 shrink-0">
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg font-bold text-foreground">{getLocalizedField(selected, 'form_title', locale)}</h3>
-                                    {getLocalizedField(selected, 'form_description', locale) && (
-                                        <p className="text-sm text-muted-foreground mt-0.5">{getLocalizedField(selected, 'form_description', locale)}</p>
-                                    )}
-                                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                        <span>{t('requested')} {formatDate(selected.requested_at)}</span>
-                                        {selected.submitted_at && (
-                                            <span>· {t('submitted')} {formatDate(selected.submitted_at)}</span>
-                                        )}
-                                    </div>
-                                </div>
+                            {/* Header */}
+                            <div className="flex items-start justify-between gap-3 px-1 mb-1 shrink-0">
+                                <h3 className="text-base font-semibold text-foreground flex-1 min-w-0 truncate">
+                                    {getLocalizedField(selected, 'form_title', locale)}
+                                </h3>
                                 <div className="flex items-center gap-2 shrink-0">
-                                    {selected.status === 'pending' || selected.status === 'scheduled' ? (
-                                        <>
-                                            {selected.status === 'scheduled' ? (
-                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-accent/15 text-accent font-medium">
-                                                    <CalendarClock size={11} /> {tCommon('scheduled')}
-                                                </span>
-                                            ) : (
-                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-500/15 text-yellow-600 font-medium">
-                                                    <Clock size={11} /> {t('pending')}
-                                                </span>
-                                            )}
-                                            <button
-                                                onClick={() => handleCancel(selected.id)}
-                                                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors cursor-pointer"
-                                            >
-                                                <Trash2 size={12} /> {t('cancelRequest')}
-                                            </button>
-                                        </>
+                                    {selected.status === 'submitted' ? (
+                                        <Chip size="sm" color="success" variant="soft">
+                                            <CheckCircle size={11} />
+                                            <Chip.Label>{t('submitted')}</Chip.Label>
+                                        </Chip>
+                                    ) : selected.status === 'scheduled' ? (
+                                        <Chip size="sm" color="secondary" variant="soft">
+                                            <CalendarClock size={11} />
+                                            <Chip.Label>{tCommon('scheduled')}</Chip.Label>
+                                        </Chip>
                                     ) : (
-                                        <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-500/15 text-green-700 font-medium">
-                                            <CheckCircle size={11} /> {t('submitted')}
-                                        </span>
+                                        <Chip size="sm" color="warning" variant="soft">
+                                            <Clock size={11} />
+                                            <Chip.Label>{t('pending')}</Chip.Label>
+                                        </Chip>
+                                    )}
+                                    {(selected.status === 'pending' || selected.status === 'scheduled') && (
+                                        <button
+                                            onClick={() => handleCancel(selected.id)}
+                                            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors cursor-pointer"
+                                        >
+                                            <Trash2 size={12} /> {t('cancelRequest')}
+                                        </button>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Responses body */}
-                            <div className="flex-1 overflow-y-auto">
+                            {/* Metadata Row */}
+                            <p className="text-xs text-muted-foreground px-1 mb-3 shrink-0">
+                                {t('requested')} {formatDate(selected.requested_at)}
+                                {selected.submitted_at && ` · ${t('submitted')} ${formatDate(selected.submitted_at)}`}
+                            </p>
+
+                            <Separator className="mb-3 shrink-0" />
+
+                            {/* Body */}
+                            <ScrollShadow className="flex-1 min-h-0" hideScrollBar>
                                 {selected.status === 'pending' || selected.status === 'scheduled' ? (
                                     <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
                                         {selected.status === 'scheduled' ? (
                                             <>
-                                                <CalendarClock size={36} className="text-accent" />
-                                                <p className="text-sm font-medium text-muted-foreground">{t('formScheduled')}</p>
-                                                <p className="text-xs text-muted-foreground/70">{t('formScheduledHint', { time: selected.scheduled_at ? formatDateTime(selected.scheduled_at) : '—' })}</p>
+                                                <CalendarClock size={36} className="text-muted-foreground/40" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">{t('formScheduled')}</p>
+                                                    <p className="text-xs text-muted-foreground mt-1">{t('formScheduledHint', { time: selected.scheduled_at ? formatDateTime(selected.scheduled_at) : '—' })}</p>
+                                                </div>
                                             </>
                                         ) : (
                                             <>
-                                                <Clock size={36} className="text-yellow-500" />
-                                                <p className="text-sm font-medium text-muted-foreground">{t('waitingForClient')}</p>
-                                                <p className="text-xs text-muted-foreground/70">{t('waitingHint')}</p>
+                                                <Clock size={36} className="text-muted-foreground/40" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-muted-foreground">{t('waitingForClient')}</p>
+                                                    <p className="text-xs text-muted-foreground mt-1">{t('waitingHint')}</p>
+                                                </div>
                                             </>
                                         )}
                                     </div>
-                                ) : selected.responses?.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground text-center py-8">{t('noResponses')}</p>
+                                ) : !selected.responses?.length ? (
+                                    <div className="flex flex-col items-center justify-center h-full gap-2 text-center py-8">
+                                        <p className="text-sm text-muted-foreground">{t('noResponses')}</p>
+                                    </div>
                                 ) : (
-                                    <div className="flex flex-col gap-4">
-                                        {selected.responses.map((r, i) => (
-                                            <div key={i} className="flex flex-col gap-1.5">
-                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                                    {i + 1}. {getLocalizedField(r, 'label', locale)}
-                                                </p>
-                                                <div className="bg-secondary rounded-lg px-4 py-3 border border-border">
-                                                    <p className="text-sm text-foreground whitespace-pre-wrap">
-                                                        {r.answer || <span className="text-muted-foreground italic">No answer</span>}
-                                                    </p>
-                                                </div>
+                                    <div className="flex flex-col gap-2 px-1 py-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                                {t('questions')}
+                                            </p>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() => setExpandedKeys(new Set(selected.responses.map((_, i) => String(i))))}
+                                                    title={t('expandAll')}
+                                                    className="w-6 h-6 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-default hover:text-foreground transition-colors cursor-pointer"
+                                                >
+                                                    <ChevronsDown size={13} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setExpandedKeys(new Set())}
+                                                    title={t('collapseAll')}
+                                                    className="w-6 h-6 flex items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-default hover:text-foreground transition-colors cursor-pointer"
+                                                >
+                                                    <ChevronsUp size={13} />
+                                                </button>
                                             </div>
-                                        ))}
+                                        </div>
+                                        <Accordion expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} allowsMultipleExpanded>
+                                            {selected.responses.map((r, i) => (
+                                                <Accordion.Item key={i} id={String(i)}>
+                                                    <Accordion.Heading>
+                                                        <Accordion.Trigger>
+                                                            <span className="text-sm text-foreground">
+                                                                {i + 1}. {getLocalizedField(r, 'label', locale)}
+                                                            </span>
+                                                            <Accordion.Indicator />
+                                                        </Accordion.Trigger>
+                                                    </Accordion.Heading>
+                                                    <Accordion.Panel>
+                                                        <Accordion.Body>
+                                                            {isImageUrl(r.answer) ? (
+                                                                <a href={r.answer} target="_blank" rel="noopener noreferrer" className="block">
+                                                                    <img
+                                                                        src={r.answer}
+                                                                        alt=""
+                                                                        className="w-full rounded-lg object-contain max-h-96 bg-black/5"
+                                                                    />
+                                                                </a>
+                                                            ) : (
+                                                                <p className="text-sm text-foreground whitespace-pre-wrap">
+                                                                    {r.answer || <span className="text-muted-foreground italic">—</span>}
+                                                                </p>
+                                                            )}
+                                                        </Accordion.Body>
+                                                    </Accordion.Panel>
+                                                </Accordion.Item>
+                                            ))}
+                                        </Accordion>
                                     </div>
                                 )}
-                            </div>
+                            </ScrollShadow>
                         </>
                     )}
-                </div>
+                </Surface>
             </div>
         </div>
 

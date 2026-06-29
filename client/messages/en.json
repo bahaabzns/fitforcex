@@ -608,6 +608,8 @@
     "noForms": "No forms yet",
     "createFirstForm": "Create your first form",
     "questions": "Questions",
+    "expandAll": "Expand All",
+    "collapseAll": "Collapse All",
     "questionEditor": "Question Editor",
     "delete": "Delete",
     "newQuestion": "+ New Question",
@@ -677,7 +679,10 @@
     "deleteForm": "Delete form",
     "active": "Active",
     "edited": "edited",
-    "questionCount": "{count, plural, one {# question} other {# questions}}"
+    "questionCount": "{count, plural, one {# question} other {# questions}}",
+    "newest": "Newest",
+    "oldest": "Oldest",
+    "lastSubmitted": "Last Submitted"
   },
   "plansQueue": {
     "title": "Plans Queue",

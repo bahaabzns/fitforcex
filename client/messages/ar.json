@@ -608,6 +608,8 @@
     "noForms": "لا توجد استمارات بعد",
     "createFirstForm": "أنشئ أول استمارة",
     "questions": "الأسئلة",
+    "expandAll": "توسيع الكل",
+    "collapseAll": "طي الكل",
     "questionEditor": "محرر الأسئلة",
     "delete": "حذف",
     "newQuestion": "+ سؤال جديد",
@@ -677,7 +679,10 @@
     "deleteForm": "حذف الاستمارة",
     "active": "نشط",
     "edited": "عُدِّل",
-    "questionCount": "{count, plural, one {# سؤال} two {# سؤالان} few {# أسئلة} many {# سؤالاً} other {# أسئلة}}"
+    "questionCount": "{count, plural, one {# سؤال} two {# سؤالان} few {# أسئلة} many {# سؤالاً} other {# أسئلة}}",
+    "newest": "الأحدث",
+    "oldest": "الأقدم",
+    "lastSubmitted": "آخر إرسال"
   },
   "plansQueue": {
     "title": "قائمة الخطط",
