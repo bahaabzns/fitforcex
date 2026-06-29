@@ -312,7 +312,7 @@ export default function MessengerPage() {
                                                     key={thread.id}
                                                     id={thread.id}
                                                     textValue={`${thread.fname} ${thread.lname}`}
-                                                    className="items-start gap-3 rounded-xl px-3 py-2.5 mb-0.5 border-l-[3px] border-transparent [&:hover]:bg-accent/40 data-[selected=true]:border-primary data-[selected=true]:bg-primary/8 data-[selected=true]:[&:hover]:bg-primary/8"
+                                                    className="items-start gap-3 rounded-lg px-3 py-3 [&:hover]:bg-accent/40 data-[selected=true]:bg-primary/8 data-[selected=true]:[&:hover]:bg-primary/8"
                                                 >
                                                     <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
                                                         <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
@@ -323,14 +323,12 @@ export default function MessengerPage() {
                                                                 {thread.fname} {thread.lname}
                                                             </span>
                                                             <div className="flex items-center gap-1.5 shrink-0">
-                                                                {hasUnread && (
-                                                                    <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                                                                        {thread.unread_count > 9 ? '9+' : thread.unread_count}
-                                                                    </span>
-                                                                )}
                                                                 <span className="text-[11px] text-muted-foreground">
                                                                     {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
                                                                 </span>
+                                                                {hasUnread && (
+                                                                    <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <p className={`text-xs truncate ${hasUnread ? 'text-foreground/70' : 'text-muted-foreground'}`}>
@@ -367,33 +365,41 @@ export default function MessengerPage() {
                             </Card.Content>
                         ) : (
                             <>
-                                {/* Chat header with status toggle */}
-                                <Card.Header className="flex-row items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-                                    <Avatar size="sm" color="primary" className="shrink-0">
-                                        <Avatar.Fallback>{getInitials(selectedThread?.fname, selectedThread?.lname)}</Avatar.Fallback>
-                                    </Avatar>
-                                    <span className="text-sm font-semibold text-foreground flex-1 min-w-0 truncate">
-                                        {selectedThread?.fname} {selectedThread?.lname}
-                                    </span>
-                                    <Chip
-                                        size="sm"
-                                        color={selectedThread?.status === 'open' ? 'success' : 'default'}
-                                        variant="soft"
-                                        className="shrink-0"
-                                    >
-                                        {selectedThread?.status === 'open' ? t('statusOpen') : t('statusClosed')}
-                                    </Chip>
+                                {/* Zone A: action bar */}
+                                <div className="flex items-center justify-end gap-1 px-4 py-2 border-b border-border shrink-0">
                                     <Button
                                         variant="ghost"
                                         size="sm"
                                         isDisabled={togglingStatus}
                                         onClick={handleToggleStatus}
-                                        className="shrink-0 text-xs text-muted-foreground gap-1"
+                                        isIconOnly
+                                        className="text-muted-foreground"
+                                        title={selectedThread?.status === 'open' ? t('close') : t('reopen')}
                                     >
-                                        <CheckCheck size={13} />
-                                        {selectedThread?.status === 'open' ? t('close') : t('reopen')}
+                                        <CheckCheck size={15} />
                                     </Button>
-                                </Card.Header>
+                                </div>
+                                {/* Zone B: identity */}
+                                <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
+                                    <Avatar size="md" color="primary" className="shrink-0">
+                                        <Avatar.Fallback>{getInitials(selectedThread?.fname, selectedThread?.lname)}</Avatar.Fallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-base font-semibold text-foreground truncate">
+                                            {selectedThread?.fname} {selectedThread?.lname}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <Chip size="sm" color={selectedThread?.status === 'open' ? 'success' : 'default'} variant="soft">
+                                                {selectedThread?.status === 'open' ? t('statusOpen') : t('statusClosed')}
+                                            </Chip>
+                                            {selectedThread?.latest_message_at && (
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    {formatTimestamp(selectedThread.latest_message_at, locale)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
 
                                 {/* Messages with grouping + date separators */}
                                 <Card.Content className="overflow-hidden min-h-0 p-0">
@@ -462,6 +468,9 @@ export default function MessengerPage() {
                                         onSubmit={handleSend}
                                         className="flex items-end gap-2 w-full"
                                     >
+                                        <Avatar size="sm" color="primary" className="shrink-0 mb-1">
+                                            <Avatar.Fallback />
+                                        </Avatar>
                                         <TextField
                                             value={draft}
                                             onChange={setDraft}
