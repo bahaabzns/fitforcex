@@ -12,6 +12,7 @@ import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import { Card } from "@heroui/react/card";
+import { Separator } from "@heroui/react/separator";
 import { ListBox } from "@heroui/react/list-box";
 import { SearchField } from "@heroui/react/search-field";
 import { TextField } from "@heroui/react/textfield";
@@ -248,7 +249,7 @@ export default function MessengerPage() {
                     <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
                         <Card.Header className="flex flex-col gap-3 px-4 pt-4 pb-3 shrink-0">
-                            <Card.Title className="text-base font-semibold text-foreground">
+                            <Card.Title className="text-base font-semibold">
                                 {t('title')}
                             </Card.Title>
                             <SearchField
@@ -377,7 +378,7 @@ export default function MessengerPage() {
                                     <Chip
                                         size="sm"
                                         color={selectedThread?.status === 'open' ? 'success' : 'default'}
-                                        variant="flat"
+                                        variant="soft"
                                         className="shrink-0"
                                     >
                                         {selectedThread?.status === 'open' ? t('statusOpen') : t('statusClosed')}
@@ -412,9 +413,9 @@ export default function MessengerPage() {
                                                 if (seg.type === 'date') {
                                                     return (
                                                         <div key={`date-${si}`} className="flex items-center gap-3 my-3">
-                                                            <div className="flex-1 h-px bg-border/50" />
-                                                            <span className="text-[11px] text-muted-foreground font-medium px-2">{seg.label}</span>
-                                                            <div className="flex-1 h-px bg-border/50" />
+                                                            <Separator className="flex-1" />
+                                                            <span className="text-[11px] text-muted font-medium px-2">{seg.label}</span>
+                                                            <Separator className="flex-1" />
                                                         </div>
                                                     );
                                                 }
@@ -542,7 +543,7 @@ export default function MessengerPage() {
                                             )}
                                         </div>
                                         {clientProfile.subscription_status && (
-                                            <Chip size="sm" color={STATUS_CHIP[clientProfile.subscription_status] ?? 'default'} variant="flat">
+                                            <Chip size="sm" color={STATUS_CHIP[clientProfile.subscription_status] ?? 'default'} variant="soft">
                                                 {clientProfile.subscription_status}
                                             </Chip>
                                         )}
@@ -593,7 +594,8 @@ export default function MessengerPage() {
                                     </div>
 
                                     {/* Open Profile pinned to bottom */}
-                                    <div className="mt-4 pt-4 border-t border-border shrink-0">
+                                    <Separator className="mt-4 mb-4 shrink-0" />
+                                    <div className="shrink-0">
                                         <Link href={`/${workspaceSlug}/clients/${clientProfile.id}`}>
                                             <Button variant="outline" size="sm" className="w-full gap-1.5">
                                                 <ExternalLink size={13} />
