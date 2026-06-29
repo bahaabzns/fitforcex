@@ -1,9 +1,10 @@
 "use client";
 import { usePathname, useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { PageHeaderActionsContext } from "@/app/contexts/pageHeaderActions";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
-import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, TrendingUp, ChevronUp, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, ChevronUp, ChevronDown } from 'lucide-react';
 import { useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
@@ -84,6 +85,8 @@ export default function ClientLayout({ children }) {
     const [trainingDirty,  setTrainingDirty]  = useState(false);
     const [trainingHeaderActions, setTrainingHeaderActions] = useState(null);
     const [nutritionHeaderActions, setNutritionHeaderActions] = useState(null);
+    const [pageHeaderActions, setPageHeaderActions] = useState(null);
+
     const isDirty = nutritionDirty || trainingDirty;
 
     // Intercept in-app link clicks that would navigate OUTSIDE the client area.
@@ -110,7 +113,6 @@ export default function ClientLayout({ children }) {
         { id: "nutrition",       name: tNav('nutrition'),            icon: Apple,           href: `/${workspaceSlug}/clients/${id}/nutrition` },
         { id: "training",        name: tNav('training'),             icon: Dumbbell,        href: `/${workspaceSlug}/clients/${id}/training` },
         { id: "forms",           name: tNav('forms'),                icon: ClipboardList,   href: `/${workspaceSlug}/clients/${id}/forms` },
-        { id: "transformation",  name: "Transformation",             icon: TrendingUp,      href: `/${workspaceSlug}/clients/${id}/transformation` },
         { id: "transactions",    name: tNav('transactions'),         icon: CreditCard,      href: `/${workspaceSlug}/clients/${id}/transactions` },
     ];
 
@@ -143,6 +145,7 @@ export default function ClientLayout({ children }) {
                 <div className="ms-auto flex items-center gap-2">
                     {isTraining && trainingHeaderActions}
                     {isNutrition && nutritionHeaderActions}
+                    {isOther && pageHeaderActions}
                     <button
                         onClick={() => setHeaderCollapsed(v => !v)}
                         title={headerCollapsed ? 'Show header' : 'Hide header'}
@@ -168,8 +171,12 @@ export default function ClientLayout({ children }) {
                     </div>
                 )}
 
-                {/* Overview / Forms — rendered via normal Next.js routing */}
-                {isOther && children}
+                {/* Overview / Forms / Transformation / Transactions — rendered via Next.js routing */}
+                {isOther && (
+                    <PageHeaderActionsContext.Provider value={setPageHeaderActions}>
+                        {children}
+                    </PageHeaderActionsContext.Provider>
+                )}
             </div>
         </div>
     );
