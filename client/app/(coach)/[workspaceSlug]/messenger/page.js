@@ -11,8 +11,11 @@ import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
-import { Surface } from "@heroui/react";
-import { Send, Search, ExternalLink, Mail, Phone, Package, Calendar, Clock, CheckCheck } from "lucide-react";
+import { Card } from "@heroui/react/card";
+import { SearchField } from "@heroui/react/search-field";
+import { TextField } from "@heroui/react/textfield";
+import { TextArea } from "@heroui/react/textarea";
+import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, CheckCheck } from "lucide-react";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -241,22 +244,28 @@ export default function MessengerPage() {
 
                 {/* ── Panel 1: Conversations ─────────────────────────────── */}
                 <div style={{ width: `${widths[0]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
-                    <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-4 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+                    <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
-                        <div className="flex flex-col gap-3 mb-3 shrink-0">
-                            <h2 className="text-base font-semibold text-foreground">{t('title')}</h2>
-                            <div className="relative">
-                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                                <input
-                                    value={search}
-                                    onChange={e => setSearch(e.target.value)}
-                                    placeholder={t('searchPlaceholder')}
-                                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-muted/40 text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
-                                />
-                            </div>
-                        </div>
+                        <Card.Header className="flex flex-col gap-3 px-4 pt-4 pb-3 shrink-0">
+                            <Card.Title className="text-base font-semibold text-foreground">
+                                {t('title')}
+                            </Card.Title>
+                            <SearchField
+                                value={search}
+                                onChange={setSearch}
+                                onClear={() => setSearch('')}
+                                aria-label={t('searchPlaceholder')}
+                                variant="secondary"
+                            >
+                                <SearchField.Group>
+                                    <SearchField.SearchIcon />
+                                    <SearchField.Input placeholder={t('searchPlaceholder')} />
+                                    <SearchField.ClearButton />
+                                </SearchField.Group>
+                            </SearchField>
+                        </Card.Header>
 
-                        <ScrollShadow className={`flex-1 overflow-y-auto -mx-2 px-2 ${scrollbarCls}`}>
+                        <Card.Content className="overflow-hidden min-h-0 px-4 pb-4">
                             {threadsLoading ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <div key={i} className="flex items-start gap-3 px-2 py-3 rounded-xl mb-1">
@@ -268,7 +277,7 @@ export default function MessengerPage() {
                                     </div>
                                 ))
                             ) : filteredThreads.length === 0 ? (
-                                <Surface variant="default" className="rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center mx-1 my-1">
+                                <Card className="rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center mx-1 my-1">
                                     <p className="text-sm text-muted-foreground">
                                         {search ? t('noResults') : t('noConversations')}
                                     </p>
@@ -277,50 +286,53 @@ export default function MessengerPage() {
                                             {tFilter('clearSearch')}
                                         </Button>
                                     )}
-                                </Surface>
+                                </Card>
                             ) : (
-                                filteredThreads.map(thread => {
-                                    const isSelected = selectedThreadId === thread.id;
-                                    const hasUnread  = thread.unread_count > 0;
-                                    return (
-                                        <button
-                                            key={thread.id}
-                                            onClick={() => handleSelectThread(thread)}
-                                            className={`w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-colors border-l-[3px] ${
-                                                isSelected
-                                                    ? 'bg-primary/[0.08] border-primary'
-                                                    : 'border-transparent hover:bg-accent/40'
-                                            }`}
-                                        >
-                                            <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
-                                                <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
-                                            </Avatar>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                                                    <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
-                                                        {thread.fname} {thread.lname}
-                                                    </span>
-                                                    <div className="flex items-center gap-1.5 shrink-0">
-                                                        {hasUnread && (
-                                                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                                                                {thread.unread_count > 9 ? '9+' : thread.unread_count}
-                                                            </span>
-                                                        )}
-                                                        <span className="text-[11px] text-muted-foreground">
-                                                            {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
+                                <ScrollShadow className={`flex-1 overflow-y-auto -mx-2 px-2 ${scrollbarCls}`}>
+                                    {filteredThreads.map(thread => {
+                                        const isSelected = selectedThreadId === thread.id;
+                                        const hasUnread  = thread.unread_count > 0;
+                                        return (
+                                            <button
+                                                key={thread.id}
+                                                onClick={() => handleSelectThread(thread)}
+                                                className={`w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-colors border-l-[3px] ${
+                                                    isSelected
+                                                        ? 'bg-primary/8 border-primary'
+                                                        : 'border-transparent hover:bg-accent/40'
+                                                }`}
+                                            >
+                                                <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
+                                                    <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
+                                                </Avatar>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                                                        <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                                                            {thread.fname} {thread.lname}
                                                         </span>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            {hasUnread && (
+                                                                <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                                                                    {thread.unread_count > 9 ? '9+' : thread.unread_count}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[11px] text-muted-foreground">
+                                                                {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
+                                                            </span>
+                                                        </div>
                                                     </div>
+                                                    <p className={`text-xs truncate ${hasUnread ? 'text-foreground/70' : 'text-muted-foreground'}`}>
+                                                        {thread.latest_message || t('threadNoMessages')}
+                                                    </p>
                                                 </div>
-                                                <p className={`text-xs truncate ${hasUnread ? 'text-foreground/70' : 'text-muted-foreground'}`}>
-                                                    {thread.latest_message || t('threadNoMessages')}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    );
-                                })
+                                            </button>
+                                        );
+                                    })}
+                                </ScrollShadow>
                             )}
-                        </ScrollShadow>
-                    </Surface>
+                        </Card.Content>
+
+                    </Card>
                 </div>
 
                 {/* Divider 1 */}
@@ -330,20 +342,20 @@ export default function MessengerPage() {
 
                 {/* ── Panel 2: Open Chat ─────────────────────────────────── */}
                 <div style={{ width: `${widths[1]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
-                    <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+                    <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
                         {!selectedThreadId ? (
-                            <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+                            <Card.Content className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
                                 <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
                                     <Send size={20} className="text-muted-foreground" />
                                 </div>
                                 <p className="text-sm font-medium text-foreground">{t('noThreadSelected')}</p>
                                 <p className="text-xs text-muted-foreground">{t('noThreadSelectedHint')}</p>
-                            </div>
+                            </Card.Content>
                         ) : (
                             <>
                                 {/* Chat header with status toggle */}
-                                <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
+                                <Card.Header className="flex-row items-center gap-3 px-5 py-3 border-b border-border shrink-0">
                                     <Avatar size="sm" color="primary" className="shrink-0">
                                         <Avatar.Fallback>{getInitials(selectedThread?.fname, selectedThread?.lname)}</Avatar.Fallback>
                                     </Avatar>
@@ -368,85 +380,95 @@ export default function MessengerPage() {
                                         <CheckCheck size={13} />
                                         {selectedThread?.status === 'open' ? t('close') : t('reopen')}
                                     </Button>
-                                </div>
+                                </Card.Header>
 
                                 {/* Messages with grouping + date separators */}
-                                <ScrollShadow className={`flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-1 ${scrollbarCls}`}>
-                                    {messagesLoading ? (
-                                        Array.from({ length: 4 }).map((_, i) => (
-                                            <div key={i} className={`flex mb-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
-                                                <Skeleton className="h-10 w-52 rounded-2xl" />
+                                <Card.Content className="overflow-hidden min-h-0 p-0">
+                                    <ScrollShadow className={`h-full overflow-y-auto px-5 py-4 flex flex-col gap-1 ${scrollbarCls}`}>
+                                        {messagesLoading ? (
+                                            Array.from({ length: 4 }).map((_, i) => (
+                                                <div key={i} className={`flex mb-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                                                    <Skeleton className="h-10 w-52 rounded-2xl" />
+                                                </div>
+                                            ))
+                                        ) : messages.length === 0 ? (
+                                            <div className="flex-1 flex items-center justify-center">
+                                                <p className="text-sm text-muted-foreground">{t('emptyChat')}</p>
                                             </div>
-                                        ))
-                                    ) : messages.length === 0 ? (
-                                        <div className="flex-1 flex items-center justify-center">
-                                            <p className="text-sm text-muted-foreground">{t('emptyChat')}</p>
-                                        </div>
-                                    ) : (
-                                        segments.map((seg, si) => {
-                                            if (seg.type === 'date') {
+                                        ) : (
+                                            segments.map((seg, si) => {
+                                                if (seg.type === 'date') {
+                                                    return (
+                                                        <div key={`date-${si}`} className="flex items-center gap-3 my-3">
+                                                            <div className="flex-1 h-px bg-border/50" />
+                                                            <span className="text-[11px] text-muted-foreground font-medium px-2">{seg.label}</span>
+                                                            <div className="flex-1 h-px bg-border/50" />
+                                                        </div>
+                                                    );
+                                                }
+
+                                                const { group } = seg;
+                                                const isTeam = group.sender_type === 'team';
+                                                const count  = group.messages.length;
+
                                                 return (
-                                                    <div key={`date-${si}`} className="flex items-center gap-3 my-3">
-                                                        <div className="flex-1 h-px bg-border/50" />
-                                                        <span className="text-[11px] text-muted-foreground font-medium px-2">{seg.label}</span>
-                                                        <div className="flex-1 h-px bg-border/50" />
+                                                    <div key={`group-${si}`} className={`flex flex-col gap-0.5 mb-3 ${isTeam ? 'items-end' : 'items-start'}`}>
+                                                        {group.messages.map((msg, mi) => {
+                                                            const pos = count === 1 ? 'solo'
+                                                                : mi === 0 ? 'first'
+                                                                : mi === count - 1 ? 'last'
+                                                                : 'middle';
+                                                            return (
+                                                                <div
+                                                                    key={msg.id}
+                                                                    className={`max-w-[70%] px-4 py-2 text-sm leading-relaxed wrap-break-word ${
+                                                                        isTeam
+                                                                            ? `bg-primary text-primary-foreground ${bubbleRadius(true, pos)}`
+                                                                            : `bg-muted text-foreground ${bubbleRadius(false, pos)}`
+                                                                    }`}
+                                                                >
+                                                                    {msg.body}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {/* Single timestamp per group, shown after last message */}
+                                                        <span className="text-[11px] text-muted-foreground mt-0.5 px-1">
+                                                            {formatGroupTime(group.messages[group.messages.length - 1].created_at, locale)}
+                                                        </span>
                                                     </div>
                                                 );
-                                            }
+                                            })
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </ScrollShadow>
+                                </Card.Content>
 
-                                            const { group } = seg;
-                                            const isTeam = group.sender_type === 'team';
-                                            const count  = group.messages.length;
-
-                                            return (
-                                                <div key={`group-${si}`} className={`flex flex-col gap-0.5 mb-3 ${isTeam ? 'items-end' : 'items-start'}`}>
-                                                    {group.messages.map((msg, mi) => {
-                                                        const pos = count === 1 ? 'solo'
-                                                            : mi === 0 ? 'first'
-                                                            : mi === count - 1 ? 'last'
-                                                            : 'middle';
-                                                        return (
-                                                            <div
-                                                                key={msg.id}
-                                                                className={`max-w-[70%] px-4 py-2 text-sm leading-relaxed wrap-break-word ${
-                                                                    isTeam
-                                                                        ? `bg-primary text-primary-foreground ${bubbleRadius(true, pos)}`
-                                                                        : `bg-muted text-foreground ${bubbleRadius(false, pos)}`
-                                                                }`}
-                                                            >
-                                                                {msg.body}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {/* Single timestamp per group, shown after last message */}
-                                                    <span className="text-[11px] text-muted-foreground mt-0.5 px-1">
-                                                        {formatGroupTime(group.messages[group.messages.length - 1].created_at, locale)}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                    <div ref={messagesEndRef} />
-                                </ScrollShadow>
-
-                                {/* Compact reply card — single row */}
-                                <div className="px-4 py-3 border-t border-border shrink-0">
+                                {/* Reply bar */}
+                                <Card.Footer className="px-4 py-3 border-t border-border shrink-0">
                                     <form
                                         onSubmit={handleSend}
-                                        className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 px-4 py-2"
+                                        className="flex items-end gap-2 w-full"
                                     >
-                                        <input
+                                        <TextField
                                             value={draft}
-                                            onChange={e => setDraft(e.target.value)}
-                                            placeholder={t('replyPlaceholder')}
-                                            className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none"
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    handleSend(e);
-                                                }
-                                            }}
-                                        />
+                                            onChange={setDraft}
+                                            aria-label={t('replyPlaceholder')}
+                                            className="flex-1 min-w-0"
+                                        >
+                                            <TextArea
+                                                placeholder={t('replyPlaceholder')}
+                                                variant="secondary"
+                                                fullWidth
+                                                rows={1}
+                                                className="resize-none [field-sizing:content] max-h-32 overflow-y-auto text-sm"
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        handleSend(e);
+                                                    }
+                                                }}
+                                            />
+                                        </TextField>
                                         <Button
                                             type="submit"
                                             color="primary"
@@ -458,10 +480,11 @@ export default function MessengerPage() {
                                             <Send size={13} />
                                         </Button>
                                     </form>
-                                </div>
+                                </Card.Footer>
                             </>
                         )}
-                    </Surface>
+
+                    </Card>
                 </div>
 
                 {/* Divider 2 */}
@@ -471,103 +494,106 @@ export default function MessengerPage() {
 
                 {/* ── Panel 3: Client Profile ────────────────────────────── */}
                 <div style={{ width: `${widths[2]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
-                    <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-5 rounded-[min(32px,var(--radius-3xl))] shadow-surface">
+                    <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
-                        {!selectedThreadId ? (
-                            <Surface variant="default" className="rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center flex-1">
-                                <p className="text-sm text-muted-foreground">{t('selectConversationProfile')}</p>
-                            </Surface>
-                        ) : profileLoading ? (
-                            <div className="flex flex-col items-center gap-4 pt-4">
-                                <Skeleton className="h-16 w-16 rounded-full" />
-                                <Skeleton className="h-4 w-32 rounded" />
-                                <Skeleton className="h-3 w-24 rounded" />
-                                <div className="w-full space-y-2 mt-4">
-                                    {Array.from({ length: 4 }).map((_, i) => (
-                                        <Skeleton key={i} className="h-8 w-full rounded-lg" />
-                                    ))}
+                        <Card.Content className="flex flex-col flex-1 min-h-0 p-5">
+                            {!selectedThreadId ? (
+                                <div className="rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center flex-1">
+                                    <p className="text-sm text-muted-foreground">{t('selectConversationProfile')}</p>
                                 </div>
-                            </div>
-                        ) : clientProfile ? (
-                            <div className={`flex flex-col flex-1 min-h-0 overflow-y-auto ${scrollbarCls}`}>
-                                {/* Avatar + name + status */}
-                                <div className="flex flex-col items-center gap-2 mb-5 text-center shrink-0">
-                                    <Avatar size="lg" color="primary">
-                                        <Avatar.Fallback className="text-lg">
-                                            {getInitials(clientProfile.fname, clientProfile.lname)}
-                                        </Avatar.Fallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="text-sm font-semibold text-foreground">
-                                            {clientProfile.fname} {clientProfile.lname}
-                                        </p>
-                                        {clientProfile.client_code && (
-                                            <p className="text-xs text-muted-foreground mt-0.5">#{clientProfile.client_code}</p>
+                            ) : profileLoading ? (
+                                <div className="flex flex-col items-center gap-4 pt-4">
+                                    <Skeleton className="h-16 w-16 rounded-full" />
+                                    <Skeleton className="h-4 w-32 rounded" />
+                                    <Skeleton className="h-3 w-24 rounded" />
+                                    <div className="w-full space-y-2 mt-4">
+                                        {Array.from({ length: 4 }).map((_, i) => (
+                                            <Skeleton key={i} className="h-8 w-full rounded-lg" />
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : clientProfile ? (
+                                <div className={`flex flex-col flex-1 min-h-0 overflow-y-auto ${scrollbarCls}`}>
+                                    {/* Avatar + name + status */}
+                                    <div className="flex flex-col items-center gap-2 mb-5 text-center shrink-0">
+                                        <Avatar size="lg" color="primary">
+                                            <Avatar.Fallback className="text-lg">
+                                                {getInitials(clientProfile.fname, clientProfile.lname)}
+                                            </Avatar.Fallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {clientProfile.fname} {clientProfile.lname}
+                                            </p>
+                                            {clientProfile.client_code && (
+                                                <p className="text-xs text-muted-foreground mt-0.5">#{clientProfile.client_code}</p>
+                                            )}
+                                        </div>
+                                        {clientProfile.subscription_status && (
+                                            <Chip size="sm" color={STATUS_CHIP[clientProfile.subscription_status] ?? 'default'} variant="flat">
+                                                {clientProfile.subscription_status}
+                                            </Chip>
                                         )}
                                     </div>
-                                    {clientProfile.subscription_status && (
-                                        <Chip size="sm" color={STATUS_CHIP[clientProfile.subscription_status] ?? 'default'} variant="flat">
-                                            {clientProfile.subscription_status}
-                                        </Chip>
-                                    )}
-                                </div>
 
-                                {/* Contact + metadata details */}
-                                <div className="flex flex-col gap-3 flex-1">
-                                    {clientProfile.email && (
-                                        <div className="flex items-start gap-3">
-                                            <Mail size={14} className="text-muted-foreground mt-0.5 shrink-0" />
-                                            <span className="text-xs text-foreground break-all">{clientProfile.email}</span>
-                                        </div>
-                                    )}
-                                    {clientProfile.phone && (
-                                        <div className="flex items-start gap-3">
-                                            <Phone size={14} className="text-muted-foreground mt-0.5 shrink-0" />
-                                            <span className="text-xs text-foreground">{clientProfile.phone}</span>
-                                        </div>
-                                    )}
-                                    {clientProfile.current_package && (
-                                        <div className="flex items-start gap-3">
-                                            <Package size={14} className="text-muted-foreground mt-0.5 shrink-0" />
-                                            <span className="text-xs text-foreground">{clientProfile.current_package}</span>
-                                        </div>
-                                    )}
-                                    {clientProfile.created_at && (
-                                        <div className="flex items-start gap-3">
-                                            <Calendar size={14} className="text-muted-foreground mt-0.5 shrink-0" />
-                                            <div>
-                                                <p className="text-[11px] text-muted-foreground">{t('memberSince')}</p>
-                                                <p className="text-xs text-foreground">
-                                                    {formatDate(clientProfile.created_at)}
-                                                </p>
+                                    {/* Contact + metadata details */}
+                                    <div className="flex flex-col gap-3 flex-1">
+                                        {clientProfile.email && (
+                                            <div className="flex items-start gap-3">
+                                                <Mail size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                                                <span className="text-xs text-foreground break-all">{clientProfile.email}</span>
                                             </div>
-                                        </div>
-                                    )}
-                                    {selectedThread?.latest_message_at && (
-                                        <div className="flex items-start gap-3">
-                                            <Clock size={14} className="text-muted-foreground mt-0.5 shrink-0" />
-                                            <div>
-                                                <p className="text-[11px] text-muted-foreground">{t('lastMessage')}</p>
-                                                <p className="text-xs text-foreground">
-                                                    {formatTimestamp(selectedThread.latest_message_at, locale)}
-                                                </p>
+                                        )}
+                                        {clientProfile.phone && (
+                                            <div className="flex items-start gap-3">
+                                                <Phone size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                                                <span className="text-xs text-foreground">{clientProfile.phone}</span>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
+                                        )}
+                                        {clientProfile.current_package && (
+                                            <div className="flex items-start gap-3">
+                                                <Package size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                                                <span className="text-xs text-foreground">{clientProfile.current_package}</span>
+                                            </div>
+                                        )}
+                                        {clientProfile.created_at && (
+                                            <div className="flex items-start gap-3">
+                                                <Calendar size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                                                <div>
+                                                    <p className="text-[11px] text-muted-foreground">{t('memberSince')}</p>
+                                                    <p className="text-xs text-foreground">
+                                                        {formatDate(clientProfile.created_at)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {selectedThread?.latest_message_at && (
+                                            <div className="flex items-start gap-3">
+                                                <Clock size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                                                <div>
+                                                    <p className="text-[11px] text-muted-foreground">{t('lastMessage')}</p>
+                                                    <p className="text-xs text-foreground">
+                                                        {formatTimestamp(selectedThread.latest_message_at, locale)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
 
-                                {/* Open Profile pinned to bottom */}
-                                <div className="mt-4 pt-4 border-t border-border shrink-0">
-                                    <Link href={`/${workspaceSlug}/clients/${clientProfile.id}`}>
-                                        <Button variant="outline" size="sm" className="w-full gap-1.5">
-                                            <ExternalLink size={13} />
-                                            {t('openProfile')}
-                                        </Button>
-                                    </Link>
+                                    {/* Open Profile pinned to bottom */}
+                                    <div className="mt-4 pt-4 border-t border-border shrink-0">
+                                        <Link href={`/${workspaceSlug}/clients/${clientProfile.id}`}>
+                                            <Button variant="outline" size="sm" className="w-full gap-1.5">
+                                                <ExternalLink size={13} />
+                                                {t('openProfile')}
+                                            </Button>
+                                        </Link>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : null}
-                    </Surface>
+                            ) : null}
+                        </Card.Content>
+
+                    </Card>
                 </div>
 
             </div>
