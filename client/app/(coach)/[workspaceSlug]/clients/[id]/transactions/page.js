@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { Pencil, RotateCcw, RotateCw, Trash2, Receipt } from "lucide-react";
+import { Pencil, RotateCcw, RotateCw, Trash2, Receipt, CheckCircle2, CreditCard, DollarSign } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
@@ -30,6 +30,32 @@ function StatusBadge({ status }) {
         <Chip size="sm" className={`capitalize ${cls}`}>
             {status}
         </Chip>
+    );
+}
+
+function KpiCard({ icon: Icon, iconBg, iconColor, title, value, subValue, chipValue, chipColor }) {
+    return (
+        <Card>
+            <Card.Content className="px-3">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                        <Icon size={16} className={iconColor} />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground truncate">{title}</p>
+                </div>
+                <div className="flex items-end justify-between gap-2">
+                    <div className="min-w-0">
+                        <p className="text-2xl font-bold text-foreground leading-none tracking-tight">{value}</p>
+                        {subValue && <p className="text-xs text-muted-foreground mt-1.5 truncate">{subValue}</p>}
+                    </div>
+                    {chipValue != null && (
+                        <Chip size="sm" color={chipColor ?? "default"} variant="soft" className="shrink-0">
+                            {chipValue}
+                        </Chip>
+                    )}
+                </div>
+            </Card.Content>
+        </Card>
     );
 }
 
@@ -425,44 +451,55 @@ export default function ClientTransactionsPage() {
 
     if (loading) {
         return (
-            <div className="p-8 flex flex-col gap-4">
-                {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
+            <div className="h-full overflow-y-auto">
+                <div className="flex flex-col gap-4 pb-6">
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="p-8 flex flex-col gap-6">
+        <div className="h-full overflow-y-auto">
+        <div className="flex flex-col gap-6 pb-6">
             {/* Header */}
             <h2 className="text-base font-semibold text-foreground">{t('title')}</h2>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">{t('total')}</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{transactions.length}</p>
-                </Card.Content></Card>
-                <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">{t('completed')}</p>
-                    <p className="text-2xl font-bold text-green-600 mt-1">{completedTx.length}</p>
-                </Card.Content></Card>
-                <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">{t('refunded')}</p>
-                    <p className="text-2xl font-bold text-destructive mt-1">{refundedTx.length}</p>
-                </Card.Content></Card>
-                <Card><Card.Content className="p-6">
-                    <p className="text-xs text-muted-foreground font-medium">{t('revenue')}</p>
-                    <p className="text-2xl font-bold text-primary mt-1">
-                        {totalEGP.toLocaleString(locale, { maximumFractionDigits: 0 })}
-                    </p>
-                    {Object.keys(byCurrency).length > 0 && (
-                        <div className="flex flex-col gap-0.5 mt-1">
-                            {Object.entries(byCurrency).map(([cur, amt]) => (
-                                <span key={cur} className="text-xs text-muted-foreground">{amt.toLocaleString()} {cur}</span>
-                            ))}
-                        </div>
-                    )}
-                </Card.Content></Card>
+                <KpiCard
+                    icon={CreditCard}
+                    iconBg="bg-purple-500/15"
+                    iconColor="text-purple-500"
+                    title={t('total')}
+                    value={transactions.length}
+                />
+                <KpiCard
+                    icon={CheckCircle2}
+                    iconBg="bg-green-500/15"
+                    iconColor="text-green-500"
+                    title={t('completed')}
+                    value={completedTx.length}
+                    chipValue={transactions.length > 0 ? `${Math.round(completedTx.length / transactions.length * 100)}%` : null}
+                    chipColor="success"
+                />
+                <KpiCard
+                    icon={RotateCcw}
+                    iconBg="bg-destructive/15"
+                    iconColor="text-destructive"
+                    title={t('refunded')}
+                    value={refundedTx.length}
+                    chipValue={transactions.length > 0 ? `${Math.round(refundedTx.length / transactions.length * 100)}%` : null}
+                    chipColor={refundedTx.length > 0 ? "danger" : "default"}
+                />
+                <KpiCard
+                    icon={DollarSign}
+                    iconBg="bg-yellow-500/15"
+                    iconColor="text-yellow-500"
+                    title={t('revenue')}
+                    value={totalEGP.toLocaleString(locale, { maximumFractionDigits: 0 })}
+                    subValue={Object.entries(byCurrency).map(([cur, amt]) => `${amt.toLocaleString()} ${cur}`).join(" · ") || null}
+                />
             </div>
 
             {/* Subscription Status Card */}
@@ -652,6 +689,7 @@ export default function ClientTransactionsPage() {
                     </Button>
                 </form>
             </Modal>
+        </div>
         </div>
     );
 }
