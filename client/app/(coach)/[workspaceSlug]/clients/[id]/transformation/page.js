@@ -3,13 +3,19 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useLocale } from "next-intl";
-import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import api from "@/lib/axios";
-import LineChart from "@/app/components/charts/LineChart";
+import AreaChart from "@/app/components/charts/AreaChart";
+import { usePageHeaderActions } from "@/app/contexts/pageHeaderActions";
 import { DateRangePicker } from "@heroui/react/date-range-picker";
 import { RangeCalendar } from "@heroui/react/range-calendar";
-import { DateInputGroup } from "@heroui/react/date-input-group";
+import { DateField } from "@heroui/react/date-field";
 import { today, getLocalTimeZone } from "@internationalized/date";
+import { Button } from "@heroui/react/button";
+import { Tabs } from "@heroui/react";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
+import { Skeleton } from "@heroui/react/skeleton";
 
 const tz = getLocalTimeZone();
 
@@ -56,23 +62,6 @@ function deltaInfo(history) {
     return { first: nums[0], last: nums[nums.length - 1], delta: nums[nums.length - 1] - nums[0] };
 }
 
-function DeltaBadge({ delta, unit }) {
-    if (delta === null || delta === undefined) return null;
-    const abs  = Math.abs(delta);
-    const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
-    const cls  = delta > 0
-        ? "text-emerald-600 bg-emerald-500/10"
-        : delta < 0 ? "text-red-500 bg-red-500/10"
-        : "text-muted-foreground bg-secondary";
-    const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
-    return (
-        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>
-            <Icon size={11} />
-            {sign}{abs.toFixed(1)}{unit ? ` ${unit}` : ""}
-        </span>
-    );
-}
-
 function MetricChart({ metric, locale, startDate, endDate }) {
     const filtered  = useMemo(() => filterByRange(metric.history, startDate, endDate), [metric.history, startDate, endDate]);
     const chartData = useMemo(() => filtered.map(h => ({
@@ -80,37 +69,26 @@ function MetricChart({ metric, locale, startDate, endDate }) {
         value: parseFloat(h.value) || 0,
     })), [filtered, locale]);
     const info = deltaInfo(filtered);
+    const nums = useMemo(
+        () => filtered.map(h => parseFloat(h.value)).filter(v => !isNaN(v)),
+        [filtered]
+    );
+    const currentValue = nums.length > 0 ? nums[nums.length - 1] : null;
+    const startValue   = nums.length > 1 ? nums[0] : null;
 
     return (
-        <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{metric.icon || "📊"}</span>
-                <div>
-                    <p className="text-sm font-semibold text-foreground">{metric.name}</p>
-                    {metric.unit && <p className="text-xs text-muted-foreground">{metric.unit}</p>}
-                </div>
-                {info && <DeltaBadge delta={info.delta} unit={metric.unit} />}
-            </div>
-
-            {info && (
-                <div className="flex gap-4 mb-3 text-xs text-muted-foreground">
-                    <span>Start: <strong className="text-foreground">{formatValue(String(info.first), metric.unit)}</strong></span>
-                    <span>Now: <strong className="text-foreground">{formatValue(String(info.last), metric.unit)}</strong></span>
-                    <span className="text-muted-foreground/50">{filtered.length} readings</span>
-                </div>
-            )}
-
-            {chartData.length === 0 ? (
-                <p className="py-12 text-center text-sm text-muted-foreground">No data in this range</p>
-            ) : (
-                <LineChart
-                    data={chartData}
-                    height={180}
-                    formatValue={v => v.toFixed(1)}
-                    valueLabel={metric.unit ?? ""}
-                />
-            )}
-        </div>
+        <AreaChart
+            data={chartData}
+            height={180}
+            formatValue={v => v.toFixed(1)}
+            label={metric.name}
+            title={metric.name}
+            currentValue={currentValue}
+            startValue={startValue}
+            unit={metric.unit || null}
+            readingsCount={filtered.length}
+            delta={info?.delta ?? null}
+        />
     );
 }
 
@@ -126,9 +104,9 @@ function ComparisonSlider({ before, after, locale }) {
         setPosition(pct);
     }, []);
 
-    const onMouseMove  = useCallback((e) => { if (dragging.current) updatePosition(e.clientX); }, [updatePosition]);
-    const onMouseUp    = useCallback(() => { dragging.current = false; }, []);
-    const onTouchMove  = useCallback((e) => { e.preventDefault(); updatePosition(e.touches[0].clientX); }, [updatePosition]);
+    const onMouseMove = useCallback((e) => { if (dragging.current) updatePosition(e.clientX); }, [updatePosition]);
+    const onMouseUp   = useCallback(() => { dragging.current = false; }, []);
+    const onTouchMove = useCallback((e) => { e.preventDefault(); updatePosition(e.touches[0].clientX); }, [updatePosition]);
 
     useEffect(() => {
         window.addEventListener('mousemove', onMouseMove);
@@ -144,12 +122,12 @@ function ComparisonSlider({ before, after, locale }) {
     return (
         <div
             ref={containerRef}
-            className="relative overflow-hidden rounded-lg select-none"
+            className="relative overflow-hidden rounded-xl select-none"
             style={{ cursor: 'col-resize' }}
             onTouchMove={onTouchMove}
             onTouchStart={(e) => updatePosition(e.touches[0].clientX)}
         >
-            <img src={after.value} alt="after" className="w-full block max-h-[480px] object-cover" draggable={false} />
+            <img src={after.value} alt="after" className="w-full block max-h-120 object-cover" draggable={false} />
 
             <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
                 <img src={before.value} alt="before" className="w-full h-full object-cover absolute inset-0" draggable={false} />
@@ -183,16 +161,15 @@ function ComparisonSlider({ before, after, locale }) {
 }
 
 function PhotoGallery({ metric, locale, startDate, endDate }) {
-    const [lightbox, setLightbox] = useState(null);
+    const [lightbox, setLightbox]       = useState(null);
     const [compareMode, setCompareMode] = useState(false);
-    const [selected, setSelected] = useState([]);
+    const [selected, setSelected]       = useState([]);
 
     const photos = useMemo(
         () => filterByRange([...metric.history].reverse(), startDate, endDate),
         [metric.history, startDate, endDate]
     );
 
-    // When dateRange changes, reset compare state
     useEffect(() => {
         setCompareMode(false);
         setSelected([]);
@@ -209,7 +186,6 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
     }
 
     function enterCompare() {
-        // Auto-select: oldest photo as "before", newest as "after"
         if (photos.length >= 2) {
             setSelected([photos[photos.length - 1], photos[0]]);
         } else {
@@ -226,76 +202,81 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
     const canCompare = photos.length >= 2;
 
     return (
-        <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{metric.icon || "📷"}</span>
-                <p className="text-sm font-semibold text-foreground">{metric.name}</p>
-                <span className="text-xs text-muted-foreground">{photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
-                <div className="ml-auto flex items-center gap-2">
-                    {compareMode ? (
-                        <>
-                            <span className="text-xs text-muted-foreground">{selected.length}/2 selected</span>
-                            <button onClick={exitCompare} className="cursor-pointer text-xs px-2.5 py-1 rounded-lg border border-border text-muted-foreground hover:bg-default transition-colors">Exit</button>
-                        </>
-                    ) : (
-                        canCompare && (
-                            <button onClick={enterCompare} className="cursor-pointer text-xs px-2.5 py-1 rounded-lg border border-border text-muted-foreground hover:bg-default transition-colors">Compare</button>
-                        )
-                    )}
+        <Card>
+            <Card.Header>
+                <div className="flex items-center gap-2 w-full">
+                    <span className="text-lg">{metric.icon || "📷"}</span>
+                    <p className="text-sm font-semibold text-foreground flex-1 min-w-0 truncate">{metric.name}</p>
+                    <Chip size="sm" variant="soft">
+                        <Chip.Label>{photos.length} photo{photos.length !== 1 ? "s" : ""}</Chip.Label>
+                    </Chip>
+                    <div className="flex items-center gap-2 shrink-0">
+                        {compareMode ? (
+                            <>
+                                <span className="text-xs text-muted-foreground">{selected.length}/2 selected</span>
+                                <Button size="sm" variant="outline" onClick={exitCompare}>Exit</Button>
+                            </>
+                        ) : (
+                            canCompare && (
+                                <Button size="sm" variant="outline" onClick={enterCompare}>Compare</Button>
+                            )
+                        )}
+                    </div>
                 </div>
-            </div>
+            </Card.Header>
+            <Card.Content className="pt-0">
+                {compareMode && selected.length === 2 && (
+                    <div className="mb-4">
+                        <ComparisonSlider before={selected[0]} after={selected[1]} locale={locale} />
+                        <p className="text-[10px] text-muted-foreground text-center mt-1.5">Drag the handle to compare</p>
+                    </div>
+                )}
 
-            {compareMode && selected.length === 2 && (
-                <div className="mb-3">
-                    <ComparisonSlider before={selected[0]} after={selected[1]} locale={locale} />
-                    <p className="text-[10px] text-muted-foreground text-center mt-1.5">Drag the handle to compare</p>
-                </div>
-            )}
+                {compareMode && selected.length < 2 && (
+                    <div className="mb-4 py-3 rounded-xl bg-primary/5 border border-primary/20 text-center">
+                        <p className="text-xs text-primary">
+                            {selected.length === 0 ? "Select a before photo" : "Now select an after photo"}
+                        </p>
+                    </div>
+                )}
 
-            {compareMode && selected.length < 2 && (
-                <div className="mb-3 py-3 rounded-lg bg-primary/5 border border-primary/20 text-center">
-                    <p className="text-xs text-primary">
-                        {selected.length === 0 ? "Select a before photo" : "Now select an after photo"}
-                    </p>
-                </div>
-            )}
-
-            {photos.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">No photos in this range</p>
-            ) : (
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                    {photos.map((h, i) => {
-                        const selIdx = selected.indexOf(h);
-                        const isSelected = selIdx !== -1;
-                        return (
-                            <button
-                                key={i}
-                                onClick={() => compareMode ? toggleSelect(h) : setLightbox(h)}
-                                className="cursor-pointer shrink-0 flex flex-col gap-1 relative"
-                            >
-                                <img
-                                    src={h.value}
-                                    alt={metric.name}
-                                    className={`w-28 h-36 object-cover rounded-lg border-2 transition-colors ${
-                                        isSelected
-                                            ? "border-primary shadow-[0_0_0_2px_var(--primary)]"
-                                            : "border-border hover:border-primary/50"
-                                    }`}
-                                    draggable={false}
-                                />
-                                {isSelected && (
-                                    <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shadow">
-                                        {selIdx + 1}
+                {photos.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">No photos in this range</p>
+                ) : (
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                        {photos.map((h, i) => {
+                            const selIdx    = selected.indexOf(h);
+                            const isSelected = selIdx !== -1;
+                            return (
+                                <button
+                                    key={i}
+                                    onClick={() => compareMode ? toggleSelect(h) : setLightbox(h)}
+                                    className="cursor-pointer shrink-0 flex flex-col gap-1.5 relative"
+                                >
+                                    <img
+                                        src={h.value}
+                                        alt={metric.name}
+                                        className={`w-28 rounded-xl border-2 transition-all ${
+                                            isSelected
+                                                ? "border-primary shadow-[0_0_0_2px_var(--primary)]"
+                                                : "border-border hover:border-primary/50"
+                                        }`}
+                                        draggable={false}
+                                    />
+                                    {isSelected && (
+                                        <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shadow">
+                                            {selIdx + 1}
+                                        </span>
+                                    )}
+                                    <span className="text-[10px] text-muted-foreground text-center">
+                                        {new Date(h.date).toLocaleDateString(locale, { day: "numeric", month: "short" })}
                                     </span>
-                                )}
-                                <span className="text-[10px] text-muted-foreground text-center">
-                                    {new Date(h.date).toLocaleDateString(locale, { day: "numeric", month: "short" })}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </Card.Content>
 
             {lightbox && !compareMode && (
                 <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
@@ -305,57 +286,20 @@ function PhotoGallery({ metric, locale, startDate, endDate }) {
                     </span>
                 </div>
             )}
-        </div>
+        </Card>
     );
 }
 
-function TimelineEntry({ entry, locale }) {
-    const [open, setOpen] = useState(false);
-    return (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <button
-                className="cursor-pointer w-full flex items-center justify-between gap-4 px-4 py-3 hover:bg-default transition-colors"
-                onClick={() => setOpen(v => !v)}
-            >
-                <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium text-foreground truncate">{entry.formTitle}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(entry.submittedAt).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground">{entry.answers.length} metric{entry.answers.length !== 1 ? "s" : ""}</span>
-                    {open ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
-                </div>
-            </button>
-            {open && (
-                <div className="border-t border-border px-4 py-3 flex flex-col gap-2">
-                    {entry.answers.map((a, i) => (
-                        <div key={i} className="flex items-center justify-between gap-3">
-                            <span className="text-xs text-muted-foreground truncate">{a.label || a.metricName || "—"}</span>
-                            {a.metricType === "image" ? (
-                                <a href={a.answer} target="_blank" rel="noopener noreferrer">
-                                    <img src={a.answer} alt={a.metricName || "photo"} className="w-14 object-cover rounded border border-border hover:border-primary/60 transition-colors" style={{ height: "4.5rem" }} />
-                                </a>
-                            ) : (
-                                <span className="text-xs font-medium text-foreground shrink-0">{a.answer}</span>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
 
 export default function ClientTransformationPage() {
-    const { id } = useParams();
-    const locale  = useLocale();
-    const [data, setData]       = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError]     = useState(null);
+    const { id }   = useParams();
+    const locale   = useLocale();
+    const [data, setData]           = useState(null);
+    const [loading, setLoading]     = useState(true);
+    const [error, setError]         = useState(null);
     const [dateRange, setDateRange] = useState(rangeForDays(90));
     const [activePreset, setActivePreset] = useState("90d");
+    const setPageHeaderActions = usePageHeaderActions();
 
     useEffect(() => {
         api.get(`/api/clients/${id}/transformation`)
@@ -367,20 +311,115 @@ export default function ClientTransformationPage() {
     const startDate = useMemo(() => dateRange ? toStartOfDay(dateRange.start) : null, [dateRange]);
     const endDate   = useMemo(() => dateRange ? toEndOfDay(dateRange.end) : null, [dateRange]);
 
-    function applyPreset(preset) {
+    // Callback ref: updates maskImage on scroll/resize so shadows only appear when needed.
+    const scrollCleanupRef = useRef(null);
+    const scrollMaskRef = useCallback((el) => {
+        if (scrollCleanupRef.current) { scrollCleanupRef.current(); scrollCleanupRef.current = null; }
+        if (!el) return;
+        function update() {
+            const { scrollTop, scrollHeight, clientHeight } = el;
+            const top    = scrollTop > 0;
+            const bottom = scrollTop + clientHeight < scrollHeight - 1;
+            if (!top && !bottom) el.style.maskImage = "none";
+            else if (!top)       el.style.maskImage = "linear-gradient(to bottom, black calc(100% - 20px), transparent)";
+            else if (!bottom)    el.style.maskImage = "linear-gradient(to bottom, transparent, black 20px)";
+            else                 el.style.maskImage = "linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)";
+        }
+        update();
+        el.addEventListener("scroll", update, { passive: true });
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        scrollCleanupRef.current = () => { el.removeEventListener("scroll", update); ro.disconnect(); };
+    }, []);
+
+    const applyPreset = useCallback((preset) => {
         setActivePreset(preset.label);
         setDateRange(preset.days === null ? null : rangeForDays(preset.days));
-    }
+    }, []);
 
-    function handlePickerChange(range) {
+    const handlePickerChange = useCallback((range) => {
         setDateRange(range);
         setActivePreset(null);
-    }
+    }, []);
+
+    // Push the timeframe toolbar into the layout header slot.
+    useEffect(() => {
+        if (!setPageHeaderActions) return;
+        setPageHeaderActions(
+            <div className="flex items-center gap-2">
+                <DateRangePicker value={dateRange} onChange={handlePickerChange}>
+                    <DateField.Group fullWidth>
+                        <DateField.Input slot="start">
+                            {(segment) => <DateField.Segment segment={segment} />}
+                        </DateField.Input>
+                        <DateRangePicker.RangeSeparator />
+                        <DateField.Input slot="end">
+                            {(segment) => <DateField.Segment segment={segment} />}
+                        </DateField.Input>
+                        <DateField.Suffix>
+                            <DateRangePicker.Trigger>
+                                <DateRangePicker.TriggerIndicator />
+                            </DateRangePicker.Trigger>
+                        </DateField.Suffix>
+                    </DateField.Group>
+                    <DateRangePicker.Popover>
+                        <RangeCalendar aria-label="Date range">
+                            <RangeCalendar.Header>
+                                <RangeCalendar.YearPickerTrigger>
+                                    <RangeCalendar.YearPickerTriggerHeading />
+                                    <RangeCalendar.YearPickerTriggerIndicator />
+                                </RangeCalendar.YearPickerTrigger>
+                                <RangeCalendar.NavButton slot="previous" />
+                                <RangeCalendar.NavButton slot="next" />
+                            </RangeCalendar.Header>
+                            <RangeCalendar.Grid>
+                                <RangeCalendar.GridHeader>
+                                    {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                                </RangeCalendar.GridHeader>
+                                <RangeCalendar.GridBody>
+                                    {(date) => <RangeCalendar.Cell date={date} />}
+                                </RangeCalendar.GridBody>
+                            </RangeCalendar.Grid>
+                            <RangeCalendar.YearPickerGrid>
+                                <RangeCalendar.YearPickerGridBody>
+                                    {({ year }) => <RangeCalendar.YearPickerCell year={year} />}
+                                </RangeCalendar.YearPickerGridBody>
+                            </RangeCalendar.YearPickerGrid>
+                        </RangeCalendar>
+                    </DateRangePicker.Popover>
+                </DateRangePicker>
+                <Tabs
+                    selectedKey={activePreset}
+                    onSelectionChange={(key) => applyPreset(PRESETS.find(p => p.label === key))}
+                >
+                    <Tabs.ListContainer>
+                        <Tabs.List
+                            aria-label="Timeframe"
+                            className="w-fit *:h-6 *:w-fit *:px-3 *:text-sm *:font-normal *:data-[selected=true]:text-accent-foreground"
+                        >
+                            {PRESETS.map(p => (
+                                <Tabs.Tab key={p.label} id={p.label}>
+                                    {p.label}
+                                    <Tabs.Indicator className="bg-accent" />
+                                </Tabs.Tab>
+                            ))}
+                        </Tabs.List>
+                    </Tabs.ListContainer>
+                </Tabs>
+            </div>
+        );
+        return () => setPageHeaderActions(null);
+    }, [activePreset, dateRange, applyPreset, handlePickerChange, setPageHeaderActions]);
 
     if (loading) {
         return (
-            <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">Loading…</p>
+            <div ref={scrollMaskRef} className="h-full overflow-y-auto">
+                <div className="flex flex-col gap-5 pb-6">
+                    <Skeleton className="h-4 w-32 rounded-lg" />
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-64 rounded-xl" />)}
+                    </div>
+                </div>
             </div>
         );
     }
@@ -395,16 +434,8 @@ export default function ClientTransformationPage() {
 
     const numericMetrics = (data?.metrics ?? []).filter(m => m.type === "number");
     const imageMetrics   = (data?.metrics ?? []).filter(m => m.type === "image");
-    const allTimeline    = data?.timeline ?? [];
 
-    const timeline = allTimeline.filter(entry => {
-        const t = new Date(entry.submittedAt).getTime();
-        if (startDate && t < startDate.getTime()) return false;
-        if (endDate && t > endDate.getTime()) return false;
-        return true;
-    });
-
-    if (numericMetrics.length === 0 && imageMetrics.length === 0 && allTimeline.length === 0) {
+    if (numericMetrics.length === 0 && imageMetrics.length === 0) {
         return (
             <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-16">
                 <TrendingUp size={40} className="text-muted-foreground/30" />
@@ -417,75 +448,14 @@ export default function ClientTransformationPage() {
     }
 
     return (
-        <div className="h-full overflow-y-auto">
+        <div ref={scrollMaskRef} className="h-full overflow-y-auto">
             <div className="flex flex-col gap-5 pb-6">
 
-                {/* Timeframe bar */}
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                    {/* Preset chips */}
-                    <div className="flex gap-1">
-                        {PRESETS.map(p => (
-                            <button
-                                key={p.label}
-                                onClick={() => applyPreset(p)}
-                                className={`cursor-pointer px-2.5 py-1 text-xs rounded-lg border transition-colors ${
-                                    activePreset === p.label
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "border-border text-muted-foreground hover:bg-default"
-                                }`}
-                            >
-                                {p.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Date range picker */}
-                    <DateRangePicker value={dateRange} onChange={handlePickerChange}>
-                        <DateRangePicker.Trigger className="cursor-pointer">
-                            <DateRangePicker.TriggerIndicator>
-                                <Calendar size={14} className="text-muted-foreground" />
-                            </DateRangePicker.TriggerIndicator>
-                            <DateInputGroup>
-                                <DateInputGroup.Input slot="start">
-                                    {(segment) => <DateInputGroup.Segment segment={segment} />}
-                                </DateInputGroup.Input>
-                            </DateInputGroup>
-                            <DateRangePicker.RangeSeparator>–</DateRangePicker.RangeSeparator>
-                            <DateInputGroup>
-                                <DateInputGroup.Input slot="end">
-                                    {(segment) => <DateInputGroup.Segment segment={segment} />}
-                                </DateInputGroup.Input>
-                            </DateInputGroup>
-                        </DateRangePicker.Trigger>
-                        <DateRangePicker.Popover>
-                            <RangeCalendar>
-                                <RangeCalendar.Header>
-                                    <RangeCalendar.NavButton slot="previous" />
-                                    <RangeCalendar.Heading />
-                                    <RangeCalendar.NavButton slot="next" />
-                                </RangeCalendar.Header>
-                                <RangeCalendar.Grid>
-                                    <RangeCalendar.GridHeader>
-                                        {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-                                    </RangeCalendar.GridHeader>
-                                    <RangeCalendar.GridBody>
-                                        {(date) => (
-                                            <RangeCalendar.Cell date={date}>
-                                                <RangeCalendar.CellIndicator />
-                                            </RangeCalendar.Cell>
-                                        )}
-                                    </RangeCalendar.GridBody>
-                                </RangeCalendar.Grid>
-                            </RangeCalendar>
-                        </DateRangePicker.Popover>
-                    </DateRangePicker>
-                </div>
-
-                {/* Numeric Metric Charts */}
+                {/* Measurements */}
                 {numericMetrics.length > 0 && (
                     <section>
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Measurements</h2>
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Measurements</h2>
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                             {numericMetrics.map(m => (
                                 <MetricChart key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />
                             ))}
@@ -493,11 +463,11 @@ export default function ClientTransformationPage() {
                     </section>
                 )}
 
-                {/* Photo Metric Galleries */}
+                {/* Progress Photos */}
                 {imageMetrics.length > 0 && (
                     <section>
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Progress Photos</h2>
-                        <div className="flex flex-col gap-4">
+                        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Progress Photos</h2>
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                             {imageMetrics.map(m => (
                                 <PhotoGallery key={m.id} metric={m} locale={locale} startDate={startDate} endDate={endDate} />
                             ))}
@@ -505,21 +475,6 @@ export default function ClientTransformationPage() {
                     </section>
                 )}
 
-                {/* Submission Timeline */}
-                {timeline.length > 0 && (
-                    <section>
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Submission History</h2>
-                        <div className="flex flex-col gap-2">
-                            {timeline.map(entry => (
-                                <TimelineEntry key={entry.submissionId} entry={entry} locale={locale} />
-                            ))}
-                        </div>
-                    </section>
-                )}
-
-                {numericMetrics.length > 0 && timeline.length === 0 && imageMetrics.every(m => filterByRange([...m.history].reverse(), startDate, endDate).length === 0) && (
-                    <p className="text-center text-sm text-muted-foreground py-4">No submissions in this timeframe</p>
-                )}
 
             </div>
         </div>
