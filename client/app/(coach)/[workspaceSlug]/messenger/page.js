@@ -12,6 +12,7 @@ import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import { Card } from "@heroui/react/card";
+import { ListBox } from "@heroui/react/list-box";
 import { SearchField } from "@heroui/react/search-field";
 import { TextField } from "@heroui/react/textfield";
 import { TextArea } from "@heroui/react/textarea";
@@ -276,58 +277,69 @@ export default function MessengerPage() {
                                         </div>
                                     </div>
                                 ))
-                            ) : filteredThreads.length === 0 ? (
-                                <Card className="rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center mx-1 my-1">
-                                    <p className="text-sm text-muted-foreground">
-                                        {search ? t('noResults') : t('noConversations')}
-                                    </p>
-                                    {search && (
-                                        <Button size="sm" variant="ghost" onClick={() => setSearch('')}>
-                                            {tFilter('clearSearch')}
-                                        </Button>
-                                    )}
-                                </Card>
                             ) : (
                                 <ScrollShadow className={`flex-1 overflow-y-auto -mx-2 px-2 ${scrollbarCls}`}>
-                                    {filteredThreads.map(thread => {
-                                        const isSelected = selectedThreadId === thread.id;
-                                        const hasUnread  = thread.unread_count > 0;
-                                        return (
-                                            <button
-                                                key={thread.id}
-                                                onClick={() => handleSelectThread(thread)}
-                                                className={`w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-colors border-l-[3px] ${
-                                                    isSelected
-                                                        ? 'bg-primary/8 border-primary'
-                                                        : 'border-transparent hover:bg-accent/40'
-                                                }`}
-                                            >
-                                                <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
-                                                    <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
-                                                </Avatar>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                                                        <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
-                                                            {thread.fname} {thread.lname}
-                                                        </span>
-                                                        <div className="flex items-center gap-1.5 shrink-0">
-                                                            {hasUnread && (
-                                                                <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                                                                    {thread.unread_count > 9 ? '9+' : thread.unread_count}
-                                                                </span>
-                                                            )}
-                                                            <span className="text-[11px] text-muted-foreground">
-                                                                {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
+                                    <ListBox
+                                        selectionMode="single"
+                                        disallowEmptySelection
+                                        selectedKeys={selectedThreadId ? [selectedThreadId] : []}
+                                        onSelectionChange={(keys) => {
+                                            const id = [...keys][0];
+                                            if (!id) return;
+                                            const thread = filteredThreads.find(t => t.id === id);
+                                            if (thread) handleSelectThread(thread);
+                                        }}
+                                        aria-label={t('title')}
+                                        renderEmptyState={() => (
+                                            <div className="rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center mx-1 my-1">
+                                                <p className="text-sm text-muted-foreground">
+                                                    {search ? t('noResults') : t('noConversations')}
+                                                </p>
+                                                {search && (
+                                                    <Button size="sm" variant="ghost" onClick={() => setSearch('')}>
+                                                        {tFilter('clearSearch')}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )}
+                                        className="p-0 gap-0"
+                                    >
+                                        {filteredThreads.map(thread => {
+                                            const hasUnread = thread.unread_count > 0;
+                                            return (
+                                                <ListBox.Item
+                                                    key={thread.id}
+                                                    id={thread.id}
+                                                    textValue={`${thread.fname} ${thread.lname}`}
+                                                    className="items-start gap-3 rounded-xl px-3 py-2.5 mb-0.5 border-l-[3px] border-transparent [&:hover]:bg-accent/40 data-[selected=true]:border-primary data-[selected=true]:bg-primary/8 data-[selected=true]:[&:hover]:bg-primary/8"
+                                                >
+                                                    <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
+                                                        <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
+                                                    </Avatar>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                                                            <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                                                                {thread.fname} {thread.lname}
                                                             </span>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {hasUnread && (
+                                                                    <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                                                                        {thread.unread_count > 9 ? '9+' : thread.unread_count}
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-[11px] text-muted-foreground">
+                                                                    {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
+                                                                </span>
+                                                            </div>
                                                         </div>
+                                                        <p className={`text-xs truncate ${hasUnread ? 'text-foreground/70' : 'text-muted-foreground'}`}>
+                                                            {thread.latest_message || t('threadNoMessages')}
+                                                        </p>
                                                     </div>
-                                                    <p className={`text-xs truncate ${hasUnread ? 'text-foreground/70' : 'text-muted-foreground'}`}>
-                                                        {thread.latest_message || t('threadNoMessages')}
-                                                    </p>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
+                                                </ListBox.Item>
+                                            );
+                                        })}
+                                    </ListBox>
                                 </ScrollShadow>
                             )}
                         </Card.Content>
