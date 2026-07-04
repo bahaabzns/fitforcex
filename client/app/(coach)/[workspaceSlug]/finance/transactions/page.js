@@ -6,10 +6,10 @@ import { Pencil, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import DataTable from "@/app/components/DataTable";
 import TransactionModal from "@/app/components/TransactionModal";
 import ImagePreview from "@/app/components/ImagePreview";
+import KpiCardGroup from "@/app/components/KpiCardGroup";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import { Button } from "@heroui/react/button";
-import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Tooltip } from "@heroui/react/tooltip";
@@ -236,50 +236,20 @@ function TransactionsTable({ transactions, allPackageVariations, allPaymentMetho
                 </select>
             </div>
 
-            {/* Summary cards */}
-            <div className="flex flex-wrap gap-3">
-                <Card>
-                    <Card.Content className="px-4 py-3">
-                        <p className="text-muted-foreground text-xs font-medium uppercase">{t('completed')}</p>
-                        <p className="text-green-600 text-lg font-bold mt-0.5">
-                            {Math.round(totalCompleted).toLocaleString()} {displayCurrency}
-                        </p>
-                    </Card.Content>
-                </Card>
-                <Card>
-                    <Card.Content className="px-4 py-3">
-                        <p className="text-muted-foreground text-xs font-medium uppercase">{t('refunded')}</p>
-                        <p className="text-destructive text-lg font-bold mt-0.5">
-                            {Math.round(totalRefunded).toLocaleString()} {displayCurrency}
-                        </p>
-                    </Card.Content>
-                </Card>
+            {/* KPI groups */}
+            <div className="flex flex-wrap gap-3 items-stretch">
+                <KpiCardGroup items={[
+                    { key: "completed", label: t('completed'), value: Math.round(totalCompleted).toLocaleString(), unit: displayCurrency },
+                    { key: "refunded", label: t('refunded'), value: Math.round(totalRefunded).toLocaleString(), unit: displayCurrency },
+                ]} />
 
-                {Object.keys(byPaymentMethod).length > 0 && (
-                    <div className="w-px bg-border mx-1 self-stretch" />
-                )}
-                {Object.entries(byPaymentMethod).map(([method, total]) => (
-                    <Card key={method}>
-                        <Card.Content className="px-4 py-3">
-                            <p className="text-muted-foreground text-xs font-medium uppercase">{method}</p>
-                            <p className="text-foreground text-lg font-bold mt-0.5">
-                                {Math.round(total).toLocaleString()} {displayCurrency}
-                            </p>
-                        </Card.Content>
-                    </Card>
-                ))}
+                <KpiCardGroup items={Object.entries(byPaymentMethod).map(([method, total]) => (
+                    { key: method, label: method, value: Math.round(total).toLocaleString(), unit: displayCurrency }
+                ))} />
 
-                {Object.keys(byCurrency).length > 0 && (
-                    <div className="w-px bg-border mx-1 self-stretch" />
-                )}
-                {Object.entries(byCurrency).map(([currency, total]) => (
-                    <Card key={currency}>
-                        <Card.Content className="px-4 py-3">
-                            <p className="text-muted-foreground text-xs font-medium uppercase">{currency}</p>
-                            <p className="text-primary text-lg font-bold mt-0.5">{total.toLocaleString()} {currency}</p>
-                        </Card.Content>
-                    </Card>
-                ))}
+                <KpiCardGroup items={Object.entries(byCurrency).map(([currency, total]) => (
+                    { key: currency, label: currency, value: total.toLocaleString(), unit: currency }
+                ))} />
             </div>
 
             <DataTable
