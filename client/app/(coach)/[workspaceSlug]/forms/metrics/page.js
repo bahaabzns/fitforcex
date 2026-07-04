@@ -4,8 +4,11 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Pencil, Trash2, BarChart2 } from "lucide-react";
 import api from "@/lib/axios";
+import DataTable from "@/app/components/DataTable";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Tooltip } from "@heroui/react/tooltip";
 import { Modal } from "@heroui/react/modal";
 
 const EMOJI_SUGGESTIONS = ["⚖️", "📏", "📊", "💪", "📷", "🏃", "🔥", "❤️", "🩺", "💧"];
@@ -111,9 +114,6 @@ export default function MetricsPage() {
         }
     }
 
-    const numberMetrics = metrics.filter(m => m.type === "number");
-    const imageMetrics  = metrics.filter(m => m.type === "image");
-
     if (loading) {
         return (
             <div className="p-8 flex flex-col gap-4">
@@ -123,8 +123,65 @@ export default function MetricsPage() {
         );
     }
 
+    const columns = [
+        {
+            key: "name",
+            label: "Name",
+            filterType: "text",
+            sortable: true,
+            render: (row) => (
+                <div className="flex items-center gap-3">
+                    <span className="text-xl shrink-0 w-7 text-center">{row.icon || "📊"}</span>
+                    <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{row.name}</p>
+                        {row.description && <p className="text-xs text-muted-foreground truncate">{row.description}</p>}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "type",
+            label: "Type",
+            filterType: "multi",
+            options: ["number", "image"],
+            optionLabel: (v) => v === "number" ? "Number" : "Photo",
+            sortable: true,
+            render: (row) => (
+                <Chip size="sm" variant="soft" color={row.type === "number" ? "default" : "secondary"}>
+                    {row.type === "number" ? "Number" : "Photo"}
+                </Chip>
+            ),
+        },
+        {
+            key: "unit",
+            label: "Unit",
+            render: (row) => row.unit || <span className="text-muted-foreground">—</span>,
+        },
+        {
+            key: "actions",
+            label: "",
+            cardPriority: "hidden",
+            render: (row) => (
+                <div className="flex items-center gap-1 justify-end">
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label="Edit" onClick={() => openEdit(row)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>Edit</Tooltip.Content>
+                    </Tooltip>
+                    <Tooltip>
+                        <Button isIconOnly size="sm" variant="ghost" aria-label="Delete" className="text-destructive hover:text-red-700" onClick={() => setDeleteTarget(row)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Tooltip.Content>Delete</Tooltip.Content>
+                    </Tooltip>
+                </div>
+            ),
+        },
+    ];
+
     return (
-        <div className="p-6 max-w-2xl mx-auto flex flex-col gap-6">
+        <div className="p-6 flex flex-col gap-6">
 
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -132,37 +189,22 @@ export default function MetricsPage() {
                     <h1 className="text-xl font-semibold text-foreground">Metrics</h1>
                     <p className="text-sm text-muted-foreground mt-0.5">Manage the measurements tracked in your check-in forms</p>
                 </div>
-                <Button variant="primary" onClick={openCreate}>
-                    Add Metric
-                </Button>
             </div>
 
-            {/* Number metrics */}
-            <MetricGroup
-                title="Number Metrics"
-                icon="📊"
-                metrics={numberMetrics}
-                onEdit={openEdit}
-                onDelete={setDeleteTarget}
+            <DataTable
+                columns={columns}
+                data={metrics}
+                rowKey="id"
+                defaultSort="name"
+                quickSearch={{ fields: ["name", "description"], placeholder: "Search metrics..." }}
+                emptyState={{
+                    icon: BarChart2,
+                    title: "No metrics yet",
+                    description: "Add your first metric to start tracking client progress",
+                    action: { label: "Add Metric", onPress: openCreate },
+                }}
+                toolbarEnd={<Button variant="primary" onClick={openCreate}>Add Metric</Button>}
             />
-
-            {/* Image / photo metrics */}
-            <MetricGroup
-                title="Photo Metrics"
-                icon="📷"
-                metrics={imageMetrics}
-                onEdit={openEdit}
-                onDelete={setDeleteTarget}
-            />
-
-            {metrics.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-                    <BarChart2 size={36} className="text-border" />
-                    <p className="text-sm font-medium text-muted-foreground">No metrics yet</p>
-                    <p className="text-xs text-muted-foreground">Add your first metric to start tracking client progress</p>
-                    <Button variant="primary" size="sm" onClick={openCreate}>Add Metric</Button>
-                </div>
-            )}
 
             {/* Create modal */}
             <MetricModal
@@ -216,49 +258,6 @@ export default function MetricsPage() {
                     </Modal.Container>
                 </Modal.Backdrop>
             </Modal>
-        </div>
-    );
-}
-
-function MetricGroup({ title, icon, metrics, onEdit, onDelete }) {
-    if (metrics.length === 0) return null;
-    return (
-        <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span>{icon}</span> {title}
-            </p>
-            <div className="flex flex-col gap-1.5">
-                {metrics.map(m => (
-                    <div key={m.id} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-default transition-colors group">
-                        <span className="text-xl shrink-0 w-7 text-center">{m.icon || "📊"}</span>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{m.name}</p>
-                            {m.description && <p className="text-xs text-muted-foreground truncate">{m.description}</p>}
-                        </div>
-                        {m.unit && (
-                            <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full border border-border shrink-0">
-                                {m.unit}
-                            </span>
-                        )}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button
-                                onClick={() => onEdit(m)}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-default transition-colors cursor-pointer"
-                                title="Edit"
-                            >
-                                <Pencil size={13} />
-                            </button>
-                            <button
-                                onClick={() => onDelete(m)}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                                title="Delete"
-                            >
-                                <Trash2 size={13} />
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
         </div>
     );
 }
