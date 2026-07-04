@@ -169,22 +169,11 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
 
     try {
         await checkClientLimit(req.user!.workspaceId);
-        let nextCode: number | null = null;
-        let retries = 0;
-
-        while (nextCode === null && retries < 10) {
-            const randomCode = Math.floor(Math.random() * 9999) + 1;
-            const existing   = await prisma.clients.findFirst({
-                where: { workspace_id: req.user!.workspaceId, client_code: randomCode },
-                select: { id: true },
-            });
-            if (!existing) nextCode = randomCode;
-            retries++;
-        }
-
-        if (nextCode === null) {
-            return res.status(500).json({ error: 'Failed to generate unique client code' });
-        }
+        const aggregate = await prisma.clients.aggregate({
+            where:   { workspace_id: req.user!.workspaceId },
+            _max:    { client_code: true },
+        });
+        const nextCode = (aggregate._max.client_code ?? 0) + 1;
 
         const hashedPassword = password ? await bcrypt.hash(password as string, 10) : null;
 
