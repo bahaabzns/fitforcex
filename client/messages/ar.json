@@ -24,7 +24,18 @@
     "muscleGroups": "مجموعات العضلات",
     "equipment": "المعدات",
     "subscriptionPolicies": "سياسات الاشتراك",
-    "metrics": "القياسات"
+    "metrics": "القياسات",
+    "account": "الحساب",
+    "security": "الأمان",
+    "general": "عام",
+    "clientPortal": "بوابة العملاء",
+    "subscription": "الاشتراك",
+    "plans": "الخطط",
+    "paymentHistory": "سجل المدفوعات",
+    "clientExperience": "تجربة العميل",
+    "portalPolicies": "سياسات البوابة",
+    "advanced": "متقدم",
+    "dangerZone": "منطقة الخطر"
   },
   "sidebar": {
     "logout": "تسجيل الخروج",
@@ -772,9 +783,12 @@
     "phoneRequired": "رقم الهاتف مطلوب"
   },
   "settings": {
+    "pageTitle": "الإعدادات",
+    "pageDescription": "إدارة حسابك ومساحة عملك واشتراكك.",
+    "accountPageSubtitle": "إدارة معلوماتك الشخصية وكلمة المرور وأمان حسابك.",
     "profile": "الملف الشخصي",
     "personalInfo": "المعلومات الشخصية",
-    "manageInfo": "إدارة معلوماتك الشخصية وإعدادات الأمان",
+    "manageInfo": "إدارة معلوماتك الشخصية.",
     "workspace": "مساحة العمل",
     "billing": "الفواتير",
     "password": "كلمة المرور",
@@ -798,6 +812,43 @@
     "passwordMinLength": "يجب أن تكون كلمة المرور 8 أحرف على الأقل.",
     "passwordChanged": "تم تغيير كلمة المرور بنجاح.",
     "passwordChangeFailed": "فشل تغيير كلمة المرور."
+  },
+  "accountSecurity": {
+    "pageTitle": "الأمان",
+    "pageSubtitle": "إدارة كلمة المرور وأمان حسابك.",
+    "twoFactorAuth": "المصادقة الثنائية",
+    "twoFactorAuthDesc": "أضف طبقة حماية إضافية لحسابك.",
+    "activeSessions": "الجلسات النشطة",
+    "activeSessionsDesc": "اطّلع على أماكن تسجيل دخولك وألغِ الوصول عند الحاجة."
+  },
+  "workspaceGeneral": {
+    "pageTitle": "عام",
+    "pageSubtitle": "معلومات أساسية عن مساحة عملك.",
+    "morePreferences": "تفضيلات إضافية",
+    "logo": "الشعار",
+    "language": "اللغة",
+    "timezone": "المنطقة الزمنية",
+    "dateFormat": "تنسيق التاريخ"
+  },
+  "clientPortalSettings": {
+    "pageTitle": "بوابة العملاء",
+    "pageSubtitle": "شارك رابط بوابتك وخصّص تجربة عملائك.",
+    "morePreferences": "تفضيلات إضافية",
+    "portalTheme": "مظهر البوابة",
+    "portalWelcomeMessage": "رسالة ترحيب البوابة",
+    "portalVisibility": "ظهور البوابة"
+  },
+  "subscriptionPlans": {
+    "pageTitle": "الخطط",
+    "pageSubtitle": "إدارة خطة اشتراكك وعرض سجل المدفوعات."
+  },
+  "paymentHistory": {
+    "pageTitle": "سجل المدفوعات",
+    "pageSubtitle": "عرض وتحميل فواتيرك السابقة."
+  },
+  "dangerZone": {
+    "pageTitle": "منطقة الخطر",
+    "pageSubtitle": "إجراءات نهائية وغير قابلة للتراجع."
   },
   "billing": {
     "plans": "الخطط",
@@ -845,6 +896,7 @@
     "pageTitle": "مساحة العمل",
     "pageSubtitle": "إدارة مساحة العمل وأعضاء الفريق وبوابة العملاء.",
     "workspaceNameSection": "اسم مساحة العمل",
+    "workspaceNameSectionDesc": "تحديث الاسم الذي يظهر لفريقك وعملائك.",
     "nameLabel": "الاسم",
     "save": "حفظ",
     "saving": "جارٍ الحفظ…",
@@ -853,6 +905,12 @@
     "clientPortalSection": "بوابة العملاء",
     "portalUrlLabel": "رابط بوابتك",
     "portalUrlHint": "شارك هذا الرابط مع عملائك حتى يتمكنوا من الوصول إلى خطط التدريب والتغذية.",
+    "portalQuickActions": {
+      "open": "فتح البوابة",
+      "generateQr": "إنشاء رمز QR",
+      "share": "مشاركة",
+      "comingSoon": "قريبًا"
+    },
     "slugHint": "خصّص رابط بوابتك بشيء سهل التذكر. يمكن القيام بذلك مرة واحدة فقط.",
     "customSlugLabel": "الرابط المخصص",
     "slugFormat": "أحرف صغيرة وأرقام وشرطات فقط.",
@@ -1174,6 +1232,8 @@
     "loadFailed": "تعذّر تحميل هذه الخطة — يرجى المحاولة مجدداً."
   },
   "common": {
+    "comingSoon": "قريبًا",
+    "ownerOnlyMessage": "هذا القسم متاح فقط لمالك مساحة العمل.",
     "show": "إظهار",
     "hide": "إخفاء",
     "openOriginal": "فتح الأصل",
@@ -1569,6 +1629,8 @@
     "expiredDesc": "تُطبق عند انتهاء اشتراك العميل.",
     "frozenTitle": "سياسة العميل المجمد",
     "frozenDesc": "تُطبق أثناء إيقاف اشتراك العميل مؤقتًا.",
+    "tabExpired": "العميل المنتهي",
+    "tabFrozen": "العميل المجمد",
     "gracePeriodLabel": "فترة السماح (أيام)",
     "gracePeriodHelp": "عدد الأيام بعد الانتهاء التي يحتفظ فيها العميل بكامل الصلاحيات.",
     "save": "حفظ",
@@ -1582,6 +1644,34 @@
     "expiredOverride": "سياسة الانتهاء",
     "frozenOverride": "سياسة التجميد",
     "comingSoon": "قريبًا",
+    "presetLabel": "نمط السياسة",
+    "preset": {
+      "locked": { "label": "مغلق", "description": "لا يملك العملاء أي وصول — تسجيل الدخول إلى البوابة معطل بالكامل." },
+      "read_only": { "label": "للعرض فقط", "description": "يمكن للعملاء عرض خططهم وتقدمهم فقط، دون المراسلة أو إرسال أي شيء." },
+      "limited": { "label": "محدود", "description": "يحتفظ العملاء بخططهم والمراسلة فقط — دون التقدم أو المتابعات أو الإضافات." },
+      "custom": { "label": "مخصص" }
+    },
+    "group": {
+      "general": "الوصول العام",
+      "plans": "الخطط",
+      "progress": "التقدم والمتابعة",
+      "communication": "التواصل",
+      "extras": "إضافات"
+    },
+    "groupEnabledCount": "{enabled}/{total} مفعّل",
+    "bulk": {
+      "enableAll": "تفعيل الكل",
+      "disableAll": "تعطيل الكل",
+      "resetDefaults": "إعادة التعيين للافتراضي",
+      "copy": "نسخ الإعدادات",
+      "paste": "لصق الإعدادات",
+      "pasteFrom": "لصق من {scope}"
+    },
+    "stickyBar": {
+      "modifiedCount": "{count} إعداد تم تعديله",
+      "discard": "تجاهل التغييرات",
+      "save": "حفظ التغييرات"
+    },
     "label": {
       "keep_portal_access": "إبقاء الوصول للبوابة",
       "view_training_plans": "عرض خطط التدريب",
@@ -1595,16 +1685,16 @@
       "allow_download_files": "تنزيل الملفات"
     },
     "help": {
-      "keep_portal_access": "السماح للعميل بتسجيل الدخول إلى بوابته.",
-      "view_training_plans": "السماح للعميل بفتح خطط التدريب المخصصة له.",
-      "view_nutrition_plans": "السماح للعميل بفتح خطط التغذية.",
-      "view_progress_history": "السماح للعميل برؤية التمارين المسجلة ومخططات التقدم.",
-      "view_assessments": "السماح للعميل بعرض نماذج التقييم.",
-      "view_checkins": "السماح للعميل بعرض نماذج المتابعة.",
-      "allow_messaging": "السماح للعميل بمراسلة فريق التدريب.",
-      "allow_submit_checkins": "السماح للعميل بإرسال نماذج المتابعة.",
-      "allow_booking_appointments": "السماح للعميل بحجز المواعيد.",
-      "allow_download_files": "السماح للعميل بتنزيل الملفات."
+      "keep_portal_access": "تسجيل الدخول إلى بوابة العميل.",
+      "view_training_plans": "عرض خطط التدريب المخصصة.",
+      "view_nutrition_plans": "عرض خطط التغذية المخصصة.",
+      "view_progress_history": "عرض التمارين المسجلة ومخططات التقدم.",
+      "view_assessments": "عرض نماذج التقييم.",
+      "view_checkins": "عرض نماذج المتابعة.",
+      "allow_messaging": "مراسلة فريق التدريب.",
+      "allow_submit_checkins": "إرسال نماذج المتابعة.",
+      "allow_booking_appointments": "حجز المواعيد.",
+      "allow_download_files": "تنزيل الملفات."
     }
   }
 }

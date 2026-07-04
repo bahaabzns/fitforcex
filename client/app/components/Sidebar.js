@@ -57,7 +57,6 @@ export default function Sidebar({ collapsed }) {
     const [trainingOpen, setTrainingOpen] = useState(pathname.includes('/training') && !pathname.includes('/clients/'));
     const [financeOpen, setFinanceOpen] = useState(pathname.includes('/finance'));
     const [formsOpen, setFormsOpen] = useState(pathname.includes('/forms') && !pathname.includes('/clients/'));
-    const [settingsOpen, setSettingsOpen] = useState(pathname.includes('/settings'));
     const [user, setUser] = useState(null);
     const [wsOpen, setWsOpen] = useState(false);
     const [switching, setSwitching] = useState(false);
@@ -150,7 +149,6 @@ export default function Sidebar({ collapsed }) {
             setFormsOpen(false);
             setNutritionOpen(false);
             setTrainingOpen(false);
-            setSettingsOpen(false);
         }
     }, [collapsed]);
 
@@ -407,51 +405,15 @@ export default function Sidebar({ collapsed }) {
                         </Link>
                     </li>
 
-                    {/* Expandable menu: Settings */}
                     <li>
-                        <Disclosure isExpanded={settingsOpen} onExpandedChange={setSettingsOpen}>
-                            <Disclosure.Heading>
-                                <Disclosure.Trigger className={`${navLink(pathname.includes('/settings'))} w-full cursor-pointer`} disabled={collapsed}>
-                                    <Settings size={17} className="shrink-0" />
-                                    {!collapsed && (
-                                        <>
-                                            <span className="flex-1">{tNav('settings')}</span>
-                                            <ChevronRight size={14} className={`transition-transform duration-200 ${settingsOpen ? 'rotate-90' : 'rtl:rotate-180'}`} />
-                                        </>
-                                    )}
-                                </Disclosure.Trigger>
-                            </Disclosure.Heading>
-                            <Disclosure.Content>
-                                <Disclosure.Body>
-                                    <ul className="flex flex-col gap-0.5 mt-1 ms-5 ps-2 border-s border-sidebar-border">
-                                        <li>
-                                            <Link href={`/${slug}/settings/profile`} className={subLink(pathname.includes('/settings/profile'))}>
-                                                {tNav('profile')}
-                                            </Link>
-                                        </li>
-                                        <li>
-                                            <Link href={`/${slug}/settings/workspace`} className={subLink(pathname.includes('/settings/workspace'))}>
-                                                {tNav('workspace')}
-                                            </Link>
-                                        </li>
-                                        {user?.currentWorkspace?.role === 'owner' && (
-                                            <li>
-                                                <Link href={`/${slug}/settings/subscription-policies`} className={subLink(pathname.includes('/settings/subscription-policies'))}>
-                                                    {tNav('subscriptionPolicies')}
-                                                </Link>
-                                            </li>
-                                        )}
-                                        {user?.currentWorkspace?.role === 'owner' && (
-                                            <li>
-                                                <Link href={`/${slug}/settings/billing`} className={subLink(pathname.includes('/settings/billing'))}>
-                                                    {tNav('billing')}
-                                                </Link>
-                                            </li>
-                                        )}
-                                    </ul>
-                                </Disclosure.Body>
-                            </Disclosure.Content>
-                        </Disclosure>
+                        <Link
+                            href={`/${slug}/settings`}
+                            title={collapsed ? tNav('settings') : undefined}
+                            className={navLink(pathname.includes('/settings'))}
+                        >
+                            <Settings size={17} className="shrink-0" />
+                            {!collapsed && <span className="flex-1">{tNav('settings')}</span>}
+                        </Link>
                     </li>
                 </ul>
             </nav>
@@ -553,12 +515,12 @@ export default function Sidebar({ collapsed }) {
                 </div>
             )}
 
-            {/* Footer: user badge (→ settings/profile) + logout icon */}
+            {/* Footer: user badge (→ settings/account) + logout icon */}
             <div className="px-3 py-3 shrink-0">
                 {user && (
                     <div className={`flex items-center gap-1 ${collapsed ? 'flex-col' : ''}`}>
                         <Link
-                            href={`/${slug}/settings/profile`}
+                            href={`/${slug}/settings/account`}
                             className={`flex items-center gap-3 px-3 py-2 rounded-2xl hover:bg-sidebar-accent transition-colors ${
                                 collapsed ? 'justify-center' : 'flex-1 min-w-0'
                             }`}

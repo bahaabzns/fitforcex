@@ -8,7 +8,7 @@ export default function SettingsPage({ params }) {
     const workspaceSlug = use(params).workspaceSlug;
 
     useEffect(() => {
-        router.replace(`/${workspaceSlug}/settings/profile`);
+        router.replace(`/${workspaceSlug}/settings/account`);
     }, [router, workspaceSlug]);
 
     return null;

@@ -24,7 +24,18 @@
     "muscleGroups": "Muscle Groups",
     "equipment": "Equipment",
     "subscriptionPolicies": "Subscription Policies",
-    "metrics": "Metrics"
+    "metrics": "Metrics",
+    "account": "Account",
+    "security": "Security",
+    "general": "General",
+    "clientPortal": "Client Portal",
+    "subscription": "Subscription",
+    "plans": "Plans",
+    "paymentHistory": "Payment History",
+    "clientExperience": "Client Experience",
+    "portalPolicies": "Portal Policies",
+    "advanced": "Advanced",
+    "dangerZone": "Danger Zone"
   },
   "sidebar": {
     "logout": "Logout",
@@ -772,9 +783,12 @@
     "phoneRequired": "Phone number is required"
   },
   "settings": {
+    "pageTitle": "Settings",
+    "pageDescription": "Manage your account, workspace and subscription.",
+    "accountPageSubtitle": "Manage your personal information, password, and account security.",
     "profile": "Profile",
     "personalInfo": "Personal Info",
-    "manageInfo": "Manage your personal information and security settings",
+    "manageInfo": "Manage your personal information.",
     "workspace": "Workspace",
     "billing": "Billing",
     "password": "Password",
@@ -798,6 +812,43 @@
     "passwordMinLength": "Password must be at least 8 characters.",
     "passwordChanged": "Password changed successfully.",
     "passwordChangeFailed": "Failed to change password."
+  },
+  "accountSecurity": {
+    "pageTitle": "Security",
+    "pageSubtitle": "Manage your password and account security.",
+    "twoFactorAuth": "Two-Factor Authentication",
+    "twoFactorAuthDesc": "Add an extra layer of security to your account.",
+    "activeSessions": "Active Sessions",
+    "activeSessionsDesc": "See where you're logged in and revoke access."
+  },
+  "workspaceGeneral": {
+    "pageTitle": "General",
+    "pageSubtitle": "Basic information about your workspace.",
+    "morePreferences": "More Preferences",
+    "logo": "Logo",
+    "language": "Language",
+    "timezone": "Timezone",
+    "dateFormat": "Date Format"
+  },
+  "clientPortalSettings": {
+    "pageTitle": "Client Portal",
+    "pageSubtitle": "Share your portal link and customize the client experience.",
+    "morePreferences": "More Preferences",
+    "portalTheme": "Portal Theme",
+    "portalWelcomeMessage": "Portal Welcome Message",
+    "portalVisibility": "Portal Visibility"
+  },
+  "subscriptionPlans": {
+    "pageTitle": "Plans",
+    "pageSubtitle": "Manage your subscription plan and view payment history."
+  },
+  "paymentHistory": {
+    "pageTitle": "Payment History",
+    "pageSubtitle": "View and download your past invoices."
+  },
+  "dangerZone": {
+    "pageTitle": "Danger Zone",
+    "pageSubtitle": "Irreversible and destructive actions."
   },
   "billing": {
     "plans": "Plans",
@@ -845,6 +896,7 @@
     "pageTitle": "Workspace",
     "pageSubtitle": "Manage your workspace, team members, and client portal.",
     "workspaceNameSection": "Workspace Name",
+    "workspaceNameSectionDesc": "Update how your workspace appears to your team and clients.",
     "nameLabel": "Name",
     "save": "Save",
     "saving": "Saving…",
@@ -853,6 +905,12 @@
     "clientPortalSection": "Client Portal",
     "portalUrlLabel": "Your Portal URL",
     "portalUrlHint": "Share this link with your clients so they can access their training and nutrition plans.",
+    "portalQuickActions": {
+      "open": "Open Portal",
+      "generateQr": "Generate QR Code",
+      "share": "Share",
+      "comingSoon": "Coming soon"
+    },
     "slugHint": "Customize your portal slug to something memorable. This can only be done once.",
     "customSlugLabel": "Custom slug",
     "slugFormat": "Lowercase letters, numbers, and hyphens only.",
@@ -1174,6 +1232,8 @@
     "loadFailed": "Could not load this plan — please try again."
   },
   "common": {
+    "comingSoon": "Coming soon",
+    "ownerOnlyMessage": "This section is only available to the workspace owner.",
     "show": "Show",
     "hide": "Hide",
     "openOriginal": "Open original",
@@ -1569,6 +1629,8 @@
     "expiredDesc": "Applies when a client's subscription has ended.",
     "frozenTitle": "Frozen Client Policy",
     "frozenDesc": "Applies while a client's subscription is paused / on hold.",
+    "tabExpired": "Expired Client",
+    "tabFrozen": "Frozen Client",
     "gracePeriodLabel": "Grace period (days)",
     "gracePeriodHelp": "Days after expiry during which the client keeps full access.",
     "save": "Save",
@@ -1582,6 +1644,34 @@
     "expiredOverride": "Expired policy",
     "frozenOverride": "Frozen policy",
     "comingSoon": "Coming soon",
+    "presetLabel": "Policy Preset",
+    "preset": {
+      "locked": { "label": "Locked", "description": "Clients have no access at all — portal sign-in is disabled." },
+      "read_only": { "label": "Read Only", "description": "Clients can view their plans and progress, but can't message or submit anything." },
+      "limited": { "label": "Limited", "description": "Clients keep their plans and messaging only — no progress, check-ins, or extras." },
+      "custom": { "label": "Custom" }
+    },
+    "group": {
+      "general": "General Access",
+      "plans": "Plans",
+      "progress": "Progress & Tracking",
+      "communication": "Communication",
+      "extras": "Extras"
+    },
+    "groupEnabledCount": "{enabled}/{total} enabled",
+    "bulk": {
+      "enableAll": "Enable All",
+      "disableAll": "Disable All",
+      "resetDefaults": "Reset to Defaults",
+      "copy": "Copy Settings",
+      "paste": "Paste Settings",
+      "pasteFrom": "Paste from {scope}"
+    },
+    "stickyBar": {
+      "modifiedCount": "{count} settings modified",
+      "discard": "Discard Changes",
+      "save": "Save Changes"
+    },
     "label": {
       "keep_portal_access": "Keep Portal Access",
       "view_training_plans": "View Training Plans",
@@ -1595,16 +1685,16 @@
       "allow_download_files": "Download Files"
     },
     "help": {
-      "keep_portal_access": "Allow the client to sign in to their portal at all.",
-      "view_training_plans": "Let the client open their assigned training plans.",
-      "view_nutrition_plans": "Let the client open their nutrition plans.",
-      "view_progress_history": "Let the client see logged workouts and progress charts.",
-      "view_assessments": "Let the client view assessment forms.",
-      "view_checkins": "Let the client view check-in forms.",
-      "allow_messaging": "Let the client message the coaching team.",
-      "allow_submit_checkins": "Let the client submit check-in forms.",
-      "allow_booking_appointments": "Let the client book appointments.",
-      "allow_download_files": "Let the client download files and exports."
+      "keep_portal_access": "Sign in to the client portal.",
+      "view_training_plans": "View assigned training plans.",
+      "view_nutrition_plans": "View assigned nutrition plans.",
+      "view_progress_history": "View logged workouts and progress charts.",
+      "view_assessments": "View assessment forms.",
+      "view_checkins": "View check-in forms.",
+      "allow_messaging": "Message the coaching team.",
+      "allow_submit_checkins": "Submit check-in forms.",
+      "allow_booking_appointments": "Book appointments.",
+      "allow_download_files": "Download files and exports."
     }
   }
 }

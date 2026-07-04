@@ -94,20 +94,30 @@ function getPageInfo(pathname, { slug, clientId, clientLabel, tNav } = {}) {
     if (p.includes('/team'))
         return { icon: <Users2 size={15} />, crumbs: [{ label: tNav('team'), href: `${base}/team` }] };
 
-    if (p.includes('/settings/profile'))
+    if (p.includes('/settings/account'))
         return { icon: <Settings size={15} />, crumbs: [
             { label: tNav('settings'), href: `${base}/settings` },
-            { label: tNav('profile'), href: `${base}/settings/profile` },
+            { label: tNav('account'), href: `${base}/settings/account` },
         ] };
     if (p.includes('/settings/workspace'))
         return { icon: <Settings size={15} />, crumbs: [
             { label: tNav('settings'), href: `${base}/settings` },
             { label: tNav('workspace'), href: `${base}/settings/workspace` },
         ] };
-    if (p.includes('/settings/billing'))
+    if (p.includes('/settings/subscription'))
         return { icon: <Settings size={15} />, crumbs: [
             { label: tNav('settings'), href: `${base}/settings` },
-            { label: tNav('billing'), href: `${base}/settings/billing` },
+            { label: tNav('subscription'), href: `${base}/settings/subscription` },
+        ] };
+    if (p.includes('/settings/client-experience'))
+        return { icon: <Settings size={15} />, crumbs: [
+            { label: tNav('settings'), href: `${base}/settings` },
+            { label: tNav('clientExperience'), href: `${base}/settings/client-experience` },
+        ] };
+    if (p.includes('/settings/advanced'))
+        return { icon: <Settings size={15} />, crumbs: [
+            { label: tNav('settings'), href: `${base}/settings` },
+            { label: tNav('advanced'), href: `${base}/settings/advanced` },
         ] };
     if (p.includes('/settings'))
         return { icon: <Settings size={15} />, crumbs: [{ label: tNav('settings'), href: `${base}/settings` }] };

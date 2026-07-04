@@ -113,7 +113,7 @@ export default function RegisterPage() {
             // a query param survives the cross-origin redirect (localStorage would not).
             // With a selected plan, land on billing to pay instead.
             const subpath = planSlug
-                ? `settings/billing?plan=${encodeURIComponent(planSlug)}`
+                ? `settings/subscription?plan=${encodeURIComponent(planSlug)}`
                 : 'dashboard?welcome=1';
             redirectToWorkspace(slug, subpath);
             return;
