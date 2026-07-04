@@ -239,7 +239,20 @@
       "Bash(where playwright *)",
       "Read(//c/Users/HP/AppData/Local/ms-playwright/**)",
       "Bash(python *)",
-      "PowerShell(Get-ChildItem *)"
+      "PowerShell(Get-ChildItem *)",
+      "Bash(xargs -I{} cat {})",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/en.json','utf8'\\)\\); console.log\\('en.json OK'\\)\")",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('messages/ar.json','utf8'\\)\\); console.log\\('ar.json OK'\\)\")",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(node --max-old-space-size=4096 node_modules/.bin/eslint \"app/\\(coach\\)/[workspaceSlug]/settings/workspace/page.js\" \"app/components/SubscriptionPolicyEditor.js\" \"app/components/subscriptionPolicyPresets.js\" \"app/components/SubscriptionPolicyFields.js\")",
+      "Bash(node --max-old-space-size=4096 node_modules/eslint/bin/eslint.js \"app/\\(coach\\)/[workspaceSlug]/settings/workspace/page.js\")",
+      "Bash(echo \"EXIT1: $?\")",
+      "Bash(node --max-old-space-size=4096 node_modules/eslint/bin/eslint.js \"app/components/SubscriptionPolicyEditor.js\" \"app/components/subscriptionPolicyPresets.js\" \"app/components/SubscriptionPolicyFields.js\")",
+      "Bash(echo \"EXIT2: $?\")",
+      "Bash(curl -sf -o /dev/null -w \"%{http_code}\\\\n\" http://my.lvh.me:3000/)",
+      "Bash(curl -s -c 'C:\\\\Users\\\\HP/cookies_test2.txt' -X POST http://lvh.me:4000/api/auth/register -H 'Content-Type: application/json' -d '{\"fname\":\"IA\",\"lname\":\"Verify\",\"email\":\"ia-verify-heroui@example.com\",\"password\":\"Password123!\",\"phone\":\"+201009988772\"}' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n')",
+      "Skill(run)",
+      "Skill(run:*)"
     ],
     "additionalDirectories": [
       "D:\\fitforce-x\\client\\app\\(coach)\\[workspaceSlug]\\nutrition\\food-items",
