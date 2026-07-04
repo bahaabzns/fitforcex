@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import { getLocale, getMessages } from "next-intl/server";
+import { Inter } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata = {
     title: "FitForce",
@@ -16,7 +19,7 @@ export default async function RootLayout({ children }) {
     const dir = locale === "ar" ? "rtl" : "ltr";
 
     return (
-        <html lang={locale} dir={dir} suppressHydrationWarning>
+        <html lang={locale} dir={dir} className={inter.variable} suppressHydrationWarning>
             <body suppressHydrationWarning>
                 <Providers defaultTheme={theme} locale={locale} messages={messages}>
                     {children}

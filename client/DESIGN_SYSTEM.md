@@ -193,13 +193,13 @@ theme: {
 
 ```css
 body {
-  font-family: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code, pre, kbd, samp {
-  font-family: "Geist Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
 }
 ```
 
