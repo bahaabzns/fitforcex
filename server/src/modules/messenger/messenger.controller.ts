@@ -5,7 +5,7 @@ import { recordEvent } from '../../lib/events';
 
 type ThreadRow = {
     id: string; client_id: string; status: string; updated_at: Date;
-    fname: string; lname: string;
+    fname: string; lname: string; client_code: string | null;
     latest_message: string | null; latest_message_at: Date | null;
     unread_count: number;
 };
@@ -15,7 +15,7 @@ export async function getThreads(req: Request, res: Response, next: NextFunction
         const rows = await prisma.$queryRaw<ThreadRow[]>`
             SELECT
                 t.id, t.client_id, t.status, t.updated_at,
-                c.fname, c.lname,
+                c.fname, c.lname, c.client_code,
                 (SELECT body FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1) AS latest_message,
                 (SELECT created_at FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1) AS latest_message_at,
                 (SELECT COUNT(*) FROM messages m WHERE m.thread_id = t.id AND m.sender_type = 'client' AND m.read_by_team_at IS NULL)::int AS unread_count

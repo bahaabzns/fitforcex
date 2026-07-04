@@ -17,7 +17,8 @@ import { ListBox } from "@heroui/react/list-box";
 import { SearchField } from "@heroui/react/search-field";
 import { TextField } from "@heroui/react/textfield";
 import { TextArea } from "@heroui/react/textarea";
-import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, CheckCheck } from "lucide-react";
+import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, X } from "lucide-react";
+import EmptyState from "@/app/components/EmptyState";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -102,9 +103,7 @@ function bubbleRadius(isTeam, pos) {
     return 'rounded-2xl';
 }
 
-const scrollbarCls =
-    "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent " +
-    "[&::-webkit-scrollbar-thumb]:bg-border/50 [&::-webkit-scrollbar-thumb]:rounded-full";
+const scrollbarCls = "[&::-webkit-scrollbar]:w-0 [scrollbar-width:none]";
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -114,8 +113,6 @@ export default function MessengerPage() {
     const tFilter = useTranslations('filter');
     const locale = useLocale();
     const { formatDate } = useDateFormatter();
-    const containerRef = useRef(null);
-    const [widths, setWidths] = useState([26, 46, 28]);
 
     const [threads, setThreads] = useState([]);
     const [filteredThreads, setFilteredThreads] = useState([]);
@@ -132,27 +129,6 @@ export default function MessengerPage() {
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
 
-    // ── Resizable panels ───────────────────────────────────────────────────────
-    function handleDividerMouseDown(index, e) {
-        e.preventDefault();
-        const containerWidth = containerRef.current.getBoundingClientRect().width;
-        const startX = e.clientX;
-        const startWidths = [...widths];
-
-        function onMove(ev) {
-            const deltaPct = ((ev.clientX - startX) / containerWidth) * 100;
-            const next = [...startWidths];
-            next[index]     = Math.max(18, startWidths[index] + deltaPct);
-            next[index + 1] = Math.max(18, startWidths[index + 1] - deltaPct);
-            setWidths(next);
-        }
-        function onUp() {
-            document.removeEventListener("mousemove", onMove);
-            document.removeEventListener("mouseup", onUp);
-        }
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-    }
 
     // ── Data fetching ──────────────────────────────────────────────────────────
     const fetchThreads = useCallback(async () => {
@@ -242,168 +218,146 @@ export default function MessengerPage() {
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <div className="flex flex-col flex-1 h-full overflow-hidden p-3">
-            <div ref={containerRef} className="flex flex-row flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-row flex-1 min-h-0 overflow-hidden gap-2">
 
                 {/* ── Panel 1: Conversations ─────────────────────────────── */}
-                <div style={{ width: `${widths[0]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
-                    <Card className="w-full flex-1 min-h-0 p-0 gap-0">
+                <div className="w-[26%] flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
 
-                        <Card.Header className="flex flex-col gap-3 px-4 pt-4 pb-3 shrink-0">
-                            <Card.Title className="text-base font-semibold">
-                                {t('title')}
-                            </Card.Title>
-                            <SearchField
-                                value={search}
-                                onChange={setSearch}
-                                onClear={() => setSearch('')}
-                                aria-label={t('searchPlaceholder')}
-                                variant="secondary"
-                            >
-                                <SearchField.Group>
-                                    <SearchField.SearchIcon />
-                                    <SearchField.Input placeholder={t('searchPlaceholder')} />
-                                    <SearchField.ClearButton />
-                                </SearchField.Group>
-                            </SearchField>
-                        </Card.Header>
+                    <div className="pb-3 px-1.5 shrink-0">
+                        <SearchField
+                            value={search}
+                            onChange={setSearch}
+                            onClear={() => setSearch('')}
+                            aria-label={t('searchPlaceholder')}
+                        >
+                            <SearchField.Group className="bg-surface! border-surface!">
+                                <SearchField.SearchIcon />
+                                <SearchField.Input placeholder={t('searchPlaceholder')} />
+                                <SearchField.ClearButton />
+                            </SearchField.Group>
+                        </SearchField>
+                    </div>
 
-                        <Card.Content className="overflow-hidden min-h-0 px-4 pb-4">
-                            {threadsLoading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="flex items-start gap-3 px-2 py-3 rounded-xl mb-1">
-                                        <Skeleton className="h-8 w-8 rounded-full shrink-0 mt-0.5" />
-                                        <div className="flex-1 space-y-1.5 pt-0.5">
-                                            <Skeleton className="h-3 w-28 rounded" />
-                                            <Skeleton className="h-2.5 w-40 rounded" />
-                                        </div>
+                    <div className="overflow-hidden min-h-0 px-2 pb-4 flex-1 flex flex-col">
+                        {threadsLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="flex items-start gap-3 px-2 py-3 rounded-xl mb-1">
+                                    <Skeleton className="h-8 w-8 rounded-full shrink-0 mt-0.5" />
+                                    <div className="flex-1 space-y-1.5 pt-0.5">
+                                        <Skeleton className="h-3 w-28 rounded" />
+                                        <Skeleton className="h-2.5 w-40 rounded" />
                                     </div>
-                                ))
-                            ) : (
-                                <ScrollShadow className={`flex-1 overflow-y-auto -mx-2 px-2 ${scrollbarCls}`}>
-                                    <ListBox
-                                        selectionMode="single"
-                                        disallowEmptySelection
-                                        selectedKeys={selectedThreadId ? [selectedThreadId] : []}
-                                        onSelectionChange={(keys) => {
-                                            const id = [...keys][0];
-                                            if (!id) return;
-                                            const thread = filteredThreads.find(t => t.id === id);
-                                            if (thread) handleSelectThread(thread);
-                                        }}
-                                        aria-label={t('title')}
-                                        renderEmptyState={() => (
-                                            <div className="rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center mx-1 my-1">
-                                                <p className="text-sm text-muted-foreground">
-                                                    {search ? t('noResults') : t('noConversations')}
-                                                </p>
-                                                {search && (
-                                                    <Button size="sm" variant="ghost" onClick={() => setSearch('')}>
-                                                        {tFilter('clearSearch')}
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        )}
-                                        className="p-0 gap-0"
-                                    >
-                                        {filteredThreads.map(thread => {
-                                            const hasUnread = thread.unread_count > 0;
-                                            return (
-                                                <ListBox.Item
-                                                    key={thread.id}
-                                                    id={thread.id}
-                                                    textValue={`${thread.fname} ${thread.lname}`}
-                                                    className="items-start gap-3 rounded-lg px-3 py-3 [&:hover]:bg-accent/40 data-[selected=true]:bg-primary/8 data-[selected=true]:[&:hover]:bg-primary/8"
-                                                >
-                                                    <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
-                                                        <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
-                                                    </Avatar>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                                                            <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
-                                                                {thread.fname} {thread.lname}
-                                                            </span>
-                                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                                <span className="text-[11px] text-muted-foreground">
-                                                                    {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
-                                                                </span>
-                                                                {hasUnread && (
-                                                                    <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                </div>
+                            ))
+                        ) : (
+                            <ScrollShadow hideScrollBar className="flex-1 overflow-y-auto">
+                                <ListBox
+                                    selectionMode="single"
+                                    disallowEmptySelection
+                                    selectedKeys={selectedThreadId ? [selectedThreadId] : []}
+                                    onSelectionChange={(keys) => {
+                                        const id = [...keys][0];
+                                        if (!id) return;
+                                        const thread = filteredThreads.find(t => t.id === id);
+                                        if (thread) handleSelectThread(thread);
+                                    }}
+                                    aria-label={t('title')}
+                                    renderEmptyState={() => (
+                                        <EmptyState
+                                            variant={search ? "search" : "firstTime"}
+                                            title={search ? t('noResults') : t('noConversations')}
+                                            action={search ? { label: tFilter('clearSearch'), onPress: () => setSearch('') } : undefined}
+                                        />
+                                    )}
+                                    className="p-0 gap-0 outline-none"
+                                >
+                                    {filteredThreads.map(thread => {
+                                        const hasUnread = thread.unread_count > 0;
+                                        return (
+                                            <ListBox.Item
+                                                key={thread.id}
+                                                id={thread.id}
+                                                textValue={`${thread.fname} ${thread.lname}`}
+                                                className="items-start gap-3 rounded-xl px-3 py-2.5 mb-0.5 cursor-pointer [&:hover]:bg-surface data-[selected=true]:bg-surface data-[selected=true]:[&:hover]:bg-surface focus:outline-none! focus:ring-0! focus:shadow-none! focus-visible:outline-none! focus-visible:ring-0! focus-visible:shadow-none!"
+                                            >
+                                                <Avatar size="sm" color="primary" className="shrink-0 mt-0.5">
+                                                    <Avatar.Fallback>{getInitials(thread.fname, thread.lname)}</Avatar.Fallback>
+                                                </Avatar>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between gap-1.5 mb-0.5">
+                                                        <span className={`text-sm truncate ${hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                                                            {thread.fname} {thread.lname}
+                                                            {thread.client_code && <span className="ms-1.5 inline-flex items-center px-1.5 py-0.5 rounded-md bg-default text-[10px] font-medium text-foreground/70 shrink-0">#{thread.client_code}</span>}
+                                                        </span>
+                                                        <span className="text-[11px] text-muted-foreground shrink-0">
+                                                            {formatTimestamp(thread.latest_message_at || thread.updated_at, locale)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between gap-1.5">
                                                         <p className={`text-xs truncate ${hasUnread ? 'text-foreground/70' : 'text-muted-foreground'}`}>
                                                             {thread.latest_message || t('threadNoMessages')}
                                                         </p>
+                                                        {hasUnread && (
+                                                            <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
+                                                                {thread.unread_count > 9 ? '9+' : thread.unread_count}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                </ListBox.Item>
-                                            );
-                                        })}
-                                    </ListBox>
-                                </ScrollShadow>
-                            )}
-                        </Card.Content>
+                                                </div>
+                                            </ListBox.Item>
+                                        );
+                                    })}
+                                </ListBox>
+                            </ScrollShadow>
+                        )}
+                    </div>
 
-                    </Card>
                 </div>
 
-                {/* Divider 1 */}
-                <div className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group" onMouseDown={e => handleDividerMouseDown(0, e)}>
-                    <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
-                </div>
 
                 {/* ── Panel 2: Open Chat ─────────────────────────────────── */}
-                <div style={{ width: `${widths[1]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
+                <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
                     <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
                         {!selectedThreadId ? (
-                            <Card.Content className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
-                                <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
-                                    <Send size={20} className="text-muted-foreground" />
-                                </div>
-                                <p className="text-sm font-medium text-foreground">{t('noThreadSelected')}</p>
-                                <p className="text-xs text-muted-foreground">{t('noThreadSelectedHint')}</p>
+                            <Card.Content className="flex-1 flex flex-col items-center justify-center p-8">
+                                <EmptyState
+                                    variant="firstTime"
+                                    icon={Send}
+                                    title={t('noThreadSelected')}
+                                    description={t('noThreadSelectedHint')}
+                                />
                             </Card.Content>
                         ) : (
                             <>
-                                {/* Zone A: action bar */}
-                                <div className="flex items-center justify-end gap-1 px-4 py-2 border-b border-border shrink-0">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        isDisabled={togglingStatus}
-                                        onClick={handleToggleStatus}
-                                        isIconOnly
-                                        className="text-muted-foreground"
-                                        title={selectedThread?.status === 'open' ? t('close') : t('reopen')}
-                                    >
-                                        <CheckCheck size={15} />
-                                    </Button>
-                                </div>
-                                {/* Zone B: identity */}
-                                <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-                                    <Avatar size="md" color="primary" className="shrink-0">
+                                {/* Chat header */}
+                                <Card.Header className="flex-row items-center gap-2 px-4 py-3 shrink-0">
+                                    <Avatar size="sm" color="primary" className="shrink-0">
                                         <Avatar.Fallback>{getInitials(selectedThread?.fname, selectedThread?.lname)}</Avatar.Fallback>
                                     </Avatar>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-base font-semibold text-foreground truncate">
+                                    <div className="flex items-baseline gap-2 flex-1 min-w-0">
+                                        <span className="text-sm font-semibold text-foreground truncate">
                                             {selectedThread?.fname} {selectedThread?.lname}
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            <Chip size="sm" color={selectedThread?.status === 'open' ? 'success' : 'default'} variant="soft">
-                                                {selectedThread?.status === 'open' ? t('statusOpen') : t('statusClosed')}
-                                            </Chip>
-                                            {selectedThread?.latest_message_at && (
-                                                <span className="text-[11px] text-muted-foreground">
-                                                    {formatTimestamp(selectedThread.latest_message_at, locale)}
-                                                </span>
-                                            )}
-                                        </div>
+                                        </span>
+                                        {selectedThread?.client_code && (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-default text-[11px] font-medium text-foreground/70 shrink-0">#{selectedThread.client_code}</span>
+                                        )}
                                     </div>
-                                </div>
+                                    <Button
+                                        isIconOnly
+                                        variant="ghost"
+                                        size="sm"
+                                        className="shrink-0 text-muted-foreground"
+                                        aria-label="Close chat"
+                                        onClick={() => setSelectedThreadId(null)}
+                                    >
+                                        <X size={15} />
+                                    </Button>
+                                </Card.Header>
 
                                 {/* Messages with grouping + date separators */}
                                 <Card.Content className="overflow-hidden min-h-0 p-0">
-                                    <ScrollShadow className={`h-full overflow-y-auto px-5 py-4 flex flex-col gap-1 ${scrollbarCls}`}>
+                                    <ScrollShadow hideScrollBar className="h-full overflow-y-auto px-5 pt-2 pb-4 flex flex-col gap-1">
                                         {messagesLoading ? (
                                             Array.from({ length: 4 }).map((_, i) => (
                                                 <div key={i} className={`flex mb-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
@@ -443,7 +397,7 @@ export default function MessengerPage() {
                                                                     className={`max-w-[70%] px-4 py-2 text-sm leading-relaxed wrap-break-word ${
                                                                         isTeam
                                                                             ? `bg-primary text-primary-foreground ${bubbleRadius(true, pos)}`
-                                                                            : `bg-muted text-foreground ${bubbleRadius(false, pos)}`
+                                                                            : `bg-default text-foreground ${bubbleRadius(false, pos)}`
                                                                     }`}
                                                                 >
                                                                     {msg.body}
@@ -463,26 +417,20 @@ export default function MessengerPage() {
                                 </Card.Content>
 
                                 {/* Reply bar */}
-                                <Card.Footer className="px-4 py-3 border-t border-border shrink-0">
-                                    <form
-                                        onSubmit={handleSend}
-                                        className="flex items-end gap-2 w-full"
-                                    >
-                                        <Avatar size="sm" color="primary" className="shrink-0 mb-1">
-                                            <Avatar.Fallback />
-                                        </Avatar>
+                                <Card.Footer className="px-4 pb-4 pt-1 shrink-0">
+                                    <form onSubmit={handleSend} className="w-full rounded-2xl border border-border bg-default flex flex-col px-4 pt-3 pb-3 gap-2 transition-[box-shadow,background-color] focus-within:ring-2 focus-within:ring-focus focus-within:bg-[color-mix(in_oklch,var(--color-default)_85%,white_15%)] dark:focus-within:bg-[color-mix(in_oklch,var(--color-default)_85%,black_15%)]">
                                         <TextField
                                             value={draft}
                                             onChange={setDraft}
                                             aria-label={t('replyPlaceholder')}
-                                            className="flex-1 min-w-0"
+                                            className="w-full"
                                         >
                                             <TextArea
                                                 placeholder={t('replyPlaceholder')}
                                                 variant="secondary"
                                                 fullWidth
                                                 rows={1}
-                                                className="resize-none [field-sizing:content] max-h-32 overflow-y-auto text-sm"
+                                                className={`resize-none [field-sizing:content] max-h-32 overflow-y-auto text-sm px-0! border-transparent! shadow-none! focus:ring-0! focus:shadow-none! [--textarea-bg:transparent] [--textarea-bg-hover:transparent] [--textarea-bg-focus:transparent] ${scrollbarCls}`}
                                                 onKeyDown={e => {
                                                     if (e.key === 'Enter' && !e.shiftKey) {
                                                         e.preventDefault();
@@ -491,16 +439,18 @@ export default function MessengerPage() {
                                                 }}
                                             />
                                         </TextField>
-                                        <Button
-                                            type="submit"
-                                            color="primary"
-                                            isDisabled={sending || !draft.trim()}
-                                            size="sm"
-                                            isIconOnly
-                                            className="shrink-0"
-                                        >
-                                            <Send size={13} />
-                                        </Button>
+                                        <div className="flex items-center justify-end">
+                                            <Button
+                                                type="submit"
+                                                color="primary"
+                                                isDisabled={sending || !draft.trim()}
+                                                size="sm"
+                                                isIconOnly
+                                                className="shrink-0"
+                                            >
+                                                <Send size={13} />
+                                            </Button>
+                                        </div>
                                     </form>
                                 </Card.Footer>
                             </>
@@ -509,19 +459,19 @@ export default function MessengerPage() {
                     </Card>
                 </div>
 
-                {/* Divider 2 */}
-                <div className="w-1.5 mx-1 shrink-0 flex items-center justify-center cursor-col-resize group" onMouseDown={e => handleDividerMouseDown(1, e)}>
-                    <div className="w-1.5 h-12 bg-accent/20 rounded-full group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
-                </div>
 
                 {/* ── Panel 3: Client Profile ────────────────────────────── */}
-                <div style={{ width: `${widths[2]}%` }} className="flex flex-col h-full min-h-0 overflow-hidden">
+                <div className="w-[28%] flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
                     <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
                         <Card.Content className="flex flex-col flex-1 min-h-0 p-5">
                             {!selectedThreadId ? (
-                                <div className="rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center flex-1">
-                                    <p className="text-sm text-muted-foreground">{t('selectConversationProfile')}</p>
+                                <div className="flex-1 flex items-center justify-center">
+                                    <EmptyState
+                                        variant="firstTime"
+                                        icon={Mail}
+                                        description={t('selectConversationProfile')}
+                                    />
                                 </div>
                             ) : profileLoading ? (
                                 <div className="flex flex-col items-center gap-4 pt-4">
