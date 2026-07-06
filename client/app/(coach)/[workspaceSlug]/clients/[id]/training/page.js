@@ -10,6 +10,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import LeftPanel from "@/app/components/training/LeftPanel";
 import MiddlePanel from "@/app/components/training/MiddlePanel";
 import RightPanel from "@/app/components/training/RightPanel";
+import ConfigureActivationModal from "@/app/components/ConfigureActivationModal";
+import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 
@@ -25,6 +27,11 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const containerRef = useRef(null);
     const [activating, setActivating] = useState(false);
     const [activateModal, setActivateModal] = useState(false);
+    // Package Lifecycle Phase 3b -- see the identical note in nutrition/page.js.
+    const [configureActivationOpen, setConfigureActivationOpen] = useState(false);
+    const [pendingActivationOptions, setPendingActivationOptions] = useState(null);
+    const [durationChoicePrompt, setDurationChoicePrompt] = useState(false);
+    const [savingDurationChoice, setSavingDurationChoice] = useState(false);
     // Below this width three side-by-side columns get cramped, so the deepest
     // panel (day detail) switches to an overlay drawer. Wide layout unchanged.
     const isNarrow = useMediaQuery("(max-width: 1279px)");
@@ -123,18 +130,49 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
 
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
-    actionsRef.current = { handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, selectedPlanId: selectedPlan?.id, submissionId, setActivateModal };
+    actionsRef.current = {
+        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan,
+        selectedPlanId: selectedPlan?.id, selectedPlanStatus: selectedPlan?.status,
+        submissionId, setActivateModal, setConfigureActivationOpen, setDurationChoicePrompt,
+    };
 
     async function handleActivateAndMark(navigateToQueue) {
         if (!selectedPlan?.id || !submissionId) return;
         setActivating(true);
         try {
-            await handleActivatePlan(selectedPlan.id);
+            await handleActivatePlan(selectedPlan.id, pendingActivationOptions ?? {});
             await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
             if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue`);
         } catch {} finally {
             setActivating(false);
             setActivateModal(false);
+            setPendingActivationOptions(null);
+        }
+    }
+
+    // Package Lifecycle Phase 3b -- see the identical note in nutrition/page.js.
+    async function handleConfigureActivationConfirm(options) {
+        setConfigureActivationOpen(false);
+        if (submissionId) {
+            setPendingActivationOptions(options);
+            setActivateModal(true);
+            return;
+        }
+        setActivating(true);
+        try {
+            await handleActivatePlan(selectedPlan.id, options);
+        } finally {
+            setActivating(false);
+        }
+    }
+
+    async function handleDurationChoice(choice) {
+        setSavingDurationChoice(true);
+        try {
+            await handleSaveSelectedPlan(selectedPlan?.id, choice);
+        } finally {
+            setSavingDurationChoice(false);
+            setDurationChoicePrompt(false);
         }
     }
 
@@ -156,17 +194,20 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                 )}
                 {savePlanVisible && (
                     <Button variant="primary" isDisabled={isSaving}
-                        onClick={() => actionsRef.current.handleSaveSelectedPlan(actionsRef.current.selectedPlanId)}>
+                        onClick={() => {
+                            if (actionsRef.current.selectedPlanStatus === "active") {
+                                actionsRef.current.setDurationChoicePrompt(true);
+                                return;
+                            }
+                            actionsRef.current.handleSaveSelectedPlan(actionsRef.current.selectedPlanId);
+                        }}>
                         {isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}
                     </Button>
                 )}
                 {activateVisible && (
                     <Button
                         isDisabled={isSaving || activating}
-                        onClick={() => {
-                            if (actionsRef.current.submissionId) { actionsRef.current.setActivateModal(true); return; }
-                            actionsRef.current.handleActivatePlan(actionsRef.current.selectedPlanId);
-                        }}
+                        onClick={() => actionsRef.current.setConfigureActivationOpen(true)}
                         className="bg-emerald-500 hover:bg-emerald-600 text-white"
                     >
                         {activating ? t('activating') : t('activate')}
@@ -303,6 +344,25 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
                         </div>
                     </div>
                 )}
+
+                {/* Package Lifecycle Phase 3b */}
+                <ConfigureActivationModal
+                    open={configureActivationOpen}
+                    onClose={() => setConfigureActivationOpen(false)}
+                    clientId={id}
+                    planType="training"
+                    onConfirm={handleConfigureActivationConfirm}
+                    confirming={activating}
+                />
+                <ContinueOrRestartPrompt
+                    open={durationChoicePrompt}
+                    endDateLabel={selectedPlan?.cycle_days
+                        ? new Date(Date.now() + selectedPlan.cycle_days * 86400000).toLocaleDateString()
+                        : null}
+                    onContinue={() => handleDurationChoice("extend")}
+                    onRestart={() => handleDurationChoice("restart")}
+                    submitting={savingDurationChoice}
+                />
             </div>
         </div>
     );

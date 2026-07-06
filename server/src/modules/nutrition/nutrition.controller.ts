@@ -10,6 +10,7 @@ import {
     replaceClientPlansTransactional,
     activateSinglePlan,
     saveSinglePlanDraft,
+    withTransaction,
 } from '../../lib/planEngine';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
@@ -407,7 +408,12 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
 }
 
 export async function savePlanDraft(req: Request, res: Response, next: NextFunction) {
-    const { clientId, plan, activePlanId = null } = req.body as { clientId: string; plan: Row; activePlanId?: string | null };
+    const { clientId, plan, activePlanId = null, durationChoice } = req.body as {
+        clientId: string; plan: Row; activePlanId?: string | null;
+        // Package Lifecycle Phase 3b: required by the frontend only when the
+        // plan being saved is currently active (§12.5); ignored otherwise.
+        durationChoice?: 'restart' | 'extend';
+    };
 
     try {
         let existingCreatedBy: string | null = null;
@@ -530,21 +536,37 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
 
                 return newPlan;
             },
-            activatePlanInTransaction: async ({ dbClient, planId, clientId: cId, coachId }: { dbClient: PoolClient; planId: unknown; clientId: string; coachId: string }) => {
-                // Package Lifecycle Phase 3a bug fix: this inline activation
-                // path (distinct from the standalone activatePlan endpoint,
-                // which already uses the shared activateSinglePlan) never set
-                // activated_at at all -- a plan saved-and-marked-active via
-                // the builder's Save button could carry status='active' with
-                // a permanently null activated_at. Mirrors planEngine.ts's
-                // own COALESCE so a first activation still stamps "now".
-                await dbClient.query(
-                    `UPDATE nutrition_plans
-                     SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END,
-                         activated_at = CASE WHEN id = $1 THEN COALESCE(activated_at, NOW()) ELSE activated_at END
-                     WHERE workspace_id = $2 AND client_id = $3`,
-                    [planId, coachId, cId]
-                );
+            activatePlanInTransaction: async ({ dbClient, planId, coachId }: { dbClient: PoolClient; planId: unknown; clientId: string; coachId: string }) => {
+                // Package Lifecycle Phase 3b: consolidated onto the shared
+                // activateSinglePlan (previously a bespoke inline UPDATE that
+                // never touched activated_at at all -- see Phase 3a). This is
+                // the "edit an active plan" path, not first activation, so
+                // cycleDays is left untouched (undefined) and only
+                // durationChoice (restart/extend) is consulted -- see
+                // Business Logic §12.5 in the Package Lifecycle plan.
+                const restarted = await activateSinglePlan({
+                    db: dbClient,
+                    tableName:      'nutrition_plans',
+                    planId:         planId as string,
+                    coachId,
+                    clientIdColumn: 'client_id',
+                    updateMode:     durationChoice,
+                });
+                if (restarted && durationChoice === 'restart') {
+                    // Matched by client + plan type, not source_plan_id: this
+                    // save path deletes-and-reinserts the plan row (a
+                    // pre-existing, deliberate pattern for the full plan
+                    // tree), so the plan's id already changed by the time we
+                    // get here and no longer matches what was stamped on the
+                    // schedule rows at their original creation. A client has
+                    // at most one active nutrition plan at a time, so scoping
+                    // by client_id is unambiguous in practice.
+                    await dbClient.query(
+                        `UPDATE check_in_schedules SET next_due_at = NOW() + (interval_days || ' days')::interval
+                         WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL`,
+                        [restarted.client_id]
+                    );
+                }
             },
             fetchSavedPlan: async ({ planId, coachId }: { planId: unknown; coachId: string }) => {
                 const savedPlanResult = await pool.query(
@@ -584,14 +606,56 @@ export async function deletePlan(req: Request, res: Response, next: NextFunction
 }
 
 export async function activatePlan(req: Request, res: Response, next: NextFunction) {
+    // Package Lifecycle Phase 3b: the Configure Activation modal resolves
+    // cycleDays/checkInForms from the client's package (or the coach's
+    // manual override) and passes them here; updateMode only matters if the
+    // plan is already active (editing, not first activation) -- see
+    // lib/planEngine.ts's activateSinglePlan for the restart/extend rule.
+    const { cycleDays, checkInForms, updateMode } = req.body as {
+        cycleDays?: number | null;
+        checkInForms?: { formId: string; intervalDays: number }[];
+        updateMode?: 'restart' | 'extend';
+    };
+
     try {
-        const updatedPlan = await activateSinglePlan({
-            pool,
-            tableName:      'nutrition_plans',
-            planId:         req.params.id as string,
-            coachId:        req.user!.workspaceId,
-            clientIdColumn: 'client_id',
+        const planId  = req.params.id as string;
+        const coachId = req.user!.workspaceId;
+
+        const updatedPlan = await withTransaction(pool, async (dbClient) => {
+            const plan = await activateSinglePlan({
+                db: dbClient,
+                tableName:      'nutrition_plans',
+                planId,
+                coachId,
+                clientIdColumn: 'client_id',
+                cycleDays:      cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
+                updateMode,
+            });
+            if (!plan) return null;
+
+            // A restart replaces the plan's check-in schedule entirely; an
+            // extend (or first activation) simply adds any newly-confirmed
+            // forms without touching schedules from a prior activation.
+            if (updateMode === 'restart') {
+                await dbClient.query(
+                    `DELETE FROM check_in_schedules WHERE source_plan_type = 'nutrition' AND source_plan_id = $1`,
+                    [planId]
+                );
+            }
+            if (Array.isArray(checkInForms) && checkInForms.length > 0) {
+                for (const f of checkInForms) {
+                    if (!f.formId || !(Number(f.intervalDays) > 0)) continue;
+                    await dbClient.query(
+                        `INSERT INTO check_in_schedules (id, workspace_id, client_id, form_id, interval_days, next_due_at, source_plan_type, source_plan_id)
+                         VALUES ($1, $2, $3, $4, $5, NOW() + ($6 || ' days')::interval, 'nutrition', $7)`,
+                        [createId(), coachId, plan.client_id, f.formId, Number(f.intervalDays), Number(f.intervalDays), plan.id]
+                    );
+                }
+            }
+
+            return plan;
         });
+
         if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
 
         await recordEvent({

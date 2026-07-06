@@ -81,27 +81,47 @@ export function createHttpError(status: number, message: string): Error & { stat
 }
 
 interface ActivateSinglePlanParams {
-    pool:           Pool;
+    db:             Pool | PoolClient; // Pool for the standalone activate endpoint; PoolClient when called inside an existing transaction (savePlanDraft)
     tableName:      string;
     planId:         string | number;
     coachId:        string;
     clientIdColumn?: string;
     workspaceColumn?: string;
+    /** Package Lifecycle Phase 3b. Resolved by the caller (package default or
+     *  coach override in the Configure Activation modal). `undefined` leaves
+     *  the plan's existing cycle_days untouched; `null` clears it. */
+    cycleDays?: number | null;
+    /** Only consulted when the plan already has a non-null activated_at --
+     *  i.e. this is an edit of an already-active plan, not a first activation.
+     *  'extend' (default-safe): keep the existing activated_at/cycle_end_at.
+     *  'restart': stamp a fresh activated_at and recompute cycle_end_at. */
+    updateMode?: 'restart' | 'extend';
 }
 
+/**
+ * The single place a plan (nutrition or training) transitions to Active.
+ * Deactivates every sibling plan for the client, then either preserves the
+ * plan's existing activation/cycle-end dates ("extend") or stamps fresh ones
+ * ("restart") -- see Business Logic §12.4-12.5 in the Package Lifecycle plan.
+ * A plan with no prior activated_at (never activated before) always takes
+ * the "restart" branch trivially, regardless of updateMode -- there is
+ * nothing to extend from.
+ */
 export async function activateSinglePlan({
-    pool,
+    db,
     tableName,
     planId,
     coachId,
     clientIdColumn = 'client_id',
     workspaceColumn = 'workspace_id',
+    cycleDays,
+    updateMode,
 }: ActivateSinglePlanParams): Promise<PlainRecord | null> {
     assertSafeIdentifier(tableName, 'table');
     assertSafeIdentifier(clientIdColumn, 'client id column');
     assertSafeIdentifier(workspaceColumn, 'workspace column');
 
-    const planResult = await pool.query(
+    const planResult = await db.query(
         `SELECT * FROM ${tableName} WHERE id = $1 AND ${workspaceColumn} = $2`,
         [planId, coachId]
     );
@@ -109,20 +129,39 @@ export async function activateSinglePlan({
 
     const plan = planResult.rows[0] as PlainRecord;
 
-    await pool.query(
+    await db.query(
         `UPDATE ${tableName}
          SET status = 'inactive'
          WHERE ${clientIdColumn} = $1 AND ${workspaceColumn} = $2 AND id != $3`,
         [plan[clientIdColumn], coachId, plan.id]
     );
 
-    const updated = await pool.query(
+    const hasPriorActivation = plan.activated_at != null;
+    const resolvedCycleDays  = cycleDays !== undefined ? cycleDays : (plan.cycle_days as number | null);
+
+    let activatedAt: Date;
+    let cycleEndAt: Date | null;
+    let clearReviewNotified = false;
+
+    if (hasPriorActivation && updateMode === 'extend') {
+        activatedAt = new Date(plan.activated_at as string | Date);
+        cycleEndAt  = plan.cycle_end_at
+            ? new Date(plan.cycle_end_at as string | Date)
+            : (resolvedCycleDays ? new Date(activatedAt.getTime() + resolvedCycleDays * 86400000) : null);
+    } else {
+        activatedAt = new Date();
+        cycleEndAt  = resolvedCycleDays ? new Date(Date.now() + resolvedCycleDays * 86400000) : null;
+        if (hasPriorActivation) clearReviewNotified = true; // a real restart, not a first-time activation
+    }
+
+    const updated = await db.query(
         `UPDATE ${tableName}
          SET status = 'active', updated_at = NOW(),
-             activated_at = COALESCE(activated_at, NOW())
+             activated_at = $2, cycle_days = $3, cycle_end_at = $4
+             ${clearReviewNotified ? ', review_notified_at = NULL' : ''}
          WHERE id = $1
          RETURNING *`,
-        [plan.id]
+        [plan.id, activatedAt, resolvedCycleDays, cycleEndAt]
     );
 
     return serializePlanRow(updated.rows[0] as PlainRecord);

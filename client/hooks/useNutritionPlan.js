@@ -842,7 +842,10 @@ export function useNutritionPlan(clientId) {
         markPlanDirty(selectedPlan.id);
     };
 
-    const handleActivatePlan = async (planId) => {
+    // Package Lifecycle Phase 3b: `activationOptions` ({ cycleDays, checkInForms })
+    // comes from the Configure Activation modal, pre-filled from the client's
+    // package and editable by the coach before this call fires.
+    const handleActivatePlan = async (planId, activationOptions = {}) => {
         if (!planId || isSaving) return;
 
         let resolvedPlanId = planId;
@@ -865,7 +868,21 @@ export function useNutritionPlan(clientId) {
 
         try {
             setIsSaving(true);
-            await api.post(`/api/nutrition/plans/${resolvedPlanId}/activate`);
+            const { data: activatedPlan } = await api.post(`/api/nutrition/plans/${resolvedPlanId}/activate`, {
+                cycleDays: activationOptions.cycleDays ?? null,
+                checkInForms: activationOptions.checkInForms ?? [],
+            });
+
+            // Package Lifecycle Phase 3b: merge the resolved activated_at/
+            // cycle_days/cycle_end_at back into local state -- the optimistic
+            // update above only set status, so without this the builder
+            // header's remaining-days stat row never appears until reload.
+            setPlans((prev) => prev.map((p) => String(p.id) === String(resolvedPlanId)
+                ? { ...p, activated_at: activatedPlan.activated_at, cycle_days: activatedPlan.cycle_days, cycle_end_at: activatedPlan.cycle_end_at }
+                : p));
+            setSelectedPlan((prev) => (prev && String(prev.id) === String(resolvedPlanId))
+                ? { ...prev, activated_at: activatedPlan.activated_at, cycle_days: activatedPlan.cycle_days, cycle_end_at: activatedPlan.cycle_end_at }
+                : prev);
         } catch (error) {
             console.error("Error activating plan:", error);
 
@@ -884,7 +901,11 @@ export function useNutritionPlan(clientId) {
         }
     };
 
-    const handleSaveSelectedPlan = async (planId = selectedPlan?.id) => {
+    // Package Lifecycle Phase 3b: `durationChoice` ('restart'|'extend') comes
+    // from the Continue/Restart prompt, required only when `target` is
+    // currently active (§12.5) -- the caller (page component) is responsible
+    // for showing that prompt before calling this with a choice.
+    const handleSaveSelectedPlan = async (planId = selectedPlan?.id, durationChoice = undefined) => {
         if (!clientId || isSaving || !planId) return { success: false };
 
         const target = plans.find((p) => String(p.id) === String(planId));
@@ -901,6 +922,7 @@ export function useNutritionPlan(clientId) {
                 clientId,
                 activePlanId: activePlan?.id ?? null,
                 plan: target,
+                ...(target.status === "active" && durationChoice ? { durationChoice } : {}),
             });
 
             const oldPlanId = response.data?.oldPlanId ?? planId;
@@ -919,6 +941,12 @@ export function useNutritionPlan(clientId) {
                         created_at: normalizedSavedCreatedAt ?? plan.created_at,
                         updated_at: normalizedSavedUpdatedAt,
                         cycle_count: savedPlan.cycle_count ?? plan.cycles?.length ?? plan.cycle_count,
+                        // Package Lifecycle Phase 3b: carry forward (extend) or
+                        // refreshed (restart) dates -- without this the header
+                        // stat row goes stale after every save of an active plan.
+                        activated_at: savedPlan.activated_at ?? plan.activated_at,
+                        cycle_days: savedPlan.cycle_days ?? plan.cycle_days,
+                        cycle_end_at: savedPlan.cycle_end_at ?? plan.cycle_end_at,
                     };
                 }
 
@@ -948,6 +976,9 @@ export function useNutritionPlan(clientId) {
                     created_at: normalizedSavedCreatedAt ?? prev.created_at,
                     updated_at: normalizedSavedUpdatedAt,
                     cycle_count: savedPlan.cycle_count ?? prev.cycles?.length ?? prev.cycle_count,
+                    activated_at: savedPlan.activated_at ?? prev.activated_at,
+                    cycle_days: savedPlan.cycle_days ?? prev.cycle_days,
+                    cycle_end_at: savedPlan.cycle_end_at ?? prev.cycle_end_at,
                 };
             });
 

@@ -103,9 +103,33 @@ export default function LeftPanel({
     const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
     const submittedForms = formRequests.filter(r => r.status !== 'pending' && r.status !== 'scheduled');
 
+    // Package Lifecycle Phase 3b: omitted entirely when cycle_end_at is null
+    // (no package-resolved duration, or an activation predating this
+    // feature) -- never a misleading "Remaining: —" placeholder (§12.4).
+    const showCycleStats = selectedPlan?.status === "active" && !!selectedPlan?.cycle_end_at;
+    const remainingDays = showCycleStats
+        ? Math.ceil((new Date(selectedPlan.cycle_end_at).getTime() - Date.now()) / 86400000)
+        : null;
+
     return (
         <>
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
+            {showCycleStats && (
+                <div className="flex items-center justify-between gap-2 px-2 py-2 mb-2 rounded-xl bg-secondary/60 text-xs">
+                    <div className="flex flex-col">
+                        <span className="text-muted-foreground">{t('planActivatedOn')}</span>
+                        <span className="font-medium text-foreground">{formatDate(selectedPlan.activated_at)}</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-muted-foreground">{t('planDaysRemaining')}</span>
+                        <span className="font-semibold text-foreground">{remainingDays}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                        <span className="text-muted-foreground">{t('planEndsOn')}</span>
+                        <span className="font-medium text-foreground">{formatDate(selectedPlan.cycle_end_at)}</span>
+                    </div>
+                </div>
+            )}
             <DisclosureGroup allowsMultipleExpanded expandedKeys={expandedKeys} onExpandedChange={setExpandedKeys} className="flex flex-col flex-1 min-h-0">
 
             {/* ── Plans Section ── */}

@@ -490,6 +490,44 @@ export async function getClientAudit(req: Request, res: Response, next: NextFunc
     }
 }
 
+// Package Lifecycle Phase 3b — resolved defaults the Configure Activation
+// modal pre-fills from: the client's current package variation's cycle
+// lengths, plan-update mode, and check-in-kind default forms. Read only at
+// the moment the modal opens; never a live/enforced constraint (§12.8).
+export async function getClientPackageDefaults(req: Request, res: Response, next: NextFunction) {
+    try {
+        const client = await prisma.clients.findFirst({
+            where:  { id: req.params.id as string, workspace_id: req.user!.workspaceId },
+            select: { current_package_variation_id: true },
+        });
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+
+        if (!client.current_package_variation_id) {
+            return res.json({ nutritionCycleDays: null, trainingCycleDays: null, planUpdateMode: 'extend', checkInForms: [] });
+        }
+
+        const variation = await prisma.package_variations.findUnique({
+            where:   { id: client.current_package_variation_id },
+            include: { package_default_forms: { where: { kind: 'checkin' }, include: { forms: { select: { title_en: true, title_ar: true } } } } },
+        });
+        if (!variation) {
+            return res.json({ nutritionCycleDays: null, trainingCycleDays: null, planUpdateMode: 'extend', checkInForms: [] });
+        }
+
+        res.json({
+            nutritionCycleDays: variation.nutrition_cycle_days ?? null,
+            trainingCycleDays:  variation.training_cycle_days ?? null,
+            planUpdateMode:     variation.plan_update_mode || 'extend',
+            checkInForms: variation.package_default_forms.map(f => ({
+                formId:       f.form_id,
+                intervalDays: f.interval_days,
+                titleEn:      f.forms.title_en,
+                titleAr:      f.forms.title_ar,
+            })),
+        });
+    } catch (err) { next(err); }
+}
+
 export async function getFreezes(req: Request, res: Response, next: NextFunction) {
     try {
         const clientCheck = await prisma.clients.findFirst({

@@ -11,6 +11,8 @@ import LeftPanel from "@/app/components/nutrition/LeftPanel";
 import MiddlePanel from "@/app/components/nutrition/MiddlePanel";
 import RightPanel from "@/app/components/nutrition/RightPanel";
 import FoodItemsModal from "@/app/components/nutrition/FoodItemsModal";
+import ConfigureActivationModal from "@/app/components/ConfigureActivationModal";
+import ContinueOrRestartPrompt from "@/app/components/ContinueOrRestartPrompt";
 import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 
@@ -27,6 +29,16 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     const containerRef = useRef(null);
     const [activating, setActivating] = useState(false);
     const [activateModal, setActivateModal] = useState(false);
+    // Package Lifecycle Phase 3b: Configure Activation always fires before an
+    // activation goes through; the existing submission-linked "Mark as Done"
+    // modal (activateModal, above) fires after it, only when a submissionId
+    // is present (AD-3 -- two single-responsibility modals, not merged).
+    const [configureActivationOpen, setConfigureActivationOpen] = useState(false);
+    const [pendingActivationOptions, setPendingActivationOptions] = useState(null);
+    // The Continue/Restart prompt fires when saving an edit to an already-
+    // active plan (§12.5) -- not dismissible without a choice.
+    const [durationChoicePrompt, setDurationChoicePrompt] = useState(false);
+    const [savingDurationChoice, setSavingDurationChoice] = useState(false);
     // Below this width three side-by-side columns get cramped, so the deepest
     // panel (meal detail) switches to an overlay drawer. Wide layout unchanged.
     const isNarrow = useMediaQuery("(max-width: 1279px)");
@@ -132,18 +144,53 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
 
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
-    actionsRef.current = { handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, selectedPlanId: selectedPlan?.id, submissionId, setActivateModal };
+    actionsRef.current = {
+        handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan,
+        selectedPlanId: selectedPlan?.id, selectedPlanStatus: selectedPlan?.status,
+        submissionId, setActivateModal, setConfigureActivationOpen, setDurationChoicePrompt,
+    };
 
     async function handleActivateAndMark(navigateToQueue) {
         if (!selectedPlan?.id || !submissionId) return;
         setActivating(true);
         try {
-            await handleActivatePlan(selectedPlan.id);
+            await handleActivatePlan(selectedPlan.id, pendingActivationOptions ?? {});
             await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
             if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue`);
         } catch {} finally {
             setActivating(false);
             setActivateModal(false);
+            setPendingActivationOptions(null);
+        }
+    }
+
+    // Package Lifecycle Phase 3b: Configure Activation confirms first, always.
+    // If this activation is closing out a form submission, the existing
+    // Mark-as-Done confirmation follows; otherwise activation happens here.
+    async function handleConfigureActivationConfirm(options) {
+        setConfigureActivationOpen(false);
+        if (submissionId) {
+            setPendingActivationOptions(options);
+            setActivateModal(true);
+            return;
+        }
+        setActivating(true);
+        try {
+            await handleActivatePlan(selectedPlan.id, options);
+        } finally {
+            setActivating(false);
+        }
+    }
+
+    // Package Lifecycle Phase 3b: fires only when saving an edit to a plan
+    // that is currently active (§12.5).
+    async function handleDurationChoice(choice) {
+        setSavingDurationChoice(true);
+        try {
+            await handleSaveSelectedPlan(selectedPlan?.id, choice);
+        } finally {
+            setSavingDurationChoice(false);
+            setDurationChoicePrompt(false);
         }
     }
 
@@ -165,17 +212,22 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
                 )}
                 {savePlanVisible && (
                     <Button variant="primary" isDisabled={isSaving}
-                        onClick={() => actionsRef.current.handleSaveSelectedPlan(actionsRef.current.selectedPlanId)}>
+                        onClick={() => {
+                            // Package Lifecycle §12.5: only prompt when the plan being
+                            // saved is currently active -- a draft save is unaffected.
+                            if (actionsRef.current.selectedPlanStatus === "active") {
+                                actionsRef.current.setDurationChoicePrompt(true);
+                                return;
+                            }
+                            actionsRef.current.handleSaveSelectedPlan(actionsRef.current.selectedPlanId);
+                        }}>
                         {isSaving || saveStatus === "saving" ? t('saving') : t('savePlan')}
                     </Button>
                 )}
                 {activateVisible && (
                     <Button
                         isDisabled={isSaving || activating}
-                        onClick={() => {
-                            if (actionsRef.current.submissionId) { actionsRef.current.setActivateModal(true); return; }
-                            actionsRef.current.handleActivatePlan(actionsRef.current.selectedPlanId);
-                        }}
+                        onClick={() => actionsRef.current.setConfigureActivationOpen(true)}
                         className="bg-emerald-500 hover:bg-emerald-600 text-white"
                     >
                         {activating ? t('activating') : t('activate')}
@@ -378,6 +430,25 @@ return (
                     if (mainItem.food_item_id) ids.add(mainItem.food_item_id);
                     return ids;
                 })()}
+        />
+
+        {/* Package Lifecycle Phase 3b */}
+        <ConfigureActivationModal
+            open={configureActivationOpen}
+            onClose={() => setConfigureActivationOpen(false)}
+            clientId={id}
+            planType="nutrition"
+            onConfirm={handleConfigureActivationConfirm}
+            confirming={activating}
+        />
+        <ContinueOrRestartPrompt
+            open={durationChoicePrompt}
+            endDateLabel={selectedPlan?.cycle_days
+                ? new Date(Date.now() + selectedPlan.cycle_days * 86400000).toLocaleDateString()
+                : null}
+            onContinue={() => handleDurationChoice("extend")}
+            onRestart={() => handleDurationChoice("restart")}
+            submitting={savingDurationChoice}
         />
     </div>
     </div>

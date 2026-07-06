@@ -557,7 +557,10 @@ export function useTrainingPlan(clientId) {
         markPlanDirty(selectedPlan.id);
     }, [selectedPlan, applyPlanUpdate, markPlanDirty]);
 
-    const handleSaveSelectedPlan = useCallback(async (planId = selectedPlan?.id) => {
+    // Package Lifecycle Phase 3b: `durationChoice` ('restart'|'extend') comes
+    // from the Continue/Restart prompt, required only when `target` is
+    // currently active (§12.5).
+    const handleSaveSelectedPlan = useCallback(async (planId = selectedPlan?.id, durationChoice = undefined) => {
         if (!clientId || !planId || isSaving) return { success: false };
 
         const target = plans.find((p) => String(p.id) === String(planId));
@@ -574,6 +577,7 @@ export function useTrainingPlan(clientId) {
                 clientId,
                 activePlanId: activePlan?.id ?? null,
                 plan: target,
+                ...(target.status === "active" && durationChoice ? { durationChoice } : {}),
             });
 
             const oldPlanId = response.data?.oldPlanId ?? planId;
@@ -638,7 +642,9 @@ export function useTrainingPlan(clientId) {
         }
     }, [clientId, isSaving, isDirty, plans, fetchClientPlans, selectedPlan, selectedDayId]);
 
-    const handleActivatePlan = useCallback(async (planId) => {
+    // Package Lifecycle Phase 3b: `activationOptions` ({ cycleDays, checkInForms })
+    // comes from the Configure Activation modal.
+    const handleActivatePlan = useCallback(async (planId, activationOptions = {}) => {
         if (!planId || isSaving) return;
 
         let resolvedPlanId = planId;
@@ -656,7 +662,19 @@ export function useTrainingPlan(clientId) {
 
         try {
             setIsSaving(true);
-            await api.post(`/api/training/plans/${resolvedPlanId}/activate`);
+            await api.post(`/api/training/plans/${resolvedPlanId}/activate`, {
+                cycleDays: activationOptions.cycleDays ?? null,
+                checkInForms: activationOptions.checkInForms ?? [],
+            });
+            // Package Lifecycle Phase 3b: refetch so activated_at/cycle_days/
+            // cycle_end_at (not touched by the optimistic status-only update
+            // above) reach local state -- matches handleSaveSelectedPlan's
+            // own refetch-after-write pattern in this hook.
+            await fetchClientPlans({
+                planId: resolvedPlanId,
+                planName: selectedPlan?.name,
+                dayId: selectedDayId,
+            }, { silent: true });
         } catch (error) {
             console.error("Error activating training plan:", error);
             setPlans((prev) => prev.map((p) => {
@@ -671,7 +689,7 @@ export function useTrainingPlan(clientId) {
         } finally {
             setIsSaving(false);
         }
-    }, [isSaving, dirtyPlanIds, handleSaveSelectedPlan, plans]);
+    }, [isSaving, dirtyPlanIds, handleSaveSelectedPlan, plans, fetchClientPlans, selectedPlan, selectedDayId]);
 
     const handleReorderDays = useCallback((fromIndex, toIndex) => {
         if (!selectedPlan || fromIndex == null || toIndex == null || fromIndex === toIndex) return;

@@ -244,6 +244,7 @@ router.delete('/:id/permanent', requireOwner, clientsController.permanentDeleteC
  *       200:
  *         description: Freeze removed
  */
+router.get('/:id/package-defaults', clientsController.getClientPackageDefaults);
 router.get('/:id/freezes', clientsController.getFreezes);
 router.post('/:id/freezes', clientsController.createFreeze);
 router.delete('/:id/freezes/:freezeId', clientsController.deleteFreeze);
