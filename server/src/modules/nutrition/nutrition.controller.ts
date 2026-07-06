@@ -274,6 +274,20 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
         await replaceClientPlansTransactional({
             pool,
             work: async (dbClient) => {
+                // Package Lifecycle Phase 3a bug fix: this bulk "save all
+                // drafts" path deletes and recreates every plan for the
+                // client, same as the single-plan path -- read forward
+                // each existing plan's activation/cycle dates (keyed by its
+                // current id) before the delete, below, or they're lost.
+                const existingPlansResult = await dbClient.query(
+                    `SELECT id, activated_at, cycle_days, cycle_end_at, review_notified_at
+                     FROM nutrition_plans WHERE workspace_id = $1 AND client_id = $2`,
+                    [req.user!.workspaceId, clientId]
+                );
+                const existingPlanDates = new Map(
+                    (existingPlansResult.rows as Row[]).map(row => [row.id as string, row])
+                );
+
                 await dbClient.query(
                     `DELETE FROM nutrition_meal_item_alternatives nmia
                      USING nutrition_meal_items nmi, nutrition_meals nm, nutrition_cycles nc, nutrition_plans np
@@ -309,10 +323,11 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
                     const plan      = plans[pIndex];
                     const createdAt = toIsoDateOrNull(plan.created_at as string | null) || new Date().toISOString();
                     const updatedAt = new Date().toISOString();
+                    const priorDates = existingPlanDates.get(plan.id as string);
 
                     const insertedPlan = await dbClient.query(
-                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                        `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
                         [
                             (plan.name as string) || `Plan ${pIndex + 1}`,
                             clientId, req.user!.workspaceId,
@@ -320,6 +335,10 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
                             createdAt, updatedAt,
                             (plan.created_by as string | null) ?? req.user!.userId,
                             createId(),
+                            priorDates?.activated_at ?? null,
+                            priorDates?.cycle_days ?? null,
+                            priorDates?.cycle_end_at ?? null,
+                            priorDates?.review_notified_at ?? null,
                         ]
                     );
 
@@ -367,7 +386,9 @@ export async function saveDraft(req: Request, res: Response, next: NextFunction)
                 const resolvedActivePlanId = planIdMap.get(activePlanId as string) || null;
                 if (resolvedActivePlanId) {
                     await dbClient.query(
-                        `UPDATE nutrition_plans SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
+                        `UPDATE nutrition_plans
+                         SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END,
+                             activated_at = CASE WHEN id = $1 THEN COALESCE(activated_at, NOW()) ELSE activated_at END
                          WHERE workspace_id = $2 AND client_id = $3`,
                         [resolvedActivePlanId, req.user!.workspaceId, clientId]
                     );
@@ -390,16 +411,32 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
 
     try {
         let existingCreatedBy: string | null = null;
+        // Package Lifecycle Phase 3a bug fix: the save path deletes the plan
+        // row and re-inserts it, so activated_at/cycle_days/cycle_end_at must
+        // be read here and carried into the new row (below) or they're lost
+        // -- silently resetting the plan's activation clock on every save,
+        // regardless of the shared engine's COALESCE(activated_at, NOW())
+        // intent in lib/planEngine.ts.
+        let existingActivatedAt: Date | null = null;
+        let existingCycleDays: number | null = null;
+        let existingCycleEndAt: Date | null = null;
+        let existingReviewNotifiedAt: Date | null = null;
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
             loadExistingPlan: async ({ dbClient, planId, clientId: cId, coachId }: { dbClient: PoolClient; planId: string; clientId: string; coachId: string }) => {
                 const existing = await dbClient.query(
-                    `SELECT id, created_at, created_by FROM nutrition_plans WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
+                    `SELECT id, created_at, created_by, activated_at, cycle_days, cycle_end_at, review_notified_at
+                     FROM nutrition_plans WHERE id = $1 AND workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
                 );
-                existingCreatedBy = (existing.rows[0] as Row)?.created_by as string ?? null;
-                return existing.rows[0] ?? null;
+                const row = existing.rows[0] as Row | undefined;
+                existingCreatedBy       = (row?.created_by as string) ?? null;
+                existingActivatedAt     = (row?.activated_at as Date) ?? null;
+                existingCycleDays       = (row?.cycle_days as number) ?? null;
+                existingCycleEndAt      = (row?.cycle_end_at as Date) ?? null;
+                existingReviewNotifiedAt = (row?.review_notified_at as Date) ?? null;
+                return row ?? null;
             },
             deleteExistingPlanTree: async ({ dbClient, planId }: { dbClient: PoolClient; planId: string }) => {
                 await dbClient.query(
@@ -423,13 +460,14 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             insertPlanTree: async ({ dbClient, plan: incomingPlan, clientId: cId, coachId, createdAt, updatedAt }: { dbClient: PoolClient; plan: Row; clientId: string; coachId: string; createdAt: string; updatedAt: string }) => {
                 const createdBy    = existingCreatedBy ?? req.user!.userId;
                 const insertedPlan = await dbClient.query(
-                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                    `INSERT INTO nutrition_plans (name, client_id, workspace_id, status, created_at, updated_at, created_by, id, activated_at, cycle_days, cycle_end_at, review_notified_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
                     [
                         (incomingPlan.name as string) || 'Untitled Plan',
                         cId, coachId,
                         incomingPlan.status === 'active' ? 'active' : 'inactive',
                         createdAt, updatedAt, createdBy, createId(),
+                        existingActivatedAt, existingCycleDays, existingCycleEndAt, existingReviewNotifiedAt,
                     ]
                 );
 
@@ -493,8 +531,17 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 return newPlan;
             },
             activatePlanInTransaction: async ({ dbClient, planId, clientId: cId, coachId }: { dbClient: PoolClient; planId: unknown; clientId: string; coachId: string }) => {
+                // Package Lifecycle Phase 3a bug fix: this inline activation
+                // path (distinct from the standalone activatePlan endpoint,
+                // which already uses the shared activateSinglePlan) never set
+                // activated_at at all -- a plan saved-and-marked-active via
+                // the builder's Save button could carry status='active' with
+                // a permanently null activated_at. Mirrors planEngine.ts's
+                // own COALESCE so a first activation still stamps "now".
                 await dbClient.query(
-                    `UPDATE nutrition_plans SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END
+                    `UPDATE nutrition_plans
+                     SET status = CASE WHEN id = $1 THEN 'active' ELSE 'inactive' END,
+                         activated_at = CASE WHEN id = $1 THEN COALESCE(activated_at, NOW()) ELSE activated_at END
                      WHERE workspace_id = $2 AND client_id = $3`,
                     [planId, coachId, cId]
                 );
