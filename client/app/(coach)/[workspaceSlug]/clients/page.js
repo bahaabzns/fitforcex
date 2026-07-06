@@ -162,6 +162,10 @@ export default function ClientsPage() {
     const [newPaymentMethod, setNewPaymentMethod] = useState("");
     const [assignFormsEnabled, setAssignFormsEnabled] = useState(true);
     const [selectedForms, setSelectedForms]       = useState([]);
+    // Package Lifecycle Phase 2: form ids seeded from a package's assessment
+    // defaults, tracked only to render the "from package" badge — never
+    // re-removes a form the coach unchecked or added themselves.
+    const [autoSelectedFormIds, setAutoSelectedFormIds] = useState(() => new Set());
     const [subDurationMode, setSubDurationMode]   = useState("on_first_plan");
     const [subscriptionStartDate, setSubscriptionStartDate] = useState(null);
     const [txTransactionDate, setTxTransactionDate] = useState(today(getLocalTimeZone()));
@@ -218,10 +222,25 @@ export default function ClientsPage() {
             duration: v.duration,
             price: Number(v.price),
             currency: v.currency,
+            defaultForms: v.defaultForms ?? [],
         }))
     );
     const paymentMethodOptions = paymentMethods.map(m => ({ value: m.name, label: m.name }));
     const formOptions = availableForms.map(f => ({ value: f.id, label: formTitle(f), type: f.type }));
+
+    // Package Lifecycle Phase 2: selecting a package pre-fills the Assessment
+    // Forms step from that variation's default forms. Only ADDS to whatever's
+    // already selected — never removes a form the coach picked or unchecked.
+    function handlePackageChange(value) {
+        setNewPackage(value);
+        const pkg = packageOptions.find(pv => pv.value === value);
+        const assessmentIds = (pkg?.defaultForms ?? [])
+            .filter(f => f.kind === "assessment")
+            .map(f => f.formId);
+        if (assessmentIds.length === 0) return;
+        setSelectedForms(prev => Array.from(new Set([...prev, ...assessmentIds])));
+        setAutoSelectedFormIds(prev => new Set([...prev, ...assessmentIds]));
+    }
 
     function updatePhone(index, field, value) {
         setNewPhones(prev => {
@@ -254,7 +273,7 @@ export default function ClientsPage() {
         setNewPhones([{ countryCode: "+20", number: "" }]);
         setAddSubscription(true);
         setNewPackage(""); setNewPaymentMethod("");
-        setAssignFormsEnabled(true); setSelectedForms([]);
+        setAssignFormsEnabled(true); setSelectedForms([]); setAutoSelectedFormIds(new Set());
         setSubDurationMode("on_first_plan"); setSubscriptionStartDate(null);
         setTxTransactionDate(today(getLocalTimeZone())); setTxProofFile(null);
         setFieldErrors({}); setGeneralError(""); setCurrentStep(0);
@@ -825,7 +844,7 @@ export default function ClientsPage() {
                                                 <UILink.Icon />
                                             </UILink>
                                         </div>
-                                        <Select variant="secondary" fullWidth isRequired isInvalid={!!fieldErrors.package} placeholder={t('selectPackagePlaceholder')} value={newPackage} onChange={setNewPackage}>
+                                        <Select variant="secondary" fullWidth isRequired isInvalid={!!fieldErrors.package} placeholder={t('selectPackagePlaceholder')} value={newPackage} onChange={handlePackageChange}>
                                             <Select.Trigger>
                                                 <Select.Value />
                                                 <Select.Indicator />
@@ -957,6 +976,11 @@ export default function ClientsPage() {
                                             {formOptions.map(f => (
                                                 <ListBox.Item key={f.value} id={f.value} textValue={f.label}>
                                                     {f.label}
+                                                    {autoSelectedFormIds.has(f.value) && (
+                                                        <span className="ms-1.5 text-[10px] font-medium text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
+                                                            {t('fromPackageBadge')}
+                                                        </span>
+                                                    )}
                                                     <ListBox.ItemIndicator />
                                                 </ListBox.Item>
                                             ))}
