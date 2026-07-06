@@ -198,6 +198,16 @@ router.delete('/:id/questions/:qid',   formsController.deleteQuestion);
  *     responses:
  *       200:
  *         description: Items assigned
+ *
+ * /forms/queue/cancel:
+ *   delete:
+ *     summary: Bulk-cancel pending/scheduled queue requests
+ *     tags: [Forms]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Requests cancelled
  */
 router.post('/requests',                      formsController.createRequests);
 router.get('/requests/client/:client_id',     formsController.getRequestsByClient);
@@ -205,5 +215,6 @@ router.delete('/requests/:request_id',        formsController.deleteRequest);
 router.get('/queue',                          formsController.getQueue);
 router.patch('/queue/review',                 formsController.reviewQueue);
 router.patch('/queue/assign',                 formsController.assignQueue);
+router.delete('/queue/cancel',                formsController.cancelQueue);
 
 export default router;

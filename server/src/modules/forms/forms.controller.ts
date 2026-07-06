@@ -582,6 +582,28 @@ export async function assignQueue(req: Request, res: Response, next: NextFunctio
     }
 }
 
+export async function cancelQueue(req: Request, res: Response, next: NextFunction) {
+    const { ids } = req.body as { ids?: unknown[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'ids array is required' });
+    }
+
+    try {
+        // Mirrors deleteRequest's single-item rule: only pending/scheduled requests
+        // (not yet submitted) can be cancelled.
+        const deleted = await prisma.form_requests.deleteMany({
+            where: {
+                id:           { in: ids.map(String) },
+                workspace_id: req.user!.workspaceId,
+                status:       { in: ['pending', 'scheduled'] },
+            },
+        });
+        res.json({ deletedCount: deleted.count });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function deleteRequest(req: Request, res: Response, next: NextFunction) {
     try {
         const deleted = await prisma.form_requests.deleteMany({

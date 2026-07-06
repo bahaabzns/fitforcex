@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Salad, Dumbbell, Check, Undo2, UserPlus } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Eye, EyeOff, Salad, Dumbbell, Check, Undo2, UserPlus, ListChecks, Ban, X } from "lucide-react";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import DataTable from "@/app/components/DataTable";
+import ActionBar from "@/app/components/ActionBar";
+import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
+import { Separator } from "@heroui/react/separator";
 import { Tooltip } from "@heroui/react/tooltip";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
@@ -50,6 +53,17 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
     const [cardStatus, setCardStatus] = useState(null);
     const [cardAction, setCardAction] = useState(null);
     const router = useRouter();
+    const { workspaceSlug } = useParams();
+
+    // Bulk selection (mirrors the Clients datatable's selection + Action Bar pattern).
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    // Full filtered+sorted row set from the table (across all pages) — powers "select all filtered".
+    const [filteredItems, setFilteredItems] = useState([]);
+    // Ids cancelled via the bulk "Cancel Request" action — filtered out client-side
+    // until the next load, since `awaiting` (unlike `submissions`) isn't local state.
+    const [removedIds, setRemovedIds] = useState(new Set());
+    const [bulkAssigning, setBulkAssigning] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
 
     async function assignTo(rowId, userId) {
         const member = members.find((m) => m.id === userId);
@@ -94,7 +108,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
     const mergedSubmissions = submissions.map(withDerived);
     const mergedAwaiting = awaiting.map(withDerived);
 
-    const allItems = [...mergedAwaiting, ...mergedSubmissions];
+    const allItems = [...mergedAwaiting, ...mergedSubmissions].filter((r) => !removedIds.has(r.id));
 
     // Card quick-filters narrow the rows handed to the table; the table's own
     // column filters then apply on top.
@@ -123,6 +137,64 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
             // silent
         }
         setMarking(false);
+    }
+
+    // Bulk assign/unassign — same endpoint and optimistic-update strategy as the
+    // per-row assignTo above, just applied to the whole selection at once.
+    async function bulkAssignTo(userId) {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return;
+        const member = members.find((m) => m.id === userId);
+        setAssignMap((prev) => {
+            const next = { ...prev };
+            for (const id of ids) next[id] = { assignedTo: userId || null, assignedToName: member?.name || null };
+            return next;
+        });
+        setBulkAssigning(true);
+        try {
+            await api.patch("/api/forms/queue/assign", { ids, assignedTo: userId || null });
+        } catch {
+            // silent — leave the optimistic value; a reload reconciles with the server
+        }
+        setBulkAssigning(false);
+        setSelectedIds(new Set());
+    }
+
+    // Only rows the corresponding action is actually valid for — see the Plans Queue
+    // bulk-actions analysis: marking a nutrition/workout submission "reviewed" in bulk
+    // would silently skip building the plan, so that action is scoped to plain check-ins.
+    const selectedItems = allItems.filter((r) => selectedIds.has(r.id));
+    const eligibleReviewIds = selectedItems.filter((r) => r.status === "need-action" && r.postAction === "nothing").map((r) => r.id);
+    const eligibleUndoIds = selectedItems.filter((r) => r.status === "action-done").map((r) => r.id);
+    const eligibleCancelIds = selectedItems.filter((r) => r.status === "awaiting" || r.status === "scheduled").map((r) => r.id);
+
+    async function bulkMarkReviewed() {
+        if (eligibleReviewIds.length === 0) return;
+        await markReviewed(eligibleReviewIds, "review");
+        setSelectedIds(new Set());
+    }
+
+    async function bulkUndo() {
+        if (eligibleUndoIds.length === 0) return;
+        await markReviewed(eligibleUndoIds, "undo");
+        setSelectedIds(new Set());
+    }
+
+    // Cancels pending/scheduled requests — the only queue statuses the backend allows
+    // deleting. No local state exists for `awaiting` (unlike `submissions`), so cancelled
+    // ids are tracked in `removedIds` and filtered out of `allItems` client-side.
+    async function bulkCancelRequests() {
+        if (eligibleCancelIds.length === 0) return;
+        if (!confirm(t('cancelRequestConfirm', { count: eligibleCancelIds.length }))) return;
+        setCancelling(true);
+        try {
+            await api.delete("/api/forms/queue/cancel", { data: { ids: eligibleCancelIds } });
+            setRemovedIds((prev) => new Set([...prev, ...eligibleCancelIds]));
+            setSelectedIds(new Set());
+        } catch {
+            // silent
+        }
+        setCancelling(false);
     }
 
     function formatAnswer(value) {
@@ -358,7 +430,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                             row.postAction === "nutrition-plan" ? (
                                 <IconAction
                                     label={t('openNutrition')}
-                                    onClick={(e) => { e.stopPropagation(); router.push(`/clients/${row.clientId}/nutrition?submissionId=${row.id}`); }}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/nutrition?submissionId=${row.id}`); }}
                                     className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/15"
                                 >
                                     <Salad size={15} />
@@ -366,7 +438,7 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                             ) : row.postAction === "workout-plan" ? (
                                 <IconAction
                                     label={t('openWorkout')}
-                                    onClick={(e) => { e.stopPropagation(); router.push(`/clients/${row.clientId}/training?submissionId=${row.id}`); }}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/${workspaceSlug}/clients/${row.clientId}/training?submissionId=${row.id}`); }}
                                     className="text-primary hover:text-primary/80 hover:bg-primary/10"
                                 >
                                     <Dumbbell size={15} />
@@ -526,7 +598,95 @@ export default function PlansQueueTable({ initialSubmissions, awaiting, forms, m
                 }}
                 renderExpandedRow={renderExpandedRow}
                 renderMobileExpanded={renderMobileExpanded}
+                selectable
+                selectedKeys={selectedIds}
+                onSelectionChange={setSelectedIds}
+                onFilteredDataChange={setFilteredItems}
             />
+
+            {/* Floating bulk action bar — same component/pattern as the Clients datatable. */}
+            <ActionBar isOpen={selectedIds.size > 0} aria-label={t('selectedBar', { count: selectedIds.size })}>
+                <ActionBar.Prefix>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-default px-1.5 text-xs font-semibold text-foreground">
+                        {selectedIds.size}
+                    </span>
+                    {filteredItems.length > selectedIds.size && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedIds(new Set(filteredItems.map((r) => r.id)))}
+                        >
+                            <ListChecks className="w-4 h-4" />
+                            <span className="action-bar__label">{t('selectAllFiltered', { count: filteredItems.length })}</span>
+                        </Button>
+                    )}
+                </ActionBar.Prefix>
+                <Separator orientation="vertical" className="h-6" />
+                <ActionBar.Content>
+                    <Select
+                        aria-label={t('assignTo')}
+                        value="none"
+                        onChange={(v) => bulkAssignTo(v === "none" ? null : v)}
+                        size="sm"
+                        isDisabled={bulkAssigning || marking || cancelling}
+                    >
+                        <Select.Trigger className="border-0! bg-transparent! shadow-none! min-h-0! py-1! px-2! gap-1.5 items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                            <UserPlus size={14} className="shrink-0" />
+                            <span className="action-bar__label text-sm">{t('bulkAssign')}</span>
+                        </Select.Trigger>
+                        <Select.Popover>
+                            <ListBox>
+                                <ListBox.Item id="none" textValue={t('unassigned')}>
+                                    {t('unassigned')}
+                                    <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                                {members.map((m) => (
+                                    <ListBox.Item key={m.id} id={m.id} textValue={m.name}>
+                                        {m.name}
+                                        <ListBox.ItemIndicator />
+                                    </ListBox.Item>
+                                ))}
+                            </ListBox>
+                        </Select.Popover>
+                    </Select>
+
+                    {eligibleReviewIds.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={bulkMarkReviewed} isDisabled={marking}>
+                            <Check className="w-4 h-4" />
+                            <span className="action-bar__label">{t('markReviewedBulk', { count: eligibleReviewIds.length })}</span>
+                        </Button>
+                    )}
+
+                    {eligibleUndoIds.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={bulkUndo} isDisabled={marking}>
+                            <Undo2 className="w-4 h-4" />
+                            <span className="action-bar__label">{t('undoBulk', { count: eligibleUndoIds.length })}</span>
+                        </Button>
+                    )}
+
+                    {eligibleCancelIds.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={bulkCancelRequests} isDisabled={cancelling}>
+                            <Ban className="w-4 h-4" />
+                            <span className="action-bar__label">{cancelling ? t('cancelling') : t('cancelRequestBulk', { count: eligibleCancelIds.length })}</span>
+                        </Button>
+                    )}
+                </ActionBar.Content>
+                <Separator orientation="vertical" className="h-6" />
+                <ActionBar.Suffix>
+                    <Tooltip>
+                        <Button
+                            isIconOnly
+                            variant="ghost"
+                            size="sm"
+                            aria-label={t('clearSelection')}
+                            onClick={() => setSelectedIds(new Set())}
+                        >
+                            <X className="w-4 h-4" />
+                        </Button>
+                        <Tooltip.Content>{t('clearSelection')}</Tooltip.Content>
+                    </Tooltip>
+                </ActionBar.Suffix>
+            </ActionBar>
         </>
     );
 }
