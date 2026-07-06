@@ -376,6 +376,7 @@ Format:
 **Why it matters:** If two variations share a name, or a variation is renamed/deleted, override resolution can match the wrong package or silently fall back to the global policy. Affects only the package-override feature, not the global policy.
 **Effort:** Medium (add a `package_id` column to transactions and/or clients, backfill, and resolve by id)
 **Priority:** Medium
+✅ RESOLVED 2026-07-06 — Package Lifecycle project, Phase 0. Added `transactions.package_variation_id` / `clients.current_package_variation_id` FK columns (migration `029_package_variation_fk.js`), backfilled from the composed "Package — Variation" label (`scripts/backfill-package-variation-ids.ts`), and rewrote `resolveClientPackageId()` to read the FK directly — no name matching remains in the resolver. The backfill also surfaced that the *old* name-matching logic compared the composed label against the bare variation name and had never actually matched any real row (0/23 transactions, 0/19 clients on local data before the fix), meaning package-specific policy overrides likely never took effect in production either; see `docs/package-lifecycle-implementation-plan.md` §18.4 for the full writeup and the recommended production heads-up.
 
 ---
 

@@ -1199,6 +1199,15 @@ N/A — no behavior change, pure cleanup.
 #### Acceptance criteria
 No code path in the repository resolves a client's package by string comparison.
 
+#### Phase 5 completion note (2026-07-06)
+Ran the checklist directly rather than waiting a full billing cycle after Phase 0, since this implementation session covers Phase 0 through Phase 5 continuously — the production soak-time recommendation above is a deployment-timing note for whoever ships this, not a blocker on writing the audit now. Findings:
+- Grepped for `current_package`/`currentPackage` and any `package_variations.name` matching across `server/src`: the only remaining name-based logic is inside `backfill-package-variation-ids.ts` itself (the migration tool whose entire job is bridging the legacy string label to the new FK — expected to exist, not residual debt) and its own docstring describing the bug it fixes. `resolveClientPackageId()` and `getClientPackageDefaults()` both read `current_package_variation_id` directly; no defensive string-matching fallback was left in place during Phase 0's rollout, so there was nothing further to delete.
+- The bare `clients.current_package` string column is still written (alongside the FK, in `syncClientPackage`/seed scripts) and read in a couple of serializers (`clients.controller.ts`, `messenger.controller.ts`) — display-only usage, not resolution logic, matching the "string columns stay, by design" carve-out above.
+- `DEBT.md`'s corresponding entry (2026-06-24, `resolveClientPackageId`) marked `✅ RESOLVED 2026-07-06` with a pointer to this document.
+- Spot-checked `getEffectiveAccessForClient()` for 5 real clients in the `test1` workspace: returned varied, correct-looking statuses (Pre-start, Expired, Active ×2, Frozen) keyed off their `current_package_variation_id`, not a uniform fallback value — consistent with the FK resolving correctly rather than silently degrading to the global policy for everyone.
+
+Acceptance criteria met: no code path resolves a client's package by string comparison outside the backfill tool itself.
+
 ---
 
 ## 11. UI planning
