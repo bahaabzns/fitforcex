@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal from "@/app/components/Modal";
+import ObservationModal from "@/app/components/ObservationModal";
+import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
 import { Trash2, Clock, CheckCircle, ClipboardList, CalendarClock, Send, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
@@ -47,6 +49,8 @@ export default function ClientFormsPage() {
     const locale = useLocale();
     const { formatDate, formatDateTime } = useDateFormatter();
     const { id } = useParams();
+    const searchParams = useSearchParams();
+    const requestIdParam = searchParams.get('requestId');
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
@@ -64,6 +68,39 @@ export default function ClientFormsPage() {
 
     // Accordion expand/collapse state
     const [expandedKeys, setExpandedKeys] = useState(new Set());
+
+    // Observations linked to the selected request (see the Observations tab/module)
+    const [relatedObservations, setRelatedObservations] = useState([]);
+    const [observationModalOpen, setObservationModalOpen] = useState(false);
+    const [editingObservation, setEditingObservation] = useState(null);
+    const [me, setMe] = useState(null);
+
+    // Close the modal when switching which request is selected — adjusted
+    // during render (not in an effect), mirroring MessageComposer's own
+    // reset-on-prop-change pattern elsewhere in this codebase.
+    const [syncedRequestId, setSyncedRequestId] = useState(selected?.id ?? null);
+    if ((selected?.id ?? null) !== syncedRequestId) {
+        setSyncedRequestId(selected?.id ?? null);
+        setObservationModalOpen(false);
+        setEditingObservation(null);
+    }
+
+    // Auto-select the submission named by ?requestId= (e.g. from a linked-item
+    // chip elsewhere in the app) once the request list has loaded — same
+    // render-time-adjust idiom as above, not an effect.
+    const [autoSelectedRequestId, setAutoSelectedRequestId] = useState(null);
+    if (requestIdParam && requestIdParam !== autoSelectedRequestId && requests.length > 0) {
+        setAutoSelectedRequestId(requestIdParam);
+        const match = requests.find(r => String(r.id) === String(requestIdParam));
+        if (match) setSelected(match);
+    }
+
+    useEffect(() => {
+        if (!selected) return;
+        api.get(`/api/clients/${id}/observations?relatedType=checkIn`)
+            .then(({ data }) => setRelatedObservations((data ?? []).filter(o => o.relatedItems?.some(ri => ri.id === selected.id))))
+            .catch(() => setRelatedObservations([]));
+    }, [selected?.id, id]);
 
     // Draggable divider
     const [widths, setWidths] = useState([38, 62]);
@@ -150,7 +187,10 @@ export default function ClientFormsPage() {
         }
     }, [id]);
 
-    useEffect(() => { fetchRequests(); }, [fetchRequests]);
+    useEffect(() => {
+        fetchRequests();
+        api.get('/api/auth/me').then(res => setMe(res.data)).catch(() => {});
+    }, [fetchRequests]);
 
     const handleCancel = async (requestId) => {
         if (!confirm("Cancel this form request?")) return;
@@ -458,7 +498,36 @@ export default function ClientFormsPage() {
                                         </Accordion>
                                     </div>
                                 )}
+
+                                {/* Related Observations — durable coaching notes linked to this request */}
+                                <div className="px-1 py-3 mt-2 border-t border-border">
+                                    <RelatedObservationsPanel
+                                        title={t('relatedObservations')}
+                                        addLabel={t('addObservation')}
+                                        emptyLabel={t('noRelatedObservations')}
+                                        observations={relatedObservations}
+                                        clientId={id}
+                                        currentUserId={me?.userId}
+                                        isOwner={me?.currentWorkspace?.role === 'owner'}
+                                        onAddClick={() => { setEditingObservation(null); setObservationModalOpen(true); }}
+                                        onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
+                                        onDeleted={(deletedId) => setRelatedObservations(prev => prev.filter(x => x.id !== deletedId))}
+                                    />
+                                </div>
                             </ScrollShadow>
+                            <ObservationModal
+                                open={observationModalOpen}
+                                onClose={() => setObservationModalOpen(false)}
+                                clientId={id}
+                                observation={editingObservation}
+                                initialRelatedItem={{
+                                    type: selected.form_type === 'assessment' ? 'assessment' : 'checkIn',
+                                    id: selected.id,
+                                    label: getLocalizedField(selected, 'form_title', locale),
+                                }}
+                                onCreated={(obs) => setRelatedObservations(prev => [obs, ...prev])}
+                                onUpdated={(updated) => setRelatedObservations(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                            />
                         </>
                     )}
                 </Surface>

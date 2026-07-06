@@ -4,6 +4,7 @@ import { getLocalizedField } from "@/utils/localization";
 import ExercisePickerModal from "@/app/components/training/ExercisePickerModal";
 import ExerciseInsightsModal from "@/app/components/training/ExerciseInsightsModal";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import { TextField } from "@heroui/react/textfield";
 import { Input } from "@heroui/react/input";
 import { TextArea } from "@heroui/react/textarea";
@@ -90,6 +91,8 @@ export default function RightPanel({
     onClose,
     clientId,
     planName,
+    observationCounts,
+    onObservationsChanged,
 }) {
     const t = useTranslations('training');
     const locale = useLocale();
@@ -284,10 +287,13 @@ export default function RightPanel({
                                                     {clientId && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setInsightsExercise(exercise); }}
-                                                            className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                            className="flex items-center gap-1 p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
                                                             title="Exercise insights"
                                                         >
                                                             <TrendingUpIcon />
+                                                            {(observationCounts?.[exercise.exercise_library_id ?? exercise.id] ?? 0) > 0 && (
+                                                                <Chip size="sm" variant="soft">{observationCounts[exercise.exercise_library_id ?? exercise.id]}</Chip>
+                                                            )}
                                                         </button>
                                                     )}
                                                     <button
@@ -444,7 +450,7 @@ export default function RightPanel({
 
             <ExerciseInsightsModal
                 open={!!insightsExercise}
-                onClose={() => setInsightsExercise(null)}
+                onClose={() => { setInsightsExercise(null); onObservationsChanged?.(); }}
                 exercise={insightsExercise}
                 clientId={clientId}
                 planName={planName}

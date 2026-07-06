@@ -6,6 +6,8 @@ import { getLocalizedField } from "@/utils/localization";
 import { Modal } from "@heroui/react/modal";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import LineChart from "@/app/components/charts/LineChart";
+import ObservationModal from "@/app/components/ObservationModal";
+import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
 import api from "@/lib/axios";
 
 const DumbbellIcon = () => (
@@ -82,6 +84,12 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
     const [activeMetric, setActiveMetric] = useState("est_1rm");
+    const [relatedObservations, setRelatedObservations] = useState([]);
+    const [observationModalOpen, setObservationModalOpen] = useState(false);
+    const [editingObservation, setEditingObservation] = useState(null);
+    const [me, setMe] = useState(null);
+
+    const exerciseLibraryId = exercise?.exercise_library_id || exercise?.id;
 
     useEffect(() => {
         if (!open || !exercise || !clientId) return;
@@ -101,6 +109,18 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
             .catch(() => setError(true))
             .finally(() => setLoading(false));
     }, [open, exercise?.id, clientId]);
+
+    useEffect(() => {
+        if (!open || !clientId || !exerciseLibraryId) return;
+        api.get(`/api/clients/${clientId}/observations?relatedType=exercise`)
+            .then(({ data }) => setRelatedObservations((data ?? []).filter(o => o.relatedItems?.some(ri => ri.id === exerciseLibraryId))))
+            .catch(() => setRelatedObservations([]));
+    }, [open, clientId, exerciseLibraryId]);
+
+    useEffect(() => {
+        if (!open) return;
+        api.get('/api/auth/me').then(({ data }) => setMe(data)).catch(() => {});
+    }, [open]);
 
     const exerciseName = exercise
         ? (getLocalizedField(exercise, "library_name", locale) || exercise.name || "")
@@ -129,6 +149,7 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
     ].filter(c => c.value !== null) : [];
 
     return (
+        <>
         <Modal isOpen={open} onOpenChange={(o) => !o && onClose()}>
             <Modal.Backdrop>
                 <Modal.Container className="max-w-2xl w-full">
@@ -267,6 +288,20 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
                                             </div>
                                         )}
 
+                                        {/* Related Observations */}
+                                        <RelatedObservationsPanel
+                                            title="Related Observations"
+                                            addLabel="Add observation"
+                                            emptyLabel="No observations linked to this exercise yet."
+                                            observations={relatedObservations}
+                                            clientId={clientId}
+                                            currentUserId={me?.userId}
+                                            isOwner={me?.currentWorkspace?.role === "owner"}
+                                            onAddClick={() => { setEditingObservation(null); setObservationModalOpen(true); }}
+                                            onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
+                                            onDeleted={(deletedId) => setRelatedObservations(prev => prev.filter(x => x.id !== deletedId))}
+                                        />
+
                                         {/* Workout History */}
                                         {insights.recentSessions?.length > 0 && (
                                             <div>
@@ -318,5 +353,15 @@ export default function ExerciseInsightsModal({ open, onClose, exercise, clientI
                 </Modal.Container>
             </Modal.Backdrop>
         </Modal>
+        <ObservationModal
+            open={observationModalOpen}
+            onClose={() => setObservationModalOpen(false)}
+            clientId={clientId}
+            observation={editingObservation}
+            initialRelatedItem={{ type: "exercise", id: exerciseLibraryId, label: exerciseName }}
+            onCreated={(obs) => setRelatedObservations(prev => [obs, ...prev])}
+            onUpdated={(updated) => setRelatedObservations(prev => prev.map(x => x.id === updated.id ? updated : x))}
+        />
+        </>
     );
 }

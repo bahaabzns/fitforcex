@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import authMiddleware from '../../middleware/auth';
 import requirePermission from '../../middleware/requirePermission';
 import requireOwner from '../../middleware/requireOwner';
+import { observationAttachmentUploader } from '../../lib/observationAttachments';
 import * as clientsController from './clients.controller';
 
 const router = Router();
@@ -356,5 +357,11 @@ router.get('/:id/workout-logs/:logId', clientsController.getClientWorkoutLog);
  *         description: Client not found
  */
 router.get('/:id/transformation', clientsController.getClientTransformation);
+
+// Observations — see @openapi blocks in clients.controller.ts for full schema.
+router.get('/:id/observations', clientsController.getObservations);
+router.post('/:id/observations', observationAttachmentUploader.single('file'), clientsController.createObservation);
+router.patch('/:id/observations/:obsId', observationAttachmentUploader.single('file'), clientsController.updateObservation);
+router.delete('/:id/observations/:obsId', clientsController.deleteObservation);
 
 export default router;

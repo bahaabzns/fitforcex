@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/axios";
 import { useLocale, useTranslations } from "next-intl";
 import { getLocalizedField } from "@/utils/localization";
@@ -10,6 +10,8 @@ import { Disclosure, DisclosureGroup, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import LoadPlanModal from "@/app/components/LoadPlanModal";
 import CardActionsMenu, { DuplicateIcon, TrashIcon } from "@/app/components/CardActionsMenu";
+import RelatedObservationsPanel from "@/app/components/RelatedObservationsPanel";
+import ObservationModal from "@/app/components/ObservationModal";
 
 const StatusDot = () => (
     <svg width="6" height="6" viewBox="0 0 6 6" aria-hidden="true">
@@ -64,13 +66,40 @@ export default function LeftPanel({
     const [formRequests, setFormRequests] = useState([]);
     const [formsLoading, setFormsLoading] = useState(true);
 
+    // Observations linked to any of this client's form submissions — fetched
+    // once (relatedType=checkIn also returns assessments, see the API) and
+    // grouped client-side by submission id, matching the same
+    // fetch-once/bucket-client-side approach used for the count chips on
+    // exercise/food-item rows.
+    const [allFormObservations, setAllFormObservations] = useState([]);
+    const [observationModalOpen, setObservationModalOpen] = useState(false);
+    const [editingObservation, setEditingObservation] = useState(null);
+    const [modalTargetRequest, setModalTargetRequest] = useState(null);
+    const [me, setMe] = useState(null);
+
     useEffect(() => {
         if (!clientId) return;
         api.get(`/api/forms/requests/client/${clientId}`)
             .then(res => setFormRequests(res.data ?? []))
             .catch(() => {})
             .finally(() => setFormsLoading(false));
+
+        api.get(`/api/clients/${clientId}/observations?relatedType=checkIn`)
+            .then(res => setAllFormObservations(Array.isArray(res.data) ? res.data : []))
+            .catch(() => setAllFormObservations([]));
     }, [clientId]);
+
+    useEffect(() => {
+        api.get('/api/auth/me').then(res => setMe(res.data)).catch(() => {});
+    }, []);
+
+    const observationsByRequestId = useMemo(() => {
+        const map = {};
+        for (const o of allFormObservations) {
+            for (const ri of o.relatedItems ?? []) (map[ri.id] ??= []).push(o);
+        }
+        return map;
+    }, [allFormObservations]);
 
     const dirtyPlanCount = dirtyPlanIds?.length ?? 0;
     const showSaveAll = dirtyPlanCount > 1 || hasDeletedPlans;
@@ -277,6 +306,20 @@ export default function LeftPanel({
                                                             </div>
                                                         ))
                                                     )}
+                                                    <div className="pt-2 mt-1 border-t border-border">
+                                                        <RelatedObservationsPanel
+                                                            title={t('relatedObservations')}
+                                                            addLabel={t('addObservation')}
+                                                            emptyLabel={t('noRelatedObservations')}
+                                                            observations={observationsByRequestId[req.id] ?? []}
+                                                            clientId={clientId}
+                                                            currentUserId={me?.userId}
+                                                            isOwner={me?.currentWorkspace?.role === 'owner'}
+                                                            onAddClick={() => { setEditingObservation(null); setModalTargetRequest(req); setObservationModalOpen(true); }}
+                                                            onEdit={(obs) => { setEditingObservation(obs); setModalTargetRequest(req); setObservationModalOpen(true); }}
+                                                            onDeleted={(deletedId) => setAllFormObservations(prev => prev.filter(x => x.id !== deletedId))}
+                                                        />
+                                                    </div>
                                                 </Disclosure.Body>
                                             </Disclosure.Content>
                                         </Disclosure>
@@ -294,6 +337,20 @@ export default function LeftPanel({
                 onClose={() => setLoadModalOpen(false)}
                 type="training"
                 onLoad={handleLoadPlan}
+            />
+
+            <ObservationModal
+                open={observationModalOpen}
+                onClose={() => setObservationModalOpen(false)}
+                clientId={clientId}
+                observation={editingObservation}
+                initialRelatedItem={modalTargetRequest ? {
+                    type: modalTargetRequest.form_type === 'assessment' ? 'assessment' : 'checkIn',
+                    id: modalTargetRequest.id,
+                    label: getLocalizedField(modalTargetRequest, 'form_title', locale),
+                } : null}
+                onCreated={(obs) => setAllFormObservations(prev => [obs, ...prev])}
+                onUpdated={(updated) => setAllFormObservations(prev => prev.map(x => x.id === updated.id ? updated : x))}
             />
         </Surface>
     );

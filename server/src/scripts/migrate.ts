@@ -715,6 +715,7 @@ async function migrateClientObservations() {
         workspace_id: o.workspaceId,
         client_id: o.clientId,
         author_id: o.authorId,
+        title: o.content.slice(0, 60),
         content: o.content,
         created_at: new Date(o.createdAt),
       })),

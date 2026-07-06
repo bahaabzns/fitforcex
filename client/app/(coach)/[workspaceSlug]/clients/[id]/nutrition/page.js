@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
@@ -19,7 +19,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     const tCommon = useTranslations('common');
     const router = useRouter();
 
-    const { id } = useParams();
+    const { id, workspaceSlug } = useParams();
     const searchParams = useSearchParams();
     const submissionId = searchParams.get("submissionId") || null;
 
@@ -111,6 +111,25 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
     const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
     const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
 
+    // Observation counts per food item, for the small count chip next to each
+    // row's "Observations" action — refetched whenever Food Insights closes
+    // (create/edit/delete all funnel through there) rather than tracked
+    // incrementally, matching this file's own fetch-and-replace conventions.
+    const [observationCounts, setObservationCounts] = useState({});
+    const fetchObservationCounts = useCallback(() => {
+        if (!id) return;
+        api.get(`/api/clients/${id}/observations?relatedType=foodItem`)
+            .then(({ data }) => {
+                const counts = {};
+                for (const o of data ?? []) {
+                    for (const ri of o.relatedItems ?? []) counts[ri.id] = (counts[ri.id] ?? 0) + 1;
+                }
+                setObservationCounts(counts);
+            })
+            .catch(() => setObservationCounts({}));
+    }, [id]);
+    useEffect(() => { fetchObservationCounts(); }, [fetchObservationCounts]);
+
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
     actionsRef.current = { handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, selectedPlanId: selectedPlan?.id, submissionId, setActivateModal };
@@ -121,7 +140,7 @@ export default function NutritionPage({ onDirtyChange, onHeaderActionsChange }) 
         try {
             await handleActivatePlan(selectedPlan.id);
             await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
-            if (navigateToQueue) router.push("/plans-queue");
+            if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue`);
         } catch {} finally {
             setActivating(false);
             setActivateModal(false);
@@ -212,6 +231,9 @@ const mealPanel = (
         setAlternativeModalOpenForItemId={setAlternativeModalOpenForItemId}
         handleDeleteAlternative={handleDeleteAlternative}
         handleAlternativeAmountChange={handleAlternativeAmountChange}
+        clientId={id}
+        observationCounts={observationCounts}
+        onObservationsChanged={fetchObservationCounts}
     />
 );
 

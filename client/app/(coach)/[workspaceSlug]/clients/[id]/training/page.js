@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import api from "@/lib/axios";
@@ -14,7 +14,7 @@ import { Button } from "@heroui/react/button";
 import { Surface } from "@heroui/react";
 
 export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
-    const { id } = useParams();
+    const { id, workspaceSlug } = useParams();
     const t = useTranslations('training');
     const tCommon = useTranslations('common');
     const router = useRouter();
@@ -102,6 +102,25 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
     const isSelectedPlanDirty = selectedPlan ? dirtyPlanIds?.includes(String(selectedPlan.id)) : false;
     const showSaveAll = (dirtyPlanIds?.length ?? 0) > 1 || hasDeletedPlans;
 
+    // Observation counts per exercise, for the small count chip next to each
+    // row's "Exercise insights" action — refetched whenever that modal closes
+    // (create/edit/delete all funnel through there), matching the same
+    // fetch-and-replace approach used in the Nutrition Builder.
+    const [observationCounts, setObservationCounts] = useState({});
+    const fetchObservationCounts = useCallback(() => {
+        if (!id) return;
+        api.get(`/api/clients/${id}/observations?relatedType=exercise`)
+            .then(({ data }) => {
+                const counts = {};
+                for (const o of data ?? []) {
+                    for (const ri of o.relatedItems ?? []) counts[ri.id] = (counts[ri.id] ?? 0) + 1;
+                }
+                setObservationCounts(counts);
+            })
+            .catch(() => setObservationCounts({}));
+    }, [id]);
+    useEffect(() => { fetchObservationCounts(); }, [fetchObservationCounts]);
+
     // Stable ref so onClick handlers inside the effect always call the latest version.
     const actionsRef = useRef({});
     actionsRef.current = { handleSaveAllDrafts, handleSaveSelectedPlan, handleActivatePlan, selectedPlanId: selectedPlan?.id, submissionId, setActivateModal };
@@ -112,7 +131,7 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
         try {
             await handleActivatePlan(selectedPlan.id);
             await api.patch("/api/forms/queue/review", { ids: [submissionId], action: "review" });
-            if (navigateToQueue) router.push("/plans-queue");
+            if (navigateToQueue) router.push(`/${workspaceSlug}/plans-queue`);
         } catch {} finally {
             setActivating(false);
             setActivateModal(false);
@@ -196,6 +215,8 @@ export default function TrainingPage({ onDirtyChange, onHeaderActionsChange }) {
             onClose={handleCloseDay}
             clientId={id}
             planName={selectedPlan?.name}
+            observationCounts={observationCounts}
+            onObservationsChanged={fetchObservationCounts}
         />
     );
 

@@ -7,6 +7,7 @@ import { checkClientLimit } from '../../lib/seatLimits';
 import { logSubscriptionAudit } from '../subscriptionPolicies/subscriptionPolicies.service';
 import { recordEvent, teamRecipients } from '../../lib/events';
 import { prisma } from '../../lib/prisma';
+import { toPublicUrl, deleteFile } from '../../lib/storage';
 import {
     summarizeLog,
     buildExerciseProgress,
@@ -848,6 +849,419 @@ export async function getClientTransformation(req: Request, res: Response, next:
 
         const result = await buildTransformationPayload(clientId, workspaceId);
         res.json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
+// ── Observations ─────────────────────────────────────────────────────────────
+// Durable coaching insights about a client — see docs on the Observations module
+// for the product rationale. Title is the one-line insight; everything else is
+// optional and defaulted so a coach can save one in a few seconds.
+
+const OBSERVATION_CATEGORIES = ['General', 'Technique', 'Adherence', 'Nutrition', 'Injury/Pain', 'Mindset'];
+const OBSERVATION_SEVERITIES = ['Low', 'Medium', 'High'];
+
+const OBSERVATION_RELATION_INCLUDE = {
+    exercise_library: { select: { id: true, name_en: true } },
+    food_items:       { select: { id: true, name_en: true } },
+    form_requests:    { select: { id: true, forms: { select: { form_type: true, title_en: true } } } },
+} as const;
+
+const OBSERVATION_INCLUDE = {
+    users:                 { select: { id: true, fname: true, lname: true } },
+    observation_relations: { include: OBSERVATION_RELATION_INCLUDE },
+} as const;
+
+type ObservationRow = Prisma.client_observationsGetPayload<{ include: typeof OBSERVATION_INCLUDE }>;
+type ObservationRelationRow = Prisma.observation_relationsGetPayload<{ include: typeof OBSERVATION_RELATION_INCLUDE }>;
+
+function mapRelatedItem(rel: ObservationRelationRow): { type: string; id: string; label: string } | null {
+    if (rel.exercise_library) {
+        return { type: 'exercise', id: rel.exercise_library.id, label: rel.exercise_library.name_en };
+    }
+    if (rel.food_items) {
+        return { type: 'foodItem', id: rel.food_items.id, label: rel.food_items.name_en };
+    }
+    if (rel.form_requests) {
+        const isAssessment = rel.form_requests.forms?.form_type === 'assessment';
+        return {
+            type:  isAssessment ? 'assessment' : 'checkIn',
+            id:    rel.form_requests.id,
+            label: rel.form_requests.forms?.title_en || (isAssessment ? 'Assessment' : 'Check-in'),
+        };
+    }
+    return null;
+}
+
+function mapObservation(row: ObservationRow) {
+    const relatedItems = row.observation_relations
+        .map(mapRelatedItem)
+        .filter((item): item is { type: string; id: string; label: string } => item !== null);
+
+    return {
+        id:            row.id,
+        clientId:      row.client_id,
+        title:         row.title,
+        content:       row.content,
+        category:      row.category,
+        severity:      row.severity,
+        attachmentUrl: toPublicUrl(row.attachment_url),
+        author:        row.users ? { id: row.users.id, name: `${row.users.fname} ${row.users.lname}` } : null,
+        relatedItems,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+    };
+}
+
+type RelatedItemInput = { type?: string; id?: string };
+type RelatedRelationRow = { exercise_library_id: string | null; food_item_id: string | null; form_request_id: string | null };
+
+/** Validates an array of {type, id} related-item links and resolves each to the FK column it sets. */
+async function resolveRelatedItemsInput(
+    workspaceId: string,
+    clientId: string,
+    items: RelatedItemInput[],
+): Promise<{ error?: string; data?: RelatedRelationRow[] }> {
+    if (items.length === 0) return { data: [] };
+
+    // Dedupe exact (type, id) repeats — the picker already prevents this client-side,
+    // but the API must not trust that.
+    const seen = new Set<string>();
+    const deduped = items.filter((item) => {
+        const key = `${item.type}:${item.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+
+    const rows: RelatedRelationRow[] = [];
+
+    for (const item of deduped) {
+        if (!item.type || !item.id) return { error: 'Each related item needs a type and id' };
+
+        if (item.type === 'exercise') {
+            const exists = await prisma.exercise_library.findFirst({
+                where:  { id: item.id, workspace_id: workspaceId },
+                select: { id: true },
+            });
+            if (!exists) return { error: 'Related exercise not found in this workspace' };
+            rows.push({ exercise_library_id: item.id, food_item_id: null, form_request_id: null });
+        } else if (item.type === 'foodItem') {
+            const exists = await prisma.food_items.findFirst({
+                where:  { id: item.id, workspace_id: workspaceId },
+                select: { id: true },
+            });
+            if (!exists) return { error: 'Related food item not found in this workspace' };
+            rows.push({ exercise_library_id: null, food_item_id: item.id, form_request_id: null });
+        } else if (item.type === 'checkIn' || item.type === 'assessment') {
+            // Scoped to this specific client, not just the workspace — a check-in
+            // belongs to exactly one client and an observation must not be linkable
+            // across clients.
+            const exists = await prisma.form_requests.findFirst({
+                where:  { id: item.id, workspace_id: workspaceId, client_id: clientId },
+                select: { id: true },
+            });
+            if (!exists) return { error: 'Related check-in/assessment not found for this client' };
+            rows.push({ exercise_library_id: null, food_item_id: null, form_request_id: item.id });
+        } else {
+            return { error: 'relatedItems[].type must be one of exercise, foodItem, checkIn, assessment' };
+        }
+    }
+
+    return { data: rows };
+}
+
+/** Parses the `relatedItems` multipart field (a JSON-stringified array) sent by the client. */
+function parseRelatedItemsField(raw: string | undefined): { error?: string; items?: RelatedItemInput[] } {
+    if (!raw) return { items: [] };
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new Error('not an array');
+        return { items: parsed };
+    } catch {
+        return { error: 'relatedItems must be a JSON array' };
+    }
+}
+
+/**
+ * @openapi
+ * /clients/{id}/observations:
+ *   get:
+ *     summary: List a client's observations (durable coaching insights), newest first
+ *     tags: [Clients, Observations]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: query, name: category, schema: { type: string } }
+ *       - { in: query, name: severity, schema: { type: string, enum: [Low, Medium, High] } }
+ *       - { in: query, name: relatedType, schema: { type: string, enum: [exercise, foodItem, checkIn, assessment] } }
+ *       - { in: query, name: relatedId, schema: { type: string }, description: Exact match, requires relatedType }
+ *       - { in: query, name: limit, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Array of observations
+ *       404:
+ *         description: Client not found
+ *   post:
+ *     summary: Create an observation for a client
+ *     tags: [Clients, Observations]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title:        { type: string }
+ *               content:      { type: string }
+ *               category:     { type: string }
+ *               severity:     { type: string, enum: [Low, Medium, High] }
+ *               relatedItems: { type: string, description: "JSON-stringified array of {type, id}, type in exercise|foodItem|checkIn|assessment" }
+ *               file:         { type: string, format: binary }
+ *     responses:
+ *       201:
+ *         description: Observation created
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Client not found
+ *
+ * /clients/{id}/observations/{obsId}:
+ *   patch:
+ *     summary: Edit an observation (author or workspace owner only)
+ *     tags: [Clients, Observations]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: obsId, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Observation updated
+ *       403:
+ *         description: Not the author or workspace owner
+ *       404:
+ *         description: Observation not found
+ *   delete:
+ *     summary: Soft-delete an observation (author or workspace owner only)
+ *     tags: [Clients, Observations]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *       - { in: path, name: obsId, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Observation soft-deleted
+ *       403:
+ *         description: Not the author or workspace owner
+ *       404:
+ *         description: Observation not found
+ */
+export async function getObservations(req: Request, res: Response, next: NextFunction) {
+    const clientId    = req.params.id as string;
+    const workspaceId = req.user!.workspaceId;
+    try {
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: workspaceId },
+            select: { id: true },
+        });
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+
+        const { category, severity, relatedType, relatedId, limit } = req.query as Record<string, string | undefined>;
+
+        const where: Prisma.client_observationsWhereInput = { client_id: clientId, deleted_at: null };
+        if (category) where.category = category;
+        if (severity) where.severity = severity;
+        if (relatedType) {
+            const fkField = relatedType === 'exercise' ? 'exercise_library_id'
+                : relatedType === 'foodItem' ? 'food_item_id'
+                : (relatedType === 'checkIn' || relatedType === 'assessment') ? 'form_request_id'
+                : null;
+            if (!fkField) return res.status(400).json({ error: 'relatedType must be one of exercise, foodItem, checkIn, assessment' });
+            where.observation_relations = {
+                some: relatedId ? { [fkField]: relatedId } : { [fkField]: { not: null } },
+            };
+        }
+
+        const take = Math.min(Number(limit) || 50, 100);
+
+        const rows = await prisma.client_observations.findMany({
+            where,
+            include: OBSERVATION_INCLUDE,
+            orderBy: { created_at: 'desc' },
+            take,
+        });
+
+        res.json(rows.map(mapObservation));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function createObservation(req: Request, res: Response, next: NextFunction) {
+    const clientId    = req.params.id as string;
+    const workspaceId = req.user!.workspaceId;
+    const file        = req.file as (Express.Multer.File & { key?: string }) | undefined;
+
+    const { title, content, category, severity, relatedItems: relatedItemsRaw } = req.body as Record<string, string | undefined>;
+
+    const trimmedTitle = title?.trim();
+    if (!trimmedTitle) return res.status(400).json({ error: 'title is required' });
+    if (trimmedTitle.length > 120) return res.status(400).json({ error: 'title must be 120 characters or fewer' });
+
+    const resolvedCategory = category?.trim() || 'General';
+    if (!OBSERVATION_CATEGORIES.includes(resolvedCategory)) {
+        return res.status(400).json({ error: `category must be one of ${OBSERVATION_CATEGORIES.join(', ')}` });
+    }
+    if (severity && !OBSERVATION_SEVERITIES.includes(severity)) {
+        return res.status(400).json({ error: `severity must be one of ${OBSERVATION_SEVERITIES.join(', ')}` });
+    }
+
+    const parsedRelatedItems = parseRelatedItemsField(relatedItemsRaw);
+    if (parsedRelatedItems.error) return res.status(400).json({ error: parsedRelatedItems.error });
+
+    try {
+        const client = await prisma.clients.findFirst({
+            where:  { id: clientId, workspace_id: workspaceId },
+            select: { id: true },
+        });
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+
+        const related = await resolveRelatedItemsInput(workspaceId, clientId, parsedRelatedItems.items!);
+        if (related.error) return res.status(400).json({ error: related.error });
+
+        const created = await prisma.client_observations.create({
+            data: {
+                id:             createId(),
+                client_id:      clientId,
+                workspace_id:   workspaceId,
+                author_id:      req.user!.userId,
+                title:          trimmedTitle,
+                content:        content?.trim() || null,
+                category:       resolvedCategory,
+                severity:       severity || null,
+                attachment_url: file ? (file.key ?? file.path) : null,
+                observation_relations: {
+                    create: (related.data ?? []).map((r) => ({ id: createId(), ...r })),
+                },
+            },
+            include: OBSERVATION_INCLUDE,
+        });
+
+        res.status(201).json(mapObservation(created));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function updateObservation(req: Request, res: Response, next: NextFunction) {
+    const clientId    = req.params.id as string;
+    const obsId       = req.params.obsId as string;
+    const workspaceId = req.user!.workspaceId;
+    const file        = req.file as (Express.Multer.File & { key?: string }) | undefined;
+
+    try {
+        const existing = await prisma.client_observations.findFirst({
+            where: { id: obsId, client_id: clientId, workspace_id: workspaceId, deleted_at: null },
+        });
+        if (!existing) return res.status(404).json({ error: 'Observation not found' });
+        if (existing.author_id !== req.user!.userId && !req.user!.isOwner) {
+            return res.status(403).json({ error: 'Only the author or the workspace owner can edit this observation' });
+        }
+
+        const { title, content, category, severity, relatedItems: relatedItemsRaw } = req.body as Record<string, string | undefined>;
+        // Unchecked variant: lets us set scalar FK-shaped fields directly where needed,
+        // matching the create-side convention.
+        const data: Prisma.client_observationsUncheckedUpdateInput = {};
+
+        if (title !== undefined) {
+            const trimmedTitle = title.trim();
+            if (!trimmedTitle) return res.status(400).json({ error: 'title cannot be empty' });
+            if (trimmedTitle.length > 120) return res.status(400).json({ error: 'title must be 120 characters or fewer' });
+            data.title = trimmedTitle;
+        }
+        if (content !== undefined) data.content = content.trim() || null;
+        if (category !== undefined) {
+            if (!OBSERVATION_CATEGORIES.includes(category)) {
+                return res.status(400).json({ error: `category must be one of ${OBSERVATION_CATEGORIES.join(', ')}` });
+            }
+            data.category = category;
+        }
+        if (severity !== undefined) {
+            if (severity && !OBSERVATION_SEVERITIES.includes(severity)) {
+                return res.status(400).json({ error: `severity must be one of ${OBSERVATION_SEVERITIES.join(', ')}` });
+            }
+            data.severity = severity || null;
+        }
+
+        // undefined = "don't touch the links"; present (even an empty array) = replace-all.
+        let newRelationRows: RelatedRelationRow[] | null = null;
+        if (relatedItemsRaw !== undefined) {
+            const parsedRelatedItems = parseRelatedItemsField(relatedItemsRaw);
+            if (parsedRelatedItems.error) return res.status(400).json({ error: parsedRelatedItems.error });
+            const related = await resolveRelatedItemsInput(workspaceId, clientId, parsedRelatedItems.items!);
+            if (related.error) return res.status(400).json({ error: related.error });
+            newRelationRows = related.data ?? [];
+        }
+
+        let oldAttachment: string | null = null;
+        if (file) {
+            oldAttachment = existing.attachment_url;
+            data.attachment_url = file.key ?? file.path;
+        }
+
+        const ops: Prisma.PrismaPromise<unknown>[] = [];
+        if (newRelationRows !== null) {
+            ops.push(prisma.observation_relations.deleteMany({ where: { observation_id: obsId } }));
+            if (newRelationRows.length > 0) {
+                ops.push(prisma.observation_relations.createMany({
+                    data: newRelationRows.map((r) => ({ id: createId(), observation_id: obsId, ...r })),
+                }));
+            }
+        }
+        ops.push(prisma.client_observations.update({ where: { id: obsId }, data, include: OBSERVATION_INCLUDE }));
+
+        const results = await prisma.$transaction(ops);
+        const updated = results[results.length - 1] as ObservationRow;
+
+        if (oldAttachment) deleteFile(oldAttachment).catch(() => {});
+
+        res.json(mapObservation(updated));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function deleteObservation(req: Request, res: Response, next: NextFunction) {
+    const clientId    = req.params.id as string;
+    const obsId       = req.params.obsId as string;
+    const workspaceId = req.user!.workspaceId;
+
+    try {
+        const existing = await prisma.client_observations.findFirst({
+            where: { id: obsId, client_id: clientId, workspace_id: workspaceId, deleted_at: null },
+        });
+        if (!existing) return res.status(404).json({ error: 'Observation not found' });
+        if (existing.author_id !== req.user!.userId && !req.user!.isOwner) {
+            return res.status(403).json({ error: 'Only the author or the workspace owner can delete this observation' });
+        }
+
+        await prisma.client_observations.update({
+            where: { id: obsId },
+            data:  { deleted_at: new Date() },
+        });
+
+        if (existing.attachment_url) deleteFile(existing.attachment_url).catch(() => {});
+
+        res.json({ deleted: obsId });
     } catch (err) {
         next(err);
     }

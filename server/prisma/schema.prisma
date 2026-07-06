@@ -44,18 +44,65 @@ model client_measurements {
 }
 
 model client_observations {
-  id           String     @id
-  client_id    String
-  workspace_id String
-  author_id    String?
-  content      String
-  created_at   DateTime   @default(now()) @db.Timestamptz(6)
-  users        users?     @relation(fields: [author_id], references: [id], onUpdate: NoAction)
-  clients      clients    @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  workspaces   workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                  String            @id
+  client_id           String
+  workspace_id        String
+  author_id           String?
+  title               String
+  content             String? // optional "Details" — elaboration beyond the title
+  category            String            @default("General")
+  severity            String? // 'Low' | 'Medium' | 'High'
+  exercise_library_id String?
+  food_item_id        String?
+  form_request_id     String?
+  attachment_url      String?
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?         @updatedAt @db.Timestamptz(6)
+  deleted_at          DateTime?         @db.Timestamptz(6)
+  users               users?            @relation(fields: [author_id], references: [id], onUpdate: NoAction)
+  clients             clients           @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  workspaces          workspaces        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  exercise_library    exercise_library? @relation(fields: [exercise_library_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  food_items          food_items?       @relation(fields: [food_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  form_requests       form_requests?    @relation(fields: [form_request_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  // Superseded by observation_relations (below) — kept only until the follow-up
+  // migration that drops these three columns once the cutover is verified.
+  observation_relations observation_relations[]
 
   @@index([client_id], map: "client_observations_client_id_index")
   @@index([workspace_id], map: "client_observations_workspace_id_index")
+  @@index([client_id, deleted_at, created_at(sort: Desc)], map: "idx_observations_client_feed")
+  @@index([category], map: "idx_observations_category")
+  @@index([exercise_library_id], map: "idx_observations_exercise_library_id")
+  @@index([food_item_id], map: "idx_observations_food_item_id")
+  @@index([form_request_id], map: "idx_observations_form_request_id")
+}
+
+// Junction table letting one observation link to multiple entities — each row
+// is a single link (exactly one of the three FK columns set, enforced in the
+// controller). Replaces client_observations' single exercise_library_id /
+// food_item_id / form_request_id columns above, which are kept temporarily
+// for a safe rollback window.
+model observation_relations {
+  id                  String              @id
+  observation_id      String
+  exercise_library_id String?
+  food_item_id        String?
+  form_request_id     String?
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+
+  client_observations client_observations @relation(fields: [observation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  exercise_library    exercise_library?   @relation(fields: [exercise_library_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  food_items          food_items?         @relation(fields: [food_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_requests       form_requests?      @relation(fields: [form_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([observation_id, exercise_library_id], map: "uq_observation_relations_exercise")
+  @@unique([observation_id, food_item_id], map: "uq_observation_relations_food_item")
+  @@unique([observation_id, form_request_id], map: "uq_observation_relations_form_request")
+  @@index([observation_id], map: "idx_observation_relations_observation_id")
+  @@index([exercise_library_id], map: "idx_observation_relations_exercise_library_id")
+  @@index([food_item_id], map: "idx_observation_relations_food_item_id")
+  @@index([form_request_id], map: "idx_observation_relations_form_request_id")
 }
 
 model client_photos {
@@ -129,6 +176,8 @@ model exercise_library {
   workspaces                     workspaces                       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_library_workspace")
   training_exercise_alternatives training_exercise_alternatives[]
   training_exercises             training_exercises[]
+  client_observations            client_observations[]
+  observation_relations          observation_relations[]
 
   @@index([workspace_id], map: "idx_exercise_library_coach")
 }
@@ -167,6 +216,8 @@ model food_items {
   workspaces                       workspaces?                        @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_food_items_workspace")
   nutrition_meal_item_alternatives nutrition_meal_item_alternatives[]
   nutrition_meal_items             nutrition_meal_items[]
+  client_observations              client_observations[]
+  observation_relations            observation_relations[]
 }
 
 // ── Default Libraries (global master set, owned by Super Admin) ─────────────────
@@ -297,21 +348,23 @@ model form_questions {
 }
 
 model form_requests {
-  id              String           @id
-  form_id         String?
-  client_id       String?
-  workspace_id    String
-  status          String?          @default("pending") @db.VarChar(20)
-  requested_at    DateTime?        @default(now()) @db.Timestamp(6)
-  submitted_at    DateTime?        @db.Timestamp(6)
-  post_action     String           @default("nothing")
-  scheduled_at    DateTime?        @db.Timestamptz(6)
-  action_taken_at DateTime?        @db.Timestamptz(6)
-  assigned_to     String? // user id of the team member this request is assigned to
-  workspaces      workspaces       @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
-  clients         clients?         @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  forms           forms?           @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  form_responses  form_responses[]
+  id                  String                @id
+  form_id             String?
+  client_id           String?
+  workspace_id        String
+  status              String?               @default("pending") @db.VarChar(20)
+  requested_at        DateTime?             @default(now()) @db.Timestamp(6)
+  submitted_at        DateTime?             @db.Timestamp(6)
+  post_action         String                @default("nothing")
+  scheduled_at        DateTime?             @db.Timestamptz(6)
+  action_taken_at     DateTime?             @db.Timestamptz(6)
+  assigned_to         String? // user id of the team member this request is assigned to
+  workspaces          workspaces            @relation(fields: [workspace_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_form_requests_workspace")
+  clients             clients?              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forms               forms?                @relation(fields: [form_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  form_responses      form_responses[]
+  client_observations client_observations[]
+  observation_relations observation_relations[]
 
   @@index([assigned_to])
 }

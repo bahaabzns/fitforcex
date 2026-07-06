@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { PageHeaderActionsContext } from "@/app/contexts/pageHeaderActions";
 import { useTranslations, useLocale } from "next-intl";
 import { TabsRoot, TabListContainer, TabList, Tab, TabSeparator } from "@heroui/react/tabs";
-import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, ChevronUp, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Apple, Dumbbell, ClipboardList, CreditCard, NotebookText, ChevronUp, ChevronDown } from 'lucide-react';
 import { useHeaderCollapse } from "@/app/contexts/headerCollapse";
 import NutritionPage from "./nutrition/page";
 import TrainingPage from "./training/page";
@@ -114,6 +114,7 @@ export default function ClientLayout({ children }) {
         { id: "training",        name: tNav('training'),             icon: Dumbbell,        href: `/${workspaceSlug}/clients/${id}/training` },
         { id: "forms",           name: tNav('forms'),                icon: ClipboardList,   href: `/${workspaceSlug}/clients/${id}/forms` },
         { id: "transactions",    name: tNav('transactions'),         icon: CreditCard,      href: `/${workspaceSlug}/clients/${id}/transactions` },
+        { id: "observations",    name: tNav('observations'),         icon: NotebookText,    href: `/${workspaceSlug}/clients/${id}/observations` },
     ];
 
     const selectedKey = tabs.find((t) => t.href === pathname)?.id ?? "overview";

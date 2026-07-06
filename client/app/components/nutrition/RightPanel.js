@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { NotebookText } from "lucide-react";
 import MacrosDonut from "./MacrosDonut";
 import InlineEditField from "@/app/components/InlineEditField";
+import FoodInsightsModal from "./FoodInsightsModal";
 import { calcMeal, calcItem } from "@/lib/nutritionCalc";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import { TextArea } from "@heroui/react/textarea";
 import { Disclosure, DisclosureGroup, NumberField, Separator, Surface } from "@heroui/react";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
@@ -23,7 +26,11 @@ export default function RightPanel({
     alternativeModalOpenForItemId, setAlternativeModalOpenForItemId,
     handleDeleteAlternative,
     handleAlternativeAmountChange,
+    clientId,
+    observationCounts,
+    onObservationsChanged,
 }) {
+    const [insightsItem, setInsightsItem] = useState(null);
     const t = useTranslations('nutrition');
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
@@ -82,6 +89,7 @@ export default function RightPanel({
     })();
 
     return (
+        <>
         <Surface variant="default" className="w-full flex flex-col overflow-hidden flex-1 p-3 rounded-2xl">
             {/* Header */}
             <div className="flex justify-between items-center mb-2 gap-3">
@@ -215,7 +223,7 @@ export default function RightPanel({
                                                         </div>
 
                                                         {/* Actions column — fixed width so macro columns never shift */}
-                                                        <div className="w-17 flex items-center justify-end gap-1 shrink-0">
+                                                        <div className={`${clientId ? "w-28" : "w-17"} flex items-center justify-end gap-1 shrink-0`}>
                                                             <button
                                                                 title={t('addAlternatives')}
                                                                 className={`cursor-pointer flex items-center gap-1 w-10.5 px-1.5 py-1.5 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors ${alternatives.length === 0 ? 'justify-center' : 'justify-start'}`}
@@ -231,6 +239,18 @@ export default function RightPanel({
                                                                     </span>
                                                                 )}
                                                             </button>
+                                                            {clientId && (
+                                                                <button
+                                                                    title="Observations"
+                                                                    className="cursor-pointer flex items-center gap-1 p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors"
+                                                                    onClick={(e) => { e.stopPropagation(); setInsightsItem(item); }}
+                                                                >
+                                                                    <NotebookText size={14} />
+                                                                    {(observationCounts?.[item.food_item_id || item.id] ?? 0) > 0 && (
+                                                                        <Chip size="sm" variant="soft">{observationCounts[item.food_item_id || item.id]}</Chip>
+                                                                    )}
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 title={t('removeFoodItem')}
                                                                 className="cursor-pointer p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -344,5 +364,13 @@ export default function RightPanel({
 
             </DisclosureGroup>
         </Surface>
+        <FoodInsightsModal
+            open={!!insightsItem}
+            onClose={() => setInsightsItem(null)}
+            item={insightsItem}
+            clientId={clientId}
+            onObservationsChanged={onObservationsChanged}
+        />
+        </>
     );
 }

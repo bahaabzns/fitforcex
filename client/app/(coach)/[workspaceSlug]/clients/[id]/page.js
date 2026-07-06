@@ -2,14 +2,17 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
-import { Eye, EyeOff, Copy, Check, Trash2, Archive, RotateCcw, AlertTriangle, History, TrendingUp } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check, Trash2, Archive, RotateCcw, AlertTriangle, History, TrendingUp, NotebookText, Plus } from 'lucide-react';
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import { FieldLabel, FieldErrorText } from "@/app/components/Field";
 import CountryCodeSelect from "@/app/components/CountryCodeSelect";
 import AreaChart from "@/app/components/charts/AreaChart";
+import ObservationModal from "@/app/components/ObservationModal";
+import ObservationCard from "@/app/components/ObservationCard";
 import { usePageHeaderActions } from "@/app/contexts/pageHeaderActions";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
@@ -298,6 +301,12 @@ export default function ClientOverviewPage() {
   const [activePreset, setActivePreset] = useState("90d");
   const setPageHeaderActions = usePageHeaderActions();
 
+  // Recent observations (preview widget — full history lives on the Observations tab)
+  const [recentObservations, setRecentObservations] = useState([]);
+  const [observationsLoading, setObservationsLoading] = useState(true);
+  const [observationModalOpen, setObservationModalOpen] = useState(false);
+  const [editingObservation, setEditingObservation] = useState(null);
+
   const { id, workspaceSlug } = useParams();
   const router = useRouter();
 
@@ -340,6 +349,10 @@ export default function ClientOverviewPage() {
       .then(res => setTxData(res.data))
       .catch(() => {})
       .finally(() => setTxLoading(false));
+    api.get(`/api/clients/${id}/observations?limit=3`)
+      .then(res => setRecentObservations(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setRecentObservations([]))
+      .finally(() => setObservationsLoading(false));
   }, [id]);
 
   const startDate = useMemo(() => dateRange ? toStartOfDay(dateRange.start) : null, [dateRange]);
@@ -644,6 +657,56 @@ export default function ClientOverviewPage() {
               )}
             </Card.Content>
           </Card>
+
+          {/* Recent Observations */}
+          <Card>
+            <Card.Content className="p-6">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <NotebookText size={16} className="text-muted-foreground" />
+                  {t('recentObservations')}
+                </h2>
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="sm" onPress={() => { setEditingObservation(null); setObservationModalOpen(true); }}>
+                    <Plus size={13} /> {t('addObservation')}
+                  </Button>
+                  <Link
+                    href={`/${workspaceSlug}/clients/${id}/observations`}
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {t('viewAllObservations')}
+                  </Link>
+                </div>
+              </div>
+              {observationsLoading ? (
+                <Skeleton className="h-16 rounded-lg" />
+              ) : recentObservations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('noObservationsYet')}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {recentObservations.map(o => (
+                    <ObservationCard
+                      key={o.id}
+                      observation={o}
+                      clientId={id}
+                      currentUserId={me?.userId}
+                      isOwner={isOwner}
+                      onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
+                      onDeleted={(deletedId) => setRecentObservations(prev => prev.filter(x => x.id !== deletedId))}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card.Content>
+          </Card>
+          <ObservationModal
+            open={observationModalOpen}
+            onClose={() => setObservationModalOpen(false)}
+            clientId={id}
+            observation={editingObservation}
+            onCreated={(obs) => setRecentObservations(prev => [obs, ...prev].slice(0, 3))}
+            onUpdated={(updated) => setRecentObservations(prev => prev.map(x => x.id === updated.id ? updated : x))}
+          />
 
           {/* Transformation */}
           <section>

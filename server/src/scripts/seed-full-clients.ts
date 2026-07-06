@@ -133,13 +133,17 @@ function buildObservations(
     workspaceId: string,
     count: number,
 ): Prisma.client_observationsCreateManyInput[] {
-    return Array.from({ length: count }, () => ({
-        id:           createId(),
-        client_id:    clientId,
-        workspace_id: workspaceId,
-        content:      pick(OBSERVATION_TEXTS),
-        created_at:   new Date(Date.now() - randInt(0, 90) * DAY),
-    }));
+    return Array.from({ length: count }, () => {
+        const text = pick(OBSERVATION_TEXTS);
+        return {
+            id:           createId(),
+            client_id:    clientId,
+            workspace_id: workspaceId,
+            title:        text.slice(0, 60),
+            content:      text,
+            created_at:   new Date(Date.now() - randInt(0, 90) * DAY),
+        };
+    });
 }
 
 interface FoodItem { id: string }

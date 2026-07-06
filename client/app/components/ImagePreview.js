@@ -20,6 +20,7 @@ import { useTranslations } from "next-intl";
 export default function ImagePreview({ src, alt = "", isPdf = false, title, triggerClassName = "", children }) {
     const t = useTranslations("common");
     const [open, setOpen] = useState(false);
+    const [zoomed, setZoomed] = useState(false);
     if (!src) return null;
 
     const trigger = children ?? (
@@ -35,6 +36,11 @@ export default function ImagePreview({ src, alt = "", isPdf = false, title, trig
         );
     }
 
+    function close() {
+        setOpen(false);
+        setZoomed(false);
+    }
+
     return (
         <>
             <button
@@ -46,9 +52,18 @@ export default function ImagePreview({ src, alt = "", isPdf = false, title, trig
             >
                 {trigger}
             </button>
-            <Modal open={open} onClose={() => setOpen(false)} title={title || alt || ""}>
+            <Modal open={open} onClose={close} title={title || alt || ""}>
                 <div className="flex flex-col items-center gap-3">
-                    <img src={src} alt={alt} className="max-h-[60vh] max-w-full rounded-lg object-contain" />
+                    <div className={zoomed ? "w-full max-h-[70vh] overflow-auto rounded-lg" : "flex justify-center"}>
+                        <img
+                            src={src}
+                            alt={alt}
+                            onClick={() => setZoomed(z => !z)}
+                            className={zoomed
+                                ? "max-w-none rounded-lg cursor-zoom-out"
+                                : "max-h-[60vh] max-w-full rounded-lg object-contain cursor-zoom-in"}
+                        />
+                    </div>
                     <a
                         href={src}
                         target="_blank"
