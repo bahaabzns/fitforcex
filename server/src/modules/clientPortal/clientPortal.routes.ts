@@ -9,6 +9,7 @@ import {
 } from '../../middleware/clientAccessPolicy';
 import { loginLimiter } from '../../middleware/rateLimit';
 import * as clientPortalController from './clientPortal.controller';
+import * as clientPortalNotificationsController from './clientPortalNotifications.controller';
 
 const router = Router();
 
@@ -415,5 +416,55 @@ router.get('/workout-logs/:id',               ...open, requireClientAccess('view
  *         description: "{ metrics: [{ id, name, unit, type, icon, history }], timeline: [...] }"
  */
 router.get('/transformation', ...open, clientPortalController.getPortalTransformation);
+
+/**
+ * @openapi
+ * /client-portal/notifications:
+ *   get:
+ *     summary: List the current client's notifications (newest first)
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: query, name: unread, required: false, schema: { type: boolean }, description: When true, only unread notifications }
+ *       - { in: query, name: limit,  required: false, schema: { type: integer, default: 30, maximum: 100 } }
+ *     responses:
+ *       200: { description: Array of notifications }
+ *
+ * /client-portal/notifications/unread-count:
+ *   get:
+ *     summary: Count the current client's unread notifications (bell badge)
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: "{ count: number }" }
+ *
+ * /client-portal/notifications/read-all:
+ *   patch:
+ *     summary: Mark all of the current client's notifications as read
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200: { description: "{ updated: number }" }
+ *
+ * /client-portal/notifications/{id}/read:
+ *   patch:
+ *     summary: Mark a single notification as read
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: "{ updated: number }" }
+ *       404: { description: Notification not found }
+ */
+// Specific routes before the parameterized one (CLAUDE.md §8.6).
+router.get('/notifications',              ...open, clientPortalNotificationsController.listNotifications);
+router.get('/notifications/unread-count', ...open, clientPortalNotificationsController.getUnreadCount);
+router.patch('/notifications/read-all',   ...open, clientPortalNotificationsController.markAllRead);
+router.patch('/notifications/:id/read',   ...open, clientPortalNotificationsController.markRead);
 
 export default router;

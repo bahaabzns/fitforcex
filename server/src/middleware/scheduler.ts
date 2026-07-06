@@ -1,6 +1,15 @@
 import cron from 'node-cron';
 import { prisma } from '../lib/prisma';
 import { computeClientStatus, logSubscriptionAudit } from '../modules/subscriptionPolicies/subscriptionPolicies.service';
+import { recordEvent, ownerRecipients } from '../lib/events';
+
+// The frontend derives its own label per type per audience (see NotificationBell.js /
+// the client-portal notifications page) — this title is only the stored fallback.
+const STATUS_NOTIFICATION: Record<string, { type: string; title: string } | undefined> = {
+    Expired: { type: 'subscription.expired',     title: 'A client’s subscription expired' },
+    Frozen:  { type: 'subscription.frozen',      title: 'A client’s subscription was paused' },
+    Active:  { type: 'subscription.reactivated', title: 'A client’s subscription reactivated' },
+};
 
 export function scheduleFormDispatcher(): void {
     cron.schedule('0 * * * *', async () => {
@@ -76,6 +85,26 @@ export function scheduleClientStatusSync(): void {
                         fromStatus:  client.subscription_status,
                         toStatus:    status,
                     });
+
+                    // Durable notification alongside the live-computed portal banner —
+                    // so the coach has a paper trail and the client sees it even after
+                    // the moment the banner would've caught their attention has passed.
+                    const notice = STATUS_NOTIFICATION[status];
+                    if (notice) {
+                        await recordEvent({
+                            workspaceId: client.workspace_id,
+                            type:        notice.type,
+                            importance:  status === 'Active' ? 'info' : 'alert',
+                            title:       notice.title,
+                            recipients:  [
+                                { type: 'client', id: client.id },
+                                ...await ownerRecipients(client.workspace_id),
+                            ],
+                            actor:  { type: 'system' },
+                            entity: { type: 'client', id: client.id },
+                        });
+                    }
+
                     changed++;
                 } catch (err) {
                     console.error('[Scheduler] Status sync failed for client', client.id, err);

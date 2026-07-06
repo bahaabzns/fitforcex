@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import NextImage from "next/image";
 import { usePathname } from "next/navigation";
@@ -7,12 +8,29 @@ import { Home, Salad, Dumbbell, ClipboardList, Bell, MessageSquare } from 'lucid
 import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 import { useClientPortal } from "@/app/components/ClientPortalProvider";
+import api from "@/lib/axios";
+
+const UNREAD_POLL_MS = 15000;
 
 export default function ClientPortalNav() {
     const pathname = usePathname();
     const tPortal = useTranslations('portal.sidebar');
     const tStatus = useTranslations('portal.status');
     const { me: client, access, status, withinGrace } = useClientPortal();
+
+    const [unread, setUnread] = useState(0);
+
+    const fetchUnread = useCallback(() => {
+        api.get('/api/client-portal/notifications/unread-count')
+            .then(res => setUnread(res.data?.count ?? 0))
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        fetchUnread();
+        const interval = setInterval(fetchUnread, UNREAD_POLL_MS);
+        return () => clearInterval(interval);
+    }, [fetchUnread]);
 
     const getInitials = (c) => {
         if (!c) return "?";
@@ -85,13 +103,18 @@ export default function ClientPortalNav() {
                 <div className="flex justify-end">
                     <Link
                         href="/portal/notifications"
-                        className={`p-2 rounded-xl transition-colors ${
+                        className={`relative p-2 rounded-xl transition-colors ${
                             isNotificationsActive
                                 ? "text-primary bg-sidebar-accent"
                                 : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
                         }`}
                     >
                         <Bell size={20} />
+                        {unread > 0 && (
+                            <span className="absolute top-1 inset-e-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                                {unread > 99 ? '99+' : unread}
+                            </span>
+                        )}
                     </Link>
                 </div>
             </header>

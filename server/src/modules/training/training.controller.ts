@@ -569,6 +569,7 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
             recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
             actor:       { type: 'user', id: req.user!.userId },
             entity:      { type: 'training_plan', id: updatedPlan.id as string },
+            metadata:    { clientId: updatedPlan.client_id as string },
             realtime:    { rooms: [`client:${updatedPlan.client_id as string}`], event: 'plan_assigned', payload: { type: 'training', planId: updatedPlan.id } },
         });
 

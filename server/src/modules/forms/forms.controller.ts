@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { Prisma } from '@prisma/client';
 import pool from '../../db';
 import { prisma } from '../../lib/prisma';
+import { recordEvent } from '../../lib/events';
 
 let schemaReadyPromise: Promise<void> | undefined;
 
@@ -492,10 +493,26 @@ export async function reviewQueue(req: Request, res: Response, next: NextFunctio
                 data:  { status: 'submitted', action_taken_at: null },
             });
         } else {
+            const toReview = await prisma.form_requests.findMany({
+                where:  { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) }, status: 'submitted' },
+                select: { id: true, client_id: true },
+            });
+
             await prisma.form_requests.updateMany({
-                where: { workspace_id: req.user!.workspaceId, id: { in: ids.map(String) }, status: 'submitted' },
+                where: { workspace_id: req.user!.workspaceId, id: { in: toReview.map(request => request.id) }, status: 'submitted' },
                 data:  { status: 'reviewed', action_taken_at: new Date() },
             });
+
+            // Notify each client their check-in was reviewed.
+            await Promise.all(toReview.filter(request => request.client_id).map(request => recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'checkin.reviewed',
+                importance:  'info',
+                title:       'Your coach reviewed your check-in',
+                recipients:  [{ type: 'client', id: request.client_id as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'form_request', id: request.id },
+            })));
         }
 
         const updated = await prisma.form_requests.findMany({
@@ -537,13 +554,28 @@ export async function assignQueue(req: Request, res: Response, next: NextFunctio
         const idList = ids.map(String);
         // Raw UPDATE so the new `assigned_to` column is reachable without depending
         // on a freshly regenerated Prisma client.
-        const updated = await prisma.$queryRaw<{ id: string }[]>`
+        const updated = await prisma.$queryRaw<{ id: string; client_id: string }[]>`
             UPDATE form_requests
             SET assigned_to = ${assigneeId}
             WHERE workspace_id = ${req.user!.workspaceId}
               AND id IN (${Prisma.join(idList)})
-            RETURNING id
+            RETURNING id, client_id
         `;
+
+        // Notify the assignee, unless the coach assigned it to themselves.
+        if (assigneeId && assigneeId !== req.user!.userId) {
+            await Promise.all(updated.map(row => recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'checkin.assigned',
+                importance:  'actionable',
+                title:       'A check-in was assigned to you for review',
+                recipients:  [{ type: 'user', id: assigneeId as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'form_request', id: row.id },
+                metadata:    { clientId: row.client_id },
+            })));
+        }
+
         res.json({ updatedIds: updated.map(r => r.id), assignedTo: assigneeId });
     } catch (err) {
         next(err);

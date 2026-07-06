@@ -88,22 +88,35 @@ export async function recordEvent(event: DomainEvent): Promise<void> {
     }
 }
 
-/** Active team members of a workspace as user recipients, optionally minus the actor. */
+/**
+ * Active team members of a workspace as user recipients, optionally minus the actor.
+ * Includes the workspace owner explicitly — ownership is implicit via
+ * workspaces.owner_id, not a workspace_members row (see lib/defaultPermissions.ts),
+ * so a solo coach with no invited teammates would otherwise get zero recipients.
+ */
 export async function teamRecipients(workspaceId: string, excludeUserId?: string): Promise<Recipient[]> {
-    const members = await prisma.workspace_members.findMany({
-        where:  { workspace_id: workspaceId, is_active: true },
-        select: { user_id: true },
-    });
-    return members
-        .filter(member => member.user_id !== excludeUserId)
-        .map(member => ({ type: 'user' as const, id: member.user_id }));
+    const [workspace, members] = await Promise.all([
+        prisma.workspaces.findUnique({ where: { id: workspaceId }, select: { owner_id: true } }),
+        prisma.workspace_members.findMany({
+            where:  { workspace_id: workspaceId, is_active: true },
+            select: { user_id: true },
+        }),
+    ]);
+
+    const userIds = new Set(members.map(member => member.user_id));
+    if (workspace?.owner_id) userIds.add(workspace.owner_id);
+    if (excludeUserId) userIds.delete(excludeUserId);
+
+    return Array.from(userIds, id => ({ type: 'user' as const, id }));
 }
 
-/** Workspace owners as user recipients — for owner-only alerts (e.g. billing). */
+/**
+ * The workspace owner as a user recipient — for owner-only alerts (e.g. billing).
+ * 'owner' is never a workspace_members.role (see lib/defaultPermissions.ts — VALID_ROLES
+ * is manager/trainer/nutritionist/receptionist/viewer), so the old role: 'owner' lookup
+ * against workspace_members could never match; ownership only lives on workspaces.owner_id.
+ */
 export async function ownerRecipients(workspaceId: string): Promise<Recipient[]> {
-    const owners = await prisma.workspace_members.findMany({
-        where:  { workspace_id: workspaceId, is_active: true, role: 'owner' },
-        select: { user_id: true },
-    });
-    return owners.map(owner => ({ type: 'user' as const, id: owner.user_id }));
+    const workspace = await prisma.workspaces.findUnique({ where: { id: workspaceId }, select: { owner_id: true } });
+    return workspace?.owner_id ? [{ type: 'user' as const, id: workspace.owner_id }] : [];
 }
