@@ -665,6 +665,7 @@ export function useTrainingPlan(clientId) {
             await api.post(`/api/training/plans/${resolvedPlanId}/activate`, {
                 cycleDays: activationOptions.cycleDays ?? null,
                 checkInForms: activationOptions.checkInForms ?? [],
+                reviewOffsetDays: activationOptions.reviewOffsetDays ?? null,
             });
             // Package Lifecycle Phase 3b: refetch so activated_at/cycle_days/
             // cycle_end_at (not touched by the optimistic status-only update

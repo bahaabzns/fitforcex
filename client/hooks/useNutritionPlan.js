@@ -871,6 +871,7 @@ export function useNutritionPlan(clientId) {
             const { data: activatedPlan } = await api.post(`/api/nutrition/plans/${resolvedPlanId}/activate`, {
                 cycleDays: activationOptions.cycleDays ?? null,
                 checkInForms: activationOptions.checkInForms ?? [],
+                reviewOffsetDays: activationOptions.reviewOffsetDays ?? null,
             });
 
             // Package Lifecycle Phase 3b: merge the resolved activated_at/

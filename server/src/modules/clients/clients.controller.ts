@@ -502,21 +502,19 @@ export async function getClientPackageDefaults(req: Request, res: Response, next
         });
         if (!client) return res.status(404).json({ error: 'Client not found' });
 
-        if (!client.current_package_variation_id) {
-            return res.json({ nutritionCycleDays: null, trainingCycleDays: null, planUpdateMode: 'extend', checkInForms: [] });
-        }
+        const empty = { nutritionCycleDays: null, trainingCycleDays: null, reviewOffsetDays: null, planUpdateMode: 'extend', checkInForms: [] };
+        if (!client.current_package_variation_id) return res.json(empty);
 
         const variation = await prisma.package_variations.findUnique({
             where:   { id: client.current_package_variation_id },
             include: { package_default_forms: { where: { kind: 'checkin' }, include: { forms: { select: { title_en: true, title_ar: true } } } } },
         });
-        if (!variation) {
-            return res.json({ nutritionCycleDays: null, trainingCycleDays: null, planUpdateMode: 'extend', checkInForms: [] });
-        }
+        if (!variation) return res.json(empty);
 
         res.json({
             nutritionCycleDays: variation.nutrition_cycle_days ?? null,
             trainingCycleDays:  variation.training_cycle_days ?? null,
+            reviewOffsetDays:   variation.review_offset_days ?? null,
             planUpdateMode:     variation.plan_update_mode || 'extend',
             checkInForms: variation.package_default_forms.map(f => ({
                 formId:       f.form_id,

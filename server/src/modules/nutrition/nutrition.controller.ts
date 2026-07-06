@@ -427,6 +427,10 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
         let existingCycleDays: number | null = null;
         let existingCycleEndAt: Date | null = null;
         let existingReviewNotifiedAt: Date | null = null;
+        // Set inside activatePlanInTransaction below; consulted after the
+        // transaction commits so a restart notification never fires for a
+        // save that ultimately rolled back.
+        let restartedClientId: string | null = null;
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
@@ -566,6 +570,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                          WHERE source_plan_type = 'nutrition' AND client_id = $1 AND paused_at IS NULL`,
                         [restarted.client_id]
                     );
+                    restartedClientId = restarted.client_id as string;
                 }
             },
             fetchSavedPlan: async ({ planId, coachId }: { planId: unknown; coachId: string }) => {
@@ -577,6 +582,18 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                 return savedPlanResult.rows[0] ?? null;
             },
         });
+
+        if (restartedClientId) {
+            await recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'plan.duration_restarted',
+                title:       'Your nutrition plan has been restarted',
+                recipients:  [{ type: 'client', id: restartedClientId }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'nutrition_plan', id: result.newPlanId as string },
+                metadata:    { clientId: restartedClientId },
+            });
+        }
 
         res.json(result);
     } catch (err) { next(err); }
@@ -611,9 +628,10 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
     // manual override) and passes them here; updateMode only matters if the
     // plan is already active (editing, not first activation) -- see
     // lib/planEngine.ts's activateSinglePlan for the restart/extend rule.
-    const { cycleDays, checkInForms, updateMode } = req.body as {
+    const { cycleDays, checkInForms, reviewOffsetDays, updateMode } = req.body as {
         cycleDays?: number | null;
         checkInForms?: { formId: string; intervalDays: number }[];
+        reviewOffsetDays?: number | null;
         updateMode?: 'restart' | 'extend';
     };
 
@@ -628,7 +646,8 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 planId,
                 coachId,
                 clientIdColumn: 'client_id',
-                cycleDays:      cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
+                cycleDays:        cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
+                reviewOffsetDays: reviewOffsetDays !== undefined ? (reviewOffsetDays == null ? null : Number(reviewOffsetDays)) : undefined,
                 updateMode,
             });
             if (!plan) return null;
@@ -658,16 +677,31 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
 
         if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
 
-        await recordEvent({
-            workspaceId: req.user!.workspaceId,
-            type:        'plan.assigned',
-            title:       'A new nutrition plan was assigned to you',
-            recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
-            actor:       { type: 'user', id: req.user!.userId },
-            entity:      { type: 'nutrition_plan', id: updatedPlan.id as string },
-            metadata:    { clientId: updatedPlan.client_id as string },
-            realtime:    { rooms: [`client:${updatedPlan.client_id as string}`], event: 'plan_assigned', payload: { type: 'nutrition', planId: updatedPlan.id } },
-        });
+        // A restart is the same plan renewing its duration clock, not a new
+        // assignment -- fire the distinct restart event instead so the
+        // client isn't told a plan they already have was "assigned" again.
+        if (updateMode === 'restart') {
+            await recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'plan.duration_restarted',
+                title:       'Your nutrition plan has been restarted',
+                recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'nutrition_plan', id: updatedPlan.id as string },
+                metadata:    { clientId: updatedPlan.client_id as string },
+            });
+        } else {
+            await recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'plan.assigned',
+                title:       'A new nutrition plan was assigned to you',
+                recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'nutrition_plan', id: updatedPlan.id as string },
+                metadata:    { clientId: updatedPlan.client_id as string },
+                realtime:    { rooms: [`client:${updatedPlan.client_id as string}`], event: 'plan_assigned', payload: { type: 'nutrition', planId: updatedPlan.id } },
+            });
+        }
 
         res.json(updatedPlan);
     } catch (err) { next(err); }

@@ -20,6 +20,7 @@ import {
     scheduleSubscriptionExpiry,
     scheduleSessionCleanup,
     scheduleClientStatusSync,
+    scheduleCheckInDispatch,
 } from './middleware/scheduler';
 
 process.on('SIGINT',  async () => { await prisma.$disconnect(); process.exit(0); });
@@ -59,6 +60,7 @@ if (env.NODE_ENV !== 'test') {
     scheduleSubscriptionExpiry();
     scheduleSessionCleanup();
     scheduleClientStatusSync();
+    scheduleCheckInDispatch();
 }
 
 const serverStartTime = Date.now();

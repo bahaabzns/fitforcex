@@ -91,6 +91,11 @@ interface ActivateSinglePlanParams {
      *  coach override in the Configure Activation modal). `undefined` leaves
      *  the plan's existing cycle_days untouched; `null` clears it. */
     cycleDays?: number | null;
+    /** Package Lifecycle Phase 4. Snapshotted the same way as cycleDays --
+     *  read fresh from the package at the moment of activation, then held
+     *  stable so the daily review-due scheduler check doesn't depend on the
+     *  client's *current* package possibly having changed since. */
+    reviewOffsetDays?: number | null;
     /** Only consulted when the plan already has a non-null activated_at --
      *  i.e. this is an edit of an already-active plan, not a first activation.
      *  'extend' (default-safe): keep the existing activated_at/cycle_end_at.
@@ -115,6 +120,7 @@ export async function activateSinglePlan({
     clientIdColumn = 'client_id',
     workspaceColumn = 'workspace_id',
     cycleDays,
+    reviewOffsetDays,
     updateMode,
 }: ActivateSinglePlanParams): Promise<PlainRecord | null> {
     assertSafeIdentifier(tableName, 'table');
@@ -136,8 +142,9 @@ export async function activateSinglePlan({
         [plan[clientIdColumn], coachId, plan.id]
     );
 
-    const hasPriorActivation = plan.activated_at != null;
-    const resolvedCycleDays  = cycleDays !== undefined ? cycleDays : (plan.cycle_days as number | null);
+    const hasPriorActivation   = plan.activated_at != null;
+    const resolvedCycleDays    = cycleDays !== undefined ? cycleDays : (plan.cycle_days as number | null);
+    const resolvedReviewOffset = reviewOffsetDays !== undefined ? reviewOffsetDays : (plan.review_offset_days as number | null);
 
     let activatedAt: Date;
     let cycleEndAt: Date | null;
@@ -157,11 +164,11 @@ export async function activateSinglePlan({
     const updated = await db.query(
         `UPDATE ${tableName}
          SET status = 'active', updated_at = NOW(),
-             activated_at = $2, cycle_days = $3, cycle_end_at = $4
+             activated_at = $2, cycle_days = $3, cycle_end_at = $4, review_offset_days = $5
              ${clearReviewNotified ? ', review_notified_at = NULL' : ''}
          WHERE id = $1
          RETURNING *`,
-        [plan.id, activatedAt, resolvedCycleDays, cycleEndAt]
+        [plan.id, activatedAt, resolvedCycleDays, cycleEndAt, resolvedReviewOffset]
     );
 
     return serializePlanRow(updated.rows[0] as PlainRecord);

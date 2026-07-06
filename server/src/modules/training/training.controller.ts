@@ -464,6 +464,8 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
         let existingCycleDays: number | null = null;
         let existingCycleEndAt: Date | null = null;
         let existingReviewNotifiedAt: Date | null = null;
+        // See the identical note in nutrition.controller.ts's savePlanDraft.
+        let restartedClientId: string | null = null;
 
         const result = await saveSinglePlanDraft({
             pool, plan, clientId, coachId: req.user!.workspaceId, activePlanId,
@@ -584,6 +586,7 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
                          WHERE source_plan_type = 'training' AND client_id = $1 AND paused_at IS NULL`,
                         [restarted.client_id]
                     );
+                    restartedClientId = restarted.client_id as string;
                 }
             },
             fetchSavedPlan: async ({ planId, coachId }: { planId: unknown; coachId: string }) => {
@@ -596,6 +599,18 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
             },
         });
 
+        if (restartedClientId) {
+            await recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'plan.duration_restarted',
+                title:       'Your training plan has been restarted',
+                recipients:  [{ type: 'client', id: restartedClientId }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'training_plan', id: result.newPlanId as string },
+                metadata:    { clientId: restartedClientId },
+            });
+        }
+
         res.json(result);
     } catch (err) { next(err); }
 }
@@ -603,9 +618,10 @@ export async function savePlanDraft(req: Request, res: Response, next: NextFunct
 export async function activatePlan(req: Request, res: Response, next: NextFunction) {
     // Package Lifecycle Phase 3b -- see the identical note in
     // nutrition.controller.ts's activatePlan.
-    const { cycleDays, checkInForms, updateMode } = req.body as {
+    const { cycleDays, checkInForms, reviewOffsetDays, updateMode } = req.body as {
         cycleDays?: number | null;
         checkInForms?: { formId: string; intervalDays: number }[];
+        reviewOffsetDays?: number | null;
         updateMode?: 'restart' | 'extend';
     };
 
@@ -620,7 +636,8 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
                 planId,
                 coachId,
                 clientIdColumn: 'client_id',
-                cycleDays:      cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
+                cycleDays:        cycleDays !== undefined ? (cycleDays == null ? null : Number(cycleDays)) : undefined,
+                reviewOffsetDays: reviewOffsetDays !== undefined ? (reviewOffsetDays == null ? null : Number(reviewOffsetDays)) : undefined,
                 updateMode,
             });
             if (!plan) return null;
@@ -647,16 +664,29 @@ export async function activatePlan(req: Request, res: Response, next: NextFuncti
 
         if (!updatedPlan) return res.status(404).json({ error: 'Plan not found' });
 
-        await recordEvent({
-            workspaceId: req.user!.workspaceId,
-            type:        'plan.assigned',
-            title:       'A new training plan was assigned to you',
-            recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
-            actor:       { type: 'user', id: req.user!.userId },
-            entity:      { type: 'training_plan', id: updatedPlan.id as string },
-            metadata:    { clientId: updatedPlan.client_id as string },
-            realtime:    { rooms: [`client:${updatedPlan.client_id as string}`], event: 'plan_assigned', payload: { type: 'training', planId: updatedPlan.id } },
-        });
+        // See the identical note in nutrition.controller.ts's activatePlan.
+        if (updateMode === 'restart') {
+            await recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'plan.duration_restarted',
+                title:       'Your training plan has been restarted',
+                recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'training_plan', id: updatedPlan.id as string },
+                metadata:    { clientId: updatedPlan.client_id as string },
+            });
+        } else {
+            await recordEvent({
+                workspaceId: req.user!.workspaceId,
+                type:        'plan.assigned',
+                title:       'A new training plan was assigned to you',
+                recipients:  [{ type: 'client', id: updatedPlan.client_id as string }],
+                actor:       { type: 'user', id: req.user!.userId },
+                entity:      { type: 'training_plan', id: updatedPlan.id as string },
+                metadata:    { clientId: updatedPlan.client_id as string },
+                realtime:    { rooms: [`client:${updatedPlan.client_id as string}`], event: 'plan_assigned', payload: { type: 'training', planId: updatedPlan.id } },
+            });
+        }
 
         res.json(updatedPlan);
     } catch (err) { next(err); }

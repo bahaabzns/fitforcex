@@ -24,6 +24,10 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
     const [loading, setLoading] = useState(true);
     const [cycleDays, setCycleDays] = useState("");
     const [checkInForms, setCheckInForms] = useState([]); // [{ formId, intervalDays, titleEn, titleAr, checked }]
+    // Not surfaced as an editable field (the vision only asks for Duration +
+    // Check-in Forms) -- just carried through silently so the daily
+    // review-due check has a snapshotted value to read (Phase 4).
+    const [reviewOffsetDays, setReviewOffsetDays] = useState(null);
 
     useEffect(() => {
         if (!open || !clientId) return;
@@ -35,8 +39,9 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
                 const days = planType === "training" ? data?.trainingCycleDays : data?.nutritionCycleDays;
                 setCycleDays(days != null ? String(days) : "");
                 setCheckInForms((data?.checkInForms ?? []).map(f => ({ ...f, checked: true })));
+                setReviewOffsetDays(data?.reviewOffsetDays ?? null);
             })
-            .catch(() => { if (active) { setCycleDays(""); setCheckInForms([]); } })
+            .catch(() => { if (active) { setCycleDays(""); setCheckInForms([]); setReviewOffsetDays(null); } })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
     }, [open, clientId, planType]);
@@ -54,7 +59,7 @@ export default function ConfigureActivationModal({ open, onClose, clientId, plan
         const resolvedCheckInForms = checkInForms
             .filter(f => f.checked && Number(f.intervalDays) > 0)
             .map(f => ({ formId: f.formId, intervalDays: Number(f.intervalDays) }));
-        onConfirm({ cycleDays: resolvedCycleDays, checkInForms: resolvedCheckInForms });
+        onConfirm({ cycleDays: resolvedCycleDays, checkInForms: resolvedCheckInForms, reviewOffsetDays });
     }
 
     return (
