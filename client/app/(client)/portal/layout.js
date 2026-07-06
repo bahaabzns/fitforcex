@@ -6,7 +6,7 @@ import ClientPortalProvider, { useClientPortal } from "@/app/components/ClientPo
 import ClientPortalStatusCard from "@/app/components/ClientPortalStatusCard";
 import { Skeleton } from "@heroui/react/skeleton";
 
-const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages', '/portal/transformation'];
+const PROTECTED = ['/portal/home', '/portal/nutrition', '/portal/training', '/portal/forms', '/portal/measurements', '/portal/profile', '/portal/notifications', '/portal/messages'];
 
 // Renders inside the provider so it can read the loaded access state.
 function PortalShell({ children }) {

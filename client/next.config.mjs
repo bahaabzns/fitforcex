@@ -23,6 +23,11 @@ const nextConfig = {
                 destination: '/portal/forms/:id',
                 permanent: true,
             },
+            {
+                source: '/portal/transformation',
+                destination: '/portal/home',
+                permanent: true,
+            },
         ];
     },
 };

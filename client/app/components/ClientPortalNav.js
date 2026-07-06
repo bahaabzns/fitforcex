@@ -3,7 +3,7 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { usePathname } from "next/navigation";
-import { Home, Salad, Dumbbell, ClipboardList, Bell, MessageSquare, TrendingUp } from 'lucide-react';
+import { Home, Salad, Dumbbell, ClipboardList, Bell, MessageSquare } from 'lucide-react';
 import { useTranslations } from "next-intl";
 import { Avatar } from "@heroui/react/avatar";
 import { useClientPortal } from "@/app/components/ClientPortalProvider";
@@ -29,7 +29,6 @@ export default function ClientPortalNav() {
         { href: "/portal/home",           label: tPortal('home'),          icon: Home,           show: true },
         { href: "/portal/nutrition",      label: tPortal('nutritionPlan'), icon: Salad,          show: can('view_nutrition_plans') },
         { href: "/portal/training",       label: tPortal('trainingPlan'),  icon: Dumbbell,       show: can('view_training_plans') || can('view_progress_history') },
-        { href: "/portal/transformation", label: "Progress",               icon: TrendingUp,     show: true },
         { href: "/portal/forms",          label: tPortal('forms'),         icon: ClipboardList,  show: can('view_assessments') || can('view_checkins') },
         { href: "/portal/messages",       label: tPortal('messages'),      icon: MessageSquare,  show: can('allow_messaging') },
     ].filter(item => item.show);
