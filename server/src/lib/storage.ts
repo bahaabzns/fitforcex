@@ -28,6 +28,10 @@ export function makeUploader(
         ? multerS3({
             s3,
             bucket: env.S3_BUCKET,
+            // Without this, multer-s3 stores every object as application/octet-stream —
+            // images mostly still render (browsers sniff <img> content), but <audio>/
+            // <video> refuse to play a resource served with the wrong Content-Type.
+            contentType: multerS3.AUTO_CONTENT_TYPE,
             key: (req, file, cb) => {
                 const ext = path.extname(file.originalname || '').toLowerCase();
                 if (allowedExts && !allowedExts.includes(ext)) {

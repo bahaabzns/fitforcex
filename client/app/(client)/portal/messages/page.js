@@ -2,17 +2,20 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/axios";
-import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { Card } from "@heroui/react/card";
+import { Separator } from "@heroui/react/separator";
 import { Send } from "lucide-react";
 import { useTranslations } from "next-intl";
+import MessageComposer from "@/app/components/MessageComposer";
+import MessageRow from "@/app/components/MessageRow";
+import EmptyState from "@/app/components/EmptyState";
 
 const POLL_INTERVAL_MS = 5000;
 
-const scrollbarCls =
-    "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent " +
-    "[&::-webkit-scrollbar-thumb]:bg-border/50 [&::-webkit-scrollbar-thumb]:rounded-full";
+const scrollbarCls = "[&::-webkit-scrollbar]:w-0 [scrollbar-width:none]";
 
 function formatGroupTime(ts) {
     if (!ts) return '';
@@ -57,8 +60,10 @@ function buildSegments(messages) {
     return segments;
 }
 
-function bubbleRadius(isClient, pos) {
-    if (isClient) {
+// Matches the coach messenger's bubble radius exactly — same shape language
+// on both sides of the same conversation.
+function bubbleRadius(isOwn, pos) {
+    if (isOwn) {
         if (pos === 'solo')   return 'rounded-2xl rounded-br-sm';
         if (pos === 'first')  return 'rounded-2xl rounded-br-sm';
         if (pos === 'middle') return 'rounded-l-2xl rounded-r-lg';
@@ -76,11 +81,11 @@ export default function ClientMessagesPage() {
     const t = useTranslations('portal.messages');
     const [messages, setMessages] = useState([]);
     const [coachName, setCoachName] = useState('');
-    const [draft, setDraft] = useState('');
+    const [editingMessage, setEditingMessage] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [sending, setSending] = useState(false);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
+    const prevMessageCountRef = useRef(0);
 
     const fetchMessages = useCallback(async () => {
         try {
@@ -100,136 +105,144 @@ export default function ClientMessagesPage() {
     }, [fetchMessages]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        // The 5s poll refetches and replaces `messages` with a new array even when
+        // nothing changed — only scroll when a message was actually added, so
+        // reading old history isn't interrupted by a forced scroll-to-bottom.
+        if (messages.length > prevMessageCountRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+        prevMessageCountRef.current = messages.length;
     }, [messages]);
 
-    const handleSend = async (e) => {
-        e.preventDefault();
-        if (!draft.trim()) return;
-        setSending(true);
+    // These intentionally don't catch — MessageComposer keeps the draft/attachment/
+    // edit state intact on failure so the user can retry.
+    const handleSendText = async (body) => {
+        const res = await api.post('/api/client-portal/messages', { body });
+        setMessages(prev => [...prev, res.data]);
+    };
+
+    const handleSendAttachment = async (attachment, caption) => {
+        const formData = new FormData();
+        formData.append('file', attachment.file, attachment.name);
+        if (caption) formData.append('body', caption);
+        if (attachment.durationSeconds) formData.append('durationSeconds', String(attachment.durationSeconds));
+        const res = await api.post('/api/client-portal/messages/attachments', formData);
+        setMessages(prev => [...prev, res.data]);
+    };
+
+    const handleSaveEdit = async (messageId, body) => {
+        const res = await api.patch(`/api/client-portal/messages/${messageId}`, { body });
+        setMessages(prev => prev.map(m => m.id === messageId ? res.data : m));
+        setEditingMessage(null);
+    };
+
+    const handleDeleteMessage = async (messageId) => {
+        if (!confirm(t('deleteConfirm'))) return;
         try {
-            const res = await api.post('/api/client-portal/messages', { body: draft });
-            setMessages(prev => [...prev, res.data]);
-            setDraft('');
-        } catch {
-            // silent — message stays in draft
-        } finally {
-            setSending(false);
-        }
+            const res = await api.delete(`/api/client-portal/messages/${messageId}`);
+            setMessages(prev => prev.map(m => m.id === messageId ? res.data : m));
+            if (editingMessage?.id === messageId) setEditingMessage(null);
+        } catch { /* silent */ }
     };
 
     const segments = buildSegments(messages);
 
     return (
-        <div className="flex flex-col h-[calc(100dvh-120px)]">
+        <div className="flex flex-col h-[calc(100dvh-120px)] p-3">
+            <Card className="w-full flex-1 min-h-0 p-0 gap-0">
 
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border bg-background shrink-0">
-                <Avatar size="sm" color="primary" className="shrink-0">
-                    <Avatar.Fallback>
-                        {coachName ? coachName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'C'}
-                    </Avatar.Fallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">
-                        {coachName || t('coachFallback')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-                </div>
-            </div>
-
-            {/* Messages */}
-            <div className={`flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-1 ${scrollbarCls}`}>
-                {loading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className={`flex mb-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
-                            <Skeleton className="h-10 w-52 rounded-2xl" />
-                        </div>
-                    ))
-                ) : messages.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-2 mt-12 text-center px-6">
-                        <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mb-1">
-                            <Send size={18} className="text-muted-foreground" />
-                        </div>
-                        <p className="text-sm font-medium text-foreground">{t('emptyTitle')}</p>
-                        <p className="text-xs text-muted-foreground">{t('emptyHint')}</p>
+                {/* Header */}
+                <Card.Header className="flex-row items-center gap-3 px-4 py-3 shrink-0">
+                    <Avatar size="sm" color="primary" className="shrink-0">
+                        <Avatar.Fallback>
+                            {coachName ? coachName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'C'}
+                        </Avatar.Fallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                            {coachName || t('coachFallback')}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
                     </div>
-                ) : (
-                    segments.map((seg, si) => {
-                        if (seg.type === 'date') {
-                            return (
-                                <div key={`date-${si}`} className="flex items-center gap-3 my-3">
-                                    <div className="flex-1 h-px bg-border/50" />
-                                    <span className="text-[11px] text-muted-foreground font-medium px-2">{seg.label}</span>
-                                    <div className="flex-1 h-px bg-border/50" />
+                </Card.Header>
+
+                {/* Messages */}
+                <Card.Content className="overflow-hidden min-h-0 p-0">
+                    <ScrollShadow hideScrollBar className={`h-full overflow-y-auto px-5 pt-2 pb-4 flex flex-col gap-1 ${scrollbarCls}`}>
+                        {loading ? (
+                            Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className={`flex mb-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                                    <Skeleton className="h-10 w-52 rounded-2xl" />
                                 </div>
-                            );
-                        }
-
-                        const { group } = seg;
-                        const isClient = group.sender_type === 'client';
-                        const count = group.messages.length;
-
-                        return (
-                            <div key={`group-${si}`} className={`flex flex-col gap-0.5 mb-3 ${isClient ? 'items-end' : 'items-start'}`}>
-                                {group.messages.map((msg, mi) => {
-                                    const pos = count === 1 ? 'solo'
-                                        : mi === 0 ? 'first'
-                                        : mi === count - 1 ? 'last'
-                                        : 'middle';
+                            ))
+                        ) : messages.length === 0 ? (
+                            <div className="flex-1 flex items-center justify-center">
+                                <EmptyState
+                                    variant="firstTime"
+                                    icon={Send}
+                                    title={t('emptyTitle')}
+                                    description={t('emptyHint')}
+                                />
+                            </div>
+                        ) : (
+                            segments.map((seg, si) => {
+                                if (seg.type === 'date') {
                                     return (
-                                        <div
-                                            key={msg.id}
-                                            className={`max-w-[78%] px-4 py-2.5 text-sm leading-relaxed wrap-break-word ${
-                                                isClient
-                                                    ? `bg-primary text-primary-foreground ${bubbleRadius(true, pos)}`
-                                                    : `bg-muted text-foreground ${bubbleRadius(false, pos)}`
-                                            }`}
-                                        >
-                                            {msg.body}
+                                        <div key={`date-${si}`} className="flex items-center gap-3 my-3">
+                                            <Separator className="flex-1" />
+                                            <span className="text-[11px] text-muted-foreground font-medium px-2">{seg.label}</span>
+                                            <Separator className="flex-1" />
                                         </div>
                                     );
-                                })}
-                                <span className="text-[11px] text-muted-foreground mt-0.5 px-1">
-                                    {formatGroupTime(group.messages[group.messages.length - 1].created_at)}
-                                </span>
-                            </div>
-                        );
-                    })
-                )}
-                <div ref={messagesEndRef} />
-            </div>
+                                }
 
-            {/* Compact reply card */}
-            <div className="px-4 py-3 border-t border-border bg-background shrink-0">
-                <form
-                    onSubmit={handleSend}
-                    className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 px-4 py-2"
-                >
-                    <input
-                        value={draft}
-                        onChange={e => setDraft(e.target.value)}
-                        placeholder={t('inputPlaceholder')}
-                        className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm focus-visible:outline-none"
-                        onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSend(e);
-                            }
-                        }}
+                                const { group } = seg;
+                                const isOwn = group.sender_type === 'client';
+                                const count = group.messages.length;
+
+                                return (
+                                    <div key={`group-${si}`} className={`flex flex-col gap-0.5 mb-3 ${isOwn ? 'items-end' : 'items-start'}`}>
+                                        {group.messages.map((msg, mi) => {
+                                            const pos = count === 1 ? 'solo'
+                                                : mi === 0 ? 'first'
+                                                : mi === count - 1 ? 'last'
+                                                : 'middle';
+                                            return (
+                                                <MessageRow
+                                                    key={msg.id}
+                                                    message={msg}
+                                                    t={t}
+                                                    isOwn={isOwn}
+                                                    radiusClass={bubbleRadius(isOwn, pos)}
+                                                    canManage={isOwn && !msg.deleted_at}
+                                                    onEditStart={m => setEditingMessage({ id: m.id, body: m.body || '' })}
+                                                    onDelete={handleDeleteMessage}
+                                                />
+                                            );
+                                        })}
+                                        <span className="text-[11px] text-muted-foreground mt-0.5 px-1">
+                                            {formatGroupTime(group.messages[group.messages.length - 1].created_at)}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
+                        <div ref={messagesEndRef} />
+                    </ScrollShadow>
+                </Card.Content>
+
+                {/* Reply bar */}
+                <Card.Footer className="px-4 pb-4 pt-1 shrink-0">
+                    <MessageComposer
+                        t={t}
+                        editingMessage={editingMessage}
+                        onCancelEdit={() => setEditingMessage(null)}
+                        onSaveEdit={handleSaveEdit}
+                        onSendText={handleSendText}
+                        onSendAttachment={handleSendAttachment}
                     />
-                    <Button
-                        type="submit"
-                        color="primary"
-                        isDisabled={sending || !draft.trim()}
-                        size="sm"
-                        isIconOnly
-                        className="shrink-0"
-                    >
-                        <Send size={13} />
-                    </Button>
-                </form>
-            </div>
+                </Card.Footer>
+            </Card>
         </div>
     );
 }

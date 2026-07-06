@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import clientAuthMiddleware from '../../middleware/clientAuth';
+import { attachmentUploader } from '../../lib/messageAttachments';
 import {
     loadClientAccess,
     requirePortalOpen,
@@ -247,6 +248,74 @@ router.post('/uploads/photo', ...open, clientPortalController.photoUploader.sing
  */
 router.get('/messages',  ...open, requireClientAccess('allow_messaging'), clientPortalController.getMessages);
 router.post('/messages', ...open, requireClientAccess('allow_messaging'), clientPortalController.sendMessage);
+
+/**
+ * @openapi
+ * /client-portal/messages/attachments:
+ *   post:
+ *     summary: Upload and send an image, voice note, or file attachment to the coach team
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:            { type: string, format: binary }
+ *               body:            { type: string, maxLength: 5000 }
+ *               durationSeconds: { type: number }
+ *     responses:
+ *       201:
+ *         description: Attachment message created
+ *       400:
+ *         description: No file uploaded
+ *
+ * /client-portal/messages/{messageId}:
+ *   patch:
+ *     summary: Edit a previously sent text message
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: messageId, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [body]
+ *             properties:
+ *               body: { type: string, maxLength: 5000 }
+ *     responses:
+ *       200:
+ *         description: Message updated
+ *       403:
+ *         description: Not the message's sender
+ *       404:
+ *         description: Message not found
+ *   delete:
+ *     summary: Soft-delete a previously sent message
+ *     tags: [Client Portal]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - { in: path, name: messageId, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Message deleted (tombstoned)
+ *       403:
+ *         description: Not the message's sender
+ *       404:
+ *         description: Message not found
+ */
+router.post('/messages/attachments', ...open, requireClientAccess('allow_messaging'), attachmentUploader.single('file'), clientPortalController.sendMessageAttachment);
+router.patch('/messages/:messageId', ...open, requireClientAccess('allow_messaging'), clientPortalController.editMessage);
+router.delete('/messages/:messageId', ...open, requireClientAccess('allow_messaging'), clientPortalController.deleteMessage);
 
 /**
  * @openapi

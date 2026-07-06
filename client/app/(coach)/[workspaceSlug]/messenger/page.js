@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { useDateFormatter } from "@/utils/useDateFormatter";
+import { getDateLabel } from "@/utils/date";
 import { Button } from "@heroui/react/button";
 import { Skeleton } from "@heroui/react/skeleton";
 import { Avatar } from "@heroui/react/avatar";
@@ -15,10 +17,13 @@ import { Card } from "@heroui/react/card";
 import { Separator } from "@heroui/react/separator";
 import { ListBox } from "@heroui/react/list-box";
 import { SearchField } from "@heroui/react/search-field";
-import { TextField } from "@heroui/react/textfield";
-import { TextArea } from "@heroui/react/textarea";
-import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, X } from "lucide-react";
+import { Send, ExternalLink, Mail, Phone, Package, Calendar, Clock, X, ListFilter, ArrowDownWideNarrow, ArrowUpWideNarrow, ChevronRight, Megaphone, NotebookText, Plus } from "lucide-react";
 import EmptyState from "@/app/components/EmptyState";
+import BroadcastMessageModal from "@/app/components/BroadcastMessageModal";
+import MessageComposer from "@/app/components/MessageComposer";
+import MessageRow from "@/app/components/MessageRow";
+import ObservationCard from "@/app/components/ObservationCard";
+import ObservationModal from "@/app/components/ObservationModal";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -43,16 +48,6 @@ function formatTimestamp(ts, locale) {
 function formatGroupTime(ts, locale) {
     if (!ts) return '';
     return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-}
-
-function getDateLabel(ts, locale, labels) {
-    const date = new Date(ts);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return labels.today;
-    if (date.toDateString() === yesterday.toDateString()) return labels.yesterday;
-    return date.toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 function getInitials(fname, lname) {
@@ -105,29 +100,47 @@ function bubbleRadius(isTeam, pos) {
 
 const scrollbarCls = "[&::-webkit-scrollbar]:w-0 [scrollbar-width:none]";
 
+const NO_PACKAGE = '__no_package__';
+const STATUS_ORDER = ['Active', 'Pre-start', 'Frozen', 'Expired', 'No Subscriptions'];
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function MessengerPage() {
     const { workspaceSlug } = useParams();
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const t = useTranslations('messenger');
     const tFilter = useTranslations('filter');
     const locale = useLocale();
+    const isRtl = locale === 'ar';
     const { formatDate } = useDateFormatter();
 
     const [threads, setThreads] = useState([]);
-    const [filteredThreads, setFilteredThreads] = useState([]);
     const [search, setSearch] = useState('');
+    const [packageFilter, setPackageFilter] = useState([]);
+    const [statusFilter, setStatusFilter] = useState([]);
+    const [senderFilter, setSenderFilter] = useState([]);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [pendingFilterKey, setPendingFilterKey] = useState(null);
+    const [filterMenuPos, setFilterMenuPos] = useState(null);
+    const filterAnchorRef = useRef(null);
+    const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = newest first, 'asc' = oldest first
+    const [broadcastOpen, setBroadcastOpen] = useState(false);
     const [selectedThreadId, setSelectedThreadId] = useState(null);
     const [messages, setMessages] = useState([]);
+    const [editingMessage, setEditingMessage] = useState(null);
     const [clientProfile, setClientProfile] = useState(null);
-    const [draft, setDraft] = useState('');
+    const [recentObservations, setRecentObservations] = useState([]);
+    const [observationModalOpen, setObservationModalOpen] = useState(false);
+    const [editingObservation, setEditingObservation] = useState(null);
     const [threadsLoading, setThreadsLoading] = useState(true);
     const [messagesLoading, setMessagesLoading] = useState(false);
     const [profileLoading, setProfileLoading] = useState(false);
-    const [sending, setSending] = useState(false);
     const [togglingStatus, setTogglingStatus] = useState(false);
+    const [me, setMe] = useState(null);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
+    const prevMessageCountRef = useRef(0);
 
 
     // ── Data fetching ──────────────────────────────────────────────────────────
@@ -147,6 +160,18 @@ export default function MessengerPage() {
     }, []);
 
     useEffect(() => { fetchThreads().finally(() => setThreadsLoading(false)); }, [fetchThreads]);
+    useEffect(() => { api.get('/api/auth/me').then(res => setMe(res.data)).catch(() => {}); }, []);
+
+    // Deep link from a notification click (?threadId=...) — select once, then
+    // drop the query param so the 5s poll/back button don't re-trigger it.
+    useEffect(() => {
+        const threadId = searchParams.get('threadId');
+        if (threadId) {
+            setSelectedThreadId(threadId);
+            router.replace(`/${workspaceSlug}/messenger`);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         clearInterval(pollRef.current);
@@ -164,41 +189,154 @@ export default function MessengerPage() {
     }, [selectedThreadId, fetchMessages]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        // The 5s poll refetches the same thread and replaces `messages` with a new
+        // array even when nothing changed — only scroll when a message was actually
+        // added, so reading old history isn't interrupted by a forced scroll-to-bottom.
+        if (messages.length > prevMessageCountRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+        prevMessageCountRef.current = messages.length;
     }, [messages]);
 
-    useEffect(() => {
-        if (!search.trim()) { setFilteredThreads(threads); return; }
-        const q = search.toLowerCase();
-        setFilteredThreads(threads.filter(thread =>
-            `${thread.fname} ${thread.lname}`.toLowerCase().includes(q) ||
-            thread.latest_message?.toLowerCase().includes(q)
-        ));
-    }, [search, threads]);
+    // Filter menu is portaled to <body> so it isn't clipped by the scrollable
+    // conversation panel's overflow-hidden — position it against the button instead.
+    useLayoutEffect(() => {
+        if (!filterOpen) return;
+        const reposition = () => {
+            if (!filterAnchorRef.current) return;
+            const rect = filterAnchorRef.current.getBoundingClientRect();
+            setFilterMenuPos({
+                top: rect.bottom + 4,
+                ...(isRtl ? { left: rect.left } : { right: window.innerWidth - rect.right }),
+            });
+        };
+        reposition();
+        window.addEventListener('resize', reposition);
+        window.addEventListener('scroll', reposition, true);
+        return () => {
+            window.removeEventListener('resize', reposition);
+            window.removeEventListener('scroll', reposition, true);
+        };
+    }, [filterOpen, isRtl]);
+
+    // ── Filter options derived from the loaded threads ──────────────────────────
+    const packageOptions = useMemo(() => {
+        const pkgs = new Set();
+        let hasNone = false;
+        threads.forEach(thread => { thread.current_package ? pkgs.add(thread.current_package) : (hasNone = true); });
+        const sorted = [...pkgs].sort();
+        return hasNone ? [...sorted, NO_PACKAGE] : sorted;
+    }, [threads]);
+
+    const statusOptions = useMemo(() => {
+        const present = new Set(threads.map(thread => thread.subscription_status).filter(Boolean));
+        const ordered = STATUS_ORDER.filter(s => present.has(s));
+        const rest = [...present].filter(s => !STATUS_ORDER.includes(s));
+        return [...ordered, ...rest];
+    }, [threads]);
+
+    const filterFields = [
+        {
+            key: 'package', label: t('filterPackage'), options: packageOptions,
+            selected: packageFilter, onChange: setPackageFilter,
+            optionLabel: opt => opt === NO_PACKAGE ? t('filterNoPackage') : opt,
+        },
+        {
+            key: 'status', label: t('filterSubscriptionStatus'), options: statusOptions,
+            selected: statusFilter, onChange: setStatusFilter,
+        },
+        {
+            key: 'sender', label: t('filterLastMessageFrom'), options: ['client', 'team'],
+            selected: senderFilter, onChange: setSenderFilter,
+            optionLabel: opt => opt === 'client' ? t('filterFromClient') : t('filterFromStaff'),
+        },
+    ];
+
+    const hasActiveFilters = packageFilter.length > 0 || statusFilter.length > 0 || senderFilter.length > 0;
+
+    const clearAllFilters = () => {
+        setPackageFilter([]);
+        setStatusFilter([]);
+        setSenderFilter([]);
+    };
+
+    const filteredThreads = useMemo(() => {
+        let result = threads;
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            result = result.filter(thread =>
+                `${thread.fname} ${thread.lname}`.toLowerCase().includes(q) ||
+                thread.latest_message?.toLowerCase().includes(q)
+            );
+        }
+        if (packageFilter.length) {
+            result = result.filter(thread => packageFilter.includes(thread.current_package || NO_PACKAGE));
+        }
+        if (statusFilter.length) {
+            result = result.filter(thread => statusFilter.includes(thread.subscription_status));
+        }
+        if (senderFilter.length) {
+            result = result.filter(thread => senderFilter.includes(thread.latest_message_sender_type));
+        }
+        result = [...result].sort((a, b) => {
+            const timeA = new Date(a.latest_message_at || a.updated_at).getTime();
+            const timeB = new Date(b.latest_message_at || b.updated_at).getTime();
+            return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+        });
+        return result;
+    }, [search, threads, packageFilter, statusFilter, senderFilter, sortOrder]);
 
     // ── Actions ────────────────────────────────────────────────────────────────
     const handleSelectThread = (thread) => {
         setSelectedThreadId(thread.id);
         setMessages([]);
-        setDraft('');
+        setEditingMessage(null);
         setProfileLoading(true);
         api.get(`/api/clients/${thread.client_id}`)
             .then(res => setClientProfile(res.data))
             .catch(() => setClientProfile(null))
             .finally(() => setProfileLoading(false));
+
+        setRecentObservations([]);
+        api.get(`/api/clients/${thread.client_id}/observations?limit=2`)
+            .then(res => setRecentObservations(Array.isArray(res.data) ? res.data : []))
+            .catch(() => setRecentObservations([]));
     };
 
-    const handleSend = async (e) => {
-        e.preventDefault();
-        if (!draft.trim() || !selectedThreadId) return;
-        setSending(true);
+    // These intentionally don't catch — MessageComposer keeps the draft/attachment/
+    // edit state intact on failure so the user can retry, matching the prior
+    // "silent — message stays in draft" behavior of the old inline send handler.
+    const handleSendText = async (body) => {
+        const res = await api.post(`/api/messenger/threads/${selectedThreadId}/messages`, { body });
+        setMessages(prev => [...prev, res.data]);
+        fetchThreads();
+    };
+
+    const handleSendAttachment = async (attachment, caption) => {
+        const formData = new FormData();
+        formData.append('file', attachment.file, attachment.name);
+        if (caption) formData.append('body', caption);
+        if (attachment.durationSeconds) formData.append('durationSeconds', String(attachment.durationSeconds));
+        const res = await api.post(`/api/messenger/threads/${selectedThreadId}/attachments`, formData);
+        setMessages(prev => [...prev, res.data]);
+        fetchThreads();
+    };
+
+    const handleSaveEdit = async (messageId, body) => {
+        const res = await api.patch(`/api/messenger/threads/${selectedThreadId}/messages/${messageId}`, { body });
+        setMessages(prev => prev.map(m => m.id === messageId ? res.data : m));
+        setEditingMessage(null);
+        fetchThreads();
+    };
+
+    const handleDeleteMessage = async (messageId) => {
+        if (!confirm(t('deleteConfirm'))) return;
         try {
-            const res = await api.post(`/api/messenger/threads/${selectedThreadId}/messages`, { body: draft });
-            setMessages(prev => [...prev, res.data]);
-            setDraft('');
+            const res = await api.delete(`/api/messenger/threads/${selectedThreadId}/messages/${messageId}`);
+            setMessages(prev => prev.map(m => m.id === messageId ? res.data : m));
+            if (editingMessage?.id === messageId) setEditingMessage(null);
             fetchThreads();
-        } catch { /* silent — message stays in draft */ }
-        finally { setSending(false); }
+        } catch { /* silent */ }
     };
 
     const handleToggleStatus = async () => {
@@ -224,18 +362,126 @@ export default function MessengerPage() {
                 <div className="w-[26%] flex flex-col h-full min-h-0 overflow-hidden pt-0.5">
 
                     <div className="pb-3 px-1.5 shrink-0">
-                        <SearchField
-                            value={search}
-                            onChange={setSearch}
-                            onClear={() => setSearch('')}
-                            aria-label={t('searchPlaceholder')}
-                        >
-                            <SearchField.Group className="bg-surface! border-surface!">
-                                <SearchField.SearchIcon />
-                                <SearchField.Input placeholder={t('searchPlaceholder')} />
-                                <SearchField.ClearButton />
-                            </SearchField.Group>
-                        </SearchField>
+                        <div className="flex items-center gap-1.5">
+                            <SearchField
+                                value={search}
+                                onChange={setSearch}
+                                onClear={() => setSearch('')}
+                                aria-label={t('searchPlaceholder')}
+                                className="flex-1 min-w-0"
+                            >
+                                <SearchField.Group className="bg-surface! border-surface!">
+                                    <SearchField.SearchIcon />
+                                    <SearchField.Input placeholder={t('searchPlaceholder')} />
+                                    <SearchField.ClearButton />
+                                </SearchField.Group>
+                            </SearchField>
+
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                isIconOnly
+                                aria-label={sortOrder === 'desc' ? t('sortNewestFirst') : t('sortOldestFirst')}
+                                className="shrink-0 bg-surface! border-surface!"
+                                onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                            >
+                                {sortOrder === 'desc' ? <ArrowDownWideNarrow size={15} /> : <ArrowUpWideNarrow size={15} />}
+                            </Button>
+
+                            <div ref={filterAnchorRef} className="relative shrink-0">
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="relative bg-surface! border-surface!"
+                                    onClick={() => setFilterOpen(v => !v)}
+                                >
+                                    <ListFilter size={14} />
+                                    {tFilter('filterButton')}
+                                </Button>
+                                {filterOpen && filterMenuPos && createPortal(
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => { setFilterOpen(false); setPendingFilterKey(null); }} />
+                                        <div
+                                            style={{ position: 'fixed', top: filterMenuPos.top, left: filterMenuPos.left, right: filterMenuPos.right, zIndex: 50 }}
+                                            className="bg-card border border-border rounded-xl shadow-md p-2 flex flex-col gap-1 min-w-48"
+                                        >
+                                        {filterFields.map(field => (
+                                            <div key={field.key} className="relative">
+                                                <button
+                                                    className={`w-full text-start text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${pendingFilterKey === field.key ? "bg-primary/10 text-primary" : "hover:bg-default"}`}
+                                                    onClick={() => setPendingFilterKey(pendingFilterKey === field.key ? null : field.key)}
+                                                >
+                                                    {field.label}
+                                                    <ChevronRight size={14} className="text-muted-foreground shrink-0 rtl:rotate-180" />
+                                                </button>
+
+                                                {pendingFilterKey === field.key && (
+                                                    <div className="absolute z-30 ltr:left-full rtl:right-full top-0 ltr:ml-1 rtl:mr-1 bg-card border border-border rounded-xl shadow-md p-3 flex flex-col gap-3 min-w-56">
+                                                        <div className={`flex flex-col gap-0.5 max-h-48 overflow-y-auto ${scrollbarCls}`}>
+                                                            {field.options.map(option => (
+                                                                <label
+                                                                    key={option}
+                                                                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-default cursor-pointer text-sm select-none"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={field.selected.includes(option)}
+                                                                        onChange={e => {
+                                                                            const next = e.target.checked
+                                                                                ? [...field.selected, option]
+                                                                                : field.selected.filter(v => v !== option);
+                                                                            field.onChange(next);
+                                                                        }}
+                                                                        className="rounded"
+                                                                    />
+                                                                    {field.optionLabel ? field.optionLabel(option) : option}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        </div>
+                                    </>,
+                                    document.body
+                                )}
+                            </div>
+                        </div>
+
+                        {hasActiveFilters && (
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                {filterFields.filter(field => field.selected.length > 0).map(field => (
+                                    <div key={field.key} className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm border border-primary/20">
+                                        <span className="font-medium">{field.label}:</span>
+                                        <span>{field.selected.map(v => field.optionLabel ? field.optionLabel(v) : v).join(', ')}</span>
+                                        <button
+                                            className="ms-0.5 hover:text-destructive transition-colors leading-none"
+                                            onClick={() => field.onChange([])}
+                                        >✕</button>
+                                    </div>
+                                ))}
+                                <Button size="sm" variant="ghost" onClick={clearAllFilters}>
+                                    {tFilter('clearAll')}
+                                </Button>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-2 mt-2">
+                            <span className="text-xs text-muted-foreground">
+                                {t('conversationCount', { count: filteredThreads.length })}
+                            </span>
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                className="gap-1.5 bg-surface! border-surface!"
+                                isDisabled={filteredThreads.length === 0}
+                                onClick={() => setBroadcastOpen(true)}
+                            >
+                                <Megaphone size={13} />
+                                {t('broadcastButton')}
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="overflow-hidden min-h-0 px-2 pb-4 flex-1 flex flex-col">
@@ -264,9 +510,12 @@ export default function MessengerPage() {
                                     aria-label={t('title')}
                                     renderEmptyState={() => (
                                         <EmptyState
-                                            variant={search ? "search" : "firstTime"}
-                                            title={search ? t('noResults') : t('noConversations')}
-                                            action={search ? { label: tFilter('clearSearch'), onPress: () => setSearch('') } : undefined}
+                                            variant={(search || hasActiveFilters) ? "search" : "firstTime"}
+                                            title={(search || hasActiveFilters) ? t('noResults') : t('noConversations')}
+                                            action={(search || hasActiveFilters) ? {
+                                                label: hasActiveFilters ? tFilter('clearAll') : tFilter('clearSearch'),
+                                                onPress: () => { setSearch(''); clearAllFilters(); },
+                                            } : undefined}
                                         />
                                     )}
                                     className="p-0 gap-0 outline-none"
@@ -392,16 +641,16 @@ export default function MessengerPage() {
                                                                 : mi === count - 1 ? 'last'
                                                                 : 'middle';
                                                             return (
-                                                                <div
+                                                                <MessageRow
                                                                     key={msg.id}
-                                                                    className={`max-w-[70%] px-4 py-2 text-sm leading-relaxed wrap-break-word ${
-                                                                        isTeam
-                                                                            ? `bg-primary text-primary-foreground ${bubbleRadius(true, pos)}`
-                                                                            : `bg-default text-foreground ${bubbleRadius(false, pos)}`
-                                                                    }`}
-                                                                >
-                                                                    {msg.body}
-                                                                </div>
+                                                                    message={msg}
+                                                                    t={t}
+                                                                    isOwn={isTeam}
+                                                                    radiusClass={bubbleRadius(isTeam, pos)}
+                                                                    canManage={isTeam && !msg.deleted_at}
+                                                                    onEditStart={m => setEditingMessage({ id: m.id, body: m.body || '' })}
+                                                                    onDelete={handleDeleteMessage}
+                                                                />
                                                             );
                                                         })}
                                                         {/* Single timestamp per group, shown after last message */}
@@ -418,40 +667,14 @@ export default function MessengerPage() {
 
                                 {/* Reply bar */}
                                 <Card.Footer className="px-4 pb-4 pt-1 shrink-0">
-                                    <form onSubmit={handleSend} className="w-full rounded-2xl border border-border bg-default flex flex-col px-4 pt-3 pb-3 gap-2 transition-[box-shadow,background-color] focus-within:ring-2 focus-within:ring-focus focus-within:bg-[color-mix(in_oklch,var(--color-default)_85%,white_15%)] dark:focus-within:bg-[color-mix(in_oklch,var(--color-default)_85%,black_15%)]">
-                                        <TextField
-                                            value={draft}
-                                            onChange={setDraft}
-                                            aria-label={t('replyPlaceholder')}
-                                            className="w-full"
-                                        >
-                                            <TextArea
-                                                placeholder={t('replyPlaceholder')}
-                                                variant="secondary"
-                                                fullWidth
-                                                rows={1}
-                                                className={`resize-none [field-sizing:content] max-h-32 overflow-y-auto text-sm px-0! border-transparent! shadow-none! focus:ring-0! focus:shadow-none! [--textarea-bg:transparent] [--textarea-bg-hover:transparent] [--textarea-bg-focus:transparent] ${scrollbarCls}`}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
-                                                        handleSend(e);
-                                                    }
-                                                }}
-                                            />
-                                        </TextField>
-                                        <div className="flex items-center justify-end">
-                                            <Button
-                                                type="submit"
-                                                color="primary"
-                                                isDisabled={sending || !draft.trim()}
-                                                size="sm"
-                                                isIconOnly
-                                                className="shrink-0"
-                                            >
-                                                <Send size={13} />
-                                            </Button>
-                                        </div>
-                                    </form>
+                                    <MessageComposer
+                                        t={t}
+                                        editingMessage={editingMessage}
+                                        onCancelEdit={() => setEditingMessage(null)}
+                                        onSaveEdit={handleSaveEdit}
+                                        onSendText={handleSendText}
+                                        onSendAttachment={handleSendAttachment}
+                                    />
                                 </Card.Footer>
                             </>
                         )}
@@ -552,6 +775,52 @@ export default function MessengerPage() {
                                         )}
                                     </div>
 
+                                    {/* Recent Observations — durable coaching notes, kept visually
+                                        distinct from the conversation itself (see product vision:
+                                        an observation is knowledge, not a message). */}
+                                    <Separator className="mt-4 mb-4 shrink-0" />
+                                    <div className="shrink-0">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                <NotebookText size={12} />
+                                                {t('recentObservations')}
+                                            </p>
+                                            <Button
+                                                isIconOnly
+                                                variant="ghost"
+                                                size="sm"
+                                                aria-label={t('addObservation')}
+                                                title={t('addObservation')}
+                                                onPress={() => { setEditingObservation(null); setObservationModalOpen(true); }}
+                                            >
+                                                <Plus size={14} />
+                                            </Button>
+                                        </div>
+                                        {recentObservations.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground">{t('noObservationsYet')}</p>
+                                        ) : (
+                                            <div className="flex flex-col gap-1.5 mb-2">
+                                                {recentObservations.map(o => (
+                                                    <ObservationCard
+                                                        key={o.id}
+                                                        observation={o}
+                                                        clientId={clientProfile.id}
+                                                        currentUserId={me?.userId}
+                                                        isOwner={me?.currentWorkspace?.role === 'owner'}
+                                                        onEdit={(obs) => { setEditingObservation(obs); setObservationModalOpen(true); }}
+                                                        onDeleted={(deletedId) => setRecentObservations(prev => prev.filter(x => x.id !== deletedId))}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                        <Link
+                                            href={`/${workspaceSlug}/clients/${clientProfile.id}/observations`}
+                                            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                        >
+                                            {t('viewAllObservations')}
+                                        </Link>
+                                    </div>
+
                                     {/* Open Profile pinned to bottom */}
                                     <Separator className="mt-4 mb-4 shrink-0" />
                                     <div className="shrink-0">
@@ -570,6 +839,21 @@ export default function MessengerPage() {
                 </div>
 
             </div>
+            <ObservationModal
+                open={observationModalOpen}
+                onClose={() => setObservationModalOpen(false)}
+                clientId={clientProfile?.id}
+                observation={editingObservation}
+                onCreated={(obs) => setRecentObservations(prev => [obs, ...prev].slice(0, 2))}
+                onUpdated={(updated) => setRecentObservations(prev => prev.map(x => x.id === updated.id ? updated : x))}
+            />
+
+            <BroadcastMessageModal
+                open={broadcastOpen}
+                onClose={() => setBroadcastOpen(false)}
+                threadIds={filteredThreads.map(thread => thread.id)}
+                onSuccess={() => fetchThreads()}
+            />
         </div>
     );
 }

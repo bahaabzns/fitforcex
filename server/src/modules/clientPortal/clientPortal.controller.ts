@@ -3,7 +3,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { toPublicUrl, makeUploader } from '../../lib/storage';
+import { toPublicUrl, makeUploader, deleteFile } from '../../lib/storage';
+import { attachmentTypeFromMime, serializeMessage, MESSAGE_SELECT } from '../../lib/messageAttachments';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
 import { recordEvent, teamRecipients } from '../../lib/events';
@@ -17,6 +18,13 @@ import {
     type ExerciseKey,
 } from '../../utils/workoutLogStats';
 import { buildTransformationPayload } from '../clients/clients.controller';
+
+/** Display name for a notification's `metadata.actorName` — best-effort, null on any miss. */
+async function getClientDisplayName(clientId: string): Promise<string | null> {
+    const client = await prisma.clients.findUnique({ where: { id: clientId }, select: { fname: true, lname: true } });
+    if (!client) return null;
+    return `${client.fname} ${client.lname}`.trim() || null;
+}
 
 async function activateDueClientScheduledRequests(clientId: string): Promise<void> {
     await prisma.$executeRaw`
@@ -447,6 +455,7 @@ export async function submitFormRequest(req: Request, res: Response, next: NextF
                 : await teamRecipients(req.client!.workspaceId),
             actor:       { type: 'client', id: req.client!.clientId },
             entity:      { type: 'form_request', id: request.id },
+            metadata:    { clientId: req.client!.clientId, actorName: await getClientDisplayName(req.client!.clientId) },
         });
 
         res.json({ success: true });
@@ -468,10 +477,24 @@ export async function getMessages(req: Request, res: Response, next: NextFunctio
             data:  { read_by_client_at: new Date() },
         });
 
+        // Keep the notification row in sync with the thread's own unread signal —
+        // opening the thread should clear this client's notification for it too.
+        await prisma.notifications.updateMany({
+            where: {
+                workspace_id:   req.client!.workspaceId,
+                recipient_type: 'client',
+                recipient_id:   req.client!.clientId,
+                entity_type:    'thread',
+                entity_id:      thread.id,
+                read_at:        null,
+            },
+            data: { read_at: new Date() },
+        });
+
         const [messages, workspace] = await Promise.all([
             prisma.messages.findMany({
                 where:   { thread_id: thread.id },
-                select:  { id: true, sender_type: true, body: true, read_by_team_at: true, read_by_client_at: true, created_at: true },
+                select:  MESSAGE_SELECT,
                 orderBy: { created_at: 'asc' },
             }),
             prisma.workspaces.findFirst({
@@ -480,7 +503,7 @@ export async function getMessages(req: Request, res: Response, next: NextFunctio
             }),
         ]);
 
-        res.json({ thread, messages, coachName: workspace?.name ?? null });
+        res.json({ thread, messages: messages.map(serializeMessage), coachName: workspace?.name ?? null });
     } catch (err) {
         next(err);
     }
@@ -525,10 +548,133 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
             recipients:  await teamRecipients(req.client!.workspaceId),
             actor:       { type: 'client', id: req.client!.clientId },
             entity:      { type: 'thread', id: thread.id },
+            metadata:    { actorName: await getClientDisplayName(req.client!.clientId) },
             realtime:    { rooms: [`workspace:${req.client!.workspaceId}`], event: 'new_message', payload: { threadId: thread.id, message, fromClient: true } },
         });
 
-        res.status(201).json(message);
+        res.status(201).json(serializeMessage(message));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function sendMessageAttachment(req: Request, res: Response, next: NextFunction) {
+    const file = req.file as (Express.Multer.File & { key?: string }) | undefined;
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const { body, durationSeconds } = req.body as { body?: string; durationSeconds?: string };
+
+    try {
+        const thread = await prisma.threads.upsert({
+            where:  { workspace_id_client_id: { workspace_id: req.client!.workspaceId, client_id: req.client!.clientId } },
+            create: { id: createId(), workspace_id: req.client!.workspaceId, client_id: req.client!.clientId },
+            update: {},
+        });
+
+        const key  = file.key ?? file.path;
+        const type = attachmentTypeFromMime(file.mimetype);
+
+        const message = await prisma.messages.create({
+            data: {
+                id:                  createId(),
+                thread_id:           thread.id,
+                sender_type:         'client',
+                sender_id:           req.client!.clientId,
+                body:                body?.trim() || null,
+                type,
+                attachment_url:      key,
+                attachment_name:     file.originalname,
+                attachment_size:     file.size,
+                attachment_mime:     file.mimetype,
+                attachment_duration: type === 'voice' && durationSeconds ? Math.round(Number(durationSeconds)) : null,
+                read_by_client_at:   new Date(),
+            },
+        });
+
+        await prisma.threads.update({
+            where: { id: thread.id },
+            data:  { updated_at: new Date() },
+        });
+
+        const serialized = serializeMessage(message);
+        await recordEvent({
+            workspaceId: req.client!.workspaceId,
+            type:        'message.received',
+            importance:  'actionable',
+            title:       'New message from a client',
+            recipients:  await teamRecipients(req.client!.workspaceId),
+            actor:       { type: 'client', id: req.client!.clientId },
+            entity:      { type: 'thread', id: thread.id },
+            metadata:    { actorName: await getClientDisplayName(req.client!.clientId) },
+            realtime:    { rooms: [`workspace:${req.client!.workspaceId}`], event: 'new_message', payload: { threadId: thread.id, message: serialized, fromClient: true } },
+        });
+
+        res.status(201).json(serialized);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function editMessage(req: Request, res: Response, next: NextFunction) {
+    const { body } = req.body as { body?: string };
+    if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required' });
+    if (body.trim().length > 5000) return res.status(400).json({ error: 'Message exceeds 5000 character limit' });
+
+    const messageId = req.params.messageId as string;
+    try {
+        const thread = await prisma.threads.findFirst({
+            where:  { workspace_id: req.client!.workspaceId, client_id: req.client!.clientId },
+            select: { id: true },
+        });
+        if (!thread) return res.status(404).json({ error: 'Message not found' });
+
+        const existing = await prisma.messages.findFirst({ where: { id: messageId, thread_id: thread.id } });
+        if (!existing || existing.deleted_at) return res.status(404).json({ error: 'Message not found' });
+        if (existing.sender_type !== 'client') return res.status(403).json({ error: 'You can only edit your own messages' });
+        if (existing.type !== 'text') return res.status(400).json({ error: 'Only text messages can be edited' });
+
+        const message = await prisma.messages.update({
+            where:  { id: messageId },
+            data:   { body: body.trim(), edited_at: new Date() },
+            select: MESSAGE_SELECT,
+        });
+
+        res.json(serializeMessage(message));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function deleteMessage(req: Request, res: Response, next: NextFunction) {
+    const messageId = req.params.messageId as string;
+    try {
+        const thread = await prisma.threads.findFirst({
+            where:  { workspace_id: req.client!.workspaceId, client_id: req.client!.clientId },
+            select: { id: true },
+        });
+        if (!thread) return res.status(404).json({ error: 'Message not found' });
+
+        const existing = await prisma.messages.findFirst({ where: { id: messageId, thread_id: thread.id } });
+        if (!existing || existing.deleted_at) return res.status(404).json({ error: 'Message not found' });
+        if (existing.sender_type !== 'client') return res.status(403).json({ error: 'You can only delete your own messages' });
+
+        if (existing.attachment_url) await deleteFile(existing.attachment_url);
+
+        const message = await prisma.messages.update({
+            where: { id: messageId },
+            data: {
+                deleted_at:          new Date(),
+                body:                null,
+                attachment_url:      null,
+                attachment_name:     null,
+                attachment_size:     null,
+                attachment_mime:     null,
+                attachment_duration: null,
+            },
+            select: MESSAGE_SELECT,
+        });
+
+        res.json(serializeMessage(message));
     } catch (err) {
         next(err);
     }

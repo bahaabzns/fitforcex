@@ -75,6 +75,26 @@ export function formatDate(value, locale = DEFAULT_LOCALE) {
 }
 
 /**
+ * Buckets a date into "Today" / "Yesterday" / a full weekday date, localized —
+ * e.g. "Today", "Yesterday", "Tuesday, Mar 4". Used to group lists (messenger,
+ * notifications) into day bands without re-deriving the same date math twice.
+ * @param {Date|string|number|null|undefined} value
+ * @param {string} locale - active app locale ("en" | "ar")
+ * @param {{ today: string, yesterday: string }} labels - pre-translated labels
+ * @returns {string}
+ */
+export function getDateLabel(value, locale, labels) {
+    const date = toValidDate(value);
+    if (!date) return '';
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return labels.today;
+    if (date.toDateString() === yesterday.toDateString()) return labels.yesterday;
+    return date.toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+/**
  * Format a date-time as `D MMM YYYY, h:mm A`, localized —
  * e.g. "4 Mar 2024, 3:45 PM" / "4 مارس 2024، 3:45 م".
  * Returns an empty string for missing/invalid input.
