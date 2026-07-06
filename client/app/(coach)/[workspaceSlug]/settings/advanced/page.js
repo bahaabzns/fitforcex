@@ -159,7 +159,7 @@ export default function AdvancedPage() {
                                                             </Select.Popover>
                                                         </Select>
                                                     </div>
-                                                    <TextField fullWidth isRequired value={transferPassword} onChange={setTransferPassword}>
+                                                    <TextField variant="secondary" fullWidth isRequired value={transferPassword} onChange={setTransferPassword}>
                                                         <Label>{t("confirmPasswordLabel")}</Label>
                                                         <Input type="password" autoComplete="current-password" />
                                                     </TextField>
@@ -208,7 +208,7 @@ export default function AdvancedPage() {
 
                                     {showArchive && (
                                         <form onSubmit={handleArchive} className="flex flex-col gap-3 w-full mt-2">
-                                            <TextField fullWidth value={archiveConfirm} onChange={setArchiveConfirm}>
+                                            <TextField variant="secondary" fullWidth value={archiveConfirm} onChange={setArchiveConfirm}>
                                                 <Label>{t("archiveConfirmLabel", { name: workspace?.name })}</Label>
                                                 <Input placeholder={workspace?.name} />
                                             </TextField>

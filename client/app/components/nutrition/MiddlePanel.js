@@ -41,7 +41,6 @@ export default function MiddlePanel({
     handleActivateAndMark,
 }) {
     const t = useTranslations('nutrition');
-    const tModal = useTranslations('modal');
     const [dragIndex, setDragIndex] = useState(null);
     const [hoverIndex, setHoverIndex] = useState(null);
     const [cycleDragIndex, setCycleDragIndex] = useState(null);
@@ -397,27 +396,22 @@ export default function MiddlePanel({
         </Surface>
         <Modal isOpen={activateModal} onOpenChange={(o) => !o && setActivateModal(false)}>
             <Modal.Backdrop>
-                <Modal.Container>
-                    <Modal.Dialog>
+                <Modal.Container className="max-w-lg">
+                    <Modal.Dialog className="p-8">
                         <Modal.Header>
                             <Modal.Heading>{t('activateModalTitle')}</Modal.Heading>
-                            <Modal.CloseTrigger />
+                            <Modal.CloseTrigger className="top-6 right-6" />
                         </Modal.Header>
-                        <Modal.Body>
-                            <p className="text-sm text-muted-foreground">
+                        <Modal.Body className="mt-4">
+                            <p className="text-sm text-muted-foreground max-w-sm">
                                 {t('activateModalBody')}
                             </p>
                         </Modal.Body>
-                        <Modal.Footer>
-                            <Button variant="ghost" isDisabled={activating} onClick={() => setActivateModal(false)}>
-                                {tModal('cancel')}
-                            </Button>
-                            <Button isDisabled={activating} onClick={() => handleActivateAndMark(false)}
-                                className="border border-green-500/30 text-green-600 hover:bg-green-500/10">
+                        <Modal.Footer className="mt-8 gap-3">
+                            <Button variant="secondary" isDisabled={activating} onClick={() => handleActivateAndMark(false)}>
                                 {activating ? t('activating') : t('activateAndStay')}
                             </Button>
-                            <Button isDisabled={activating} onClick={() => handleActivateAndMark(true)}
-                                className="bg-green-600 text-white hover:bg-green-700">
+                            <Button variant="primary" isDisabled={activating} onClick={() => handleActivateAndMark(true)}>
                                 {activating ? t('activating') : t('activateAndGoToQueue')}
                             </Button>
                         </Modal.Footer>

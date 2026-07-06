@@ -100,11 +100,11 @@ export default function AccountPage() {
                         </div>
                         <form id="profile-name-form" onSubmit={handleSaveName} className="flex flex-col gap-4">
                             <div className="flex gap-3">
-                                <TextField className="flex-1" isRequired value={fname} onChange={setFname}>
+                                <TextField variant="secondary" className="flex-1" isRequired value={fname} onChange={setFname}>
                                     <Label>{t("firstName")}</Label>
                                     <Input />
                                 </TextField>
-                                <TextField className="flex-1" value={lname} onChange={setLname}>
+                                <TextField variant="secondary" className="flex-1" value={lname} onChange={setLname}>
                                     <Label>{t("lastName")}</Label>
                                     <Input />
                                 </TextField>
@@ -131,15 +131,15 @@ export default function AccountPage() {
                     </Card.Header>
                     <Card.Content>
                         <form id="security-password-form" onSubmit={handleChangePassword} className="flex flex-col gap-4">
-                            <TextField fullWidth isRequired value={currentPassword} onChange={setCurrentPassword}>
+                            <TextField variant="secondary" fullWidth isRequired value={currentPassword} onChange={setCurrentPassword}>
                                 <Label>{t("currentPassword")}</Label>
                                 <Input type="password" autoComplete="current-password" />
                             </TextField>
-                            <TextField fullWidth isRequired value={newPassword} onChange={setNewPassword}>
+                            <TextField variant="secondary" fullWidth isRequired value={newPassword} onChange={setNewPassword}>
                                 <Label>{t("newPasswordLabel")}</Label>
                                 <Input type="password" autoComplete="new-password" minLength={8} />
                             </TextField>
-                            <TextField fullWidth isRequired value={confirmPassword} onChange={setConfirmPassword}>
+                            <TextField variant="secondary" fullWidth isRequired value={confirmPassword} onChange={setConfirmPassword}>
                                 <Label>{t("confirmPassword")}</Label>
                                 <Input type="password" autoComplete="new-password" />
                             </TextField>

@@ -125,7 +125,7 @@ export default function WorkspacePage() {
                         </Card.Header>
                         <Card.Content className="flex flex-col gap-4">
                             <form id="workspace-rename-form" onSubmit={handleRename} className="flex flex-col gap-4">
-                                <TextField fullWidth isRequired value={wsName} onChange={setWsName}>
+                                <TextField variant="secondary" fullWidth isRequired value={wsName} onChange={setWsName}>
                                     <Label>{t("nameLabel")}</Label>
                                     <Input />
                                 </TextField>
@@ -166,7 +166,7 @@ export default function WorkspacePage() {
                     <Card.Content className="flex flex-col gap-4">
                         <div className="flex flex-col gap-1.5">
                             <Label>{t("portalUrlLabel")}</Label>
-                            <InputGroup>
+                            <InputGroup variant="secondary">
                                 <InputGroup.Input readOnly value={portalUrl} onFocus={(e) => e.target.select()} />
                                 <InputGroup.Suffix>
                                     <Tooltip>
@@ -210,7 +210,7 @@ export default function WorkspacePage() {
                                 <p className="text-xs text-muted-foreground">{t("slugHint")}</p>
                                 <div className="flex flex-col gap-1.5">
                                     <Label>{t("customSlugLabel")}</Label>
-                                    <InputGroup>
+                                    <InputGroup variant="secondary">
                                         <InputGroup.Prefix className="text-muted-foreground text-sm">/portal/</InputGroup.Prefix>
                                         <InputGroup.Input
                                             placeholder="your-slug"

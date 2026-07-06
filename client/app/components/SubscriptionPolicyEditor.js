@@ -65,6 +65,7 @@ export default function SubscriptionPolicyEditor({ scope, value, onChange, onCop
                 <div className="flex flex-col gap-1.5">
                     <Label>{t("gracePeriodLabel")}</Label>
                     <NumberField
+                        variant="secondary"
                         value={value.grace_period_days ?? 0}
                         onChange={(next) => onChange({ ...value, grace_period_days: Math.max(0, next || 0) })}
                         minValue={0}
