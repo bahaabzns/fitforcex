@@ -178,17 +178,16 @@ export async function computeClientStatus(clientId: string, workspaceId: string)
     return computeSubscriptionDetails(txRows as TxLike[], freezeRows, firstActivation);
 }
 
-/** Maps a client to its package id via the current package-variation name (no FK exists yet). */
+/** Maps a client to its package id via the FK'd current package variation (Package Lifecycle Phase 0). */
 async function resolveClientPackageId(clientId: string, workspaceId: string): Promise<string | null> {
     const client = await prisma.clients.findFirst({
         where:  { id: clientId, workspace_id: workspaceId },
-        select: { current_package: true },
+        select: { current_package_variation_id: true },
     });
-    if (!client?.current_package) return null;
+    if (!client?.current_package_variation_id) return null;
 
-    // DEBT: client→package resolved by variation name (no FK). proper fix: add package_id to transactions/clients.
-    const variation = await prisma.package_variations.findFirst({
-        where:  { name: client.current_package, packages: { workspace_id: workspaceId } },
+    const variation = await prisma.package_variations.findUnique({
+        where:  { id: client.current_package_variation_id },
         select: { package_id: true },
     });
     return variation?.package_id ?? null;

@@ -214,6 +214,7 @@ export default function ClientsPage() {
         p.variations.map(v => ({
             value: `${p.name} — ${v.name}`,
             label: `${p.name} — ${v.name}`,
+            variationId: v.id,
             duration: v.duration,
             price: Number(v.price),
             currency: v.currency,
@@ -400,6 +401,7 @@ export default function ClientsPage() {
                         clientId: created.id,
                         clientName: created.name || fullName,
                         packageVariation: newPackage,
+                        packageVariationId: selectedPkg.variationId,
                         amount: selectedPkg.price,
                         currency: selectedPkg.currency,
                         duration: selectedPkg.duration,

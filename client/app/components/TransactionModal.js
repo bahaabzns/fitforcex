@@ -27,6 +27,7 @@ function flattenPackageOptions(packages) {
         p.variations.map(v => ({
             key: `${p.name} — ${v.name}`,
             label: `${p.name} — ${v.name}`,
+            variationId: v.id,
             duration: v.duration,
             price: Number(v.price),
             currency: v.currency,
@@ -184,6 +185,7 @@ function TransactionForm({
 
             const shared = {
                 packageVariation: pkgKey,
+                packageVariationId: pkg?.variationId ?? null,
                 amount: pkg.price,
                 currency: pkg.currency,
                 duration: pkg.duration,

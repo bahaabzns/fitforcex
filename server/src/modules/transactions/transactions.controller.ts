@@ -21,6 +21,7 @@ function mapRow(row: TxDbRow) {
         clientId:              row.client_id,
         clientName:            row.client_name,
         packageVariation:      row.package_variation,
+        packageVariationId:    row.package_variation_id ?? null,
         paymentMethod:         row.payment_method,
         amount:                Number(row.amount),
         currency:              row.currency,
@@ -129,15 +130,34 @@ async function syncClientPackage(clientId: string | null, workspaceId: string): 
     if (!clientId) return;
     const latest = await prisma.transactions.findFirst({
         where: { client_id: clientId, workspace_id: workspaceId },
-        select: { package_variation: true },
+        select: { package_variation: true, package_variation_id: true },
         orderBy: [{ transaction_date: 'desc' }, { created_at: 'desc' }],
     });
     if (latest) {
         await prisma.clients.updateMany({
             where: { id: clientId, workspace_id: workspaceId },
-            data:  { current_package: latest.package_variation },
+            data:  {
+                current_package: latest.package_variation,
+                current_package_variation_id: latest.package_variation_id,
+            },
         });
     }
+}
+
+/**
+ * Resolves amount/currency/duration/package_variation label server-side from a
+ * real package_variations row when a packageVariationId is supplied, rather
+ * than trusting client-submitted values for these fields (Package Lifecycle
+ * Phase 0, AD-1). Returns null if the id doesn't resolve in this workspace —
+ * callers fall back to the client-submitted fields in that case.
+ */
+async function resolvePackageVariation(packageVariationId: string | undefined, workspaceId: string) {
+    if (!packageVariationId) return null;
+    const variation = await prisma.package_variations.findFirst({
+        where: { id: packageVariationId, packages: { workspace_id: workspaceId } },
+        select: { id: true, name: true, price: true, currency: true, duration: true },
+    });
+    return variation;
 }
 
 export async function getProof(req: Request, res: Response, next: NextFunction) {
@@ -250,18 +270,25 @@ export async function getTransactions(req: Request, res: Response, next: NextFun
 }
 
 export async function createTransaction(req: Request, res: Response, next: NextFunction) {
-    const { clientName, clientId, packageVariation, paymentMethod, amount, currency,
+    const { clientName, clientId, packageVariation, packageVariationId, paymentMethod, amount, currency,
             duration, type, status, notes, date, proofImage, subscriptionStartDate } = req.body as Record<string, string | undefined>;
 
     if (!clientName?.trim())    return res.status(400).json({ error: 'Client name is required' });
     if (!paymentMethod?.trim()) return res.status(400).json({ error: 'Payment method is required' });
-    const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: 'Amount must be a positive number' });
-    if (!currency?.trim())  return res.status(400).json({ error: 'Currency is required' });
     if (type   && !VALID_TYPES.includes(type))     return res.status(400).json({ error: 'Invalid type' });
     if (status && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
     try {
+        // Package Lifecycle Phase 0 (AD-1): when a real variation id is given,
+        // trust the database for price/currency/duration/label over whatever
+        // the client submitted alongside it.
+        const resolvedVariation = await resolvePackageVariation(packageVariationId, req.user!.workspaceId);
+
+        const amt = resolvedVariation ? Number(resolvedVariation.price) : Number(amount);
+        if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: 'Amount must be a positive number' });
+        const resolvedCurrency = resolvedVariation ? resolvedVariation.currency : currency;
+        if (!resolvedCurrency?.trim())  return res.status(400).json({ error: 'Currency is required' });
+
         let startMode = 'on_first_plan';
         let finalSubStartDate: Date | null = null;
 
@@ -289,11 +316,12 @@ export async function createTransaction(req: Request, res: Response, next: NextF
             workspace_id:            req.user!.workspaceId,
             client_id:               clientId || null,
             client_name:             clientName.trim(),
-            package_variation:       packageVariation?.trim() || null,
+            package_variation:       resolvedVariation ? resolvedVariation.name : (packageVariation?.trim() || null),
+            package_variation_id:    resolvedVariation ? resolvedVariation.id : null,
             payment_method:          paymentMethod.trim(),
             amount:                  amt,
-            currency:                currency.trim(),
-            duration:                duration ? Number(duration) : null,
+            currency:                resolvedCurrency.trim(),
+            duration:                resolvedVariation ? resolvedVariation.duration : (duration ? Number(duration) : null),
             type:                    type || 'subscription',
             status:                  status || 'completed',
             notes:                   notes?.trim() || null,
@@ -326,7 +354,7 @@ export async function createTransaction(req: Request, res: Response, next: NextF
 
 export async function updateTransaction(req: Request, res: Response, next: NextFunction) {
     const id = req.params.id as string;
-    const { clientName, clientId, packageVariation, paymentMethod, amount, currency,
+    const { clientName, clientId, packageVariation, packageVariationId, paymentMethod, amount, currency,
             duration, type, status, notes, date, proofImage, subscriptionStartDate } = req.body as Record<string, string | undefined>;
 
     if (type   !== undefined && !VALID_TYPES.includes(type!))     return res.status(400).json({ error: 'Invalid type' });
@@ -338,7 +366,14 @@ export async function updateTransaction(req: Request, res: Response, next: NextF
         });
         if (!cur) return res.status(404).json({ error: 'Transaction not found' });
 
-        const amt = amount !== undefined ? Number(amount) : Number(cur.amount);
+        // Package Lifecycle Phase 0 (AD-1): a supplied packageVariationId wins
+        // over any client-submitted package/amount/currency/duration fields.
+        const resolvedVariation = packageVariationId !== undefined
+            ? await resolvePackageVariation(packageVariationId, req.user!.workspaceId)
+            : null;
+
+        const amt = resolvedVariation ? Number(resolvedVariation.price)
+            : amount !== undefined ? Number(amount) : Number(cur.amount);
         if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: 'Amount must be a positive number' });
 
         let newStartMode    = cur.start_mode || 'on_first_plan';
@@ -355,11 +390,15 @@ export async function updateTransaction(req: Request, res: Response, next: NextF
             data: {
                 client_id:               clientId         !== undefined ? (clientId || null)                 : cur.client_id,
                 client_name:             clientName       !== undefined ? clientName.trim()                  : cur.client_name,
-                package_variation:       packageVariation !== undefined ? (packageVariation?.trim() || null) : cur.package_variation,
+                package_variation:       resolvedVariation ? resolvedVariation.name
+                    : packageVariation !== undefined ? (packageVariation?.trim() || null) : cur.package_variation,
+                package_variation_id:    packageVariationId !== undefined ? (resolvedVariation?.id ?? null) : cur.package_variation_id,
                 payment_method:          paymentMethod    !== undefined ? paymentMethod.trim()               : cur.payment_method,
                 amount:                  amt,
-                currency:                currency   !== undefined ? currency.trim()                          : cur.currency,
-                duration:                duration   !== undefined ? (duration ? Number(duration) : null)     : cur.duration,
+                currency:                resolvedVariation ? resolvedVariation.currency
+                    : currency !== undefined ? currency.trim() : cur.currency,
+                duration:                resolvedVariation ? resolvedVariation.duration
+                    : duration !== undefined ? (duration ? Number(duration) : null) : cur.duration,
                 type:                    type       !== undefined ? type                                     : cur.type,
                 status:                  status     !== undefined ? status                                   : cur.status,
                 notes:                   notes      !== undefined ? (notes?.trim() || null)                  : cur.notes,
