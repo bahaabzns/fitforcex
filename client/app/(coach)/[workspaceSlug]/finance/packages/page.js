@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { ChevronRight, ListFilter, Pencil, Plus, Power, Trash2, Package } from "lucide-react";
 import Modal, { ModalFooter } from "@/app/components/Modal";
 import EmptyState from "@/app/components/EmptyState";
 import PackagePolicyOverride from "@/app/components/PackagePolicyOverride";
+import PackageFormsPicker from "@/app/components/PackageFormsPicker";
+import PlanUpdateModeToggle from "@/app/components/PlanUpdateModeToggle";
 import { FieldLabel } from "@/app/components/Field";
 import api from "@/lib/axios";
 import { Button } from "@heroui/react/button";
@@ -73,7 +75,79 @@ function CurrencySelect({ value, onChange, className }) {
 }
 
 function emptyVariation() {
-    return { name: "", description: "", duration: "", price: "", currency: "EGP" };
+    return {
+        name: "", description: "", duration: "", price: "", currency: "EGP",
+        defaultAssessmentFormIds: [], defaultCheckinForms: [],
+        nutritionCycleDays: "", trainingCycleDays: "", reviewOffsetDays: "",
+        planUpdateMode: "extend",
+    };
+}
+
+/** Reshapes a server-serialized variation's `defaultForms` into the picker's edit shape. */
+function variationDefaultsFromServer(v) {
+    const defaultForms = v.defaultForms ?? [];
+    return {
+        defaultAssessmentFormIds: defaultForms.filter(f => f.kind === "assessment").map(f => f.formId),
+        defaultCheckinForms: defaultForms.filter(f => f.kind === "checkin").map(f => ({ formId: f.formId, intervalDays: String(f.intervalDays ?? "") })),
+        nutritionCycleDays: v.nutritionCycleDays != null ? String(v.nutritionCycleDays) : "",
+        trainingCycleDays: v.trainingCycleDays != null ? String(v.trainingCycleDays) : "",
+        reviewOffsetDays: v.reviewOffsetDays != null ? String(v.reviewOffsetDays) : "",
+        planUpdateMode: v.planUpdateMode || "extend",
+    };
+}
+
+/** Reshapes a variation's edit-state defaults into the API payload shape. */
+function variationDefaultsToApi(v) {
+    const defaultForms = [
+        ...(v.defaultAssessmentFormIds || []).map(formId => ({ formId, kind: "assessment" })),
+        ...(v.defaultCheckinForms || [])
+            .filter(c => c.formId && Number(c.intervalDays) > 0)
+            .map(c => ({ formId: c.formId, kind: "checkin", intervalDays: Number(c.intervalDays) })),
+    ];
+    return {
+        nutritionCycleDays: v.nutritionCycleDays ? Number(v.nutritionCycleDays) : undefined,
+        trainingCycleDays: v.trainingCycleDays ? Number(v.trainingCycleDays) : undefined,
+        reviewOffsetDays: v.reviewOffsetDays ? Number(v.reviewOffsetDays) : undefined,
+        planUpdateMode: v.planUpdateMode || "extend",
+        defaultForms,
+    };
+}
+
+// Package Lifecycle defaults section, shared by the Create/Add/Edit variation
+// forms so the three surfaces stay identical rather than drifting.
+function VariationDefaultsFields({ v, formOptions, onFieldChange, onDefaultFormsChange }) {
+    const t = useTranslations('packages');
+    return (
+        <div className="flex flex-col gap-3 pt-2 mt-1 border-t border-border">
+            <p className="text-xs font-semibold text-muted-foreground">{t('defaultsSectionTitle')}</p>
+            <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>{t('nutritionCycleDaysLabel')}</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label={t('nutritionCycleDaysLabel')} value={v.nutritionCycleDays} onChange={(val) => onFieldChange("nutritionCycleDays", val)}>
+                        <Input type="number" min="1" inputMode="numeric" placeholder={t('cycleDaysPlaceholder')} />
+                    </TextField>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <FieldLabel>{t('trainingCycleDaysLabel')}</FieldLabel>
+                    <TextField variant="secondary" fullWidth aria-label={t('trainingCycleDaysLabel')} value={v.trainingCycleDays} onChange={(val) => onFieldChange("trainingCycleDays", val)}>
+                        <Input type="number" min="1" inputMode="numeric" placeholder={t('cycleDaysPlaceholder')} />
+                    </TextField>
+                </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+                <FieldLabel>{t('reviewOffsetDaysLabel')}</FieldLabel>
+                <TextField variant="secondary" fullWidth aria-label={t('reviewOffsetDaysLabel')} value={v.reviewOffsetDays} onChange={(val) => onFieldChange("reviewOffsetDays", val)}>
+                    <Input type="number" min="1" inputMode="numeric" placeholder={t('reviewOffsetDaysPlaceholder')} />
+                </TextField>
+            </div>
+            <PlanUpdateModeToggle value={v.planUpdateMode} onChange={(val) => onFieldChange("planUpdateMode", val)} />
+            <PackageFormsPicker
+                formOptions={formOptions}
+                value={{ assessmentFormIds: v.defaultAssessmentFormIds, checkinForms: v.defaultCheckinForms }}
+                onChange={onDefaultFormsChange}
+            />
+        </div>
+    );
 }
 
 // Row action items that stay hidden until the row is hovered or an action is focused.
@@ -83,13 +157,18 @@ export default function PackagesPage() {
     const t = useTranslations('packages');
     const tCommon = useTranslations('common');
     const tFilter = useTranslations('filter');
+    const locale = useLocale();
 
     const [packages, setPackages] = useState([]);
+    const [availableForms, setAvailableForms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
+    // Package Lifecycle AD-2: after Create Package succeeds, the modal switches
+    // into a policy-configuration step for the freshly-created package before closing.
+    const [createdPackageForPolicy, setCreatedPackageForPolicy] = useState(null); // { id, name } | null
     // Package and variation are edited in separate modals (one entity each).
     const [editingPackage, setEditingPackage] = useState(null);     // { id, name } | null
-    const [editingVariation, setEditingVariation] = useState(null); // { packageId, variationId, name, duration, price, currency, description } | null
+    const [editingVariation, setEditingVariation] = useState(null); // { packageId, variationId, name, duration, price, currency, description, ...defaults } | null
     // Which package rows are expanded to reveal their variations (react-aria tree keys).
     const [expandedPackages, setExpandedPackages] = useState(() => new Set());
     const [search, setSearch] = useState("");
@@ -113,11 +192,18 @@ export default function PackagesPage() {
     const searchRef = useRef(null);
 
     useEffect(() => {
-        api.get("/api/packages")
-            .then(res => setPackages(res.data ?? []))
-            .catch(() => setPackages([]))
-            .finally(() => setLoading(false));
+        Promise.all([
+            api.get("/api/packages"),
+            api.get("/api/forms"),
+        ]).then(([pkgRes, formsRes]) => {
+            setPackages(pkgRes.data ?? []);
+            setAvailableForms((formsRes.data ?? []).filter(f => f.status === "active" || f.active));
+        }).catch(() => setPackages([])).finally(() => setLoading(false));
     }, []);
+
+    // Forms store localized titles (title_en / title_ar); resolve by active locale.
+    const formTitle = (f) => (locale === "ar" ? f.title_ar || f.title_en : f.title_en) || f.title_en;
+    const formOptions = availableForms.map(f => ({ value: f.id, label: formTitle(f) }));
 
     // Ctrl+K focuses the quick search (matches the shared DataTable shortcut).
     useEffect(() => {
@@ -364,6 +450,7 @@ export default function PackagesPage() {
             price: v.price,
             currency: v.currency,
             description: v.description ?? "",
+            ...variationDefaultsFromServer(v),
         });
     }
 
@@ -383,7 +470,7 @@ export default function PackagesPage() {
 
         const updatedVariations = pkg.variations.map(v =>
             v.id === ev.variationId
-                ? { ...v, name: ev.name.trim(), description: ev.description?.trim() || "", duration, price, currency: ev.currency.trim() }
+                ? { ...v, name: ev.name.trim(), description: ev.description?.trim() || "", duration, price, currency: ev.currency.trim(), ...variationDefaultsToApi(ev) }
                 : v
         );
 
@@ -424,6 +511,20 @@ export default function PackagesPage() {
         setVariations(prev => prev.map((v, i) => i === index ? { ...v, [field]: value } : v));
     }
 
+    function updateVariationDefaultForms(index, next) {
+        setVariations(prev => prev.map((v, i) => i === index
+            ? { ...v, defaultAssessmentFormIds: next.assessmentFormIds, defaultCheckinForms: next.checkinForms }
+            : v));
+    }
+
+    function updateEditingVariationDefaultForms(next) {
+        setEditingVariation(ev => ({ ...ev, defaultAssessmentFormIds: next.assessmentFormIds, defaultCheckinForms: next.checkinForms }));
+    }
+
+    function updateNewVariationDefaultForms(next) {
+        setNewVariation(prev => ({ ...prev, defaultAssessmentFormIds: next.assessmentFormIds, defaultCheckinForms: next.checkinForms }));
+    }
+
     function addVariation() {
         setVariations(prev => [...prev, emptyVariation()]);
     }
@@ -449,14 +550,26 @@ export default function PackagesPage() {
         }
 
         try {
-            const res = await api.post("/api/packages", { name: packageName, variations });
+            const payloadVariations = variations.map(v => ({
+                name: v.name, description: v.description, duration: v.duration, price: v.price, currency: v.currency,
+                ...variationDefaultsToApi(v),
+            }));
+            const res = await api.post("/api/packages", { name: packageName, variations: payloadVariations });
             setPackages(prev => [...prev, res.data]);
-            setPackageName("");
-            setVariations([emptyVariation()]);
-            setShowForm(false);
+            // AD-2: don't close the modal yet — reveal the policy step for the
+            // newly created package (Create + Edit modals share the same
+            // PackagePolicyOverride component; Create just sequences it).
+            setCreatedPackageForPolicy({ id: res.data.id, name: res.data.name });
         } catch (err) {
             setError(err.response?.data?.error || t('errorCreate'));
         }
+    }
+
+    function finishCreatePackage() {
+        setPackageName("");
+        setVariations([emptyVariation()]);
+        setCreatedPackageForPolicy(null);
+        setShowForm(false);
     }
 
     // ── Add a variation to an existing package (separate from creating a package) ──
@@ -492,6 +605,7 @@ export default function PackagesPage() {
             price,
             currency: v.currency.trim(),
             active: true,
+            ...variationDefaultsToApi(v),
         };
 
         try {
@@ -529,7 +643,8 @@ export default function PackagesPage() {
             {!showForm && !addVariationTarget && !editingPackage && !editingVariation && error && <p className="text-destructive text-sm">{error}</p>}
 
             {/* New Package Modal — creates a brand-new package + its variations */}
-            <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); }} title={t('newPackageTitle')} wide>
+            <Modal open={showForm} onClose={() => { setShowForm(false); setError(""); setCreatedPackageForPolicy(null); }} title={createdPackageForPolicy ? t('newPackagePolicyTitle') : t('newPackageTitle')} wide>
+                {!createdPackageForPolicy && (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-1 py-1">
                     <div className="flex flex-col gap-1.5">
                         <FieldLabel required>{t('packageNameLabel')}</FieldLabel>
@@ -594,6 +709,14 @@ export default function PackagesPage() {
                                             <Input type="text" placeholder={t('descriptionPlaceholder')} />
                                         </TextField>
                                     </div>
+
+                                    {/* Package Lifecycle defaults — read only at client-creation / plan-activation time */}
+                                    <VariationDefaultsFields
+                                        v={v}
+                                        formOptions={formOptions}
+                                        onFieldChange={(field, val) => updateVariation(i, field, val)}
+                                        onDefaultFormsChange={(next) => updateVariationDefaultForms(i, next)}
+                                    />
                                 </Surface>
                             ))}
                         </div>
@@ -614,6 +737,19 @@ export default function PackagesPage() {
                         </Button>
                     </ModalFooter>
                 </form>
+                )}
+
+                {/* AD-2: after creation, reveal the policy step inline before closing */}
+                {createdPackageForPolicy && (
+                    <div className="flex flex-col gap-3 px-1 py-1">
+                        <PackagePolicyOverride packageId={createdPackageForPolicy.id} />
+                        <ModalFooter>
+                            <Button type="button" variant="primary" onClick={finishCreatePackage}>
+                                {tCommon('done')}
+                            </Button>
+                        </ModalFooter>
+                    </div>
+                )}
             </Modal>
 
             {/* New Variation Modal — adds a single variation to an existing package */}
@@ -652,6 +788,13 @@ export default function PackagesPage() {
                             <Input type="text" placeholder={t('descriptionPlaceholder')} />
                         </TextField>
                     </div>
+
+                    <VariationDefaultsFields
+                        v={newVariation}
+                        formOptions={formOptions}
+                        onFieldChange={updateNewVariation}
+                        onDefaultFormsChange={updateNewVariationDefaultForms}
+                    />
 
                     {error && (
                         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -735,6 +878,15 @@ export default function PackagesPage() {
                             <Input type="text" placeholder={t('descriptionPlaceholder')} />
                         </TextField>
                     </div>
+
+                    {editingVariation && (
+                        <VariationDefaultsFields
+                            v={editingVariation}
+                            formOptions={formOptions}
+                            onFieldChange={(field, val) => setEditingVariation(ev => ({ ...ev, [field]: val }))}
+                            onDefaultFormsChange={updateEditingVariationDefaultForms}
+                        />
+                    )}
 
                     {error && (
                         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -844,7 +996,7 @@ export default function PackagesPage() {
                 </div>
 
                 <div className="ms-auto">
-                    <Button variant="primary" onClick={() => { setShowForm(true); setError(""); setPackageName(""); setVariations([emptyVariation()]); }}>
+                    <Button variant="primary" onClick={() => { setShowForm(true); setError(""); setPackageName(""); setVariations([emptyVariation()]); setCreatedPackageForPolicy(null); }}>
                         {t('newPackage')}
                     </Button>
                 </div>
@@ -896,7 +1048,7 @@ export default function PackagesPage() {
                         description={t('emptyHint')}
                         action={{
                             label: t('newPackage'),
-                            onPress: () => { setShowForm(true); setError(""); setPackageName(""); setVariations([emptyVariation()]); },
+                            onPress: () => { setShowForm(true); setError(""); setPackageName(""); setVariations([emptyVariation()]); setCreatedPackageForPolicy(null); },
                         }}
                     />
                 ) : (
